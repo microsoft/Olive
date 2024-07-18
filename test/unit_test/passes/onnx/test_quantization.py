@@ -49,7 +49,7 @@ def test_static_quantization(calibrate_method, tmp_path):
         "quant_preprocess": True,
     }
     p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
-    out = p.run(input_model, None, tmp_path)
+    out = p.run(input_model, tmp_path)
     assert out is not None
 
 
@@ -62,9 +62,9 @@ def test_dynamic_quantization(tmp_path):
     if ort_version.major == 1 and ort_version.minor == 17:
         # there is a bug in ort quantizer in versions 1.17.x
         with pytest.raises(TypeError, match="missing 1 required positional argument: 'initial_type'"):
-            _ = p.run(input_model, None, tmp_path)
+            _ = p.run(input_model, tmp_path)
     else:
-        out = p.run(input_model, None, tmp_path)
+        out = p.run(input_model, tmp_path)
         assert out is not None
 
 
@@ -91,7 +91,7 @@ def test_qnn_quantization(tmp_path):
         execution_provider="QNNExecutionProvider",
     )
     p = create_pass_from_dict(OnnxStaticQuantization, config, disable_search=True, accelerator_spec=accelerator_spec)
-    out = p.run(input_model, None, tmp_path)
+    out = p.run(input_model, tmp_path)
     assert out is not None
 
 
@@ -121,7 +121,7 @@ def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight
         execution_provider="CPUExecutionProvider",
     )
     p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
-    out = p.run(input_model, None, tmp_path)
+    out = p.run(input_model, tmp_path)
     assert out is not None
 
 
@@ -151,7 +151,7 @@ def test_matmul_4bit_quantization_without_dataloader_ort_1_18(tmp_path, algorith
         execution_provider="CPUExecutionProvider",
     )
     p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
-    out = p.run(input_model, None, tmp_path)
+    out = p.run(input_model, tmp_path)
     assert out is not None
 
 
@@ -171,7 +171,7 @@ def test_matmul_gptq_with_dataloader(tmp_path):
         execution_provider="CPUExecutionProvider",
     )
     p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
-    out = p.run(input_model, None, tmp_path)
+    out = p.run(input_model, tmp_path)
     assert out is not None
 
 

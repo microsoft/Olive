@@ -49,7 +49,7 @@ def test_ort_perf_tuning_pass(config, tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    p.run(input_model, None, output_folder)
+    p.run(input_model, output_folder)
 
 
 @patch("olive.passes.onnx.perf_tuning.OrtPerfTuning._run_for_config")
@@ -67,19 +67,19 @@ def test_ort_perf_tuning_with_customized_configs(mock_run, config):
     p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True)
 
     # execute
-    p.run(input_model, None, None)
+    p.run(input_model, None)
 
     # assert
     if "providers_list" not in config:
-        assert mock_run.call_args.args[2]["providers_list"] == [
+        assert mock_run.call_args.args[1]["providers_list"] == [
             "CPUExecutionProvider"
         ], "providers_list is not set correctly as ['CPUExecutionProvider'] by default when user does not specify it"
     if "device" not in config:
         assert (
-            mock_run.call_args.args[2]["device"] == "cpu"
+            mock_run.call_args.args[1]["device"] == "cpu"
         ), "device is not set correctly as cpu by default when user does not specify it"
     for k, v in config.items():
-        assert mock_run.call_args.args[2][k] == v, f"{k} is not set correctly as {v}"
+        assert mock_run.call_args.args[1][k] == v, f"{k} is not set correctly as {v}"
 
 
 @pytest.mark.parametrize("return_baseline", [True, False])
@@ -94,7 +94,7 @@ def test_perf_tuning_with_provider_options(get_available_providers_mock, evaluat
         "CPUExecutionProvider",
     ]
 
-    def mock_evaluate_method(model, data_root, metrics, device, execution_providers):
+    def mock_evaluate_method(model, metrics, device, execution_providers):
         metrics_res = {}
         latency = 0.5
 
@@ -144,7 +144,7 @@ def test_perf_tuning_with_provider_options(get_available_providers_mock, evaluat
     }
     input_model = get_onnx_model()
     p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR)
-    result = p.run(input_model, None, None)
+    result = p.run(input_model, None)
     assert "execution_provider" in result.inference_settings
     acutal_eps = result.inference_settings["execution_provider"]
     assert "io_bind" in result.inference_settings
@@ -174,7 +174,7 @@ def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_
         "CPUExecutionProvider",
     ]
 
-    def mock_evaluate_method(model, data_root, metrics, device, execution_providers):
+    def mock_evaluate_method(model, metrics, device, execution_providers):
         metrics_res = {}
         latency = 0.5
         assert execution_providers is None
@@ -204,7 +204,7 @@ def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_
     }
     input_model = get_onnx_model()
     p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR)
-    result = p.run(input_model, None, None)
+    result = p.run(input_model, None)
     assert "io_bind" in result.inference_settings
     if force_evaluate:
         assert "execution_provider" in result.inference_settings
@@ -241,7 +241,7 @@ def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
 
     with pytest.raises(TypeError) as e:
         # execute
-        p.run(input_model, None, output_folder)
+        p.run(input_model, output_folder)
     assert "ones() received an invalid combination of arguments" in str(e.value)
 
 
@@ -255,7 +255,7 @@ def test_ort_perf_tuning_pass_with_import_error(threads_num_binary_search_mock, 
 
     with pytest.raises(ModuleNotFoundError) as e:
         # execute
-        p.run(input_model, None, output_folder)
+        p.run(input_model, output_folder)
 
     assert "test" in str(e.value)
 
@@ -273,8 +273,8 @@ def test_generate_test_name():
     }
 
     name = generate_test_name(test_params, True)
-    assert name == (
-        "cpu-{'execution_mode': 1, "
+    assert (
+        name == "cpu-{'execution_mode': 1, "
         "'extra_session_config': None, 'inter_op_num_threads': 1, 'intra_op_num_threads': 8}"
         "-{'io_bind': True}"
     )
@@ -293,8 +293,8 @@ def test_generate_test_name():
         },
     }
     name = generate_test_name(test_params, False)
-    assert name == (
-        "('tensorrt', {'trt_fp16_enable': True})-"
+    assert (
+        name == "('tensorrt', {'trt_fp16_enable': True})-"
         "{'execution_mode': 1, "
         "'extra_session_config': {'session.intra_op_thread_affinities': '0;1;2;3;4;5;6;7'}, "
         "'inter_op_num_threads': 1, 'intra_op_num_threads': 8, 'graph_optimization_level': 99}"
@@ -357,7 +357,7 @@ def test_rocm_tuning_enable(get_available_providers_mock, inference_session_mock
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    result = p.run(input_model, None, output_folder)
+    result = p.run(input_model, output_folder)
     tuning_result_ret = result.inference_settings["tuning_op_result"]
     assert tuning_result_ret == tuning_result
     set_tuning_result_binary_search_count_per_iteration = int(math.log2(psutil.cpu_count(logical=False))) + 1

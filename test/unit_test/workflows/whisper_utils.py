@@ -5,6 +5,8 @@ import numpy as np
 import torch
 from transformers import AutoConfig, AutoProcessor, WhisperConfig, file_utils
 
+from olive.data.registry import Registry
+
 if TYPE_CHECKING:
     from olive.model.handler.pytorch import PyTorchModelHandler
 
@@ -165,7 +167,8 @@ def encoder_decoder_init_dummy_inputs(olive_model: "PyTorchModelHandler"):
     return tuple(inputs.to_list())
 
 
-def whisper_audio_decoder_dataloader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataset()
+def whisper_audio_decoder_dataset(data_dir, *args, **kwargs):
     return WhisperDataset(data_dir=data_dir, use_audio_decoder=True)
 
 

@@ -22,7 +22,7 @@ def test_pre_post_processing_op(tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    p.run(input_model, None, output_folder)
+    p.run(input_model, output_folder)
 
 
 def test_pre_post_pipeline(tmp_path):
@@ -114,7 +114,7 @@ def test_pre_post_pipeline(tmp_path):
     output_folder = str(tmp_path / "onnx_pre_post")
 
     # execute
-    model = p.run(input_model, None, output_folder)
+    model = p.run(input_model, output_folder)
     assert model is not None
     assert isinstance(model, ONNXModelHandler)
     graph = model.get_graph()
@@ -184,4 +184,4 @@ def get_superresolution_model():
 
 def convert_superresolution_model(pytorch_model, tmp_path):
     onnx_conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 15}, disable_search=True)
-    return onnx_conversion_pass.run(pytorch_model, None, str(tmp_path / "onnx"))
+    return onnx_conversion_pass.run(pytorch_model, str(tmp_path / "onnx"))

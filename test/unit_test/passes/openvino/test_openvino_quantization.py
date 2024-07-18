@@ -8,13 +8,27 @@ from pathlib import Path
 import pytest
 import torch
 
-from olive.data.config import DataConfig
+from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.hardware import AcceleratorSpec
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.quantization import OpenVINOQuantization
+
+
+@Registry.register_dataset()
+def cifar10_dataset(data_dir):
+    from torchvision.datasets import CIFAR10
+    from torchvision.transforms import ToTensor
+
+    return CIFAR10(root=data_dir, train=False, transform=ToTensor(), download=True)
+
+
+def cifar10_dataloader(data_dir, batch_size, *args, **kwargs):
+    from torch.utils.data.dataloader import DataLoader
+
+    return DataLoader(cifar10_dataset(data_dir), batch_size, shuffle=True)
 
 
 @pytest.mark.parametrize("data_source", ["dataloader_func", "data_config"])
@@ -27,7 +41,7 @@ def test_openvino_quantization(data_source, tmp_path):
     if data_source == "dataloader_func":
         config.update(
             {
-                "dataloader_func": create_dataloader,
+                "dataloader_func": cifar10_dataloader,
                 "data_dir": data_dir,
             }
         )
@@ -36,10 +50,11 @@ def test_openvino_quantization(data_source, tmp_path):
             {
                 "data_config": DataConfig(
                     name="test_dc_config",
-                    load_dataset_config={
-                        "type": "cifar10_dataset",
-                        "params": {"data_dir": data_dir},
-                    },
+                    load_dataset_config=DataComponentConfig(
+                        type="cifar10_dataset",
+                        params={"data_dir": data_dir},
+                    ),
+                    dataloader_config=DataComponentConfig(params={"shuffle": True}),
                 )
             }
         )
@@ -52,7 +67,7 @@ def test_openvino_quantization(data_source, tmp_path):
     output_folder = str(tmp_path / "quantized")
 
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
 
     # assert
     assert Path(quantized_model.model_path).exists()
@@ -74,7 +89,7 @@ def test_openvino_quantization_with_accuracy(data_source, tmp_path):
     if data_source == "dataloader_func":
         config.update(
             {
-                "dataloader_func": create_dataloader,
+                "dataloader_func": cifar10_dataloader,
                 "data_dir": data_dir,
             }
         )
@@ -83,10 +98,11 @@ def test_openvino_quantization_with_accuracy(data_source, tmp_path):
             {
                 "data_config": DataConfig(
                     name="test_dc_config",
-                    load_dataset_config={
-                        "type": "cifar10_dataset",
-                        "params": {"data_dir": data_dir},
-                    },
+                    load_dataset_config=DataComponentConfig(
+                        type="cifar10_dataset",
+                        params={"data_dir": data_dir},
+                    ),
+                    dataloader_config=DataComponentConfig(params={"shuffle": True}),
                 )
             }
         )
@@ -99,7 +115,7 @@ def test_openvino_quantization_with_accuracy(data_source, tmp_path):
     output_folder = str(tmp_path / "quantized")
 
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
 
     # assert
     assert Path(quantized_model.model_path).exists()
@@ -132,21 +148,4 @@ def get_openvino_model(tmp_path):
     output_folder = str(tmp_path / "openvino")
 
     # execute
-    return p.run(pytorch_model, None, output_folder)
-
-
-@Registry.register_dataset()
-def cifar10_dataset(data_dir):
-    from torchvision.datasets import CIFAR10
-    from torchvision.transforms import ToTensor
-
-    return CIFAR10(root=data_dir, train=False, transform=ToTensor(), download=True)
-
-
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    from torch.utils.data.dataloader import DataLoader
-    from torchvision.datasets import CIFAR10
-    from torchvision.transforms import ToTensor
-
-    dataset = CIFAR10(root=data_dir, train=False, transform=ToTensor(), download=True)
-    return DataLoader(dataset, batch_size, shuffle=True)
+    return p.run(pytorch_model, output_folder)

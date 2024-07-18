@@ -151,7 +151,7 @@ def flatten_dict(dictionary, stop_condition=None):  # pragma: no cover
     return result
 
 
-def get_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]]):
+def get_nested_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]]):
     """Get value from a nested dictionary."""
     if isinstance(key, str):
         key = [key]
@@ -161,7 +161,7 @@ def get_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]]):
     return dictionary
 
 
-def set_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]], new_value):
+def set_nested_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]], new_value):
     """Replace value in a nested dictionary."""
     if isinstance(key, str):
         key = [key]

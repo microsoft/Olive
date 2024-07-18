@@ -69,7 +69,7 @@ class TestMetricBackend:
             # execute
             model_config = model_config_func()
             metric = metric_func()
-            actual_res = system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
+            actual_res = system.evaluate_model(model_config, [metric], DEFAULT_CPU_ACCELERATOR)
 
             # assert
             assert mock_measure.call_count == len(metric.sub_types)

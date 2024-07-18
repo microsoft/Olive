@@ -122,13 +122,6 @@ class RunConfig(ConfigBase):
         None,
         description="System configurations. Other fields such as engine and passes can refer to these systems by name.",
     )
-    data_root: str = Field(
-        None,
-        description=(
-            "Root directory for data. If provided, all relative data paths in other configs will be resolved based on"
-            " this root."
-        ),
-    )
     data_configs: List[DataConfig] = Field(
         default_factory=list,
         description=(

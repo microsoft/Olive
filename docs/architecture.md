@@ -200,7 +200,6 @@ class OliveSystem(ABC):
         self,
         the_pass: Pass,
         model: OliveModelHandler,
-        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> OliveModelHandler:
@@ -209,7 +208,7 @@ class OliveSystem(ABC):
         """
 
     @abstractmethod
-    def evaluate_model(self, model: OliveModelHandler, data_root: str, metrics: List[Metric]) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModelHandler, metrics: List[Metric]) -> Dict[str, Any]:
         """
         Evaluate the model
         """

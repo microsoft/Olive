@@ -34,7 +34,7 @@ class QNNContextBinaryGenerator(Pass):
             "backend": PassConfigParam(
                 type_=str,
                 required=True,
-                description=("Path to a QNN backend .so library to create the context binary."),
+                description="Path to a QNN backend .so library to create the context binary.",
             ),
             "binary_file": PassConfigParam(
                 type_=str,
@@ -54,7 +54,6 @@ class QNNContextBinaryGenerator(Pass):
     def _run_for_config(
         self,
         model: Union[QNNModelHandler, SNPEModelHandler],
-        data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
     ) -> QNNModelHandler:

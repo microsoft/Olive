@@ -16,7 +16,6 @@ The options are organized into following sections:
 - [Workflow id](#workflow-id) `workflow_id`
 - [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
-- [Data Information](#data-information) `data_root`
 - [Systems Information](#systems-information) `systems`
 - [Evaluators Information](#evaluators-information) `evaluators`
 - [Passes Information](#passes-information) `passes`
@@ -208,21 +207,6 @@ Please find the detailed config options from following table for each model type
     }
 }
 ```
-
-## Data Information
-`data_root: [str]`
-
-This is the root directory that contains the data for the model evaluation, quantization, performance tuning, QAT and all other place that need use data for model optimization.
-if `data_root` is specified, the data_dir in metrics evaluation or other passes which are relative path will be concatenated to the `data_root`. If not specified, the data_dir in metrics evaluation or other passes will be used.
-On the other hand, if the `data_dir` is an absolute path, the `data_root` will be ignored. For example, if the `data_dir` is /home/user/data, then the `data_root` will be ignored and the final data_dir will be /home/user/data.
-
-The `data_root` could be passed either in config json or by command line like: olive run --config <config_file>.json --data_root /home/user/data config.json. If both are provided, the command line will override the config json.
-
-### Local Examples
-If `data_root` is /home/user/data, and the data_dir in metrics evaluation is `data_dir: "cifar-10-batches-py"`, then the final data_dir will be `/home/user/data/cifar-10-batches-py`.
-
-### Azureml Examples
-If `data_root` is `azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test`, and the data_dir in metrics evaluation is `data_dir: "cifar-10-batches-py"`, then the final data_dir will be `azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py`.
 
 ## Systems Information
 `systems: [Dict]`

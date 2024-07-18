@@ -37,18 +37,28 @@ class TestDockerEvaluation:
         delete_directories()
 
     EVALUATION_TEST_CASE: ClassVar[List] = [
-        ("PyTorchModel", get_pytorch_model, partial(get_accuracy_metric, "post_process"), 0.99),
+        ("PyTorchModel", get_pytorch_model, partial(get_accuracy_metric, "mnist_post_process_for_docker_eval"), 0.99),
         ("PyTorchModel", get_pytorch_model, get_latency_metric, 0.001),
         (
             "PyTorchModel",
             get_huggingface_model,
-            partial(get_accuracy_metric, "hf_post_process", "create_hf_dataloader"),
+            partial(get_accuracy_metric, "mnist_post_process_hf_for_docker_eval", "prajjwal1_dataset_for_docker_eval"),
             0.1,
         ),
-        ("PyTorchModel", get_huggingface_model, partial(get_latency_metric, "create_hf_dataloader"), 0.001),
-        ("ONNXModel", get_onnx_model, partial(get_accuracy_metric, "post_process"), 0.99),
+        (
+            "PyTorchModel",
+            get_huggingface_model,
+            partial(get_latency_metric, "prajjwal1_dataset_for_docker_eval"),
+            0.001,
+        ),
+        ("ONNXModel", get_onnx_model, partial(get_accuracy_metric, "mnist_post_process_for_docker_eval"), 0.99),
         ("ONNXModel", get_onnx_model, get_latency_metric, 0.001),
-        ("OpenVINOModel", get_openvino_model, partial(get_accuracy_metric, "openvino_post_process"), 0.99),
+        (
+            "OpenVINOModel",
+            get_openvino_model,
+            partial(get_accuracy_metric, "mnist_post_process_openvino_for_docker_eval"),
+            0.99,
+        ),
         ("OpenVINOModel", get_openvino_model, get_latency_metric, 0.001),
     ]
 
@@ -62,7 +72,7 @@ class TestDockerEvaluation:
         model_config = model_config_func()
         metric = metric_func()
         model_conf = ModelConfig.parse_obj({"type": model_type, "config": model_config})
-        actual_res = docker_target.evaluate_model(model_conf, None, [metric], DEFAULT_CPU_ACCELERATOR)
+        actual_res = docker_target.evaluate_model(model_conf, [metric], DEFAULT_CPU_ACCELERATOR)
         for sub_type in metric.sub_types:
             joint_key = joint_metric_key(metric.name, sub_type.name)
             assert actual_res[joint_key].value >= expected_res

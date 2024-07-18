@@ -76,9 +76,7 @@ def test_workflow_run_command(mock_run, tempdir, setup):
     cli_main(command_args)
 
     # assert
-    mock_run.assert_called_once_with(
-        run_config="config.json", setup=setup, package_config=None, data_root=None, tempdir=tempdir
-    )
+    mock_run.assert_called_once_with(run_config="config.json", setup=setup, package_config=None, tempdir=tempdir)
 
 
 @patch("olive.platform_sdk.qualcomm.configure.configure.configure")

@@ -48,7 +48,6 @@ class QNNModelLibGenerator(Pass):
     def _run_for_config(
         self,
         model: QNNModelHandler,
-        data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
     ) -> QNNModelHandler:

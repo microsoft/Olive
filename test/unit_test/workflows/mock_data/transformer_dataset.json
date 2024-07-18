@@ -29,10 +29,7 @@
                 }
             },
             "pre_process_data_config": {
-                "params": {
-                    "input_cols": [ "sentence1", "sentence2" ],
-                    "label_cols": [ "label" ]
-                }
+                "params": { "input_cols": [ "sentence1", "sentence2" ], "label_cols": [ "label" ] }
             },
             "dataloader_config": { "params": { "batch_size": 1 } }
         }
@@ -79,10 +76,7 @@
             "disable_search": true,
             "config": { "model_type": "bert" }
         },
-        "quantization": {
-            "type": "OnnxQuantization",
-            "config": { "data_config": "glue_mrpc" }
-        },
+        "quantization": { "type": "OnnxQuantization", "config": { "data_config": "glue_mrpc" } },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {

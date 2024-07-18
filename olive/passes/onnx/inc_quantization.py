@@ -11,7 +11,6 @@ from typing import Any, Callable, Dict, Optional, Union
 
 from packaging import version
 
-from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.common.utils import exclude_keys
 from olive.data.config import DataConfig
@@ -344,7 +343,7 @@ class IncQuantization(Pass):
         config.update(get_external_data_config())
         return config
 
-    def _set_eval_func(self, accuracy_metric, sub_type, data_root):
+    def _set_eval_func(self, accuracy_metric, sub_type):
         # set eval_func for INC according to Olive accuracy metric
         def eval_func(model):
             # eval_func for Intel® Neural Compressor quantization take model as input,
@@ -373,7 +372,6 @@ class IncQuantization(Pass):
             # evaluate model
             result = evaluator.evaluate(
                 olive_model,
-                data_root,
                 [accuracy_metric],
                 self.accelerator_spec.accelerator_type,
                 [self.accelerator_spec.execution_provider],
@@ -409,7 +407,7 @@ class IncQuantization(Pass):
 
         return higher_is_better, criterion, tolerable_loss
 
-    def _set_tuning_config(self, run_config, data_root):
+    def _set_tuning_config(self, run_config):
         # set criterion and eval func for INC
         # INC quantization without accuracy aware tuning situation:
         #  1. 'metric' is not set
@@ -451,7 +449,7 @@ class IncQuantization(Pass):
             if len(accuracy_metric.sub_types) != 0:
                 sub_type = accuracy_metric.sub_types[0]
             if sub_type is not None and sub_type.goal is not None:
-                eval_func = self._set_eval_func(accuracy_metric, sub_type, data_root)
+                eval_func = self._set_eval_func(accuracy_metric, sub_type)
 
                 higher_is_better, criterion, tolerable_loss = self._set_accuracy_criterion(sub_type)
                 accuracy_criterion = AccuracyCriterion(
@@ -479,7 +477,7 @@ class IncQuantization(Pass):
         return {"bits": bits, "group_size": group_size, "scheme": scheme, "algorithm": algo}
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         if "LOGLEVEL" not in os.environ:
             # set the log level for neural-compressor
@@ -514,7 +512,7 @@ class IncQuantization(Pass):
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config, data_root)
+        eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config)
         weight_only_config = self._set_woq_config(run_config)
 
         workspace = run_config.pop("workspace", None)
@@ -556,10 +554,9 @@ class IncQuantization(Pass):
             # Never directly use `if self._user_module_loader` to check dataloader is provided or not
             # self._user_module_loader is always not None since it is initialized in __init__
             if config["dataloader_func"]:
-                data_dir = get_local_path_from_root(data_root, config["data_dir"])
                 inc_calib_dataloader = self._user_module_loader.call_object(
                     config["dataloader_func"],
-                    data_dir,
+                    config["data_dir"],
                     config["batch_size"],
                     model_path=model.model_path,
                     **(config["dataloader_func_kwargs"] or {}),
@@ -570,7 +567,7 @@ class IncQuantization(Pass):
                 # 1. input: (input, label)
                 # 2. the dataloader should have the attributes of "__iter__" and "batch_size"
                 #  which is data_config's create_dataloader but not create_calibration_dataloader
-                inc_calib_dataloader = data_config.to_data_container().create_dataloader(data_root)
+                inc_calib_dataloader = data_config.to_data_container().create_dataloader()
 
         if run_config.get("diagnosis", False):
             assert inc_calib_dataloader is not None, "diagnosis mode requires dataloader"

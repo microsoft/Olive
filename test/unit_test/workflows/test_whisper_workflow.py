@@ -10,7 +10,6 @@ from test.unit_test.workflows.whisper_utils import (
     get_decoder,
     get_encdec_io_config,
     get_encoder_decoder_init,
-    whisper_audio_decoder_dataloader,
 )
 from urllib import request
 
@@ -67,14 +66,25 @@ def prepare_whisper_config(audio_data, tmp_path):
                 "config": {"accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}]},
             }
         },
+        "data_configs": [
+            {
+                "name": "latency_data_config",
+                "type": "HuggingfaceContainer",
+                "user_script": "test/unit_test/workflows/whisper_utils.py",
+                "load_dataset_config": {"type": "whisper_audio_decoder_dataset", "params": {"data_dir": audio_data}},
+                "pre_process_data_config": {"type": "skip_pre_process"},
+                "post_process_data_config": {"type": "skip_post_process"},
+                "dataloader_config": {"type": "no_auto_batch_dataloader"},
+            }
+        ],
         "evaluators": {
             "common_evaluator": {
                 "metrics": [
                     {
                         "name": "latency",
                         "type": "latency",
+                        "data_config": "latency_data_config",
                         "sub_types": [{"name": "avg", "priority": 1}],
-                        "user_config": {"data_dir": audio_data, "dataloader_func": whisper_audio_decoder_dataloader},
                     }
                 ]
             }

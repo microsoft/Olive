@@ -5,7 +5,6 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
-from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
@@ -85,7 +84,7 @@ class SNPEQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: SNPEModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: SNPEModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> SNPEModelHandler:
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
@@ -93,13 +92,12 @@ class SNPEQuantization(Pass):
         assert config["dataloader_func"] or config["data_config"], "dataloader_func or data_config is required."
 
         if config["dataloader_func"]:
-            data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(
-                config["dataloader_func"], data_dir, **(config["dataloader_func_kwargs"] or {})
+                config["dataloader_func"], config["data_dir"], **(config["dataloader_func_kwargs"] or {})
             )
         elif config["data_config"]:
             data_config = validate_config(config["data_config"], DataConfig)
-            dataloader = data_config.to_data_container().create_dataloader(data_root)
+            dataloader = data_config.to_data_container().create_dataloader()
 
         # convert dataloader to FileListDataLoader if it is not already
         if not isinstance(dataloader, FileListDataLoader):

@@ -19,7 +19,7 @@ def test_openvino_conversion_pass(tmp_path):
     output_folder = str(tmp_path / "openvino")
 
     # execute
-    openvino_model = p.run(input_model, None, output_folder)
+    openvino_model = p.run(input_model, output_folder)
 
     # assert
     assert Path(openvino_model.model_path).exists()
@@ -41,7 +41,7 @@ def test_openvino_conversion_pass_no_example_input(tmp_path):
     output_folder = str(tmp_path / "openvino")
 
     # execute
-    openvino_model = p.run(input_model, None, output_folder)
+    openvino_model = p.run(input_model, output_folder)
 
     # assert
     assert Path(openvino_model.model_path).exists()
@@ -62,7 +62,7 @@ def test_openvino_conversion_pass_example_input_with_us(tmp_path):
     output_folder = str(tmp_path / "openvino")
 
     # execute
-    openvino_model = p.run(input_model, None, output_folder)
+    openvino_model = p.run(input_model, output_folder)
 
     # assert
     assert Path(openvino_model.model_path).exists()
@@ -83,7 +83,7 @@ def test_openvino_conversion_pass_input_with_us(tmp_path):
     output_folder = str(tmp_path / "openvino")
 
     # execute
-    openvino_model = p.run(input_model, None, output_folder)
+    openvino_model = p.run(input_model, output_folder)
 
     # assert
     assert Path(openvino_model.model_path).exists()

@@ -102,7 +102,7 @@ class NVModelOptQuantization(Pass):
         return True
 
     def _run_for_config(
-        self, model: OliveModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: OliveModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> OliveModelHandler:
         try:
             from modelopt.onnx.quantization.int4 import quantize_int4  # type: ignore[import]

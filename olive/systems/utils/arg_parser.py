@@ -6,20 +6,40 @@ import argparse
 import json
 from typing import Tuple
 
-from olive.common.utils import set_dict_value
+from olive.common.utils import set_nested_dict_value
 
 
 def parse_common_args(raw_args):
-    """Parse common args."""
+    """Parse common args.
+
+    Get the pipeline output path and resources.
+    Resources are expected to be provided as inputs of the form --resource__{i} where i is the index of the resource.
+    `num_resources` is the number of resources provided.
+    """
     parser = argparse.ArgumentParser("Olive common args")
 
     # pipeline output arg
     parser.add_argument("--pipeline_output", type=str, help="pipeline output path", required=True)
 
-    return parser.parse_known_args(raw_args)
+    # resources arg
+    parser.add_argument("--num_resources", type=int, help="number of resources", required=True)
+
+    args, extra_args = parser.parse_known_args(raw_args)
+
+    if args.num_resources == 0:
+        return args.pipeline_output, {}, extra_args
+
+    # parse resources
+    parser = argparse.ArgumentParser("Olive resources")
+    for i in range(args.num_resources):
+        parser.add_argument(f"--resource__{i}", type=str, help=f"resource {i} path", required=True)
+
+    resource_args, extra_args = parser.parse_known_args(extra_args)
+
+    return args.pipeline_output, vars(resource_args), extra_args
 
 
-def parse_config(raw_args, name: str) -> Tuple[dict, str]:
+def parse_config(raw_args, name: str, resources: dict) -> Tuple[dict, str]:
     """Parse config and related resource args."""
     parser = argparse.ArgumentParser(f"{name} config")
 
@@ -43,15 +63,9 @@ def parse_config(raw_args, name: str) -> Tuple[dict, str]:
     with open(args[resource_map_name]) as f:
         resource_map = json.load(f)
 
-    # parse resources and replace in config
-    parser = argparse.ArgumentParser(f"{name} resources")
-    for resource_name in resource_map:
-        parser.add_argument(f"--{resource_name}", type=str, help=f"{resource_name} path", required=True)
-
-    args, extra_args = parser.parse_known_args(extra_args)
-    args = vars(args)
-    for resource_name, resource_key in resource_map.items():
-        set_dict_value(config, resource_key, args[resource_name])
+    # replace resource paths in config
+    for resource_key, resource_name in resource_map:
+        set_nested_dict_value(config, resource_key, resources[resource_name])
 
     return config, extra_args
 
@@ -62,8 +76,8 @@ def get_common_args(raw_args):
     The return value includes json with the model resource paths filled in, the pipeline output path, and any
     extra args that were not parsed.
     """
-    common_args, extra_args = parse_common_args(raw_args)
+    pipeline_output, resources, extra_args = parse_common_args(raw_args)
 
-    model_json, extra_args = parse_config(extra_args, "model")
+    model_json, extra_args = parse_config(extra_args, "model", resources)
 
-    return model_json, common_args.pipeline_output, extra_args
+    return pipeline_output, resources, model_json, extra_args

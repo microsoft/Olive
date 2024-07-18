@@ -92,7 +92,7 @@ class SparseGPT(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
         model_type = model.model_attributes["model_type"]
         if model_type not in supported_models:
@@ -117,7 +117,7 @@ class SparseGPT(Pass):
 
         # load_data
         data_config = validate_config(config["data_config"], DataConfig)
-        dataloader = data_config.to_data_container().create_dataloader(data_root)
+        dataloader = data_config.to_data_container().create_dataloader()
         logger.debug("Data loaded. Number of batches: %d", len(dataloader))
 
         # load model
