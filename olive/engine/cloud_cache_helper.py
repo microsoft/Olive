@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class CloudCacheConfig(ConfigBase):
     enable_cloud_cache: bool = True
     account_url: str = "https://olivepublicmodels.blob.core.windows.net"
-    contaier_name: str = "olivecachemodels"
+    container_name: str = "olivecachemodels"
     upload_to_cloud: bool = True
     input_model_config: ModelConfig = None
 
