@@ -24,7 +24,7 @@ Once your container is ready, locate the account URL and container name on your 
 
 Please make sure you have logged in Azure with command:
 
-```(shell)
+```(bash)
 az login
 ```
 
