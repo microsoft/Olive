@@ -823,7 +823,7 @@ class Engine:
                 self.cloud_cache_helper = CloudCacheHelper(
                     self.cache.dirs.cloud_cache,
                     cloud_cache_config.account_url,
-                    cloud_cache_config.contaier_name,
+                    cloud_cache_config.container_name,
                     cloud_cache_config.input_model_config,
                 )
 
