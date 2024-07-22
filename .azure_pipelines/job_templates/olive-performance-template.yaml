@@ -13,7 +13,6 @@ jobs:
       ${{ insert }}: ${{ parameters.examples }}
   variables:
     WINDOWS: ${{ parameters.windows }}
-    runCodesignValidationInjection: false
     device: ${{ parameters.device }}
     PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
     HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
