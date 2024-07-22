@@ -9,6 +9,10 @@ schedules:
     - main
   always: true
 
+variables:
+  runCodesignValidationInjection: false
+  skipComponentGovernanceDetection: true
+
 
 jobs:
 - template: job_templates/olive-performance-template.yaml

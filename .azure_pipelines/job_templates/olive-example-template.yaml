@@ -15,7 +15,6 @@ jobs:
       matrix:
         ${{ insert }}: ${{ parameters.examples }}
     variables:
-      runCodesignValidationInjection: false
       PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
       HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
       OLIVE_TEMPDIR: $(Pipeline.Workspace)/.olive_tempdir
@@ -58,13 +57,6 @@ jobs:
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
         MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
-
-    - task: ComponentGovernanceComponentDetection@0
-      inputs:
-        scanType: 'Register'
-        verbosity: 'Verbose'
-        alertWarningLevel: 'High'
-      displayName: Component Detection
 
     - task: PublishTestResults@2
       condition: succeededOrFailed()

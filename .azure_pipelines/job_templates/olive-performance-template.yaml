@@ -13,7 +13,6 @@ jobs:
       ${{ insert }}: ${{ parameters.examples }}
   variables:
     WINDOWS: ${{ parameters.windows }}
-    runCodesignValidationInjection: false
     device: ${{ parameters.device }}
     PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
     HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
@@ -43,13 +42,6 @@ jobs:
     inputs:
       debugMode: false
     continueOnError: true
-
-  - task: ComponentGovernanceComponentDetection@0
-    inputs:
-      scanType: 'Register'
-      verbosity: 'Verbose'
-      alertWarningLevel: 'High'
-    displayName: Component Detection
 
   - script: git clean -dfX
     condition: always()

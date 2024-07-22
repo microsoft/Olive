@@ -10,7 +10,8 @@ schedules:
     - main
 
 variables:
-    ComponentDetection.Timeout: 2400
+  runCodesignValidationInjection: false
+  skipComponentGovernanceDetection: true
 
 jobs:
 # Linux unit test
