@@ -85,7 +85,7 @@ def calib_dataloader(data_dir, batch_size, *args, **kwargs):
     return PileDataloader(model_path, batch_size=batch_size)
 
 
-def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execution_providers):
+def eval_accuracy(model: OliveModelHandler, device, execution_providers, batch_size):
     from intel_extension_for_transformers.transformers.llm.evaluation.lm_eval import LMEvalParser, evaluate
 
     results = {}

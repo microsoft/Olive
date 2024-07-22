@@ -12,37 +12,37 @@
             "preprend_to_path": [ "<qnn_lib_path>" ]
         }
     },
+    "data_configs": [
+        {
+            "name": "metric_data_config",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "qnn_evaluation_dataset", "params": { "data_dir": "data/eval" } },
+            "pre_process_data_config": { "type": "skip_pre_process" },
+            "post_process_data_config": { "type": "qnn_post_process" },
+            "dataloader_config": { "params": { "batch_size": 1 } }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
+                    "data_config": "metric_data_config",
                     "sub_types": [
                         {
                             "name": "accuracy_score",
                             "priority": 1,
                             "metric_config": { "task": "multiclass", "num_classes": 1000 }
                         }
-                    ],
-                    "user_config": {
-                        "user_script": "user_script.py",
-                        "data_dir": "data/eval",
-                        "batch_size": 1,
-                        "dataloader_func": "evaluation_dataloader",
-                        "post_processing_func": "post_process"
-                    }
+                    ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg", "priority": 2 } ],
-                    "user_config": {
-                        "user_script": "user_script.py",
-                        "data_dir": "data/eval",
-                        "batch_size": 1,
-                        "dataloader_func": "evaluation_dataloader"
-                    }
+                    "data_config": "metric_data_config",
+                    "sub_types": [ { "name": "avg", "priority": 2 } ]
                 }
             ]
         }

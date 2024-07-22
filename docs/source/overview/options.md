@@ -249,26 +249,19 @@ information of the evaluator contains following items:
 
         - `script_dir: [str]` The directory that contains dependencies for the user script.
 
-        - `data_dir: [str|ResourcePathConfig]` The directory that contains the data for the metric evaluation.
-
-        - `batch_size: [int]` The batch size for the metric evaluation.
-
         - `inference_settings: [Dict]` Inference settings for the different runtime.
-
-        - `dataloader_func: [str]` The name of the function provided by the user to load the data for the metric evaluation. The function should take the `data_dir`, `batch_size`, `model_framework` (provided as a keyword argument)
-        as input and return the data loader. Not valid for `custom` type when `evaluate_func` is provided.
-
-        - `post_processing_func: [str]` The name of the function provided by the user to post process the model output. The function should take the model output as input and return the post processed
-        output. Only valid for `accuracy` type or `custom` type when `evaluate_func` is not provided.
 
         - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the model, `data_dir`, `batch_size`, `device`, `execution_providers` as input
         and return the evaluation result. Only valid for `custom` type.
 
+        - `evaluate_func_kwargs: Dict[str, Any]` Keyword arguments for `evaluate_func` provided by the user. The functions must be able to take the keyword arguments either through the function signature
+        as keyword/positional parameters after the required positional parameters or through `**kwargs`.
+
         - `metric_func: [str]` The name of the function provided by the user to compute metric from the model output. The function should take the post processed output and target as input and return the
         metric result. Only valid for `custom` type when `evaluate_func` is not provided.
 
-        - `func_kwargs: [Dict[str, Dict[str, Any]]]` Keyword arguments for the functions provided by the user. The key is the name of the function and the value is the keyword arguments for the function. The
-        functions must be able to take the keyword arguments either through the function signature as keyword/positional parameters after the required positional parameters or through `**kwargs`.
+        - `metric_func_kwargs: Dict[str, Any]` Keyword arguments for `metric_func` provided by the user. The functions must be able to take the keyword arguments either through the function signature
+        as keyword/positional parameters after the required positional parameters or through `**kwargs`.
 
     Note that for above `data_dir` config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.
     ```json
@@ -284,38 +277,36 @@ information of the evaluator contains following items:
 
 ### Example
 ```json
+"data_configs": [
+    {
+        "name": "accuracy_data_config",
+        "user_script": "user_script.py",
+        "post_process_data_config": { "type": "post_process" },
+        "dataloader_config": { "type": "create_dataloader", "params": { "batch_size": 1 } }
+    }
+],
 "evaluators": {
     "common_evaluator": {
         "metrics":[
             {
                 "name": "accuracy",
                 "type": "accuracy",
+                "data_config": "accuracy_data_config",
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                     {"name": "f1_score"},
                     {"name": "auroc"}
-                ],
-                "user_config":{
-                    "post_processing_func": "post_process",
-                    "user_script": "user_script.py",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1
-                }
+                ]
             },
             {
                 "name": "accuracy",
                 "type": "accuracy",
                 "backend": "huggingface_metrics",
+                "data_config": "accuracy_data_config",
                 "sub_types": [
                     {"name": "accuracy", "priority": -1},
                     {"name": "f1"}
-                ],
-                "user_config":{
-                    "post_processing_func": "post_process",
-                    "user_script": "user_script.py",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1
-                }
+                ]
             },
             {
                 "name": "latency",
@@ -326,9 +317,6 @@ information of the evaluator contains following items:
                     {"name": "min"}
                 ],
                 "user_config":{
-                    "user_script": "user_script.py",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1,
                     "inference_settings" : {
                         "onnx": {
                             "session_options": {

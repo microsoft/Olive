@@ -124,7 +124,7 @@ def resnet_calibration_reader(data_dir, batch_size, *args, **kwargs):
 
 
 # keep this to demo/test custom evaluation function
-def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execution_providers):
+def eval_accuracy(model: OliveModelHandler, device, execution_providers, data_dir, batch_size):
     sess = model.prepare_session(inference_settings=None, device=device, execution_providers=execution_providers)
     dataloader = DataLoader(cifar10_dataset(data_dir), batch_size=batch_size, drop_last=True)
 
