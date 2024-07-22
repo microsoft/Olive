@@ -30,7 +30,7 @@ az login
 
 ### Cloud Cache Configuration
 
-Add `cloud_cache_config` to Engine configuration:
+Add `cloud_cache_config` to the configuration:
 
 * `cloud_cache_config`:
   * `enable_cloud_cache [bool]`: Whether to enable cloud cache. Default by `True`.
@@ -42,14 +42,12 @@ Here is an example configuration:
 
 ```json
 {
-    "engine: {
-        ...
-        "cloud_cache_config": {
-            "account_url": "https://<account_url>.blob.core.windows.net",
-            "container_name": "olivecachemodel"
-        },
-        ...
-    }
+    //...
+    "cloud_cache_config": {
+        "account_url": "https://<account_url>.blob.core.windows.net",
+        "container_name": "olivecachemodel"
+    },
+    //...
 }
 ```
 
