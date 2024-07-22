@@ -51,16 +51,8 @@
         "transformers_optimization": { "type": "OrtTransformersOptimization", "float16": true },
         "perf_tuning": { "type": "OrtPerfTuning", "data_config": "glue_mrpc" }
     },
-    "pass_flows": [
-        [ "conversion", "transformers_optimization", "perf_tuning" ],
-        [ "conversion", "perf_tuning" ]
-    ],
-    "search_strategy": {
-        "execution_order": "joint",
-        "search_algorithm": "tpe",
-        "num_samples": 3,
-        "seed": 0
-    },
+    "pass_flows": [ [ "conversion", "transformers_optimization", "perf_tuning" ], [ "conversion", "perf_tuning" ] ],
+    "search_strategy": { "execution_order": "joint", "search_algorithm": "tpe", "num_samples": 3, "seed": 0 },
     "host": "local_system",
     "target": "local_system",
     "evaluator": "common_evaluator",

@@ -2,61 +2,29 @@
     "bert": {
         "cpu": {
             "accuracy-accuracy": 0.88,
-            "latency-avg": {
-                "8272CL": 15.5,
-                "E5-2673": 44.5,
-                "8171M": 20.89,
-                "8370C": 18
-            }
+            "latency-avg": { "8272CL": 15.5, "E5-2673": 44.5, "8171M": 20.89, "8370C": 18 }
         },
-        "gpu": {
-            "accuracy-accuracy": 0.9,
-            "latency-avg": 1.61
-        }
+        "gpu": { "accuracy-accuracy": 0.9, "latency-avg": 1.61 }
     },
     "deberta": {
         "cpu": {
             "accuracy-accuracy": 0.84,
-            "latency-avg": {
-                "8272CL": 57.74,
-                "E5-2673": 117.00,
-                "8171M": 93.37,
-                "8370C": 0
-            }
+            "latency-avg": { "8272CL": 57.74, "E5-2673": 117.0, "8171M": 93.37, "8370C": 0 }
         },
-        "gpu": {
-            "accuracy-accuracy": 0.88,
-            "latency-avg": 8.011
-        }
+        "gpu": { "accuracy-accuracy": 0.88, "latency-avg": 8.011 }
     },
     "distilbert": {
         "cpu": {
             "accuracy-accuracy": 0.94,
-            "latency-avg": {
-                "8272CL": 4.5,
-                "E5-2673": 11.0,
-                "8171M": 5.9,
-                "8370C": 4.57
-            }
+            "latency-avg": { "8272CL": 4.5, "E5-2673": 11.0, "8171M": 5.9, "8370C": 4.57 }
         },
-        "gpu": {
-            "accuracy-accuracy": 0.94,
-            "latency-avg": 0.91
-        }
+        "gpu": { "accuracy-accuracy": 0.94, "latency-avg": 0.91 }
     },
     "roberta_large": {
         "cpu": {
             "accuracy-accuracy": 0.88,
-            "latency-avg": {
-                "8272CL": 52.38,
-                "E5-2673": 140.34,
-                "8171M": 69.33,
-                "8370C": 0
-            }
+            "latency-avg": { "8272CL": 52.38, "E5-2673": 140.34, "8171M": 69.33, "8370C": 0 }
         },
-        "gpu": {
-            "accuracy-accuracy": 0.89,
-            "latency-avg": 6.164
-        }
+        "gpu": { "accuracy-accuracy": 0.89, "latency-avg": 6.164 }
     }
 }

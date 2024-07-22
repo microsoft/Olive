@@ -1,41 +1,17 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification"
-            }
-        }
+        "config": { "hf_config": { "model_name": "Intel/bert-base-uncased-mrpc", "task": "text-classification" } }
     },
     "data_configs": [
         {
             "name": "glue_mrpc",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "params": {
-                    "data_name": "glue",
-                    "split": "validation",
-                    "subset": "mrpc"
-                }
-            },
+            "load_dataset_config": { "params": { "data_name": "glue", "split": "validation", "subset": "mrpc" } },
             "pre_process_data_config": {
-                "params": {
-                    "input_cols": [
-                        "sentence1",
-                        "sentence2"
-                    ],
-                    "label_cols": [
-                        "label"
-                    ],
-                    "max_samples": 100
-                }
+                "params": { "input_cols": [ "sentence1", "sentence2" ], "label_cols": [ "label" ], "max_samples": 100 }
             },
-            "dataloader_config": {
-                "params": {
-                    "batch_size": 1
-                }
-            }
+            "dataloader_config": { "params": { "batch_size": 1 } }
         }
     ],
     "evaluators": {
@@ -47,14 +23,7 @@
                     "backend": "huggingface_metrics",
                     "data_config": "glue_mrpc",
                     "sub_types": [
-                        {
-                            "name": "accuracy",
-                            "priority": 1,
-                            "goal": {
-                                "type": "max-degradation",
-                                "value": 0.05
-                            }
-                        }
+                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.05 } }
                     ]
                 },
                 {
@@ -62,58 +31,30 @@
                     "type": "latency",
                     "data_config": "glue_mrpc",
                     "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 2,
-                            "goal": {
-                                "type": "percent-min-improvement",
-                                "value": 5
-                            }
-                        }
+                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 5 } }
                     ]
                 }
             ]
         }
     },
     "passes": {
-        "conversion": {
-            "type": "OnnxConversion",
-            "config": {
-                "target_opset": 13
-            }
-        },
+        "conversion": { "type": "OnnxConversion", "config": { "target_opset": 13 } },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
             "disable_search": true,
-            "config": {
-                "model_type": "bert",
-                "num_heads": 12,
-                "hidden_size": 768,
-                "float16": false
-            }
+            "config": { "model_type": "bert", "num_heads": 12, "hidden_size": 768, "float16": false }
         },
         "quantization": {
             "type": "OnnxQuantization",
-            "config": {
-                "quant_preprocess": true,
-                "data_config": "glue_mrpc"
-            }
+            "config": { "quant_preprocess": true, "data_config": "glue_mrpc" }
         },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "config": {
-                "data_config": "glue_mrpc"
-            }
-        }
+        "perf_tuning": { "type": "OrtPerfTuning", "config": { "data_config": "glue_mrpc" } }
     },
     "engine": {
         "search_strategy": {
             "execution_order": "joint",
             "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
+            "search_algorithm_config": { "num_samples": 3, "seed": 0 }
         },
         "clean_cache": true,
         "evaluator": "common_evaluator",

@@ -1,26 +1,12 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "microsoft/deberta-base-mnli",
-                "task": "text-classification"
-            }
-        }
+        "config": { "hf_config": { "model_name": "microsoft/deberta-base-mnli", "task": "text-classification" } }
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu",
-                        "execution_providers": [
-                            "CUDAExecutionProvider"
-                        ]
-                    }
-                ]
-            }
+            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ] }
         }
     },
     "data_configs": [
@@ -28,30 +14,17 @@
             "name": "glue_mnli_matched",
             "type": "HuggingfaceContainer",
             "load_dataset_config": {
-                "params": {
-                    "data_name": "glue",
-                    "subset": "mnli_matched",
-                    "split": "validation"
-                }
+                "params": { "data_name": "glue", "subset": "mnli_matched", "split": "validation" }
             },
             "pre_process_data_config": {
                 "params": {
                     "align_labels": true,
-                    "input_cols": [
-                        "premise",
-                        "hypothesis"
-                    ],
-                    "label_cols": [
-                        "label"
-                    ],
+                    "input_cols": [ "premise", "hypothesis" ],
+                    "label_cols": [ "label" ],
                     "max_samples": 100
                 }
             },
-            "dataloader_config": {
-                "params": {
-                    "batch_size": 1
-                }
-            }
+            "dataloader_config": { "params": { "batch_size": 1 } }
         }
     ],
     "evaluators": {
@@ -63,14 +36,7 @@
                     "backend": "huggingface_metrics",
                     "data_config": "glue_mnli_matched",
                     "sub_types": [
-                        {
-                            "name": "accuracy",
-                            "priority": 1,
-                            "goal": {
-                                "type": "max-degradation",
-                                "value": 0.01
-                            }
-                        }
+                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.01 } }
                     ]
                 },
                 {
@@ -78,60 +44,30 @@
                     "type": "latency",
                     "data_config": "glue_mnli_matched",
                     "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 2,
-                            "goal": {
-                                "type": "percent-min-improvement",
-                                "value": 20
-                            }
-                        }
+                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 20 } }
                     ]
                 }
             ]
         }
     },
     "passes": {
-        "conversion": {
-            "type": "OnnxConversion",
-            "config": {
-                "target_opset": 13
-            }
-        },
+        "conversion": { "type": "OnnxConversion", "config": { "target_opset": 13 } },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
             "disable_search": true,
-            "config": {
-                "float16": true
-            }
+            "config": { "float16": true }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
-            "config": {
-                "enable_cuda_graph": true,
-                "data_config": "glue_mnli_matched"
-            }
+            "config": { "enable_cuda_graph": true, "data_config": "glue_mnli_matched" }
         }
     },
-    "pass_flows": [
-        [
-            "conversion",
-            "transformers_optimization",
-            "perf_tuning"
-        ],
-        [
-            "conversion",
-            "perf_tuning"
-        ]
-    ],
+    "pass_flows": [ [ "conversion", "transformers_optimization", "perf_tuning" ], [ "conversion", "perf_tuning" ] ],
     "engine": {
         "search_strategy": {
             "execution_order": "joint",
             "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
+            "search_algorithm_config": { "num_samples": 3, "seed": 0 }
         },
         "clean_cache": true,
         "evaluator": "common_evaluator",

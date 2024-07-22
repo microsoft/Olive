@@ -33,9 +33,7 @@
                 "language": "Python",
                 "token": true
             },
-            "pre_process_data_config": {
-                "text_template": "### Question: {prompt} \n### Answer: {response}"
-            }
+            "pre_process_data_config": { "text_template": "### Question: {prompt} \n### Answer: {response}" }
         }
     ],
     "evaluators": {

@@ -1,34 +1,16 @@
 [
     {
         "Normalize": {
-            "normalization_values": [
-                [ 0.485, 0.229 ],
-                [ 0.456, 0.224 ],
-                [ 0.406, 0.225 ]
-            ],
+            "normalization_values": [ [ 0.485, 0.229 ], [ 0.456, 0.224 ], [ 0.406, 0.225 ] ],
             "layout": "CHW"
         }
     },
-    {
-        "ReverseAxis": {
-            "axis": 2,
-            "dim_value": 3,
-            "name": "BGR_to_RGB"
-        }
-    },
+    { "ReverseAxis": { "axis": 2, "dim_value": 3, "name": "BGR_to_RGB" } },
     { "Unsqueeze": { "axes": [ 0 ] } },
     {
         "CenterCrop": {
-            "height": {
-                "type": "__model_input__",
-                "input_index": 0,
-                "dim_index": -2
-            },
-            "width": {
-                "type": "__model_input__",
-                "input_index": 0,
-                "dim_index": -1
-            }
+            "height": { "type": "__model_input__", "input_index": 0, "dim_index": -2 },
+            "width": { "type": "__model_input__", "input_index": 0, "dim_index": -1 }
         }
     },
     {
@@ -43,16 +25,8 @@
         "Resize": {
             "params": {
                 "resize_to": [
-                    {
-                        "type": "__model_input__",
-                        "input_index": 0,
-                        "dim_index": -1
-                    },
-                    {
-                        "type": "__model_output__",
-                        "output_index": 0,
-                        "dim_index": -2
-                    }
+                    { "type": "__model_input__", "input_index": 0, "dim_index": -1 },
+                    { "type": "__model_output__", "output_index": 0, "dim_index": -2 }
                 ]
             },
             "io_map": [ [ "ConvertImageToBGR", 0, 0 ] ]
@@ -65,20 +39,9 @@
                 "explicit_placholder": {
                     "type": "tuple",
                     "value": [
-                        {
-                            "type": "__model_input__",
-                            "input_index": 0,
-                            "dim_index": -1
-                        },
-                        {
-                            "type": "__model_output__",
-                            "output_index": 0,
-                            "dim_index": -2
-                        },
-                        {
-                            "one": 1,
-                            "two": 2
-                        },
+                        { "type": "__model_input__", "input_index": 0, "dim_index": -1 },
+                        { "type": "__model_output__", "output_index": 0, "dim_index": -2 },
+                        { "one": 1, "two": 2 },
                         32
                     ]
                 },
