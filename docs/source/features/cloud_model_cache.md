@@ -2,9 +2,9 @@
 
 ## What is Cloud Model Cache
 
-The Cloud Model Cache is a system where Olive stores output models in Azure Blob Storage. Whenever a Pass is executed, Olive checks if the same input model has been processed before and if the corresponding output model is available in Azure Blob Storage. If the output model is found, Olive directly uses it for the next step. With this feature, you can easily share output models with others.
+The Cloud Model Cache is a system where Olive stores intermediate models in Azure Blob Storage. Whenever a Pass is executed, Olive checks if the same input model has been processed before and if the corresponding output model is available in Azure Blob Storage. If the output model is found, Olive directly uses it for the next step. With this feature, you can easily share output models with others.
 
-This feature only supports native Huggingface models as input.
+This feature currently only supports native Huggingface models as input.
 
 ## How to use Cloud Model Cache
 
@@ -24,7 +24,7 @@ Once your container is ready, locate the account URL and container name on your 
 
 Please make sure you have logged in Azure with command:
 
-```(bash)
+```shell
 az login
 ```
 
@@ -40,7 +40,7 @@ Add `cloud_cache_config` to Engine configuration:
 
 Here is an example configuration:
 
-```(json)
+```json
 {
     "engine: {
         ...
