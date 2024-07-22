@@ -13,7 +13,7 @@
         {
             "name": "glue_mnli_matched",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": { 
+            "load_dataset_config": {
                 "data_name": "glue",
                 "subset": "mnli_matched",
                 "split": "validation"

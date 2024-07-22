@@ -23,14 +23,14 @@
                 "subset": "mrpc",
                 "split": "validation"
             },
-            "pre_process_data_config": { 
+            "pre_process_data_config": {
                 "input_cols": [
                     "sentence1",
                     "sentence2"
                 ],
                 "label_cols": [
                     "label"
-                ] 
+                ]
             },
             "dataloader_config": { "batch_size": 1 }
         }
@@ -52,7 +52,7 @@
                                 "value": 0.01
                                 }
                             },
-                        { 
+                        {
                             "name": "f1"
                         }
                     ]

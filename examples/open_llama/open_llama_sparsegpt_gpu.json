@@ -27,7 +27,7 @@
         {
             "name": "wikitext2_test",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": { 
+            "load_dataset_config": {
                 "data_name": "wikitext",
                 "subset": "wikitext-2-raw-v1",
                 "split": "test"
