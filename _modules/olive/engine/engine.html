@@ -73,6 +73,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../features/custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../features/azureml_integration.html">Azure ML integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../features/run_workflow_remotely.html">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cloud_model_cache.html">Cloud Model Cache</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -953,7 +954,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span> <span class="o">=</span> <span class="n">CloudCacheHelper</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">dirs</span><span class="o">.</span><span class="n">cloud_cache</span><span class="p">,</span>
                     <span class="n">cloud_cache_config</span><span class="o">.</span><span class="n">account_url</span><span class="p">,</span>
-                    <span class="n">cloud_cache_config</span><span class="o">.</span><span class="n">contaier_name</span><span class="p">,</span>
+                    <span class="n">cloud_cache_config</span><span class="o">.</span><span class="n">container_name</span><span class="p">,</span>
                     <span class="n">cloud_cache_config</span><span class="o">.</span><span class="n">input_model_config</span><span class="p">,</span>
                 <span class="p">)</span>
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Running Olive Workflow Remotely on Azure Machine Learning workspace compute &mdash; Olive  documentation</title>
+  <title>Cloud Model Cache &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
@@ -25,8 +25,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Cloud Model Cache" href="cloud_model_cache.html" />
-    <link rel="prev" title="Azure ML integration" href="azureml_integration.html" /> 
+    <link rel="next" title="Design" href="../extending_olive/design.html" />
+    <link rel="prev" title="Running Olive Workflow Remotely on Azure Machine Learning workspace compute" href="run_workflow_remotely.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -74,13 +74,18 @@
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="azureml_integration.html">Azure ML integration</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#install-extra-dependencies">Install Extra Dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#configure-an-azureml-system">Configure an AzureML system</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#run-olive-workflow">Run Olive Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="run_workflow_remotely.html">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Cloud Model Cache</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-is-cloud-model-cache">What is Cloud Model Cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-to-use-cloud-model-cache">How to use Cloud Model Cache</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#install-extra-dependencies">Install Extra Dependencies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#azure-blob-storage">Azure Blob Storage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cloud-cache-configuration">Cloud Cache Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="cloud_model_cache.html">Cloud Model Cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -125,9 +130,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</li>
+      <li class="breadcrumb-item active">Cloud Model Cache</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/features/run_workflow_remotely.md.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/features/cloud_model_cache.md.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -135,33 +140,65 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="running-olive-workflow-remotely-on-azure-machine-learning-workspace-compute">
-<h1>Running Olive Workflow Remotely on Azure Machine Learning workspace compute<a class="headerlink" href="#running-olive-workflow-remotely-on-azure-machine-learning-workspace-compute" title="Permalink to this heading">¶</a></h1>
-<p>If your workflow takes a long time to run or you need to step away, Olive provides the flexibility to run your workflow on a compute or cluster in your Azure Machine Learning workspace. This allows you to turn off your terminal session or shut down your local machine without interrupting the process.</p>
+  <section id="cloud-model-cache">
+<h1>Cloud Model Cache<a class="headerlink" href="#cloud-model-cache" title="Permalink to this heading">¶</a></h1>
+<section id="what-is-cloud-model-cache">
+<h2>What is Cloud Model Cache<a class="headerlink" href="#what-is-cloud-model-cache" title="Permalink to this heading">¶</a></h2>
+<p>The Cloud Model Cache is a system where Olive stores intermediate models in Azure Blob Storage. Whenever a Pass is executed, Olive checks if the same input model has been processed before and if the corresponding output model is available in Azure Blob Storage. If the output model is found, Olive directly uses it for the next step. With this feature, you can easily share output models with others.</p>
+<p>This feature currently only supports native Huggingface models as input.</p>
+</section>
+<section id="how-to-use-cloud-model-cache">
+<h2>How to use Cloud Model Cache<a class="headerlink" href="#how-to-use-cloud-model-cache" title="Permalink to this heading">¶</a></h2>
 <section id="install-extra-dependencies">
-<h2>Install Extra Dependencies<a class="headerlink" href="#install-extra-dependencies" title="Permalink to this heading">¶</a></h2>
+<h3>Install Extra Dependencies<a class="headerlink" href="#install-extra-dependencies" title="Permalink to this heading">¶</a></h3>
 <p>You can install the necessary dependencies by running:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>azureml<span class="o">]</span>
 </pre></div>
 </div>
 </section>
-<section id="configure-an-azureml-system">
-<h2>Configure an AzureML system<a class="headerlink" href="#configure-an-azureml-system" title="Permalink to this heading">¶</a></h2>
-<p>To run the workflow on AzureML system, the configuration is same as normal AzureML system configuration. Please find more details in <a class="reference internal" href="../tutorials/configure_systems.html"><span class="std std-doc">this instruction</span></a>.</p>
-<p>The artifacts of the workflow, including cache and outputs, will be automatically exported to Azure Machine Learning datastore. The default datastore is <code class="docutils literal notranslate"><span class="pre">workspaceblobstore</span></code>. If you want to export to your own datastore, please add <code class="docutils literal notranslate"><span class="pre">datastore:</span> <span class="pre">&lt;your-datastore-name&gt;</span></code> in AzureML system config.</p>
-<p>The cache and outputs will be exported to <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/cache</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/output</span></code>.</p>
+<section id="azure-blob-storage">
+<h3>Azure Blob Storage<a class="headerlink" href="#azure-blob-storage" title="Permalink to this heading">¶</a></h3>
+<p>Olive uses Azure Blob Storage for the Cloud Model Cache, so you’ll need a prepared container for this feature. Learn more about Azure Blob Storage <a class="reference external" href="https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-introduction">here</a>.</p>
+<p>Once your container is ready, locate the account URL and container name on your storage account page. The account URL typically looks like <code class="docutils literal notranslate"><span class="pre">https://&lt;account_url&gt;.blob.core.windows.net</span></code>.</p>
+<p>Please make sure you have logged in Azure with command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>az<span class="w"> </span>login
+</pre></div>
+</div>
 </section>
-<section id="run-olive-workflow">
-<h2>Run Olive Workflow<a class="headerlink" href="#run-olive-workflow" title="Permalink to this heading">¶</a></h2>
-<p>To run the Olive workflow, add a <code class="docutils literal notranslate"><span class="pre">workflow_host</span></code> configuation at the top level of the Olive config file:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;workflow_host&quot;</span><span class="p">:</span> <span class="s2">&quot;aml_system&quot;</span>
+<section id="cloud-cache-configuration">
+<h3>Cloud Cache Configuration<a class="headerlink" href="#cloud-cache-configuration" title="Permalink to this heading">¶</a></h3>
+<p>Add <code class="docutils literal notranslate"><span class="pre">cloud_cache_config</span></code> to the configuration:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cloud_cache_config</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">enable_cloud_cache</span> <span class="pre">[bool]</span></code>: Whether to enable cloud cache. Default by <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">account_url</span> <span class="pre">[str]</span></code>: The account url from the Azure Storage account.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">container_name</span> <span class="pre">[str]</span></code>: The container name to store model cache.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">upload_to_cloud</span> <span class="pre">[bool]</span></code>: Whether to upload output model to the cloud cache for this workflow run. Default by <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</li>
+</ul>
+<p>Here is an example configuration:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="w">    </span><span class="nt">&quot;cloud_cache_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;account_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://&lt;account_url&gt;.blob.core.windows.net&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;container_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;olivecachemodel&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="p">}</span>
 </pre></div>
 </div>
-<p>Then run the Olive workflow with the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>&lt;config_file.json&gt;
-</pre></div>
-</div>
-<p>Olive will submit this workflow to the Azure ML system compute. It is safe to close your terminal session or turn off your local machine. The workflow will continue running on the Azure ML workspace compute.</p>
+<p>With this configuration, Olive will check if a cached model exists in your blob container. If you only want to download cached models from the blob without uploading the output models, set <code class="docutils literal notranslate"><span class="pre">upload_to_cloud</span></code> to <code class="docutils literal notranslate"><span class="pre">false</span></code> in the <code class="docutils literal notranslate"><span class="pre">cloud_cache_config</span></code>.</p>
+</section>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>If the output model is found in the cloud cache and evaluation is needed, Olive will download the output model from the cloud cache.</p></li>
+<li><p>If the output model is found in the cloud cache and no evaluation is needed, Olive will check for cached models for the next Pass instead of immediately downloading the current cached model. If a cached model for the next Pass is found, Olive will skip downloading the intermediate model and proceed directly to the next Pass. This process will continue until the final Pass is completed or no cached model is found.</p></li>
+<li><p>When this feature is enabled, the workflow running time may be affected, potentially making it faster or slower. Since Olive will download output models, factors that can influence this include the size of the output model, your internet speed, the number of Passes, and how many intermediate models are cached in the cloud cache.</p></li>
+</ul>
 </section>
 </section>
 
@@ -169,8 +206,8 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="azureml_integration.html" class="btn btn-neutral float-left" title="Azure ML integration" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="cloud_model_cache.html" class="btn btn-neutral float-right" title="Cloud Model Cache" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="run_workflow_remotely.html" class="btn btn-neutral float-left" title="Running Olive Workflow Remotely on Azure Machine Learning workspace compute" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../extending_olive/design.html" class="btn btn-neutral float-right" title="Design" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

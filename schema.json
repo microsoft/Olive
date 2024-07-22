@@ -590,8 +590,8 @@
           "default": "https://olivepublicmodels.blob.core.windows.net",
           "type": "string"
         },
-        "contaier_name": {
-          "title": "Contaier Name",
+        "container_name": {
+          "title": "Container Name",
           "default": "olivecachemodels",
           "type": "string"
         },
