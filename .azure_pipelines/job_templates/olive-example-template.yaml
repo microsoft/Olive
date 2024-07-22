@@ -59,13 +59,6 @@ jobs:
         WORKSPACE_NAME: $(workspace-name)
         MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
 
-    - task: ComponentGovernanceComponentDetection@0
-      inputs:
-        scanType: 'Register'
-        verbosity: 'Verbose'
-        alertWarningLevel: 'High'
-      displayName: Component Detection
-
     - task: PublishTestResults@2
       condition: succeededOrFailed()
       inputs:

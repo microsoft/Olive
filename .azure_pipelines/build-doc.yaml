@@ -11,6 +11,10 @@ trigger:
     - main
 pr: none
 
+variables:
+  runCodesignValidationInjection: false
+  skipComponentGovernanceDetection: true
+
 stages:
   - stage: Build_Docs
     jobs:

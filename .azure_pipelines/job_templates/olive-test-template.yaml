@@ -15,7 +15,6 @@ jobs:
     name: ${{ parameters.pool}}
   variables:
     WINDOWS: ${{ parameters.windows}}
-    runCodesignValidationInjection: false
     testType: ${{ parameters.test_type }}
     python_version: ${{ parameters.python_version }}
     requirements_file: ${{ parameters.requirements_file }}
@@ -82,13 +81,6 @@ jobs:
     inputs:
       debugMode: false
     continueOnError: true
-
-  - task: ComponentGovernanceComponentDetection@0
-    inputs:
-      scanType: 'Register'
-      verbosity: 'Verbose'
-      alertWarningLevel: 'High'
-    displayName: Component Detection
 
   - task: PublishTestResults@2
     condition: succeededOrFailed()

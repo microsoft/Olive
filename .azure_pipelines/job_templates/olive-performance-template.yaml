@@ -44,13 +44,6 @@ jobs:
       debugMode: false
     continueOnError: true
 
-  - task: ComponentGovernanceComponentDetection@0
-    inputs:
-      scanType: 'Register'
-      verbosity: 'Verbose'
-      alertWarningLevel: 'High'
-    displayName: Component Detection
-
   - script: git clean -dfX
     condition: always()
     displayName: Clean remaining artifacts

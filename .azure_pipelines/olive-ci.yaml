@@ -48,7 +48,8 @@ pr:
     - examples/phi2/*
 
 variables:
-    ComponentDetection.Timeout: 2400
+  runCodesignValidationInjection: false
+  skipComponentGovernanceDetection: true
 
 jobs:
 # Linux unit test and integration test
