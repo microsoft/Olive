@@ -72,6 +72,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../features/custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features/run_workflow_remotely.html">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -136,13 +137,14 @@
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
 <span class="kn">from</span> <span class="nn">olive.common.auto_config</span> <span class="kn">import</span> <span class="n">AutoConfigClass</span>
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">ConfigParam</span><span class="p">,</span> <span class="n">serialize_to_json</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">ConfigParam</span><span class="p">,</span> <span class="n">NestedConfig</span><span class="p">,</span> <span class="n">serialize_to_json</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">copy_dir</span><span class="p">,</span> <span class="n">retry_func</span>
 
@@ -220,7 +222,7 @@
         <span class="k">return</span> <span class="nb">hash</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">))</span>
 
 
-<span class="k">class</span> <span class="nc">ResourcePathConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">ResourcePathConfig</span><span class="p">(</span><span class="n">NestedConfig</span><span class="p">):</span>
     <span class="nb">type</span><span class="p">:</span> <span class="n">ResourceType</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Type of the resource.&quot;</span><span class="p">)</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Config of the resource.&quot;</span><span class="p">)</span>
 
@@ -302,7 +304,8 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">VALID_RESOURCE_CONFIGS</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+            <span class="c1"># don&#39;t want to accidentally modify the original config</span>
+            <span class="n">resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
             <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">is_string_name</span><span class="p">():</span>
                 <span class="k">return</span> <span class="p">{}</span>
             <span class="k">return</span> <span class="p">{():</span> <span class="n">resource_path</span><span class="p">}</span>

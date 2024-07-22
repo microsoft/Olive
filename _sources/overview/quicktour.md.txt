@@ -68,13 +68,11 @@ Let's use a PyTorch resnet model as an example which you can describe in the jso
 ```json
     "input_model":{
         "type": "PyTorchModel",
-        "config": {
-            "model_path": "resnet.pt",
-            "io_config": {
-                "input_names": ["input"],
-                "input_shapes": [[1, 3, 32, 32]],
-                "output_names": ["output"],
-            }
+        "model_path": "resnet.pt",
+        "io_config": {
+            "input_names": ["input"],
+            "input_shapes": [[1, 3, 32, 32]],
+            "output_names": ["output"],
         }
     }
 ```
@@ -91,9 +89,7 @@ Let's apply ONNX conversation and use dynamic quantization technique to quantize
     "passes": {
         "onnx_conversion": {
             "type": "OnnxConversion",
-            "config": {
-                "target_opset": 13
-            }
+            "target_opset": 13
         },
         "quantization": {
             "type": "OnnxDynamicQuantization"
@@ -120,21 +116,17 @@ Now you have a complete json file that you can use to accelerate the resnet mode
     "description" : "Complete my_model_acceleration_description.json used in this quick tour",
     "input_model":{
         "type": "PyTorchModel",
-        "config": {
-            "model_path": "resnet.pt",
-            "io_config": {
-                "input_names": ["input"],
-                "input_shapes": [[1, 3, 32, 32]],
-                "output_names": ["output"],
-            }
+        "model_path": "resnet.pt",
+        "io_config": {
+            "input_names": ["input"],
+            "input_shapes": [[1, 3, 32, 32]],
+            "output_names": ["output"],
         }
     },
     "passes": {
         "onnx_conversion": {
             "type": "OnnxConversion",
-            "config": {
-                "target_opset": 13
-            }
+            "target_opset": 13
         },
         "quantization": {
             "type": "OnnxDynamicQuantization"

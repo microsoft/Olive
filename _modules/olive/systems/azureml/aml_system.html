@@ -72,6 +72,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/run_workflow_remotely.html">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -148,6 +149,7 @@
 
 <span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.common.constants</span> <span class="kn">import</span> <span class="n">HF_LOGIN</span><span class="p">,</span> <span class="n">KEYVAULT_NAME</span><span class="p">,</span> <span class="n">WORKFLOW_ARTIFACTS</span><span class="p">,</span> <span class="n">WORKFLOW_CONFIG</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">copy_dir</span><span class="p">,</span> <span class="n">get_nested_dict_value</span><span class="p">,</span> <span class="n">retry_func</span><span class="p">,</span> <span class="n">set_nested_dict_value</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric_result</span> <span class="kn">import</span> <span class="n">MetricResult</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
@@ -163,6 +165,7 @@
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AcceleratorConfig</span><span class="p">,</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">,</span> <span class="n">SystemType</span>
 <span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
 <span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">AzureMLTargetUserConfig</span>
+<span class="kn">from</span> <span class="nn">olive.workflows.run.config</span> <span class="kn">import</span> <span class="n">RunConfig</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
@@ -244,14 +247,89 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_hf_token_env</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">keyvault_name</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_token</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span> <span class="o">=</span> <span class="p">[]</span>
 
+    <span class="k">def</span> <span class="nf">submit_workflow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_config</span><span class="p">:</span> <span class="n">RunConfig</span><span class="p">):</span>
+        <span class="n">workflow_id</span> <span class="o">=</span> <span class="n">run_config</span><span class="o">.</span><span class="n">workflow_id</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Submitting workflow </span><span class="si">%s</span><span class="s2"> to the AzureML system.&quot;</span><span class="p">,</span> <span class="n">workflow_id</span><span class="p">)</span>
+        <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
+
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
+            <span class="n">workflow_pipeline</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_pipeline_for_workflow</span><span class="p">(</span><span class="n">run_config</span><span class="p">,</span> <span class="n">tempdir</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Once the workflow is submitted, it is safe to terminate the process. &quot;</span>
+                <span class="s2">&quot;The workflow job will continue running.&quot;</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run_job</span><span class="p">(</span>
+                <span class="n">ml_client</span><span class="p">,</span>
+                <span class="n">workflow_pipeline</span><span class="p">,</span>
+                <span class="s2">&quot;olive-workflow&quot;</span><span class="p">,</span>
+                <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Workflow&quot;</span><span class="p">:</span> <span class="n">workflow_id</span><span class="p">},</span>
+                <span class="n">download_outputs</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Workflow run succeed. Please check the job details for logs and outputs.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_pipeline_for_workflow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_config</span><span class="p">:</span> <span class="n">RunConfig</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">):</span>
+        <span class="n">workflow_id</span> <span class="o">=</span> <span class="n">run_config</span><span class="o">.</span><span class="n">workflow_id</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Creating pipeline for workflow </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">workflow_id</span><span class="p">)</span>
+        <span class="n">script_name</span> <span class="o">=</span> <span class="s2">&quot;aml_workflow_runner.py&quot;</span>
+
+        <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
+
+        <span class="n">run_config</span><span class="o">.</span><span class="n">workflow_host</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">config_root</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;config&quot;</span>
+        <span class="n">cur_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+        <span class="n">code_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">cur_dir</span> <span class="o">/</span> <span class="n">script_name</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">copy_files</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">config_root</span><span class="p">)</span>
+        <span class="n">workflow_config</span> <span class="o">=</span> <span class="n">run_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
+        <span class="p">[</span>
+            <span class="n">workflow_config</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;evaluators&quot;</span><span class="p">,</span> <span class="s2">&quot;systems&quot;</span><span class="p">,</span> <span class="s2">&quot;data_configs&quot;</span><span class="p">,</span> <span class="s2">&quot;azureml_client&quot;</span><span class="p">]</span>
+        <span class="p">]</span>
+
+        <span class="n">inputs</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_inputs_and_args</span><span class="p">(</span>
+            <span class="p">{</span><span class="n">WORKFLOW_CONFIG</span><span class="p">:</span> <span class="n">workflow_config</span><span class="p">},</span>
+            <span class="n">tmp_dir</span><span class="p">,</span>
+            <span class="n">ignore_keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;cache_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;output_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;model_attributes&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">WORKFLOW_ARTIFACTS</span><span class="p">:</span> <span class="n">Output</span><span class="p">(</span>
+                <span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">workflow_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;azureml://datastores/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastores</span><span class="si">}</span><span class="s2">/paths/</span><span class="si">{</span><span class="n">workflow_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">}</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_step</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;workflow&quot;</span><span class="p">,</span>
+            <span class="n">display_name</span><span class="o">=</span><span class="s2">&quot;Olive Workflow&quot;</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Run olive workflow&quot;</span><span class="p">,</span>
+            <span class="n">aml_environment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span>
+            <span class="n">code</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">config_root</span><span class="p">),</span>
+            <span class="n">compute</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">,</span>
+            <span class="n">resources</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="p">,</span>
+            <span class="n">instance_count</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span><span class="p">,</span>
+            <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
+            <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">,</span>
+            <span class="n">script_name</span><span class="o">=</span><span class="n">script_name</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="nd">@pipeline</span><span class="p">()</span>
+        <span class="k">def</span> <span class="nf">workflow_runner_pipeline</span><span class="p">():</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">component</span> <span class="o">=</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
+            <span class="n">outputs</span><span class="p">[</span><span class="n">WORKFLOW_ARTIFACTS</span><span class="p">]</span> <span class="o">=</span> <span class="n">component</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">workflow_artifacts</span>
+            <span class="k">return</span> <span class="n">outputs</span>
+
+        <span class="k">return</span> <span class="n">workflow_runner_pipeline</span><span class="p">()</span>
+
     <span class="k">def</span> <span class="nf">_get_hf_token_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyvault_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
         <span class="k">if</span> <span class="n">keyvault_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;hf_token is set to True but keyvault name is not provided. &quot;</span>
                 <span class="s2">&quot;Please provide a keyvault name to use HF_TOKEN.&quot;</span>
             <span class="p">)</span>
-        <span class="n">env_vars</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;HF_LOGIN&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
-        <span class="n">env_vars</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;KEYVAULT_NAME&quot;</span><span class="p">:</span> <span class="n">keyvault_name</span><span class="p">})</span>
+        <span class="n">env_vars</span> <span class="o">=</span> <span class="p">{</span><span class="n">HF_LOGIN</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+        <span class="n">env_vars</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">KEYVAULT_NAME</span><span class="p">:</span> <span class="n">keyvault_name</span><span class="p">})</span>
         <span class="k">return</span> <span class="n">env_vars</span>
 
     <span class="k">def</span> <span class="nf">_get_environment_from_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">aml_environment_config</span><span class="p">:</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">):</span>
@@ -495,7 +573,7 @@
         <span class="k">if</span> <span class="n">olive_config_path</span><span class="p">:</span>
             <span class="n">code_files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">olive_config_path</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">copy_code</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">code_root</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">copy_files</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">code_root</span><span class="p">)</span>
 
         <span class="c1"># prepare inputs</span>
         <span class="c1"># want to ignore model_attributes since hf config has _model_name_or_path</span>
@@ -539,9 +617,10 @@
         <span class="n">ml_client</span><span class="p">,</span>
         <span class="n">pipeline_job</span><span class="p">,</span>
         <span class="n">experiment_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+        <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">tags</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">download_outputs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run a pipeline job and return the path to named-outputs.&quot;&quot;&quot;</span>
         <span class="c1"># submit job</span>
@@ -558,26 +637,30 @@
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Pipeline submitted. Job name: </span><span class="si">%s</span><span class="s2">. Job link: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">studio_url</span><span class="p">)</span>
         <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
-        <span class="c1"># get output</span>
-        <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;pipeline_output&quot;</span>
-        <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="c1"># whether to download a single output or all outputs</span>
-        <span class="n">output_arg</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;download_path&quot;</span><span class="p">:</span> <span class="n">output_dir</span><span class="p">}</span>
-        <span class="k">if</span> <span class="n">output_name</span><span class="p">:</span>
-            <span class="n">output_arg</span><span class="p">[</span><span class="s2">&quot;output_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_name</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">output_arg</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Downloading pipeline output to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
-        <span class="n">retry_func</span><span class="p">(</span>
-            <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">download</span><span class="p">,</span>
-            <span class="p">[</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
-            <span class="n">output_arg</span><span class="p">,</span>
-            <span class="n">max_tries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">max_operation_retries</span><span class="p">,</span>
-            <span class="n">delay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">operation_retry_interval</span><span class="p">,</span>
-            <span class="n">exceptions</span><span class="o">=</span><span class="n">ServiceResponseError</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">download_outputs</span><span class="p">:</span>
+            <span class="c1"># get output</span>
+            <span class="k">if</span> <span class="n">tmp_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;tmp_dir is required to download pipeline output&quot;</span><span class="p">)</span>
+            <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;pipeline_output&quot;</span>
+            <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># whether to download a single output or all outputs</span>
+            <span class="n">output_arg</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;download_path&quot;</span><span class="p">:</span> <span class="n">output_dir</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">output_name</span><span class="p">:</span>
+                <span class="n">output_arg</span><span class="p">[</span><span class="s2">&quot;output_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_name</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">output_arg</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Downloading pipeline output to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
+            <span class="n">retry_func</span><span class="p">(</span>
+                <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">download</span><span class="p">,</span>
+                <span class="p">[</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
+                <span class="n">output_arg</span><span class="p">,</span>
+                <span class="n">max_tries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">max_operation_retries</span><span class="p">,</span>
+                <span class="n">delay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">operation_retry_interval</span><span class="p">,</span>
+                <span class="n">exceptions</span><span class="o">=</span><span class="n">ServiceResponseError</span><span class="p">,</span>
+            <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;named-outputs&quot;</span>
+            <span class="k">return</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;named-outputs&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pipeline_output_path</span><span class="p">):</span>
         <span class="n">model_json_path</span> <span class="o">=</span> <span class="n">pipeline_output_path</span> <span class="o">/</span> <span class="s2">&quot;output_model_config.json&quot;</span>
@@ -694,7 +777,7 @@
         <span class="k">if</span> <span class="n">olive_config_path</span><span class="p">:</span>
             <span class="n">code_files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">olive_config_path</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">copy_code</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">code_root</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">copy_files</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">code_root</span><span class="p">)</span>
 
         <span class="c1"># prepare inputs</span>
         <span class="n">inputs</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_inputs_and_args</span><span class="p">(</span>
@@ -730,7 +813,7 @@
         <span class="c1"># metric component</span>
         <span class="k">return</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">copy_code</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code_files</span><span class="p">:</span> <span class="n">List</span><span class="p">,</span> <span class="n">target_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">copy_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code_files</span><span class="p">:</span> <span class="n">List</span><span class="p">,</span> <span class="n">target_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
         <span class="n">target_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">code_file</span> <span class="ow">in</span> <span class="n">code_files</span><span class="p">:</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">code_file</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">target_path</span><span class="p">))</span>

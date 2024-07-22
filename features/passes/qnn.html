@@ -100,6 +100,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../packaging_output_models.html">Packaging Olive artifacts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../run_workflow_remotely.html">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -191,9 +192,7 @@ Olive uses the development tools available in the <a class="reference external" 
 <p><strong>Conversion and Quantization</strong></p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNConversion&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;extra_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;--input_list &lt;input_list.txt&gt;&quot;</span>
-<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nt">&quot;extra_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;--input_list &lt;input_list.txt&gt;&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -207,9 +206,7 @@ Olive uses the development tools available in the <a class="reference external" 
 <h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNModelLibGenerator&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;lib_targets&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;x86_64-linux-clang&quot;</span>
-<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nt">&quot;lib_targets&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;x86_64-linux-clang&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -224,9 +221,7 @@ Olive uses the development tools available in the <a class="reference external" 
 <h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNContextBinaryGenerator&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;backend&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;QNN_BACKEND.so&gt;&quot;</span>
-<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nt">&quot;backend&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;QNN_BACKEND.so&gt;&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>

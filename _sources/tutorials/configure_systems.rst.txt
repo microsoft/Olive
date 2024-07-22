@@ -45,14 +45,12 @@ The local system represents the local machine where the Pass is run or the Model
                 "systems": {
                     "local_system" : {
                         "type": "LocalSystem",
-                        "config": {
-                            "accelerators": [
-                                {
-                                    "device": "cpu",
-                                    "execution_providers": ["CPUExecutionProvider"]
-                                }
-                            ]
-                        }
+                        "accelerators": [
+                            {
+                                "device": "cpu",
+                                "execution_providers": ["CPUExecutionProvider"]
+                            }
+                        ]
                     }
                 },
                 "engine": {
@@ -118,18 +116,16 @@ Here are the examples of configuring the general Python Environment System.
                 "systems"  : {
                     "python_system" : {
                         "type": "PythonEnvironment",
-                        "config": {
-                            "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
-                            "accelerators": [
-                                {
-                                    "device": "cpu",
-                                    "execution_providers": [
-                                        "CPUExecutionProvider",
-                                        "OpenVINOExecutionProvider"
-                                    ]
-                                }
-                            ]
-                        }
+                        "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
+                        "accelerators": [
+                            {
+                                "device": "cpu",
+                                "execution_providers": [
+                                    "CPUExecutionProvider",
+                                    "OpenVINOExecutionProvider"
+                                ]
+                            }
+                        ]
                     }
                 },
                 "engine": {
@@ -172,18 +168,16 @@ For managed python environment system, Olive only infer the onnxruntime from the
 
     {
         "type": "PythonEnvironment",
-        "config": {
-            "accelerators": [
-                {
-                    "device": "cpu",
-                    "execution_providers": [
-                        "CPUExecutionProvider",
-                        "OpenVINOExecutionProvider"
-                    ]
-                }
-            ],
-            "olive_managed_env": true,
-        }
+        "accelerators": [
+            {
+                "device": "cpu",
+                "execution_providers": [
+                    "CPUExecutionProvider",
+                    "OpenVINOExecutionProvider"
+                ]
+            }
+        ],
+        "olive_managed_env": true,
     }
 
 Please refer to :ref:`python_environment_system_config` for more details on the config options.
@@ -242,19 +236,17 @@ Native Docker System
 
             {
                 "type": "Docker",
-                "config": {
-                    "local_docker_config": {
-                        "image_name": "olive",
-                        "build_context_path": "docker",
-                        "dockerfile": "Dockerfile"
-                    },
-                    "accelerators": [
-                        {
-                            "device": "cpu",
-                            "execution_providers": ["CPUExecutionProvider"]
-                        }
-                    ]
-                }
+                "local_docker_config": {
+                    "image_name": "olive",
+                    "build_context_path": "docker",
+                    "dockerfile": "Dockerfile"
+                },
+                "accelerators": [
+                    {
+                        "device": "cpu",
+                        "execution_providers": ["CPUExecutionProvider"]
+                    }
+                ]
             }
 
     .. tab:: Python Class
@@ -287,19 +279,17 @@ A typical managed Docker system can be configured by the following example:
 
     {
         "type": "Docker",
-        "config": {
-            "accelerators": [
-                {
-                    "device": "cpu",
-                    "execution_providers": [
-                        "CPUExecutionProvider",
-                        "OpenVINOExecutionProvider"
-                    ]
-                }
-            ],
-            "olive_managed_env": true,
-            "requirements_file": "mnist_requirements.txt"
-        }
+        "accelerators": [
+            {
+                "device": "cpu",
+                "execution_providers": [
+                    "CPUExecutionProvider",
+                    "OpenVINOExecutionProvider"
+                ]
+            }
+        ],
+        "olive_managed_env": true,
+        "requirements_file": "mnist_requirements.txt"
     }
 
 AzureML System
@@ -336,6 +326,7 @@ The AzureML system represents the Azure Machine Learning workspace where the Pas
     * :code:`tags`: The tags for the AzureML environment. This is optional.
     * :code:`resources`: The resources dictionary for the AzureML environment. This is optional.
     * :code:`instance_count`: The instance count for the AzureML environment. Default is 1.
+    * :code:`datastore`: The datastore name where to export artifacts. Default is `workspaceblobstore`.
     * :code:`olive_managed_env`: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.
 
 .. note::
@@ -373,24 +364,22 @@ Native AzureML System
 
     {
         "type": "AzureML",
-        "config": {
-            "accelerators": [
-                {
-                    "device": "gpu",
-                    "execution_providers": [
-                        "CUDAExecutionProvider"
-                    ]
-                }
-            ],
-            "aml_compute": "gpu-cluster",
-            "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
-                "conda_file_path": "conda.yaml"
-            },
-            "aml_environment_config": {
-                "name": "myenv",
-                "version": "1"
+        "accelerators": [
+            {
+                "device": "gpu",
+                "execution_providers": [
+                    "CUDAExecutionProvider"
+                ]
             }
+        ],
+        "aml_compute": "gpu-cluster",
+        "aml_docker_config": {
+            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
+            "conda_file_path": "conda.yaml"
+        },
+        "aml_environment_config": {
+            "name": "myenv",
+            "version": "1"
         }
     }
 
@@ -403,16 +392,14 @@ There are some readymade systems available for AzureML. These systems are pre-co
 
     {
         "type": "AzureNDV2System",
-        "config": {
-            "accelerators": [
-                {"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]},
-                {"device": "cpu", "execution_providers": ["CPUExecutionProvider"]},
-            ],
-            "aml_compute": "gpu-cluster",
-            "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                "conda_file_path": "conda.yaml"
-            }
+        "accelerators": [
+            {"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]},
+            {"device": "cpu", "execution_providers": ["CPUExecutionProvider"]},
+        ],
+        "aml_compute": "gpu-cluster",
+        "aml_docker_config": {
+            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+            "conda_file_path": "conda.yaml"
         }
     }
 
@@ -443,25 +430,23 @@ A typical managed AzureML system can be configured by the following example:
         "systems": {
             "azureml_system": {
                 "type": "AzureML",
-                "config": {
-                    "accelerators": [
-                        {
-                            "device": "cpu",
-                            "execution_providers": [
-                                "CPUExecutionProvider",
-                                "OpenVINOExecutionProvider"
-                            ]
-                        }
-                    ],
-                    "azureml_client_config": {
-                        "subscription_id": "subscription_id",
-                        "resource_group": "resource_group",
-                        "workspace_name": "workspace_name"
-                    },
-                    "aml_compute": "cpu-cluster",
-                    "requirements_file": "mnist_requirements.txt",
-                    "olive_managed_env": true,
-                }
+                "accelerators": [
+                    {
+                        "device": "cpu",
+                        "execution_providers": [
+                            "CPUExecutionProvider",
+                            "OpenVINOExecutionProvider"
+                        ]
+                    }
+                ],
+                "azureml_client_config": {
+                    "subscription_id": "subscription_id",
+                    "resource_group": "resource_group",
+                    "workspace_name": "workspace_name"
+                },
+                "aml_compute": "cpu-cluster",
+                "requirements_file": "mnist_requirements.txt",
+                "olive_managed_env": true,
             }
         },
         "engine": {
@@ -494,10 +479,8 @@ The isolated ORT system represents the isolated ONNX Runtime environment in whic
 
             {
                 "type": "IsolatedORT",
-                "config": {
-                    "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
-                    "accelerators": [{"device": "cpu"}]
-                }
+                "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
+                "accelerators": [{"device": "cpu"}]
             }
 
     .. tab:: Python Class

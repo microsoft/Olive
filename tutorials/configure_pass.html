@@ -75,6 +75,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/run_workflow_remotely.html">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -150,17 +151,15 @@ value or <code class="code docutils literal notranslate"><span class="pre">&quot
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;disable_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;./user_script.py&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue_calibration_reader&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="c1">// set per_channel to &quot;DEFAULT_VALUE&quot;</span>
-<span class="w">        </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEFAULT_VALUE&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="c1">// set reduce_range to &quot;SEARCHABLE_VALUES&quot; value</span>
-<span class="w">        </span><span class="c1">// redundant since disable_search is false</span>
-<span class="w">        </span><span class="nt">&quot;reduce_range&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SEARCHABLE_VALUES&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="c1">// user defined value for weight_type</span>
-<span class="w">        </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QUInt8&quot;</span>
-<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;./user_script.py&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue_calibration_reader&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// set per_channel to &quot;DEFAULT_VALUE&quot;</span>
+<span class="w">    </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEFAULT_VALUE&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// set reduce_range to &quot;SEARCHABLE_VALUES&quot; value</span>
+<span class="w">    </span><span class="c1">// redundant since disable_search is false</span>
+<span class="w">    </span><span class="nt">&quot;reduce_range&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SEARCHABLE_VALUES&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// user defined value for weight_type</span>
+<span class="w">    </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QUInt8&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>

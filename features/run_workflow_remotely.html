@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Overview: module code &mdash; Olive  documentation</title>
+  <title>Running Olive Workflow Remotely on Azure Machine Learning workspace compute &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
@@ -20,11 +21,12 @@
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/tabs.js?v=3030b3cb"></script>
         <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" /> 
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Design" href="../extending_olive/design.html" />
+    <link rel="prev" title="Azure ML integration" href="azureml_integration.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -65,14 +67,19 @@
 <li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../features/cli.html">Command Line Tools</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../features/azureml_integration.html">Azure ML integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../features/run_workflow_remotely.html">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Command Line Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#install-extra-dependencies">Install Extra Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#configure-an-azureml-system">Configure an AzureML system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#run-olive-workflow">Run Olive Workflow</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -117,8 +124,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Overview: module code</li>
+      <li class="breadcrumb-item active">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</li>
       <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/features/run_workflow_remotely.md.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -126,37 +134,43 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>All modules for which code is available</h1>
-<ul><li><a href="olive/azureml/azureml_client.html">olive.azureml.azureml_client</a></li>
-<li><a href="olive/engine/config.html">olive.engine.config</a></li>
-<li><a href="olive/engine/engine.html">olive.engine.engine</a></li>
-<li><a href="olive/evaluator/metric.html">olive.evaluator.metric</a></li>
-<li><a href="olive/evaluator/metric_config.html">olive.evaluator.metric_config</a></li>
-<li><a href="olive/evaluator/olive_evaluator.html">olive.evaluator.olive_evaluator</a></li>
-<li><a href="olive/hardware/accelerator.html">olive.hardware.accelerator</a></li>
-<li><a href="olive/model/config/model_config.html">olive.model.config.model_config</a></li>
-<li><a href="olive/model/handler/composite.html">olive.model.handler.composite</a></li>
-<li><a href="olive/model/handler/hf.html">olive.model.handler.hf</a></li>
-<li><a href="olive/model/handler/onnx.html">olive.model.handler.onnx</a></li>
-<li><a href="olive/model/handler/openvino.html">olive.model.handler.openvino</a></li>
-<li><a href="olive/model/handler/pytorch.html">olive.model.handler.pytorch</a></li>
-<li><a href="olive/model/handler/snpe.html">olive.model.handler.snpe</a></li>
-<li><a href="olive/passes/pytorch/lora.html">olive.passes.pytorch.lora</a></li>
-<li><a href="olive/resource_path.html">olive.resource_path</a></li>
-<li><a href="olive/strategy/search_strategy.html">olive.strategy.search_strategy</a></li>
-<li><a href="olive/systems/azureml/aml_system.html">olive.systems.azureml.aml_system</a></li>
-<li><a href="olive/systems/common.html">olive.systems.common</a></li>
-<li><a href="olive/systems/docker/docker_system.html">olive.systems.docker.docker_system</a></li>
-<li><a href="olive/systems/isolated_ort/isolated_ort_system.html">olive.systems.isolated_ort.isolated_ort_system</a></li>
-<li><a href="olive/systems/local.html">olive.systems.local</a></li>
-<li><a href="olive/systems/python_environment/python_environment_system.html">olive.systems.python_environment.python_environment_system</a></li>
-<li><a href="olive/systems/system_alias.html">olive.systems.system_alias</a></li>
-<li><a href="olive/systems/system_config.html">olive.systems.system_config</a></li>
-</ul>
+  <section id="running-olive-workflow-remotely-on-azure-machine-learning-workspace-compute">
+<h1>Running Olive Workflow Remotely on Azure Machine Learning workspace compute<a class="headerlink" href="#running-olive-workflow-remotely-on-azure-machine-learning-workspace-compute" title="Permalink to this heading">¶</a></h1>
+<p>If your workflow takes a long time to run or you need to step away, Olive provides the flexibility to run your workflow on a compute or cluster in your Azure Machine Learning workspace. This allows you to turn off your terminal session or shut down your local machine without interrupting the process.</p>
+<section id="install-extra-dependencies">
+<h2>Install Extra Dependencies<a class="headerlink" href="#install-extra-dependencies" title="Permalink to this heading">¶</a></h2>
+<p>You can install the necessary dependencies by running:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>azureml<span class="o">]</span>
+</pre></div>
+</div>
+</section>
+<section id="configure-an-azureml-system">
+<h2>Configure an AzureML system<a class="headerlink" href="#configure-an-azureml-system" title="Permalink to this heading">¶</a></h2>
+<p>To run the workflow on AzureML system, the configuration is same as normal AzureML system configuration. Please find more details in <a class="reference internal" href="../tutorials/configure_systems.html"><span class="std std-doc">this instruction</span></a>.</p>
+<p>The artifacts of the workflow, including cache and outputs, will be automatically exported to Azure Machine Learning datastore. The default datastore is <code class="docutils literal notranslate"><span class="pre">workspaceblobstore</span></code>. If you want to export to your own datastore, please add <code class="docutils literal notranslate"><span class="pre">datastore:</span> <span class="pre">&lt;your-datastore-name&gt;</span></code> in AzureML system config.</p>
+<p>The cache and outputs will be exported to <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/cache</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/output</span></code>.</p>
+</section>
+<section id="run-olive-workflow">
+<h2>Run Olive Workflow<a class="headerlink" href="#run-olive-workflow" title="Permalink to this heading">¶</a></h2>
+<p>To run the Olive workflow, add a <code class="docutils literal notranslate"><span class="pre">workflow_host</span></code> configuation at the top level of the Olive config file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;workflow_host&quot;</span><span class="p">:</span> <span class="s2">&quot;aml_system&quot;</span>
+</pre></div>
+</div>
+<p>Then run the Olive workflow with the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>&lt;config_file.json&gt;
+</pre></div>
+</div>
+<p>Olive will submit this workflow to the Azure ML system compute. It is safe to close your terminal session or turn off your local machine. The workflow will continue running on the Azure ML workspace compute.</p>
+</section>
+</section>
+
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="azureml_integration.html" class="btn btn-neutral float-left" title="Azure ML integration" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../extending_olive/design.html" class="btn btn-neutral float-right" title="Design" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
   <hr/>
 

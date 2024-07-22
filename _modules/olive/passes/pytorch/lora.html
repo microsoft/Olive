@@ -72,6 +72,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/run_workflow_remotely.html">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -150,7 +151,7 @@
 <span class="kn">import</span> <span class="nn">transformers</span>
 <span class="kn">from</span> <span class="nn">packaging</span> <span class="kn">import</span> <span class="n">version</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">ConfigWithExtraArgs</span>
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">NestedConfig</span>
 <span class="kn">from</span> <span class="nn">olive.common.hf.utils</span> <span class="kn">import</span> <span class="n">get_peft_task_type_from_task</span>
 <span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">find_submodules</span><span class="p">,</span> <span class="n">resolve_torch_dtype</span>
@@ -177,11 +178,13 @@
 <span class="c1"># creating a Config class since transformers.TrainingArguments is a dataclass</span>
 <span class="c1"># pydantic handles dataclasses differently and causes issues with validation</span>
 <span class="c1"># this also allows us to handle and validate extra_args better</span>
-<div class="viewcode-block" id="HFTrainingArguments"><a class="viewcode-back" href="../../../../api/passes.html#olive.passes.pytorch.lora.HFTrainingArguments">[docs]</a><span class="k">class</span> <span class="nc">HFTrainingArguments</span><span class="p">(</span><span class="n">ConfigWithExtraArgs</span><span class="p">):</span>
+<div class="viewcode-block" id="HFTrainingArguments"><a class="viewcode-back" href="../../../../api/passes.html#olive.passes.pytorch.lora.HFTrainingArguments">[docs]</a><span class="k">class</span> <span class="nc">HFTrainingArguments</span><span class="p">(</span><span class="n">NestedConfig</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Training arguments for transformers.Trainer.</span>
 
 <span class="sd">    Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_nested_field_name</span> <span class="o">=</span> <span class="s2">&quot;extra_args&quot;</span>
 
     <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">42</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Random seed for initialization.&quot;</span><span class="p">)</span>
     <span class="n">data_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">42</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Random seed to be used with data samplers.&quot;</span><span class="p">)</span>

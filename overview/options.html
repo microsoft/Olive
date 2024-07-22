@@ -57,6 +57,7 @@
 <li class="toctree-l1"><a class="reference internal" href="quicktour.html">Quick Tour</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Olive Options</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#workflow-id">Workflow ID</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#workflow-host">Workflow Host</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#azure-ml-client">Azure ML Client</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#example">Example</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#azureml-client-with-aml-config-path"><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> with <code class="docutils literal notranslate"><span class="pre">aml_config_path</span></code>:</a></li>
@@ -109,6 +110,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/run_workflow_remotely.html">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -187,10 +189,15 @@ to apply from user in the form of a json dictionary. In this document, we docume
 <li><p><a class="reference internal" href="#evaluators-information"><span class="xref myst">Evaluators Information</span></a> <code class="docutils literal notranslate"><span class="pre">evaluators</span></code></p></li>
 <li><p><a class="reference internal" href="#passes-information"><span class="xref myst">Passes Information</span></a> <code class="docutils literal notranslate"><span class="pre">passes</span></code></p></li>
 <li><p><a class="reference internal" href="#engine-information"><span class="xref myst">Engine Information</span></a> <code class="docutils literal notranslate"><span class="pre">engine</span></code></p></li>
+<li><p><a class="reference internal" href="#workflow-host"><span class="xref myst">Workflow Host</span></a> <code class="docutils literal notranslate"><span class="pre">workflow_host</span></code></p></li>
 </ul>
 <section id="workflow-id">
 <h2>Workflow ID<a class="headerlink" href="#workflow-id" title="Permalink to this heading">¶</a></h2>
 <p>You can name the workflow run by specifying <code class="docutils literal notranslate"><span class="pre">workflow_id</span></code> section in your config file. Olive will save the cache under <code class="docutils literal notranslate"><span class="pre">&lt;cache_dir&gt;/&lt;workflow_id&gt;</span></code> folder, and automatically save the current running config in the cache folder.</p>
+</section>
+<section id="workflow-host">
+<h2>Workflow Host<a class="headerlink" href="#workflow-host" title="Permalink to this heading">¶</a></h2>
+<p>Workflow host is where the Olive workflow will be run. The default value is <code class="docutils literal notranslate"><span class="pre">None</span></code>. If <code class="docutils literal notranslate"><span class="pre">None</span></code> set for workflow host, Olive will run workflow locally. It suppurts <code class="docutils literal notranslate"><span class="pre">AzureML</span></code> system for now.</p>
 </section>
 <section id="azure-ml-client">
 <h2>Azure ML Client<a class="headerlink" href="#azure-ml-client" title="Permalink to this heading">¶</a></h2>
@@ -273,7 +280,7 @@ The default value is 3. User can increase if there are network issues and the op
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> Type of the input model which is case insensitive.. The supported types contain <code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">PyTorchModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">ONNXModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">OpenVINOModelHandler</span></code>,<code class="docutils literal notranslate"><span class="pre">SNPEModelHandler</span></code> and etc. You can
 find more details in <a class="reference external" href="https://microsoft.github.io/Olive/api/models.html">Olive Models</a>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> For example, for <code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code>, the input model config dictionary specifies following items:</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The configuration of the pass. Its fields can be provided directly to the parent dictionary. For example, for <code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code>, the input model config dictionary specifies following items:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">model_path:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The model path can be a string or a dictionary. If it is a string, it is a huggingface hub model id or a local directory. If it is a dictionary, it contains information about the model path. Please refer to <a class="reference internal" href="../tutorials/configure_model_path.html"><span class="std std-doc">Configuring Model Path</span></a> for the more information of the model path dictionary.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">task:</span> <span class="pre">[str]</span></code> The task of the model. The default task is <code class="docutils literal notranslate"><span class="pre">text-generation-with-past</span></code> which is equivalent to a causal language model with key-value cache enabled.</p></li>
@@ -360,9 +367,7 @@ The dynamic axis of the present key value cache. If it is null, Olive will infer
 <h3>Example<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-2-7b-hf&quot;</span>
-<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-2-7b-hf&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -377,7 +382,7 @@ information of the system contains following items:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> The type of the system. The supported types are <code class="docutils literal notranslate"><span class="pre">LocalSystem</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureML</span></code> and <code class="docutils literal notranslate"><span class="pre">Docker</span></code>.
 There are some built-in system alias which could also be used as type. For example, <code class="docutils literal notranslate"><span class="pre">AzureNDV2System</span></code>. Please refer to <a class="reference internal" href="../api/systems.html#olive-system-alias"><span class="std std-ref">Olive System Alias</span></a> for the complete list of system alias.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The system config dictionary that contains the system specific information.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The system config dictionary that contains the system specific information. The fields can be provided directly under the parent dictionary.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">accelerators:</span> <span class="pre">[List[str]]</span></code> The accelerators that will be used for this workflow.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">hf_token:</span> <span class="pre">[bool]</span></code> Whether to use a Huggingface token to access Huggingface resources. If it is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the <code class="docutils literal notranslate"><span class="pre">HF_TOKEN</span></code> environment variable or from the token file located at <code class="docutils literal notranslate"><span class="pre">~/.huggingface/token</span></code>. For AzureML system, Olive will retrieve the token from user keyvault secret. If set to <code class="docutils literal notranslate"><span class="pre">False</span></code>, no token will be utilized during this workflow run. The default value is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
 </ul>
@@ -388,12 +393,10 @@ There are some built-in system alias which could also be used as type. For examp
 <span class="w">    </span><span class="nt">&quot;local_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LocalSystem&quot;</span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;aml_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;base_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;conda_file_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conda.yaml&quot;</span>
-<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;aml_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;base_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;conda_file_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conda.yaml&quot;</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
@@ -467,11 +470,9 @@ functions must be able to take the keyword arguments either through the function
 <p>Note that for above <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from <code class="docutils literal notranslate"><span class="pre">config</span> <span class="pre">dict</span></code>, or <code class="docutils literal notranslate"><span class="pre">url</span></code>. Please refer to our <a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu">Resnet</a> example for more details.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_client&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;datastore_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;test&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;relative_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cifar-10-batches-py&quot;</span>
-<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_client&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;datastore_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;test&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;relative_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cifar-10-batches-py&quot;</span>
 <span class="p">}</span>
 <span class="c1">// provide azureml datastore url</span>
 <span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py&quot;</span>
@@ -554,7 +555,7 @@ of the pass contains following items:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">disable_search:</span> <span class="pre">[Boolean]</span></code> This decides whether to use the default value (<code class="docutils literal notranslate"><span class="pre">true</span></code>) or the default searchable values,
 if any, (<code class="docutils literal notranslate"><span class="pre">false</span></code>) for the optional parameters. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default and can be overridden if <code class="docutils literal notranslate"><span class="pre">search_strategy</span></code> under <code class="docutils literal notranslate"><span class="pre">engine</span></code> is
 specified. Otherwise, it is always <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The configuration of the pass.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The configuration of the pass. Its fields can be provided directly to the parent dictionary.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">host:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The host of the pass. It can be a string or a dictionary. If it is a string, it is the name of a system in
 <code class="docutils literal notranslate"><span class="pre">systems</span></code>. If it is a dictionary, it contains the system information. If not specified, the host of the engine will be used.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">evaluator:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The evaluator of the pass. It can be a string or a dictionary. If it is a string, it is the name of an
@@ -662,18 +663,14 @@ the <code class="docutils literal notranslate"><span class="pre">output_name</sp
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;onnx_conversion&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxConversion&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
-<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;onnx_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resnet_calibration_reader&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QUInt8&quot;</span>
-<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resnet_calibration_reader&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QUInt8&quot;</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -690,27 +687,21 @@ When <code class="docutils literal notranslate"><span class="pre">pass_flows</sp
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;onnx_conversion&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxConversion&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
-<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;transformers_optimization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtTransformersOptimization&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;model_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bert&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;num_heads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;hidden_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">768</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;float16&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">&quot;model_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bert&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;num_heads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;hidden_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">768</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;float16&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;onnx_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resnet_calibration_reader&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QUInt8&quot;</span>
-<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resnet_calibration_reader&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QUInt8&quot;</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">},</span>
 <span class="nt">&quot;pass_flows&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -725,14 +716,14 @@ When <code class="docutils literal notranslate"><span class="pre">pass_flows</sp
 <section id="engine-information">
 <h2>Engine Information<a class="headerlink" href="#engine-information" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">engine:</span> <span class="pre">[Dict]</span></code></p>
-<p>This is a dictionary that contains the information of the engine. The information of the engine contains following items:</p>
+<p>This is a dictionary that contains the information of the engine. Its fields can be provided directly to the parent dictionary. The information of the engine contains following items:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">search_strategy:</span> <span class="pre">[Dict</span> <span class="pre">|</span> <span class="pre">Boolean</span> <span class="pre">|</span> <span class="pre">None]</span></code>, <code class="docutils literal notranslate"><span class="pre">None</span></code> by default. The search strategy of the engine. It contains the following items:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">execution_order:</span> <span class="pre">[str]</span></code> The execution order of the optimizations of passes. The options are <code class="docutils literal notranslate"><span class="pre">pass-by-pass</span></code> and <code class="docutils literal notranslate"><span class="pre">joint</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">search_algorithm:</span> <span class="pre">[str]</span></code> The search algorithm of the engine. The available search algorithms are <code class="docutils literal notranslate"><span class="pre">exhaustive</span></code>, <code class="docutils literal notranslate"><span class="pre">random</span></code> and <code class="docutils literal notranslate"><span class="pre">tpe</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">search_algorithm_config:</span> <span class="pre">[Dict]</span></code> The configuration of the search algorithm. The configuration of the search algorithm depends on
-the search algorithm.</p></li>
+the search algorithm. Its fields can be provided directly to the parent dictionary.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">output_model_num:</span> <span class="pre">[int]</span></code> The number of output models from the engine based on metric priority. If not specified, the engine will output all qualified models.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">stop_when_goals_met:</span> <span class="pre">[Boolean]</span></code> This decides whether to stop the search when the metric goals, if any,  are met. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by
 default.</p></li>
@@ -800,10 +791,8 @@ under the current working directory.</p></li>
 <span class="w">    </span><span class="nt">&quot;search_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;execution_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;joint&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;search_algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tpe&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;search_algorithm_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;num_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;seed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
-<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">&quot;num_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;seed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;evaluator&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;common_evaluator&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;host&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_system&quot;</span><span class="p">,</span>

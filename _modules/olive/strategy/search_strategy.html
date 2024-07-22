@@ -72,6 +72,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../features/custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/run_workflow_remotely.html">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -135,7 +136,7 @@
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">NestedConfig</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">validator</span>
 <span class="kn">from</span> <span class="nn">olive.strategy.search_algorithm</span> <span class="kn">import</span> <span class="n">REGISTRY</span><span class="p">,</span> <span class="n">SearchAlgorithm</span>
 <span class="kn">from</span> <span class="nn">olive.strategy.search_results</span> <span class="kn">import</span> <span class="n">SearchResults</span>
@@ -151,7 +152,8 @@
 <span class="c1"># pylint: disable=attribute-defined-outside-init</span>
 
 
-<div class="viewcode-block" id="SearchStrategyConfig"><a class="viewcode-back" href="../../../api/engine.html#olive.strategy.search_strategy.SearchStrategyConfig">[docs]</a><span class="k">class</span> <span class="nc">SearchStrategyConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+<div class="viewcode-block" id="SearchStrategyConfig"><a class="viewcode-back" href="../../../api/engine.html#olive.strategy.search_strategy.SearchStrategyConfig">[docs]</a><span class="k">class</span> <span class="nc">SearchStrategyConfig</span><span class="p">(</span><span class="n">NestedConfig</span><span class="p">):</span>
+    <span class="n">_nested_field_name</span> <span class="o">=</span> <span class="s2">&quot;search_algorithm_config&quot;</span>
     <span class="n">execution_order</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">search_algorithm</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">search_algorithm_config</span><span class="p">:</span> <span class="n">ConfigBase</span> <span class="o">=</span> <span class="kc">None</span>

@@ -72,6 +72,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../features/custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/run_workflow_remotely.html">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -159,6 +160,7 @@
 <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
 <span class="kn">from</span> <span class="nn">olive.exception</span> <span class="kn">import</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">,</span> <span class="n">OlivePassError</span>
 <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
+<span class="kn">from</span> <span class="nn">olive.logging</span> <span class="kn">import</span> <span class="n">enable_filelog</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
 <span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">create_resource_path</span>
 <span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span><span class="p">,</span> <span class="n">SearchStrategyConfig</span>
@@ -195,6 +197,7 @@
         <span class="o">*</span><span class="p">,</span>
         <span class="n">azureml_client_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workflow_id</span> <span class="o">=</span> <span class="n">workflow_id</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">search_strategy</span><span class="p">:</span>
             <span class="c1"># if search strategy is None or False, disable search</span>
@@ -238,8 +241,11 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">False</span>
 
-    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log_to_file</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">log_severity_level</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize engine state. This should be done before running the registered passes.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">log_to_file</span><span class="p">:</span>
+            <span class="n">enable_filelog</span><span class="p">(</span><span class="n">log_severity_level</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">workflow_id</span><span class="p">)</span>
+
         <span class="c1"># set cache dir environment variables</span>
         <span class="c1"># might be used by other parts of olive to cache data</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">set_cache_env</span><span class="p">()</span>
@@ -360,6 +366,8 @@
         <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">evaluate_input_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">log_to_file</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">log_severity_level</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">cloud_cache_config</span><span class="p">:</span> <span class="s2">&quot;CloudCacheConfig&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run all the registered Olive passes on the input model and produce one or more candidate models.</span>
@@ -373,6 +381,8 @@
 <span class="sd">            output_name: output name for the output model, if output_name is provided, the output</span>
 <span class="sd">                model will be saved to engine&#39;s output_dir with the prefix of output_name.</span>
 <span class="sd">            evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.</span>
+<span class="sd">            log_to_file: if save logs to a file.</span>
+<span class="sd">            log_severity_level: severity level of the logger.</span>
 <span class="sd">            cloud_cache_config: Cloud model cache configuration.</span>
 
 <span class="sd">        Return:</span>
@@ -391,7 +401,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No accelerator specified&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">log_to_file</span><span class="p">,</span> <span class="n">log_severity_level</span><span class="p">)</span>
 
         <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span> <span class="k">if</span> <span class="n">output_dir</span> <span class="k">else</span> <span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">()</span>
         <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1068,7 +1078,6 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">,</span> <span class="n">input_model_hash</span>
             <span class="p">)</span>
             <span class="n">pass_run_locally</span> <span class="o">=</span> <span class="n">output_model_config</span> <span class="ow">is</span> <span class="kc">None</span>
-
         <span class="c1"># run pass</span>
         <span class="k">if</span> <span class="n">pass_run_locally</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">enable_cloud_cache</span> <span class="ow">and</span> <span class="n">input_model_config</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
