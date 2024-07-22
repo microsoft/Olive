@@ -8,9 +8,9 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
 
-from olive.common.config_utils import ConfigBase
+from olive.common.config_utils import ConfigBase, NestedConfig
 from olive.common.import_lib import import_user_module
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import Field, validator
 from olive.data.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
 from olive.data.registry import Registry
 
@@ -20,9 +20,11 @@ if TYPE_CHECKING:
     from olive.data.container.data_container import DataContainer
 
 
-class DataComponentConfig(ConfigBase):
+class DataComponentConfig(NestedConfig):
+    _nested_field_name = "params"
+
     type: str = None
-    params: Dict = None
+    params: Dict = Field(default_factory=dict)
 
 
 DefaultDataComponentCombos = {
@@ -98,7 +100,7 @@ class DataConfig(ConfigBase):
                 default_components_type[k] = v
 
         # 2. get default_components from default_components_type
-        return {k: DataComponentConfig(type=v, params={}) for k, v in default_components_type.items()}
+        return {k: DataComponentConfig(type=v) for k, v in default_components_type.items()}
 
     def _fill_in_params(self):
         """Fill in the default parameters for each component.

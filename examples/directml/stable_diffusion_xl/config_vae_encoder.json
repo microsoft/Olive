@@ -1,30 +1,28 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "config": {
-            "model_path": "stabilityai/stable-diffusion-xl-base-1.0",
-            "model_loader": "vae_encoder_load",
-            "model_script": "user_script.py",
-            "io_config": {
-                "input_names": [ "sample", "return_dict" ],
-                "output_names": [ "latent_sample" ],
-                "dynamic_axes": {
-                    "sample": { "0": "batch_size", "1": "num_channels", "2": "height", "3": "width" },
-                    "latent_sample": {
-                        "0": "batch_size",
-                        "1": "num_channels_latent",
-                        "2": "height_latent",
-                        "3": "width_latent"
-                    }
+        "model_path": "stabilityai/stable-diffusion-xl-base-1.0",
+        "model_loader": "vae_encoder_load",
+        "model_script": "user_script.py",
+        "io_config": {
+            "input_names": [ "sample", "return_dict" ],
+            "output_names": [ "latent_sample" ],
+            "dynamic_axes": {
+                "sample": { "0": "batch_size", "1": "num_channels", "2": "height", "3": "width" },
+                "latent_sample": {
+                    "0": "batch_size",
+                    "1": "num_channels_latent",
+                    "2": "height_latent",
+                    "3": "width_latent"
                 }
-            },
-            "dummy_inputs_func": "vae_encoder_conversion_inputs"
-        }
+            }
+        },
+        "dummy_inputs_func": "vae_encoder_conversion_inputs"
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "DmlExecutionProvider" ] } ] }
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "DmlExecutionProvider" ] } ]
         }
     },
     "evaluators": {
@@ -44,59 +42,53 @@
         }
     },
     "passes": {
-        "convert": { "type": "OnnxConversion", "config": { "target_opset": 14 } },
+        "convert": { "type": "OnnxConversion", "target_opset": 14 },
         "optimize": {
             "type": "OrtTransformersOptimization",
-            "config": {
-                "model_type": "vae",
-                "opt_level": 0,
-                "float16": true,
-                "use_gpu": true,
-                "keep_io_types": true,
-                "optimization_options": {
-                    "enable_gelu": true,
-                    "enable_layer_norm": true,
-                    "enable_attention": true,
-                    "use_multi_head_attention": true,
-                    "enable_skip_layer_norm": false,
-                    "enable_embed_layer_norm": true,
-                    "enable_bias_skip_layer_norm": false,
-                    "enable_bias_gelu": true,
-                    "enable_gelu_approximation": false,
-                    "enable_qordered_matmul": false,
-                    "enable_shape_inference": true,
-                    "enable_gemm_fast_gelu": false,
-                    "enable_nhwc_conv": false,
-                    "enable_group_norm": true,
-                    "enable_bias_splitgelu": false,
-                    "enable_packed_qkv": true,
-                    "enable_packed_kv": true,
-                    "enable_bias_add": false,
-                    "group_norm_channels_last": false
-                },
-                "force_fp32_ops": [ "RandomNormalLike" ],
-                "force_fp16_inputs": { "GroupNorm": [ 0, 1, 2 ] }
-            }
+            "model_type": "vae",
+            "opt_level": 0,
+            "float16": true,
+            "use_gpu": true,
+            "keep_io_types": true,
+            "optimization_options": {
+                "enable_gelu": true,
+                "enable_layer_norm": true,
+                "enable_attention": true,
+                "use_multi_head_attention": true,
+                "enable_skip_layer_norm": false,
+                "enable_embed_layer_norm": true,
+                "enable_bias_skip_layer_norm": false,
+                "enable_bias_gelu": true,
+                "enable_gelu_approximation": false,
+                "enable_qordered_matmul": false,
+                "enable_shape_inference": true,
+                "enable_gemm_fast_gelu": false,
+                "enable_nhwc_conv": false,
+                "enable_group_norm": true,
+                "enable_bias_splitgelu": false,
+                "enable_packed_qkv": true,
+                "enable_packed_kv": true,
+                "enable_bias_add": false,
+                "group_norm_channels_last": false
+            },
+            "force_fp32_ops": [ "RandomNormalLike" ],
+            "force_fp16_inputs": { "GroupNorm": [ 0, 1, 2 ] }
         },
         "optimize_cuda": {
             "type": "OrtTransformersOptimization",
-            "config": {
-                "model_type": "vae",
-                "opt_level": 0,
-                "float16": true,
-                "use_gpu": true,
-                "keep_io_types": true
-            }
+            "model_type": "vae",
+            "opt_level": 0,
+            "float16": true,
+            "use_gpu": true,
+            "keep_io_types": true
         }
     },
     "pass_flows": [ [ "convert", "optimize" ] ],
-    "engine": {
-        "evaluator": "common_evaluator",
-        "evaluate_input_model": false,
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_name": "vae_encoder",
-        "output_dir": "footprints"
-    }
+    "evaluator": "common_evaluator",
+    "evaluate_input_model": false,
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_name": "vae_encoder",
+    "output_dir": "footprints"
 }

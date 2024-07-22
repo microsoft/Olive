@@ -6,29 +6,19 @@
     },
     "input_model": {
         "type": "PyTorchModel",
-        "config": {
-            "model_path": "models/resnet_trained_for_cifar10.pt",
-            "io_config": {
-                "input_names": [ "input" ],
-                "input_shapes": [ [ 1, 3, 32, 32 ] ],
-                "output_names": [ "output" ],
-                "dynamic_axes": { "input": { "0": "batch_size" }, "output": { "0": "batch_size" } }
-            }
-        }
+        "model_path": "dummy_model.pt",
+        "io_config": { "input_names": [ "x" ], "input_shapes": [ [ 1, 2, 3 ] ], "output_names": [ "y" ] }
     },
     "systems": {
-        "local_system": { "type": "LocalSystem" },
         "azureml_system": {
             "type": "AzureML",
-            "config": {
-                "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ],
-                "aml_compute": "cpu-cluster",
-                "aml_docker_config": {
-                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                    "conda_file_path": "conda.yaml"
-                },
-                "is_dev": true
-            }
+            "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ],
+            "aml_compute": "cpu-cluster",
+            "aml_docker_config": {
+                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                "conda_file_path": "conda.yaml"
+            },
+            "is_dev": true
         }
     },
     "data_configs": [
@@ -36,24 +26,17 @@
             "name": "accuracy_data_config",
             "type": "HuggingfaceContainer",
             "load_dataset_config": {
-                "params": {
-                    "data_dir": {
-                        "type": "azureml_datastore",
-                        "config": { "datastore_name": "my_datastore", "relative_path": "data" }
-                    }
-                }
+                "data_dir": { "type": "azureml_datastore", "datastore_name": "my_datastore", "relative_path": "data" }
             },
-            "dataloader_config": { "params": { "batch_size": 16 } }
+            "dataloader_config": { "batch_size": 16 }
         },
         {
             "name": "latency_data_config",
             "type": "HuggingfaceContainer",
             "load_dataset_config": {
-                "params": {
-                    "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/test/cifar-10-batches-py"
-                }
+                "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/test/cifar-10-batches-py"
             },
-            "dataloader_config": { "params": { "batch_size": 16 } }
+            "dataloader_config": { "batch_size": 16 }
         }
     ],
     "evaluators": {
@@ -72,10 +55,7 @@
                         },
                         { "name": "top5", "goal": { "type": "max-degradation", "value": 0.01 } }
                     ],
-                    "user_config": {
-                        "user_script": "user_script.py",
-                        "evaluate_func": "eval_accuracy"
-                    }
+                    "user_config": { "user_script": "user_script.py", "evaluate_func": "eval_accuracy" }
                 },
                 {
                     "name": "latency",
@@ -95,39 +75,8 @@
             ]
         }
     },
-    "passes": {
-        "onnx_conversion": { "type": "OnnxConversion", "config": { "target_opset": 13 } },
-        "onnx_quantization": {
-            "type": "OnnxQuantization",
-            "config": {
-                "user_script": "user_script.py",
-                "data_dir": "data",
-                "dataloader_func": "resnet_calibration_reader",
-                "weight_type": "QUInt8",
-                "activation_type": "QUInt8",
-                "quant_preprocess": true
-            }
-        },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "create_dataloader",
-                "batch_size": 16,
-                "data_dir": {
-                    "type": "azureml_datastore",
-                    "config": { "datastore_name": "my_datastore", "relative_path": "data" }
-                }
-            }
-        }
-    },
-    "engine": {
-        "log_severity_level": 0,
-        "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
-        "evaluator": "common_evaluator",
-        "host": "azureml_system",
-        "target": "azureml_system",
-        "clean_cache": true,
-        "cache_dir": "cache"
-    }
+    "passes": { "onnx_conversion": { "type": "OnnxConversion" }, "perf_tuning": { "type": "OrtPerfTuning" } },
+    "evaluator": "common_evaluator",
+    "host": "azureml_system",
+    "target": "azureml_system"
 }

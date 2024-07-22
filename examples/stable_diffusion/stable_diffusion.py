@@ -247,12 +247,12 @@ def optimize(
         olive_config = update_config_with_provider(olive_config, provider)
 
         if submodel_name in ("unet", "text_encoder"):
-            olive_config["input_model"]["config"]["model_path"] = model_id
+            olive_config["input_model"]["model_path"] = model_id
         else:
             # Only the unet & text encoder are affected by LoRA, so it's better to use the base model ID for
             # other models: the Olive cache is based on the JSON config, and two LoRA variants with the same
             # base model ID should be able to reuse previously optimized copies.
-            olive_config["input_model"]["config"]["model_path"] = base_model_id
+            olive_config["input_model"]["model_path"] = base_model_id
 
         run_res = olive_run(olive_config)
 
@@ -312,9 +312,11 @@ def parse_common_args(raw_args):
         "--strength",
         default=1.0,
         type=float,
-        help="Value between 0.0 and 1.0, that controls the amount of noise that is added to the input image. "
-        "Values that approach 1.0 enable lots of variations but will also produce images "
-        "that are not semantically consistent with the input.",
+        help=(
+            "Value between 0.0 and 1.0, that controls the amount of noise that is added to the input image. "
+            "Values that approach 1.0 enable lots of variations but will also produce images "
+            "that are not semantically consistent with the input."
+        ),
     )
     parser.add_argument("--image_size", default=512, type=int, help="Width and height of the images to generate")
     parser.add_argument(

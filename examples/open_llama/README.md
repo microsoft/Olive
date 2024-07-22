@@ -39,9 +39,7 @@ When you run the example config for other larger models, you may need
     ```json
     "input_model":{
         "type": "HfModel",
-        "config": {
-            "model_path": "openlm-research/open_llama_3b", // to change based on the model you use
-        }
+        "model_path": "openlm-research/open_llama_3b", // to change based on the model you use
     }
     ```
     ```python
@@ -57,16 +55,14 @@ When you run the example config for other larger models, you may need
     ```json
     "optimize": {
         "type": "OrtTransformersOptimization",
-        "config": {
-            "model_type": "gpt2",
-            "float16": true,
-            "use_gpu": false,
-            "keep_io_types": true,
-            "num_heads": 32, // to change based on the model you use
-            "hidden_size": 4096, // to change based on the model you use
-            "optimization_options": {
-                "use_multi_head_attention": false
-            }
+        "model_type": "gpt2",
+        "float16": true,
+        "use_gpu": false,
+        "keep_io_types": true,
+        "num_heads": 32, // to change based on the model you use
+        "hidden_size": 4096, // to change based on the model you use
+        "optimization_options": {
+            "use_multi_head_attention": false
         }
     }
     ```
@@ -113,12 +109,10 @@ To compress model with 4-bits weight-only quantization, you may need
 ```json
 "quantization": {
     "type": "IncStaticQuantization",
-    "config": {
-        "user_script": "user_script.py",
-        "approach": "weight_only",
-        "weight_only_config":{
-            "algorithm": "RTN"
-        }
+    "user_script": "user_script.py",
+    "approach": "weight_only",
+    "weight_only_config":{
+        "algorithm": "RTN"
     }
 }
 ```
@@ -126,12 +120,10 @@ To compress model with 4-bits weight-only quantization, you may need
 ```json
 "quantization": {
     "type": "IncStaticQuantization",
-    "config": {
-        "user_script": "user_script.py",
-        "approach": "weight_only",
-        "weight_only_config":{
-            "algorithm": "GPTQ"
-        }
+    "user_script": "user_script.py",
+    "approach": "weight_only",
+    "weight_only_config":{
+        "algorithm": "GPTQ"
     },
     "dataloader_func": "calib_dataloader",
 }

@@ -31,9 +31,7 @@ Please refer to [OpenVINOConversion](openvino_conversion) for more details about
 ```json
 {
     "type": "OpenVINOConversion",
-    "config": {
-        "input": [1, 3, 32, 32]
-    }
+    "input": [1, 3, 32, 32]
 }
 ```
 
@@ -49,16 +47,12 @@ Please refer to [OpenVINOQuantization](openvino_quantization) for more details a
 ### Example Configuration
 ```json
 {
-    "quantization": {
-        "type": "OpenVINOQuantizationWithAccuracy",
-        "config": {
-            "data_dir": "data",
-            "user_script": "user_script.py",
-            "dataloader_func": "create_dataloader",
-            "validation_func": "validate",
-            "max_drop": 0.01,
-            "drop_type": "ABSOLUTE"
-        }
-    }
+    "type": "OpenVINOQuantizationWithAccuracy",
+    "data_dir": "data",
+    "user_script": "user_script.py",
+    "dataloader_func": "create_dataloader",
+    "validation_func": "validate",
+    "max_drop": 0.01,
+    "drop_type": "ABSOLUTE"
 }
 ```

@@ -1,18 +1,16 @@
 {
     "input_model": {
         "type": "HfModel",
-        "config": {
-            "model_path": "openlm-research/open_llama_3b",
-            "io_config": {
-                "input_names": [ "input_ids", "attention_mask", "position_ids" ],
-                "output_names": [ "logits" ],
-                "input_shapes": [ [ 2, 8 ], [ 2, 8 ], [ 2, 8 ] ],
-                "input_types": [ "int32", "int32", "int32" ],
-                "dynamic_axes": {
-                    "input_ids": { "0": "batch_size", "1": "sequence_length" },
-                    "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
-                    "position_ids": { "0": "batch_size", "1": "sequence_length" }
-                }
+        "model_path": "openlm-research/open_llama_3b",
+        "io_config": {
+            "input_names": [ "input_ids", "attention_mask", "position_ids" ],
+            "output_names": [ "logits" ],
+            "input_shapes": [ [ 2, 8 ], [ 2, 8 ], [ 2, 8 ] ],
+            "input_types": [ "int32", "int32", "int32" ],
+            "dynamic_axes": {
+                "input_ids": { "0": "batch_size", "1": "sequence_length" },
+                "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
+                "position_ids": { "0": "batch_size", "1": "sequence_length" }
             }
         }
     },
@@ -35,42 +33,34 @@
     "passes": {
         "conversion_merged": {
             "type": "OnnxConversion",
-            "config": {
-                "target_opset": 15,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "target_opset": 15,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
-            "config": {
-                "model_type": "gpt2",
-                "use_gpu": false,
-                "keep_io_types": true,
-                "num_heads": 32,
-                "hidden_size": 4096,
-                "optimization_options": { "use_multi_head_attention": false },
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "model_type": "gpt2",
+            "use_gpu": false,
+            "keep_io_types": true,
+            "num_heads": 32,
+            "hidden_size": 4096,
+            "optimization_options": { "use_multi_head_attention": false },
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         },
         "quantization": {
             "type": "IncStaticQuantization",
-            "config": {
-                "user_script": "user_script.py",
-                "approach": "weight_only",
-                "weight_only_config": { "bits": 4, "algorithm": "GPTQ" },
-                "dataloader_func": "calib_dataloader",
-                "calibration_sampling_size": [ 8 ],
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "user_script": "user_script.py",
+            "approach": "weight_only",
+            "weight_only_config": { "bits": 4, "algorithm": "GPTQ" },
+            "dataloader_func": "calib_dataloader",
+            "calibration_sampling_size": [ 8 ],
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         }
     },
-    "engine": {
-        "evaluator": "common_evaluator",
-        "cache_dir": "cache",
-        "output_name": "ollama",
-        "output_dir": "models/open_llama_inc_woq"
-    }
+    "evaluator": "common_evaluator",
+    "cache_dir": "cache",
+    "output_name": "ollama",
+    "output_dir": "models/open_llama_inc_woq"
 }

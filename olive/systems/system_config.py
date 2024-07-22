@@ -9,7 +9,7 @@ from typing import Dict, List, Union
 
 import olive.systems.system_alias as system_alias
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
 from olive.common.pydantic_v1 import root_validator, validator
 from olive.systems.common import (
     AcceleratorConfig,
@@ -137,7 +137,7 @@ def import_system_from_type(system_type: SystemType):
     return getattr(module, class_name)
 
 
-class SystemConfig(ConfigBase):
+class SystemConfig(NestedConfig):
     type: SystemType
     config: TargetUserConfig = None
 

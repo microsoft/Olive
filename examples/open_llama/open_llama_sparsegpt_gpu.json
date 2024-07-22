@@ -1,12 +1,9 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "config": { "model_path": "openlm-research/open_llama_3b" }
-    },
+    "input_model": { "type": "HfModel", "model_path": "openlm-research/open_llama_3b" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "CPUExecutionProvider" ] } ] }
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
         }
     },
     "data_configs": [
@@ -14,34 +11,28 @@
             "name": "c4_train",
             "type": "HuggingfaceContainer",
             "load_dataset_config": {
-                "params": {
-                    "data_name": "allenai/c4",
-                    "subset": "allenai--c4",
-                    "split": "train",
-                    "data_files": { "train": "en/c4-train.00000-of-01024.json.gz" }
-                }
+                "data_name": "allenai/c4",
+                "subset": "allenai--c4",
+                "split": "train",
+                "data_files": { "train": "en/c4-train.00000-of-01024.json.gz" }
             },
             "pre_process_data_config": {
-                "params": {
-                    "corpus_strategy": "join-random",
-                    "add_special_tokens": false,
-                    "source_max_len": 2048,
-                    "max_samples": 128,
-                    "random_seed": 42
-                }
+                "corpus_strategy": "join-random",
+                "add_special_tokens": false,
+                "source_max_len": 2048,
+                "max_samples": 128,
+                "random_seed": 42
             }
         },
         {
             "name": "wikitext2_test",
             "type": "HuggingfaceContainer",
             "load_dataset_config": {
-                "params": {
-                    "data_name": "wikitext",
-                    "subset": "wikitext-2-raw-v1",
-                    "split": "test"
-                }
-            },
-            "pre_process_data_config": { "params": { "add_special_tokens": false, "source_max_len": 2048 } }
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "test"
+             },
+            "pre_process_data_config": { "add_special_tokens": false, "source_max_len": 2048 }
         }
     ],
     "evaluators": {
@@ -57,25 +48,14 @@
         }
     },
     "passes": {
-        "sparsegpt": {
-            "type": "SparseGPT",
-            "config": {
-                "sparsity": [ 2, 4 ],
-                "data_config": "c4_train"
-            }
-        },
-        "trt_conversion": {
-            "type": "TorchTRTConversion",
-            "config": { "data_config": "c4_train" }
-        }
+        "sparsegpt": { "type": "SparseGPT", "sparsity": [ 2, 4 ], "data_config": "c4_train" },
+        "trt_conversion": { "type": "TorchTRTConversion", "data_config": "c4_train" }
     },
-    "engine": {
-        "log_severity_level": 0,
-        "search_strategy": false,
-        "evaluator": "common_evaluator",
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir": "models/open_llama_sparsegpt"
-    }
+    "log_severity_level": 0,
+    "search_strategy": false,
+    "evaluator": "common_evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models/open_llama_sparsegpt"
 }

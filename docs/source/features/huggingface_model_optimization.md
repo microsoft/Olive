@@ -11,9 +11,7 @@ Olive can automatically retrieve models from Huggingface hub:
 ```json
 "input_model":{
     "type": "HfModel",
-    "config": {
-        "model_path": "meta-llama/Llama-2-7b-hf"
-    }
+    "model_path": "meta-llama/Llama-2-7b-hf"
 }
 ```
 
@@ -22,9 +20,7 @@ If you have the Huggingface model prepared in local:
 ```json
 "input_model":{
     "type": "HfModel",
-    "config": {
-        "model_path": "path/to/local/model"
-    }
+    "model_path": "path/to/local/model"
 }
 ```
 **Note:** You must also have the tokenizer and other necessary files in the same local directory.
@@ -37,15 +33,11 @@ Example: [Llama-2-7b](https://ml.azure.com/models/Llama-2-7b/version/13/catalog/
 ```json
 "input_model":{
     "type": "HfModel",
-    "config": {
-        "model_path": {
-            "type": "azureml_registry_model",
-            "config": {
-                "name": "Llama-2-7b",
-                "registry_name": "azureml-meta",
-                "version": "13"
-            }
-        }
+    "model_path": {
+        "type": "azureml_registry_model",
+        "name": "Llama-2-7b",
+        "registry_name": "azureml-meta",
+        "version": "13"
     }
 }
 ```
@@ -61,18 +53,16 @@ You can also provide your own IO config which will override the automatically fe
 ```json
 "input_model": {
     "type": "HfModel",
-    "config": {
-        "model_path": "meta-llama/Llama-2-7b-hf",
-        "io_config": {
-            "input_names": [ "input_ids", "attention_mask", "position_ids" ],
-            "output_names": [ "logits" ],
-            "input_shapes": [ [ 2, 8 ], [ 2, 8 ], [ 2, 8 ] ],
-            "input_types": [ "int64", "int64", "int64" ],
-            "dynamic_axes": {
-                "input_ids": { "0": "batch_size", "1": "sequence_length" },
-                "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
-                "position_ids": { "0": "batch_size", "1": "sequence_length" }
-            }
+    "model_path": "meta-llama/Llama-2-7b-hf",
+    "io_config": {
+        "input_names": [ "input_ids", "attention_mask", "position_ids" ],
+        "output_names": [ "logits" ],
+        "input_shapes": [ [ 2, 8 ], [ 2, 8 ], [ 2, 8 ] ],
+        "input_types": [ "int64", "int64", "int64" ],
+        "dynamic_axes": {
+            "input_ids": { "0": "batch_size", "1": "sequence_length" },
+            "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
+            "position_ids": { "0": "batch_size", "1": "sequence_length" }
         }
     }
 }
@@ -91,18 +81,14 @@ Example: datasets in `data_configs`:
     "name": "oasst1_train",
     "type": "HuggingfaceContainer",
     "load_dataset_config": {
-        "params": {
-            "data_name": "timdettmers/openassistant-guanaco",
-            "split": "train"
-        }
+        "data_name": "timdettmers/openassistant-guanaco",
+        "split": "train"
     },
     "pre_process_data_config": {
-        "params": {
-            "text_cols": ["text"],
-            "corpus_strategy": "line-by-line",
-            "source_max_len": 512,
-            "pad_to_max_len": false
-        }
+        "text_cols": ["text"],
+        "corpus_strategy": "line-by-line",
+        "source_max_len": 512,
+        "pad_to_max_len": false
     }
 }]
 ```
@@ -111,9 +97,7 @@ Pass config:
 ```json
 "perf_tuning": {
     "type": "OrtPerfTuning",
-    "config": {
-        "data_config": "oasst1_train"
-    }
+    "data_config": "oasst1_train"
 }
 ```
 

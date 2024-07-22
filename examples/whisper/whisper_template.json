@@ -1,39 +1,33 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "CompositeModel",
-        "config": {
-            "model_component_names": ["encoder_decoder_init", "decoder"],
-            "model_components": [
-                {
-                    "type": "PyTorchModel",
-                    "config" : {
-                        "model_path": "<place_holder>",
-                        "model_script": "code/user_script.py",
-                        "script_dir": "code",
-                        "model_loader": "get_encoder_decoder_init",
-                        "io_config": "get_encdec_io_config",
-                        "dummy_inputs_func": "encoder_decoder_init_dummy_inputs"
-                    }
-                },
-                {
-                    "type": "PyTorchModel",
-                    "config" : {
-                        "model_path": "<place_holder>",
-                        "model_script": "code/user_script.py",
-                        "script_dir": "code",
-                        "model_loader": "get_decoder",
-                        "io_config": "get_dec_io_config",
-                        "dummy_inputs_func": "decoder_dummy_inputs"
-                    }
-                }
-            ],
-            "model_attributes": "<place_holder>"
-        }
+        "model_component_names": [ "encoder_decoder_init", "decoder" ],
+        "model_components": [
+            {
+                "type": "PyTorchModel",
+                "model_path": "<place_holder>",
+                "model_script": "code/user_script.py",
+                "script_dir": "code",
+                "model_loader": "get_encoder_decoder_init",
+                "io_config": "get_encdec_io_config",
+                "dummy_inputs_func": "encoder_decoder_init_dummy_inputs"
+            },
+            {
+                "type": "PyTorchModel",
+                "model_path": "<place_holder>",
+                "model_script": "code/user_script.py",
+                "script_dir": "code",
+                "model_loader": "get_decoder",
+                "io_config": "get_dec_io_config",
+                "dummy_inputs_func": "decoder_dummy_inputs"
+            }
+        ],
+        "model_attributes": "<place_holder>"
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "device": "<place_holder>", "execution_providers": "<place_holder>" } ] }
+            "accelerators": [ { "device": "<place_holder>", "execution_providers": "<place_holder>" } ]
         }
     },
     "data_configs": [
@@ -44,11 +38,9 @@
             "script_dir": "code",
             "load_dataset_config": {
                 "type": "whisper_dataset",
-                "params": {
-                    "data_dir": "data",
-                    "model_name": "<place_holder>",
-                    "use_audio_decoder": "<place_holder>"
-                }
+                "data_dir": "data",
+                "model_name": "<place_holder>",
+                "use_audio_decoder": "<place_holder>"
             },
             "pre_process_data_config": { "type": "skip_pre_process" },
             "post_process_data_config": { "type": "skip_post_process" },
@@ -68,44 +60,40 @@
         }
     },
     "passes": {
-        "conversion": { "type": "OnnxConversion", "config": { "target_opset": 17 } },
+        "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "config": { "optimization_options": { "use_multi_head_attention": true }, "use_gpu": "<place_holder>" }
+            "optimization_options": { "use_multi_head_attention": true },
+            "use_gpu": "<place_holder>"
         },
-        "mixed_precision": { "type": "OrtMixedPrecision", "config": { "atol": 1e-6 } },
+        "mixed_precision": { "type": "OrtMixedPrecision", "atol": 1e-06 },
         "onnx_dynamic_quantization": {
             "type": "OnnxDynamicQuantization",
-            "config": {
-                "per_channel": false,
-                "reduce_range": false,
-                "op_types_to_quantize": [ "MatMul", "Gemm", "Gather" ],
-                "MatMulConstBOnly": false
-            }
+            "per_channel": false,
+            "reduce_range": false,
+            "op_types_to_quantize": [ "MatMul", "Gemm", "Gather" ],
+            "MatMulConstBOnly": false
         },
         "inc_dynamic_quantization": { "type": "IncDynamicQuantization" },
         "insert_beam_search": {
             "type": "InsertBeamSearch",
-            "config": { "use_forced_decoder_ids": "<place_holder>", "use_logits_processor": "<place_holder>" }
+            "use_forced_decoder_ids": "<place_holder>",
+            "use_logits_processor": "<place_holder>"
         },
         "prepost": {
             "type": "AppendPrePostProcessingOps",
-            "config": {
-                "tool_command": "whisper",
-                "tool_command_args": { "model_name": "<place_holder>", "use_audio_decoder": "<place_holder>" },
-                "target_opset": 17
-            }
+            "tool_command": "whisper",
+            "tool_command_args": { "model_name": "<place_holder>", "use_audio_decoder": "<place_holder>" },
+            "target_opset": 17
         }
     },
-    "engine": {
-        "log_severity_level": 0,
-        "host": "local_system",
-        "target": "local_system",
-        "evaluator": "common_evaluator",
-        "evaluate_input_model": false,
-        "clean_cache": false,
-        "cache_dir": "cache",
-        "output_dir": "models",
-        "output_name": "<place_holder>"
-    }
+    "log_severity_level": 0,
+    "host": "local_system",
+    "target": "local_system",
+    "evaluator": "common_evaluator",
+    "evaluate_input_model": false,
+    "clean_cache": false,
+    "cache_dir": "cache",
+    "output_dir": "models",
+    "output_name": "<place_holder>"
 }

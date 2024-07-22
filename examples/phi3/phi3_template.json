@@ -1,19 +1,14 @@
 {
-    "input_model":{
-        "type": "HfModel",
-        "config": { "model_path": "microsoft/Phi-3-mini-4k-instruct" }
-    },
+    "input_model": { "type": "HfModel", "model_path": "microsoft/Phi-3-mini-4k-instruct" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ] }
+            "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ]
         }
     },
     "passes": { },
-    "engine": {
-        "cache_dir": "cache",
-        "output_dir": "models",
-        "host": "local_system",
-        "target": "local_system"
-    }
+    "cache_dir": "cache",
+    "output_dir": "models",
+    "host": "local_system",
+    "target": "local_system"
 }

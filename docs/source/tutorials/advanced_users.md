@@ -24,14 +24,12 @@ from olive.models import Modelconfig
 
 config = {
     "type": "PyTorchModel",
-    "config": {
-        "model_path": "resnet.pt",
-        "io_config": {
-            "input_names": ["input"],
-            "input_shapes": [[1, 3, 32, 32]],
-            "output_names": ["output"],
-            "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}},
-        }
+    "model_path": "resnet.pt",
+    "io_config": {
+        "input_names": ["input"],
+        "input_shapes": [[1, 3, 32, 32]],
+        "output_names": ["output"],
+        "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}},
     }
 }
 input_model = ModelConfig.parse_obj(config)

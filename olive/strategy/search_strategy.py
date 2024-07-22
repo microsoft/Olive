@@ -6,7 +6,7 @@ import logging
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
 from olive.common.pydantic_v1 import validator
 from olive.strategy.search_algorithm import REGISTRY, SearchAlgorithm
 from olive.strategy.search_results import SearchResults
@@ -22,7 +22,8 @@ _VALID_EXECUTION_ORDERS = ("joint", "pass-by-pass")
 # pylint: disable=attribute-defined-outside-init
 
 
-class SearchStrategyConfig(ConfigBase):
+class SearchStrategyConfig(NestedConfig):
+    _nested_field_name = "search_algorithm_config"
     execution_order: str
     search_algorithm: str
     search_algorithm_config: ConfigBase = None

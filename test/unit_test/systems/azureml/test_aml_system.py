@@ -72,7 +72,6 @@ class TestAzureMLSystem:
                 },
             },
             "type": "HfModel",
-            "resource_names": [],
         }
 
     METRIC_TEST_CASE: ClassVar[List[Metric]] = [

@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
 import yaml
 
-from olive.common.pydantic_v1 import BaseModel, Field, create_model, root_validator, validator
+from olive.common.pydantic_v1 import BaseModel, create_model, root_validator, validator
 from olive.common.utils import hash_function, hash_object
 
 logger = logging.getLogger(__name__)
@@ -162,51 +162,53 @@ class ConfigDictBase(ConfigBase):
         return len(self.__root__) if self.__root__ else 0
 
 
-class ConfigWithExtraArgs(ConfigBase):
+class NestedConfig(ConfigBase):
     """Config class that automatically gathers all values.
 
-    The values are not defined in the class fields and inserted into a dict Field called `extra_args`.
+    The values are defined in the class fields and inserted into a dict Field called described by `_nested_field_name`.
+    Generally used for configs that have a nested structure like:
+        {
+            "type": "object",
+            "config": {
+                "key1": "value1",
+                "key2": "value2"
+            }
+        }
+    Must ensure that there are no fields inside the `_nested_field_name` dict/class that are also defined as fields in
+    this class. The fields of this class take precedence over the fields in the nested class.
     """
 
-    extra_args: Dict = Field(
-        None,
-        description=(
-            "Dictionary of extra arguments that are not defined in the class fields. Values can be provided in two"
-            " ways: 1. As a dict value to `extra_args` key. 2. As keyword arguments to the class constructor. Any"
-            " values provided as keyword arguments will be added to the `extra_args` dict. `extra_args` values take"
-            " precedence over keyword arguments if the same key is provided in both."
-        ),
-    )
+    _nested_field_name: str = "config"
 
     @root_validator(pre=True)
-    def gather_extra_args(cls, values):
-        other_fields = set()
-        for field in cls.__fields__.values():
-            for name in (field.name, field.alias):
-                if name != "extra_args":
-                    other_fields.add(name)
+    def gather_nested_field(cls, values):
+        # print("here", cls.__name__)
+        all_fields = {name_or_alias for field in cls.__fields__.values() for name_or_alias in (field.name, field.alias)}
+        if cls._nested_field_name not in all_fields:
+            logger.debug(
+                "TypedConfig is used but is missing the nested field name '%s'. Ignoring root validator",
+                cls._nested_field_name,
+            )
+            return values
 
-        extra_args = values.pop("extra_args", {}) or {}
-        # ensure that extra_args does not contain any field names
-        for name in list(extra_args):  # need a copy of the keys since we are mutating the dict
-            if name in other_fields:
-                logger.warning(
-                    "'%s' provided to 'extra_args' is already defined in the class fields. Please provide the"
-                    " value directly to the field. Ignoring.",
-                    name,
-                )
-                del extra_args[name]
-        # put any values provided as keyword arguments into extra_args
+        other_fields = all_fields - {cls._nested_field_name}
+
+        nested_field = values.pop(cls._nested_field_name, {}) or {}
+        if isinstance(nested_field, ConfigBase):
+            # TODO(jambayk): do we want to allow this case? Or only allow one of "_nested_field_name" or kwargs?
+            nested_field = nested_field.dict()
+
+        # put any other fields into the nested field
         for name in list(values):  # need a copy of the keys since we are mutating the dict
             if name in other_fields:
                 continue
-            if name in extra_args:
-                # extra_args takes precedence over keyword arguments
-                logger.warning("kwarg '%s' is already defined in 'extra_args'. Ignoring.", name)
+            if name in nested_field:
+                logger.warning("field '%s' is already defined in '%s'. Ignoring.", name, cls._nested_field_name)
             else:
-                extra_args[name] = values.pop(name)
-        if extra_args:
-            values["extra_args"] = extra_args
+                nested_field[name] = values.pop(name)
+
+        if nested_field or cls.__fields__[cls._nested_field_name].required:
+            values[cls._nested_field_name] = nested_field
         return values
 
 
@@ -306,8 +308,12 @@ def validate_config(
     if isinstance(config, dict):
         user_keys = set(config.keys())
         config = instance_class(**config)
-        config_keys = set(config.dict().keys())
+        # check for unused keys
+        config_dict = config.dict()
+        config_keys = set(config_dict.keys())
         unused_keys = user_keys - config_keys
+        if isinstance(config, NestedConfig):
+            unused_keys -= set((config_dict.get(config._nested_field_name) or {}).keys())  # pylint: disable=W0212
         if unused_keys and warn_unused_keys:
             logger.warning("Keys %s are not part of %s. Ignoring them.", unused_keys, instance_class.__name__)
     # for dynamically created class by Pydantic create_model, the classes are different even if the class names are same

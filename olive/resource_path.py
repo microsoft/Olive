@@ -7,13 +7,14 @@ import re
 import shutil
 import tempfile
 from abc import abstractmethod
+from copy import deepcopy
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Type, Union
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.auto_config import AutoConfigClass
-from olive.common.config_utils import ConfigBase, ConfigParam, serialize_to_json, validate_config
+from olive.common.config_utils import ConfigBase, ConfigParam, NestedConfig, serialize_to_json, validate_config
 from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import copy_dir, retry_func
 
@@ -91,7 +92,7 @@ class ResourcePath(AutoConfigClass):
         return hash((self.config.to_json(), self.type))
 
 
-class ResourcePathConfig(ConfigBase):
+class ResourcePathConfig(NestedConfig):
     type: ResourceType = Field(..., description="Type of the resource.")
     config: ConfigBase = Field(..., description="Config of the resource.")
 
@@ -173,7 +174,8 @@ def find_all_resources(config, ignore_keys: Optional[List[str]] = None) -> Dict[
     """
     if isinstance(config, VALID_RESOURCE_CONFIGS):
         try:
-            resource_path = create_resource_path(config)
+            # don't want to accidentally modify the original config
+            resource_path = create_resource_path(deepcopy(config))
             if resource_path.is_string_name():
                 return {}
             return {(): resource_path}

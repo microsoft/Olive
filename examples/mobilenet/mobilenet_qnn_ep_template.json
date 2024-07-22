@@ -1,17 +1,15 @@
 {
-    "input_model": { "type": "OnnxModel", "config": { "model_path": "models/mobilenetv2-12.onnx" } },
+    "input_model": { "type": "OnnxModel", "model_path": "models/mobilenetv2-12.onnx" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ] }
+            "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ]
         },
         "qnn_ep_env": {
             "type": "IsolatedORT",
-            "config": {
-                "python_environment_path": "<qnn_env_path>",
-                "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ],
-                "preprend_to_path": [ "<qnn_lib_path>" ]
-            }
+            "python_environment_path": "<qnn_env_path>",
+            "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ],
+            "preprend_to_path": [ "<qnn_lib_path>" ]
         }
     },
     "evaluators": {
@@ -53,20 +51,16 @@
         "qnn_preprocess": { "type": "QNNPreprocess" },
         "quantization": {
             "type": "OnnxStaticQuantization",
-            "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "mobilenet_calibration_reader",
-                "data_dir": "data/eval",
-                "activation_type": "QUInt16",
-                "weight_type": "QUInt8"
-            }
+            "user_script": "user_script.py",
+            "dataloader_func": "mobilenet_calibration_reader",
+            "data_dir": "data/eval",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8"
         }
     },
-    "engine": {
-        "target": "<target>",
-        "evaluator": "<evaluator>",
-        "evaluate_input_model": false,
-        "cache_dir": "cache",
-        "output_dir": "models/mobilenet_qnn_ep"
-    }
+    "target": "<target>",
+    "evaluator": "<evaluator>",
+    "evaluate_input_model": false,
+    "cache_dir": "cache",
+    "output_dir": "models/mobilenet_qnn_ep"
 }

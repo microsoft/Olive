@@ -35,12 +35,10 @@ Please refer to [SNPEConversion](snpe_conversion) for more details about the pas
 ```json
 {
     "type": "SNPEConversion",
-    "config": {
-        "input_names": ["input"],
-        "input_shapes": [[1, 299, 299, 3]],
-        "output_names": ["InceptionV3/Predictions/Reshape_1"],
-        "output_shapes": [[1, 1001]],
-    }
+    "input_names": ["input"],
+    "input_shapes": [[1, 299, 299, 3]],
+    "output_names": ["InceptionV3/Predictions/Reshape_1"],
+    "output_shapes": [[1, 1001]]
 }
 ```
 
@@ -56,12 +54,10 @@ Please refer to [SNPEQuantization](snpe_quantization) for more details about the
 ```json
 {
     "type": "SNPEQuantization",
-    "config":  {
-        "data_dir": "data_dir",
-        "user_script": "user_script.py",
-        "dataloader_func": "create_quant_dataloader",
-        "enable_htp": true
-    }
+    "data_dir": "data_dir",
+    "user_script": "user_script.py",
+    "dataloader_func": "create_quant_dataloader",
+    "enable_htp": true
 }
 ```
 

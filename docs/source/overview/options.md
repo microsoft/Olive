@@ -102,7 +102,7 @@ User should specify input model type and configuration using `input model` dicti
 - `type: [str]` Type of the input model which is case insensitive.. The supported types contain `HfModelHandler`, `PyTorchModelHandler`, `ONNXModelHandler`, `OpenVINOModelHandler`,`SNPEModelHandler` and etc. You can
 find more details in [Olive Models](https://microsoft.github.io/Olive/api/models.html).
 
-- `config: [Dict]` For example, for `HfModelHandler`, the input model config dictionary specifies following items:
+- `config: [Dict]` The configuration of the pass. Its fields can be provided directly to the parent dictionary. For example, for `HfModelHandler`, the input model config dictionary specifies following items:
 
     - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is a huggingface hub model id or a local directory. If it is a dictionary, it contains information about the model path. Please refer to [Configuring Model Path](../tutorials/configure_model_path.md) for the more information of the model path dictionary.
 
@@ -166,9 +166,7 @@ Please find the detailed config options from following table for each model type
 ```json
 "input_model": {
     "type": "HfModel",
-    "config": {
-        "model_path": "meta-llama/Llama-2-7b-hf"
-    }
+    "model_path": "meta-llama/Llama-2-7b-hf"
 }
 ```
 
@@ -182,7 +180,7 @@ information of the system contains following items:
 - `type: [str]` The type of the system. The supported types are `LocalSystem`, `AzureML` and `Docker`.
   There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [Olive System Alias](olive_system_alias) for the complete list of system alias.
 
-- `config: [Dict]` The system config dictionary that contains the system specific information.
+- `config: [Dict]` The system config dictionary that contains the system specific information. The fields can be provided directly under the parent dictionary.
  - `accelerators: [List[str]]` The accelerators that will be used for this workflow.
  - `hf_token: [bool]` Whether to use a Huggingface token to access Huggingface resources. If it is set to `True`, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the `HF_TOKEN` environment variable or from the token file located at `~/.huggingface/token`. For AzureML system, Olive will retrieve the token from user keyvault secret. If set to `False`, no token will be utilized during this workflow run. The default value is `False`.
 
@@ -195,12 +193,10 @@ Please refer to [How To Configure System](../tutorials/configure_systems.rst) fo
     "local_system": {"type": "LocalSystem"},
     "aml_system": {
         "type": "AzureML",
-        "config": {
-            "aml_compute": "cpu-cluster",
-            "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                "conda_file_path": "conda.yaml"
-            }
+        "aml_compute": "cpu-cluster",
+        "aml_docker_config": {
+            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+            "conda_file_path": "conda.yaml"
         }
     }
 }
@@ -278,11 +274,9 @@ information of the evaluator contains following items:
     ```json
     "data_dir": {
         "type": "azureml_datastore",
-        "config": {
-            "azureml_client": "azureml_client",
-            "datastore_name": "test",
-            "relative_path": "cifar-10-batches-py"
-        }
+        "azureml_client": "azureml_client",
+        "datastore_name": "test",
+        "relative_path": "cifar-10-batches-py"
     }
     // provide azureml datastore url
     "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py"
@@ -364,7 +358,7 @@ of the pass contains following items:
   if any, (`false`) for the optional parameters. This is `false` by default and can be overridden if `search_strategy` under `engine` is
   specified. Otherwise, it is always `true`.
 
-- `config: [Dict]` The configuration of the pass.
+- `config: [Dict]` The configuration of the pass. Its fields can be provided directly to the parent dictionary.
 
 - `host: [str | Dict]` The host of the pass. It can be a string or a dictionary. If it is a string, it is the name of a system in
 `systems`. If it is a dictionary, it contains the system information. If not specified, the host of the engine will be used.
@@ -418,18 +412,14 @@ Please also find the detailed options from following table for each pass:
 "passes": {
     "onnx_conversion": {
         "type": "OnnxConversion",
-        "config": {
-            "target_opset": 13
-        }
+        "target_opset": 13
     },
     "onnx_quantization": {
         "type": "OnnxQuantization",
-        "config": {
-            "user_script": "user_script.py",
-            "data_dir": "data",
-            "dataloader_func": "resnet_calibration_reader",
-            "weight_type": "QUInt8"
-        }
+        "user_script": "user_script.py",
+        "data_dir": "data",
+        "dataloader_func": "resnet_calibration_reader",
+        "weight_type": "QUInt8"
     }
 }
 ```
@@ -446,27 +436,21 @@ When `pass_flows` is not specified, the passes are executed in the order of the 
 "passes": {
     "onnx_conversion": {
         "type": "OnnxConversion",
-        "config": {
-            "target_opset": 13
-        }
+        "target_opset": 13
     },
     "transformers_optimization": {
         "type": "OrtTransformersOptimization",
-        "config": {
-            "model_type": "bert",
-            "num_heads": 12,
-            "hidden_size": 768,
-            "float16": true
-        }
+        "model_type": "bert",
+        "num_heads": 12,
+        "hidden_size": 768,
+        "float16": true
     },
     "onnx_quantization": {
         "type": "OnnxQuantization",
-        "config": {
-            "user_script": "user_script.py",
-            "data_dir": "data",
-            "dataloader_func": "resnet_calibration_reader",
-            "weight_type": "QUInt8"
-        }
+        "user_script": "user_script.py",
+        "data_dir": "data",
+        "dataloader_func": "resnet_calibration_reader",
+        "weight_type": "QUInt8"
     }
 },
 "pass_flows": [
@@ -479,7 +463,7 @@ When `pass_flows` is not specified, the passes are executed in the order of the 
 ## Engine Information
 `engine: [Dict]`
 
-This is a dictionary that contains the information of the engine. The information of the engine contains following items:
+This is a dictionary that contains the information of the engine. Its fields can be provided directly to the parent dictionary. The information of the engine contains following items:
 
 - `search_strategy: [Dict | Boolean | None]`, `None` by default. The search strategy of the engine. It contains the following items:
 
@@ -488,7 +472,7 @@ This is a dictionary that contains the information of the engine. The informatio
     - `search_algorithm: [str]` The search algorithm of the engine. The available search algorithms are `exhaustive`, `random` and `tpe`.
 
     - `search_algorithm_config: [Dict]` The configuration of the search algorithm. The configuration of the search algorithm depends on
-    the search algorithm.
+    the search algorithm. Its fields can be provided directly to the parent dictionary.
 
     - `output_model_num: [int]` The number of output models from the engine based on metric priority. If not specified, the engine will output all qualified models.
 
@@ -564,10 +548,8 @@ Please find the detailed config options from following table for each search alg
     "search_strategy": {
         "execution_order": "joint",
         "search_algorithm": "tpe",
-        "search_algorithm_config": {
-            "num_samples": 5,
-            "seed": 0
-        }
+        "num_samples": 5,
+        "seed": 0
     },
     "evaluator": "common_evaluator",
     "host": "local_system",

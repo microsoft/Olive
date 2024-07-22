@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -57,6 +58,12 @@ class TestResourcePath:
                 ["key2"],
                 {("key0",): self.local_file},
             ),
+            # this case is to ensure the `NestedConfig` config gathering doesn't modify the original config
+            (
+                {"key0": "string_name", "config": {"key1": self.local_folder}, "key2": "string_name"},
+                None,
+                {("config", "key1"): self.local_folder},
+            ),
         ]
 
     @pytest.mark.parametrize(
@@ -96,6 +103,9 @@ class TestResourcePath:
 
     def test_find_all_resources(self):
         for resources, ignore_keys, expected in self.all_resources_configs:
+            original_resources = deepcopy(resources)
             for key, value in find_all_resources(resources, ignore_keys=ignore_keys).items():
                 assert key in expected
                 assert value.get_path() == str(expected[key])
+            # ensure the original resources are not modified
+            assert resources == original_resources

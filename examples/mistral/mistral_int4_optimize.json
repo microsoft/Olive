@@ -1,12 +1,9 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "config": { "model_path": "mistralai/Mistral-7B-v0.1" }
-    },
+    "input_model": { "type": "HfModel", "model_path": "mistralai/Mistral-7B-v0.1" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ] }
+            "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
         }
     },
     "data_configs": [ { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" } ],
@@ -28,45 +25,37 @@
     "passes": {
         "convert": {
             "type": "OptimumConversion",
-            "config": {
-                "target_opset": 14,
-                "extra_args": { "legacy": false, "no_post_process": false }
-            }
+            "target_opset": 14,
+            "extra_args": { "legacy": false, "no_post_process": false }
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
-            "config": {
-                "model_type": "gpt2",
-                "use_gpu": false,
-                "keep_io_types": true,
-                "optimization_options": { "use_multi_head_attention": false },
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "model_type": "gpt2",
+            "use_gpu": false,
+            "keep_io_types": true,
+            "optimization_options": { "use_multi_head_attention": false },
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         },
         "quantization": {
             "type": "IncStaticQuantization",
-            "config": {
-                "user_script": "user_script.py",
-                "approach": "weight_only",
-                "weight_only_config": { "bits": 4, "algorithm": "GPTQ" },
-                "recipes": { "gptq_args": { "accuracy_level": 0 } },
-                "dataloader_func": "calib_dataloader",
-                "calibration_sampling_size": [ 8 ],
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
-                "diagnosis": false
-            }
+            "user_script": "user_script.py",
+            "approach": "weight_only",
+            "weight_only_config": { "bits": 4, "algorithm": "GPTQ" },
+            "recipes": { "gptq_args": { "accuracy_level": 0 } },
+            "dataloader_func": "calib_dataloader",
+            "calibration_sampling_size": [ 8 ],
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "diagnosis": false
         }
     },
     "pass_flows": [ [ "convert", "optimize", "quantization" ] ],
-    "engine": {
-        "evaluate_input_model": false,
-        "evaluator": "common_evaluator",
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir": "models",
-        "output_name": "mistral_int4"
-    }
+    "evaluate_input_model": false,
+    "evaluator": "common_evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models",
+    "output_name": "mistral_int4"
 }

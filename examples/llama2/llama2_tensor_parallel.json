@@ -1,62 +1,52 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "HfModel",
-        "config": {
-            "model_path": "meta-llama/Llama-2-7b-hf",
-            "io_config": {
-                "input_names": [ "input_ids", "attention_mask", "position_ids" ],
-                "output_names": [ "logits" ],
-                "input_shapes": [ [ 2, 8 ], [ 2, 8 ], [ 2, 8 ] ],
-                "input_types": [ "int32", "int32", "int32" ],
-                "dynamic_axes": {
-                    "input_ids": { "0": "batch_size", "1": "sequence_length" },
-                    "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
-                    "position_ids": { "0": "batch_size", "1": "sequence_length" }
-                }
+        "model_path": "meta-llama/Llama-2-7b-hf",
+        "io_config": {
+            "input_names": [ "input_ids", "attention_mask", "position_ids" ],
+            "output_names": [ "logits" ],
+            "input_shapes": [ [ 2, 8 ], [ 2, 8 ], [ 2, 8 ] ],
+            "input_types": [ "int32", "int32", "int32" ],
+            "dynamic_axes": {
+                "input_ids": { "0": "batch_size", "1": "sequence_length" },
+                "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
+                "position_ids": { "0": "batch_size", "1": "sequence_length" }
             }
         }
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ] }
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
     "passes": {
         "tensor_parallel": {
             "type": "PyTorchTensorParallel",
-            "config": {
-                "user_script": "llama2_tensor_parallel.py",
-                "class_name": "LlamaPyTorchTensorParallel",
-                "world_size": 4
-            }
+            "user_script": "llama2_tensor_parallel.py",
+            "class_name": "LlamaPyTorchTensorParallel",
+            "world_size": 4
         },
         "conversion": {
             "type": "OnnxConversion",
-            "config": {
-                "target_opset": 17,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "target_opset": 17,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         },
         "transformers_optimization_fp16": {
             "type": "OrtTransformersOptimization",
-            "config": {
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
-                "model_type": "gpt2",
-                "opt_level": 0,
-                "only_onnxruntime": false,
-                "keep_io_types": false,
-                "float16": true,
-                "use_gqa": true
-            }
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "model_type": "gpt2",
+            "opt_level": 0,
+            "only_onnxruntime": false,
+            "keep_io_types": false,
+            "float16": true,
+            "use_gqa": true
         }
     },
-    "engine": {
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir": "models/tensor_parallel"
-    }
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models/tensor_parallel"
 }

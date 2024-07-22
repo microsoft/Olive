@@ -1,17 +1,15 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "config": {
-            "model_loader": "load_pytorch_origin_model",
-            "model_script": "user_script.py",
-            "io_config": {
-                "input_names": [ "input_image" ],
-                "input_shapes": [ [ 1, 3, 224, 224 ] ],
-                "output_names": [ "output" ]
-            }
+        "model_loader": "load_pytorch_origin_model",
+        "model_script": "user_script.py",
+        "io_config": {
+            "input_names": [ "input_image" ],
+            "input_shapes": [ [ 1, 3, 224, 224 ] ],
+            "output_names": [ "output" ]
         }
     },
-    "systems": { "local_system": { "type": "LocalSystem", "config": { "accelerators": [ { "device": "gpu" } ] } } },
+    "systems": { "local_system": { "type": "LocalSystem", "accelerators": [ { "device": "gpu" } ] } },
     "evaluators": {
         "common_evaluator": {
             "metrics": [
@@ -29,24 +27,20 @@
         }
     },
     "passes": {
-        "torch_to_onnx": { "type": "OnnxConversion", "config": { "target_opset": 13 } },
+        "torch_to_onnx": { "type": "OnnxConversion", "target_opset": 13 },
         "float16_conversion": { "type": "OnnxFloatToFloat16" },
         "perf_tuning": {
             "type": "OrtPerfTuning",
-            "config": {
-                "device": "gpu",
-                "execution_mode_list": [ "ORT_SEQUENTIAL" ],
-                "providers_list": [ "DmlExecutionProvider" ]
-            }
+            "device": "gpu",
+            "execution_mode_list": [ "ORT_SEQUENTIAL" ],
+            "providers_list": [ "DmlExecutionProvider" ]
         }
     },
-    "engine": {
-        "log_severity_level": 0,
-        "evaluator": "common_evaluator",
-        "evaluate_input_model": false,
-        "host": "local_system",
-        "target": "local_system",
-        "clean_cache": true,
-        "cache_dir": "cache"
-    }
+    "log_severity_level": 0,
+    "evaluator": "common_evaluator",
+    "evaluate_input_model": false,
+    "host": "local_system",
+    "target": "local_system",
+    "clean_cache": true,
+    "cache_dir": "cache"
 }

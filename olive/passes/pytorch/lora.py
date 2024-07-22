@@ -21,7 +21,7 @@ import torch
 import transformers
 from packaging import version
 
-from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
+from olive.common.config_utils import ConfigBase, NestedConfig
 from olive.common.hf.utils import get_peft_task_type_from_task
 from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import find_submodules, resolve_torch_dtype
@@ -48,11 +48,13 @@ DEFAULT_PAD_TOKEN = "[PAD]"
 # creating a Config class since transformers.TrainingArguments is a dataclass
 # pydantic handles dataclasses differently and causes issues with validation
 # this also allows us to handle and validate extra_args better
-class HFTrainingArguments(ConfigWithExtraArgs):
+class HFTrainingArguments(NestedConfig):
     """Training arguments for transformers.Trainer.
 
     Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.
     """
+
+    _nested_field_name = "extra_args"
 
     seed: int = Field(42, description="Random seed for initialization.")
     data_seed: int = Field(42, description="Random seed to be used with data samplers.")

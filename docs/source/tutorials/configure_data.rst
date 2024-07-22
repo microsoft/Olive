@@ -58,11 +58,9 @@ Convert the dummy data config to the data container.
                 "name": "dummy_data_config_template",
                 "type": "DummyDataContainer",
                 "load_dataset_config": {
-                    "params": {
-                        "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                        "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                        "input_types": ["int64", "int64", "int64"],
-                    }
+                    "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                    "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                    "input_types": ["int64", "int64", "int64"],
                 }
             }
 
@@ -93,29 +91,21 @@ Convert the huggingface data config to the data container.
                 "name": "huggingface_data_config",
                 "type": "HuggingfaceContainer",
                 "load_dataset_config": {
-                    "params": {
-                        "data_name": "glue",
-                        "split": "validation",
-                        "subset": "mrpc"
-                    }
+                    "data_name": "glue",
+                    "split": "validation",
+                    "subset": "mrpc"
                 },
                 "pre_process_data_config": {
-                    "params": {
-                        "model_name": "Intel/bert-base-uncased-mrpc",
-                        "task": "text-classification",
-                        "input_cols": ["sentence1", "sentence2"],
-                        "label_cols": ["label"]
-                    }
+                    "model_name": "Intel/bert-base-uncased-mrpc",
+                    "task": "text-classification",
+                    "input_cols": ["sentence1", "sentence2"],
+                    "label_cols": ["label"]
                 },
                 "post_process_data_config": {
-                    "params": {
-                        "task": "text-classification",
-                    }
+                    "task": "text-classification"
                 },
                 "dataloader_config": {
-                    "params": {
-                        "batch_size": 1
-                    }
+                    "batch_size": 1
                 }
             }
 
@@ -156,14 +146,12 @@ Convert the raw data config to the data container.
                 "name": "raw_data",
                 "type": "RawDataContainer",
                 "load_dataset_config": {
-                    "params": {
-                        "data_dir": "data",
-                        "input_names": ["data"],
-                        "input_shapes": [[1, 3, 224, 224]],
-                        "input_dirs": ["."],
-                        "input_suffix": ".raw",
-                        "input_order_file": "input_order.txt"
-                    }
+                    "data_dir": "data",
+                    "input_names": ["data"],
+                    "input_shapes": [[1, 3, 224, 224]],
+                    "input_dirs": ["."],
+                    "input_suffix": ".raw",
+                    "input_order_file": "input_order.txt"
                 }
             }
 
@@ -267,37 +255,29 @@ Then the complete config would be like:
                 "type": "DataContainer",
                 "load_dataset_config": {
                     "type": "huggingface_dataset",
-                    "params": {
-                        "data_dir": null,
-                        "data_name": "glue",
-                        "subset": "mrpc",
-                        "split": "validation",
-                        "data_files": null
-                    }
+                    "data_dir": null,
+                    "data_name": "glue",
+                    "subset": "mrpc",
+                    "split": "validation",
+                    "data_files": null
                 },
                 "pre_process_data_config": {
                     "type": "huggingface_pre_process",
-                    "params": {
-                        "model_name": "Intel/bert-base-uncased-mrpc",
-                        "input_cols": [
-                            "sentence1",
-                            "sentence2"
-                        ],
-                        "label_cols": [
-                            "label"
-                        ],
-                        "max_samples": null
-                    }
+                    "model_name": "Intel/bert-base-uncased-mrpc",
+                    "input_cols": [
+                        "sentence1",
+                        "sentence2"
+                    ],
+                    "label_cols": [
+                        "label"
+                    ],
+                    "max_samples": null
                 },
                 "post_process_data_config": {
-                    "type": "text_classification_post_process",
-                    "params": {}
-                },
+                    "type": "text_classification_post_process"                },
                 "dataloader_config": {
                     "type": "default_dataloader",
-                    "params": {
-                        "batch_size": 1
-                    }
+                    "batch_size": 1
                 }
             }
 
@@ -364,11 +344,9 @@ The above case shows to rewrite all the components in data config. But sometime,
                 "script_dir": "user_dir",
                 "load_dataset_config": {
                     "type": "customized_huggingface_dataset",
-                    "params": {
-                        "data_dir": null,
-                        "data_name": "glue",
-                        "subset": "mrpc",
-                    }
+                    "data_dir": null,
+                    "data_name": "glue",
+                    "subset": "mrpc"
                 }
             }
 

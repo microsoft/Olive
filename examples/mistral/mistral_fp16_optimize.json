@@ -1,12 +1,9 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "config": { "model_path": "mistralai/Mistral-7B-v0.1" }
-    },
+    "input_model": { "type": "HfModel", "model_path": "mistralai/Mistral-7B-v0.1" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ] }
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
     "data_configs": [ { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" } ],
@@ -26,35 +23,33 @@
     "passes": {
         "convert": {
             "type": "OptimumConversion",
-            "config": { "target_opset": 14, "extra_args": { "legacy": false, "no_post_process": false } }
+            "target_opset": 14,
+            "extra_args": { "legacy": false, "no_post_process": false }
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
-            "config": {
-                "model_type": "gpt2",
-                "use_gpu": true,
-                "keep_io_types": false,
-                "opt_level": 0,
-                "optimization_options": { "use_multi_head_attention": false },
-                "float16": true,
-                "use_gqa": true,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "model_type": "gpt2",
+            "use_gpu": true,
+            "keep_io_types": false,
+            "opt_level": 0,
+            "optimization_options": { "use_multi_head_attention": false },
+            "float16": true,
+            "use_gqa": true,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
-            "config": { "data_config": "transformer_token_dummy_data", "enable_profiling": false }
+            "data_config": "transformer_token_dummy_data",
+            "enable_profiling": false
         }
     },
     "pass_flows": [ [ "convert", "optimize", "perf_tuning" ] ],
-    "engine": {
-        "evaluate_input_model": false,
-        "evaluator": "common_evaluator",
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir": "models",
-        "output_name": "mistral_fp16"
-    }
+    "evaluate_input_model": false,
+    "evaluator": "common_evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models",
+    "output_name": "mistral_fp16"
 }

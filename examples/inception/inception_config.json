@@ -1,24 +1,22 @@
 {
-    "input_model": { "type": "TensorFlowModel", "config": { "model_path": "models/inception_v3.pb" } },
+    "input_model": { "type": "TensorFlowModel", "model_path": "models/inception_v3.pb" },
     "data_configs": [
         {
             "name": "raw_data",
             "type": "RawDataContainer",
             "user_script": "user_script.py",
             "load_dataset_config": {
-                "params": {
-                    "data_dir": "data",
-                    "input_names": [ "input" ],
-                    "input_shapes": [ [ 1, 299, 299, 3 ] ],
-                    "input_order_file": "input_order.txt",
-                    "annotations_file": "labels.npy"
-                }
+                "data_dir": "data",
+                "input_names": [ "input" ],
+                "input_shapes": [ [ 1, 299, 299, 3 ] ],
+                "input_order_file": "input_order.txt",
+                "annotations_file": "labels.npy"
             },
             "post_process_data_config": { "type": "inception_post_process" },
-            "dataloader_config": { "params": { "batch_size": 7 } }
+            "dataloader_config": { "batch_size": 7 }
         }
     ],
-    "systems": { "local_system": { "type": "LocalSystem", "config": { "accelerators": [ { "device": "cpu" } ] } } },
+    "systems": { "local_system": { "type": "LocalSystem", "accelerators": [ { "device": "cpu" } ] } },
     "evaluators": {
         "common_evaluator": {
             "metrics": [
@@ -62,23 +60,19 @@
     "passes": {
         "snpe_conversion": {
             "type": "SNPEConversion",
-            "config": {
-                "input_names": [ "input" ],
-                "input_shapes": [ [ 1, 299, 299, 3 ] ],
-                "output_names": [ "InceptionV3/Predictions/Reshape_1" ]
-            }
+            "input_names": [ "input" ],
+            "input_shapes": [ [ 1, 299, 299, 3 ] ],
+            "output_names": [ "InceptionV3/Predictions/Reshape_1" ]
         },
-        "snpe_quantization": { "type": "SNPEQuantization", "config": { "enable_htp": true, "data_config": "raw_data" } }
+        "snpe_quantization": { "type": "SNPEQuantization", "enable_htp": true, "data_config": "raw_data" }
     },
-    "engine": {
-        "log_severity_level": 0,
-        "evaluate_input_model": false,
-        "clean_cache": true,
-        "target": "local_system",
-        "host": "local_system",
-        "evaluator": "common_evaluator",
-        "cache_dir": "cache",
-        "output_dir": "outputs",
-        "output_name": "snpe_quantized"
-    }
+    "log_severity_level": 0,
+    "evaluate_input_model": false,
+    "clean_cache": true,
+    "target": "local_system",
+    "host": "local_system",
+    "evaluator": "common_evaluator",
+    "cache_dir": "cache",
+    "output_dir": "outputs",
+    "output_name": "snpe_quantized"
 }

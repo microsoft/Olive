@@ -1,47 +1,33 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "config": { "model_path": "<model_name_placeholder>" }
-    },
+    "input_model": { "type": "HfModel", "model_path": "<model_name_placeholder>" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ] }
-        }
-    },
-    "passes": {
-        "conversion": {
-            "type": "OnnxConversion",
-            "config": {
-                "target_opset": 16,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
-                "save_metadata_for_token_generation": true
-            }
-        },
-        "builder": {
-            "type": "ModelBuilder",
-            "config": { "precision": "int4", "search": { "max_length": 2048, "min_length": 0 } }
-        },
-        "metadata": {
-            "type": "ModelBuilder",
-            "config": {
-                "precision": "int4",
-                "metadata_only": true,
-                "search": { "max_length": 2048, "min_length": 0 } }
-        },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "config": { "data_config": "transformer_token_dummy_data", "io_bind": true }
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
     "data_configs": [ { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" } ],
-    "engine": {
-        "packaging_config": [ { "type": "Zipfile", "name": "OutputModel" } ],
-        "log_severity_level": 0,
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir": null
-    }
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "target_opset": 16,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "save_metadata_for_token_generation": true
+        },
+        "builder": { "type": "ModelBuilder", "precision": "int4", "search": { "max_length": 2048, "min_length": 0 } },
+        "metadata": {
+            "type": "ModelBuilder",
+            "precision": "int4",
+            "metadata_only": true,
+            "search": { "max_length": 2048, "min_length": 0 }
+        },
+        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "transformer_token_dummy_data", "io_bind": true }
+    },
+    "packaging_config": [ { "type": "Zipfile", "name": "OutputModel" } ],
+    "log_severity_level": 0,
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": null
 }
