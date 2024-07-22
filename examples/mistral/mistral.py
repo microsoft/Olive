@@ -55,7 +55,7 @@ def get_args(raw_args):
 def optimize(model_name: str, olive_config: dict):
     # Optimize the model with Olive
     print(f"Optimizing {model_name}")
-    olive_config["input_model"]["config"]["model_path"] = model_name
+    olive_config["input_model"]["model_path"] = model_name
     olive_run(olive_config)
 
 
@@ -99,7 +99,7 @@ def main(raw_args=None):
         config = json.load(f)
 
     # get ep and accelerator
-    ep = config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"][0]
+    ep = config["systems"]["local_system"]["accelerators"][0]["execution_providers"][0]
     ep_header = ep.replace("ExecutionProvider", "").lower()
     accelerator = "gpu" if ep_header == "cuda" else "cpu"
 
@@ -107,9 +107,9 @@ def main(raw_args=None):
     script_dir = Path(__file__).resolve().parent
     optimized_model_dir = (
         script_dir
-        / config["engine"]["output_dir"]
+        / config["output_dir"]
         / "-".join(config["pass_flows"][0])
-        / f"{config['engine']['output_name']}_{accelerator}-{ep_header}_model"
+        / f"{config['output_name']}_{accelerator}-{ep_header}_model"
     )
 
     if args.optimize:

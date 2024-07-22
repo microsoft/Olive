@@ -2,13 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive.common.config_utils import ConfigBase
+from olive.common.config_utils import NestedConfig
 from olive.common.pydantic_v1 import Field, validator
 from olive.model.config.registry import get_model_handler, is_valid_model_type
 from olive.resource_path import create_resource_path
 
 
-class ModelConfig(ConfigBase):
+class ModelConfig(NestedConfig):
     """Input model config which will be used to create the model handler."""
 
     type: str = Field(description="The type of the model handler.")

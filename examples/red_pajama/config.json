@@ -1,11 +1,6 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "config": {
-            "model_path": "togethercomputer/RedPajama-INCITE-Base-3B-v1"
-        }
-    },
-    "systems": { "local_system": { "type": "LocalSystem", "config": { "accelerators": [ { "device": "gpu" } ] } } },
+    "input_model": { "type": "HfModel", "model_path": "togethercomputer/RedPajama-INCITE-Base-3B-v1" },
+    "systems": { "local_system": { "type": "LocalSystem", "accelerators": [ { "device": "gpu" } ] } },
     "evaluators": {
         "common_evaluator": {
             "metrics": [
@@ -25,36 +20,27 @@
     "passes": {
         "conversion": {
             "type": "OptimumConversion",
-            "config": {
-                "target_opset": 16,
-                "components": [ "decoder_model", "decoder_with_past_model" ],
-                "extra_args": { "legacy": true, "no_post_process": true }
-            }
+            "target_opset": 16,
+            "components": [ "decoder_model", "decoder_with_past_model" ],
+            "extra_args": { "legacy": true, "no_post_process": true }
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
-            "config": {
-                "model_type": "gpt_neox",
-                "float16": true,
-                "use_gpu": true,
-                "keep_io_types": true,
-                "num_heads": 32,
-                "hidden_size": 2560,
-                "optimization_options": { "use_multi_head_attention": false },
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "model_type": "gpt_neox",
+            "float16": true,
+            "use_gpu": true,
+            "keep_io_types": true,
+            "num_heads": 32,
+            "hidden_size": 2560,
+            "optimization_options": { "use_multi_head_attention": false },
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         },
-        "merge": {
-            "type": "OptimumMerging",
-            "config": { "save_as_external_data": true, "all_tensors_to_one_file": true }
-        }
+        "merge": { "type": "OptimumMerging", "save_as_external_data": true, "all_tensors_to_one_file": true }
     },
-    "engine": {
-        "evaluator": "common_evaluator",
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir": "models"
-    }
+    "evaluator": "common_evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models"
 }

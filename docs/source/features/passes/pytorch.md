@@ -14,13 +14,11 @@ This pass only supports HfModels. Please refer to [LoRA](lora) for more details 
 ```json
 {
     "type": "LoRA",
-    "config": {
-        "lora_alpha": 16,
-        "train_data_config": // ...,
-        "training_args": {
-            "learning_rate": 0.0002,
-            // ...
-        }
+    "lora_alpha": 16,
+    "train_data_config": // ...,
+    "training_args": {
+        "learning_rate": 0.0002,
+        // ...
     }
 }
 ```
@@ -41,15 +39,13 @@ This pass only supports HfModels. Please refer to [QLoRA](qlora) for more detail
 ```json
 {
     "type": "QLoRA",
-    "config": {
-        "compute_dtype": "bfloat16",
-        "quant_type": "nf4",
-        "training_args": {
-            "learning_rate": 0.0002,
-            // ...
-        },
-        "train_data_config": // ...,
-    }
+    "compute_dtype": "bfloat16",
+    "quant_type": "nf4",
+    "training_args": {
+        "learning_rate": 0.0002,
+        // ...
+    },
+    "train_data_config": // ...,
 }
 ```
 Please refer to [QLoRA HFTrainingArguments](lora_hf_training_arguments) for more details on supported the `"training_args"` and their default values.
@@ -66,14 +62,12 @@ This pass only supports HfModels. Please refer to [LoftQ](loftq) for more detail
 ```json
 {
     "type": "LoftQ",
-    "config": {
-        "compute_dtype": "bfloat16",
-        "training_args": {
-            "learning_rate": 0.0002,
-            // ...
-        },
-        "train_data_config": // ...,
-    }
+    "compute_dtype": "bfloat16",
+    "training_args": {
+        "learning_rate": 0.0002,
+        // ...
+    },
+    "train_data_config": // ...,
 }
 ```
 Please refer to [LoftQ HFTrainingArguments](lora_hf_training_arguments) for more details on supported the `"training_args"` and their default values.
@@ -94,10 +88,8 @@ a. Run QAT training with customized training loop.
 ```json
 {
     "type": "QuantizationAwareTraining",
-    "config":{
-        "user_script": "user_script.py",
-        "training_loop_func": "training_loop_func"
-    }
+    "user_script": "user_script.py",
+    "training_loop_func": "training_loop_func"
 }
 ```
 
@@ -108,12 +100,10 @@ b. Run QAT training with PyTorch Lightning.
 ```json
 {
     "type": "QuantizationAwareTraining",
-    "config":{
-        "user_script": "user_script.py",
-        "num_epochs": 5,
-        "ptl_data_module": "PTLDataModule",
-        "ptl_module": "PTLModule",
-    }
+    "user_script": "user_script.py",
+    "num_epochs": 5,
+    "ptl_data_module": "PTLDataModule",
+    "ptl_module": "PTLModule"
 }
 ```
 
@@ -125,11 +115,9 @@ c. Run QAT training with default training loop.
 ```json
 {
     "type": "QuantizationAwareTraining",
-    "config":{
-        "user_script": "user_script.py",
-        "num_epochs": 5,
-        "train_dataloader_func": "create_train_dataloader",
-    }
+    "user_script": "user_script.py",
+    "num_epochs": 5,
+    "train_dataloader_func": "create_train_dataloader"
 }
 ```
 
@@ -149,9 +137,7 @@ Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass 
 ```json
 {
     "type": "GptqQuantizer",
-    "config": {
-        "data_config": "wikitext2_train"
-    }
+    "data_config": "wikitext2_train"
 }
 ```
 
@@ -169,10 +155,8 @@ Please refer to [AutoAWQQuantizer](awq_quantizer) for more details about the pas
 ```json
 {
     "type": "AutoAWQQuantizer",
-    "config": {
-        "w_bit": 4,
-        "pack_model_for_onnx_conversion": true
-    }
+    "w_bit": 4,
+    "pack_model_for_onnx_conversion": true
 }
 ```
 
@@ -201,13 +185,13 @@ This pass only supports HfModels. Please refer to [SparseGPT](sparsegpt) for mor
 ```json
 {
     "type": "SparseGPT",
-    "config": {"sparsity": 0.5}
+    "sparsity": 0.5
 }
 ```
 ```json
 {
     "type": "SparseGPT",
-    "config": {"sparsity": [2,4]}
+    "sparsity": [2,4]
 }
 ```
 
@@ -222,10 +206,8 @@ This pass only supports HuggingFace transformer PyTorch models. Please refer to 
 ```json
 {
     "type": "SliceGPT",
-    "config": {
-        "sparsity": 0.4,
-        "calibration_data_config": "wikitext2"
-    }
+    "sparsity": 0.4,
+    "calibration_data_config": "wikitext2"
 }
 ```
 

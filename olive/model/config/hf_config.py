@@ -9,18 +9,20 @@ from typing import Any, Dict, Union
 import torch
 import transformers
 
-from olive.common.config_utils import ConfigWithExtraArgs
+from olive.common.config_utils import NestedConfig
 from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import resolve_torch_dtype
 
 logger = logging.getLogger(__name__)
 
 
-class HfLoadKwargs(ConfigWithExtraArgs):
+class HfLoadKwargs(NestedConfig):
     """Arguments to pass to the `from_pretrained` method of the model class.
 
     Refer to https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained
     """
+
+    _nested_field_name = "extra_args"
 
     torch_dtype: str = Field(
         None,

@@ -11,10 +11,8 @@ You can run Olive workflow with your AML workspace registered model. In the inpu
 ```json
 "model_path": {
     "type": "azureml_model",
-    "config": {
-        "name": "<model_name>",
-        "version": "<model_version>"
-    }
+    "name": "<model_name>",
+    "version": "<model_version>"
  }
 ```
 Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.
@@ -25,11 +23,9 @@ You can run Olive workflow with AML registered model. In the input model section
 ```json
 "model_path": {
     "type": "azureml_registry_model",
-    "config": {
-        "name": "model_name",
-        "registry_name": "registry_name",
-        "version": 1
-    }
+    "name": "model_name",
+    "registry_name": "registry_name",
+    "version": 1
 }
 ```
 Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.
@@ -41,15 +37,13 @@ You can specify your model path from an AzureML datastore as:
 ```json
 "model_path": {
     "type": "azureml_datastore",
-    "config": {
-        "azureml_client": {
-            "subscription_id": "my_subscription_id",
-            "resource_group": "my_resource_group",
-            "workspace_name": "my_workspace"
-        },
-        "datastore_name": "my_datastore",
-        "relative_path": "model_dir/my_model.pt" // Relative path to the resource from the datastore root
-    }
+    "azureml_client": {
+        "subscription_id": "my_subscription_id",
+        "resource_group": "my_resource_group",
+        "workspace_name": "my_workspace"
+    },
+    "datastore_name": "my_datastore",
+    "relative_path": "model_dir/my_model.pt" // Relative path to the resource from the datastore root
 }
 ```
 
@@ -58,16 +52,14 @@ You can specify your model path from an AzureML job output as:
 ```json
 "model_path": {
     "type": "azureml_job_output",
-    "config": {
-        "azureml_client": {
-            "subscription_id": "my_subscription_id",
-            "resource_group": "my_resource_group",
-            "workspace_name": "my_workspace"
-        },
-        "job_id": "my_job_id", // id of the job
-        "output_name": "my_output_name", // name of the job output
-        "relative_path": "model_dir/my_model.pt" // Relative path to the resource from the job output root
-    }
+    "azureml_client": {
+        "subscription_id": "my_subscription_id",
+        "resource_group": "my_resource_group",
+        "workspace_name": "my_workspace"
+    },
+    "job_id": "my_job_id", // id of the job
+    "output_name": "my_output_name", // name of the job output
+    "relative_path": "model_dir/my_model.pt" // Relative path to the resource from the job output root
 }
 ```
 
@@ -76,15 +68,13 @@ You can use data files or folders that are stored in your Azure ML datastore as:
 ```json
 "data_dir": {
     "type": "azureml_datastore",
-    "config": {
-        "azureml_client": {
-            "subscription_id": "my_subscription_id",
-            "resource_group": "my_resource_group",
-            "workspace_name": "my_workspace"
-        },
-        "datastore_name": "my_datastore",
-        "relative_path": "data_dir" // Relative path to the resource from the datastore root
-    }
+    "azureml_client": {
+        "subscription_id": "my_subscription_id",
+        "resource_group": "my_resource_group",
+        "workspace_name": "my_workspace"
+    },
+    "datastore_name": "my_datastore",
+    "relative_path": "data_dir" // Relative path to the resource from the datastore root
 }
 ```
 
@@ -94,12 +84,10 @@ You can specify your Azure ML Compute as an Olive System and use it as a host to
 "systems": {
     "aml_system": {
         "type": "AzureML",
-        "config": {
-            "aml_compute": "cpu-cluster",
-            "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                "conda_file_path": "conda.yaml"
-            }
+        "aml_compute": "cpu-cluster",
+        "aml_docker_config": {
+            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+            "conda_file_path": "conda.yaml"
         }
     }
 }

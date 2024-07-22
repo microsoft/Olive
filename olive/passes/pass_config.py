@@ -4,10 +4,10 @@
 # --------------------------------------------------------------------------
 from enum import Enum
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, List, Optional, Type, Union
+from typing import Callable, Dict, List, Optional, Type, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object
-from olive.common.pydantic_v1 import create_model, validator
+from olive.common.pydantic_v1 import Field, create_model, validator
 from olive.resource_path import validate_resource_path
 from olive.strategy.search_parameter import SearchParameter, SpecialParamValue, json_to_search_parameter
 
@@ -141,11 +141,11 @@ def create_config_class(
 
 class PassModuleConfig(ConfigBase):
     module_path: str
-    module_dependencies: ClassVar[List[str]] = []
-    extra_dependencies: ClassVar[List[str]] = []
+    module_dependencies: List[str] = Field(default_factory=list)
+    extra_dependencies: List[str] = Field(default_factory=list)
 
     @validator("module_path", pre=True)
-    def validate_module_path(cls, v, values):
+    def validate_module_path(cls, v):
         if not v:
             raise ValueError("module_path cannot be empty or None")
         return v

@@ -93,47 +93,37 @@ Here is another quick comparison between Auto Optimizer and manual settings.
             {
                 "input_model":{
                     "type": "HfModel",
-                    "config": {
-                        "model_path": "Intel/bert-base-uncased-mrpc",
-                        "task": "text-classification"
-                    }
+                    "model_path": "Intel/bert-base-uncased-mrpc",
+                    "task": "text-classification"
                 },
                 "systems": {
                     "local_system": {
                         "type": "LocalSystem",
-                        "config": {
-                            "accelerators": [
-                                {
-                                    "device": "gpu",
-                                    "execution_providers": [
-                                        "CUDAExecutionProvider",
-                                        "TensorrtExecutionProvider"
-                                    ]
-                                }
-                            ]
-                        }
+                        "accelerators": [
+                            {
+                                "device": "gpu",
+                                "execution_providers": [
+                                    "CUDAExecutionProvider",
+                                    "TensorrtExecutionProvider"
+                                ]
+                            }
+                        ]
                     }
                 },
                 "data_configs": [{
                     "name": "glue",
                     "type": "HuggingfaceContainer",
                     "load_dataset_config": {
-                        "params": {
-                            "data_name": "glue",
-                            "split": "validation",
-                            "subset": "mrpc"
-                        }
+                        "data_name": "glue",
+                        "split": "validation",
+                        "subset": "mrpc"
                     },
                     "pre_process_data_config": {
-                        "params": {
-                            "input_cols": [ "sentence1", "sentence2" ],
-                            "label_cols": [ "label" ]
-                        }
+                        "input_cols": [ "sentence1", "sentence2" ],
+                        "label_cols": [ "label" ]
                     },
                     "dataloader_config": {
-                        "params": {
-                            "batch_size": 1
-                        }
+                        "batch_size": 1
                     }
                 }],
                 "evaluators": {
@@ -162,21 +152,17 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                         ]
                     }
                 },
-                "engine": {
-                    "search_strategy": {
-                        "execution_order": "joint",
-                        "search_algorithm": "tpe",
-                        "search_algorithm_config": {
-                            "num_samples": 1,
-                            "seed": 0
-                        }
-                    },
-                    "evaluator": "common_evaluator",
-                    "host": "local_system",
-                    "target": "local_system",
-                    "cache_dir": "cache",
-                    "output_dir" : "models/bert_gpu"
-                }
+                "search_strategy": {
+                    "execution_order": "joint",
+                    "search_algorithm": "tpe",
+                    "num_samples": 1,
+                    "seed": 0
+                },
+                "evaluator": "common_evaluator",
+                "host": "local_system",
+                "target": "local_system",
+                "cache_dir": "cache",
+                "output_dir" : "models/bert_gpu"
             }
 
     .. tab:: Manual Settings for CUDA&TRT EP
@@ -187,48 +173,38 @@ Here is another quick comparison between Auto Optimizer and manual settings.
             {
                 "input_model":{
                     "type": "HfModel",
-                    "config": {
-                        "model_path": "Intel/bert-base-uncased-mrpc",
-                        "task": "text-classification"
-                    }
+                    "model_path": "Intel/bert-base-uncased-mrpc",
+                    "task": "text-classification"
                 },
                 "systems": {
                     "local_system": {
                         "type": "LocalSystem",
-                        "config": {
-                            "accelerators": [
-                                {
-                                    "device": "gpu",
-                                    "execution_providers": [
-                                        "CUDAExecutionProvider",
-                                        "TensorrtExecutionProvider"
-                                    ]
-                                }
-                            ]
-                        }
+                        "accelerators": [
+                            {
+                                "device": "gpu",
+                                "execution_providers": [
+                                    "CUDAExecutionProvider",
+                                    "TensorrtExecutionProvider"
+                                ]
+                            }
+                        ]
                     }
                 },
                 "data_configs": [{
                     "name": "glue",
                     "type": "HuggingfaceContainer",
                     "load_dataset_config": {
-                        "params": {
-                            "data_name": "glue",
-                            "split": "validation",
-                            "subset": "mrpc"
-                        }
+                        "data_name": "glue",
+                        "split": "validation",
+                        "subset": "mrpc"
                     },
                     "pre_process_data_config": {
-                        "params": {
-                            "max_samples": 100,
-                            "input_cols": [ "sentence1", "sentence2" ],
-                            "label_cols": [ "label" ]
-                        }
+                        "max_samples": 100,
+                        "input_cols": [ "sentence1", "sentence2" ],
+                        "label_cols": [ "label" ]
                     },
                     "dataloader_config": {
-                        "params": {
-                            "batch_size": 1
-                        }
+                        "batch_size": 1
                     }
                 }],
                 "evaluators": {
@@ -259,57 +235,45 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                 },
                 "passes": {
                     "conversion": {
-                        "type": "OnnxConversion",
+                        "type": "OnnxConversion"
                     },
                     "cuda_transformers_optimization": {
                         "type": "OrtTransformersOptimization",
-                        "config": {
-                            "float16": true
-                        }
+                        "float16": true
                     },
-                    "trt_transformers_optimization" {
+                    "trt_transformers_optimization": {
                         "type": "OrtTransformersOptimization",
-                        "config": {
-                            "float16": false
-                        }
+                        "float16": false
                     },
                     "cuda_perf_tuning": {
                         "type": "OrtPerfTuning",
-                        "config": {
-                            "enable_cuda_graph": true,
-                            "io_bind": true,
-                            "data_config": "glue"
-                        }
+                        "enable_cuda_graph": true,
+                        "io_bind": true,
+                        "data_config": "glue"
                     },
                     "trt_perf_tuning": {
                         "type": "OrtPerfTuning",
-                        "config": {
-                            "enable_cuda_graph": false,
-                            "enable_trt_fp16": true,
-                            "io_bind": true,
-                            "data_config": "glue"
-                        }
+                        "enable_cuda_graph": false,
+                        "enable_trt_fp16": true,
+                        "io_bind": true,
+                        "data_config": "glue"
                     }
                 },
                 "pass_flows": [
                     ["conversion", "cuda_transformers_optimization", "cuda_perf_tuning"],
-                    ["conversion", "trt_transformers_optimization", "trt_perf_tuning"],
+                    ["conversion", "trt_transformers_optimization", "trt_perf_tuning"]
                 ],
-                "engine": {
-                    "search_strategy": {
-                        "execution_order": "joint",
-                        "search_algorithm": "tpe",
-                        "search_algorithm_config": {
-                            "num_samples": 1,
-                            "seed": 0
-                        }
-                    },
-                    "evaluator": "common_evaluator",
-                    "host": "local_system",
-                    "target": "local_system",
-                    "cache_dir": "cache",
-                    "output_dir" : "models/bert_gpu"
-                }
+                "search_strategy": {
+                    "execution_order": "joint",
+                    "search_algorithm": "tpe",
+                    "num_samples": 1,
+                    "seed": 0
+                },
+                "evaluator": "common_evaluator",
+                "host": "local_system",
+                "target": "local_system",
+                "cache_dir": "cache",
+                "output_dir" : "models/bert_gpu"
             }
 
 .. note::

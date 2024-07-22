@@ -64,13 +64,13 @@ def main(raw_args=None):
         # QNN EP is the target EP even though local environment has
         # cpu package installed
         # this is okay since there is no evaluation done in this case
-        config["engine"]["target"] = "local_system"
+        config["target"] = "local_system"
         # delete unnecessary fields
         del (
             config["systems"]["qnn_ep_env"],
             config["evaluators"],
-            config["engine"]["evaluator"],
-            config["engine"]["evaluate_input_model"],
+            config["evaluator"],
+            config["evaluate_input_model"],
         )
         config_name += "_no_eval"
 

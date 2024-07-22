@@ -33,7 +33,7 @@ def config_json(tmp_path):
 
     with (Path(__file__).parent / "mock_data" / "dependency_setup.json").open() as f:
         config = json.load(f)
-        config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [ep]
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = [ep]
 
     config_json_file = tmp_path / "config.json"
     with config_json_file.open("w") as f:
@@ -69,4 +69,5 @@ def test_dependency_setup(tmp_path, config_json):
 
     _, outputs, _ = run_subprocess([python_path, "-Im", "pip", "list"], check=True)
     assert ort_extra in outputs
+    assert "psutil" in outputs
     shutil.rmtree(tmp_path, ignore_errors=True)

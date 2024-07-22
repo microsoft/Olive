@@ -1,32 +1,29 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "config": {
-            "model_loader": "load_pytorch_model",
-            "model_script": "loader.py",
-            "io_config": {
-                "input_names": [ "input" ],
-                "input_shapes": [ [ 1, 1, 224, 224 ] ],
-                "input_types": [ "float32" ],
-                "output_names": [ "output" ]
-            }
+        "model_loader": "load_pytorch_model",
+        "model_script": "loader.py",
+        "io_config": {
+            "input_names": [ "input" ],
+            "input_shapes": [ [ 1, 1, 224, 224 ] ],
+            "input_types": [ "float32" ],
+            "output_names": [ "output" ]
         }
     },
     "systems": { "local_system": { "type": "LocalSystem" } },
-    "evaluators": { },
+    "evaluators": {  },
     "passes": {
-        "exporter": { "type": "OnnxConversion", "config": { "target_opset": 15 } },
+        "exporter": { "type": "OnnxConversion", "target_opset": 15 },
         "prepost": {
             "type": "AppendPrePostProcessingOps",
-            "config": { "tool_command": "superresolution", "tool_command_args": { "output_format": "png" } }
+            "tool_command": "superresolution",
+            "tool_command_args": { "output_format": "png" }
         }
     },
-    "engine": {
-        "log_severity_level": 0,
-        "host": "local_system",
-        "target": "local_system",
-        "clean_cache": true,
-        "cache_dir": "cache",
-        "output_dir": "models"
-    }
+    "log_severity_level": 0,
+    "host": "local_system",
+    "target": "local_system",
+    "clean_cache": true,
+    "cache_dir": "cache",
+    "output_dir": "models"
 }

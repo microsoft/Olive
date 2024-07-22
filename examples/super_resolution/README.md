@@ -11,15 +11,11 @@ Olive includes a specific pass `AppendPrePostProcessingOps` to append pre- and p
 
 ```json
 "passes": {
-    .
-    .
     "prepost": {
         "type": "AppendPrePostProcessingOps",
-        "config": {
-            "tool_command": "superresolution",
-            "tool_command_args": {
-                "output_format": "png"
-            }
+        "tool_command": "superresolution",
+        "tool_command_args": {
+            "output_format": "png"
         }
     }
 }

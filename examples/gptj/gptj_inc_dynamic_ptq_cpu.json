@@ -1,8 +1,5 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "config": { "model_path": "EleutherAI/gpt-j-6B" }
-    },
+    "input_model": { "type": "HfModel", "model_path": "EleutherAI/gpt-j-6B" },
     "evaluators": {
         "common_evaluator": {
             "metrics": [
@@ -22,21 +19,18 @@
     "passes": {
         "conversion": {
             "type": "OnnxConversion",
-            "config": {
-                "target_opset": 13,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "target_opset": 13,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         },
         "quantization": {
             "type": "IncDynamicQuantization",
-            "config": { "save_as_external_data": true, "all_tensors_to_one_file": true }
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         }
     },
-    "engine": {
-        "log_severity_level": 0,
-        "evaluator": "common_evaluator",
-        "cache_dir": "cache",
-        "output_dir": "models/gptj_inc_dynamic_ptq_cpu"
-    }
+    "log_severity_level": 0,
+    "evaluator": "common_evaluator",
+    "cache_dir": "cache",
+    "output_dir": "models/gptj_inc_dynamic_ptq_cpu"
 }

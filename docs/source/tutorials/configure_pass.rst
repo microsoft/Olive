@@ -29,17 +29,15 @@ Let's take the example of the :ref:`onnx_quantization` Pass:
             {
                 "type": "OnnxQuantization",
                 "disable_search": false,
-                "config": {
-                    "user_script": "./user_script.py",
-                    "dataloader_func": "glue_calibration_reader",
-                    // set per_channel to "DEFAULT_VALUE"
-                    "per_channel": "DEFAULT_VALUE",
-                    // set reduce_range to "SEARCHABLE_VALUES" value
-                    // redundant since disable_search is false
-                    "reduce_range": "SEARCHABLE_VALUES",
-                    // user defined value for weight_type
-                    "weight_type": "QUInt8"
-                }
+                "user_script": "./user_script.py",
+                "dataloader_func": "glue_calibration_reader",
+                // set per_channel to "DEFAULT_VALUE"
+                "per_channel": "DEFAULT_VALUE",
+                // set reduce_range to "SEARCHABLE_VALUES" value
+                // redundant since disable_search is false
+                "reduce_range": "SEARCHABLE_VALUES",
+                // user defined value for weight_type
+                "weight_type": "QUInt8"
             }
 
         .. note::

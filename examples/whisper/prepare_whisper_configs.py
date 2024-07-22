@@ -114,59 +114,59 @@ def main(raw_args=None):
     model_name = args.model_name
 
     # update model paths
-    for model_component in template_json["input_model"]["config"]["model_components"]:
-        model_component["config"]["model_path"] = model_name
+    for model_component in template_json["input_model"]["model_components"]:
+        model_component["model_path"] = model_name
     # update model attributes
-    template_json["input_model"]["config"]["model_attributes"] = model_attributes = AutoConfig.from_pretrained(
+    template_json["input_model"]["model_attributes"] = model_attributes = AutoConfig.from_pretrained(
         model_name
     ).to_dict()
     # remove suppress_tokens since it takes too much space in the config
     model_attributes.pop("suppress_tokens", None)
 
-    load_dataset_params = template_json["data_configs"][0]["load_dataset_config"]["params"]
-    load_dataset_params["model_name"] = model_name
-    load_dataset_params["use_audio_decoder"] = not args.no_audio_decoder
+    load_dataset_config = template_json["data_configs"][0]["load_dataset_config"]
+    load_dataset_config["model_name"] = model_name
+    load_dataset_config["use_audio_decoder"] = not args.no_audio_decoder
 
     # set dataloader
     if args.skip_evaluation:
         del template_json["evaluators"]
-        template_json["engine"]["evaluator"] = None
+        template_json["evaluator"] = None
 
     # update multi-lingual support
-    template_json["passes"]["insert_beam_search"]["config"]["use_forced_decoder_ids"] = args.multilingual
+    template_json["passes"]["insert_beam_search"]["use_forced_decoder_ids"] = args.multilingual
     # update predict timestep
-    template_json["passes"]["insert_beam_search"]["config"]["use_logits_processor"] = args.enable_timestamps
+    template_json["passes"]["insert_beam_search"]["use_logits_processor"] = args.enable_timestamps
     # update no audio decoder
-    template_json["passes"]["prepost"]["config"]["tool_command_args"]["use_audio_decoder"] = not args.no_audio_decoder
+    template_json["passes"]["prepost"]["tool_command_args"]["use_audio_decoder"] = not args.no_audio_decoder
     # update atol
-    template_json["passes"]["mixed_precision"]["config"]["atol"] = args.atol
+    template_json["passes"]["mixed_precision"]["atol"] = args.atol
 
     # set model name in prepost
-    template_json["passes"]["prepost"]["config"]["tool_command_args"]["model_name"] = model_name
+    template_json["passes"]["prepost"]["tool_command_args"]["model_name"] = model_name
 
     for device, precision in SUPPORTED_WORKFLOWS:
         workflow = SUPPORTED_WORKFLOWS[(device, precision)]
         config = deepcopy(template_json)
 
         # set output name
-        config["engine"]["output_name"] = f"whisper_{device}_{precision}"
+        config["output_name"] = f"whisper_{device}_{precision}"
         # add packaging config
         if args.package_model:
-            config["engine"]["packaging_config"] = {"type": "Zipfile", "name": f"whisper_{device}_{precision}"}
+            config["packaging_config"] = {"type": "Zipfile", "name": f"whisper_{device}_{precision}"}
 
         # set device for system
-        config["systems"]["local_system"]["config"]["accelerators"][0]["device"] = device
+        config["systems"]["local_system"]["accelerators"][0]["device"] = device
         # set ep
-        config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [DEVICE_TO_EP[device]]
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = [DEVICE_TO_EP[device]]
 
         # add passes
         config["passes"] = {}
         for pass_name in workflow:
             pass_config = deepcopy(template_json["passes"][pass_name])
             if pass_name == "insert_beam_search":
-                pass_config["config"]["fp16"] = precision == "fp16"
+                pass_config["fp16"] = precision == "fp16"
             if pass_name == "transformers_optimization":
-                pass_config["config"]["use_gpu"] = device == "gpu"
+                pass_config["use_gpu"] = device == "gpu"
             config["passes"][pass_name] = pass_config
 
         # dump config

@@ -1,40 +1,33 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "config": { "model_path": "meta-llama/Llama-2-7b-hf", "generative": true }
-    },
+    "input_model": { "type": "HfModel", "model_path": "meta-llama/Llama-2-7b-hf", "generative": true },
     "data_configs": [
         {
             "name": "wikitext2_train",
             "type": "HuggingfaceContainer",
             "load_dataset_config": {
-                "params": {
-                    "data_name": "wikitext",
-                    "subset": "wikitext-2-raw-v1",
-                    "split": "train"
-                }
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train"
             },
             "pre_process_data_config": {
-                "params": {
-                    "text_cols": [ "text" ],
-                    "corpus_strategy": "join",
-                    "add_special_tokens": false,
-                    "source_max_len": 2048,
-                    "max_samples": 128,
-                    "joiner": "\n\n"
-                }
+                "text_cols": [ "text" ],
+                "corpus_strategy": "join",
+                "add_special_tokens": false,
+                "source_max_len": 2048,
+                "max_samples": 128,
+                "joiner": "\n\n"
             }
         },
         {
             "name": "generation_latency_dummy_data",
             "type": "TransformersPromptDummyDataContainer",
-            "load_dataset_config": { "params": { "generative": true } }
+            "load_dataset_config": { "generative": true }
         }
     ],
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ] }
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
     "evaluators": {
@@ -45,17 +38,16 @@
                     "type": "latency",
                     "sub_types": [ { "name": "avg", "priority": 1 } ],
                     "data_config": "generation_latency_dummy_data",
-                    "user_config": { "io_bind": true, "run_kwargs": { "max_new_tokens": 64 } } }
+                    "user_config": { "io_bind": true, "run_kwargs": { "max_new_tokens": 64 } }
+                }
             ]
         }
     },
-    "passes": { },
+    "passes": {  },
     "auto_optimizer_config": { "disable_auto_optimizer": true },
-    "engine": {
-        "evaluator": "merged_evaluator",
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir": "models/llama2_generate"
-    }
+    "evaluator": "merged_evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models/llama2_generate"
 }

@@ -1,26 +1,19 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "config": { "model_path": "microsoft/phi-2" }
-    },
+    "input_model": { "type": "HfModel", "model_path": "microsoft/phi-2" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "GPU",
-                        "execution_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider" ]
-                    }
-                ]
-            }
+            "accelerators": [
+                {
+                    "device": "GPU",
+                    "execution_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider" ]
+                }
+            ]
         }
     },
-    "passes": { "builder": { "type": "ModelBuilder", "config": { "precision": "int4" } } },
-    "engine": {
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir": "models/model_builder"
-    }
+    "passes": { "builder": { "type": "ModelBuilder", "precision": "int4" } },
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models/model_builder"
 }

@@ -140,49 +140,47 @@ def optimize(
             olive_config["passes"]["quantize"] = {
                 "type": "IncStaticQuantization",
                 "disable_search": True,
-                "config": {
-                    "backend": f"onnxrt_{device}_ep",
-                    "approach": "weight_only",
-                    "device": "gpu",
-                    "weight_only_config": {
-                        "bits": bit_size,
-                        "algorithm": quant_strategy.upper(),
-                        "group_size": block_size,
-                    },
-                    "dataloader_func": "calib_dataloader",
-                    "calibration_sampling_size": [8],
-                    "save_as_external_data": True,
-                    "all_tensors_to_one_file": True,
-                    "user_script": "user_script.py",
+                "backend": f"onnxrt_{device}_ep",
+                "approach": "weight_only",
+                "device": "gpu",
+                "weight_only_config": {
+                    "bits": bit_size,
+                    "algorithm": quant_strategy.upper(),
+                    "group_size": block_size,
                 },
+                "dataloader_func": "calib_dataloader",
+                "calibration_sampling_size": [8],
+                "save_as_external_data": True,
+                "all_tensors_to_one_file": True,
+                "user_script": "user_script.py",
             }
 
-        olive_config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = {
+        olive_config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = {
             "dml": ["DmlExecutionProvider"],
             "cuda": ["CUDAExecutionProvider"],
         }[device]
 
-        olive_config["engine"]["output_name"] = model_name
-        olive_config["passes"]["optimize"]["config"]["hidden_size"] = config.hidden_size
-        olive_config["passes"]["optimize"]["config"]["num_heads"] = config.num_heads
-        olive_config["passes"]["optimize"]["config"]["num_key_value_heads"] = config.num_key_value_heads
+        olive_config["output_name"] = model_name
+        olive_config["passes"]["optimize"]["hidden_size"] = config.hidden_size
+        olive_config["passes"]["optimize"]["num_heads"] = config.num_heads
+        olive_config["passes"]["optimize"]["num_key_value_heads"] = config.num_key_value_heads
 
         # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
         # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
         models_that_need_fp32_layer_norm = ["llava-hf_llava-1.5-7b-hf", "tiiuae_falcon-7b-instruct"]
         vision_models = ["llava-hf_llava-1.5-7b-hf"]
 
-        force_fp32_ops = olive_config["passes"]["optimize"]["config"].get("force_fp32_ops", [])
+        force_fp32_ops = olive_config["passes"]["optimize"].get("force_fp32_ops", [])
 
         if model_name in models_that_need_fp32_layer_norm:
             force_fp32_ops.extend(["SimplifiedLayerNormalization", "LayerNormalization"])
 
         is_vision_model = model_name in vision_models
 
-        olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = force_fp32_ops
+        olive_config["passes"]["optimize"]["force_fp32_ops"] = force_fp32_ops
 
         # Set the input names and dynamic axes
-        io_config = olive_config["input_model"]["config"]["io_config"]
+        io_config = olive_config["input_model"]["io_config"]
 
         if not is_vision_model:
             io_config["input_names"].append("position_ids")
@@ -309,9 +307,11 @@ def main():
     )
     parser.add_argument(
         "--num_layers",
-        help="This is a debugging option to be able to quickly generate and optimize an ONNX model with fewer layers "
-        "that barely takes any memory and is easy to load in Netron. This value should NOT be provided for production "
-        "purposes.",
+        help=(
+            "This is a debugging option to be able to quickly generate and optimize an ONNX model with fewer layers"
+            " that barely takes any memory and is easy to load in Netron. This value should NOT be provided for"
+            " production purposes."
+        ),
         type=int,
     )
     parser.add_argument(

@@ -1,10 +1,5 @@
 {
-    "input_model": {
-        "type": "PyTorchModel",
-        "config": {
-            "model_path": "EleutherAI/gpt-j-6B"
-        }
-    },
+    "input_model": { "type": "HfModel", "model_path": "EleutherAI/gpt-j-6B" },
     "evaluators": {
         "common_evaluator": {
             "metrics": [
@@ -24,29 +19,23 @@
     "passes": {
         "conversion": {
             "type": "OnnxConversion",
-            "config": {
-                "target_opset": 13,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "target_opset": 13,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         },
         "quantization": {
             "type": "IncStaticQuantization",
-            "config": {
-                "quant_format": "QDQ",
-                "calibration_sampling_size": [ 8 ],
-                "recipes": { "optypes_to_exclude_output_quant": [ "MatMul" ] },
-                "user_script": "user_script.py",
-                "dataloader_func": "create_onnx_dataloader",
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "quant_format": "QDQ",
+            "calibration_sampling_size": [ 8 ],
+            "recipes": { "optypes_to_exclude_output_quant": [ "MatMul" ] },
+            "user_script": "user_script.py",
+            "dataloader_func": "create_onnx_dataloader",
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         }
     },
-    "engine": {
-        "log_severity_level": 0,
-        "evaluator": "common_evaluator",
-        "cache_dir": "cache",
-        "output_dir": "models/gptj_inc_static_ptq_cpu"
-    }
+    "log_severity_level": 0,
+    "evaluator": "common_evaluator",
+    "cache_dir": "cache",
+    "output_dir": "models/gptj_inc_static_ptq_cpu"
 }
