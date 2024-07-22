@@ -165,6 +165,9 @@ command = [
 [[linter]]
 code = 'SPACES'
 include_patterns = ['**']
+exclude_patterns = [
+  '**/*.json'
+]
 command = [
   'python',
   '-m',
@@ -188,7 +191,8 @@ include_patterns = ['**']
 exclude_patterns = [
   '.lintrunner.toml',
   '**/Makefile',
-  '**/*.bat'
+  '**/*.bat',
+  '**/*.json'
 ]
 command = [
   'python',
@@ -235,7 +239,8 @@ init_command = [
 code = 'EDITORCONFIG-CHECKER'
 include_patterns = ['**']
 exclude_patterns = [
-  '**/*.ipynb'
+  '**/*.ipynb',
+  '**/*.json'
 ]
 command = [
   'python',
@@ -268,5 +273,17 @@ command = [
   'run',
   'requirements_txt_linter',
   '--',
+  '@{{PATHSFILE}}'
+]
+
+[[linter]]
+code = "FORMAT-JSON"
+is_formatter = true
+include_patterns = ['**/*.json']
+command = [
+  'python',
+  'scripts/linters/format_json.py',
+  '--indent=4',
+  '--max-line-length=120',
   '@{{PATHSFILE}}'
 ]
