@@ -152,38 +152,32 @@
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_data_config&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">}},</span>
 <span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f1_score&quot;</span><span class="p">},</span>
 <span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;auroc&quot;</span><span class="p">}</span>
-<span class="w">    </span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;user_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;post_processing_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.evaluator.metric_config</span> <span class="kn">import</span> <span class="n">MetricGoal</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">AccuracySubType</span><span class="p">,</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricType</span>
+<span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataComponentConfig</span><span class="p">,</span> <span class="n">DataConfig</span>
 
-<span class="n">sub_types</span> <span class="o">=</span> <span class="p">[{</span>
-    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">ACCURACY</span><span class="p">,</span>
-    <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="n">MetricGoal</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.01</span><span class="p">),</span>
-<span class="p">}]</span>
 <span class="n">accuracy_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
     <span class="nb">type</span><span class="o">=</span><span class="n">MetricType</span><span class="o">.</span><span class="n">ACCURACY</span><span class="p">,</span>
-    <span class="n">sub_types</span><span class="o">=</span><span class="n">sub_types</span><span class="p">,</span>
-    <span class="n">user_config</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;post_processing_func&quot;</span><span class="p">:</span> <span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="p">},</span>
+    <span class="n">data_config</span><span class="o">=</span><span class="n">DataConfig</span><span class="p">(</span>
+        <span class="n">user_script</span><span class="o">=</span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+        <span class="n">dataloader_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}),</span>
+        <span class="n">post_process_data_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;post_process&quot;</span><span class="p">),</span>
+    <span class="p">),</span>
+    <span class="n">sub_types</span><span class="o">=</span><span class="p">[{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">ACCURACY</span><span class="p">,</span>
+        <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="n">MetricGoal</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.01</span><span class="p">),</span>
+    <span class="p">}],</span>
     <span class="n">goal</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">}</span>
 <span class="p">)</span>
 </pre></div>
@@ -198,33 +192,28 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;user
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency_data_config&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;avg&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">}}</span>
-<span class="w">    </span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;user_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </div><div aria-labelledby="tab-1-1-1" class="sphinx-tabs-panel" hidden="true" id="panel-1-1-1" name="1-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.evaluator.metric_config</span> <span class="kn">import</span> <span class="n">MetricGoal</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">LatencySubType</span><span class="p">,</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricType</span>
+<span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataComponentConfig</span><span class="p">,</span> <span class="n">DataConfig</span>
 
-<span class="n">sub_types</span> <span class="o">=</span> <span class="p">[{</span>
-    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">LatencySubType</span><span class="o">.</span><span class="n">AVG</span><span class="p">,</span>
-    <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="n">MetricGoal</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">20</span><span class="p">),</span>
-<span class="p">}]</span>
 <span class="n">latency_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
     <span class="nb">type</span><span class="o">=</span><span class="n">MetricType</span><span class="o">.</span><span class="n">LATENCY</span><span class="p">,</span>
-    <span class="n">sub_types</span><span class="o">=</span><span class="n">sub_types</span><span class="p">,</span>
-    <span class="n">user_config</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="n">user_script</span><span class="p">,</span>
-        <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="p">}</span>
+    <span class="n">data_config</span><span class="o">=</span><span class="n">DataConfig</span><span class="p">(</span>
+        <span class="n">user_script</span><span class="o">=</span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+        <span class="n">dataloader_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}),</span>
+    <span class="p">),</span>
+    <span class="n">sub_types</span><span class="o">=</span><span class="n">sub_types</span> <span class="o">=</span> <span class="p">[{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">LatencySubType</span><span class="o">.</span><span class="n">AVG</span><span class="p">,</span>
+        <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="n">MetricGoal</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">20</span><span class="p">),</span>
+    <span class="p">}],</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -236,33 +225,29 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;user
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;throughput&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;throughput&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;throughput_data_config&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;avg&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">}}</span>
-<span class="w">    </span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;user_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </div><div aria-labelledby="tab-2-2-1" class="sphinx-tabs-panel" hidden="true" id="panel-2-2-1" name="2-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.evaluator.metric_config</span> <span class="kn">import</span> <span class="n">MetricGoal</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">ThroughputSubType</span><span class="p">,</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricType</span>
+<span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataComponentConfig</span><span class="p">,</span> <span class="n">DataConfig</span>
 
-<span class="n">sub_types</span> <span class="o">=</span> <span class="p">[{</span>
-    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">ThroughputSubType</span><span class="o">.</span><span class="n">AVG</span><span class="p">,</span>
-    <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="n">MetricGoal</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">20</span><span class="p">),</span>
-<span class="p">}]</span>
+<span class="n">sub_types</span> <span class="o">=</span>
 <span class="n">throughput_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;throughput&quot;</span><span class="p">,</span>
     <span class="nb">type</span><span class="o">=</span><span class="n">MetricType</span><span class="o">.</span><span class="n">THROUGHPUT</span><span class="p">,</span>
-    <span class="n">sub_types</span><span class="o">=</span><span class="n">sub_types</span><span class="p">,</span>
-    <span class="n">user_config</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="n">user_script</span><span class="p">,</span>
-        <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="p">}</span>
+    <span class="n">data_config</span><span class="o">=</span><span class="n">DataConfig</span><span class="p">(</span>
+        <span class="n">user_script</span><span class="o">=</span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+        <span class="n">dataloader_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}),</span>
+    <span class="p">),</span>
+    <span class="n">sub_types</span><span class="o">=</span><span class="p">[{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">ThroughputSubType</span><span class="o">.</span><span class="n">AVG</span><span class="p">,</span>
+        <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="n">MetricGoal</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">20</span><span class="p">),</span>
+    <span class="p">}],</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -277,13 +262,20 @@ specify its name in <code class="code docutils literal notranslate"><span class=
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;custom&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_custom&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;higher_is_better&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">}}</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_custom&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;higher_is_better&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">],</span>
 <span class="w">    </span><span class="nt">&quot;user_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;evaluate_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eval_accuracy&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;evaluate_func_kwargs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
+<span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -291,21 +283,22 @@ specify its name in <code class="code docutils literal notranslate"><span class=
 </div><div aria-labelledby="tab-3-3-1" class="sphinx-tabs-panel" hidden="true" id="panel-3-3-1" name="3-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.evaluator.metric_config</span> <span class="kn">import</span> <span class="n">MetricGoal</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricType</span>
 
-<span class="n">sub_types</span> <span class="o">=</span> <span class="p">[{</span>
-    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy_custom&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="s2">&quot;higher_is_better&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="n">MetricGoal</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.01</span><span class="p">),</span>
-<span class="p">}]</span>
 <span class="n">accuracy_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
     <span class="nb">type</span><span class="o">=</span><span class="n">MetricType</span><span class="o">.</span><span class="n">CUSTOM</span><span class="p">,</span>
-    <span class="n">sub_types</span><span class="o">=</span><span class="n">sub_types</span><span class="p">,</span>
+    <span class="n">sub_types</span><span class="o">=</span><span class="p">[{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy_custom&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;higher_is_better&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="n">MetricGoal</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.01</span><span class="p">),</span>
+    <span class="p">}],</span>
     <span class="n">user_config</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>
         <span class="s2">&quot;evaluate_func&quot;</span><span class="p">:</span> <span class="s2">&quot;eval_accuracy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;evaluate_func_kwargs&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>
+        <span class="p">}</span>
     <span class="p">}</span>
 <span class="p">)</span>
 </pre></div>
@@ -315,7 +308,7 @@ specify its name in <code class="code docutils literal notranslate"><span class=
 for <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>.</p>
 <p>Here is an example of the <code class="code docutils literal notranslate"><span class="pre">&quot;eval_accuracy&quot;</span></code> function in <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>:
 In your <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>, you need to define a function that takes in an Olive model, the data directory, and the batch size, and returns a metric value:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">eval_accuracy</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data_dir</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">):</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">eval_accuracy</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">):</span>
     <span class="c1"># load data</span>
     <span class="c1"># evaluate model</span>
     <span class="c1"># return metric value</span>

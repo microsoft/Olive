@@ -452,19 +452,15 @@ dictionary contains following items:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">user_script:</span> <span class="pre">[str]</span></code> The name of the script provided by the user to assist with metric evaluation.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">script_dir:</span> <span class="pre">[str]</span></code> The directory that contains dependencies for the user script.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_dir:</span> <span class="pre">[str|ResourcePathConfig]</span></code> The directory that contains the data for the metric evaluation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">batch_size:</span> <span class="pre">[int]</span></code> The batch size for the metric evaluation.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">inference_settings:</span> <span class="pre">[Dict]</span></code> Inference settings for the different runtime.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dataloader_func:</span> <span class="pre">[str]</span></code> The name of the function provided by the user to load the data for the metric evaluation. The function should take the <code class="docutils literal notranslate"><span class="pre">data_dir</span></code>, <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>, <code class="docutils literal notranslate"><span class="pre">model_framework</span></code> (provided as a keyword argument)
-as input and return the data loader. Not valid for <code class="docutils literal notranslate"><span class="pre">custom</span></code> type when <code class="docutils literal notranslate"><span class="pre">evaluate_func</span></code> is provided.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">post_processing_func:</span> <span class="pre">[str]</span></code> The name of the function provided by the user to post process the model output. The function should take the model output as input and return the post processed
-output. Only valid for <code class="docutils literal notranslate"><span class="pre">accuracy</span></code> type or <code class="docutils literal notranslate"><span class="pre">custom</span></code> type when <code class="docutils literal notranslate"><span class="pre">evaluate_func</span></code> is not provided.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">evaluate_func:</span> <span class="pre">[str]</span></code> The name of the function provided by the user to evaluate the model. The function should take the model, <code class="docutils literal notranslate"><span class="pre">data_dir</span></code>, <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>, <code class="docutils literal notranslate"><span class="pre">device</span></code>, <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> as input
 and return the evaluation result. Only valid for <code class="docutils literal notranslate"><span class="pre">custom</span></code> type.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">evaluate_func_kwargs:</span> <span class="pre">Dict[str,</span> <span class="pre">Any]</span></code> Keyword arguments for <code class="docutils literal notranslate"><span class="pre">evaluate_func</span></code> provided by the user. The functions must be able to take the keyword arguments either through the function signature
+as keyword/positional parameters after the required positional parameters or through <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">metric_func:</span> <span class="pre">[str]</span></code> The name of the function provided by the user to compute metric from the model output. The function should take the post processed output and target as input and return the
 metric result. Only valid for <code class="docutils literal notranslate"><span class="pre">custom</span></code> type when <code class="docutils literal notranslate"><span class="pre">evaluate_func</span></code> is not provided.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">func_kwargs:</span> <span class="pre">[Dict[str,</span> <span class="pre">Dict[str,</span> <span class="pre">Any]]]</span></code> Keyword arguments for the functions provided by the user. The key is the name of the function and the value is the keyword arguments for the function. The
-functions must be able to take the keyword arguments either through the function signature as keyword/positional parameters after the required positional parameters or through <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metric_func_kwargs:</span> <span class="pre">Dict[str,</span> <span class="pre">Any]</span></code> Keyword arguments for <code class="docutils literal notranslate"><span class="pre">metric_func</span></code> provided by the user. The functions must be able to take the keyword arguments either through the function signature
+as keyword/positional parameters after the required positional parameters or through <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>.</p></li>
 </ul>
 </li>
 </ul>
@@ -483,38 +479,36 @@ functions must be able to take the keyword arguments either through the function
 </ul>
 <section id="id3">
 <h3>Example<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;evaluators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_data_config&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;post_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;post_process&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">],</span>
+<span class="nt">&quot;evaluators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;common_evaluator&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;metrics&quot;</span><span class="p">:[</span>
 <span class="w">            </span><span class="p">{</span>
 <span class="w">                </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
 <span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_data_config&quot;</span><span class="p">,</span>
 <span class="w">                </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">}},</span>
 <span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f1_score&quot;</span><span class="p">},</span>
 <span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;auroc&quot;</span><span class="p">}</span>
-<span class="w">                </span><span class="p">],</span>
-<span class="w">                </span><span class="nt">&quot;user_config&quot;</span><span class="p">:{</span>
-<span class="w">                    </span><span class="nt">&quot;post_processing_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">                </span><span class="p">}</span>
+<span class="w">                </span><span class="p">]</span>
 <span class="w">            </span><span class="p">},</span>
 <span class="w">            </span><span class="p">{</span>
 <span class="w">                </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
 <span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
 <span class="w">                </span><span class="nt">&quot;backend&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_metrics&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_data_config&quot;</span><span class="p">,</span>
 <span class="w">                </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
 <span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f1&quot;</span><span class="p">}</span>
-<span class="w">                </span><span class="p">],</span>
-<span class="w">                </span><span class="nt">&quot;user_config&quot;</span><span class="p">:{</span>
-<span class="w">                    </span><span class="nt">&quot;post_processing_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">                </span><span class="p">}</span>
+<span class="w">                </span><span class="p">]</span>
 <span class="w">            </span><span class="p">},</span>
 <span class="w">            </span><span class="p">{</span>
 <span class="w">                </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
@@ -525,9 +519,6 @@ functions must be able to take the keyword arguments either through the function
 <span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;min&quot;</span><span class="p">}</span>
 <span class="w">                </span><span class="p">],</span>
 <span class="w">                </span><span class="nt">&quot;user_config&quot;</span><span class="p">:{</span>
-<span class="w">                    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
 <span class="w">                    </span><span class="nt">&quot;inference_settings&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">                        </span><span class="nt">&quot;onnx&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">                            </span><span class="nt">&quot;session_options&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>

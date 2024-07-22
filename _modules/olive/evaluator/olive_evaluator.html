@@ -273,15 +273,7 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
         <span class="n">raw_res</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">evaluate_func</span><span class="p">:</span>
-            <span class="n">data_dir</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">data_config</span><span class="o">.</span><span class="n">load_dataset_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data_dir&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">data_config</span> <span class="k">else</span> <span class="kc">None</span>
-            <span class="n">batch_size</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">data_config</span><span class="o">.</span><span class="n">dataloader_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">data_config</span> <span class="k">else</span> <span class="mi">1</span>
-            <span class="n">raw_res</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span>
-                <span class="n">model</span><span class="p">,</span>
-                <span class="n">data_dir</span><span class="p">,</span>
-                <span class="n">batch_size</span><span class="p">,</span>
-                <span class="n">device</span><span class="p">,</span>
-                <span class="n">execution_providers</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="n">raw_res</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inference</span><span class="p">(</span>
                 <span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span>
@@ -614,7 +606,6 @@
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="n">warmup_num</span><span class="p">,</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="n">sleep_num</span> <span class="o">=</span> <span class="n">get_latency_config_from_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
-
         <span class="n">session</span><span class="p">,</span> <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">get_session_wrapper</span><span class="p">(</span>
             <span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span>
         <span class="p">)</span>
