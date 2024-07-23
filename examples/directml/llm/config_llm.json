@@ -4,12 +4,8 @@
         "model_loader": "load_decoder_model",
         "model_script": "user_script.py",
         "io_config": {
-            "input_names": [
-                "input_ids"
-            ],
-            "output_names": [
-                "logits"
-            ],
+            "input_names": [ "input_ids" ],
+            "output_names": [ "logits" ],
             "dynamic_axes": {
                 "input_ids": { "0": "batch_size", "1": "sequence_length" },
                 "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
@@ -22,14 +18,7 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "device": "gpu",
-                    "execution_providers": [
-                        "DmlExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "DmlExecutionProvider" ] } ]
         }
     },
     "evaluators": {
@@ -92,10 +81,7 @@
             }
         }
     },
-    "search_strategy": {
-        "execution_order": "joint",
-        "search_algorithm": "exhaustive"
-    },
+    "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,
     "host": "local_system",

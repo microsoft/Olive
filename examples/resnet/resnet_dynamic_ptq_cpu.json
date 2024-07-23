@@ -48,11 +48,7 @@
                     "type": "latency",
                     "data_config": "cifar10_data_config",
                     "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 2,
-                            "goal": { "type": "percent-min-improvement", "value": 20 }
-                        }
+                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 20 } }
                     ]
                 }
             ]

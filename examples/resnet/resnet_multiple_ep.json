@@ -4,10 +4,7 @@
         "python_system": {
             "type": "PythonEnvironment",
             "accelerators": [
-                {
-                    "device": "gpu",
-                    "execution_providers": [ "DmlExecutionProvider", "OpenVINOExecutionProvider" ]
-                }
+                { "device": "gpu", "execution_providers": [ "DmlExecutionProvider", "OpenVINOExecutionProvider" ] }
             ],
             "olive_managed_env": true,
             "requirements_file": "multiple_ep_requirements.txt"

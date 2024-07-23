@@ -1,7 +1,7 @@
 {
-    "accuracy-accuracy_score": {"value": 0.99618, "priority": 1, "higher_is_better": true},
-    "accuracy-f1_score": {"value": 0.99618, "priority": 1, "higher_is_better": true},
-    "accuracy-precision": {"value": 0.99618, "priority": 1, "higher_is_better": true},
-    "accuracy-recall": {"value": 0.99618, "priority": 1, "higher_is_better": true},
-    "accuracy-auroc": {"value": 0.99618, "priority": 1, "higher_is_better": true}
+    "accuracy-accuracy_score": { "value": 0.99618, "priority": 1, "higher_is_better": true },
+    "accuracy-f1_score": { "value": 0.99618, "priority": 1, "higher_is_better": true },
+    "accuracy-precision": { "value": 0.99618, "priority": 1, "higher_is_better": true },
+    "accuracy-recall": { "value": 0.99618, "priority": 1, "higher_is_better": true },
+    "accuracy-auroc": { "value": 0.99618, "priority": 1, "higher_is_better": true }
 }

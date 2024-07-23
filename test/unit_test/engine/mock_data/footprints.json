@@ -10,27 +10,11 @@
         },
         "metrics": {
             "value": {
-                "accuracy-accuracy_score": {
-                    "value": 0.92,
-                    "priority": 1,
-                    "higher_is_better": true
-                },
-                "accuracy-f1_score": {
-                    "value": 0.90,
-                    "priority": -1,
-                    "higher_is_better": true
-                },
-                "latency-avg": {
-                    "value": 112,
-                    "priority": 2,
-                    "higher_is_better": false
-                }
+                "accuracy-accuracy_score": { "value": 0.92, "priority": 1, "higher_is_better": true },
+                "accuracy-f1_score": { "value": 0.9, "priority": -1, "higher_is_better": true },
+                "latency-avg": { "value": 112, "priority": 2, "higher_is_better": false }
             },
-            "cmp_direction": {
-                "accuracy-accuracy_score": 1,
-                "accuracy-f1_score": 1,
-                "latency-avg": -1
-            },
+            "cmp_direction": { "accuracy-accuracy_score": 1, "accuracy-f1_score": 1, "latency-avg": -1 },
             "if_goals_met": true
         }
     },
@@ -45,27 +29,11 @@
         },
         "metrics": {
             "value": {
-                "accuracy-accuracy_score": {
-                    "value": 0.91,
-                    "priority": 1,
-                    "higher_is_better": true
-                },
-                "accuracy-f1_score": {
-                    "value": 0.81,
-                    "priority": -1,
-                    "higher_is_better": true
-                },
-                "latency-avg": {
-                    "value": 111,
-                    "priority": 2,
-                    "higher_is_better": false
-                }
+                "accuracy-accuracy_score": { "value": 0.91, "priority": 1, "higher_is_better": true },
+                "accuracy-f1_score": { "value": 0.81, "priority": -1, "higher_is_better": true },
+                "latency-avg": { "value": 111, "priority": 2, "higher_is_better": false }
             },
-            "cmp_direction": {
-                "accuracy-accuracy_score": 1,
-                "accuracy-f1_score": 1,
-                "latency-avg": -1
-            },
+            "cmp_direction": { "accuracy-accuracy_score": 1, "accuracy-f1_score": 1, "latency-avg": -1 },
             "if_goals_met": true
         }
     },
@@ -74,27 +42,11 @@
         "model_config": { "config": { "model_path": "a/b/c/model.pt", "inference_settings": null } },
         "metrics": {
             "value": {
-                "accuracy-accuracy_score": {
-                    "value": 0.90,
-                    "priority": 1,
-                    "higher_is_better": true
-                },
-                "accuracy-f1_score": {
-                    "value": 0.81,
-                    "priority": -1,
-                    "higher_is_better": true
-                },
-                "latency-avg": {
-                    "value": 120,
-                    "priority": 2,
-                    "higher_is_better": false
-                }
+                "accuracy-accuracy_score": { "value": 0.9, "priority": 1, "higher_is_better": true },
+                "accuracy-f1_score": { "value": 0.81, "priority": -1, "higher_is_better": true },
+                "latency-avg": { "value": 120, "priority": 2, "higher_is_better": false }
             },
-            "cmp_direction": {
-                "accuracy-accuracy_score": 1,
-                "accuracy-f1_score": 1,
-                "latency-avg": -1
-            }
+            "cmp_direction": { "accuracy-accuracy_score": 1, "accuracy-f1_score": 1, "latency-avg": -1 }
         }
     }
 }

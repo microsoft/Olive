@@ -6,7 +6,7 @@
             "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ]
         }
     },
-    "passes": { },
+    "passes": {  },
     "cache_dir": "cache",
     "output_dir": "models",
     "host": "local_system",

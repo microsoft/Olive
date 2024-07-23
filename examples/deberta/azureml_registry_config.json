@@ -13,11 +13,7 @@
         {
             "name": "glue_mnli_matched",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "data_name": "glue",
-                "subset": "mnli_matched",
-                "split": "validation"
-             },
+            "load_dataset_config": { "data_name": "glue", "subset": "mnli_matched", "split": "validation" },
             "pre_process_data_config": {
                 "align_labels": true,
                 "input_cols": [ "premise", "hypothesis" ],
@@ -52,12 +48,7 @@
         "quantization": { "type": "OnnxQuantization", "data_config": "glue_mnli_matched" },
         "perf_tuning": { "type": "OrtPerfTuning", "data_config": "glue_mnli_matched" }
     },
-    "search_strategy": {
-        "execution_order": "joint",
-        "search_algorithm": "tpe",
-        "num_samples": 3,
-        "seed": 0
-    },
+    "search_strategy": { "execution_order": "joint", "search_algorithm": "tpe", "num_samples": 3, "seed": 0 },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
     "output_dir": "models/microsoft-deberta"

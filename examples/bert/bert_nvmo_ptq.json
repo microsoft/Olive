@@ -12,11 +12,7 @@
     ],
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
-        "transformers_optimization": {
-            "type": "OrtTransformersOptimization",
-            "model_type": "bert",
-            "opt_level": 0
-        },
+        "transformers_optimization": { "type": "OrtTransformersOptimization", "model_type": "bert", "opt_level": 0 },
         "quantization": {
             "type": "NVModelOptQuantization",
             "precision": "int4",

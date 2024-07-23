@@ -22,11 +22,7 @@
                     "type": "latency",
                     "data_config": "openassistant_train",
                     "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 1,
-                            "goal": { "type": "percent-min-improvement", "value": 5 }
-                        },
+                        { "name": "avg", "priority": 1, "goal": { "type": "percent-min-improvement", "value": 5 } },
                         { "name": "max" },
                         { "name": "min" }
                     ]

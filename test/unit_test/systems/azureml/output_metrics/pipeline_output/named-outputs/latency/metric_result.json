@@ -1,11 +1,11 @@
 {
-    "latency-avg": {"value": 0.031415, "priority": 1, "higher_is_better": false},
-    "latency-max": {"value": 0.031415, "priority": -1, "higher_is_better": false},
-    "latency-min": {"value": 0.031415, "priority": -1, "higher_is_better": false},
-    "latency-p50": {"value": 0.031415, "priority": -1, "higher_is_better": false},
-    "latency-p75": {"value": 0.031415, "priority": -1, "higher_is_better": false},
-    "latency-p90": {"value": 0.031415, "priority": -1, "higher_is_better": false},
-    "latency-p95": {"value": 0.031415, "priority": -1, "higher_is_better": false},
-    "latency-p99": {"value": 0.031415, "priority": -1, "higher_is_better": false},
-    "latency-p999": {"value": 0.031415, "priority": -1, "higher_is_better": false}
+    "latency-avg": { "value": 0.031415, "priority": 1, "higher_is_better": false },
+    "latency-max": { "value": 0.031415, "priority": -1, "higher_is_better": false },
+    "latency-min": { "value": 0.031415, "priority": -1, "higher_is_better": false },
+    "latency-p50": { "value": 0.031415, "priority": -1, "higher_is_better": false },
+    "latency-p75": { "value": 0.031415, "priority": -1, "higher_is_better": false },
+    "latency-p90": { "value": 0.031415, "priority": -1, "higher_is_better": false },
+    "latency-p95": { "value": 0.031415, "priority": -1, "higher_is_better": false },
+    "latency-p99": { "value": 0.031415, "priority": -1, "higher_is_better": false },
+    "latency-p999": { "value": 0.031415, "priority": -1, "higher_is_better": false }
 }

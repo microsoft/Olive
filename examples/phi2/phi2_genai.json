@@ -4,10 +4,7 @@
         "local_system": {
             "type": "LocalSystem",
             "accelerators": [
-                {
-                    "device": "GPU",
-                    "execution_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider" ]
-                }
+                { "device": "GPU", "execution_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider" ] }
             ]
         }
     },
