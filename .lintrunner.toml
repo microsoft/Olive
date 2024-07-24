@@ -282,7 +282,8 @@ is_formatter = true
 include_patterns = ['**/*.json']
 command = [
   'python',
-  'scripts/linters/format_json.py',
+  'scripts/format_json.py',
+  '--linter-mode',
   '--indent=4',
   '--max-line-length=120',
   '@{{PATHSFILE}}'
