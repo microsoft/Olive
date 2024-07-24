@@ -6,4 +6,5 @@ optimum
 pillow
 protobuf==3.20.3 # protobuf 4.x aborts with OOM when optimizing unet
 torch
-transformers
+# StableDiffusionSafetyChecker vision_model ignores attn_implementation
+transformers<4.43.0
