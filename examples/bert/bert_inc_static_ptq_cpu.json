@@ -12,6 +12,12 @@
                 "max_samples": 100
             },
             "dataloader_config": { "batch_size": 1 }
+        },
+        {
+            "name": "inc_quat_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "bert_inc_glue_calibration_dataset" },
+            "dataloader_config": { "type": "bert_inc_glue_calibration_dataloader" }
         }
     ],
     "evaluators": {
@@ -49,7 +55,7 @@
             "type": "IncStaticQuantization",
             "quant_format": "QOperator",
             "user_script": "user_script.py",
-            "dataloader_func": "inc_glue_calibration_reader",
+            "data_config": "inc_quat_data_config",
             "metric": {
                 "name": "accuracy",
                 "type": "custom",

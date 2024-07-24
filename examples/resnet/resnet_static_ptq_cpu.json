@@ -17,13 +17,16 @@
     },
     "data_configs": [
         {
-            "name": "cifar10_data_config",
-            "type": "HuggingfaceContainer",
+            "name": "perf_tuning_data_config",
             "user_script": "user_script.py",
-            "load_dataset_config": { "type": "cifar10_dataset", "data_dir": "data" },
-            "pre_process_data_config": { "type": "skip_pre_process" },
-            "dataloader_config": { "batch_size": 1, "drop_last": true },
-            "post_process_data_config": { "type": "skip_post_process" }
+            "load_dataset_config": { "type": "cifar10_val_dataset", "data_dir": "data" },
+            "dataloader_config": { "batch_size": 1, "drop_last": true }
+        },
+        {
+            "name": "quant_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "simple_dataset" },
+            "dataloader_config": { "type": "resnet_calibration_dataloader", "data_dir": "data" }
         }
     ],
     "evaluators": {
@@ -56,13 +59,8 @@
     },
     "passes": {
         "onnx_conversion": { "type": "OnnxConversion", "target_opset": 13 },
-        "onnx_static_quantization": {
-            "type": "OnnxStaticQuantization",
-            "user_script": "user_script.py",
-            "data_dir": "data",
-            "dataloader_func": "resnet_calibration_reader"
-        },
-        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "cifar10_data_config" }
+        "onnx_static_quantization": { "type": "OnnxStaticQuantization", "data_config": "quant_data_config" },
+        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "perf_tuning_data_config" }
     },
     "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
     "host": "local_system",

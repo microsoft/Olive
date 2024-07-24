@@ -64,19 +64,12 @@ latency_metric = Metric(
         "priority": 1,
         "metric_config": {"warmup_num": 0, "repeat_test_num": 5, "sleep_num": 2},
     }],
-    user_config={
-        "user_script": "user_script.py",
-        "data_dir": "data",
-        "dataloader_func": "create_dataloader",
-        "batch_size": 16,
-    }
+    data_config="latency_data_config"
 )
 
 # create evaluator configuration
 evaluator_config =  OliveEvaluatorConfig(metrics=[latency_metric])
 ```
-
-`latency_metric` requires you to provide a function as value for `dataloader_func` that returns a dataloader object when called on `data_dir`, `batch_size`, optional positional argument list and keyword argument dictionary. You can provide the function object directly but here, let's give it a function name `"create_dataloader"` that can be imported from `user_script`.
 
 [This file](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py) for
 has an example of how to write user scripts.
@@ -119,9 +112,7 @@ engine.register(OnnxConversion, onnx_conversion_config, False, host=LocalSystem(
 
 # onnx quantization pass
 quantization_config = {
-    "user_script": "user_script.py",
-    "data_dir": "data",
-    "dataloader_func": "resnet_calibration_reader",
+    "data_config": "calib_data_config",
     "weight_type" : "QUInt8"
 }
 # search over the values for the other config parameters

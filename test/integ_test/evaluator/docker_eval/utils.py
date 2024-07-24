@@ -38,13 +38,11 @@ _current_dir, _models_dir, _data_dir, _user_script = get_directories()
 def _get_metric_data_config(name, dataset, post_process=None):
     data_config = DataConfig(
         name=name,
-        type="HuggingfaceContainer",
         user_script=str(_user_script),
         load_dataset_config=DataComponentConfig(
             type=dataset,
             params={"data_dir": str(_data_dir)},
         ),
-        pre_process_data_config=DataComponentConfig(type="skip_pre_process"),
     )
     if post_process:
         data_config.post_process_data_config = DataComponentConfig(type=post_process)

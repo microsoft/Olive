@@ -12,6 +12,7 @@ from datasets import load_dataset
 from transformers import AutoConfig, LlamaTokenizer
 
 from olive.constants import Framework
+from olive.data.registry import Registry
 from olive.model import OliveModelHandler
 
 model_id = "openlm-research/open_llama_3b"
@@ -80,7 +81,8 @@ class PileDataloader:
             pass
 
 
-def calib_dataloader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def open_llama_calib_dataloader(dataset, batch_size, **kwargs):
     model_path = kwargs.pop("model_path")
     return PileDataloader(model_path, batch_size=batch_size)
 

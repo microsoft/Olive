@@ -54,12 +54,10 @@ Please refer to [SNPEQuantization](snpe_quantization) for more details about the
 ```json
 {
     "type": "SNPEQuantization",
-    "data_dir": "data_dir",
-    "user_script": "user_script.py",
-    "dataloader_func": "create_quant_dataloader",
+    "data_config": "quant_data_config",
     "enable_htp": true
 }
 ```
 
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py)
-for an example implementation of `"user_script.py"` and `"create_quant_dataloader"`.
+for an example implementation of `"user_script.py"` and `"quant_data_config/dataloader_config/type"`.

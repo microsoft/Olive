@@ -50,10 +50,8 @@ Use `my_script.py` with Olive workflow configuration json file(sub_types name sh
 "data_configs": [
     {
         "name": "accuracy_data_config",
-        "type": "HuggingfaceContainer",
         "user_script": "user_script.py",
         "load_dataset_config": { "type": "skip_dataset" },
-        "pre_process_data_config": { "type": "skip_pre_process" },
         "post_process_data_config": { "type": "my_post_process" },
         "dataloader_config": { "type": "my_dataloader", "params": { "batch_size": 4 } }
     }
@@ -108,11 +106,9 @@ Use `script_dir` and `my_script.py` with Olive workflow configuration json file:
 "data_configs": [
     {
         "name": "accuracy_data_config",
-        "type": "HuggingfaceContainer",
         "user_script": "user_script.py",
         "script_dir": "my_modules",
         "load_dataset_config": { "type": "skip_dataset" },
-        "pre_process_data_config": { "type": "skip_pre_process" },
         "post_process_data_config": { "type": "my_post_process" },
         "dataloader_config": { "type": "my_dataloader", "params": { "batch_size": 4 } }
     }

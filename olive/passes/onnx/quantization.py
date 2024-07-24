@@ -22,8 +22,8 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
-from olive.passes.pass_config import ParamCategory, PassConfigParam
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
+from olive.passes.pass_config import PassConfigParam
+from olive.resource_path import LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
 logger = logging.getLogger(__name__)
@@ -147,39 +147,10 @@ _extra_options_config = {
 
 # static quantization specific config
 _dataloader_config = {
-    "data_dir": PassConfigParam(
-        type_=OLIVE_RESOURCE_ANNOTATIONS,
-        category=ParamCategory.DATA,
-        description="""
-            Path to the directory containing the dataset.
-            For local data, it is required if quant_mode is 'static' and dataloader_func is provided.
-        """,
-    ),
-    "batch_size": PassConfigParam(
-        type_=int,
-        default_value=1,
-        description="""
-            Batch size for calibration, only used if dataloader_func is provided.
-        """,
-    ),
-    # TODO(trajep): remove this option once we have a data config ready
-    "dataloader_func": PassConfigParam(
-        type_=Union[Callable, str],
-        category=ParamCategory.OBJECT,
-        description="""
-            Function/function name to generate dataloader for calibration,
-            required if quant_mode is 'static' and data_config is None.
-        """,
-    ),
-    "dataloader_func_kwargs": PassConfigParam(
-        type_=Dict[str, Any],
-        description="Keyword arguments for dataloader_func.",
-    ),
     "data_config": PassConfigParam(
         type_=Union[DataConfig, Dict],
         description="""
-            Data config for calibration, required if quant_mode is 'static' and
-            dataloader_func is None.
+            Data config for calibration, required if quant_mode is 'static'
         """,
     ),
 }
@@ -279,27 +250,13 @@ _static_optional_config = {
 }
 
 
-def get_calibration_dataloader(user_module_loader, config):
-    dataloader = None
-
-    if config["dataloader_func"]:
-        # TODO(trajep): replace legacy dataloader_func with data config
-        dataloader = user_module_loader.call_object(
-            config["dataloader_func"],
-            config["data_dir"],
-            config["batch_size"],
-            **(config["dataloader_func_kwargs"] or {}),
-        )
-    elif config["data_config"]:
-        data_config = validate_config(config["data_config"], DataConfig)
-        dataloader = data_config.to_data_container().create_calibration_dataloader()
-    return dataloader
+def get_calibration_dataloader(config):
+    data_config = validate_config(config["data_config"], DataConfig)
+    return data_config.to_data_container().create_calibration_dataloader()
 
 
 class OnnxQuantization(Pass):
     """Quantize ONNX model with static/dynamic quantization techniques."""
-
-    _requires_user_script = True
 
     def _initialize(self):
         super()._initialize()
@@ -397,9 +354,7 @@ class OnnxQuantization(Pass):
         run_config = deepcopy(config)
         is_static = run_config["quant_mode"] == "static"
         if is_static:
-            assert (
-                config["dataloader_func"] or config["data_config"]
-            ), "dataloader_func or data_config is required for static quantization."
+            assert config["data_config"], "data_config is required for static quantization."
             # whether to prepare qnn config
             # we do the version check here and not in `validate_search_point` since search point validation
             # is done by the engine. Unless the host is local system, the ort version of the host is
@@ -448,18 +403,15 @@ class OnnxQuantization(Pass):
         # keys not needed for quantization
         to_delete = [
             "quant_mode",
-            "script_dir",
-            "user_script",
             "quant_preprocess",
-            "data_config",
             "prepare_qnn_config",
             "append_first_op_types_to_quantize_list",
+            *_dataloader_config.keys(),
+            *get_external_data_config().keys(),
         ]
-        to_delete += list(get_external_data_config().keys())
 
         # update string values to enum values
         if is_static:
-            to_delete += list(_dataloader_config.keys())
             run_config.update(
                 {
                     "calibrate_method": CalibrationMethod[run_config["calibrate_method"]],
@@ -470,7 +422,6 @@ class OnnxQuantization(Pass):
                 }
             )
         else:
-            to_delete += list(_dataloader_config.keys())
             to_delete += list(_static_optional_config.keys())
             run_config.update(
                 {
@@ -498,7 +449,7 @@ class OnnxQuantization(Pass):
 
         if is_static:
             # get the dataloader
-            dataloader = get_calibration_dataloader(self._user_module_loader, config)
+            dataloader = get_calibration_dataloader(config)
             if config["prepare_qnn_config"]:
                 import inspect
 
@@ -599,8 +550,6 @@ class OnnxQuantization(Pass):
 class OnnxDynamicQuantization(OnnxQuantization):
     """ONNX Dynamic Quantization Pass."""
 
-    _requires_user_script = False
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         if accelerator_spec.execution_provider == "QNNExecutionProvider":
@@ -652,11 +601,9 @@ class OnnxStaticQuantization(OnnxQuantization):
 
 
 class OnnxMatMul4Quantizer(Pass):
-    _requires_user_script = True
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
+        return {
             "block_size": PassConfigParam(
                 type_=int,
                 default_value=32,
@@ -741,11 +688,10 @@ class OnnxMatMul4Quantizer(Pass):
                     https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L63C1-L99C37
                 """,
             ),
+            **get_external_data_config(),
+            # static_dataloder_config
+            **deepcopy(_dataloader_config),
         }
-        config.update(get_external_data_config())
-        # static_dataloder_config
-        config.update(deepcopy(_dataloader_config))
-        return config
 
     @classmethod
     def _validators(cls) -> Dict[str, Callable]:
@@ -785,7 +731,7 @@ class OnnxMatMul4Quantizer(Pass):
                     # ort 1.17.0+ uses blocksize instead of block_size :(
                     algo_config["blocksize"] = algo_config["block_size"]
                     algo_config.pop("block_size")
-                dataloader = get_calibration_dataloader(self._user_module_loader, config)
+                dataloader = get_calibration_dataloader(config)
                 weight_only_quant_config_class = partial(GPTQWeightOnlyQuantConfig, calibration_data_reader=dataloader)
 
             if version.parse(OrtVersion) >= version.parse("1.18.0"):

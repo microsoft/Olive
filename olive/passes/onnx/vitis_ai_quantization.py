@@ -6,18 +6,20 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Dict, Union
 
 import onnx
 
+from olive.common.config_utils import validate_config
 from olive.common.utils import exclude_keys, hash_string
+from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
-from olive.passes.pass_config import ParamCategory, PassConfigParam
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
+from olive.passes.pass_config import PassConfigParam
+from olive.resource_path import LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
@@ -27,32 +29,10 @@ logger = logging.getLogger(__name__)
 
 # common config for Vitis-AI quantization
 vai_q_onnx_quantization_config = {
-    "data_dir": PassConfigParam(
-        type_=OLIVE_RESOURCE_ANNOTATIONS,
-        category=ParamCategory.DATA,
-        description="""
-            Path to the directory containing the dataset.
-        """,
-    ),
-    "batch_size": PassConfigParam(
-        type_=int,
-        default_value=1,
-        description="""
-            Batch size for calibration, required.
-        """,
-    ),
-    "dataloader_func": PassConfigParam(
-        type_=Union[Callable, str],
+    "data_config": PassConfigParam(
+        type_=Union[DataConfig, Dict],
         required=True,
-        category=ParamCategory.OBJECT,
-        description="""
-            Function/function name to generate dataloader for calibration,
-            required'
-        """,
-    ),
-    "dataloader_func_kwargs": PassConfigParam(
-        type_=Dict[str, Any],
-        description="Keyword arguments for dataloader_func.",
+        description="Data config for calibration.",
     ),
     "weight_type": PassConfigParam(
         type_=str,
@@ -220,7 +200,6 @@ class VitisAIQuantization(Pass):
     We can search for best parameters for vai_q_onnx quantization at same time.
     """
 
-    _requires_user_script = True
     run_on_target = True
 
     def _initialize(self):
@@ -234,7 +213,7 @@ class VitisAIQuantization(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
+        return {
             "quant_mode": PassConfigParam(
                 type_=str,
                 default_value="static",
@@ -243,19 +222,15 @@ class VitisAIQuantization(Pass):
                     Onnx Quantization mode.
                     'static' for vitis ai quantization.
                 """,
-            )
+            ),
+            # common quantization config
+            **deepcopy(vai_q_onnx_quantization_config),
+            # exposed extra options config
+            **deepcopy(_exposed_extra_options_config),
+            **deepcopy(_extra_options_config),
+            # external data config
+            **get_external_data_config(),
         }
-
-        # common quantization config
-        config.update(deepcopy(vai_q_onnx_quantization_config))
-
-        # exposed extra options config
-        config.update(deepcopy(_exposed_extra_options_config))
-        config.update(deepcopy(_extra_options_config))
-
-        # external data config
-        config.update(get_external_data_config())
-        return config
 
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
@@ -302,14 +277,9 @@ class VitisAIQuantization(Pass):
 
         # keys not needed for quantization
         to_delete = [
+            "data_config",
             "quant_mode",
-            "script_dir",
-            "user_script",
             "quant_preprocess",
-            "data_dir",
-            "batch_size",
-            "dataloader_func",
-            "dataloader_func_kwargs",
         ]
         to_delete += list(get_external_data_config().keys())
 
@@ -337,17 +307,10 @@ class VitisAIQuantization(Pass):
         tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 
         # get the dataloader
-        # TODO(XiaoSheng): only use data config
         dataloader = None
-        if config["dataloader_func"]:
-            dataloader = self._user_module_loader.call_object(
-                config["dataloader_func"],
-                config["data_dir"],
-                config["batch_size"],
-                **(config["dataloader_func_kwargs"] or {}),
-            )
-        elif self._data_config:
-            dataloader = self._data_config.to_data_container().create_calibration_dataloader()
+        if config["data_config"]:
+            data_config = validate_config(config["data_config"], DataConfig)
+            dataloader = data_config.to_data_container().create_calibration_dataloader()
 
         execution_provider = self.accelerator_spec.execution_provider
 

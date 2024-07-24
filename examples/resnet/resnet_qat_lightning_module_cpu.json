@@ -12,21 +12,26 @@
     "data_configs": [
         {
             "name": "cifar10_data_config",
-            "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
-            "load_dataset_config": { "type": "cifar10_dataset", "data_dir": "data" },
-            "pre_process_data_config": { "type": "skip_pre_process" },
-            "dataloader_config": { "batch_size": 1, "drop_last": true },
-            "post_process_data_config": { "type": "skip_post_process" }
+            "load_dataset_config": { "type": "cifar10_val_dataset", "data_dir": "data" },
+            "dataloader_config": { "batch_size": 1, "drop_last": true }
         },
         {
             "name": "cifar10_accuracy_data_config",
-            "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
-            "load_dataset_config": { "type": "cifar10_dataset", "data_dir": "data" },
+            "load_dataset_config": { "type": "cifar10_val_dataset", "data_dir": "data" },
             "dataloader_config": { "batch_size": 1, "drop_last": true },
-            "pre_process_data_config": { "type": "skip_pre_process" },
             "post_process_data_config": { "type": "cifar10_post_process" }
+        },
+        {
+            "name": "quant_train_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "cifar10_train_dataset", "data_dir": "data" }
+        },
+        {
+            "name": "quant_val_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "cifar10_val_dataset", "data_dir": "data" }
         }
     ],
     "evaluators": {
@@ -57,9 +62,9 @@
         "quantization_aware_training": {
             "type": "QuantizationAwareTraining",
             "user_script": "user_script.py",
+            "train_data_config": "quant_train_data_config",
+            "val_data_config": "quant_val_data_config",
             "num_epochs": 1,
-            "train_data_dir": "data",
-            "val_data_dir": "data",
             "ptl_data_module": "PTLDataModule",
             "ptl_module": "PTLModule",
             "pl_extra_args": { "accelerator": "gpu", "enable_checkpointing": true, "devices": 1 },

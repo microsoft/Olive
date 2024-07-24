@@ -5,7 +5,6 @@
 import shutil
 from pathlib import Path
 
-import pytest
 import torch
 
 from olive.data.config import DataComponentConfig, DataConfig
@@ -18,46 +17,25 @@ from olive.passes.openvino.quantization import OpenVINOQuantization
 
 
 @Registry.register_dataset()
-def cifar10_dataset(data_dir):
+def cifar10_dataset(data_dir, **kwargs):
     from torchvision.datasets import CIFAR10
     from torchvision.transforms import ToTensor
 
     return CIFAR10(root=data_dir, train=False, transform=ToTensor(), download=True)
 
 
-def cifar10_dataloader(data_dir, batch_size, *args, **kwargs):
-    from torch.utils.data.dataloader import DataLoader
-
-    return DataLoader(cifar10_dataset(data_dir), batch_size, shuffle=True)
-
-
-@pytest.mark.parametrize("data_source", ["dataloader_func", "data_config"])
-def test_openvino_quantization(data_source, tmp_path):
+def test_openvino_quantization(tmp_path):
     # setup
     ov_model = get_openvino_model(tmp_path)
     data_dir = tmp_path / "data"
     data_dir.mkdir(exist_ok=True)
-    config = {}
-    if data_source == "dataloader_func":
-        config.update(
-            {
-                "dataloader_func": cifar10_dataloader,
-                "data_dir": data_dir,
-            }
+    config = {
+        "data_config": DataConfig(
+            name="test_dc_config",
+            load_dataset_config=DataComponentConfig(type="cifar10_dataset", params={"data_dir": str(data_dir)}),
+            dataloader_config=DataComponentConfig(params={"shuffle": True}),
         )
-    elif data_source == "data_config":
-        config.update(
-            {
-                "data_config": DataConfig(
-                    name="test_dc_config",
-                    load_dataset_config=DataComponentConfig(
-                        type="cifar10_dataset",
-                        params={"data_dir": data_dir},
-                    ),
-                    dataloader_config=DataComponentConfig(params={"shuffle": True}),
-                )
-            }
-        )
+    }
     p = create_pass_from_dict(
         OpenVINOQuantization,
         config,
@@ -79,33 +57,18 @@ def test_openvino_quantization(data_source, tmp_path):
     shutil.rmtree(data_dir)
 
 
-@pytest.mark.parametrize("data_source", ["dataloader_func", "data_config"])
-def test_openvino_quantization_with_accuracy(data_source, tmp_path):
+def test_openvino_quantization_with_accuracy(tmp_path):
     # setup
     ov_model = get_openvino_model(tmp_path)
     data_dir = tmp_path / "data"
     data_dir.mkdir(exist_ok=True)
-    config = {}
-    if data_source == "dataloader_func":
-        config.update(
-            {
-                "dataloader_func": cifar10_dataloader,
-                "data_dir": data_dir,
-            }
+    config = {
+        "data_config": DataConfig(
+            name="test_dc_config",
+            load_dataset_config=DataComponentConfig(type="cifar10_dataset", params={"data_dir": str(data_dir)}),
+            dataloader_config=DataComponentConfig(params={"shuffle": True}),
         )
-    elif data_source == "data_config":
-        config.update(
-            {
-                "data_config": DataConfig(
-                    name="test_dc_config",
-                    load_dataset_config=DataComponentConfig(
-                        type="cifar10_dataset",
-                        params={"data_dir": data_dir},
-                    ),
-                    dataloader_config=DataComponentConfig(params={"shuffle": True}),
-                )
-            }
-        )
+    }
     p = create_pass_from_dict(
         OpenVINOQuantization,
         config,

@@ -7,6 +7,8 @@ import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from transformers.models.clip.modeling_clip import CLIPTextModel, CLIPTextModelWithProjection
 
+from olive.data.registry import Registry
+
 
 # Helper latency-only dataloader that creates random tensors with no label
 class RandomDataLoader:
@@ -40,7 +42,8 @@ def text_encoder_conversion_inputs(model):
     return text_encoder_inputs(1, torch.int32)
 
 
-def text_encoder_data_loader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def text_encoder_dataloader(dataset, batch_size, **kwargs):
     return RandomDataLoader(text_encoder_inputs, batch_size, torch.int32)
 
 
@@ -64,7 +67,8 @@ def text_encoder_2_conversion_inputs(model):
     return text_encoder_2_inputs(1, torch.int64)
 
 
-def text_encoder_2_data_loader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def text_encoder_2_dataloader(dataset, batch_size, **kwargs):
     return RandomDataLoader(text_encoder_2_inputs, batch_size, torch.int64)
 
 
@@ -102,7 +106,8 @@ def unet_conversion_inputs(model):
     return tuple(unet_inputs(1, torch.float32, True).values())
 
 
-def unet_data_loader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def unet_data_loader(dataset, batch_size, **kwargs):
     return RandomDataLoader(unet_inputs, batch_size, torch.float16)
 
 
@@ -129,7 +134,8 @@ def vae_encoder_conversion_inputs(model):
     return tuple(vae_encoder_inputs(1, torch.float32).values())
 
 
-def vae_encoder_data_loader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def vae_encoder_dataloader(dataset, batch_size, **kwargs):
     return RandomDataLoader(vae_encoder_inputs, batch_size, torch.float16)
 
 
@@ -158,5 +164,6 @@ def vae_decoder_conversion_inputs(model):
     return tuple(vae_decoder_inputs(1, torch.float32).values())
 
 
-def vae_decoder_data_loader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def vae_decoder_dataloader(dataset, batch_size, **kwargs):
     return RandomDataLoader(vae_decoder_inputs, batch_size, torch.float16)

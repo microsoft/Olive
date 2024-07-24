@@ -14,6 +14,14 @@
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "quant_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "simple_dataset" },
+            "dataloader_config": { "type": "open_llama_calib_dataloader" }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
@@ -50,10 +58,9 @@
         },
         "quantization": {
             "type": "IncStaticQuantization",
-            "user_script": "user_script.py",
             "approach": "weight_only",
             "weight_only_config": { "bits": 4, "algorithm": "GPTQ" },
-            "dataloader_func": "calib_dataloader",
+            "data_config": "quant_data_config",
             "calibration_sampling_size": [ 8 ],
             "save_as_external_data": true,
             "all_tensors_to_one_file": true
