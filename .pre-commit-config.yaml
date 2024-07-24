@@ -32,7 +32,7 @@ repos:
   - repo: local
     hooks:
       - id: format-json
-        name: FORMAT-JSON
+        name: Format JSON
         language: python
         entry: python scripts/format_json.py
         files: \.(json)$
