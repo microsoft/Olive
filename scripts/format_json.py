@@ -9,9 +9,10 @@ import json
 import logging
 import os
 import sys
-from typing import List
+from typing import TYPE_CHECKING, Optional, Union
 
-from lintrunner_adapters import LintMessage, LintSeverity
+if TYPE_CHECKING:
+    from lintrunner_adapters import LintMessage
 
 LINTER_CODE = "FORMAT-JSON"
 
@@ -69,7 +70,12 @@ def format_json(passed_obj, indent: int, max_line_length: int):
     return _format_json(passed_obj, "", 0) + "\n"
 
 
-def check_file(filename: str, indent: int, max_line_length: int) -> List[LintMessage]:
+def check_file(
+    filename: str, linter_mode: bool, indent: int, max_line_length: int
+) -> Union[int, Optional["LintMessage"]]:
+    if linter_mode:
+        from lintrunner_adapters import LintMessage, LintSeverity
+
     with open(filename, "rb") as f:
         original = f.read().decode("utf-8")
 
@@ -79,10 +85,10 @@ def check_file(filename: str, indent: int, max_line_length: int) -> List[LintMes
         replacement = format_json(obj, indent, max_line_length)
 
         if original == replacement:
-            return []
+            return None if linter_mode else 0
 
-        return [
-            LintMessage(
+        if linter_mode:
+            return LintMessage(
                 path=filename,
                 line=None,
                 char=None,
@@ -93,10 +99,14 @@ def check_file(filename: str, indent: int, max_line_length: int) -> List[LintMes
                 replacement=replacement,
                 description="Run `lintrunner -a` to apply this patch.",
             )
-        ]
+
+        with open(filename, "wb") as f:
+            f.write(replacement.encode("utf-8"))
+
+        return 0
     except Exception as e:
-        return [
-            LintMessage(
+        if linter_mode:
+            return LintMessage(
                 path=filename,
                 line=None,
                 char=None,
@@ -107,7 +117,9 @@ def check_file(filename: str, indent: int, max_line_length: int) -> List[LintMes
                 replacement=None,
                 description=f"Failed to parse JSON: {e}",
             )
-        ]
+
+        logging.exception("Failed to parse JSON file %s", filename)
+        return 1
 
 
 def main() -> None:
@@ -120,6 +132,7 @@ def main() -> None:
         action="store_true",
         help="verbose logging",
     )
+    parser.add_argument("--linter-mode", action="store_true", help="run in linter mode")
     parser.add_argument(
         "--indent",
         type=int,
@@ -129,7 +142,7 @@ def main() -> None:
     parser.add_argument(
         "--max-line-length",
         type=int,
-        default=80,
+        default=120,
         help="maximum line length",
     )
     parser.add_argument(
@@ -145,18 +158,32 @@ def main() -> None:
         stream=sys.stderr,
     )
 
+    retv = 0
+
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=os.cpu_count(),
         thread_name_prefix="Thread",
     ) as executor:
-        futures = {executor.submit(check_file, x, args.indent, args.max_line_length): x for x in args.filenames}
+        futures = {
+            executor.submit(check_file, x, args.linter_mode, args.indent, args.max_line_length): x
+            for x in args.filenames
+        }
         for future in concurrent.futures.as_completed(futures):
             try:
-                for lint_message in future.result():
-                    lint_message.display()
+                result = future.result()
+                if isinstance(result, int):
+                    retv |= result
+                    continue
+
+                if result is not None:
+                    result.display()
+
             except Exception:
                 logging.critical('Failed at "%s".', futures[future])
                 raise
+
+    if not args.linter_mode:
+        sys.exit(retv)
 
 
 if __name__ == "__main__":
