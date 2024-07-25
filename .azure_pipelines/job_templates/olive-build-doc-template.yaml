@@ -15,10 +15,11 @@ jobs:
       PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
 
     steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: 3.8
-      displayName: Use Python 3.8
+    - template: olive-setup-template.yaml
+      parameters:
+        python_version: '3.8'
+        onnxruntime: 'onnxruntime'
+        torch: 'torch'
 
     # checkout release branch if doc_version provided
     - script: |
@@ -28,9 +29,6 @@ jobs:
         git checkout rel-${{parameters.doc_version}}
       displayName: Checkout release branch
       condition: ne('${{parameters.doc_version}}', 'latest')
-
-    - script: python -m pip install .[cpu]
-      displayName: Install Olive
 
     - script: |
         # set -e, otherwise make html fails but the build continues
