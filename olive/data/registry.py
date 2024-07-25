@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class Registry:
-    """Registry for data components and data containers."""
+    """Registry for data components and data containers.
+
+    All component names are case insensitive and stored in lower case.
+    """
 
     _REGISTRY: ClassVar[Dict] = {
         DataComponentType.LOAD_DATASET.value: {},
@@ -36,7 +39,8 @@ class Registry:
         """
 
         def decorator(component):
-            component_name = name if name is not None else component.__name__
+            # make the component name case insensitive
+            component_name = (name if name is not None else component.__name__).lower()
             if component_name in cls._REGISTRY[sub_type.value]:
                 component_1 = cls._REGISTRY[sub_type.value][component_name]
                 component_2 = component
@@ -167,11 +171,11 @@ class Registry:
             Type: the component class
 
         """
-        return cls._REGISTRY[sub_type][name]
+        return cls._REGISTRY[sub_type][name.lower()]
 
     @classmethod
     def get_component(cls, component: str, name: str):
-        return cls._REGISTRY[component][name]
+        return cls._REGISTRY[component][name.lower()]
 
     @classmethod
     def get_load_dataset_component(cls, name: str):
@@ -234,7 +238,7 @@ class Registry:
 
         """
         name = name or DefaultDataContainer.DATA_CONTAINER.value
-        return cls._REGISTRY[DataContainerType.DATA_CONTAINER.value][name]
+        return cls._REGISTRY[DataContainerType.DATA_CONTAINER.value][name.lower()]
 
     @classmethod
     def get_default_load_dataset_component(cls):

@@ -8,20 +8,26 @@ import shutil
 import tempfile
 from abc import abstractmethod
 from copy import deepcopy
-from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Type, Union
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.auto_config import AutoConfigClass
-from olive.common.config_utils import ConfigBase, ConfigParam, NestedConfig, serialize_to_json, validate_config
+from olive.common.config_utils import (
+    CaseInsensitiveEnum,
+    ConfigBase,
+    ConfigParam,
+    NestedConfig,
+    serialize_to_json,
+    validate_config,
+)
 from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import copy_dir, retry_func
 
 logger = logging.getLogger(__name__)
 
 
-class ResourceType(str, Enum):
+class ResourceType(CaseInsensitiveEnum):
     LocalFile = "file"
     LocalFolder = "folder"
     StringName = "string_name"

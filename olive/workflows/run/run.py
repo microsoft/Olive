@@ -121,8 +121,7 @@ def dependency_setup(package_config: OlivePackageConfig, run_config: RunConfig):
 
 
 def get_pass_module_path(pass_type: str, package_config: OlivePackageConfig) -> str:
-    pass_module_config = package_config.passes.get(pass_type)
-    return pass_module_config.module_path
+    return package_config.get_pass_module_config(pass_type).module_path
 
 
 def is_execution_provider_required(run_config: RunConfig, package_config: OlivePackageConfig) -> bool:

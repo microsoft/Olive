@@ -23,7 +23,7 @@ from olive.passes import Pass
 
 def import_class(class_name: str, package_config: OlivePackageConfig):
     module_path, module_name = class_name.rsplit(".", 1)
-    if module_name in package_config.passes:
+    if module_name.lower() in package_config.passes:
         return package_config.import_pass_module(module_name)
 
     module = import_module(module_path)

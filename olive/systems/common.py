@@ -2,16 +2,15 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Union
 
-from olive.common.config_utils import ConfigBase
+from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import Device
 
 
-class SystemType(str, Enum):
+class SystemType(CaseInsensitiveEnum):
     Docker = "Docker"
     Local = "LocalSystem"
     AzureML = "AzureML"

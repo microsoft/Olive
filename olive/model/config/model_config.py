@@ -18,7 +18,7 @@ class ModelConfig(NestedConfig):
     def validate_type(cls, v):
         if not is_valid_model_type(v):
             raise ValueError(f"Unknown model type {v}")
-        return v
+        return v.lower()
 
     def get_resource_strings(self):
         cls = get_model_handler(self.type)

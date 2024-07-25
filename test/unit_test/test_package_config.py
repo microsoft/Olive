@@ -11,5 +11,5 @@ class TestPackageConfig:
         package_config = OlivePackageConfig.load_default_config()
         for pass_module_name, pass_module_config in package_config.passes.items():
             assert pass_module_config.module_path
-            assert pass_module_config.module_path.endswith(pass_module_name)
+            assert pass_module_config.module_path[-len(pass_module_name) :].lower() == pass_module_name
             package_config.import_pass_module(pass_module_name)

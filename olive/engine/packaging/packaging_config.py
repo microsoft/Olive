@@ -5,12 +5,12 @@
 from enum import Enum
 from typing import Optional, Union
 
-from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
+from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase, NestedConfig, validate_config
 from olive.common.constants import BASE_IMAGE
 from olive.common.pydantic_v1 import validator
 
 
-class PackagingType(str, Enum):
+class PackagingType(CaseInsensitiveEnum):
     """Output Artifacts type."""
 
     Zipfile = "Zipfile"
