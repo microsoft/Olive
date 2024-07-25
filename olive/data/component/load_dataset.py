@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from typing import Mapping, Optional, Sequence, Union
+
 from olive.constants import Framework
 from olive.data.component.dataset import DummyDataset, RawDataset, TransformersDummyDataset
 from olive.data.registry import Registry
@@ -17,7 +19,15 @@ def local_dataset(**kwargs):
 
 
 @Registry.register_dataset()
-def huggingface_dataset(data_dir, data_name=None, subset=None, split="validation", data_files=None, **kwargs):
+def huggingface_dataset(
+    data_name: str,
+    subset: Optional[str] = None,
+    data_dir: Optional[str] = None,
+    split: Optional[str] = "validation",
+    data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
+    col_filters: Optional[Mapping[str, Union[str, int, float]]] = None,
+    **kwargs
+):
     """Create a dataset from huggingface datasets."""
     from datasets.utils.logging import disable_progress_bar, set_verbosity_error
 
@@ -26,7 +36,15 @@ def huggingface_dataset(data_dir, data_name=None, subset=None, split="validation
     from datasets import load_dataset
 
     assert data_name is not None, "Please specify the data name"
-    return load_dataset(path=data_name, name=subset, data_dir=data_dir, split=split, data_files=data_files, **kwargs)
+    dataset = load_dataset(path=data_name, name=subset, data_dir=data_dir, split=split, data_files=data_files, **kwargs)
+    if col_filters:
+        dataset = dataset.filter(lambda x: _filter_dataset(x, col_filters))
+    return dataset
+
+
+def _filter_dataset(example: dict, col_filters: dict):
+    """Filter the dataset based on the column filters."""
+    return all(example[col] == value for col, value in col_filters.items())
 
 
 @Registry.register_dataset()
