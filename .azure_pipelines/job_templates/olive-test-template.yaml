@@ -6,6 +6,7 @@ parameters:
   device: 'cpu'
   python_version: '3.8'
   onnxruntime: 'onnxruntime'
+  torch: 'torch'
   requirements_file: 'requirements-test.txt'
 
 jobs:
@@ -23,29 +24,15 @@ jobs:
     PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
 
   steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: $(python_version)
-    displayName: Use Python $(python_version)
-
   - script: docker system df && docker system prune -a -f && docker system df
     displayName: Clean docker images
     continueOnError: true
 
-  - script: |
-      python -m pip install .
-    displayName: Install Olive
-
-  - ${{ if startsWith(parameters.onnxruntime, 'ort-nightly') }}:
-    - script: |
-        pip install onnxruntime
-        pip uninstall -y onnxruntime
-        pip install ${{ parameters.onnxruntime }} --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-      displayName: Install ${{ parameters.onnxruntime }}
-  - ${{ else }}:
-    - script: |
-        pip install ${{ parameters.onnxruntime }}
-      displayName: Install ${{ parameters.onnxruntime }}
+  - template: olive-setup-template.yaml
+    parameters:
+      python_version: ${{ parameters.python_version }}
+      onnxruntime: ${{ parameters.onnxruntime }}
+      torch: ${{ parameters.torch }}
 
   - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
     - script: |

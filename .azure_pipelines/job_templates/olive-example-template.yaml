@@ -5,6 +5,7 @@ parameters:
   pool: ''
   python_version: '3.8'
   onnxruntime: 'onnxruntime'
+  torch: 'torch'
 
 jobs:
   - job: ${{parameters.name}}_Test_Examples
@@ -21,24 +22,11 @@ jobs:
       PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
 
     steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: ${{ parameters.python_version }}
-      displayName: Use Python ${{ parameters.python_version }}
-
-    - script: python -m pip install .
-      displayName: Install Olive
-
-    - ${{ if startsWith(parameters.onnxruntime, 'ort-nightly') }}:
-      - script: |
-          pip install onnxruntime
-          pip uninstall -y onnxruntime
-          pip install ${{ parameters.onnxruntime }} --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-        displayName: Install ${{ parameters.onnxruntime }}
-    - ${{ else }}:
-      - script: |
-          pip install ${{ parameters.onnxruntime }}
-        displayName: Install ${{ parameters.onnxruntime }}
+    - template: olive-setup-template.yaml
+      parameters:
+        python_version: ${{ parameters.python_version }}
+        onnxruntime: ${{ parameters.onnxruntime }}
+        torch: ${{ parameters.torch }}
 
     # set exampleRequirements to requirements.txt if user does not specify
     - script:
