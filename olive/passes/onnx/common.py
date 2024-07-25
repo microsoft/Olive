@@ -98,7 +98,7 @@ def model_proto_to_file(
     # see https://github.com/onnx/onnx/issues/5861
     if not save_as_external_data and (model_size <= 0 or model_size >= onnx.checker.MAXIMUM_PROTOBUF):
         save_as_external_data = True
-        logger.info(
+        logger.debug(
             "Model is too large to save as a single file but 'save_as_external_data' is False. Saving tensors as"
             " external data, regardless."
         )

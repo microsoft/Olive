@@ -67,7 +67,7 @@ class HFTrainingArguments(NestedConfig):
             "Number of updates steps to accumulate the gradients for, before performing a backward/update pass."
         ),
     )
-    max_steps: int = Field(10000, description="The total number of training steps to perform.")
+    max_steps: int = Field(1000, description="The total number of training steps to perform.")
     # use lora dropout instead for regularization if needed
     weight_decay: float = Field(0.0, description="The L2 weight decay rate of AdamW")
     learning_rate: float = Field(0.0002, description="The initial learning rate for AdamW.")
@@ -172,7 +172,7 @@ class LoRABase(Pass):
                     " True. 16+ is required when using bfloat16 and model has operators such as Where."
                 ),
             ),
-            "lora_r": PassConfigParam(type_=int, default_value=64, description="Lora attention dimension."),
+            "lora_r": PassConfigParam(type_=int, default_value=64, description="Lora R dimension."),
             "lora_alpha": PassConfigParam(
                 type_=float, default_value=16, description="The alpha parameter for Lora scaling."
             ),
@@ -205,6 +205,8 @@ class LoRABase(Pass):
                 ),
             ),
             # data parameters
+            # TODO(jambayk): only keep train and eval data configs, remove eval_dataset_size and data processing
+            # from this pass. dataconfig should handle everything related to data 
             "train_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 required=True,
