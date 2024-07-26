@@ -12,6 +12,7 @@ from olive.common.hf.utils import (
     get_model_config,
     get_tokenizer,
     save_model_config,
+    save_module_files,
     save_tokenizer,
 )
 
@@ -54,8 +55,16 @@ class HfMixin:
 
         saved_filepaths = []
 
-        # save model config
-        save_model_config(self.get_hf_model_config(), output_dir, **kwargs)
+        # save config and module files
+        config = self.get_hf_model_config()
+        if getattr(config, "auto_map", None):
+            # needs model_name_or_path to find module files
+            # conditional since model_name_or_path might trigger preprocessing for some mlflow models
+            config, module_files = save_module_files(
+                config, self.model_name_or_path, str(output_dir), **self.get_load_kwargs()
+            )
+            saved_filepaths.extend(module_files)
+        save_model_config(config, output_dir, **kwargs)
         saved_filepaths.append(str(output_dir / "config.json"))
 
         # save model generation config

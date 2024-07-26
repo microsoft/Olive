@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import os
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -88,10 +89,11 @@ class TestHfMLflowModel(unittest.TestCase):
 
 class TestHFModel(unittest.TestCase):
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self, tmp_path):
         # hf config values
         self.task = "text-classification"
         self.model_name = "hf-internal-testing/tiny-random-BertForSequenceClassification"
+        self.output_dir = tmp_path
 
     def test_load_model(self):
         olive_model = HfModelHandler(model_path=self.model_name, task=self.task)
@@ -108,6 +110,33 @@ class TestHFModel(unittest.TestCase):
     def test_model_name_or_path(self):
         olive_model = HfModelHandler(model_path=self.model_name, task=self.task)
         assert olive_model.model_name_or_path == self.model_name
+
+    def test_save_metadata(self):
+        olive_model = HfModelHandler(model_path=self.model_name, task=self.task)
+        saved_filepaths = olive_model.save_metadata(self.output_dir)
+        assert len(saved_filepaths) == 5
+        assert all(Path(fp).exists() for fp in saved_filepaths)
+        assert isinstance(transformers.AutoConfig.from_pretrained(self.output_dir), transformers.BertConfig)
+        assert isinstance(transformers.AutoTokenizer.from_pretrained(self.output_dir), transformers.BertTokenizerFast)
+
+
+@pytest.mark.parametrize("trust_remote_code", [True, False])
+def test_save_metadata_with_module_files(trust_remote_code, tmp_path):
+    load_kwargs = {"trust_remote_code": trust_remote_code, "revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
+    olive_model = HfModelHandler(
+        model_path="katuni4ka/tiny-random-phi3",
+        load_kwargs=load_kwargs,
+    )
+    saved_filepaths = olive_model.save_metadata(tmp_path)
+    # assert len(saved_filepaths) == 9
+    assert all(Path(fp).exists() for fp in saved_filepaths)
+    # class is transformers.Phi3Config if trust_remote_code is False
+    # configuration_phi3.Phi3Config if trust_remote_code is True
+    assert transformers.AutoConfig.from_pretrained(tmp_path, **load_kwargs).__class__.__name__ == "Phi3Config"
+    assert isinstance(
+        transformers.AutoTokenizer.from_pretrained(tmp_path, **load_kwargs),
+        transformers.LlamaTokenizerFast,
+    )
 
 
 class TestHFDummyInput(unittest.TestCase):
