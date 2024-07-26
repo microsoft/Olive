@@ -3,12 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from pathlib import Path
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 from transformers import AutoConfig, AutoModel, AutoTokenizer, GenerationConfig
 
 from olive.common.hf.mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 from olive.common.hf.mlflow import get_pretrained_name_or_path
+from olive.common.utils import hardlink_copy_file
 
 if TYPE_CHECKING:
     from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
@@ -76,6 +78,77 @@ def get_model_config(model_name_or_path: str, **kwargs) -> "PretrainedConfig":
 def save_model_config(config: Union["PretrainedConfig", "GenerationConfig"], output_dir: str, **kwargs):
     """Save input HF Config to output directory."""
     config.save_pretrained(output_dir, **kwargs)
+
+
+def save_module_files(
+    config: "PretrainedConfig", model_name_or_path: str, output_dir: str, **kwargs
+) -> Tuple["PretrainedConfig", List[str]]:
+    """Save module files for the given model_name_or_path.
+
+    Returns updated config and list of saved module files.
+    """
+    # check if auto_map is present in the config
+    auto_map = getattr(config, "auto_map", None)
+    if not auto_map:
+        return config, []
+
+    # save the module files
+    module_files = set()
+    for key, value in config.auto_map.items():
+        try:
+            class_reference, module_file = get_module_file(value, model_name_or_path, **kwargs)
+
+            # save the module file
+            save_path = Path(output_dir) / Path(module_file).name
+            hardlink_copy_file(module_file, save_path)
+            module_files.add(str(save_path))
+
+            # -- is attached with hf-id, don't save it in config, from_pretrained will try to load it
+            # from the model hub
+            config.auto_map[key] = class_reference
+        except Exception as e:
+            logger.warning(
+                "Failed to save module file for %s: %s. Loading config with `trust_remote_code=True` will fail!",
+                value,
+                e,
+            )
+
+    return config, list(module_files)
+
+
+# https://github.com/huggingface/transformers/blob/9d6c0641c4a3c2c5ecf4d49d7609edd5b745d9bc/src/transformers/dynamic_module_utils.py#L493
+# we could get the file from the loaded class but that requires us to force trust_remote_code=True
+def get_module_file(
+    class_reference: str,
+    model_name_or_path: str,
+    code_revision: Optional[str] = None,
+    revision: Optional[str] = None,
+    **kwargs,
+) -> Tuple[str, str]:
+    """Get module file for the given class_reference.
+
+    Returns class_reference and module file path.
+    """
+    from transformers.dynamic_module_utils import HF_MODULES_CACHE, get_cached_module_file
+
+    if "--" in class_reference:
+        repo_id, class_reference = class_reference.split("--")
+    else:
+        repo_id = model_name_or_path
+
+    # class reference is of form configuration_phi3.Phi3Config
+    module_name = class_reference.split(".")[0]
+
+    # get code revision
+    if code_revision is None and model_name_or_path == repo_id:
+        code_revision = revision
+
+    # get the module file
+    module_file = Path(HF_MODULES_CACHE) / get_cached_module_file(
+        repo_id, f"{module_name}.py", revision=code_revision, **kwargs
+    )
+
+    return class_reference, str(module_file)
 
 
 def get_generation_config(model_name_or_path: str, **kwargs) -> Optional["GenerationConfig"]:
