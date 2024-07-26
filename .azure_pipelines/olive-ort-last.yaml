@@ -103,7 +103,6 @@ jobs:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     onnxruntime: onnxruntime-gpu==$(OrtVersion)
-    torch: torch==2.3.1
     examples:
       bert_cuda_gpu:
         exampleFolder: bert

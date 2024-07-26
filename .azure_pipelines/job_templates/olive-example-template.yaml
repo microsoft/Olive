@@ -5,7 +5,6 @@ parameters:
   pool: ''
   python_version: '3.8'
   onnxruntime: 'onnxruntime'
-  torch: 'torch'
 
 jobs:
   - job: ${{parameters.name}}_Test_Examples
@@ -26,7 +25,6 @@ jobs:
       parameters:
         python_version: ${{ parameters.python_version }}
         onnxruntime: ${{ parameters.onnxruntime }}
-        torch: ${{ parameters.torch }}
 
     # set exampleRequirements to requirements.txt if user does not specify
     - script:

@@ -19,7 +19,6 @@ jobs:
       parameters:
         python_version: '3.8'
         onnxruntime: 'onnxruntime'
-        torch: 'torch'
 
     # checkout release branch if doc_version provided
     - script: |

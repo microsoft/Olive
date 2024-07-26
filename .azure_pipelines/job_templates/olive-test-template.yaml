@@ -6,7 +6,6 @@ parameters:
   device: 'cpu'
   python_version: '3.8'
   onnxruntime: 'onnxruntime'
-  torch: 'torch'
   requirements_file: 'requirements-test.txt'
 
 jobs:
@@ -32,7 +31,6 @@ jobs:
     parameters:
       python_version: ${{ parameters.python_version }}
       onnxruntime: ${{ parameters.onnxruntime }}
-      torch: ${{ parameters.torch }}
 
   - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
     - script: |

@@ -6,7 +6,6 @@ parameters:
   windows: False
   device: 'cpu'
   onnxruntime: 'onnxruntime'
-  torch: 'torch'
 
 jobs:
 - template: olive-test-template.yaml
@@ -17,7 +16,6 @@ jobs:
     windows: ${{parameters.windows}}
     test_type: 'unit_test'
     onnxruntime: ${{parameters.onnxruntime}}
-    torch: ${{parameters.torch}}
 
 - template: olive-test-template.yaml
   parameters:
@@ -27,4 +25,3 @@ jobs:
     windows: ${{parameters.windows}}
     test_type: 'integ_test'
     onnxruntime: ${{parameters.onnxruntime}}
-    torch: ${{parameters.torch}}

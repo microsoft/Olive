@@ -1,7 +1,6 @@
 parameters:
   python_version: '3.8'
   onnxruntime: 'onnxruntime'
-  torch: torch
 
 steps:
 - task: UsePythonVersion@0
@@ -9,7 +8,9 @@ steps:
     versionSpec: ${{ parameters.python_version }}
   displayName: Use Python ${{ parameters.python_version }}
 
-- script: python -m pip install ${{ parameters.torch }}
+# TODO(anyone): allow job to specify torch version like onnxruntime if needed
+# need to find a good way to set a default value for torch_version, maybe as variable instead of parameter
+- script: python -m pip install torch==2.3.1
   displayName: Install torch
 
 - script: python -m pip install .
