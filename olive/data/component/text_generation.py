@@ -6,7 +6,7 @@
 from enum import Enum
 from pathlib import Path
 from random import Random
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import torch
 import transformers
@@ -75,7 +75,7 @@ class TextGenParams(ConfigBase):
     # if false, cannot guarantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
-    add_special_tokens: bool = True  # add bos and eos tokens to each sequence
+    add_special_tokens: bool = False  # add bos and eos tokens to each sequence
     use_attention_mask: bool = True  # add attention mask to each example
 
     @validator("drop_short_sequences", always=True)
@@ -496,7 +496,7 @@ def validate_text_source(v, values, field_name):
 
 def get_text(
     example: Dict[str, str],
-    formatting_func: Callable = None,
+    formatting_func: Optional[Callable] = None,
     template: str = None,
     cols: List[str] = None,
     add_special_tokens: bool = False,
