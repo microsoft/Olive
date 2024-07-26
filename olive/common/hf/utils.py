@@ -93,27 +93,16 @@ def save_module_files(
         return config, []
 
     # save the module files
-    from transformers.dynamic_module_utils import HF_MODULES_CACHE, get_cached_module_file
-
     module_files = set()
     for key, value in config.auto_map.items():
         try:
-            # https://github.com/huggingface/transformers/blob/9d6c0641c4a3c2c5ecf4d49d7609edd5b745d9bc/src/transformers/dynamic_module_utils.py#L493
-            if "--" in value:
-                repo_id, class_reference = value.split("--")
-            else:
-                repo_id = model_name_or_path
-                class_reference = value
-            # class reference is of form configuration_phi3.Phi3Config
-            module_name = class_reference.split(".")[0]
-
-            # get the module file
-            module_file = Path(HF_MODULES_CACHE) / get_cached_module_file(repo_id, f"{module_name}.py", **kwargs)
+            class_reference, module_file = get_module_file(value, model_name_or_path, **kwargs)
 
             # save the module file
-            save_path = Path(output_dir) / module_file.name
+            save_path = Path(output_dir) / Path(module_file).name
             hardlink_copy_file(module_file, save_path)
             module_files.add(str(save_path))
+
             # -- is attached with hf-id, don't save it in config, from_pretrained will try to load it
             # from the model hub
             config.auto_map[key] = class_reference
@@ -125,6 +114,41 @@ def save_module_files(
             )
 
     return config, list(module_files)
+
+
+# https://github.com/huggingface/transformers/blob/9d6c0641c4a3c2c5ecf4d49d7609edd5b745d9bc/src/transformers/dynamic_module_utils.py#L493
+# we could get the file from the loaded class but that requires us to force trust_remote_code=True
+def get_module_file(
+    class_reference: str,
+    model_name_or_path: str,
+    code_revision: Optional[str] = None,
+    revision: Optional[str] = None,
+    **kwargs,
+) -> Tuple[str, str]:
+    """Get module file for the given class_reference.
+
+    Returns class_reference and module file path.
+    """
+    from transformers.dynamic_module_utils import HF_MODULES_CACHE, get_cached_module_file
+
+    if "--" in class_reference:
+        repo_id, class_reference = class_reference.split("--")
+    else:
+        repo_id = model_name_or_path
+
+    # class reference is of form configuration_phi3.Phi3Config
+    module_name = class_reference.split(".")[0]
+
+    # get code revision
+    if code_revision is None and model_name_or_path == repo_id:
+        code_revision = revision
+
+    # get the module file
+    module_file = Path(HF_MODULES_CACHE) / get_cached_module_file(
+        repo_id, f"{module_name}.py", revision=code_revision, **kwargs
+    )
+
+    return class_reference, str(module_file)
 
 
 def get_generation_config(model_name_or_path: str, **kwargs) -> Optional["GenerationConfig"]:
