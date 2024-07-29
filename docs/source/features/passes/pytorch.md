@@ -211,6 +211,25 @@ This pass only supports HuggingFace transformer PyTorch models. Please refer to 
 }
 ```
 
+## QuaRot
+`QuaRot` is a quantization technique that combines quantization and rotation to reduce the number of bits required to represent the weights of a model. It is based on the [QuaRot paper](https://arxiv.org/abs/2305.14314).
+
+This pass only supports HuggingFace transformer PyTorch models. Please refer to [QuaRot](quarot) for more details on the types of transformers models supported.
+
+### Example Configuration
+```json
+{
+    "type": "QuaRot",
+    "w_rtn": true,
+    "rotate": true,
+    "w_bits": 4,
+    "a_bits": 4,
+    "k_bits": 4,
+    "v_bits": 4
+}
+```
+
+
 ## TorchTRTConversion
 `TorchTRTConversion` converts the `torch.nn.Linear` modules in the transformer layers in a Hugging Face PyTorch model to `TRTModules` from `torch_tensorrt` with fp16 precision and sparse weights, if
 applicable. `torch_tensorrt` is an extension to `torch` where TensorRT compiled engines can be used like regular `torch.nn.Module`s. This pass can be used to accelerate inference on transformer models

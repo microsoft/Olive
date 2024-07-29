@@ -57,4 +57,3 @@ SNPE Model Handler
 Composite Model Handler
 -----------------------
 .. autoclass:: olive.model.CompositeModelHandler
-

@@ -1,0 +1,1 @@
+{ "quarot": { "type": "QuaRot", "w_rtn": true, "rotate": true, "w_bits": 4, "a_bits": 4, "k_bits": 4, "v_bits": 4 } }

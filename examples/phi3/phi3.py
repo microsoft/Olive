@@ -39,10 +39,15 @@ def get_args(raw_args):
         "--target",
         type=str,
         default=None,
-        required=True,
+        required=False,
         choices=TARGETS,
         help="Choose from cpu, cuda, mobile or web",
     )
+    parser.add_argument(
+        "--quarot",
+        action="store_true",
+        help="Run QuaRot on a Hugging Face PyTorch model",
+    ),
     parser.add_argument(
         "--finetune_method",
         type=str,
@@ -130,6 +135,11 @@ def main(raw_args=None):
         genai_run(prompts, str(output_model_path), max_length)
 
 
+def get_quarot_passes():
+    with open("pass_configs/quarot.json") as f:
+        return json.load(f)
+
+
 def get_finetune_passes():
     with open("pass_configs/finetune.json") as f:
         return json.load(f)
@@ -145,6 +155,24 @@ def generate_config(args):
     json_file_template = "phi3_template.json"
     with open(json_file_template) as f:
         template_json = json.load(f)
+    args.quarot = True
+    if args.quarot:
+        template_json["passes"] = get_quarot_passes()
+        template_json["data_configs"] = [
+            {
+                "name": "wikitext2_train",
+                "type": "HuggingfaceContainer",
+                "load_dataset_config": {"data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train"},
+                "pre_process_data_config": {"max_samples": 128},
+            }
+        ]
+        template_json["passes"]["quarot"]["calibration_data_config"] = "wikitext2_train"
+        template_json["systems"]["local_system"]["accelerators"] = [{"device": "GPU"}]
+        new_json_file = "phi3_quarot.json"
+        with open(new_json_file, "w") as f:
+            json.dump(template_json, f, indent=4)
+
+        return new_json_file
 
     # finetune
     if args.finetune_method:
