@@ -47,7 +47,7 @@ def get_args(raw_args):
         "--quarot",
         action="store_true",
         help="Run QuaRot on a Hugging Face PyTorch model",
-    ),
+    )
     parser.add_argument(
         "--finetune_method",
         type=str,
