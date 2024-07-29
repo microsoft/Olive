@@ -113,6 +113,7 @@ def main(raw_args=None):
                 "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
                 "conda_file_path": "conda_gpu.yaml",
             },
+            "hf_token": True,
         }
         template_json["workflow_host"] = "aml_system"
 
