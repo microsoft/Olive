@@ -573,7 +573,7 @@ class LoRABase(Pass):
         config: ConfigBase,
         output_model: HfModelHandler,
         output_model_path: str,
-    ) -> HfLoadKwargs:
+    ) -> HfModelHandler:
         """Train and save the new model.
 
         The fine-tuned adapter weights will be saved and updated in the output model handler.
