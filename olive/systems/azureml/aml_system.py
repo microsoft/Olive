@@ -301,7 +301,7 @@ class AzureMLSystem(OliveSystem):
             # input for the config
             config_path = tmp_dir / f"{name}_config.json"
             with config_path.open("w") as f:
-                json.dump(config_copy, f, sort_keys=True, indent=4)
+                json.dump(config_copy, f, indent=4)
             inputs[f"{name}_config"] = Input(type=AssetTypes.URI_FILE)
             args[f"{name}_config"] = Input(type=AssetTypes.URI_FILE, path=config_path)
 
@@ -309,7 +309,7 @@ class AzureMLSystem(OliveSystem):
             if resource_map:
                 resource_map_path = tmp_dir / f"{name}_resource_map.json"
                 with resource_map_path.open("w") as f:
-                    json.dump(resource_map, f, sort_keys=True, indent=4)
+                    json.dump(resource_map, f, indent=4)
                 inputs[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE)
                 args[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE, path=resource_map_path)
 
@@ -374,7 +374,7 @@ class AzureMLSystem(OliveSystem):
 
         olive_config_path = tmp_dir / "olive_config.json"
         with olive_config_path.open("w") as f:
-            json.dump(olive_config, f, sort_keys=True, indent=4)
+            json.dump(olive_config, f, indent=4)
         return olive_config_path
 
     def _create_step(
