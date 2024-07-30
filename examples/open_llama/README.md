@@ -122,10 +122,8 @@ To compress model with 4-bits weight-only quantization, you may need
     "type": "IncStaticQuantization",
     "user_script": "user_script.py",
     "approach": "weight_only",
-    "weight_only_config":{
-        "algorithm": "GPTQ"
-    },
-    "dataloader_func": "calib_dataloader",
+    "data_config": "calib_data_config",
+    "weight_only_config": { "algorithm": "GPTQ" },
 }
 ```
 ```python

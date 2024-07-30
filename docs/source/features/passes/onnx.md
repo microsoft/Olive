@@ -240,8 +240,7 @@ a. Tune the parameters of the OlivePass with pre-defined searchable values
 ```json
 {
     "type": "OnnxQuantization",
-    "user_script": "./user_script.py",
-    "dataloader_func": "glue_calibration_reader"
+    "data_config": "calib_data_config"
 }
 ```
 
@@ -252,8 +251,7 @@ b. Select parameters to tune
     // select per_channel to tune with "SEARCHABLE_VALUES".
     // other parameters will use the default value, not to be tuned.
     "per_channel": "SEARCHABLE_VALUES",
-    "user_script": "./user_script.py",
-    "dataloader_func": "glue_calibration_reader",
+    "data_config": "calib_data_config",
     "disable_search": true
 }
 ```
@@ -264,8 +262,7 @@ c. Use default values of the OlivePass (no tuning in this way)
     "type": "OnnxQuantization",
     // set per_channel to "DEFAULT_VALUE"
     "per_channel": "DEFAULT_VALUE",
-    "user_script": "./user_script.py",
-    "dataloader_func": "glue_calibration_reader"
+    "data_config": "calib_data_config",
 }
 ```
 
@@ -275,14 +272,13 @@ d. Specify parameters with user defined values
     "type": "OnnxQuantization",
     // set per_channel to True.
     "per_channel": true,
-    "user_script": "./user_script.py",
-    "dataloader_func": "glue_calibration_reader",
+    "data_config": "calib_data_config",
     "disable_search": true
 }
 ```
 
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
-for an example implementation of `"user_script.py"` and `"glue_calibration_reader"`.
+for an example implementation of `"user_script.py"` and `"calib_data_config/dataloader_config/type"`.
 
 check out [this file](https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu) for an example for Intel® Neural Compressor quantization.
 
@@ -300,13 +296,12 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 ```json
 "inc_quantization": {
     "type": "IncStaticQuantization",
-    "user_script": "user_script.py",
     "approach": "weight_only",
     "weight_only_config": {
         "bits": 4,
         "algorithm": "GPTQ"
     },
-    "dataloader_func": "calib_dataloader",
+    "data_config": "calib_data_config",
     "calibration_sampling_size": [8],
     "save_as_external_data": true,
     "all_tensors_to_one_file": true
@@ -330,9 +325,7 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
     "quant_format":"QDQ",
     "activation_type":"QUInt8",
     "weight_type":"QInt8",
-    "user_script": "user_script.py",
-    "data_dir": "data",
-    "dataloader_func": "resnet_calibration_reader"
+    "data_config": "calib_data_config",
 }
 ```
 Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
@@ -368,7 +361,7 @@ improve performance.
 ```
 
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
-for an example implementation of `"user_script.py"` and `"create_dataloader"`.
+for an example implementation of `"user_script.py"` and `"calib_data_config/dataloader_config/type"`.
 
 [1]: <https://onnxruntime.ai/docs/performance/quantization.html> "ONNX Runtime Quantization"
 [2]: <https://onnxruntime.ai/docs/performance/quantization.html#dynamic-quantization> "Dynamic Quantization"

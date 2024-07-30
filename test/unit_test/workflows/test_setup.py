@@ -12,6 +12,7 @@ import pytest
 
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
+from olive.data.registry import Registry
 
 # pylint: disable=redefined-outer-name
 
@@ -22,6 +23,11 @@ class DependencySetupEnvBuilder(venv.EnvBuilder):
         # Install Olive only
         olive_root = str(Path(__file__).parents[3].resolve())
         run_subprocess([context.env_exe, "-Im", "pip", "install", olive_root], check=True)
+
+
+@Registry.register_dataloader()
+def _resnet_calibration_dataloader(dataset, **kwargs):
+    return None
 
 
 @pytest.fixture()

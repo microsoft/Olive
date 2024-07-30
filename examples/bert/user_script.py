@@ -160,9 +160,14 @@ class IncBertDataset:
         return input_dict, label
 
 
-def inc_glue_calibration_reader(data_dir, batch_size, **kwargs):
+@Registry.register_dataset()
+def bert_inc_glue_calibration_dataset(data_dir, **kwargs):
     dataset = BertDataset("Intel/bert-base-uncased-mrpc")
-    dataset = IncBertDataset(dataset.get_eval_dataset())
+    return IncBertDataset(dataset.get_eval_dataset())
+
+
+@Registry.register_dataloader()
+def bert_inc_glue_calibration_dataloader(dataset, batch_size, **kwargs):
     return DefaultDataLoader(dataset=dataset, batch_size=batch_size)
 
 

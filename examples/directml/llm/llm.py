@@ -136,122 +136,120 @@ def optimize(
     with Path.open(script_dir / "config_llm.json") as fin:
         olive_config = json.load(fin)
 
+    if quant_strategy is not None:
+        olive_config["passes"]["quantize"] = {
+            "type": "IncStaticQuantization",
+            "disable_search": True,
+            "backend": f"onnxrt_{device}_ep",
+            "approach": "weight_only",
+            "device": "gpu",
+            "weight_only_config": {
+                "bits": bit_size,
+                "algorithm": quant_strategy.upper(),
+                "group_size": block_size,
+            },
+            "data_config": "calib_data_config",
+            "calibration_sampling_size": [8],
+            "save_as_external_data": True,
+            "all_tensors_to_one_file": True,
+            "user_script": "user_script.py",
+        }
+
+    olive_config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = {
+        "dml": ["DmlExecutionProvider"],
+        "cuda": ["CUDAExecutionProvider"],
+    }[device]
+
+    olive_config["output_name"] = model_name
+    olive_config["passes"]["optimize"]["hidden_size"] = config.hidden_size
+    olive_config["passes"]["optimize"]["num_heads"] = config.num_heads
+    olive_config["passes"]["optimize"]["num_key_value_heads"] = config.num_key_value_heads
+
+    # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
+    # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
+    models_that_need_fp32_layer_norm = ["llava-hf_llava-1.5-7b-hf", "tiiuae_falcon-7b-instruct"]
+    vision_models = ["llava-hf_llava-1.5-7b-hf"]
+
+    force_fp32_ops = olive_config["passes"]["optimize"].get("force_fp32_ops", [])
+
+    if model_name in models_that_need_fp32_layer_norm:
+        force_fp32_ops.extend(["SimplifiedLayerNormalization", "LayerNormalization"])
+
+    is_vision_model = model_name in vision_models
+
+    olive_config["passes"]["optimize"]["force_fp32_ops"] = force_fp32_ops
+
+    # Set the input names and dynamic axes
+    io_config = olive_config["input_model"]["io_config"]
+
+    if not is_vision_model:
+        io_config["input_names"].append("position_ids")
+
+    io_config["input_names"].append("attention_mask")
+
+    if is_vision_model:
+        io_config["input_names"].append("pixel_values")
+        io_config["dynamic_axes"]["pixel_values"] = {
+            "0": "batch_size",
+            "1": "channel_count",
+            "2": "image_size",
+            "3": "image_size",
+        }
+
+    for layer_idx in range(config.num_layers):
+        io_config["input_names"].append(f"past_key_values.{layer_idx}.key")
+        io_config["input_names"].append(f"past_key_values.{layer_idx}.value")
+        io_config["output_names"].append(f"present.{layer_idx}.key")
+        io_config["output_names"].append(f"present.{layer_idx}.value")
+
+        # Name the input cache dynamic axes
+        io_config["dynamic_axes"][f"past_key_values.{layer_idx}.key"] = {
+            "0": "batch_size",
+            "2": "past_sequence_length",
+        }
+        io_config["dynamic_axes"][f"past_key_values.{layer_idx}.value"] = {
+            "0": "batch_size",
+            "2": "past_sequence_length",
+        }
+
+        # Name the output cache dynamic axes
+        io_config["dynamic_axes"][f"present.{layer_idx}.key"] = {
+            "0": "batch_size",
+            "2": "total_sequence_length",
+        }
+        io_config["dynamic_axes"][f"present.{layer_idx}.value"] = {
+            "0": "batch_size",
+            "2": "total_sequence_length",
+        }
+
+    olive_run(olive_config)
+
+    footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{model_name}_gpu-{device}_footprints.json"
+    with footprints_file_path.open("r") as footprint_file:
+        footprints = json.load(footprint_file)
+
+        conversion_footprint = None
+        optimizer_footprint = None
+        quantizer_footprint = None
+        for footprint in footprints.values():
+            if footprint["from_pass"] == "OnnxConversion":
+                conversion_footprint = footprint
+            elif footprint["from_pass"] == "OrtTransformersOptimization":
+                optimizer_footprint = footprint
+            elif footprint["from_pass"] == "IncStaticQuantization":
+                quantizer_footprint = footprint
+
+        assert conversion_footprint is not None
+        assert optimizer_footprint is not None
+
         if quant_strategy is not None:
-            olive_config["passes"]["quantize"] = {
-                "type": "IncStaticQuantization",
-                "disable_search": True,
-                "backend": f"onnxrt_{device}_ep",
-                "approach": "weight_only",
-                "device": "gpu",
-                "weight_only_config": {
-                    "bits": bit_size,
-                    "algorithm": quant_strategy.upper(),
-                    "group_size": block_size,
-                },
-                "dataloader_func": "calib_dataloader",
-                "calibration_sampling_size": [8],
-                "save_as_external_data": True,
-                "all_tensors_to_one_file": True,
-                "user_script": "user_script.py",
-            }
+            assert quantizer_footprint is not None
+            optimized_olive_model = ONNXModelHandler(**quantizer_footprint["model_config"]["config"])
+        else:
+            optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])
 
-        olive_config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = {
-            "dml": ["DmlExecutionProvider"],
-            "cuda": ["CUDAExecutionProvider"],
-        }[device]
-
-        olive_config["output_name"] = model_name
-        olive_config["passes"]["optimize"]["hidden_size"] = config.hidden_size
-        olive_config["passes"]["optimize"]["num_heads"] = config.num_heads
-        olive_config["passes"]["optimize"]["num_key_value_heads"] = config.num_key_value_heads
-
-        # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
-        # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
-        models_that_need_fp32_layer_norm = ["llava-hf_llava-1.5-7b-hf", "tiiuae_falcon-7b-instruct"]
-        vision_models = ["llava-hf_llava-1.5-7b-hf"]
-
-        force_fp32_ops = olive_config["passes"]["optimize"].get("force_fp32_ops", [])
-
-        if model_name in models_that_need_fp32_layer_norm:
-            force_fp32_ops.extend(["SimplifiedLayerNormalization", "LayerNormalization"])
-
-        is_vision_model = model_name in vision_models
-
-        olive_config["passes"]["optimize"]["force_fp32_ops"] = force_fp32_ops
-
-        # Set the input names and dynamic axes
-        io_config = olive_config["input_model"]["io_config"]
-
-        if not is_vision_model:
-            io_config["input_names"].append("position_ids")
-
-        io_config["input_names"].append("attention_mask")
-
-        if is_vision_model:
-            io_config["input_names"].append("pixel_values")
-            io_config["dynamic_axes"]["pixel_values"] = {
-                "0": "batch_size",
-                "1": "channel_count",
-                "2": "image_size",
-                "3": "image_size",
-            }
-
-        for layer_idx in range(config.num_layers):
-            io_config["input_names"].append(f"past_key_values.{layer_idx}.key")
-            io_config["input_names"].append(f"past_key_values.{layer_idx}.value")
-            io_config["output_names"].append(f"present.{layer_idx}.key")
-            io_config["output_names"].append(f"present.{layer_idx}.value")
-
-            # Name the input cache dynamic axes
-            io_config["dynamic_axes"][f"past_key_values.{layer_idx}.key"] = {
-                "0": "batch_size",
-                "2": "past_sequence_length",
-            }
-            io_config["dynamic_axes"][f"past_key_values.{layer_idx}.value"] = {
-                "0": "batch_size",
-                "2": "past_sequence_length",
-            }
-
-            # Name the output cache dynamic axes
-            io_config["dynamic_axes"][f"present.{layer_idx}.key"] = {
-                "0": "batch_size",
-                "2": "total_sequence_length",
-            }
-            io_config["dynamic_axes"][f"present.{layer_idx}.value"] = {
-                "0": "batch_size",
-                "2": "total_sequence_length",
-            }
-
-        olive_run(olive_config)
-
-        footprints_file_path = (
-            Path(__file__).resolve().parent / "footprints" / f"{model_name}_gpu-{device}_footprints.json"
-        )
-        with footprints_file_path.open("r") as footprint_file:
-            footprints = json.load(footprint_file)
-
-            conversion_footprint = None
-            optimizer_footprint = None
-            quantizer_footprint = None
-            for footprint in footprints.values():
-                if footprint["from_pass"] == "OnnxConversion":
-                    conversion_footprint = footprint
-                elif footprint["from_pass"] == "OrtTransformersOptimization":
-                    optimizer_footprint = footprint
-                elif footprint["from_pass"] == "IncStaticQuantization":
-                    quantizer_footprint = footprint
-
-            assert conversion_footprint is not None
-            assert optimizer_footprint is not None
-
-            if quant_strategy is not None:
-                assert quantizer_footprint is not None
-                optimized_olive_model = ONNXModelHandler(**quantizer_footprint["model_config"]["config"])
-            else:
-                optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])
-
-            model_path = Path(optimized_olive_model.model_path)
-            print(f"Optimized Model   : {model_path}")
+        model_path = Path(optimized_olive_model.model_path)
+        print(f"Optimized Model   : {model_path}")
 
     print("Copying optimized model...")
 

@@ -23,18 +23,10 @@
     },
     "data_configs": [
         {
-            "name": "accuracy_data_config",
-            "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "data_dir": { "type": "azureml_datastore", "datastore_name": "my_datastore", "relative_path": "data" }
-            },
-            "dataloader_config": { "batch_size": 16 }
-        },
-        {
             "name": "latency_data_config",
             "type": "HuggingfaceContainer",
             "load_dataset_config": {
-                "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/test/cifar-10-batches-py"
+                "data_dir": { "type": "azureml_datastore", "datastore_name": "my_datastore", "relative_path": "data" }
             },
             "dataloader_config": { "batch_size": 16 }
         }
@@ -45,7 +37,6 @@
                 {
                     "name": "accuracy",
                     "type": "custom",
-                    "data_config": "accuracy_data_config",
                     "sub_types": [
                         {
                             "name": "top1",
@@ -55,7 +46,17 @@
                         },
                         { "name": "top5", "goal": { "type": "max-degradation", "value": 0.01 } }
                     ],
-                    "user_config": { "user_script": "user_script.py", "evaluate_func": "eval_accuracy" }
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "evaluate_func": "eval_accuracy",
+                        "evaluate_func_kwargs": {
+                            "batch_size": 16,
+                            "data_dir": {
+                                "type": "azureml_datastore",
+                                "config": { "datastore_name": "my_datastore", "relative_path": "data" }
+                            }
+                        }
+                    }
                 },
                 {
                     "name": "latency",

@@ -3,17 +3,17 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Dict, List, Union
 
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModelHandler
 from olive.passes.olive_pass import Pass
-from olive.passes.pass_config import ParamCategory, PassConfigParam
+from olive.passes.pass_config import PassConfigParam
 from olive.platform_sdk.qualcomm.snpe.tools.dev import quantize_dlc
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
+from olive.resource_path import LocalFile
 from olive.strategy.search_parameter import Boolean
 
 
@@ -23,34 +23,13 @@ class SNPEQuantization(Pass):
     Uses snpe-dlc-quantize tool from the SNPE SDK.
     """
 
-    _requires_user_script = True
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
-            "data_dir": PassConfigParam(
-                type_=OLIVE_RESOURCE_ANNOTATIONS,
-                required=False,
-                category=ParamCategory.DATA,
-                description="Path to the data directory. Required is data_config is None.",
-            ),
-            "dataloader_func": PassConfigParam(
-                type_=Union[Callable, str],
-                required=False,
-                category=ParamCategory.OBJECT,
-                description=(
-                    "Function or function name to create dataloader for quantization. Function should take data"
-                    " directory as an argument and return a FileListDataLoader or torch.data.DataLoader-like"
-                    " object. Required if data_config is None."
-                ),
-            ),
-            "dataloader_func_kwargs": PassConfigParam(
-                type_=Dict[str, Any],
-                description="Keyword arguments for dataloader_func.",
-            ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
-                description="Data config for quantization, required if dataloader_func is None",
+                required=True,
+                description="Data config for quantization",
             ),
             "use_enhanced_quantizer": PassConfigParam(
                 type_=bool,
@@ -89,15 +68,8 @@ class SNPEQuantization(Pass):
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
-        assert config["dataloader_func"] or config["data_config"], "dataloader_func or data_config is required."
-
-        if config["dataloader_func"]:
-            dataloader = self._user_module_loader.call_object(
-                config["dataloader_func"], config["data_dir"], **(config["dataloader_func_kwargs"] or {})
-            )
-        elif config["data_config"]:
-            data_config = validate_config(config["data_config"], DataConfig)
-            dataloader = data_config.to_data_container().create_dataloader()
+        data_config = validate_config(config["data_config"], DataConfig)
+        dataloader = data_config.to_data_container().create_dataloader()
 
         # convert dataloader to FileListDataLoader if it is not already
         if not isinstance(dataloader, FileListDataLoader):

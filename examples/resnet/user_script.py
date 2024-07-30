@@ -87,7 +87,7 @@ def cifar10_post_process(output):
 
 
 @Registry.register_dataset()
-def cifar10_dataset(data_dir):
+def cifar10_val_dataset(data_dir):
     return PytorchResNetDataset(CIFAR10DataSet(data_dir).val_dataset)
 
 
@@ -99,7 +99,7 @@ def cifar10_dataset(data_dir):
 class ResnetCalibrationDataReader(CalibrationDataReader):
     def __init__(self, data_dir: str, batch_size: int = 16):
         super().__init__()
-        self.iterator = iter(create_train_dataloader(data_dir, batch_size))
+        self.iterator = iter(cifar10_train_dataset(data_dir, batch_size=batch_size))
         self.sample_counter = 500
 
     def get_next(self) -> dict:
@@ -107,14 +107,16 @@ class ResnetCalibrationDataReader(CalibrationDataReader):
             return None
 
         try:
-            item = {"input": next(self.iterator)[0].numpy()}
+            item = {"input": torch.unsqueeze(next(self.iterator)[0], dim=0)}
             self.sample_counter -= 1
             return item
         except Exception:
             return None
 
 
-def resnet_calibration_reader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def resnet_calibration_dataloader(dataset, batch_size, **kwargs):
+    data_dir = kwargs.pop("data_dir", None)
     return ResnetCalibrationDataReader(data_dir, batch_size=batch_size)
 
 
@@ -126,7 +128,7 @@ def resnet_calibration_reader(data_dir, batch_size, *args, **kwargs):
 # keep this to demo/test custom evaluation function
 def eval_accuracy(model: OliveModelHandler, device, execution_providers, data_dir, batch_size):
     sess = model.prepare_session(inference_settings=None, device=device, execution_providers=execution_providers)
-    dataloader = DataLoader(cifar10_dataset(data_dir), batch_size=batch_size, drop_last=True)
+    dataloader = DataLoader(cifar10_val_dataset(data_dir), batch_size=batch_size, drop_last=True)
 
     preds = []
     target = []
@@ -178,9 +180,10 @@ def create_qat_config():
 # -------------------------------------------------------------------------
 
 
-def create_train_dataloader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataset()
+def cifar10_train_dataset(data_dir, **kwargs):
     dataset = CIFAR10DataSet(data_dir)
-    return DataLoader(PytorchResNetDataset(dataset.train_dataset), batch_size=batch_size, drop_last=True)
+    return PytorchResNetDataset(dataset.train_dataset)
 
 
 # -------------------------------------------------------------------------

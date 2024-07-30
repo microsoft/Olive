@@ -11,12 +11,14 @@ from test.unit_test.utils import (
     get_onnx_model_config,
     get_onnxconversion_pass,
     get_pytorch_model_config,
+    get_pytorch_model_io_config,
 )
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from olive.common.utils import hash_dict
+from olive.data.config import DataComponentConfig, DataConfig
 from olive.engine import Engine
 from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.evaluator.metric import AccuracySubType
@@ -671,7 +673,19 @@ class TestEngine:
                 "evaluator": evaluator_config,
             }
             engine = Engine(**options)
-            engine.register(OnnxStaticQuantization, {"dataloader_func": lambda x, y: None})
+            io_config = get_pytorch_model_io_config()
+            engine.register(
+                OnnxStaticQuantization,
+                {
+                    "data_config": DataConfig(
+                        name="quant_data_config",
+                        type="DummyDataContainer",
+                        load_dataset_config=DataComponentConfig(
+                            params={"input_names": io_config["input_names"], "input_shapes": io_config["input_shapes"]}
+                        ),
+                    )
+                },
+            )
             with patch("onnxruntime.quantization.quantize_static") as mock_quantize_static:
                 mock_quantize_static.side_effect = AttributeError("test")
                 actual_res = engine.run(

@@ -48,9 +48,7 @@ Please refer to [OpenVINOQuantization](openvino_quantization) for more details a
 ```json
 {
     "type": "OpenVINOQuantizationWithAccuracy",
-    "data_dir": "data",
-    "user_script": "user_script.py",
-    "dataloader_func": "create_dataloader",
+    "data_config": "calib_data_config",
     "validation_func": "validate",
     "max_drop": 0.01,
     "drop_type": "ABSOLUTE"

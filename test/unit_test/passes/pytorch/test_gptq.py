@@ -7,20 +7,11 @@ from pathlib import Path
 import pytest
 import torch
 
+from olive.data.config import DataComponentConfig, DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.gptq import GptqQuantizer
-
-
-def get_dummy_dataloader_func():
-    return [
-        {
-            "input_ids": torch.randint(10, 100, (1, 128), dtype=torch.long),
-            "attention_mask": torch.ones(1, 128, dtype=torch.long),
-        }
-        for _ in range(128)
-    ]
 
 
 @pytest.mark.skipif(
@@ -30,8 +21,23 @@ def get_dummy_dataloader_func():
 def test_gptq_default(tmp_path: Path):
     # setup
     input_model = HfModelHandler(model_path="facebook/opt-125m")
-    config = {"dataloader_func": get_dummy_dataloader_func}
-
+    config = {
+        "data_config": DataConfig(
+            name="test_gptq_dc_config",
+            type="DummyDataContainer",
+            load_dataset_config=DataComponentConfig(
+                type="dummy_dataset",
+                params={
+                    "input_names": ["input_ids", "attention_mask"],
+                    "input_shapes": [[1, 128], [1, 128]],
+                    "input_types": ["int64", "int64"],
+                    "max_samples": 128,
+                },
+            ),
+            pre_process_data_config=DataComponentConfig(type="skip_pre_process"),
+            post_process_data_config=DataComponentConfig(type="skip_post_process"),
+        ),
+    }
     p = create_pass_from_dict(
         GptqQuantizer,
         config,

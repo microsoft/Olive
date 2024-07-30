@@ -17,6 +17,8 @@ from phi import convert_phi_weights
 from phi3 import convert_phi3_weights
 from transformers import AutoConfig, AutoTokenizer
 
+from olive.data.registry import Registry
+
 
 # Helper latency-only dataloader that creates random tensors with no label
 class RandomDataLoader:
@@ -158,7 +160,8 @@ def decoder_ort_inputs(batch_size):
     return inputs
 
 
-def decoder_ort_data_loader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def decoder_ort_dataloader(dataset, batch_size, **kwargs):
     return RandomDataLoader(decoder_ort_inputs, batch_size)
 
 
@@ -223,5 +226,6 @@ class PileDataloader:
             yield initial_inputs, 0
 
 
-def calib_dataloader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def directml_llm_calib_dataloader(dataset, batch_size, **kwargs):
     return PileDataloader(batch_size=batch_size)

@@ -9,11 +9,9 @@ from unittest.mock import MagicMock
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 
 from olive.common.config_utils import validate_config
 from olive.constants import Framework
-from olive.data.component.dataset import DummyDataset
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
@@ -31,11 +29,6 @@ class DummyModel(nn.Module):
 
     def forward(self, x):
         return torch.sigmoid(self.fc1(x))
-
-
-# TODO(shaahji): Remove this once perf_tuning pass supports DataConfig
-def create_dummy_dataloader(data_dir, batch_size=1, max_samples=32, **kwargs):
-    return DataLoader(DummyDataset([(batch_size or 1, 1)], max_samples=max_samples), batch_size=None)
 
 
 def pytorch_model_loader(model_path):

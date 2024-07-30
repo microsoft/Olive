@@ -33,7 +33,6 @@
     "data_configs": [
         {
             "name": "latency_data_config",
-            "type": "HuggingfaceContainer",
             "user_script": "code/user_script.py",
             "script_dir": "code",
             "load_dataset_config": {
@@ -42,8 +41,6 @@
                 "model_name": "<place_holder>",
                 "use_audio_decoder": "<place_holder>"
             },
-            "pre_process_data_config": { "type": "skip_pre_process" },
-            "post_process_data_config": { "type": "skip_post_process" },
             "dataloader_config": { "type": "no_auto_batch_dataloader" }
         }
     ],

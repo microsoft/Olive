@@ -16,12 +16,7 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg", "priority": 1 }, { "name": "max" }, { "name": "min" } ],
-                    "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1
-                    }
+                    "sub_types": [ { "name": "avg", "priority": 1 }, { "name": "max" }, { "name": "min" } ]
                 }
             ]
         }

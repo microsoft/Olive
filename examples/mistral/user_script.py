@@ -10,13 +10,16 @@ import torch
 from datasets import load_dataset
 from transformers import AutoConfig, LlamaTokenizer
 
+from olive.data.registry import Registry
+
 # pylint: disable=redefined-outer-name
 
 model_id = "mistralai/Mistral-7B-v0.1"
 config = AutoConfig.from_pretrained(model_id)
 
 
-def calib_dataloader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def mistralai_calib_dataloader(data_dir, batch_size, *args, **kwargs):
     model_path = kwargs.pop("model_path")
     return PileDataloader(model_path, batch_size=batch_size)
 

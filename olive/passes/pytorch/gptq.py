@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Dict, List, Union
 
 import torch
 
@@ -64,11 +64,6 @@ class GptqQuantizer(Pass):
                 default_value=128,
                 description="Block size for quantization. Default value is 128.",
             ),
-            "batch_size": PassConfigParam(
-                type_=int,
-                default_value=1,
-                description="Batch size for quantization. Default value is 1.",
-            ),
             "seed": PassConfigParam(
                 type_=int,
                 default_value=0,
@@ -106,21 +101,6 @@ class GptqQuantizer(Pass):
                     Data config for quantization. Default value is None.
                 """,
             ),
-            # TODO(trajep): consider to use data_config to implement the functionality of dataloader_func.
-            "dataloader_func": PassConfigParam(
-                type_=Union[Callable, str],
-                default_value=None,
-                description="""Function/function name to generate dataset for quantization.
-                The returned datasets is a list of tokenized data
-                (e.g. [{ 'input_ids': [ 1, 100, 15, ... ],'attention_mask': [ 1, 1, 1, ... ]},...]).
-                Default is None.
-                """,
-            ),
-            "dataloader_func_kwargs": PassConfigParam(
-                type_=Dict[str, Any],
-                default_value=None,
-                description="Keyword arguments for dataloader_func. Default value is None.",
-            ),
         }
 
     @torch.no_grad()
@@ -142,12 +122,7 @@ class GptqQuantizer(Pass):
             )
 
         dataset = None
-        if config["dataloader_func"]:
-            dataset = self._user_module_loader.call_object(
-                config["dataloader_func"],
-                **(config["dataloader_func_kwargs"] or {}),
-            )
-        elif config["data_config"]:
+        if config["data_config"]:
             data_config = validate_config(config["data_config"], DataConfig)
             dataloader = data_config.to_data_container().create_dataloader()
             dataset = [data[0] for data in dataloader]
