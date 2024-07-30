@@ -200,7 +200,6 @@ class OliveSystem(ABC):
         self,
         the_pass: Pass,
         model: OliveModelHandler,
-        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> OliveModelHandler:
@@ -209,7 +208,7 @@ class OliveSystem(ABC):
         """
 
     @abstractmethod
-    def evaluate_model(self, model: OliveModelHandler, data_root: str, metrics: List[Metric]) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModelHandler, metrics: List[Metric]) -> Dict[str, Any]:
         """
         Evaluate the model
         """
@@ -342,22 +341,16 @@ For popular huggingface dataset, we can wrap above data config with more concise
 {
     "huggingface_dataset_config": {
         "load_dataset_config": {
-            "params": {
-                "data_name":"glue",
-                "subset": "mrpc",
-                "split": "validation",
-            }
+            "data_name":"glue",
+            "subset": "mrpc",
+            "split": "validation"
         },
         "pre_process_data_config": {
-            "params": {
-                "input_cols": ["sentence1", "sentence2"],
-                "label_cols": ["label"],
-            }
+            "input_cols": ["sentence1", "sentence2"],
+            "label_cols": ["label"]
         },
         "dataloader_config":{
-            "params": {
-                "batch_size": 1
-            }
+            "batch_size": 1
         }
     }
 }

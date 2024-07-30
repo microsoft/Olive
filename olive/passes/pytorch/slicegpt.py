@@ -15,10 +15,11 @@ from olive.common.config_utils import validate_config
 from olive.constants import ModelFileFormat
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import PyTorchModelHandler
+from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pytorch.common import inherit_pytorch_from_hf
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class SliceGPT(Pass):
 
     See https://arxiv.org/pdf/2401.15024.pdf for more details on the algorithm.
 
-    This pass only supports PyTorchModelHandler with hf_config.
+    This pass only supports HfModelHandler.
     """
 
     @staticmethod
@@ -37,25 +38,25 @@ class SliceGPT(Pass):
             "calibration_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 required=True,
-                description=("Data config for Dataset to calibrate and calculate perplexity on."),
+                description="Data config for Dataset to calibrate and calculate perplexity on.",
             ),
             "calibration_nsamples": PassConfigParam(
                 type_=int,
                 required=False,
                 default_value=128,
-                description=("Number of samples of the calibration data to load."),
+                description="Number of samples of the calibration data to load.",
             ),
             "calibration_batch_size": PassConfigParam(
                 type_=int,
                 required=False,
                 default_value=16,
-                description=("Batch size for loading the calibration data."),
+                description="Batch size for loading the calibration data.",
             ),
             "seed": PassConfigParam(
                 type_=int,
                 required=False,
                 default_value=42,
-                description=("Seed for sampling the calibration data."),
+                description="Seed for sampling the calibration data.",
             ),
             "sparsity": PassConfigParam(
                 type_=float,
@@ -76,7 +77,7 @@ class SliceGPT(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
         if sys.version_info < (3, 10):
             raise ValueError("SliceGPT requires python3.10 or higher")
@@ -93,10 +94,7 @@ class SliceGPT(Pass):
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
 
-        if model_handler.hf_config is None or model_handler.hf_config.model_name is None:
-            raise ValueError("SliceGPT only supports select HuggingFace models")
-
-        model_adapter, _ = get_model_and_tokenizer(model_handler.hf_config.model_name)
+        model_adapter, _ = get_model_and_tokenizer(model_handler.model_name_or_path)
         model_handler.model = model_adapter.model
         model = model_handler.load_model()
 
@@ -118,7 +116,7 @@ class SliceGPT(Pass):
         )
 
         data_config = validate_config(config.calibration_data_config, DataConfig)
-        dataloader = data_config.to_data_container().create_dataloader(data_root)
+        dataloader = data_config.to_data_container().create_dataloader()
         dataset = [
             {
                 "input_ids": data[0]["input_ids"].squeeze(),
@@ -152,7 +150,9 @@ class SliceGPT(Pass):
             json.dump(model_adapter.slicing_conf.to_dict(), strm, indent=4)
 
         # return PyTorchModelHandler
-        model_config = model_handler.to_json()["config"]
-        model_config["model_path"] = output_model_path
-        del model_config["model_file_format"]
-        return PyTorchModelHandler(**model_config, model_file_format=ModelFileFormat.PYTORCH_SLICE_GPT_MODEL)
+        return inherit_pytorch_from_hf(
+            model_handler,
+            output_model_path,
+            model_file_format=ModelFileFormat.PYTORCH_SLICE_GPT_MODEL,
+            model_name=model_handler.model_name_or_path,
+        )

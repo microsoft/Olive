@@ -36,9 +36,7 @@ Please refer to [QNNConversion](qnn_conversion) for more details about the pass 
 ```json
 {
     "type": "QNNConversion",
-    "config": {
-        "extra_args": "--input_list <input_list.txt>"
-    }
+    "extra_args": "--input_list <input_list.txt>"
 }
 ```
 
@@ -51,9 +49,7 @@ Please refer to [QNNModelLibGenerator](qnn_model_lib_generator) for more details
 ```json
 {
     "type": "QNNModelLibGenerator",
-    "config": {
-        "lib_targets": "x86_64-linux-clang"
-    }
+    "lib_targets": "x86_64-linux-clang"
 }
 ```
 
@@ -67,8 +63,6 @@ Please refer to [QNNContextBinaryGenerator](qnn_context_binary_generator) for mo
 ```json
 {
     "type": "QNNContextBinaryGenerator",
-    "config": {
-        "backend": "<QNN_BACKEND.so>"
-    }
+    "backend": "<QNN_BACKEND.so>"
 }
 ```

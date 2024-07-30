@@ -1,27 +1,34 @@
-{ "systems": {
+{
+    "input_model": { "type": "ONNXModel", "model_path": "models/resnet_trained_for_cifar10.onnx" },
+    "systems": {
         "python_system": {
             "type": "PythonEnvironment",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu",
-                        "execution_providers": [ "DmlExecutionProvider", "OpenVINOExecutionProvider" ]
-                    }
-                ],
-                "olive_managed_env": true,
-                "requirements_file": "multiple_ep_requirements.txt"
-            }
+            "accelerators": [
+                { "device": "gpu", "execution_providers": [ "DmlExecutionProvider", "OpenVINOExecutionProvider" ] }
+            ],
+            "olive_managed_env": true,
+            "requirements_file": "multiple_ep_requirements.txt"
         }
     },
-    "input_model": { "type": "ONNXModel", "config": { "model_path": "models/resnet_trained_for_cifar10.onnx" } },
     "data_configs": [
         {
             "name": "cifar10_data_config",
-            "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
-            "load_dataset_config": { "type": "cifar10_dataset", "params": { "data_dir": "data" } },
-            "pre_process_data_config": { "type": "skip_pre_process" },
-            "dataloader_config": { "params": { "batch_size": 1, "drop_last": true } }
+            "load_dataset_config": { "type": "cifar10_val_dataset", "data_dir": "data" },
+            "dataloader_config": { "batch_size": 1, "drop_last": true }
+        },
+        {
+            "name": "cifar10_accuracy_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "cifar10_val_dataset", "data_dir": "data" },
+            "dataloader_config": { "batch_size": 1, "drop_last": true },
+            "post_process_data_config": { "type": "cifar10_post_process" }
+        },
+        {
+            "name": "quant_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "simple_dataset" },
+            "dataloader_config": { "type": "resnet_calibration_dataloader", "data_dir": "data" }
         }
     ],
     "evaluators": {
@@ -30,30 +37,20 @@
                 {
                     "name": "accuracy",
                     "type": "accuracy",
+                    "data_config": "cifar10_accuracy_data_config",
                     "sub_types": [
                         {
                             "name": "accuracy_score",
-                            "priority": 1, "metric_config": { "task": "multiclass", "num_classes": 1000 }
+                            "priority": 1,
+                            "metric_config": { "task": "multiclass", "num_classes": 1000 }
                         }
-                    ],
-                    "user_config": {
-                        "post_processing_func": "post_process",
-                        "user_script": "user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1,
-                        "data_dir": "data"
-                    }
+                    ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg", "priority": 2 } ],
-                    "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1,
-                        "data_dir": "data"
-                    }
+                    "data_config": "cifar10_data_config",
+                    "sub_types": [ { "name": "avg", "priority": 2 } ]
                 }
             ]
         }
@@ -61,22 +58,16 @@
     "passes": {
         "onnx_quantization": {
             "type": "OnnxQuantization",
-            "config": {
-                "user_script": "user_script.py",
-                "data_dir": "data",
-                "dataloader_func": "resnet_calibration_reader",
-                "weight_type": "QUInt8",
-                "activation_type": "QUInt8",
-                "quant_preprocess": true
-            }
+            "data_config": "quant_data_config",
+            "weight_type": "QUInt8",
+            "activation_type": "QUInt8",
+            "quant_preprocess": true
         },
-        "perf_tuning": { "type": "OrtPerfTuning", "config": { "data_config": "cifar10_data_config" } }
+        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "cifar10_data_config" }
     },
-    "engine": {
-        "evaluator": "common_evaluator",
-        "target": "python_system",
-        "host": "python_system",
-        "cache_dir": "cache",
-        "output_dir": "models/resnet_multiple_ep"
-    }
+    "evaluator": "common_evaluator",
+    "target": "python_system",
+    "host": "python_system",
+    "cache_dir": "cache",
+    "output_dir": "models/resnet_multiple_ep"
 }

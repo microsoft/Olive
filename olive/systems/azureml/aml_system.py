@@ -19,7 +19,8 @@ from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import validate_config
-from olive.common.utils import copy_dir, get_dict_value, retry_func, set_dict_value
+from olive.common.constants import HF_LOGIN, KEYVAULT_NAME, WORKFLOW_ARTIFACTS, WORKFLOW_CONFIG
+from olive.common.utils import copy_dir, get_nested_dict_value, retry_func, set_nested_dict_value
 from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
 from olive.resource_path import (
@@ -34,6 +35,7 @@ from olive.resource_path import (
 from olive.systems.common import AcceleratorConfig, AzureMLDockerConfig, AzureMLEnvironmentConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import AzureMLTargetUserConfig
+from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
     from olive.evaluator.metric import Metric
@@ -67,7 +69,6 @@ def get_asset_type_from_resource_path(resource_path: ResourcePath):
     return AssetTypes.URI_FILE
 
 
-# TODO(jambayk): remove data_root. Not used at all and makes the logic unnecessarily complex
 class AzureMLSystem(OliveSystem):
     system_type = SystemType.AzureML
     olive_config = None
@@ -116,14 +117,89 @@ class AzureMLSystem(OliveSystem):
         self.env_vars = self._get_hf_token_env(self.azureml_client_config.keyvault_name) if self.hf_token else None
         self.temp_dirs = []
 
+    def submit_workflow(self, run_config: RunConfig):
+        workflow_id = run_config.workflow_id
+        logger.info("Submitting workflow %s to the AzureML system.", workflow_id)
+        ml_client = self.azureml_client_config.create_client()
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            workflow_pipeline = self._create_pipeline_for_workflow(run_config, tempdir)
+            logger.info(
+                "Once the workflow is submitted, it is safe to terminate the process. "
+                "The workflow job will continue running."
+            )
+            self._run_job(
+                ml_client,
+                workflow_pipeline,
+                "olive-workflow",
+                tags={"Workflow": workflow_id},
+                download_outputs=False,
+            )
+            logger.info("Workflow run succeed. Please check the job details for logs and outputs.")
+
+    def _create_pipeline_for_workflow(self, run_config: RunConfig, tmp_dir):
+        workflow_id = run_config.workflow_id
+        logger.info("Creating pipeline for workflow %s", workflow_id)
+        script_name = "aml_workflow_runner.py"
+
+        tmp_dir = Path(tmp_dir)
+
+        run_config.workflow_host = None
+
+        config_root = tmp_dir / "config"
+        cur_dir = Path(__file__).resolve().parent
+        code_files = [cur_dir / script_name]
+        self.copy_files(code_files, config_root)
+        workflow_config = run_config.to_json()
+        [
+            workflow_config.pop(component, None)
+            for component in ["evaluators", "systems", "data_configs", "azureml_client"]
+        ]
+
+        inputs, args = self.create_inputs_and_args(
+            {WORKFLOW_CONFIG: workflow_config},
+            tmp_dir,
+            ignore_keys=["cache_dir", "output_dir", "model_attributes"],
+        )
+
+        outputs = {
+            WORKFLOW_ARTIFACTS: Output(
+                type=AssetTypes.URI_FOLDER,
+                name=f"{workflow_id}",
+                path=f"azureml://datastores/{self.config.datastores}/paths/{workflow_id}",
+            )
+        }
+        cmd = self._create_step(
+            name="workflow",
+            display_name="Olive Workflow",
+            description="Run olive workflow",
+            aml_environment=self.environment,
+            code=str(config_root),
+            compute=self.compute,
+            resources=self.resources,
+            instance_count=self.instance_count,
+            inputs=inputs,
+            outputs=outputs,
+            script_name=script_name,
+        )
+
+        @pipeline()
+        def workflow_runner_pipeline():
+            outputs = {}
+            component = cmd(**args)
+            outputs[WORKFLOW_ARTIFACTS] = component.outputs.workflow_artifacts
+            return outputs
+
+        return workflow_runner_pipeline()
+
     def _get_hf_token_env(self, keyvault_name: Optional[str]):
         if keyvault_name is None:
             raise ValueError(
                 "hf_token is set to True but keyvault name is not provided. "
                 "Please provide a keyvault name to use HF_TOKEN."
             )
-        env_vars = {"HF_LOGIN": True}
-        env_vars.update({"KEYVAULT_NAME": keyvault_name})
+        env_vars = {HF_LOGIN: True}
+        env_vars.update({KEYVAULT_NAME: keyvault_name})
         return env_vars
 
     def _get_environment_from_config(self, aml_environment_config: AzureMLEnvironmentConfig):
@@ -160,7 +236,6 @@ class AzureMLSystem(OliveSystem):
         self,
         the_pass: "Pass",
         model_config: ModelConfig,
-        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
@@ -189,31 +264,61 @@ class AzureMLSystem(OliveSystem):
 
             return self._load_model(model_config.to_json(check_object=True), output_model_path, pipeline_output_path)
 
-    def create_inputs_and_args(self, name: str, config_json: dict, tmp_dir: Path, ignore_keys=None):
-        inputs = {f"{name}_config": Input(type=AssetTypes.URI_FILE)}
-        args = {}
+    def create_inputs_and_args(
+        self, all_configs: Dict[str, Dict], tmp_dir: Path, ignore_keys: Optional[List[str]] = None
+    ):
+        """Create inputs and args for a job.
 
-        resource_map = {}
-        # create inputs and args for each resource in the config
-        for resource_key, resource_path in find_all_resources(config_json, ignore_keys=None).items():
-            resource_name = f"{name}__{'__'.join(map(str, resource_key))}"
-            inputs[resource_name], args[resource_name] = self._create_arg_and_input_from_resource_path(resource_path)
-            resource_map[resource_name] = resource_key
-            set_dict_value(config_json, resource_key, None)
+        :param all_configs: Dictionary of configs used in the job.
+        :param tmp_dir:  The temporary directory to save the config json.
+        :param ignore_keys: The keys to ignore when creating inputs and args.
+        :return: The inputs and args for the job.
+        """
+        all_resources = {}
+        inputs, args = {}, {}
 
-        if resource_map:
-            resource_map_path = tmp_dir / f"{name}_resource_map.json"
-            with resource_map_path.open("w") as f:
-                json.dump(resource_map, f, sort_keys=True, indent=4)
-            inputs[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE)
-            args[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE, path=resource_map_path)
+        # only create input for a unique resource once
+        # multiple inputs referring to the same aml model resource leads to invalid job error
+        resource_inputs, resource_args = {}, {}
+        for name, config in all_configs.items():
+            # create a copy of the config to avoid modifying the original config
+            config_copy = deepcopy(config)
 
-        config_path = tmp_dir / f"{name}_config.json"
-        with config_path.open("w") as f:
-            json.dump(config_json, f, sort_keys=True, indent=4)
-        args[f"{name}_config"] = Input(type=AssetTypes.URI_FILE, path=config_path)
+            # using a list of tuples since json cannot have tuple keys
+            resource_map = []
+            # create inputs and args for each resource in the config
+            for resource_key, resource_path in find_all_resources(config_copy, ignore_keys=ignore_keys).items():
+                resource_str = resource_path.get_path()
+                if resource_str not in all_resources:
+                    resource_input_name = f"resource__{len(all_resources)}"
+                    resource_inputs[resource_input_name], resource_args[resource_input_name] = (
+                        self._create_arg_and_input_from_resource_path(resource_path)
+                    )
+                    all_resources[resource_str] = resource_input_name
+                resource_map.append((resource_key, all_resources[resource_str]))
+                set_nested_dict_value(config_copy, resource_key, None)
 
-        return inputs, args
+            # input for the config
+            config_path = tmp_dir / f"{name}_config.json"
+            with config_path.open("w") as f:
+                json.dump(config_copy, f, indent=4)
+            inputs[f"{name}_config"] = Input(type=AssetTypes.URI_FILE)
+            args[f"{name}_config"] = Input(type=AssetTypes.URI_FILE, path=config_path)
+
+            # input for the resource map
+            if resource_map:
+                resource_map_path = tmp_dir / f"{name}_resource_map.json"
+                with resource_map_path.open("w") as f:
+                    json.dump(resource_map, f, indent=4)
+                inputs[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE)
+                args[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE, path=resource_map_path)
+
+        # add resources to inputs and args at the end just for the sake of cleaner inputs and args order
+        return {**inputs, "num_resources": Input(type="integer"), **resource_inputs}, {
+            **args,
+            "num_resources": len(all_resources),
+            **resource_args,
+        }
 
     def _create_arg_and_input_from_resource_path(self, resource_path: ResourcePath):
         asset_type = get_asset_type_from_resource_path(resource_path)
@@ -269,7 +374,7 @@ class AzureMLSystem(OliveSystem):
 
         olive_config_path = tmp_dir / "olive_config.json"
         with olive_config_path.open("w") as f:
-            json.dump(olive_config, f, sort_keys=True, indent=4)
+            json.dump(olive_config, f, indent=4)
         return olive_config_path
 
     def _create_step(
@@ -338,16 +443,14 @@ class AzureMLSystem(OliveSystem):
         if olive_config_path:
             code_files.append(olive_config_path)
 
-        self.copy_code(code_files, code_root)
+        self.copy_files(code_files, code_root)
 
         # prepare inputs
-        inputs, args = {}, {}
-        for name, config_json in [("model", model_config), ("pass", pass_config)]:
-            name_inputs, name_args = self.create_inputs_and_args(
-                name, config_json, tmp_dir, ignore_keys=["model_attributes"] if name == "model" else None
-            )
-            inputs.update(name_inputs)
-            args.update(name_args)
+        # want to ignore model_attributes since hf config has _model_name_or_path
+        # that points to where the config was loaded from
+        inputs, args = self.create_inputs_and_args(
+            {"model": model_config, "pass": pass_config}, tmp_dir, ignore_keys=["model_attributes"]
+        )
 
         # prepare outputs
         outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}
@@ -384,9 +487,10 @@ class AzureMLSystem(OliveSystem):
         ml_client,
         pipeline_job,
         experiment_name: str,
-        tmp_dir: Union[str, Path],
+        tmp_dir: Optional[Union[str, Path]] = None,
         tags: Dict = None,
         output_name: str = None,
+        download_outputs: bool = True,
     ) -> Path:
         """Run a pipeline job and return the path to named-outputs."""
         # submit job
@@ -403,26 +507,30 @@ class AzureMLSystem(OliveSystem):
         logger.info("Pipeline submitted. Job name: %s. Job link: %s", job.name, job.studio_url)
         ml_client.jobs.stream(job.name)
 
-        # get output
-        output_dir = Path(tmp_dir) / "pipeline_output"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        # whether to download a single output or all outputs
-        output_arg = {"download_path": output_dir}
-        if output_name:
-            output_arg["output_name"] = output_name
-        else:
-            output_arg["all"] = True
-        logger.debug("Downloading pipeline output to %s", output_dir)
-        retry_func(
-            ml_client.jobs.download,
-            [job.name],
-            output_arg,
-            max_tries=self.azureml_client_config.max_operation_retries,
-            delay=self.azureml_client_config.operation_retry_interval,
-            exceptions=ServiceResponseError,
-        )
+        if download_outputs:
+            # get output
+            if tmp_dir is None:
+                raise ValueError("tmp_dir is required to download pipeline output")
+            output_dir = Path(tmp_dir) / "pipeline_output"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            # whether to download a single output or all outputs
+            output_arg = {"download_path": output_dir}
+            if output_name:
+                output_arg["output_name"] = output_name
+            else:
+                output_arg["all"] = True
+            logger.debug("Downloading pipeline output to %s", output_dir)
+            retry_func(
+                ml_client.jobs.download,
+                [job.name],
+                output_arg,
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
+                exceptions=ServiceResponseError,
+            )
 
-        return output_dir / "named-outputs"
+            return output_dir / "named-outputs"
+        return None
 
     def _load_model(self, input_model_config: dict, output_model_path, pipeline_output_path):
         model_json_path = pipeline_output_path / "output_model_config.json"
@@ -432,12 +540,12 @@ class AzureMLSystem(OliveSystem):
         # set the resources that are the same as the input model
         same_resources_as_input = model_json.pop("same_resources_as_input")
         for resource_key in same_resources_as_input:
-            set_dict_value(model_json, resource_key, get_dict_value(input_model_config, resource_key))
+            set_nested_dict_value(model_json, resource_key, get_nested_dict_value(input_model_config, resource_key))
 
         # resolve resource names that are relative paths and save them to the output folder
         relative_resource_names = model_json.pop("resources")
         for resource_key in relative_resource_names:
-            resource_json = get_dict_value(model_json, resource_key)
+            resource_json = get_nested_dict_value(model_json, resource_key)
             # can only be local file or folder
             resource_type = resource_json["type"]
             assert resource_type in LOCAL_RESOURCE_TYPES, f"Expected local file or folder, got {resource_type}"
@@ -460,12 +568,12 @@ class AzureMLSystem(OliveSystem):
             output_resource_path = deepcopy(resource_json)
             output_resource_path["config"]["path"] = str(output_path)
             output_resource_path = create_resource_path(output_resource_path)
-            set_dict_value(model_json, resource_key, output_resource_path)
+            set_nested_dict_value(model_json, resource_key, output_resource_path)
 
         return ModelConfig(**model_json)
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, model_config: ModelConfig, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
         if model_config.type.lower() == "SNPEModel".lower():
             raise NotImplementedError("SNPE model does not support azureml evaluation")
@@ -499,15 +607,6 @@ class AzureMLSystem(OliveSystem):
     ):
         tmp_dir = Path(tmp_dir)
 
-        # model args
-        model_inputs, model_args = self.create_inputs_and_args(
-            "model", model_config, tmp_dir, ignore_keys=["model_attributes"]
-        )
-
-        accelerator_config_path: Path = tmp_dir / "accelerator_config.json"
-        with accelerator_config_path.open("w") as f:
-            json.dump(accelerator.to_json(), f, sort_keys=True)
-
         @pipeline
         def evaluate_pipeline():
             outputs = {}
@@ -515,10 +614,9 @@ class AzureMLSystem(OliveSystem):
                 metric_tmp_dir = tmp_dir / metric.name
                 metric_component = self._create_metric_component(
                     metric_tmp_dir,
+                    model_config,
                     metric,
-                    model_inputs,
-                    model_args,
-                    accelerator_config_path,
+                    accelerator.to_json(),
                 )
                 outputs[metric.name] = metric_component.outputs.pipeline_output
             return outputs
@@ -531,10 +629,9 @@ class AzureMLSystem(OliveSystem):
     def _create_metric_component(
         self,
         tmp_dir: Path,
+        model_config: dict,
         metric: "Metric",
-        model_inputs: Dict[str, Input],
-        model_args: Dict[str, Input],
-        accelerator_config_path: str,
+        accelerator_config: dict,
     ):
         metric_json = metric.to_json(check_object=True)
 
@@ -550,16 +647,14 @@ class AzureMLSystem(OliveSystem):
         if olive_config_path:
             code_files.append(olive_config_path)
 
-        self.copy_code(code_files, code_root)
+        self.copy_files(code_files, code_root)
 
         # prepare inputs
-        metric_inputs, metric_args = self.create_inputs_and_args("metric", metric_json, tmp_dir)
-        inputs = {**model_inputs, **metric_inputs, "accelerator_config": Input(type=AssetTypes.URI_FILE)}
-        args = {
-            **model_args,
-            **metric_args,
-            "accelerator_config": Input(type=AssetTypes.URI_FILE, path=accelerator_config_path),
-        }
+        inputs, args = self.create_inputs_and_args(
+            {"model": model_config, "metric": metric_json, "accelerator": accelerator_config},
+            tmp_dir,
+            ignore_keys=["model_attributes"],
+        )
 
         # prepare outputs
         outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}
@@ -588,7 +683,7 @@ class AzureMLSystem(OliveSystem):
         # metric component
         return cmd(**args)
 
-    def copy_code(self, code_files: List, target_path: Path):
+    def copy_files(self, code_files: List, target_path: Path):
         target_path.mkdir(parents=True, exist_ok=True)
         for code_file in code_files:
             shutil.copy2(str(code_file), str(target_path))

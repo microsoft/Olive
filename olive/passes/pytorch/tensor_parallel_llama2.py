@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
+from packaging import version
 
 from olive.passes.pytorch.tensor_parallel import TensorParallel
 from olive.passes.pytorch.tensor_parallel_layers import TensorParallelColumnLinear, TensorParallelRowLinear
@@ -314,6 +315,11 @@ def tp_llama_attention_parallel_split(self, world_size):
 
 
 def replace_llama2_tensor_parallel_layers():
+    from transformers import __version__ as tf_version
+
+    if version.parse(tf_version) >= version.parse("4.38"):
+        raise ImportError("Llama Tensor Parallelism is not supported for Transformers version >= 4.38.0.")
+
     from transformers.models import llama
 
     originals = {

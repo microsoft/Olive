@@ -1,50 +1,52 @@
 {
-    "input_model": { "type": "OnnxModel", "config": { "model_path": "models/mobilenetv2-12.onnx" } },
+    "input_model": { "type": "OnnxModel", "model_path": "models/mobilenetv2-12.onnx" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ] }
+            "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ]
         },
         "qnn_ep_env": {
             "type": "IsolatedORT",
-            "config": {
-                "python_environment_path": "<qnn_env_path>",
-                "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ],
-                "preprend_to_path": [ "<qnn_lib_path>" ]
-            }
+            "python_environment_path": "<qnn_env_path>",
+            "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ],
+            "preprend_to_path": [ "<qnn_lib_path>" ]
         }
     },
+    "data_configs": [
+        {
+            "name": "metric_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "qnn_evaluation_dataset", "data_dir": "data/eval" },
+            "post_process_data_config": { "type": "qnn_post_process" },
+            "dataloader_config": { "batch_size": 1 }
+        },
+        {
+            "name": "quant_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "simple_dataset" },
+            "dataloader_config": { "type": "mobilenet_calibration_reader", "data_dir": "data/eval" }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
+                    "data_config": "metric_data_config",
                     "sub_types": [
                         {
                             "name": "accuracy_score",
                             "priority": 1,
                             "metric_config": { "task": "multiclass", "num_classes": 1000 }
                         }
-                    ],
-                    "user_config": {
-                        "user_script": "user_script.py",
-                        "data_dir": "data/eval",
-                        "batch_size": 1,
-                        "dataloader_func": "evaluation_dataloader",
-                        "post_processing_func": "post_process"
-                    }
+                    ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg", "priority": 2 } ],
-                    "user_config": {
-                        "user_script": "user_script.py",
-                        "data_dir": "data/eval",
-                        "batch_size": 1,
-                        "dataloader_func": "evaluation_dataloader"
-                    }
+                    "data_config": "metric_data_config",
+                    "sub_types": [ { "name": "avg", "priority": 2 } ]
                 }
             ]
         }
@@ -53,20 +55,14 @@
         "qnn_preprocess": { "type": "QNNPreprocess" },
         "quantization": {
             "type": "OnnxStaticQuantization",
-            "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "mobilenet_calibration_reader",
-                "data_dir": "data/eval",
-                "activation_type": "QUInt16",
-                "weight_type": "QUInt8"
-            }
+            "data_config": "quant_data_config",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8"
         }
     },
-    "engine": {
-        "target": "<target>",
-        "evaluator": "<evaluator>",
-        "evaluate_input_model": false,
-        "cache_dir": "cache",
-        "output_dir": "models/mobilenet_qnn_ep"
-    }
+    "target": "<target>",
+    "evaluator": "<evaluator>",
+    "evaluate_input_model": false,
+    "cache_dir": "cache",
+    "output_dir": "models/mobilenet_qnn_ep"
 }

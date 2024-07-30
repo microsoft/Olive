@@ -12,6 +12,7 @@ import pytest
 
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
+from olive.data.registry import Registry
 
 # pylint: disable=redefined-outer-name
 
@@ -24,6 +25,11 @@ class DependencySetupEnvBuilder(venv.EnvBuilder):
         run_subprocess([context.env_exe, "-Im", "pip", "install", olive_root], check=True)
 
 
+@Registry.register_dataloader()
+def _resnet_calibration_dataloader(dataset, **kwargs):
+    return None
+
+
 @pytest.fixture()
 def config_json(tmp_path):
     if platform.system() == OS.WINDOWS:
@@ -33,7 +39,7 @@ def config_json(tmp_path):
 
     with (Path(__file__).parent / "mock_data" / "dependency_setup.json").open() as f:
         config = json.load(f)
-        config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [ep]
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = [ep]
 
     config_json_file = tmp_path / "config.json"
     with config_json_file.open("w") as f:
@@ -69,4 +75,5 @@ def test_dependency_setup(tmp_path, config_json):
 
     _, outputs, _ = run_subprocess([python_path, "-Im", "pip", "list"], check=True)
     assert ort_extra in outputs
+    assert "psutil" in outputs
     shutil.rmtree(tmp_path, ignore_errors=True)

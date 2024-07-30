@@ -28,39 +28,39 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
     with open(config_json_path) as fin:
         olive_config = json.load(fin)
     # set default logger severity
-    olive_config["engine"]["log_severity_level"] = 0
+    olive_config["log_severity_level"] = 0
     # set clean cache
-    olive_config["engine"]["clean_cache"] = True
+    olive_config["clean_cache"] = True
 
     # update search strategy
     if not search_algorithm:
-        olive_config["engine"]["search_strategy"] = False
+        olive_config["search_strategy"] = False
     else:
-        olive_config["engine"]["search_strategy"] = {
+        olive_config["search_strategy"] = {
             "search_algorithm": search_algorithm,
             "execution_order": execution_order,
         }
         if search_algorithm in ("random", "tpe"):
-            olive_config["engine"]["search_strategy"]["search_algorithm_config"] = {"num_samples": 3, "seed": 0}
+            olive_config["search_strategy"].update({"num_samples": 3, "seed": 0})
 
     update_azureml_config(olive_config)
     if system == "aml_system":
         # set aml_system
         set_aml_system(olive_config, is_gpu=is_gpu)
-        olive_config["engine"]["host"] = system
-        olive_config["engine"]["target"] = system
+        olive_config["host"] = system
+        olive_config["target"] = system
     elif system == "docker_system":
         # set docker_system
         set_docker_system(olive_config)
-        olive_config["engine"]["host"] = system
-        olive_config["engine"]["target"] = system
+        olive_config["host"] = system
+        olive_config["target"] = system
         # reduce agent size for docker system
 
         # as our docker image is big, we need to reduce the agent size to avoid timeout
         # for the docker system test, we skip to search for transformers optimization as
         # it is tested in other olive system tests
         olive_config["passes"]["transformers_optimization"]["disable_search"] = True
-        olive_config["engine"]["search_strategy"]["search_algorithm_config"]["num_samples"] = 2
+        olive_config["search_strategy"]["num_samples"] = 2
 
     return olive_config
 
@@ -104,29 +104,25 @@ def set_aml_system(olive_config, is_gpu=False):
     if is_gpu:
         olive_config["systems"]["aml_system"] = {
             "type": "AzureML",
-            "config": {
-                "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
-                "aml_compute": "gpu-cluster",
-                "aml_docker_config": {
-                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
-                    "conda_file_path": "conda_gpu.yaml",
-                },
-                "is_dev": True,
+            "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
+            "aml_compute": "gpu-cluster",
+            "aml_docker_config": {
+                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
+                "conda_file_path": "conda_gpu.yaml",
             },
+            "is_dev": True,
         }
 
     else:
         olive_config["systems"]["aml_system"] = {
             "type": "AzureML",
-            "config": {
-                "accelerators": [{"device": "CPU", "execution_providers": ["CPUExecutionProvider"]}],
-                "aml_compute": "cpu-cluster",
-                "aml_docker_config": {
-                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                    "conda_file_path": "conda.yaml",
-                },
-                "is_dev": True,
+            "accelerators": [{"device": "CPU", "execution_providers": ["CPUExecutionProvider"]}],
+            "aml_compute": "cpu-cluster",
+            "aml_docker_config": {
+                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                "conda_file_path": "conda.yaml",
             },
+            "is_dev": True,
         }
 
 
@@ -137,15 +133,13 @@ def set_docker_system(olive_config):
 
     olive_config["systems"]["docker_system"] = {
         "type": "Docker",
-        "config": {
-            "accelerators": [{"device": "CPU", "execution_providers": ["CPUExecutionProvider"]}],
-            "local_docker_config": {
-                "image_name": "olive-image",
-                "build_context_path": "docker",
-                "dockerfile": "Dockerfile",
-            },
-            "is_dev": True,
+        "accelerators": [{"device": "CPU", "execution_providers": ["CPUExecutionProvider"]}],
+        "local_docker_config": {
+            "image_name": "olive-image",
+            "build_context_path": "docker",
+            "dockerfile": "Dockerfile",
         },
+        "is_dev": True,
     }
 
 

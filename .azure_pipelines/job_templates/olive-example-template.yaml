@@ -5,6 +5,7 @@ parameters:
   pool: ''
   python_version: '3.8'
   onnxruntime: 'onnxruntime'
+  torch: 'torch'
 
 jobs:
   - job: ${{parameters.name}}_Test_Examples
@@ -15,31 +16,17 @@ jobs:
       matrix:
         ${{ insert }}: ${{ parameters.examples }}
     variables:
-      runCodesignValidationInjection: false
       PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
       HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
       OLIVE_TEMPDIR: $(Pipeline.Workspace)/.olive_tempdir
       PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
 
     steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: ${{ parameters.python_version }}
-      displayName: Use Python ${{ parameters.python_version }}
-
-    - script: python -m pip install .
-      displayName: Install Olive
-
-    - ${{ if startsWith(parameters.onnxruntime, 'ort-nightly') }}:
-      - script: |
-          pip install onnxruntime
-          pip uninstall -y onnxruntime
-          pip install ${{ parameters.onnxruntime }} --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-        displayName: Install ${{ parameters.onnxruntime }}
-    - ${{ else }}:
-      - script: |
-          pip install ${{ parameters.onnxruntime }}
-        displayName: Install ${{ parameters.onnxruntime }}
+    - template: olive-setup-template.yaml
+      parameters:
+        python_version: ${{ parameters.python_version }}
+        onnxruntime: ${{ parameters.onnxruntime }}
+        torch: ${{ parameters.torch }}
 
     # set exampleRequirements to requirements.txt if user does not specify
     - script:
@@ -58,13 +45,6 @@ jobs:
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
         MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
-
-    - task: ComponentGovernanceComponentDetection@0
-      inputs:
-        scanType: 'Register'
-        verbosity: 'Verbose'
-        alertWarningLevel: 'High'
-      displayName: Component Detection
 
     - task: PublishTestResults@2
       condition: succeededOrFailed()

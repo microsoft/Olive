@@ -8,7 +8,6 @@
 import logging
 import multiprocessing
 from abc import abstractmethod
-from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict
 
@@ -17,10 +16,10 @@ import torch
 from olive.common.config_utils import ParamCategory
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import DistributedPyTorchModelHandler, PyTorchModelHandler
-from olive.model.config.hf_config import HfConfig, get_model_type_from_hf_config
+from olive.model import DistributedHfModelHandler, HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pytorch.common import inherit_distributed_hf_from_hf
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +104,8 @@ class PyTorchTensorParallel(Pass):
 
         logger.debug("Exporting tensor parallel model for rank: %d, %s", rank, output_filepath)
 
-        hf_config = HfConfig(**model_config["hf_config"])
-        model_type = get_model_type_from_hf_config(hf_config)
+        olive_model = HfModelHandler(**model_config)
+        model_type = olive_model.get_hf_model_type()
 
         if model_type == "llama":
             from olive.passes.pytorch.tensor_parallel_llama2 import LlamaPyTorchTensorParallel
@@ -120,7 +119,6 @@ class PyTorchTensorParallel(Pass):
 
         try:
             # 2. Load the model
-            olive_model = PyTorchModelHandler(**model_config)
             pytorch_model = olive_model.load_model()
             pytorch_model.eval()
             pytorch_model.requires_grad_(False)
@@ -133,6 +131,8 @@ class PyTorchTensorParallel(Pass):
             impl.load_rank_weights(pytorch_model)
 
             # 5. Save it out for each rank
+            # save metadata first since pytorch model also saves config.json
+            olive_model.save_metadata(output_filepath)
             pytorch_model.config.world_size = world_size
             pytorch_model.save_pretrained(output_filepath)
         finally:
@@ -144,8 +144,8 @@ class PyTorchTensorParallel(Pass):
         return 1  # Return 1 for success.
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> DistributedPyTorchModelHandler:
+        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
+    ) -> DistributedHfModelHandler:
         world_size = int(config["world_size"])
         output_model_path = Path(output_model_path)
         output_model_path.mkdir(parents=True, exist_ok=True)
@@ -156,7 +156,7 @@ class PyTorchTensorParallel(Pass):
                 model_config,
                 rank,
                 world_size,
-                output_model_path / DistributedPyTorchModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank),
+                output_model_path / DistributedHfModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank),
             )
             for rank in range(world_size)
         ]
@@ -174,12 +174,7 @@ class PyTorchTensorParallel(Pass):
         if world_size != sum(results):
             raise RuntimeError("Failed to create ranked tensor parallel models")
 
-        # Finally, create DistributedPyTorchModel from ranked models for each rank
-        model_config = model.to_json()["config"]
-        del model_config["model_loader"]
-        model_config["model_path"] = output_model_path
-        model_config["model_name_pattern"] = DistributedPyTorchModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT
-        model_config["num_ranks"] = world_size
-        model_config["model_attributes"] = deepcopy(model.model_attributes)
-        model_config["model_attributes"]["world_size"] = world_size
-        return DistributedPyTorchModelHandler(**model_config)
+        # Finally, create DistributedHfModelHandler from ranked models for each rank
+        return inherit_distributed_hf_from_hf(
+            model, output_model_path, DistributedHfModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT, num_ranks=world_size
+        )

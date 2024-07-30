@@ -1,14 +1,13 @@
 {
-    "input_model": {
-        "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "EleutherAI/gpt-j-6B",
-                "task": "text-generation",
-                "feature": "causal-lm-with-past"
-            }
+    "input_model": { "type": "HfModel", "model_path": "EleutherAI/gpt-j-6B" },
+    "data_configs": [
+        {
+            "name": "latency_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "simple_dataset" },
+            "dataloader_config": { "type": "gptj_dataloader", "batch_size": 1 }
         }
-    },
+    ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
@@ -16,11 +15,7 @@
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [ { "name": "avg", "priority": 1 } ],
-                    "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1
-                    }
+                    "data_config": "latency_data_config"
                 }
             ]
         }
@@ -28,21 +23,18 @@
     "passes": {
         "conversion": {
             "type": "OnnxConversion",
-            "config": {
-                "target_opset": 13,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "target_opset": 13,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         },
         "quantization": {
             "type": "IncDynamicQuantization",
-            "config": { "save_as_external_data": true, "all_tensors_to_one_file": true }
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         }
     },
-    "engine": {
-        "log_severity_level": 0,
-        "evaluator": "common_evaluator",
-        "cache_dir": "cache",
-        "output_dir": "models/gptj_inc_dynamic_ptq_cpu"
-    }
+    "log_severity_level": 0,
+    "evaluator": "common_evaluator",
+    "cache_dir": "cache",
+    "output_dir": "models/gptj_inc_dynamic_ptq_cpu"
 }

@@ -140,8 +140,8 @@ def main(raw_args=None):
             template_json = json.load(f)
             ep_str, precision = model_type.split("_")
             device = "GPU" if ep_str == "cuda" else "CPU"
-            template_json["passes"]["builder"]["config"]["precision"] = precision
-            template_json["systems"]["local_system"]["config"]["accelerators"] = [
+            template_json["passes"]["builder"]["precision"] = precision
+            template_json["systems"]["local_system"]["accelerators"] = [
                 {"device": device, "execution_providers": [DEVICE_TO_EP[device.lower()]]}
             ]
         new_json_file = f"phi2_genai_{device.lower()}.json"
@@ -151,8 +151,8 @@ def main(raw_args=None):
         json_file_template = "phi2_genai.json"
         with open(json_file_template) as f:
             template_json = json.load(f)
-            template_json["passes"]["builder"]["config"]["precision"] = "int4"
-            template_json["systems"]["local_system"]["config"]["accelerators"] = [
+            template_json["passes"]["builder"]["precision"] = "int4"
+            template_json["systems"]["local_system"]["accelerators"] = [
                 {"device": "GPU", "execution_providers": ["JsExecutionProvider"]}
             ]
             fl_type = {"type": "OnnxIOFloat16ToFloat32"}
@@ -193,7 +193,7 @@ def main(raw_args=None):
         if args.slicegpt:
             pass_flows[0].extend(SUPPORTED_WORKFLOWS["slicegpt"][0])
             update_accelerator(template_json, "gpu")
-            del template_json["input_model"]["config"]["io_config"]
+            del template_json["input_model"]["io_config"]
 
         if model_type:
             pass_flows[0].extend(SUPPORTED_WORKFLOWS[model_type][0])
@@ -213,8 +213,8 @@ def main(raw_args=None):
 
         if args.optimum_optimization or (args.finetune_method and not args.model_type) or args.slicegpt:
             # set evaluator as None:
-            template_json["engine"]["evaluate_input_model"] = False
-            del template_json["engine"]["evaluator"]
+            template_json["evaluate_input_model"] = False
+            del template_json["evaluator"]
 
         used_passes = {pass_name for pass_flow in pass_flows for pass_name in pass_flow}
         for pass_name in list(template_json["passes"].keys()):
@@ -223,12 +223,8 @@ def main(raw_args=None):
                 continue
 
         if args.export_mlflow_format:
-            template_json["engine"]["packaging_config"] = [
-                {
-                    "type": "Zipfile",
-                    "name": "mlflow_model",
-                    "config": {"export_in_mlflow_format": True},
-                }
+            template_json["packaging_config"] = [
+                {"type": "Zipfile", "name": "mlflow_model", "export_in_mlflow_format": True}
             ]
 
         new_json_file = "phi2_slicegpt.json" if args.slicegpt else f"phi2_{model_type}.json"
@@ -260,15 +256,15 @@ def main(raw_args=None):
 
 
 def update_accelerator(config, device):
-    config["systems"]["local_system"]["config"]["accelerators"][0]["device"] = device
-    config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [DEVICE_TO_EP[device]]
+    config["systems"]["local_system"]["accelerators"][0]["device"] = device
+    config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = [DEVICE_TO_EP[device]]
 
 
 def legacy_optimization_setting(config):
-    config["passes"]["convert"]["config"]["use_dynamo_exporter"] = False
-    config["passes"]["convert"]["config"]["target_opset"] = 17
-    config["passes"]["optimize_cpu"]["config"]["model_type"] = "gpt2"
-    config["passes"]["optimize_cuda"]["config"]["model_type"] = "gpt2"
+    config["passes"]["convert"]["use_dynamo_exporter"] = False
+    config["passes"]["convert"]["target_opset"] = 17
+    config["passes"]["optimize_cpu"]["model_type"] = "gpt2"
+    config["passes"]["optimize_cuda"]["model_type"] = "gpt2"
 
 
 if __name__ == "__main__":

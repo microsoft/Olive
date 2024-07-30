@@ -8,7 +8,6 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, List
 
-from olive.cache import get_local_path_from_root
 from olive.common.utils import copy_dir
 
 if TYPE_CHECKING:
@@ -68,7 +67,7 @@ def create_run_command(run_params: dict):
     return run_command_dict
 
 
-def create_metric_volumes_list(data_root: str, metrics: List["Metric"], container_root_path: Path) -> List[str]:
+def create_metric_volumes_list(metrics: List["Metric"], container_root_path: Path) -> List[str]:
     volume_list = []
     for metric in metrics:
         metric_path = container_root_path / "metrics" / metric.name
@@ -88,10 +87,27 @@ def create_metric_volumes_list(data_root: str, metrics: List["Metric"], containe
             volume_list.append(f"{script_dir_path}:{script_dir_mount_path}")
             metric.user_config.script_dir = script_dir_mount_path
 
-        if data_root or metric.user_config.data_dir:
-            data_dir = get_local_path_from_root(data_root, metric.user_config.data_dir)
-            volume_list.append(f"{data_dir}:{str(metric_path / 'data_dir')}")
-            metric.user_config.data_dir = str(metric_path / "data_dir")
+        if metric.data_config:
+            if metric.data_config.load_dataset_params.get("data_dir"):
+                data_dir_path = str(Path(metric.data_config.load_dataset_params.get("data_dir")).resolve())
+                volume_list.append(f"{data_dir_path}:{str(metric_path / 'data_dir')}")
+                metric.data_config.load_dataset_params["data_dir"] = str(metric_path / "data_dir")
+
+            if metric.data_config.user_script:
+                user_script_path = str(Path(metric.data_config.user_script).resolve())
+                user_script_name = Path(metric.data_config.user_script).name
+                user_script_mount_path = str(metric_path / user_script_name)
+
+                volume_list.append(f"{user_script_path}:{user_script_mount_path}")
+                metric.data_config.user_script = user_script_mount_path
+
+            if metric.data_config.script_dir:
+                script_dir_path = str(Path(metric.data_config.script_dir).resolve())
+                script_dir_name = Path(metric.data_config.script_dir).name
+                script_dir_mount_path = str(metric_path / script_dir_name)
+
+                volume_list.append(f"{script_dir_path}:{script_dir_mount_path}")
+                metric.data_config.script_dir = script_dir_mount_path
 
     return volume_list
 

@@ -16,15 +16,11 @@ Besides, if you want to convert an existing ONNX model with another target opset
 ```json
  {
     "type": "OnnxConversion",
-    "config": {
-        "target_opset": 13
-    }
+    "target_opset": 13
  },
  {
     "type": "OnnxOpVersionConversion",
-    "config": {
-        "target_opset": 14
-    }
+    "target_opset": 14
  }
 ```
 
@@ -37,9 +33,7 @@ Please refer to [ModelBuilder](model_builder) for more details about the pass an
 ```json
 {
     "type": "ModelBuilder",
-    "config": {
-        "precision": "int4"
-    }
+    "precision": "int4"
 }
 ```
 
@@ -74,7 +68,7 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 ```json
 {
     "type": "OrtTransformersOptimization",
-    "config": {"model_type": "bert"}
+    "model_type": "bert"
 }
 ```
 ## Append Pre/Post Processing Ops
@@ -84,22 +78,18 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 ```json
 {
     "type": "AppendPrePostProcessingOps",
-    "config": {
-        "tool_command": "superresolution",
-        "tool_command_args": {
-            "output_format": "png"
-        }
+    "tool_command": "superresolution",
+    "tool_command_args": {
+        "output_format": "png"
     }
 }
 ```
 ```json
 {
     "type": "AppendPrePostProcessingOps",
-    "config": {
-        "tool_command": "whisper",
-        "tool_command_args": {
-            "use_audio_decoder": true
-        }
+    "tool_command": "whisper",
+    "tool_command_args": {
+        "use_audio_decoder": true
     }
 }
 ```
@@ -213,7 +203,7 @@ Here are some examples to describe the pre/post processing which is exactly same
 ```json
 {
     "type": "InsertBeamSearch",
-    "config": {"no_repeat_ngram_size": 4}
+    "no_repeat_ngram_size": 4
 }
 ```
 
@@ -250,10 +240,7 @@ a. Tune the parameters of the OlivePass with pre-defined searchable values
 ```json
 {
     "type": "OnnxQuantization",
-    "config": {
-        "user_script": "./user_script.py",
-        "dataloader_func": "glue_calibration_reader"
-    }
+    "data_config": "calib_data_config"
 }
 ```
 
@@ -261,13 +248,10 @@ b. Select parameters to tune
 ```json
 {
     "type": "OnnxQuantization",
-    "config": {
-        // select per_channel to tune with "SEARCHABLE_VALUES".
-        // other parameters will use the default value, not to be tuned.
-        "per_channel": "SEARCHABLE_VALUES",
-        "user_script": "./user_script.py",
-        "dataloader_func": "glue_calibration_reader",
-    },
+    // select per_channel to tune with "SEARCHABLE_VALUES".
+    // other parameters will use the default value, not to be tuned.
+    "per_channel": "SEARCHABLE_VALUES",
+    "data_config": "calib_data_config",
     "disable_search": true
 }
 ```
@@ -276,13 +260,9 @@ c. Use default values of the OlivePass (no tuning in this way)
 ```json
 {
     "type": "OnnxQuantization",
-    "config": {
-        // set per_channel to "DEFAULT_VALUE"
-        "per_channel": "DEFAULT_VALUE",
-        "user_script": "./user_script.py",
-        "dataloader_func": "glue_calibration_reader",
-    },
-    "disable_search": true
+    // set per_channel to "DEFAULT_VALUE"
+    "per_channel": "DEFAULT_VALUE",
+    "data_config": "calib_data_config",
 }
 ```
 
@@ -290,18 +270,15 @@ d. Specify parameters with user defined values
 ```json
 "onnx_quantization": {
     "type": "OnnxQuantization",
-    "config": {
-        // set per_channel to True.
-        "per_channel": true,
-        "user_script": "./user_script.py",
-        "dataloader_func": "glue_calibration_reader",
-    },
+    // set per_channel to True.
+    "per_channel": true,
+    "data_config": "calib_data_config",
     "disable_search": true
 }
 ```
 
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
-for an example implementation of `"user_script.py"` and `"glue_calibration_reader"`.
+for an example implementation of `"user_script.py"` and `"calib_data_config/dataloader_config/type"`.
 
 check out [this file](https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu) for an example for Intel® Neural Compressor quantization.
 
@@ -319,18 +296,15 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 ```json
 "inc_quantization": {
     "type": "IncStaticQuantization",
-    "config": {
-        "user_script": "user_script.py",
-        "approach": "weight_only",
-        "weight_only_config": {
-            "bits": 4,
-            "algorithm": "GPTQ"
-        },
-        "dataloader_func": "calib_dataloader",
-        "calibration_sampling_size": [8],
-        "save_as_external_data": true,
-        "all_tensors_to_one_file": true
-    }
+    "approach": "weight_only",
+    "weight_only_config": {
+        "bits": 4,
+        "algorithm": "GPTQ"
+    },
+    "data_config": "calib_data_config",
+    "calibration_sampling_size": [8],
+    "save_as_external_data": true,
+    "all_tensors_to_one_file": true
 }
 ```
 
@@ -347,15 +321,11 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
 ```json
 "vitis_ai_quantization": {
     "type": "VitisAIQuantization",
-    "config": {
-        "calibrate_method":"NonOverflow",
-        "quant_format":"QDQ",
-        "activation_type":"QUInt8",
-        "weight_type":"QInt8",
-        "user_script": "user_script.py",
-        "data_dir": "data",
-        "dataloader_func": "resnet_calibration_reader"
-    }
+    "calibrate_method":"NonOverflow",
+    "quant_format":"QDQ",
+    "activation_type":"QUInt8",
+    "weight_type":"QInt8",
+    "data_config": "calib_data_config",
 }
 ```
 Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
@@ -371,29 +341,27 @@ improve performance.
 ```json
 {
     "type": "OrtPerfTuning",
-    "config": {
-        "data_config": "perf_tuning_data_config",
-        "batch_size": 1,
-        "providers_list" : [
-            [
-                "CUDAExecutionProvider",
-                {
-                    "device_id": 0,
-                    "arena_extend_strategy": "kNextPowerOfTwo",
-                    "gpu_mem_limit": 2147483648, // 2 * 1024 * 1024 * 1024,
-                    "cudnn_conv_algo_search": "EXHAUSTIVE",
-                    "do_copy_in_default_stream": true,
-                },
-            ],
-            "CPUExecutionProvider",
+    "data_config": "perf_tuning_data_config",
+    "batch_size": 1,
+    "providers_list" : [
+        [
+            "CUDAExecutionProvider",
+            {
+                "device_id": 0,
+                "arena_extend_strategy": "kNextPowerOfTwo",
+                "gpu_mem_limit": 2147483648, // 2 * 1024 * 1024 * 1024,
+                "cudnn_conv_algo_search": "EXHAUSTIVE",
+                "do_copy_in_default_stream": true,
+            },
         ],
-        "enable_profiling": false,
-    }
+        "CPUExecutionProvider",
+    ],
+    "enable_profiling": false
 }
 ```
 
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
-for an example implementation of `"user_script.py"` and `"create_dataloader"`.
+for an example implementation of `"user_script.py"` and `"calib_data_config/dataloader_config/type"`.
 
 [1]: <https://onnxruntime.ai/docs/performance/quantization.html> "ONNX Runtime Quantization"
 [2]: <https://onnxruntime.ai/docs/performance/quantization.html#dynamic-quantization> "Dynamic Quantization"
@@ -418,10 +386,8 @@ b. More fine-grained control of the conversion conditions is also possible:
 ```json
 {
     "type": "OnnxFloatToFloat16",
-    "config": {
-        // Don't convert input/output nodes to Float16
-        "keep_io_types": true
-    }
+    // Don't convert input/output nodes to Float16
+    "keep_io_types": true
 }
 ```
 
@@ -460,15 +426,13 @@ b. More fine-grained control of the conversion conditions is also possible:
 ```json
 {
     "type": "OrtMixedPrecision",
-    "config": {
-        "op_block_list": [
-            "Add",
-            "LayerNormalization",
-            "SkipLayerNormalization",
-            "FastGelu",
-            "EmbedLayerNormalization",
-        ]
-    }
+    "op_block_list": [
+        "Add",
+        "LayerNormalization",
+        "SkipLayerNormalization",
+        "FastGelu",
+        "EmbedLayerNormalization",
+    ]
 }
 ```
 
@@ -486,10 +450,8 @@ a. Making a symbolic dimension fixed
 ```json
 {
     "type": "DynamicToFixedShape",
-    "config": {
-        "input_dim": ["batch_size"],
-        "dim_value": [1]
-    }
+    "input_dim": ["batch_size"],
+    "dim_value": [1]
 }
 ```
 
@@ -497,10 +459,8 @@ b. Making the entire input shape fixed
 ```json
 {
     "type": "DynamicToFixedShape",
-    "config": {
-        "input_name": ["input"],
-        "input_shape": [[1, 3, 224, 224]]
-    }
+    "input_name": ["input"],
+    "input_shape": [[1, 3, 224, 224]]
 }
 ```
 
@@ -520,9 +480,7 @@ a. As external initializers
 ```json
 {
     "type": "ExtractAdapters",
-    "config": {
-        "make_inputs": false
-    }
+    "make_inputs": false
 }
 ```
 
@@ -530,10 +488,8 @@ b. As constant inputs with packed weights
 ```json
 {
     "type": "ExtractAdapters",
-    "config": {
-        "make_inputs": true,
-        "pack_inputs": true
-    }
+    "make_inputs": true,
+    "pack_inputs": true
 }
 ```
 

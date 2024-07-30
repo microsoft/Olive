@@ -17,17 +17,12 @@ Accuracy Metric
             {
                 "name": "accuracy",
                 "type": "accuracy",
+                "data_config": "accuracy_data_config",
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                     {"name": "f1_score"},
                     {"name": "auroc"}
-                ],
-                "user_config": {
-                    "post_processing_func": "post_process",
-                    "user_script": "user_script.py",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1
-                }
+                ]
             }
 
     .. tab:: Python Class
@@ -36,22 +31,21 @@ Accuracy Metric
 
             from olive.evaluator.metric_config import MetricGoal
             from olive.evaluator.metric import AccuracySubType, Metric, MetricType
+            from olive.data.config import DataComponentConfig, DataConfig
 
-            sub_types = [{
-                "name": MetricType.ACCURACY,
-                "priority": 1,
-                "goal": MetricGoal(type="max-degradation", value=0.01),
-            }]
             accuracy_metric = Metric(
                 name="accuracy",
                 type=MetricType.ACCURACY,
-                sub_types=sub_types,
-                user_config={
-                    "user_script": "user_script.py",
-                    "post_processing_func": "post_process",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1,
-                },
+                data_config=DataConfig(
+                    user_script="user_script.py",
+                    dataloader_config=DataComponentConfig(type="create_dataloader", params={"batch_size": 1}),
+                    post_process_data_config=DataComponentConfig(type="post_process"),
+                ),
+                sub_types=[{
+                    "name": MetricType.ACCURACY,
+                    "priority": 1,
+                    "goal": MetricGoal(type="max-degradation", value=0.01),
+                }],
                 goal={"type": "max-degradation", "value": 0.01}
             )
 
@@ -69,14 +63,10 @@ Latency Metric
             {
                 "name": "latency",
                 "type": "latency",
+                "data_config": "latency_data_config",
                 "sub_types": [
                     {"name": "avg", "priority": 1, "goal": {"type": "percent-min-improvement", "value": 20}}
-                ],
-                "user_config": {
-                    "user_script": "user_script.py",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1
-                }
+                ]
             }
 
     .. tab:: Python Class
@@ -85,20 +75,19 @@ Latency Metric
 
             from olive.evaluator.metric_config import MetricGoal
             from olive.evaluator.metric import LatencySubType, Metric, MetricType
+            from olive.data.config import DataComponentConfig, DataConfig
 
-            sub_types = [{
-                "name": LatencySubType.AVG,
-                "goal": MetricGoal(type="percent-min-improvement", value=20),
-            }]
             latency_metric = Metric(
                 name="latency",
                 type=MetricType.LATENCY,
-                sub_types=sub_types,
-                user_config={
-                    "user_script": user_script,
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1,
-                }
+                data_config=DataConfig(
+                    user_script="user_script.py",
+                    dataloader_config=DataComponentConfig(type="create_dataloader", params={"batch_size": 1}),
+                ),
+                sub_types=sub_types = [{
+                    "name": LatencySubType.AVG,
+                    "goal": MetricGoal(type="percent-min-improvement", value=20),
+                }],
             )
 
 Throughput Metric
@@ -112,14 +101,10 @@ Throughput Metric
             {
                 "name": "throughput",
                 "type": "throughput",
+                "data_config": "throughput_data_config",
                 "sub_types": [
                     {"name": "avg", "priority": 1, "goal": {"type": "percent-min-improvement", "value": 20}}
-                ],
-                "user_config": {
-                    "user_script": "user_script.py",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1
-                }
+                ]
             }
 
     .. tab:: Python Class
@@ -128,20 +113,20 @@ Throughput Metric
 
             from olive.evaluator.metric_config import MetricGoal
             from olive.evaluator.metric import ThroughputSubType, Metric, MetricType
+            from olive.data.config import DataComponentConfig, DataConfig
 
-            sub_types = [{
-                "name": ThroughputSubType.AVG,
-                "goal": MetricGoal(type="percent-min-improvement", value=20),
-            }]
+            sub_types =
             throughput_metric = Metric(
                 name="throughput",
                 type=MetricType.THROUGHPUT,
-                sub_types=sub_types,
-                user_config={
-                    "user_script": user_script,
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1,
-                }
+                data_config=DataConfig(
+                    user_script="user_script.py",
+                    dataloader_config=DataComponentConfig(type="create_dataloader", params={"batch_size": 1}),
+                ),
+                sub_types=[{
+                    "name": ThroughputSubType.AVG,
+                    "goal": MetricGoal(type="percent-min-improvement", value=20),
+                }],
             )
 
 
@@ -160,13 +145,20 @@ specify its name in :code:`"evaluate_func"` field, and Olive will call your func
                 "name": "accuracy",
                 "type": "custom",
                 "sub_types": [
-                    {"name": "accuracy_custom", "priority": 1, "higher_is_better": true, "goal": {"type": "max-degradation", "value": 0.01}}
+                    {
+                        "name": "accuracy_custom",
+                        "priority": 1,
+                        "higher_is_better": true,
+                        "goal": {"type": "max-degradation", "value": 0.01}
+                    }
                 ],
                 "user_config": {
                     "user_script": "user_script.py",
-                    "data_dir": "data",
-                    "batch_size": 16,
                     "evaluate_func": "eval_accuracy",
+                    "evaluate_func_kwargs": {
+                        "data_dir": "data",
+                        "batch_size": 16,
+                    }
                 }
             }
 
@@ -177,21 +169,22 @@ specify its name in :code:`"evaluate_func"` field, and Olive will call your func
             from olive.evaluator.metric_config import MetricGoal
             from olive.evaluator.metric import Metric, MetricType
 
-            sub_types = [{
-                "name": "accuracy_custom",
-                "priority": 1,
-                "higher_is_better": True,
-                "goal": MetricGoal(type="max-degradation", value=0.01),
-            }]
             accuracy_metric = Metric(
                 name="accuracy",
                 type=MetricType.CUSTOM,
-                sub_types=sub_types,
+                sub_types=[{
+                    "name": "accuracy_custom",
+                    "priority": 1,
+                    "higher_is_better": True,
+                    "goal": MetricGoal(type="max-degradation", value=0.01),
+                }],
                 user_config={
                     "user_script": "user_script.py",
-                    "data_dir": "data",
-                    "batch_size": 16,
                     "evaluate_func": "eval_accuracy",
+                    "evaluate_func_kwargs": {
+                        "data_dir": "data",
+                        "batch_size": 16,
+                    }
                 }
             )
 
@@ -201,7 +194,7 @@ for :code:`"user_script.py"`.
 Here is an example of the :code:`"eval_accuracy"` function in :code:`"user_script.py"`:
 In your :code:`"user_script.py"`, you need to define a function that takes in an Olive model, the data directory, and the batch size, and returns a metric value::
 
-        def eval_accuracy(model, data_dir, batch_size, device, execution_providers):
+        def eval_accuracy(model, device, execution_providers):
             # load data
             # evaluate model
             # return metric value

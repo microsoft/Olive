@@ -12,7 +12,8 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 from olive.common.constants import OS
-from olive.data.config import DataConfig
+from olive.data.config import DataComponentConfig, DataConfig
+from olive.data.registry import Registry
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
@@ -26,13 +27,19 @@ def test_inc_quantization(tmp_path):
     ov_model = get_onnx_model(tmp_path)
     data_dir = tmp_path / "data"
     data_dir.mkdir(exist_ok=True)
-    config = {"data_dir": data_dir, "dataloader_func": create_dataloader}
+    config = {
+        "data_config": DataConfig(
+            name="test_inc_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="_cifar10_val_dataset", params={"data_dir": str(data_dir)}),
+            dataloader_config=DataComponentConfig(type="_cifar10_val_dataloader", params={"batch_size": 1}),
+        )
+    }
     output_folder = str(tmp_path / "quantized")
 
     # create IncQuantization pass
     p = create_pass_from_dict(IncQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -44,7 +51,7 @@ def test_inc_quantization(tmp_path):
     # create IncDynamicQuantization pass
     p = create_pass_from_dict(IncDynamicQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -56,7 +63,7 @@ def test_inc_quantization(tmp_path):
     # create IncStaticQuantization pass
     p = create_pass_from_dict(IncStaticQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -71,13 +78,20 @@ def test_inc_weight_only_quantization(tmp_path):
     ov_model = get_onnx_model(tmp_path)
     data_dir = tmp_path / "data"
     data_dir.mkdir(exist_ok=True)
-    config = {"approach": "weight_only", "data_dir": data_dir, "dataloader_func": create_dataloader}
+    config = {
+        "approach": "weight_only",
+        "data_config": DataConfig(
+            name="test_inc_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="_cifar10_val_dataset", params={"data_dir": str(data_dir)}),
+            dataloader_config=DataComponentConfig(type="_cifar10_val_dataloader"),
+        ),
+    }
     output_folder = str(tmp_path / "quantized")
 
     # create IncQuantization pass
     p = create_pass_from_dict(IncQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -88,7 +102,7 @@ def test_inc_weight_only_quantization(tmp_path):
     # create IncStaticQuantization pass
     p = create_pass_from_dict(IncStaticQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -111,7 +125,7 @@ def test_inc_quantization_with_data_config(mock_model_saver, tmp_path):
     # create IncQuantization pass
     p = create_pass_from_dict(IncQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -133,18 +147,23 @@ def get_onnx_model(tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    return p.run(pytorch_model, None, output_folder)
+    return p.run(pytorch_model, output_folder)
 
 
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    # import neural_compressor here to avoid hanging on Windows
-    from neural_compressor.data import DefaultDataLoader
-
+@Registry.register_dataset()
+def _cifar10_val_dataset(data_dir, **kwargs):
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))]
     )
-    dataset = CifarDataset(CIFAR10(root=data_dir, train=False, transform=transform, download=True))
-    return DefaultDataLoader(dataset=dataset, batch_size=batch_size)
+    return CIFAR10(root=data_dir, train=False, transform=transform, download=True)
+
+
+@Registry.register_dataloader()
+def _cifar10_val_dataloader(dataset, batch_size, **kwargs):
+    # import neural_compressor here to avoid hanging on Windows
+    from neural_compressor.data import DefaultDataLoader
+
+    return DefaultDataLoader(dataset=CifarDataset(dataset), batch_size=batch_size)
 
 
 class CifarDataset:

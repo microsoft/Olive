@@ -8,11 +8,12 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from olive.common.config_utils import ConfigBase
 from olive.common.utils import get_credentials, hash_dict
 from olive.model.config.model_config import ModelConfig
+from olive.resource_path import create_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 class CloudCacheConfig(ConfigBase):
     enable_cloud_cache: bool = True
     account_url: str = "https://olivepublicmodels.blob.core.windows.net"
-    contaier_name: str = "olivecachemodels"
+    container_name: str = "olivecachemodels"
     upload_to_cloud: bool = True
     input_model_config: ModelConfig = None
 
@@ -67,14 +68,19 @@ class CloudCacheHelper:
 
         return model_config
 
-    def get_hash_key(self, model_config: ModelConfig, pass_search_point: Dict[str, Any], input_model_hash: str):
+    def get_hash_key(
+        self, model_config: ModelConfig, pass_search_point: Dict[str, Any], input_model_hash: Optional[str]
+    ):
         hf_hub_model_commit_id = None
         model_config_copy = deepcopy(model_config)
-        if input_model_hash is None:
+        if (
+            input_model_hash is None
+            and model_config.type.lower() == "hfmodel"
+            and create_resource_path(model_config.config["model_path"]).is_string_name()
+        ):
             from huggingface_hub import repo_info
 
-            if model_config.has_hf_config():
-                hf_hub_model_commit_id = repo_info(model_config.get_hf_model_name()).sha
+            hf_hub_model_commit_id = repo_info(model_config.config["model_path"]).sha
         else:
             model_config_copy.config.pop("model_path", None)
         return hash_dict(

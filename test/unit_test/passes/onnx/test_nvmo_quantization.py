@@ -8,12 +8,14 @@ from typing import Any, Dict, Optional
 
 from onnxruntime.quantization.calibrate import CalibrationDataReader  # type: ignore[import]
 
+from olive.data.config import DataComponentConfig, DataConfig
+from olive.data.registry import Registry
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.nvmo_quantization import NVModelOptQuantization
 
 
 class DummyCalibrationDataReader(CalibrationDataReader):
-    def __init__(self, data_dir: str, batch_size: int = 16):
+    def __init__(self, batch_size: int = 16):
         super().__init__()
         self.sample_counter = 64
 
@@ -30,20 +32,27 @@ class DummyCalibrationDataReader(CalibrationDataReader):
             return None
 
 
-def dummpy_dataloader_func(data_dir, batch_size, *args, **kwargs):
-    return DummyCalibrationDataReader(data_dir, batch_size=batch_size)
+@Registry.register_dataloader()
+def _test_nvmo_quat_dataloader(dataset, batch_size, **kwargs):
+    return DummyCalibrationDataReader(batch_size=batch_size)
 
 
 def test_nvmo_quantization(tmp_path):
     ov_model = get_onnx_model()
     data_dir = tmp_path / "data"
     data_dir.mkdir(exist_ok=True)
-    config = {"data_dir": data_dir, "dataloader_func": dummpy_dataloader_func}
+    config = {
+        "data_config": DataConfig(
+            name="test_nvmo_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset", params={"data_dir": str(data_dir)}),
+            dataloader_config=DataComponentConfig(type="_test_nvmo_quat_dataloader"),
+        )
+    }
     output_folder = str(tmp_path / "quantized")
 
     # create NVModelOptQuantization pass and run quantization
     p = create_pass_from_dict(NVModelOptQuantization, config, disable_search=True)
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
 
     # assert
     assert quantized_model.model_path.endswith(".onnx")

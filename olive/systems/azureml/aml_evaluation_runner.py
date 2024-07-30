@@ -5,7 +5,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from olive.common.utils import aml_runner_hf_login
+from olive.common.hf.login import aml_runner_hf_login
 from olive.evaluator.metric import Metric
 from olive.hardware import AcceleratorSpec
 from olive.logging import set_verbosity_from_env
@@ -23,9 +23,9 @@ def main(raw_args=None):
     # login to hf if HF_LOGIN is set to True
     aml_runner_hf_login()
 
-    model_config, pipeline_output, extra_args = get_common_args(raw_args)
-    metric_config, extra_args = parse_config(extra_args, "metric")
-    accelerator_config, extra_args = parse_config(extra_args, "accelerator")
+    pipeline_output, resources, model_config, extra_args = get_common_args(raw_args)
+    metric_config, extra_args = parse_config(extra_args, "metric", resources)
+    accelerator_config, extra_args = parse_config(extra_args, "accelerator", resources)
 
     # load metric
     metric = Metric.from_json(metric_config)
@@ -39,7 +39,7 @@ def main(raw_args=None):
     target: OliveSystem = LocalSystem()
 
     # metric result
-    metric_result = target.evaluate_model(model_config, None, [metric], accelerator_spec)
+    metric_result = target.evaluate_model(model_config, [metric], accelerator_spec)
 
     # save metric result json
     with (Path(pipeline_output) / "metric_result.json").open("w") as f:

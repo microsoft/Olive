@@ -7,13 +7,14 @@ import re
 import shutil
 import tempfile
 from abc import abstractmethod
+from copy import deepcopy
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Type, Union
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.auto_config import AutoConfigClass
-from olive.common.config_utils import ConfigBase, ConfigParam, serialize_to_json, validate_config
+from olive.common.config_utils import ConfigBase, ConfigParam, NestedConfig, serialize_to_json, validate_config
 from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import copy_dir, retry_func
 
@@ -91,7 +92,7 @@ class ResourcePath(AutoConfigClass):
         return hash((self.config.to_json(), self.type))
 
 
-class ResourcePathConfig(ConfigBase):
+class ResourcePathConfig(NestedConfig):
     type: ResourceType = Field(..., description="Type of the resource.")
     config: ConfigBase = Field(..., description="Config of the resource.")
 
@@ -113,7 +114,7 @@ OLIVE_RESOURCE_ANNOTATIONS = Optional[Union[str, Path, dict, ResourcePathConfig,
 
 def create_resource_path(
     resource_path: OLIVE_RESOURCE_ANNOTATIONS,
-) -> Optional[Union[ResourcePath, List[ResourcePath]]]:
+) -> Optional[ResourcePath]:
     """Create a resource path from a string or a dict.
 
     If a string or Path is provided, it is inferred to be a file, folder, or string name.
@@ -154,6 +155,9 @@ def create_resource_path(
 def validate_resource_path(v, values, field):
     try:
         v = create_resource_path(v)
+        if v and v.is_local_resource_or_string_name():
+            # might expect a string or Path when using this resource locally
+            v = v.get_path()
     except ValueError as e:
         raise ValueError(f"Invalid resource path '{v}': {e}") from None
     return v
@@ -170,7 +174,8 @@ def find_all_resources(config, ignore_keys: Optional[List[str]] = None) -> Dict[
     """
     if isinstance(config, VALID_RESOURCE_CONFIGS):
         try:
-            resource_path = create_resource_path(config)
+            # don't want to accidentally modify the original config
+            resource_path = create_resource_path(deepcopy(config))
             if resource_path.is_string_name():
                 return {}
             return {(): resource_path}

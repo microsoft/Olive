@@ -5,7 +5,7 @@
 from enum import Enum
 from typing import Optional, Union
 
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
 from olive.common.constants import BASE_IMAGE
 from olive.common.pydantic_v1 import validator
 
@@ -100,7 +100,7 @@ _type_to_config = {
 }
 
 
-class PackagingConfig(ConfigBase):
+class PackagingConfig(NestedConfig):
     """Olive output artifacts generation config."""
 
     type: PackagingType = PackagingType.Zipfile

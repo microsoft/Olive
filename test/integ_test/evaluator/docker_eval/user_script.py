@@ -6,22 +6,27 @@ import torch
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 
+from olive.data.registry import Registry
 
-def post_process(res):
+
+@Registry.register_post_process()
+def mnist_post_process_for_docker_eval(res):
     return res.argmax(1)
 
 
-def openvino_post_process(res):
+@Registry.register_post_process()
+def mnist_post_process_openvino_for_docker_eval(res):
     res = next(iter(res))
     return [res.argmax()]
 
 
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    dataset = datasets.MNIST(data_dir, transform=ToTensor())
-    return torch.utils.data.DataLoader(dataset, batch_size)
+@Registry.register_dataset()
+def mnist_dataset_for_docker_eval(data_dir):
+    return datasets.MNIST(data_dir, transform=ToTensor())
 
 
-def hf_post_process(res):
+@Registry.register_post_process()
+def mnist_post_process_hf_for_docker_eval(res):
     import transformers
 
     if isinstance(res, transformers.modeling_outputs.SequenceClassifierOutput):
@@ -31,12 +36,13 @@ def hf_post_process(res):
     return preds
 
 
-def create_hf_dataloader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataset()
+def tiny_bert_dataset_for_docker_eval(data_dir, *args, **kwargs):
     from datasets import load_dataset
     from torch.utils.data import Dataset
     from transformers import AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
+    tokenizer = AutoTokenizer.from_pretrained("hf-internal-testing/tiny-random-BertForSequenceClassification")
     dataset = load_dataset("glue", "mrpc", split="validation")
 
     class BaseData(Dataset):
@@ -61,4 +67,4 @@ def create_hf_dataloader(data_dir, batch_size, *args, **kwargs):
         remove_columns=dataset.column_names,
     )
     dataset.set_format(type="torch", output_all_columns=True)
-    return torch.utils.data.DataLoader(BaseData(dataset), batch_size)
+    return BaseData(dataset)

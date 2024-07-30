@@ -11,12 +11,14 @@ from test.unit_test.utils import (
     get_onnx_model_config,
     get_onnxconversion_pass,
     get_pytorch_model_config,
+    get_pytorch_model_io_config,
 )
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from olive.common.utils import hash_dict
+from olive.data.config import DataComponentConfig, DataConfig
 from olive.engine import Engine
 from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.evaluator.metric import AccuracySubType
@@ -208,7 +210,7 @@ class TestEngine:
             # ensure two converted models are from the same input model
             assert actual_res.nodes[model_id].parent_model_id == input_model_id
 
-            assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
+            assert engine.cache.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
             for k, v in result.items():
                 if k == "metrics":
                     assert actual_res.nodes[model_id].metrics.if_goals_met
@@ -217,7 +219,7 @@ class TestEngine:
 
         assert system_object.run_pass.call_count == 2
         assert system_object.evaluate_model.call_count == 3
-        system_object.evaluate_model.assert_called_with(onnx_model_config.to_json(), None, [metric], accelerator_spec)
+        system_object.evaluate_model.assert_called_with(onnx_model_config.to_json(), [metric], accelerator_spec)
 
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_search_model_components(self, mock_local_system_init, tmpdir):
@@ -232,7 +234,7 @@ class TestEngine:
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.olive_managed_env = False
 
-        engine = Engine()
+        engine = Engine(cache_dir=tmpdir)
         engine.register(OptimumConversion, disable_search=True, clean_run_cache=True)
         engine.set_pass_flows()
         # output model to output_dir
@@ -471,7 +473,7 @@ class TestEngine:
 
         engine.initialize()
 
-        assert engine._new_model_number == 101
+        assert engine.cache.new_model_number == 101
         assert mock_unlink.call_count == 1
         assert mock_glob.call_count == 2
 
@@ -486,13 +488,11 @@ class TestEngine:
             "clean_evaluation_cache": True,
             "evaluator": evaluator_config,
         }
-        engine = Engine(**options)
-        engine.register(OnnxConversion, clean_run_cache=True)
         with patch.object(Path, "glob"):
             Path.glob.return_value = [Path("cache") / "output" / "435d_0.json"]
 
             with pytest.raises(ValueError) as exc_info:  # noqa: PT011
-                engine.initialize()
+                Engine(**options)
             assert str(exc_info.value) == "invalid literal for int() with base 10: '435d'"
 
     @patch("olive.systems.local.LocalSystem")
@@ -673,13 +673,24 @@ class TestEngine:
                 "evaluator": evaluator_config,
             }
             engine = Engine(**options)
-            engine.register(OnnxStaticQuantization, {"dataloader_func": lambda x, y: None})
+            io_config = get_pytorch_model_io_config()
+            engine.register(
+                OnnxStaticQuantization,
+                {
+                    "data_config": DataConfig(
+                        name="quant_data_config",
+                        type="DummyDataContainer",
+                        load_dataset_config=DataComponentConfig(
+                            params={"input_names": io_config["input_names"], "input_shapes": io_config["input_shapes"]}
+                        ),
+                    )
+                },
+            )
             with patch("onnxruntime.quantization.quantize_static") as mock_quantize_static:
                 mock_quantize_static.side_effect = AttributeError("test")
                 actual_res = engine.run(
                     onnx_model_config,
                     [DEFAULT_CPU_ACCELERATOR],
-                    data_root=None,
                     output_dir=output_dir,
                     cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
                 )
@@ -697,7 +708,6 @@ class TestEngine:
                 actual_res = engine.run(
                     onnx_model_config,
                     [DEFAULT_CPU_ACCELERATOR],
-                    data_root=None,
                     output_dir=output_dir,
                     evaluate_input_model=False,
                     cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),

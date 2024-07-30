@@ -1,57 +1,43 @@
 {
-    "input_model": {
-        "type": "PyTorchModel",
-        "config": { "hf_config": { "model_name": "openlm-research/open_llama_7b_v2", "task": "text-generation" } }
-    },
-    "systems": { "local_system": { "type": "LocalSystem", "config": { "accelerators": [ { "device": "gpu" } ] } } },
+    "input_model": { "type": "HfModel", "model_path": "openlm-research/open_llama_7b_v2" },
+    "systems": { "local_system": { "type": "LocalSystem", "accelerators": [ { "device": "gpu" } ] } },
     "data_configs": [
         {
             "name": "tiny_codes_train",
             "type": "HuggingfaceContainer",
-            "user_script": "lora_user_script.py",
             "load_dataset_config": {
-                "type": "tiny_code_dataset",
-                "params": {
-                    "data_name": "nampdn-ai/tiny-codes",
-                    "split": "train",
-                    "language": "Python",
-                    "token": true
-                }
+                "data_name": "nampdn-ai/tiny-codes",
+                "split": "train",
+                "col_filters": { "programming_language": "Python" }
             },
-            "pre_process_data_config": {
-                "params": { "text_template": "### Question: {prompt} \n### Answer: {response}" }
-            }
+            "pre_process_data_config": { "text_template": "### Question: {prompt} \n### Answer: {response}" }
         }
     ],
     "passes": {
         "lora": {
             "type": "LoRA",
-            "config": {
-                "lora_dropout": 0.1,
-                "train_data_config": "tiny_codes_train",
-                "eval_dataset_size": 1024,
-                "training_args": {
-                    "per_device_train_batch_size": 8,
-                    "per_device_eval_batch_size": 8,
-                    "gradient_accumulation_steps": 1,
-                    "max_steps": 500,
-                    "logging_steps": 100,
-                    "save_steps": 100,
-                    "evaluation_strategy": "steps",
-                    "adam_beta2": 0.999,
-                    "max_grad_norm": 0.3,
-                    "load_best_model_at_end": true
-                }
+            "lora_dropout": 0.1,
+            "train_data_config": "tiny_codes_train",
+            "eval_dataset_size": 1024,
+            "training_args": {
+                "per_device_train_batch_size": 8,
+                "per_device_eval_batch_size": 8,
+                "gradient_accumulation_steps": 1,
+                "max_steps": 500,
+                "logging_steps": 100,
+                "save_steps": 100,
+                "evaluation_strategy": "steps",
+                "adam_beta2": 0.999,
+                "max_grad_norm": 0.3,
+                "load_best_model_at_end": true
             }
         }
     },
-    "engine": {
-        "log_severity_level": 0,
-        "search_strategy": false,
-        "evaluate_input_model": false,
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir": "models/open_llama_lora_tinycodes"
-    }
+    "log_severity_level": 0,
+    "search_strategy": false,
+    "evaluate_input_model": false,
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models/open_llama_lora_tinycodes"
 }

@@ -9,7 +9,7 @@ import os
 import sys
 from pathlib import Path
 
-from olive.common.utils import huggingface_login
+from olive.common.hf.login import huggingface_login
 from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.package_config import OlivePackageConfig
@@ -36,7 +36,7 @@ def runner_entry(config, output_path, output_name):
     package_config.import_pass_module(pass_config["type"])
 
     the_pass = FullPassConfig.from_json(pass_config).create_pass()
-    output_model = the_pass.run(model, None, output_path)
+    output_model = the_pass.run(model, output_path)
     # save model json
     output_json = output_model.to_json()
     output_json_path = Path(output_path) / output_name

@@ -20,7 +20,7 @@ def test_onnxfloattofloat16(keep_io_types, tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    output_model = p.run(input_model, None, output_folder)
+    output_model = p.run(input_model, output_folder)
 
     # assert
     # check that the input and output types are as expected

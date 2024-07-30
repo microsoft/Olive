@@ -41,9 +41,9 @@ Performs optimization pipeline:
 
 **Note:**
 - This workflow is only supported for GPU.
-- The relevant config file is [llama2_qlora.json](llama2_qlora.json). The code language is set to `Python` but can be changed to other languages by changing the `language` field in the config file.
+- The relevant config file is [llama2_qlora.json](llama2_qlora.json). The code language is set to `Python` but can be changed to other languages in the config file.
 Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
-- You must first request access to the [nampdn-ai/tiny-codes](https://huggingface.co/datasets/nampdn-ai/tiny-codes) dataset. Then login in to HuggingFace on your machine using `huggingface-cli login` or update `token` field in the config file with your HuggingFace token.
+- You must first request access to the [nampdn-ai/tiny-codes](https://huggingface.co/datasets/nampdn-ai/tiny-codes) dataset. Then login in to HuggingFace on your machine using `huggingface-cli login`.
 
 Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
 

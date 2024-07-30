@@ -3,161 +3,70 @@
 ## Introduction
 This document outlines the integrations between Olive and Huggingface. Discover how to use Huggingface resources within Olive.
 
-## hf_config
-If you want to optimize a Huggingface model, or evaluate a Huggingface model, you will need `hf_config` defined in your `input_model` section. Please refer to [this section](../overview/options.md#input-model-information) for detailed parameters of `hf_config`.
+## Input Model
+Use the `HfModel` type if you want to optimize a Huggingface model, or evaluate a Huggingface model. The default `task` is `text-generation-with-past`.
 
-Here is how you can use `hf_config`:
+### Huggingface Hub model
+Olive can automatically retrieve models from Huggingface hub:
+```json
+"input_model":{
+    "type": "HfModel",
+    "model_path": "meta-llama/Llama-2-7b-hf"
+}
+```
+
+### Local model
+If you have the Huggingface model prepared in local:
+```json
+"input_model":{
+    "type": "HfModel",
+    "model_path": "path/to/local/model"
+}
+```
+**Note:** You must also have the tokenizer and other necessary files in the same local directory.
+
+
+### Azure ML model
+Olive supports loading model from your Azure Machine Learning workspace. Find detailed configurations [here](./azureml_integration.md).
+
+Example: [Llama-2-7b](https://ml.azure.com/models/Llama-2-7b/version/13/catalog/registry/azureml-meta) from Azure ML model catalog:
+```json
+"input_model":{
+    "type": "HfModel",
+    "model_path": {
+        "type": "azureml_registry_model",
+        "name": "Llama-2-7b",
+        "registry_name": "azureml-meta",
+        "version": "13"
+    }
+}
+```
 
 ### Model config loading
 Olive can automatically retrieve model configurations from Huggingface hub:
 
 - Olive retrieves model [configuration](https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoConfig) from transformers for future usage.
 
-- Olive simplifies the process by automatically fetching configurations such as IO config and dummy input required for the `OnnxConversion` pass from [OnnxConfig](https://huggingface.co/docs/transformers/main_classes/onnx#onnx-configurations). This means there's no need for you to manually specify the IO config and dummy input when using the `OnnxConversion` pass.
+- Olive simplifies the process by automatically fetching configurations such as IO config and dummy input required for the `OnnxConversion` pass from [OnnxConfig](https://huggingface.co/docs/transformers/main_classes/onnx#onnx-configurations). This means there's no need for you to manually specify the IO config when using the `OnnxConversion` pass.
 
-If you want to use your own `io_config` or `dummy_input`, you can still add them to the model config:
+You can also provide your own IO config which will override the automatically fetched IO config and dummy inputs:
 ```json
-"input_model":{
-    "type": "PyTorchModel",
-    "config": {
-        "model_script": "user_script.py",
-        "io_config": "get_io_config",
-        "dummy_inputs_func": "get_dummy_inputs",
-        "hf_config": {
-            "model_name": "meta-llama/Llama-2-7b-hf",
-            "task": "text-generation"
+"input_model": {
+    "type": "HfModel",
+    "model_path": "meta-llama/Llama-2-7b-hf",
+    "io_config": {
+        "input_names": [ "input_ids", "attention_mask", "position_ids" ],
+        "output_names": [ "logits" ],
+        "input_shapes": [ [ 2, 8 ], [ 2, 8 ], [ 2, 8 ] ],
+        "input_types": [ "int64", "int64", "int64" ],
+        "dynamic_axes": {
+            "input_ids": { "0": "batch_size", "1": "sequence_length" },
+            "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
+            "position_ids": { "0": "batch_size", "1": "sequence_length" }
         }
     }
 }
 ```
-
-### Model loading
-#### Load Huggingface model from Huggingface hub
-Olive can automatically retrieve models from Huggingface hub. Here are the examples:
-
-#### PyTorch model
-Take `Intel/bert-base-uncased-mrpc` as an example, you can specify task name as `text-classification` to form the `hf_config` as follows:
-
-```json
-"input_model":{
-    "type": "PyTorchModel",
-    "config": {
-        "hf_config": {
-            "model_name": "Intel/bert-base-uncased-mrpc",
-            "task": "text-classification"
-        }
-    }
-}
-```
-
-#### Optimum model
-Optimum model is a special case of PyTorch model. By specifying `OptimumModel` as `type`, the `model_path` should be the model's name. Then add the names of the model components to `model_components`. Olive will retrieve the components from Huggingface hub:
-
-```json
-"input_model":{
-    "type": "OptimumModel",
-    "config": {
-        "model_path": "openlm-research/open_llama_3b",
-        "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
-        "hf_config": {
-            "model_class": "LlamaForCausalLM"
-        }
-    }
-}
-```
-
-### Model loading from local
-If you have the Huggingface model prepared in local, add `model_path` to the model config, and specify `model_name` and `task` in `hf_config` so that Olive can automatically fetch the model attributes:
-
-Example:
-```json
-"input_model":{
-    "type": "PyTorchModel",
-    "config": {
-        "model_path": "path_to_local_model",
-        "hf_config": {
-            "model_name": "Intel/bert-base-uncased-mrpc",
-            "task": "text-classification"
-        }
-    }
-}
-```
-
-### Model loading from local with custom components
-You can use your own custom components functions for your model. You will need to define the details of your components in your script as functions.
-
-Example:
-```json
-{
-    "input_model": {
-        "type": "PyTorchModel",
-        "config": {
-            "model_script": "user_script.py",
-            "hf_config": {
-                "model_class": "WhisperForConditionalGeneration",
-                "model_name": "openai/whisper-medium",
-                "components": [
-                    {
-                        "name": "encoder_decoder_init",
-                        "io_config": "get_encdec_io_config",
-                        "component_func": "get_encoder_decoder_init",
-                        "dummy_inputs_func": "encoder_decoder_init_dummy_inputs"
-                    },
-                    {
-                        "name": "decoder",
-                        "io_config": "get_dec_io_config",
-                        "component_func": "get_decoder",
-                        "dummy_inputs_func": "decoder_dummy_inputs"
-                    }
-                ]
-            }
-        }
-    },
-}
-```
-
-#### Script example
-```python
-# my_script.py
-def get_dec_io_config(model: OliveModelHandler):
-    # return your io dict
-    ...
-
-def get_decoder(model: OliveModelHandler):
-    # your component implementation
-    ...
-
-def dummy_inputs_func(model: OliveModelHandler):
-    # return the dummy input for your component
-    ...
-```
-
-### Model loading from Azure ML resources
-Olive supports loading model from your Azure Machine Learning workspace. Find detailed configurations [here](./azureml_integration.md).
-
-Example: [Llama-2-7b](https://ml.azure.com/models/Llama-2-7b/version/13/catalog/registry/azureml-meta) from Azure ML model catalog:
-```json
-"input_model":{
-    "type": "PyTorchModel",
-    "config": {
-        "model_path": {
-            "type": "azureml_registry_model",
-            "config": {
-                "name": "Llama-2-7b",
-                "registry_name": "azureml-meta",
-                "version": "13"
-            }
-        },
-        "model_file_format": "PyTorch.MLflow",
-        "hf_config": {
-            "model_name": "meta-llama/Llama-2-7b-hf",
-            "task": "text-generation"
-        }
-    }
-}
-```
-
-Please note the model for `Llama-2-7b` in Azure ML model catalog is a mlflow model. So `"model_file_format": "PyTorch.MLflow"` is required here.
 
 ## Huggingface datasets
 Olive supports automatically downloading and applying [Huggingface datasets](https://huggingface.co/datasets) to Passes and Evaluators.
@@ -172,18 +81,14 @@ Example: datasets in `data_configs`:
     "name": "oasst1_train",
     "type": "HuggingfaceContainer",
     "load_dataset_config": {
-        "params": {
-            "data_name": "timdettmers/openassistant-guanaco",
-            "split": "train"
-        }
+        "data_name": "timdettmers/openassistant-guanaco",
+        "split": "train"
     },
     "pre_process_data_config": {
-        "params": {
-            "text_cols": ["text"],
-            "corpus_strategy": "line-by-line",
-            "source_max_len": 512,
-            "pad_to_max_len": false
-        }
+        "text_cols": ["text"],
+        "corpus_strategy": "line-by-line",
+        "source_max_len": 512,
+        "pad_to_max_len": false
     }
 }]
 ```
@@ -192,9 +97,7 @@ Pass config:
 ```json
 "perf_tuning": {
     "type": "OrtPerfTuning",
-    "config": {
-        "data_config": "oasst1_train"
-    }
+    "data_config": "oasst1_train"
 }
 ```
 

@@ -58,8 +58,9 @@ def test_kv_cache_output_names(num_hidden_layers):
     )
     output_names = config.get_output_names()
     for i in range(num_hidden_layers):
-        assert output_names[i] == f"present.{i}.key"
-        assert output_names[i + num_hidden_layers] == f"present.{i}.value"
+        # key and value come in pairs
+        assert output_names[i * 2] == f"present.{i}.key"
+        assert output_names[i * 2 + 1] == f"present.{i}.value"
 
 
 @pytest.mark.parametrize("num_hidden_layers", [16, 32])
@@ -79,14 +80,14 @@ def test_kv_cache_input_names_shape_types(num_hidden_layers, num_attention_heads
     )
     input_names, input_shape, input_types = config.get_input_names_shapes_types()
     for i in range(num_hidden_layers):
-        assert input_names[i] == f"past_key_values.{i}.key"
-        assert input_names[i + num_hidden_layers] == f"past_key_values.{i}.value"
-        assert input_shape[i] == [2, num_attention_heads // 1, 128, hidden_size // num_attention_heads]
-        assert input_shape[i + num_hidden_layers] == [
+        assert input_names[i * 2] == f"past_key_values.{i}.key"
+        assert input_names[i * 2 + 1] == f"past_key_values.{i}.value"
+        assert input_shape[i * 2] == [2, num_attention_heads // 1, 128, hidden_size // num_attention_heads]
+        assert input_shape[i * 2 + 1] == [
             2,
             num_attention_heads // 1,
             128,
             hidden_size // num_attention_heads,
         ]
-        assert input_types[i] == "float32"
-        assert input_types[i + num_hidden_layers] == "float32"
+        assert input_types[i * 2] == "float32"
+        assert input_types[i * 2 + 1] == "float32"

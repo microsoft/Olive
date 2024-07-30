@@ -106,17 +106,15 @@ def main(raw_args=None):
         if not args.use_gqa and template_json["passes"][pass_name].get("evaluator", None) == "gqa_evaluator":
             # remove gqa evaluator if not using gqa
             del template_json["passes"][pass_name]["evaluator"]
-        if not args.use_gqa and template_json["passes"][pass_name]["config"].get("use_gqa", False):
+        if not args.use_gqa and template_json["passes"][pass_name].get("use_gqa", False):
             # set use_gqa to False if not using gqa
-            template_json["passes"][pass_name]["config"]["use_gqa"] = False
+            template_json["passes"][pass_name]["use_gqa"] = False
     if not args.use_gqa:
         del template_json["evaluators"]["gqa_evaluator"]
 
-    template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = device
-    template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
-        DEVICE_TO_EP[device]
-    ]
-    template_json["engine"]["output_dir"] = f"models/{config_name}/{model_name}"
+    template_json["systems"]["local_system"]["accelerators"][0]["device"] = device
+    template_json["systems"]["local_system"]["accelerators"][0]["execution_providers"] = [DEVICE_TO_EP[device]]
+    template_json["output_dir"] = f"models/{config_name}/{model_name}"
 
     # dump config
     with open(f"{config_name}.json", "w") as f:

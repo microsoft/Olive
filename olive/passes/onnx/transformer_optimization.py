@@ -9,16 +9,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 import onnx
 
+from olive.common.hf.mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES, NUM_KEY_VALUE_HEADS_NAMES
 from olive.common.utils import exclude_keys
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler
-from olive.model.utils import (
-    HIDDEN_SIZE_NAMES,
-    MODEL_TYPE_MAPPING,
-    NUM_HEADS_NAMES,
-    NUM_KEY_VALUE_HEADS_NAMES,
-    resolve_onnx_path,
-)
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -221,7 +216,7 @@ class OrtTransformersOptimization(Pass):
         run_config["optimization_options"] = fusion_options
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime.transformers import optimizer as transformers_optimizer
 

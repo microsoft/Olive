@@ -25,11 +25,10 @@ TARGET_TO_EP = {
 }
 
 AML_MODEL_Path = {
-    "model_path": {
-        "type": "azureml_registry_model",
-        "config": {"registry_name": "azureml", "name": "Phi-3-mini-4k-instruct", "version": "7"},
-    },
-    "model_file_format": "PyTorch.MLflow",
+    "type": "azureml_registry_model",
+    "registry_name": "azureml",
+    "name": "Phi-3-mini-4k-instruct",
+    "version": "7",
 }
 
 
@@ -49,16 +48,20 @@ def get_args(raw_args):
         type=str,
         default=None,
         choices=["qlora", "lora"],
-        help="Finetune method before onnxruntime optimization. "
-        "qlora finetuned model cannot be converted to onnx by model builder.",
+        help=(
+            "Finetune method before onnxruntime optimization. "
+            "qlora finetuned model cannot be converted to onnx by model builder."
+        ),
     )
     parser.add_argument(
         "--precision",
         type=str,
         default="int4",
         choices=["fp32", "fp16", "int4"],
-        help="Choose from fp32 or int4(default) for cpu target; "
-        "fp32 or fp16 or int4(default) for gpu target; int4(default) for mobile or web",
+        help=(
+            "Choose from fp32 or int4(default) for cpu target; "
+            "fp32 or fp16 or int4(default) for gpu target; int4(default) for mobile or web"
+        ),
     )
     parser.add_argument(
         "--inference",
@@ -152,24 +155,21 @@ def generate_config(args):
         template_json["passes"][args.finetune_method] = finetune_passes[args.finetune_method]
         template_json["passes"]["merge_adapter_weights"] = {"type": "MergeAdapterWeights"}
     if args.source == "AzureML":
-        template_json["input_model"]["config"] = AML_MODEL_Path
+        template_json["input_model"]["model_path"] = AML_MODEL_Path
 
     target = str(args.target)
     device = "GPU" if target in ("cuda", "web") else "CPU"
     execution_providers = [TARGET_TO_EP[target.lower()]]
-    template_json["systems"]["local_system"]["config"]["accelerators"] = [
+    template_json["systems"]["local_system"]["accelerators"] = [
         {"device": device, "execution_providers": execution_providers}
     ]
 
-    model_builder = {
-        "type": "ModelBuilder",
-        "config": {"precision": args.precision},
-    }
+    model_builder = {"type": "ModelBuilder", "precision": args.precision}
     if args.finetune_method is None or args.finetune_method == "lora":
         template_json["passes"]["builder"] = model_builder
 
     if target == "mobile":
-        template_json["passes"]["builder"]["config"]["int4_accuracy_level"] = 4
+        template_json["passes"]["builder"]["int4_accuracy_level"] = 4
 
     elif target == "web":
         fl_type = {"type": "OnnxIOFloat16ToFloat32"}

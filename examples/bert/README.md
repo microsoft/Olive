@@ -45,14 +45,12 @@ User can decide to tune the model accuracy by setting an accuracy `metric` in In
 "passes": {
     "quantization": {
         "type": "IncQuantization",
-        "config": {
-            "metric": {
-                "name": "accuracy",
-                "type": "accuracy",
-                "sub_types": [
-                    {"name": "accuracy_score", "priority": 1, "goal": {"type": "percent-max-degradation", "value": 2}}
-                ]
-            }
+        "metric": {
+            "name": "accuracy",
+            "type": "accuracy",
+            "sub_types": [
+                {"name": "accuracy_score", "priority": 1, "goal": {"type": "percent-max-degradation", "value": 2}}
+            ]
         }
     }
 }
@@ -76,11 +74,9 @@ User can use SmoothQuant by setting `smooth_quant` in `recipes` as shown below. 
 "passes": {
     "quantization": {
         "type": "IncStaticQuantization",
-        "config": {
-            "recipes":{
-                "smooth_quant": true,
-                "smooth_quant_args": {"alpha": 0.5}
-            }
+        "recipes":{
+            "smooth_quant": true,
+            "smooth_quant_args": {"alpha": 0.5}
         }
     }
 }

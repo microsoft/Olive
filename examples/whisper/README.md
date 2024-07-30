@@ -161,8 +161,7 @@ version of onnxruntime.
     ```json
     "mixed_precision": {
         "type": "OrtMixedPrecision",
-        "config": {
-            "atol": 1e-4
+        "atol": 1e-4
         }
     }
     ```

@@ -4,42 +4,25 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Dict, Union
 
 import torch
 import transformers
 
-from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
+from olive.common.config_utils import NestedConfig
 from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import resolve_torch_dtype
-from olive.model.config.io_config import IoConfig
 
 logger = logging.getLogger(__name__)
 
 
-class HfComponent(ConfigBase):
-    """Used for Hf models which has multiple components, such as whisper.
-
-    For example, in the Whisper model example, the component looks like:
-        {
-            "name": "encoder_decoder_init",
-            "io_config": "get_encdec_io_config",
-            "component_func": "get_encoder_decoder_init",
-            "dummy_inputs_func": "encoder_decoder_init_dummy_inputs"
-        }
-    """
-
-    name: str
-    io_config: Union[IoConfig, Dict[str, Any], str, Callable]
-    component_func: Union[str, Callable] = None
-    dummy_inputs_func: Union[str, Callable]
-
-
-class HfFromPretrainedArgs(ConfigWithExtraArgs):
+class HfLoadKwargs(NestedConfig):
     """Arguments to pass to the `from_pretrained` method of the model class.
 
     Refer to https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained
     """
+
+    _nested_field_name = "extra_args"
 
     torch_dtype: str = Field(
         None,
@@ -139,7 +122,7 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
             )
             return v
 
-    def get_loading_args(self) -> Dict[str, Any]:
+    def get_load_kwargs(self) -> Dict[str, Any]:
         """Return all args in a dict with types expected by `from_pretrained`."""
         loading_args = {}
         # copy args that can be directly copied
@@ -215,52 +198,3 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
         if extras:
             logger.warning("Unused kwargs in quantization_config: %s. Ignoring them", extras)
         return config
-
-
-class HfConfig(ConfigBase):
-    """The config for HuggingFace models.
-
-    For example, the config for the Whisper model looks like:
-        "model_class": "WhisperForConditionalGeneration",
-        "model_name": "openai/whisper-tiny.en",
-        "components": [
-            {
-                "name": "encoder_decoder_init",
-                "io_config": "get_encdec_io_config",
-                "component_func": "get_encoder_decoder_init",
-                "dummy_inputs_func": "encoder_decoder_init_dummy_inputs"
-            },
-            {
-                "name": "decoder",
-                "io_config": "get_dec_io_config",
-                "component_func": "get_decoder",
-                "dummy_inputs_func": "decoder_dummy_inputs"
-            }
-        ]
-    """
-
-    model_name: str = None
-    task: str = None
-    # feature is optional if task is specified and don't need past
-    # else, provide feature such as "causal-lm-with-past"
-    feature: str = None
-    # TODO(xiaoyu): remove model_class and only use task
-    model_class: str = None
-    components: List[HfComponent] = None
-    from_pretrained_args: HfFromPretrainedArgs = None
-
-    @validator("model_class", always=True)
-    def task_or_model_class_required(cls, v, values):
-        if values["model_name"] and not v and not values.get("task", None):
-            raise ValueError("Either task or model_class must be specified")
-        return v
-
-    def get_loading_args_from_pretrained(self) -> Dict[str, Any]:
-        """Return all args from from_pretrained_args in a dict with types expected by `from_pretrained`."""
-        return self.from_pretrained_args.get_loading_args() if self.from_pretrained_args else {}
-
-
-def get_model_type_from_hf_config(hf_config: HfConfig) -> str:
-    from olive.model.utils.hf_utils import get_hf_model_config
-
-    return get_hf_model_config(hf_config.model_name, **hf_config.get_loading_args_from_pretrained()).model_type

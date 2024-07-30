@@ -12,6 +12,7 @@ from datasets import load_dataset
 from transformers import AutoConfig, LlamaTokenizer
 
 from olive.constants import Framework
+from olive.data.registry import Registry
 from olive.model import OliveModelHandler
 
 model_id = "openlm-research/open_llama_3b"
@@ -80,21 +81,20 @@ class PileDataloader:
             pass
 
 
-def calib_dataloader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def open_llama_calib_dataloader(dataset, batch_size, **kwargs):
     model_path = kwargs.pop("model_path")
     return PileDataloader(model_path, batch_size=batch_size)
 
 
-def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execution_providers):
+def eval_accuracy(model: OliveModelHandler, device, execution_providers, batch_size):
     from intel_extension_for_transformers.transformers.llm.evaluation.lm_eval import LMEvalParser, evaluate
 
     results = {}
     if model.framework == Framework.PYTORCH:
         eval_args = LMEvalParser(
             model="hf",
-            model_args=(
-                f"pretrained={model.model_path or model.hf_config.model_name},tokenizer={model_id},dtype=float32"
-            ),
+            model_args=f"pretrained={model.model_path},tokenizer={model_id},dtype=float32",
             batch_size=batch_size,
             tasks="lambada_openai",
             device="cpu",

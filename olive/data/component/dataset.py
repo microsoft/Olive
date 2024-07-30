@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
 
+from olive.common.hf.utils import get_model_config
 from olive.common.utils import find_first_matched_value, resolve_torch_dtype
 from olive.constants import Framework
 
@@ -101,6 +102,7 @@ class DummyDataset(BaseDataset):
         input_names: Optional[List] = None,
         input_types: Optional[List] = None,
         max_samples: Optional[int] = 32,
+        **kwargs,
     ):
         """Initialize the dataset with dummy data.
 
@@ -342,9 +344,7 @@ class TransformersDummyDataset(BaseDataset):
         # can instead write dummy input functions like 'get_merged_decoder_with_past_dummy_inputs' if needed
 
         # Using Namespace class to access dict items like class attributes
-        from transformers import AutoConfig
-
-        model_attributes = AutoConfig.from_pretrained(model_name, trust_remote_code=trust_remote_code).__dict__
+        model_attributes = get_model_config(model_name, trust_remote_code=trust_remote_code).to_dict()
         world_size = model_attributes.get("world_size", 1)
         vocab_size = model_attributes.get("vocab_size", 50256)
         input_ids = torch.randint(low=0, high=vocab_size, size=(seq_len,), dtype=torch.int64)
@@ -370,7 +370,7 @@ class TransformersDummyDataset(BaseDataset):
 
         Shape of past_key_values is (num_heads, past_seq_len, head_size).
         """
-        from olive.model.utils.hf_mappings import (
+        from olive.common.hf.mappings import (
             HIDDEN_SIZE_NAMES,
             NUM_HEADS_NAMES,
             NUM_HIDDEN_LAYER_NAMES,

@@ -6,13 +6,13 @@ from olive.common.config_utils import validate_config
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config import IoConfig
-from olive.model.handler.mixin import CompositeMixin, IoConfigMixin, JsonMixin, ResourceMixin
+from olive.model.handler.mixin import IoConfigMixin, JsonMixin, ResourceMixin
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
 
 
-class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeMixin):
+class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin):
     """Abstraction for logical "Model", it contains model path and related metadata.
 
     Each technique accepts Model as input, return Model as output.

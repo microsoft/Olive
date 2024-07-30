@@ -8,19 +8,17 @@ It is based on the [LoRA paper](https://arxiv.org/abs/2106.09685).
 
 The output model is the input transformers model along with the fine-tuned LoRA adapters. The adapters can be loaded and/or merged into the original model using the `peft` library from Hugging Face.
 
-This pass only supports Hugging Face transformers PyTorch models. Please refer to [LoRA](lora) for more details about the pass and its config parameters.
+This pass only supports HfModels. Please refer to [LoRA](lora) for more details about the pass and its config parameters.
 
 ### Example Configuration
 ```json
 {
     "type": "LoRA",
-    "config": {
-        "lora_alpha": 16,
-        "train_data_config": // ...,
-        "training_args": {
-            "learning_rate": 0.0002,
-            // ...
-        }
+    "lora_alpha": 16,
+    "train_data_config": // ...,
+    "training_args": {
+        "learning_rate": 0.0002,
+        // ...
     }
 }
 ```
@@ -33,7 +31,7 @@ the QLoRA [paper](https://arxiv.org/abs/2305.14314) and [code](https://github.co
 The output model is the input transformers model along with the quantization config and the fine-tuned LoRA adapters. The adapters can be loaded and/or merged into the original model using the
 `peft` library from Hugging Face.
 
-This pass only supports Hugging Face transformers PyTorch models. Please refer to [QLoRA](qlora) for more details about the pass and its config parameters.
+This pass only supports HfModels. Please refer to [QLoRA](qlora) for more details about the pass and its config parameters.
 
 **Note:** QLoRA requires a GPU to run.
 
@@ -41,15 +39,13 @@ This pass only supports Hugging Face transformers PyTorch models. Please refer t
 ```json
 {
     "type": "QLoRA",
-    "config": {
-        "compute_dtype": "bfloat16",
-        "quant_type": "nf4",
-        "training_args": {
-            "learning_rate": 0.0002,
-            // ...
-        },
-        "train_data_config": // ...,
-    }
+    "compute_dtype": "bfloat16",
+    "quant_type": "nf4",
+    "training_args": {
+        "learning_rate": 0.0002,
+        // ...
+    },
+    "train_data_config": // ...,
 }
 ```
 Please refer to [QLoRA HFTrainingArguments](lora_hf_training_arguments) for more details on supported the `"training_args"` and their default values.
@@ -60,20 +56,18 @@ and [code](https://github.com/yxli2123/LoftQ). More information on LoRA can be f
 
 The `LoftQ` pass initializes the quantized LoRA model using the LoftQ initialization method and then fine-tunes the adapters. The output model has new quantization aware master weights and the fine-tuned LoRA adapters.
 
-This pass only supports Hugging Face transformers PyTorch models. Please refer to [LoftQ](loftq) for more details about the pass and its config parameters.
+This pass only supports HfModels. Please refer to [LoftQ](loftq) for more details about the pass and its config parameters.
 
 **Note:** LoftQ requires a GPU to run.
 ```json
 {
     "type": "LoftQ",
-    "config": {
-        "compute_dtype": "bfloat16",
-        "training_args": {
-            "learning_rate": 0.0002,
-            // ...
-        },
-        "train_data_config": // ...,
-    }
+    "compute_dtype": "bfloat16",
+    "training_args": {
+        "learning_rate": 0.0002,
+        // ...
+    },
+    "train_data_config": // ...,
 }
 ```
 Please refer to [LoftQ HFTrainingArguments](lora_hf_training_arguments) for more details on supported the `"training_args"` and their default values.
@@ -94,10 +88,8 @@ a. Run QAT training with customized training loop.
 ```json
 {
     "type": "QuantizationAwareTraining",
-    "config":{
-        "user_script": "user_script.py",
-        "training_loop_func": "training_loop_func"
-    }
+    "user_script": "user_script.py",
+    "training_loop_func": "training_loop_func"
 }
 ```
 
@@ -108,12 +100,10 @@ b. Run QAT training with PyTorch Lightning.
 ```json
 {
     "type": "QuantizationAwareTraining",
-    "config":{
-        "user_script": "user_script.py",
-        "num_epochs": 5,
-        "ptl_data_module": "PTLDataModule",
-        "ptl_module": "PTLModule",
-    }
+    "user_script": "user_script.py",
+    "num_epochs": 5,
+    "ptl_data_module": "PTLDataModule",
+    "ptl_module": "PTLModule"
 }
 ```
 
@@ -125,16 +115,13 @@ c. Run QAT training with default training loop.
 ```json
 {
     "type": "QuantizationAwareTraining",
-    "config":{
-        "user_script": "user_script.py",
-        "num_epochs": 5,
-        "train_dataloader_func": "create_train_dataloader",
-    }
+    "num_epochs": 5,
+    "train_data_config": "train_data_config"
 }
 ```
 
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py)
-for an example implementation of `"user_script.py"` and `"create_train_dataloader"`.
+for an example implementation of `"user_script.py"` and `"train_data_config/dataloader_config/type"`.
 
 ## AutoGPTQ
 Olive also integrates [AutoGPTQ](https://github.com/AutoGPTQ/AutoGPTQ) for quantization.
@@ -149,9 +136,7 @@ Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass 
 ```json
 {
     "type": "GptqQuantizer",
-    "config": {
-        "data_config": "wikitext2_train"
-    }
+    "data_config": "wikitext2_train"
 }
 ```
 
@@ -169,10 +154,8 @@ Please refer to [AutoAWQQuantizer](awq_quantizer) for more details about the pas
 ```json
 {
     "type": "AutoAWQQuantizer",
-    "config": {
-        "w_bit": 4,
-        "pack_model_for_onnx_conversion": true
-    }
+    "w_bit": 4,
+    "pack_model_for_onnx_conversion": true
 }
 ```
 
@@ -193,7 +176,7 @@ as 2:4 and 4:8 patterns.
 
 Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.
 
-This pass only supports Hugging Face transformers PyTorch models. Please refer to [SparseGPT](sparsegpt) for more details on the types of transformers models supported.
+This pass only supports HfModels. Please refer to [SparseGPT](sparsegpt) for more details on the types of transformers models supported.
 
 **Note:** TensorRT can accelerate inference on 2:4 sparse models as described in [this blog](https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/).
 
@@ -201,13 +184,13 @@ This pass only supports Hugging Face transformers PyTorch models. Please refer t
 ```json
 {
     "type": "SparseGPT",
-    "config": {"sparsity": 0.5}
+    "sparsity": 0.5
 }
 ```
 ```json
 {
     "type": "SparseGPT",
-    "config": {"sparsity": [2,4]}
+    "sparsity": [2,4]
 }
 ```
 
@@ -222,10 +205,8 @@ This pass only supports HuggingFace transformer PyTorch models. Please refer to 
 ```json
 {
     "type": "SliceGPT",
-    "config": {
-        "sparsity": 0.4,
-        "calibration_data_config": "wikitext2"
-    }
+    "sparsity": 0.4,
+    "calibration_data_config": "wikitext2"
 }
 ```
 
@@ -234,7 +215,7 @@ This pass only supports HuggingFace transformer PyTorch models. Please refer to 
 applicable. `torch_tensorrt` is an extension to `torch` where TensorRT compiled engines can be used like regular `torch.nn.Module`s. This pass can be used to accelerate inference on transformer models
 with sparse weights by taking advantage of the 2:4 structured sparsity pattern supported by TensorRT.
 
-This pass only supports Hugging Face transformers PyTorch models. Please refer to [TorchTRTConversion](torch_trt_conversion) for more details on the types of transformers models supported.
+This pass only supports HfModels. Please refer to [TorchTRTConversion](torch_trt_conversion) for more details on the types of transformers models supported.
 
 ### Example Configuration
 ```json

@@ -42,7 +42,7 @@ def main(raw_args=None):
         template_json["pass_flows"] = [["conversion", "metadata"]]
     else:
         template_json["pass_flows"] = [["builder", "perf_tuning"]]
-    template_json["engine"]["output_dir"] = f"models/{model_name}"
+    template_json["output_dir"] = f"models/{model_name}"
 
     # dump config
     output_template = "llama2_model_builder.json"

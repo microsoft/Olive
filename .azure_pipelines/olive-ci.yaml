@@ -48,7 +48,8 @@ pr:
     - examples/phi2/*
 
 variables:
-    ComponentDetection.Timeout: 2400
+  runCodesignValidationInjection: false
+  skipComponentGovernanceDetection: true
 
 jobs:
 # Linux unit test and integration test
@@ -136,9 +137,6 @@ jobs:
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
-      resnet_qat:
-        exampleFolder: resnet
-        exampleName: resnet_qat
       whisper:
         exampleFolder: whisper
         exampleName: whisper
@@ -158,6 +156,9 @@ jobs:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     onnxruntime: onnxruntime-gpu
+    # torch 2.4.0 installs nvidia-cudnn-cu12 9.x but ort-gpu (with cuda 11.x) requires 8.x
+    # pin torch version until os image has its own cudnn installed/updated which ort-gpu can use
+    torch: torch==2.3.1
     examples:
       bert_cuda_gpu:
         exampleFolder: bert

@@ -77,9 +77,7 @@ class TestCloudCacheHelper:
     @patch("huggingface_hub.repo_info")
     def test_get_hash_key_without_input_hash(self, mock_repo_info):
         # setup
-        model_config = ModelConfig(
-            type="onnxmodel", config={"model_path": "model.onnx", "hf_config": {"model_name": "model_name"}}
-        )
+        model_config = ModelConfig(type="HfModel", config={"model_path": "model_name"})
         pass_search_point = {"search_point": "point"}
         input_model_hash = None
         mock_repo_info.return_value.sha = "sha"

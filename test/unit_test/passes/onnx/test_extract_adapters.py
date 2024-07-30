@@ -13,7 +13,7 @@ from peft.tuners.lora import LoraLayer
 from transformers import AutoModelForCausalLM
 
 from olive.common.utils import find_submodules
-from olive.model import ONNXModelHandler, PyTorchModelHandler
+from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
@@ -83,13 +83,11 @@ def input_model_info_fixture(tmp_path_factory):
     del peft_model, pytorch_model
 
     # pytorch model
-    olive_pytorch_model = PyTorchModelHandler(
-        hf_config={"model_name": model_name, "task": "text-generation"}, adapter_path=adapters_path
-    )
+    olive_pytorch_model = HfModelHandler(model_path=model_name, task="text-generation", adapter_path=adapters_path)
 
     # export to onnx
     conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 14}, disable_search=True)
-    olive_onnx_model = conversion_pass.run(olive_pytorch_model, None, str(tmp_path / "onnx-export"))
+    olive_onnx_model = conversion_pass.run(olive_pytorch_model, str(tmp_path / "onnx-export"))
 
     # TODO(jambayk): re-enable qdq model test once flaky quantization failure is resolved
     # static QDQ quantization
@@ -102,11 +100,11 @@ def input_model_info_fixture(tmp_path_factory):
     #     },
     #     disable_search=True,
     # )
-    # olive_qdq_onnx_model = qdq_pass.run(olive_onnx_model, None, str(tmp_path / "qdq-onnx"))
+    # olive_qdq_onnx_model = qdq_pass.run(olive_onnx_model, str(tmp_path / "qdq-onnx"))
 
     # int4 quantization
     matmul4_quantizer = create_pass_from_dict(OnnxMatMul4Quantizer, {}, disable_search=True)
-    olive_int4_onnx_model = matmul4_quantizer.run(olive_onnx_model, None, str(tmp_path / "int4-onnx"))
+    olive_int4_onnx_model = matmul4_quantizer.run(olive_onnx_model, str(tmp_path / "int4-onnx"))
 
     return {
         "float": {
@@ -138,7 +136,7 @@ def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type
     output_folder = tmp_path / "extracted-adapters"
 
     # execute
-    extracted_model: ONNXModelHandler = p.run(input_model_info[model_type]["onnx_model"], None, output_folder)
+    extracted_model: ONNXModelHandler = p.run(input_model_info[model_type]["onnx_model"], output_folder)
 
     # assert
     assert Path(extracted_model.model_path).is_file()
@@ -168,7 +166,7 @@ def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, mod
     output_folder = tmp_path / "extracted-adapters"
 
     # execute
-    extracted_model: ONNXModelHandler = p.run(input_model_info[model_type]["onnx_model"], None, output_folder)
+    extracted_model: ONNXModelHandler = p.run(input_model_info[model_type]["onnx_model"], output_folder)
     io_config = extracted_model.io_config
 
     # assert

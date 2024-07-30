@@ -47,7 +47,7 @@ class TestAMLEvaluation:
         model_path = model_path_func()
         metric = metric_func()
         config = ModelConfig.parse_obj({"type": model_type, "config": {"model_path": model_path}})
-        actual_res = aml_target.evaluate_model(config, None, [metric], DEFAULT_CPU_ACCELERATOR)
+        actual_res = aml_target.evaluate_model(config, [metric], DEFAULT_CPU_ACCELERATOR)
         for sub_type in metric.sub_types:
             joint_key = joint_metric_key(metric.name, sub_type.name)
             assert actual_res[joint_key].value >= expected_res

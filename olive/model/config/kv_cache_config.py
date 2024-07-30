@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from itertools import chain
 from typing import Dict, Optional
 
 from olive.common.config_utils import ConfigBase
@@ -70,17 +71,14 @@ class KVCacheConfig(ConfigBase):
         else:
             return [self.ort_present_value_name.replace("<id>", str(i)) for i in range(self.num_hidden_layers)]
 
-    def get_ort_past_key_names(self):
-        return self._get_k_names("inputs")
+    def _get_kv_names(self, direction="inputs"):
+        return list(chain.from_iterable(zip(self._get_k_names(direction), self._get_v_names(direction))))
 
-    def get_ort_past_value_names(self):
-        return self._get_v_names("inputs")
+    def get_ort_past_kv_names(self):
+        return self._get_kv_names("inputs")
 
-    def get_ort_present_key_names(self):
-        return self._get_k_names("outputs")
-
-    def get_ort_present_value_names(self):
-        return self._get_v_names("outputs")
+    def get_ort_present_kv_names(self):
+        return self._get_kv_names("outputs")
 
     def _get_kv_shape(self):
         return [
@@ -91,24 +89,20 @@ class KVCacheConfig(ConfigBase):
         ]
 
     def get_input_names_shapes_types(self):
-        input_names = [*self.get_ort_past_key_names(), *self.get_ort_past_value_names()]
+        input_names = self.get_ort_past_kv_names()
         input_shapes = [self._get_kv_shape()] * 2 * self.num_hidden_layers
         input_types = [self.dtype] * 2 * self.num_hidden_layers
 
         return input_names, input_shapes, input_types
 
     def get_output_names(self):
-        return [*self.get_ort_present_key_names(), *self.get_ort_present_value_names()]
+        return self.get_ort_present_kv_names()
 
     def get_dynamic_axes(self):
         dynamic_axis = {}
-        for past_name in self.get_ort_past_key_names():
-            dynamic_axis[past_name] = self.past_kv_dynamic_axis
-        for past_name in self.get_ort_past_value_names():
+        for past_name in self.get_ort_past_kv_names():
             dynamic_axis[past_name] = self.past_kv_dynamic_axis
 
-        for present_name in self.get_ort_present_key_names():
-            dynamic_axis[present_name] = self.present_kv_dynamic_axis
-        for present_name in self.get_ort_present_value_names():
+        for present_name in self.get_ort_present_kv_names():
             dynamic_axis[present_name] = self.present_kv_dynamic_axis
         return dynamic_axis

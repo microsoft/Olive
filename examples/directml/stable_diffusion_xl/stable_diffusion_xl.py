@@ -295,14 +295,12 @@ def update_config_with_provider(config: Dict, provider: str, is_fp16: bool) -> D
     elif provider == "cuda":
         if version.parse(OrtVersion) < version.parse("1.17.0"):
             # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
-            config["passes"]["optimize_cuda"]["config"]["optimization_options"] = {"enable_skip_group_norm": False}
+            config["passes"]["optimize_cuda"]["optimization_options"] = {"enable_skip_group_norm": False}
         # keep model fully in fp16 if use_fp16_fixed_vae is set
         if is_fp16:
-            config["passes"]["optimize_cuda"]["config"].update({"float16": True, "keep_io_types": False})
+            config["passes"]["optimize_cuda"].update({"float16": True, "keep_io_types": False})
         config["pass_flows"] = [["convert", "optimize_cuda"]]
-        config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
-            "CUDAExecutionProvider"
-        ]
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
         return config
     else:
         raise ValueError(f"Unsupported provider: {provider}")
@@ -357,14 +355,14 @@ def optimize(
 
         if is_refiner_model and submodel_name == "vae_encoder" and not use_fp16_fixed_vae:
             # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen
-            olive_config["passes"]["optimize"]["config"]["float16"] = False
-            olive_config["passes"]["optimize_cuda"]["config"]["float16"] = False
+            olive_config["passes"]["optimize"]["float16"] = False
+            olive_config["passes"]["optimize_cuda"]["float16"] = False
 
         # Use fp16 fixed vae if use_fp16_fixed_vae is set
         if use_fp16_fixed_vae and "vae" in submodel_name:
-            olive_config["input_model"]["config"]["model_path"] = "madebyollin/sdxl-vae-fp16-fix"
+            olive_config["input_model"]["model_path"] = "madebyollin/sdxl-vae-fp16-fix"
         else:
-            olive_config["input_model"]["config"]["model_path"] = model_id
+            olive_config["input_model"]["model_path"] = model_id
 
         olive_run(olive_config)
 

@@ -3,4 +3,5 @@ onnx>=1.14.0
 optimum>=1.17.0
 protobuf==3.20.2
 torch
-transformers>=4.33.2
+# transformers optimizer fusions don't match in newer versions
+transformers>=4.33.2,<= 4.37.2

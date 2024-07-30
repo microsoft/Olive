@@ -9,16 +9,14 @@ from unittest.mock import MagicMock
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 
 from olive.common.config_utils import validate_config
 from olive.constants import Framework
-from olive.data.component.dataset import DummyDataset
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
-from olive.model import ModelConfig, ONNXModelHandler, PyTorchModelHandler
+from olive.model import HfModelHandler, ModelConfig, ONNXModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 
 ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
@@ -33,17 +31,16 @@ class DummyModel(nn.Module):
         return torch.sigmoid(self.fc1(x))
 
 
-# TODO(shaahji): Remove this once perf_tuning pass supports DataConfig
-def create_dummy_dataloader(data_dir, batch_size=1, max_samples=32, **kwargs):
-    return DataLoader(DummyDataset([(batch_size or 1, 1)], max_samples=max_samples), batch_size=None)
-
-
 def pytorch_model_loader(model_path):
     return DummyModel().eval()
 
 
 def get_pytorch_model_io_config(batch_size=1):
     return {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(batch_size, 1)]}
+
+
+def get_pytorch_model_dummy_input(model=None, batch_size=1):
+    return torch.randn(batch_size, 1)
 
 
 def get_pytorch_model_config(batch_size=1):
@@ -66,30 +63,11 @@ def get_pytorch_model(batch_size=1):
 
 
 def get_hf_model():
-    return PyTorchModelHandler(
-        hf_config={
-            "model_name": "hf-internal-testing/tiny-random-gptj",
-            "task": "text-generation",
-        }
-    )
+    return HfModelHandler(model_path="hf-internal-testing/tiny-random-gptj")
 
 
 def get_hf_model_config():
     return ModelConfig.parse_obj(get_hf_model().to_json())
-
-
-def get_hf_model_with_past():
-    return PyTorchModelHandler(
-        hf_config={
-            "model_name": "hf-internal-testing/tiny-random-gptj",
-            "task": "text-generation",
-            "feature": "causal-lm-with-past",
-        }
-    )
-
-
-def get_pytorch_model_dummy_input(model=None, batch_size=1):
-    return torch.randn(batch_size, 1)
 
 
 def create_onnx_model_file():
@@ -138,8 +116,8 @@ def get_composite_onnx_model_config():
     )
 
 
-def get_onnx_model():
-    return ONNXModelHandler(model_path=str(ONNX_MODEL_PATH))
+def get_onnx_model(model_attributes=None):
+    return ONNXModelHandler(model_path=str(ONNX_MODEL_PATH), model_attributes=model_attributes)
 
 
 def delete_onnx_model_files():

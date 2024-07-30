@@ -7,11 +7,10 @@ import os
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from packaging import version
 
-from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.common.utils import exclude_keys
 from olive.data.config import DataConfig
@@ -24,8 +23,7 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import ParamCategory, PassConfigParam
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+from olive.passes.pass_config import PassConfigParam
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
@@ -148,39 +146,11 @@ _inc_quantization_config = {
 }
 
 _inc_static_dataloader_config = {
-    "data_dir": PassConfigParam(
-        type_=OLIVE_RESOURCE_ANNOTATIONS,
-        category=ParamCategory.DATA,
-        description="""
-            Path to the directory containing the dataset.
-            For local data, it is required if approach is 'static' and dataloader_func is provided.
-        """,
-    ),
-    "batch_size": PassConfigParam(
-        type_=int,
-        default_value=1,
-        description="""
-            Batch size for calibration, only used if dataloader_func is provided.
-        """,
-    ),
-    # TODO(trajep): remove this option once we have a data config ready
-    "dataloader_func": PassConfigParam(
-        type_=Union[Callable, str],
-        category=ParamCategory.OBJECT,
-        description="""
-            Function/function name to generate dataloader for calibration,
-            required if approach is 'static' and data_config is None.
-        """,
-    ),
-    "dataloader_func_kwargs": PassConfigParam(
-        type_=Dict[str, Any],
-        description="Keyword arguments for dataloader_func.",
-    ),
     "data_config": PassConfigParam(
         type_=Union[DataConfig, Dict],
+        required=True,
         description="""
-            Data config for calibration, required if approach is 'static' and
-            dataloader_func is None.
+            Data config for calibration, required if approach is 'static'.
         """,
     ),
 }
@@ -281,7 +251,6 @@ _inc_woq_optional_config = {
 class IncQuantization(Pass):
     """Quantize ONNX model with Intel® Neural Compressor."""
 
-    _requires_user_script = True
     run_on_target = True
 
     @staticmethod
@@ -344,7 +313,7 @@ class IncQuantization(Pass):
         config.update(get_external_data_config())
         return config
 
-    def _set_eval_func(self, accuracy_metric, sub_type, data_root):
+    def _set_eval_func(self, accuracy_metric, sub_type):
         # set eval_func for INC according to Olive accuracy metric
         def eval_func(model):
             # eval_func for Intel® Neural Compressor quantization take model as input,
@@ -373,7 +342,6 @@ class IncQuantization(Pass):
             # evaluate model
             result = evaluator.evaluate(
                 olive_model,
-                data_root,
                 [accuracy_metric],
                 self.accelerator_spec.accelerator_type,
                 [self.accelerator_spec.execution_provider],
@@ -409,7 +377,7 @@ class IncQuantization(Pass):
 
         return higher_is_better, criterion, tolerable_loss
 
-    def _set_tuning_config(self, run_config, data_root):
+    def _set_tuning_config(self, run_config):
         # set criterion and eval func for INC
         # INC quantization without accuracy aware tuning situation:
         #  1. 'metric' is not set
@@ -451,7 +419,7 @@ class IncQuantization(Pass):
             if len(accuracy_metric.sub_types) != 0:
                 sub_type = accuracy_metric.sub_types[0]
             if sub_type is not None and sub_type.goal is not None:
-                eval_func = self._set_eval_func(accuracy_metric, sub_type, data_root)
+                eval_func = self._set_eval_func(accuracy_metric, sub_type)
 
                 higher_is_better, criterion, tolerable_loss = self._set_accuracy_criterion(sub_type)
                 accuracy_criterion = AccuracyCriterion(
@@ -479,7 +447,7 @@ class IncQuantization(Pass):
         return {"bits": bits, "group_size": group_size, "scheme": scheme, "algorithm": algo}
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         if "LOGLEVEL" not in os.environ:
             # set the log level for neural-compressor
@@ -508,13 +476,11 @@ class IncQuantization(Pass):
             and run_config["weight_only_config"]["algorithm"].upper() in {"GPTQ", "AWQ"}
         )
         if require_dataloader:
-            assert (
-                config["dataloader_func"] or config["data_config"]
-            ), "dataloader_func or data_config is required for {} quantization.".format(run_config["approach"])
+            assert config["data_config"], "data_config is required for {} quantization.".format(run_config["approach"])
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config, data_root)
+        eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config)
         weight_only_config = self._set_woq_config(run_config)
 
         workspace = run_config.pop("workspace", None)
@@ -525,12 +491,6 @@ class IncQuantization(Pass):
 
         # keys not needed for quantization
         to_delete = [
-            "script_dir",
-            "user_script",
-            "data_dir",
-            "batch_size",
-            "dataloader_func",
-            "dataloader_func_kwargs",
             "tuning_criterion",
             "data_config",
             "metric",
@@ -553,24 +513,12 @@ class IncQuantization(Pass):
 
         inc_calib_dataloader = None
         if require_dataloader:
-            # Never directly use `if self._user_module_loader` to check dataloader is provided or not
-            # self._user_module_loader is always not None since it is initialized in __init__
-            if config["dataloader_func"]:
-                data_dir = get_local_path_from_root(data_root, config["data_dir"])
-                inc_calib_dataloader = self._user_module_loader.call_object(
-                    config["dataloader_func"],
-                    data_dir,
-                    config["batch_size"],
-                    model_path=model.model_path,
-                    **(config["dataloader_func_kwargs"] or {}),
-                )
-            elif config["data_config"]:
-                data_config = validate_config(config["data_config"], DataConfig)
-                # inc quantization's calibration dataloader requires:
-                # 1. input: (input, label)
-                # 2. the dataloader should have the attributes of "__iter__" and "batch_size"
-                #  which is data_config's create_dataloader but not create_calibration_dataloader
-                inc_calib_dataloader = data_config.to_data_container().create_dataloader(data_root)
+            data_config = validate_config(config["data_config"], DataConfig)
+            # inc quantization's calibration dataloader requires:
+            # 1. input: (input, label)
+            # 2. the dataloader should have the attributes of "__iter__" and "batch_size"
+            #  which is data_config's create_dataloader but not create_calibration_dataloader
+            inc_calib_dataloader = data_config.to_data_container().create_dataloader()
 
         if run_config.get("diagnosis", False):
             assert inc_calib_dataloader is not None, "diagnosis mode requires dataloader"
@@ -598,8 +546,6 @@ class IncQuantization(Pass):
 
 class IncDynamicQuantization(IncQuantization):
     """Intel® Neural Compressor Dynamic Quantization Pass."""
-
-    _requires_user_script = False
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:

@@ -21,12 +21,12 @@ def raw_qnn_config():
     if sys_platform == OS.LINUX:
         raw_qnn_config["passes"]["qnn_context_binary"] = {
             "type": "QNNContextBinaryGenerator",
-            "config": {"backend": "libQnnHtp.so"},
+            "backend": "libQnnHtp.so",
         }
         raw_qnn_config["pass_flows"].append(["converter", "build_model_lib", "qnn_context_binary"])
-        raw_qnn_config["passes"]["build_model_lib"]["config"]["lib_targets"] = "x86_64-linux-clang"
+        raw_qnn_config["passes"]["build_model_lib"]["lib_targets"] = "x86_64-linux-clang"
     elif sys_platform == OS.WINDOWS:
-        raw_qnn_config["passes"]["build_model_lib"]["config"]["lib_targets"] = "x86_64-windows-msvc"
+        raw_qnn_config["passes"]["build_model_lib"]["lib_targets"] = "x86_64-windows-msvc"
 
     for metric_config in raw_qnn_config["evaluators"]["common_evaluator"]["metrics"]:
         if sys_platform == OS.WINDOWS:

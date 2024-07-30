@@ -38,6 +38,8 @@ This document introduces Olive and provides some examples to get you started.
    features/packaging_output_models
    features/custom_scripts
    features/azureml_integration
+   features/run_workflow_remotely
+   features/cloud_model_cache
 
 .. toctree::
    :maxdepth: 1

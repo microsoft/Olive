@@ -38,14 +38,8 @@ When you run the example config for other larger models, you may need
 1. change the `model_path` to the one you use in `open_llama_config.json` and `user_script.py`.
     ```json
     "input_model":{
-        "type": "OptimumModel",
-        "config": {
-            "model_path": "openlm-research/open_llama_3b", // to change based on the model you use
-            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
-            "hf_config": {
-                "model_class": "LlamaForCausalLM"
-            }
-        }
+        "type": "HfModel",
+        "model_path": "openlm-research/open_llama_3b", // to change based on the model you use
     }
     ```
     ```python
@@ -61,16 +55,14 @@ When you run the example config for other larger models, you may need
     ```json
     "optimize": {
         "type": "OrtTransformersOptimization",
-        "config": {
-            "model_type": "gpt2",
-            "float16": true,
-            "use_gpu": false,
-            "keep_io_types": true,
-            "num_heads": 32, // to change based on the model you use
-            "hidden_size": 4096, // to change based on the model you use
-            "optimization_options": {
-                "use_multi_head_attention": false
-            }
+        "model_type": "gpt2",
+        "float16": true,
+        "use_gpu": false,
+        "keep_io_types": true,
+        "num_heads": 32, // to change based on the model you use
+        "hidden_size": 4096, // to change based on the model you use
+        "optimization_options": {
+            "use_multi_head_attention": false
         }
     }
     ```
@@ -117,12 +109,10 @@ To compress model with 4-bits weight-only quantization, you may need
 ```json
 "quantization": {
     "type": "IncStaticQuantization",
-    "config": {
-        "user_script": "user_script.py",
-        "approach": "weight_only",
-        "weight_only_config":{
-            "algorithm": "RTN"
-        }
+    "user_script": "user_script.py",
+    "approach": "weight_only",
+    "weight_only_config":{
+        "algorithm": "RTN"
     }
 }
 ```
@@ -130,14 +120,10 @@ To compress model with 4-bits weight-only quantization, you may need
 ```json
 "quantization": {
     "type": "IncStaticQuantization",
-    "config": {
-        "user_script": "user_script.py",
-        "approach": "weight_only",
-        "weight_only_config":{
-            "algorithm": "GPTQ"
-        }
-    },
-    "dataloader_func": "calib_dataloader",
+    "user_script": "user_script.py",
+    "approach": "weight_only",
+    "data_config": "calib_data_config",
+    "weight_only_config": { "algorithm": "GPTQ" },
 }
 ```
 ```python
@@ -230,10 +216,10 @@ Requirements file: [requirements-lora.txt](requirements-lora.txt)
 
 Requirements file: [requirements-lora.txt](requirements-lora.txt)
 
-The code language is set to `Python` but can be changed to other languages by changing the `language` field in the config file.
+The code language is set to `Python` but can be changed to other languages in the config file.
 Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
 
-Note: You must first request access to the [nampdn-ai/tiny-codes](https://huggingface.co/datasets/nampdn-ai/tiny-codes) datatset. Then login in to HuggingFace on your machine using `huggingface-cli login` or update `token` field in the config file with your HuggingFace token.
+Note: You must first request access to the [nampdn-ai/tiny-codes](https://huggingface.co/datasets/nampdn-ai/tiny-codes) datatset. Then login in to HuggingFace on your machine using `huggingface-cli login`.
 
 ### Fine-tune OpenLlama model using QLoRA with ONNX Runtime Training
 You can also train the model using [ONNX Runtime Training](https://techcommunity.microsoft.com/t5/ai-machine-learning-blog/onnx-runtime-training-technical-deep-dive/ba-p/1398310).

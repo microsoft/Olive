@@ -4,15 +4,16 @@
 # --------------------------------------------------------------------------
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import yaml
 
 from olive.common.pydantic_v1 import ValidationError
 from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
+from olive.data.registry import Registry
 from olive.package_config import OlivePackageConfig
 from olive.workflows.run.config import RunConfig
 from olive.workflows.run.run import get_pass_module_path, is_execution_provider_required
@@ -20,38 +21,32 @@ from olive.workflows.run.run import get_pass_module_path, is_execution_provider_
 # pylint: disable=attribute-defined-outside-init, unsubscriptable-object
 
 
+@Registry.register_dataloader()
+def _resnet_calibration_dataloader(dataset, **kwargs):
+    return None
+
+
 class TestRunConfig:
     # like: Systems/Evaluation/Model and etc.
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self, tmp_path):
         self.package_config = OlivePackageConfig.parse_file(OlivePackageConfig.get_default_config_path())
-        self.user_script_config_file = Path(__file__).parent / "mock_data" / "user_script.json"
 
-    @pytest.mark.parametrize(
-        "config_file",
-        [
-            Path(__file__).parent / "mock_data" / "transformer_dataset.json",
-            Path(__file__).parent / "mock_data" / "only_transformer_dataset.json",
-            Path(__file__).parent / "mock_data" / "ner_task_dataset.json",
-            Path(__file__).parent / "mock_data" / "text_generation_dataset.json",
-            Path(__file__).parent / "mock_data" / "text_generation_dataset_random.json",
-        ],
-    )
-    def test_dataset_config_file(self, config_file):
-        run_config = RunConfig.parse_file(config_file)
-        for dc in run_config.data_configs:
-            dc.to_data_container().create_dataloader(data_root_path=None)
+        # create a user_script.py file in the tmp_path and refer to it
+        # this way the test can be run from any directory
+        current_dir = Path(__file__).parent
+        with open(current_dir / "mock_data" / "user_script.json") as f:
+            user_script_json = json.load(f)
+        user_script_json = json.dumps(user_script_json)
 
-    @pytest.mark.parametrize("system", ["local_system", "azureml_system"])
-    def test_user_script_config(self, system):
-        with self.user_script_config_file.open() as f:
-            user_script_config = json.load(f)
+        user_script_py = tmp_path / "user_script.py"
+        with open(user_script_py, "w") as f:
+            f.write("")
 
-        user_script_config["engine"]["host"] = system
-        user_script_config["engine"]["target"] = system
-        config = RunConfig.parse_obj(user_script_config)
-        for metric in config.evaluators["common_evaluator"].metrics:
-            assert metric.user_config.data_dir.get_path().startswith("azureml://")
+        user_script_json = user_script_json.replace("user_script.py", user_script_py.as_posix())
+        self.user_script_config_file = tmp_path / "user_script.json"
+        with open(self.user_script_config_file, "w") as f:
+            f.write(user_script_json)
 
     def test_config_without_azureml_config(self):
         with self.user_script_config_file.open() as f:
@@ -60,24 +55,7 @@ class TestRunConfig:
         user_script_config.pop("azureml_client")
         with pytest.raises(ValueError) as e:  # noqa: PT011
             RunConfig.parse_obj(user_script_config)
-        assert "AzureML client config is required for AzureML system" in str(e.value)
-
-    @pytest.mark.parametrize("config_type", ["dict", "json", "yaml"])
-    def test_parse_file_or_obj(self, tmp_path, config_type):
-        with open(self.user_script_config_file) as f:
-            config = json.load(f)
-
-        if config_type == "json":
-            config = self.user_script_config_file
-        elif config_type == "yaml":
-            config_file = tmp_path / "user_script.yaml"
-            with open(config_file, "w") as f:
-                yaml.safe_dump(config, f)
-            config = config_file
-
-        config = RunConfig.parse_file_or_obj(config)
-        for metric in config.evaluators["common_evaluator"].metrics:
-            assert metric.user_config.data_dir.get_path().startswith("azureml://")
+        assert "azureml_client is required for AzureML System but not provided." in str(e.value)
 
     @pytest.fixture()
     def mock_aml_credentials(self):
@@ -166,7 +144,7 @@ class TestRunConfig:
         with self.user_script_config_file.open() as f:
             user_script_config = json.load(f)
 
-        user_script_config["engine"]["execution_providers"] = ["CUDAExecutionProvider", "TensorrtExecutionProvider"]
+        user_script_config["execution_providers"] = ["CUDAExecutionProvider", "TensorrtExecutionProvider"]
         with pytest.raises(ValidationError) as e:
             _ = RunConfig.parse_obj(user_script_config)
         errors = e.value.errors()
@@ -225,28 +203,18 @@ class TestDataConfigValidation:
     def setup(self):
         self.template = {
             "input_model": {
-                "type": "PyTorchModel",
-                "config": {
-                    "hf_config": {
-                        "model_name": "dummy_model",
-                        "task": "dummy_task",
-                    }
-                },
+                "type": "HfModel",
+                "model_path": "dummy_model",
+                "task": "dummy_task",
             },
             "data_configs": [
                 {
                     "name": "dummy_data_config2",
                     "type": HuggingfaceContainer.__name__,
-                    "load_dataset_config": {
-                        "params": {
-                            "data_name": "dummy_dataset2",
-                        }
-                    },
+                    "load_dataset_config": {"data_name": "dummy_dataset2"},
                     "pre_process_data_config": {
-                        "params": {
-                            "model_name": "dummy_model2",
-                            "task": "dummy_task2",
-                        }
+                        "model_name": "dummy_model2",
+                        "task": "dummy_task2",
                     },
                 }
             ],
@@ -264,28 +232,14 @@ class TestDataConfigValidation:
         ],
     )
     def test_auto_insert_model_name_and_task(self, model_name, task, expected_model_name, expected_task):
-        config_dict = self.template.copy()
+        config_dict = deepcopy(self.template)
         config_dict["data_configs"] = [
             {
                 "name": "dummy_data_config2",
                 "type": HuggingfaceContainer.__name__,
-                "load_dataset_config": {
-                    "params": {
-                        "data_name": "dummy_dataset2",
-                    }
-                },
-                "pre_process_data_config": {
-                    "params": {
-                        "model_name": model_name,
-                        "task": task,
-                    }
-                },
-                "post_process_data_config": {
-                    "params": {
-                        "model_name": model_name,
-                        "task": task,
-                    }
-                },
+                "load_dataset_config": {"data_name": "dummy_dataset2"},
+                "pre_process_data_config": {"model_name": model_name, "task": task},
+                "post_process_data_config": {"model_name": model_name, "task": task},
             }
         ]
 
@@ -298,7 +252,7 @@ class TestDataConfigValidation:
 
     # works similarly for trust_remote_args
     @pytest.mark.parametrize(
-        ("has_loading_args", "trust_remote_code", "data_config_trust_remote_code", "expected_trust_remote_code"),
+        ("has_load_kwargs", "trust_remote_code", "data_config_trust_remote_code", "expected_trust_remote_code"),
         [
             (False, None, None, None),
             (False, None, True, True),
@@ -311,20 +265,18 @@ class TestDataConfigValidation:
         ],
     )
     def test_auto_insert_trust_remote_code(
-        self, has_loading_args, trust_remote_code, data_config_trust_remote_code, expected_trust_remote_code
+        self, has_load_kwargs, trust_remote_code, data_config_trust_remote_code, expected_trust_remote_code
     ):
-        config_dict = self.template.copy()
-        if has_loading_args:
-            config_dict["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {
-                "trust_remote_code": trust_remote_code
-            }
+        config_dict = deepcopy(self.template)
+        if has_load_kwargs:
+            config_dict["input_model"]["load_kwargs"] = {"trust_remote_code": trust_remote_code}
         if data_config_trust_remote_code is not None:
             config_dict["data_configs"] = [
                 {
                     "name": "dummy_data_config2",
                     "type": HuggingfaceContainer.__name__,
-                    "pre_process_data_config": {"params": {"trust_remote_code": data_config_trust_remote_code}},
-                    "load_dataset_config": {"params": {"trust_remote_code": data_config_trust_remote_code}},
+                    "pre_process_data_config": {"trust_remote_code": data_config_trust_remote_code},
+                    "load_dataset_config": {"trust_remote_code": data_config_trust_remote_code},
                 }
             ]
 
@@ -339,8 +291,8 @@ class TestDataConfigValidation:
         [None, "dummy_data_config2"],
     )
     def test_str_to_data_config(self, data_config_str):
-        config_dict = self.template.copy()
-        config_dict["passes"]["tuning"]["config"] = {"data_config": data_config_str}
+        config_dict = deepcopy(self.template)
+        config_dict["passes"]["tuning"]["data_config"] = data_config_str
 
         run_config = RunConfig.parse_obj(config_dict)
         pass_data_config = run_config.passes["tuning"].config["data_config"]
@@ -357,10 +309,13 @@ class TestPassConfigValidation:
         self.template = {
             "input_model": {
                 "type": "OnnxModel",
-                "config": {"hf_config": {"model_name": "dummy_model"}},
             },
-            "passes": {"tuning": {"type": "IncQuantization", "config": {}}},
-            "engine": {"evaluate_input_model": False},
+            "passes": {
+                "tuning": {
+                    "type": "IncQuantization",
+                }
+            },
+            "evaluate_input_model": False,
         }
 
     @pytest.mark.parametrize(
@@ -381,9 +336,9 @@ class TestPassConfigValidation:
     )
     def test_pass_config_(self, search_strategy, disable_search, approach, is_valid):
         config_dict = self.template.copy()
-        config_dict["engine"]["search_strategy"] = search_strategy
+        config_dict["search_strategy"] = search_strategy
         config_dict["passes"]["tuning"]["disable_search"] = disable_search
-        config_dict["passes"]["tuning"]["config"] = {"approach": approach}
+        config_dict["passes"]["tuning"]["approach"] = approach
         if not is_valid:
             with pytest.raises(ValueError):  # noqa: PT011
                 RunConfig.parse_obj(config_dict)

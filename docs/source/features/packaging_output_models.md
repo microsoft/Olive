@@ -78,10 +78,8 @@ AzureMLModels packaging will register the output models to your Azure Machine Le
 {
     "type": "AzureMLModels",
     "name": "olive_output_model",
-    "config": {
-        "version": "1",
-        "description": "description"
-    }
+    "version": "1",
+    "description": "description"
 }
 ```
 
@@ -97,10 +95,8 @@ AzureMLData packaging will upload the output models to your Azure Machine Learni
 {
     "type": "AzureMLData",
     "name": "olive_output_model",
-    "config": {
-        "version": "1",
-        "description": "description"
-    }
+    "version": "1",
+    "description": "description"
 }
 ```
 
@@ -225,15 +221,13 @@ You can add different types `PackagingConfig` as a list to Engine configurations
         },
         {
             "type": "AzureMLDeployment",
-            "config": {
-                "model_package": {
-                    "inferencing_server": {
-                        "type": "AzureMLOnline",
-                        "code_folder": "code",
-                        "scoring_script": "score.py"
-                    },
-                    "base_environment_id": "azureml:olive-aml-packaging:1"
-                }
+            "model_package": {
+                "inferencing_server": {
+                    "type": "AzureMLOnline",
+                    "code_folder": "code",
+                    "scoring_script": "score.py"
+                },
+                "base_environment_id": "azureml:olive-aml-packaging:1"
             }
         }
     ]

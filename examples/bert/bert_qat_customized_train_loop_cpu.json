@@ -1,24 +1,17 @@
 {
-    "input_model": {
-        "type": "PyTorchModel",
-        "config": {
-            "model_loader": "load_pytorch_origin_model",
-            "model_script": "user_script.py",
-            "io_config": {
-                "input_names": [ "input_ids", "attention_mask", "token_type_ids" ],
-                "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
-                "input_types": [ "int64", "int64", "int64" ],
-                "output_names": [ "output" ]
-            }
-        }
-    },
+    "input_model": { "type": "HfModel", "model_path": "Intel/bert-base-uncased-mrpc", "task": "text-classification" },
     "data_configs": [
         {
-            "name": "perf_tuning_data_config",
+            "name": "glue_mrpc",
             "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
-            "load_dataset_config": { "type": "create_bert_dataset" },
-            "dataloader_config": { "type": "create_bert_dataloader" }
+            "load_dataset_config": { "data_name": "glue", "split": "validation", "subset": "mrpc" },
+            "pre_process_data_config": {
+                "input_cols": [ "sentence1", "sentence2" ],
+                "label_cols": [ "label" ],
+                "max_samples": 100
+            },
+            "dataloader_config": { "batch_size": 1 }
         }
     ],
     "evaluators": {
@@ -27,23 +20,15 @@
                 {
                     "name": "accuracy",
                     "type": "accuracy",
+                    "data_config": "glue_mrpc",
                     "sub_types": [ { "name": "accuracy_score", "priority": 1 } ],
-                    "user_config": {
-                        "post_processing_func": "qat_post_process",
-                        "user_script": "user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1
-                    }
+                    "user_config": { "post_processing_func": "qat_post_process", "user_script": "user_script.py" }
                 },
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg", "priority": 2 } ],
-                    "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1
-                    }
+                    "data_config": "glue_mrpc",
+                    "sub_types": [ { "name": "avg", "priority": 2 } ]
                 }
             ]
         }
@@ -51,16 +36,15 @@
     "passes": {
         "quantization_aware_training": {
             "type": "QuantizationAwareTraining",
-            "config": { "user_script": "user_script.py", "training_loop_func": "training_loop_func" }
+            "user_script": "user_script.py",
+            "training_loop_func": "training_loop_func"
         },
-        "conversion": { "type": "OnnxConversion", "config": { "target_opset": 17 } },
+        "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "model_optimizer": { "type": "ONNXModelOptimizer" },
         "transformers_optimization": { "type": "OrtTransformersOptimization" },
-        "perf_tuning": { "type": "OrtPerfTuning", "config": { "data_config": "perf_tuning_data_config" } }
+        "perf_tuning": { "type": "OrtPerfTuning" }
     },
-    "engine": {
-        "evaluator": "common_evaluator",
-        "cache_dir": "cache",
-        "output_dir": "models/bert_qat_customized_train_loop_cpu"
-    }
+    "evaluator": "common_evaluator",
+    "cache_dir": "cache",
+    "output_dir": "models/bert_qat_customized_train_loop_cpu"
 }

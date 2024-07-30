@@ -16,15 +16,20 @@ The options are organized into following sections:
 - [Workflow id](#workflow-id) `workflow_id`
 - [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
-- [Data Information](#data-information) `data_root`
 - [Systems Information](#systems-information) `systems`
 - [Evaluators Information](#evaluators-information) `evaluators`
 - [Passes Information](#passes-information) `passes`
 - [Engine Information](#engine-information) `engine`
+- [Workflow Host](#workflow-host) `workflow_host`
+
 
 ## Workflow ID
 
 You can name the workflow run by specifying `workflow_id` section in your config file. Olive will save the cache under `<cache_dir>/<workflow_id>` folder, and automatically save the current running config in the cache folder.
+
+## Workflow Host
+
+Workflow host is where the Olive workflow will be run. The default value is `None`. If `None` set for workflow host, Olive will run workflow locally. It suppurts `AzureML` system for now.
 
 ## Azure ML Client
 
@@ -86,36 +91,31 @@ The default value is 3. User can increase if there are network issues and the op
     "operation_retry_interval" : 5
 },
 ```
+
+<!-- TODO(anyone): Docs for all model handlers-->
 ## Input Model Information
 
 `input_model: [Dict]`
 
 User should specify input model type and configuration using `input model` dictionary. It contains following items:
 
-- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `PyTorchModelHandler`, `ONNXModelHandler`, `OpenVINOModelHandler`,`SNPEModelHandler` and etc. You can
+- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `HfModelHandler`, `PyTorchModelHandler`, `ONNXModelHandler`, `OpenVINOModelHandler`,`SNPEModelHandler` and etc. You can
 find more details in [Olive Models](https://microsoft.github.io/Olive/api/models.html).
 
-- `config: [Dict]` For example, for `PytorchModelHandler`, the input model config dictionary specifies following items:
+- `config: [Dict]` The configuration of the pass. Its fields can be provided directly to the parent dictionary. For example, for `HfModelHandler`, the input model config dictionary specifies following items:
 
-    - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is either a string name
-    used by the model loader or the path to the model file/directory. If it is a dictionary, it contains information about the model path.
-    Please refer to [Configuring Model Path](../tutorials/configure_model_path.md) for the more information of the model path dictionary.
+    - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is a huggingface hub model id or a local directory. If it is a dictionary, it contains information about the model path. Please refer to [Configuring Model Path](../tutorials/configure_model_path.md) for the more information of the model path dictionary.
 
-    - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
-    input and return the loaded model.
+    - `task: [str]` The task of the model. The default task is `text-generation-with-past` which is equivalent to a causal language model with key-value cache enabled.
 
-    - `model_script: [str]` The name of the script provided by the user to assist with model loading.
-
-    - `script_dir: [str]` The directory that contains dependencies for the model script.
-
-    - `io_config: [Dict[str, Any] | IoConfig | str | Callable]`: The inputs and outputs information of the model. It can be a dictionary, an IoConfig object or a function string under `model_script`. Basically, it contains following items:
+    - `io_config: [Dict]`: The inputs and outputs information of the model. If not provided, Olive will try to infer the input and output information from the model. The dictionary contains following items:
         - `input_names: [List[str]]` The input names of the model.
         - `input_types: [List[str]]` The input types of the model.
         - `input_shapes: [List[List[int]]]` The input shapes of the model.
         - `output_names: [List[str]]` The output names of the model.
         - `dynamic_axes: [Dict[str, Dict[str, str]]]` The dynamic axes of the model. The key is the name of the input or output and the value is a dictionary that contains the dynamic axes of the input or output. The key of the value dictionary is the index of the dynamic axis and the value is the name of the dynamic axis. For example, `{"input": {"0": "batch_size"}, "output": {"0": "batch_size"}}` means the first dimension of the input and output is dynamic and the name of the dynamic axis is `batch_size`.
         - `string_to_int_dim_params: List[str]` The list of input names in dynamic axes that need to be converted to int value.
-        - `kv_cache: Union[bool, Dict[str, str]]` The key value cache configuration.
+        - `kv_cache: Union[bool, Dict[str, str]]` The key value cache configuration. If not provided, it is assumed to be `True` if the `task` ends with `-with-past`.
           - If it is `False`, Olive will not use key value cache.
           - If it is `True`, Olive will infer the cache configuration from the input_names/input_shapes and input model based on default `kv_cache`.
           - If it is a dictionary, it should contains the key value cache configuration. Here is an default configuration example:
@@ -149,35 +149,15 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
                 The dynamic axis of the past key value cache. If it is null, Olive will infer the dynamic axis.
             - `present_kv_dynamic_axis`: null
                 The dynamic axis of the present key value cache. If it is null, Olive will infer the dynamic axis.
-    - <a name="hf_config"></a> `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
-    model. This dictionary specifies the following items:
 
-        - `model_name: [str]`: This the model name of the huggingface model such as `distilbert-base-uncased` which will be used to load the model with huggingface `from_pretrained` method.
-
-        - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
-        at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
-
-        - `feature: [str]`: The ONNX export features. This is only needed for HuggingFace hub model. It is inferred from `task` if not provided. You must provide the feature if you need past key value cache.
-        For instance, `"causal-lm-with-past"`. You can find more info at [Export to ONNX](https://huggingface.co/docs/transformers/serialization)
-
-        - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
-
-        - `components: [List[HFComponent]]`: HFComponent list:
-            - `HFComponent`:
-                - `name: [str]`: Component name. Olive will generate a model class with this str as attribute name.
-                - `io_config: [Dict[str, Any] | IoConfig | str | Callable]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
-                - `component_func: [str]`: The component function name will be loaded from `model_script`.
-                - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
-            ```
-            For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.
-
-        - `from_pretrained_args: [dict]`: Arguments to pass to the `from_pretrained` method of the model class. Refer to [this documentation](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained).
+    - `load_kwargs: [dict]`: Arguments to pass to the `from_pretrained` method of the model class. Refer to [this documentation](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained).
 
 Please find the detailed config options from following table for each model type:
 
 | Model Type | Description |
 |:----------|:-------------|
-| [PytorchModelHandler(pytorch_model) | Pytorch model |
+| [HfModelHandler](hf_model) | Hf model |
+| [PytorchModelHandler](pytorch_model) | Pytorch model |
 | [ONNXModelHandler](onnx_model) | ONNX model |
 | [OpenVINOModelHandler](openvino_model) | OpenVINO IR model |
 | [SNPEModelHandler](snpe_model) | SNPE DLC model |
@@ -185,38 +165,10 @@ Please find the detailed config options from following table for each model type
 ### Example
 ```json
 "input_model": {
-    "type": "PyTorchModel",
-    "config": {
-        "model_loader": "load_pytorch_origin_model",
-        "model_script": "user_script.py",
-        "io_config": {
-            "input_names": ["input"],
-            "input_types": ["int32"],
-            "input_shapes": [[1, 3, 32, 32]],
-            "output_names": ["output"],
-            "dynamic_axes": {
-                "input": {"0": "batch_size"},
-                "output": {"0": "batch_size"}
-            }
-        }
-    }
+    "type": "HfModel",
+    "model_path": "meta-llama/Llama-2-7b-hf"
 }
 ```
-
-## Data Information
-`data_root: [str]`
-
-This is the root directory that contains the data for the model evaluation, quantization, performance tuning, QAT and all other place that need use data for model optimization.
-if `data_root` is specified, the data_dir in metrics evaluation or other passes which are relative path will be concatenated to the `data_root`. If not specified, the data_dir in metrics evaluation or other passes will be used.
-On the other hand, if the `data_dir` is an absolute path, the `data_root` will be ignored. For example, if the `data_dir` is /home/user/data, then the `data_root` will be ignored and the final data_dir will be /home/user/data.
-
-The `data_root` could be passed either in config json or by command line like: olive run --config <config_file>.json --data_root /home/user/data config.json. If both are provided, the command line will override the config json.
-
-### Local Examples
-If `data_root` is /home/user/data, and the data_dir in metrics evaluation is `data_dir: "cifar-10-batches-py"`, then the final data_dir will be `/home/user/data/cifar-10-batches-py`.
-
-### Azureml Examples
-If `data_root` is `azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test`, and the data_dir in metrics evaluation is `data_dir: "cifar-10-batches-py"`, then the final data_dir will be `azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py`.
 
 ## Systems Information
 `systems: [Dict]`
@@ -228,7 +180,7 @@ information of the system contains following items:
 - `type: [str]` The type of the system. The supported types are `LocalSystem`, `AzureML` and `Docker`.
   There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [Olive System Alias](olive_system_alias) for the complete list of system alias.
 
-- `config: [Dict]` The system config dictionary that contains the system specific information.
+- `config: [Dict]` The system config dictionary that contains the system specific information. The fields can be provided directly under the parent dictionary.
  - `accelerators: [List[str]]` The accelerators that will be used for this workflow.
  - `hf_token: [bool]` Whether to use a Huggingface token to access Huggingface resources. If it is set to `True`, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the `HF_TOKEN` environment variable or from the token file located at `~/.huggingface/token`. For AzureML system, Olive will retrieve the token from user keyvault secret. If set to `False`, no token will be utilized during this workflow run. The default value is `False`.
 
@@ -241,12 +193,10 @@ Please refer to [How To Configure System](../tutorials/configure_systems.rst) fo
     "local_system": {"type": "LocalSystem"},
     "aml_system": {
         "type": "AzureML",
-        "config": {
-            "aml_compute": "cpu-cluster",
-            "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                "conda_file_path": "conda.yaml"
-            }
+        "aml_compute": "cpu-cluster",
+        "aml_docker_config": {
+            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+            "conda_file_path": "conda.yaml"
         }
     }
 }
@@ -299,36 +249,27 @@ information of the evaluator contains following items:
 
         - `script_dir: [str]` The directory that contains dependencies for the user script.
 
-        - `data_dir: [str|ResourcePathConfig]` The directory that contains the data for the metric evaluation.
-
-        - `batch_size: [int]` The batch size for the metric evaluation.
-
         - `inference_settings: [Dict]` Inference settings for the different runtime.
-
-        - `dataloader_func: [str]` The name of the function provided by the user to load the data for the metric evaluation. The function should take the `data_dir`, `batch_size`, `model_framework` (provided as a keyword argument)
-        as input and return the data loader. Not valid for `custom` type when `evaluate_func` is provided.
-
-        - `post_processing_func: [str]` The name of the function provided by the user to post process the model output. The function should take the model output as input and return the post processed
-        output. Only valid for `accuracy` type or `custom` type when `evaluate_func` is not provided.
 
         - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the model, `data_dir`, `batch_size`, `device`, `execution_providers` as input
         and return the evaluation result. Only valid for `custom` type.
 
+        - `evaluate_func_kwargs: Dict[str, Any]` Keyword arguments for `evaluate_func` provided by the user. The functions must be able to take the keyword arguments either through the function signature
+        as keyword/positional parameters after the required positional parameters or through `**kwargs`.
+
         - `metric_func: [str]` The name of the function provided by the user to compute metric from the model output. The function should take the post processed output and target as input and return the
         metric result. Only valid for `custom` type when `evaluate_func` is not provided.
 
-        - `func_kwargs: [Dict[str, Dict[str, Any]]]` Keyword arguments for the functions provided by the user. The key is the name of the function and the value is the keyword arguments for the function. The
-        functions must be able to take the keyword arguments either through the function signature as keyword/positional parameters after the required positional parameters or through `**kwargs`.
+        - `metric_func_kwargs: Dict[str, Any]` Keyword arguments for `metric_func` provided by the user. The functions must be able to take the keyword arguments either through the function signature
+        as keyword/positional parameters after the required positional parameters or through `**kwargs`.
 
     Note that for above `data_dir` config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.
     ```json
     "data_dir": {
         "type": "azureml_datastore",
-        "config": {
-            "azureml_client": "azureml_client",
-            "datastore_name": "test",
-            "relative_path": "cifar-10-batches-py"
-        }
+        "azureml_client": "azureml_client",
+        "datastore_name": "test",
+        "relative_path": "cifar-10-batches-py"
     }
     // provide azureml datastore url
     "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py"
@@ -336,38 +277,36 @@ information of the evaluator contains following items:
 
 ### Example
 ```json
+"data_configs": [
+    {
+        "name": "accuracy_data_config",
+        "user_script": "user_script.py",
+        "post_process_data_config": { "type": "post_process" },
+        "dataloader_config": { "type": "create_dataloader", "params": { "batch_size": 1 } }
+    }
+],
 "evaluators": {
     "common_evaluator": {
         "metrics":[
             {
                 "name": "accuracy",
                 "type": "accuracy",
+                "data_config": "accuracy_data_config",
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                     {"name": "f1_score"},
                     {"name": "auroc"}
-                ],
-                "user_config":{
-                    "post_processing_func": "post_process",
-                    "user_script": "user_script.py",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1
-                }
+                ]
             },
             {
                 "name": "accuracy",
                 "type": "accuracy",
                 "backend": "huggingface_metrics",
+                "data_config": "accuracy_data_config",
                 "sub_types": [
                     {"name": "accuracy", "priority": -1},
                     {"name": "f1"}
-                ],
-                "user_config":{
-                    "post_processing_func": "post_process",
-                    "user_script": "user_script.py",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1
-                }
+                ]
             },
             {
                 "name": "latency",
@@ -378,9 +317,6 @@ information of the evaluator contains following items:
                     {"name": "min"}
                 ],
                 "user_config":{
-                    "user_script": "user_script.py",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1,
                     "inference_settings" : {
                         "onnx": {
                             "session_options": {
@@ -410,7 +346,7 @@ of the pass contains following items:
   if any, (`false`) for the optional parameters. This is `false` by default and can be overridden if `search_strategy` under `engine` is
   specified. Otherwise, it is always `true`.
 
-- `config: [Dict]` The configuration of the pass.
+- `config: [Dict]` The configuration of the pass. Its fields can be provided directly to the parent dictionary.
 
 - `host: [str | Dict]` The host of the pass. It can be a string or a dictionary. If it is a string, it is the name of a system in
 `systems`. If it is a dictionary, it contains the system information. If not specified, the host of the engine will be used.
@@ -457,24 +393,19 @@ Please also find the detailed options from following table for each pass:
 | [MergeAdapterWeights](merge_adapter_weights) | Merge adapter weights into the base model and save transformer context files. |
 | [OptimumConversion](optimum_conversion) | Convert huggingface models to ONNX via the Optimum library. |
 | [OptimumMerging](optimum_merging) | Merge 2 models together with an `if` node via the Optimum library. |
+| [MixedPrecisionOverrides](mixed_precision_overrides) | Pre-processes the model for mixed precision quantization with qnn configs. |
 
 ### Example
 ```json
 "passes": {
     "onnx_conversion": {
         "type": "OnnxConversion",
-        "config": {
-            "target_opset": 13
-        }
+        "target_opset": 13
     },
     "onnx_quantization": {
         "type": "OnnxQuantization",
-        "config": {
-            "user_script": "user_script.py",
-            "data_dir": "data",
-            "dataloader_func": "resnet_calibration_reader",
-            "weight_type": "QUInt8"
-        }
+        "data_config": "calib_data_coonfig",
+        "weight_type": "QUInt8"
     }
 }
 ```
@@ -491,27 +422,19 @@ When `pass_flows` is not specified, the passes are executed in the order of the 
 "passes": {
     "onnx_conversion": {
         "type": "OnnxConversion",
-        "config": {
-            "target_opset": 13
-        }
+        "target_opset": 13
     },
     "transformers_optimization": {
         "type": "OrtTransformersOptimization",
-        "config": {
-            "model_type": "bert",
-            "num_heads": 12,
-            "hidden_size": 768,
-            "float16": true
-        }
+        "model_type": "bert",
+        "num_heads": 12,
+        "hidden_size": 768,
+        "float16": true
     },
     "onnx_quantization": {
         "type": "OnnxQuantization",
-        "config": {
-            "user_script": "user_script.py",
-            "data_dir": "data",
-            "dataloader_func": "resnet_calibration_reader",
-            "weight_type": "QUInt8"
-        }
+        "data_config": "calib_data_coonfig",
+        "weight_type": "QUInt8"
     }
 },
 "pass_flows": [
@@ -524,7 +447,7 @@ When `pass_flows` is not specified, the passes are executed in the order of the 
 ## Engine Information
 `engine: [Dict]`
 
-This is a dictionary that contains the information of the engine. The information of the engine contains following items:
+This is a dictionary that contains the information of the engine. Its fields can be provided directly to the parent dictionary. The information of the engine contains following items:
 
 - `search_strategy: [Dict | Boolean | None]`, `None` by default. The search strategy of the engine. It contains the following items:
 
@@ -533,7 +456,7 @@ This is a dictionary that contains the information of the engine. The informatio
     - `search_algorithm: [str]` The search algorithm of the engine. The available search algorithms are `exhaustive`, `random` and `tpe`.
 
     - `search_algorithm_config: [Dict]` The configuration of the search algorithm. The configuration of the search algorithm depends on
-    the search algorithm.
+    the search algorithm. Its fields can be provided directly to the parent dictionary.
 
     - `output_model_num: [int]` The number of output models from the engine based on metric priority. If not specified, the engine will output all qualified models.
 
@@ -609,10 +532,8 @@ Please find the detailed config options from following table for each search alg
     "search_strategy": {
         "execution_order": "joint",
         "search_algorithm": "tpe",
-        "search_algorithm_config": {
-            "num_samples": 5,
-            "seed": 0
-        }
+        "num_samples": 5,
+        "seed": 0
     },
     "evaluator": "common_evaluator",
     "host": "local_system",

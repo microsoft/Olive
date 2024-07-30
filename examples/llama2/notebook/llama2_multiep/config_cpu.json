@@ -1,25 +1,17 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
-        "config": {
-            "io_config": {
-                "input_names": [ "input_ids", "attention_mask", "position_ids" ],
-                "output_names": [ "logits" ],
-                "input_shapes": [ [ 2, 8 ], [ 2, 40 ], [ 2, 8 ] ],
-                "input_types": [ "int32", "int32", "int32"
-                ],
-                "dynamic_axes": {
-                    "input_ids": { "0": "batch_size", "1": "sequence_length" },
-                    "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
-                    "position_ids": { "0": "batch_size", "1": "sequence_length" }
-                },
-                "kv_cache": true
-            },
-            "hf_config": {
-                "model_name": "meta-llama/Llama-2-7b-hf",
-                "model_class": "LlamaForCausalLM",
-                "from_pretrained_args": { "_attn_implementation": "eager" },
-                "task": "text-generation"
+        "type": "HfModel",
+        "model_path": "meta-llama/Llama-2-7b-hf",
+        "load_kwargs": { "attn_implementation": "eager" },
+        "io_config": {
+            "input_names": [ "input_ids", "attention_mask", "position_ids" ],
+            "output_names": [ "logits" ],
+            "input_shapes": [ [ 2, 8 ], [ 2, 8 ], [ 2, 8 ] ],
+            "input_types": [ "int32", "int32", "int32" ],
+            "dynamic_axes": {
+                "input_ids": { "0": "batch_size", "1": "sequence_length" },
+                "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
+                "position_ids": { "0": "batch_size", "1": "sequence_length" }
             }
         }
     },
@@ -27,20 +19,8 @@
         {
             "name": "wikitext2_train",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "params": {
-                    "data_name": "wikitext",
-                    "subset": "wikitext-2-raw-v1",
-                    "split": "train"
-                }
-            },
-            "pre_process_data_config": {
-                "params": {
-                    "add_special_tokens": false,
-                    "source_max_len": 2048,
-                    "max_samples": 128
-                }
-            }
+            "load_dataset_config": { "data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train" },
+            "pre_process_data_config": { "max_samples": 128 }
         },
         { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" },
         { "name": "transformer_prompt_dummy_data", "type": "TransformersPromptDummyDataContainer" }
@@ -48,7 +28,7 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ] }
+            "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ]
         }
     },
     "evaluators": {
@@ -72,57 +52,47 @@
     "passes": {
         "conversion_merged": {
             "type": "OnnxConversion",
-            "config": {
-                "target_opset": 17,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "target_opset": 17,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true
         },
         "transformers_optimization_fp32": {
             "type": "OrtTransformersOptimization",
-            "config": {
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
-                "model_type": "gpt2",
-                "opt_level": 0,
-                "only_onnxruntime": false,
-                "keep_io_types": false,
-                "float16": false,
-                "use_gqa": false
-            }
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "model_type": "gpt2",
+            "opt_level": 0,
+            "only_onnxruntime": false,
+            "keep_io_types": false,
+            "float16": false,
+            "use_gqa": false
         },
         "transformers_optimization_fp16": {
             "type": "OrtTransformersOptimization",
-            "config": {
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
-                "model_type": "gpt2",
-                "opt_level": 0,
-                "only_onnxruntime": false,
-                "keep_io_types": false,
-                "float16": true,
-                "use_gqa": true
-            }
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "model_type": "gpt2",
+            "opt_level": 0,
+            "only_onnxruntime": false,
+            "keep_io_types": false,
+            "float16": true,
+            "use_gqa": true
         },
         "blockwise_quant_int4": {
             "type": "OnnxMatMul4Quantizer",
-            "config": {
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
-                "block_size": 32,
-                "is_symmetric": true
-            }
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "block_size": 32,
+            "is_symmetric": true
         }
-    },
-    "engine": {
-        "evaluator": "merged_evaluator",
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir": "models/llama2_cpu/meta-llama/Llama-2-7b-hf"
     },
     "pass_flows": [
         [ "conversion_merged", "transformers_optimization_fp32", "blockwise_quant_int4" ],
         [ "conversion_merged", "transformers_optimization_fp16" ]
-    ]
+    ],
+    "evaluator": "merged_evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models/llama2_cpu/meta-llama/Llama-2-7b-hf"
 }

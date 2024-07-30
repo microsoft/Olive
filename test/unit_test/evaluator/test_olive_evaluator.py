@@ -120,7 +120,7 @@ class TestOliveEvaluator:
             olive_model = model_loader()
             metric = metric_func()
             # execute
-            actual_res = evaluator.evaluate(olive_model, None, [metric])
+            actual_res = evaluator.evaluate(olive_model, [metric])
 
             # assert
             mock_acc.assert_called_once()
@@ -161,7 +161,7 @@ class TestOliveEvaluator:
         olive_model = model_loader()
         # execute
         metric = metric_func()
-        actual_res = evaluator.evaluate(olive_model, None, [metric])
+        actual_res = evaluator.evaluate(olive_model, [metric])
 
         # assert
         for sub_type in metric.sub_types:
@@ -180,7 +180,7 @@ class TestOliveEvaluator:
         model = get_onnx_model()
         evaluator = OnnxEvaluator()
         latency_metric = get_latency_metric(LatencySubType.AVG)
-        evaluator.evaluate(model, None, [latency_metric], Device.CPU, execution_providers)
+        evaluator.evaluate(model, [latency_metric], Device.CPU, execution_providers)
 
     @pytest.mark.parametrize(
         ("execution_providers", "exception_type"),
@@ -191,7 +191,7 @@ class TestOliveEvaluator:
         evaluator = OnnxEvaluator()
         latency_metric = get_latency_metric(LatencySubType.AVG)
         with pytest.raises(exception_type):
-            evaluator.evaluate(model, None, [latency_metric], Device.CPU, execution_providers)
+            evaluator.evaluate(model, [latency_metric], Device.CPU, execution_providers)
 
     @pytest.mark.parametrize(
         "execution_providers",
@@ -212,7 +212,7 @@ class TestOliveEvaluator:
             OliveEvaluationError,
             match="The onnxruntime fallback happens. OpenVINOExecutionProvider is not in the session providers",
         ):
-            evaluator.evaluate(model, None, [latency_metric], Device.CPU, execution_providers)
+            evaluator.evaluate(model, [latency_metric], Device.CPU, execution_providers)
 
     THROUGHPUT_TEST_CASE: ClassVar[List] = [
         (
@@ -248,7 +248,7 @@ class TestOliveEvaluator:
         olive_model = model_loader()
         # execute
         metric = metric_func()
-        actual_res = evaluator.evaluate(olive_model, None, [metric])
+        actual_res = evaluator.evaluate(olive_model, [metric])
 
         # assert
         for sub_type in metric.sub_types:
@@ -269,7 +269,7 @@ class TestOliveEvaluator:
         olive_model = model_loader()
         # execute
         metric = metric_func()
-        actual_res = evaluator.evaluate(olive_model, None, [metric])
+        actual_res = evaluator.evaluate(olive_model, [metric])
 
         # assert
         for sub_type in metric.sub_types:
@@ -280,28 +280,7 @@ class TestOliveEvaluator:
         olive_model = get_pytorch_model()
         metric = get_custom_metric_no_eval()
         with pytest.raises(ValueError, match="evaluate_func or metric_func is not specified in the metric config"):
-            evaluator.evaluate(olive_model, None, [metric])
-
-    @pytest.mark.parametrize(
-        "dataloader_func_kwargs", [None, {"kwarg_1": "value_1"}, {"kwarg_1": "value_1", "kwarg_2": "value_2"}]
-    )
-    def test_dataloader_func_kwargs(self, dataloader_func_kwargs):
-        # setup
-        dataloader_func = MagicMock(spec=FunctionType)
-        data_dir = None
-        model_framework = "PyTorch"
-        user_config = {"dataloader_func": dataloader_func, "data_dir": data_dir}
-        if dataloader_func_kwargs:
-            user_config["func_kwargs"] = {"dataloader_func": dataloader_func_kwargs}
-        metric = get_latency_metric(LatencySubType.AVG, user_config=user_config)
-
-        # execute
-        OliveEvaluator.get_user_config(model_framework, None, metric)
-
-        # assert
-        dataloader_func.assert_called_once_with(
-            data_dir, batch_size=1, model_framework=model_framework, **(dataloader_func_kwargs or {})
-        )
+            evaluator.evaluate(olive_model, [metric])
 
     # this is enough to test the kwargs for `evaluate_func`, `metric_func` and `post_process_func`
     # since they are all using the same `get_user_config` method
@@ -310,21 +289,18 @@ class TestOliveEvaluator:
     )
     def test_evaluate_func_kwargs(self, evaluate_func_kwargs):
         # setup
-        dataloader_func = MagicMock(spec=FunctionType)
         evaluate_func = MagicMock(spec=FunctionType)
-        user_config = {"dataloader_func": dataloader_func, "evaluate_func": evaluate_func}
+        user_config = {"evaluate_func": evaluate_func}
         if evaluate_func_kwargs:
-            user_config["func_kwargs"] = {"evaluate_func": evaluate_func_kwargs}
+            user_config["evaluate_func_kwargs"] = evaluate_func_kwargs
         metric = get_custom_metric(user_config=user_config)
 
         # execute
-        _, eval_func, _ = OliveEvaluator.get_user_config(None, None, metric)
-        eval_func("model", "data_dir", "batch_size", "device", "execution_providers")
+        _, eval_func, _ = OliveEvaluator.get_user_config(None, metric)
+        eval_func("model", "device", "execution_providers")
 
         # assert
-        evaluate_func.assert_called_once_with(
-            "model", "data_dir", "batch_size", "device", "execution_providers", **(evaluate_func_kwargs or {})
-        )
+        evaluate_func.assert_called_once_with("model", "device", "execution_providers", **(evaluate_func_kwargs or {}))
 
     @patch("onnxruntime.InferenceSession")
     def test_evaluate_latency_with_tunable_op(self, inference_session_mock):
@@ -365,7 +341,7 @@ class TestOliveEvaluator:
         model.inference_settings["tuning_op_result"] = tuning_result
         evaluator = OnnxEvaluator()
         latency_metric = get_latency_metric(LatencySubType.AVG)
-        evaluator.evaluate(model, None, [latency_metric], Device.GPU, ["ROCMExecutionProvider"])
+        evaluator.evaluate(model, [latency_metric], Device.GPU, ["ROCMExecutionProvider"])
         mock.set_tuning_results.assert_called_with(tuning_result)
 
     @pytest.mark.parametrize(

@@ -104,5 +104,5 @@ the search space created based on the options defined in `_default_config(cls, a
 with output path. The method should return a valid OliveModelHandler which can be used as an input for the next Pass.
 
 ```python
-    def _run_for_config(self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str) -> ONNXModelHandler:
+    def _run_for_config(self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str) -> ONNXModelHandler:
 ```

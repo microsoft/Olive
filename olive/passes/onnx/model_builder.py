@@ -13,9 +13,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Union
 
-from olive.constants import ModelFileFormat
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import ONNXModelHandler, PyTorchModelHandler
+from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
@@ -122,8 +121,7 @@ class ModelBuilder(Pass):
 
     def _run_for_config(
         self,
-        model: Union[PyTorchModelHandler, ONNXModelHandler],
-        data_root: str,
+        model: Union[HfModelHandler, ONNXModelHandler],
         config: Dict[str, Any],
         output_model_path: str,
     ) -> ONNXModelHandler:
@@ -132,28 +130,16 @@ class ModelBuilder(Pass):
         precision = config["precision"]
         metadata_only = config["metadata_only"]
 
-        if (
-            not metadata_only
-            and not model.hf_config
-            and model.model_file_format != ModelFileFormat.PYTORCH_MLFLOW_MODEL
-        ):
-            raise ValueError(
-                "ModelBuilder pass only supports exporting HF models i.e. PyTorchModelHandler "
-                "with hf_config, mlflow-transformer model and exporting the metadata only for "
-                "pre-optimized onnx models."
-            )
-
         if metadata_only:
             if not isinstance(model, ONNXModelHandler):
                 raise ValueError("metadata_only option is available only with ONNXModel as input.")
-        else:
-            if not isinstance(model, PyTorchModelHandler):
-                raise ValueError("metadata_only has to be true with ONNXModel as input.")
+        elif not isinstance(model, HfModelHandler):
+            raise ValueError("model building is available only with HfModel as input.")
 
         Path(output_model_path).mkdir(parents=True, exist_ok=True)
         output_model_filepath = (
             Path(resolve_onnx_path(output_model_path))
-            if isinstance(model, PyTorchModelHandler)
+            if not metadata_only
             else Path(resolve_onnx_path(output_model_path, model.onnx_file_name))
         )
 
@@ -182,7 +168,7 @@ class ModelBuilder(Pass):
             model_path = None
             input_path = str(model.get_resource("model_path"))
         else:
-            model_path = str(model.get_model_path_or_name())
+            model_path = model.model_name_or_path
             input_path = ""
 
         if config.get("int4_block_size"):

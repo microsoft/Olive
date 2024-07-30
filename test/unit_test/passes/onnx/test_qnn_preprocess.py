@@ -7,7 +7,7 @@ from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.qnn_preprocess import QNNPreprocess
+from olive.passes.onnx.qnn.qnn_preprocess import QNNPreprocess
 
 
 @pytest.mark.skipif(
@@ -17,7 +17,7 @@ from olive.passes.onnx.qnn_preprocess import QNNPreprocess
 def test_qnn_preprocess_not_change_model(tmp_path):
     input_model = get_onnx_model()
     p = create_pass_from_dict(QNNPreprocess, {}, disable_search=True)
-    out = p.run(input_model, None, tmp_path)
+    out = p.run(input_model, tmp_path)
     assert out == input_model
 
 
@@ -31,7 +31,7 @@ def test_qnn_preprocess_changed_model(mocked_qnn_preprocess_model, tmp_path):
     input_model = get_onnx_model()
     shutil.copy(input_model.model_path, tmp_path / "dummy_model.onnx")
     p = create_pass_from_dict(QNNPreprocess, {}, disable_search=True)
-    out = p.run(input_model, None, tmp_path)
+    out = p.run(input_model, tmp_path)
     assert out != input_model
 
 
@@ -51,5 +51,5 @@ def test_qnn_preprocess_extra_configs(tmp_path):
         },
         disable_search=True,
     )
-    out = p.run(input_model, None, tmp_path)
+    out = p.run(input_model, tmp_path)
     assert out == input_model

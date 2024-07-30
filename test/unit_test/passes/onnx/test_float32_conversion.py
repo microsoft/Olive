@@ -27,7 +27,7 @@ def test_onnx_io_ft16_to_ft32_conversion(tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    output_model = p.run(input_model, None, output_folder)
+    output_model = p.run(input_model, output_folder)
 
     # assert
     for i in output_model.get_graph().input:

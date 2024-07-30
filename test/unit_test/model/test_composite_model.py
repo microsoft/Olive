@@ -1,61 +1,45 @@
-from pathlib import Path
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 from test.unit_test.utils import get_onnx_model
 
-import torch
+import pytest
 
 from olive.model.config.model_config import ModelConfig
 from olive.model.handler.composite import CompositeModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 
 
-def test_composite_model_to_json():
+@pytest.mark.parametrize("as_handler", [True, False])
+def test_composite_model(as_handler):
+    # setup
     input_models = []
+    child_attributes = {"attr0": "value0", "attr1": "value1"}
+    parent_attributes = {"attr0": "value00", "attr1": "value1", "attr2": "value2"}
+    input_models.append(get_onnx_model(model_attributes=child_attributes))
     input_models.append(get_onnx_model())
-    input_models.append(get_onnx_model())
+    if not as_handler:
+        input_models = [model.to_json() for model in input_models]
+
+    # create handler
     composite_model = CompositeModelHandler(
         input_models,
-        ["encoder_decoder_init", "decoder"],
+        ["component0", "component1"],
+        model_attributes=parent_attributes,
     )
+
+    # check components
+    for component_name, model in composite_model.get_model_components():
+        assert isinstance(model, ONNXModelHandler)
+        if component_name == "component0":
+            assert model.model_attributes == {**parent_attributes, **child_attributes}
+        else:
+            assert model.model_attributes == parent_attributes
+
+    # check serialization
     composite_json = composite_model.to_json()
+    # common model attributes are removed
+    assert composite_json["config"]["model_components"][0]["config"]["model_attributes"] == {"attr0": "value0"}
     model_config = ModelConfig.from_json(composite_json)
     assert model_config.type == CompositeModelHandler.model_type
-
-
-def test_composite_pytorch_model():
-    current_dir = Path(__file__).parent.resolve()
-    user_script_path = str(current_dir / "user_script.py")
-    model_config = {
-        "type": "CompositePyTorchModel",
-        "config": {
-            "model_components": [
-                {
-                    "name": "decoder_model",
-                    "type": "PyTorchModel",
-                    "config": {
-                        "model_script": user_script_path,
-                        "model_loader": "load_decoder_model",
-                        "dummy_inputs_func": "decoder_inputs",
-                    },
-                },
-                {
-                    "name": "decoder_with_past_model",
-                    "type": "PyTorchModel",
-                    "config": {
-                        "model_script": user_script_path,
-                        "model_loader": "load_decoder_with_past_model",
-                        "dummy_inputs_func": "decoder_with_past_inputs",
-                    },
-                },
-            ]
-        },
-    }
-    model_config = ModelConfig.from_json(model_config)
-    model = model_config.create_model()
-
-    assert model.model_type == "CompositePyTorchModel"
-    for name, comp_model in model.get_model_components():
-        assert name in ["decoder_model", "decoder_with_past_model"]
-        assert comp_model.model_type == "PyTorchModel"
-        assert comp_model.model_loader in ["load_decoder_model", "load_decoder_with_past_model"]
-        assert comp_model.dummy_inputs_func in ["decoder_inputs", "decoder_with_past_inputs"]
-        torch_nn_model = comp_model.load_model()
-        assert isinstance(torch_nn_model, torch.nn.Module)

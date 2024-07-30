@@ -6,25 +6,19 @@ import platform
 import shutil
 from itertools import chain
 from pathlib import Path
-from test.unit_test.utils import (
-    ONNX_MODEL_PATH,
-    get_hf_model_with_past,
-    get_onnx_model,
-    get_pytorch_model,
-    pytorch_model_loader,
-)
+from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
 from unittest.mock import patch
 
 import pytest
 import torch
 
 from olive.common.constants import OS
-from olive.model import PyTorchModelHandler
+from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 
 
-@pytest.mark.parametrize("input_model", [get_pytorch_model(), get_hf_model_with_past()])
+@pytest.mark.parametrize("input_model", [get_pytorch_model(), get_hf_model()])
 def test_onnx_conversion_pass(input_model, tmp_path):
     # setup
     p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
@@ -32,7 +26,7 @@ def test_onnx_conversion_pass(input_model, tmp_path):
 
     # The conversion need torch version > 1.13.1, otherwise, it will complain
     # Unsupported ONNX opset version: 18
-    onnx_model = p.run(input_model, None, output_folder)
+    onnx_model = p.run(input_model, output_folder)
 
     # assert
     assert Path(onnx_model.model_path).exists()
@@ -46,21 +40,18 @@ def test_onnx_conversion_pass(input_model, tmp_path):
 def test_onnx_conversion_pass_quant_model(add_quantized_modules, tmp_path):
     # setup
     quantized_modules = ["v_proj", "k_proj", "fc_in", "fc_out", "out_proj", "q_proj"]
-    input_model = PyTorchModelHandler(
-        hf_config={
-            "model_name": "hf-internal-testing/tiny-random-gptj",
-            "task": "text-generation",
-            "from_pretrained_args": {
-                "quantization_method": "bitsandbytes",
-                "quantization_config": {"load_in_4bit": True, "bnb_4bit_quant_type": "nf4"},
-            },
+    input_model = HfModelHandler(
+        model_path="hf-internal-testing/tiny-random-gptj",
+        load_kwargs={
+            "quantization_method": "bitsandbytes",
+            "quantization_config": {"load_in_4bit": True, "bnb_4bit_quant_type": "nf4"},
         },
         model_attributes={"quantized_modules": quantized_modules} if add_quantized_modules else None,
     )
     p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
-    onnx_model = p.run(input_model, None, output_folder)
+    onnx_model = p.run(input_model, output_folder)
 
     # assert
     assert Path(onnx_model.model_path).exists()
@@ -76,7 +67,7 @@ def test_onnx_op_version_conversion_pass(target_opset, tmp_path):
     p = create_pass_from_dict(OnnxOpVersionConversion, {"target_opset": target_opset}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
-    onnx_model = p.run(input_model, None, output_folder)
+    onnx_model = p.run(input_model, output_folder)
 
     # assert
     assert onnx_model.load_model().opset_import[0].version == target_opset
@@ -181,5 +172,5 @@ def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_con
     mock_onnx_export.side_effect = mock_onnx_export_func
     # setup
     p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
-    _ = p.run(input_model, None, str(output_folder))
+    _ = p.run(input_model, str(output_folder))
     assert "past_key_values" in dummy_inputs  # pylint: disable=unsupported-membership-test

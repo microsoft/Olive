@@ -7,12 +7,11 @@ import tempfile
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, List, Union
 
 import onnx
 from packaging import version
 
-from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.common.pydantic_v1 import validator
 from olive.common.utils import exclude_keys, hash_string
@@ -23,8 +22,8 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
-from olive.passes.pass_config import ParamCategory, PassConfigParam
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
+from olive.passes.pass_config import PassConfigParam
+from olive.resource_path import LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
 logger = logging.getLogger(__name__)
@@ -48,6 +47,13 @@ _onnx_quantization_config = {
         default_value=None,
         description="""
             List of operator types to quantize. If None, all quantizable.
+        """,
+    ),
+    "append_first_op_types_to_quantize_list": PassConfigParam(
+        type_=bool,
+        default_value=False,
+        description="""
+            If True, append operator types which firstly appear in the model to op_types_to_quantize.
         """,
     ),
     "nodes_to_quantize": PassConfigParam(
@@ -141,39 +147,10 @@ _extra_options_config = {
 
 # static quantization specific config
 _dataloader_config = {
-    "data_dir": PassConfigParam(
-        type_=OLIVE_RESOURCE_ANNOTATIONS,
-        category=ParamCategory.DATA,
-        description="""
-            Path to the directory containing the dataset.
-            For local data, it is required if quant_mode is 'static' and dataloader_func is provided.
-        """,
-    ),
-    "batch_size": PassConfigParam(
-        type_=int,
-        default_value=1,
-        description="""
-            Batch size for calibration, only used if dataloader_func is provided.
-        """,
-    ),
-    # TODO(trajep): remove this option once we have a data config ready
-    "dataloader_func": PassConfigParam(
-        type_=Union[Callable, str],
-        category=ParamCategory.OBJECT,
-        description="""
-            Function/function name to generate dataloader for calibration,
-            required if quant_mode is 'static' and data_config is None.
-        """,
-    ),
-    "dataloader_func_kwargs": PassConfigParam(
-        type_=Dict[str, Any],
-        description="Keyword arguments for dataloader_func.",
-    ),
     "data_config": PassConfigParam(
         type_=Union[DataConfig, Dict],
         description="""
-            Data config for calibration, required if quant_mode is 'static' and
-            dataloader_func is None.
+            Data config for calibration, required if quant_mode is 'static'
         """,
     ),
 }
@@ -273,28 +250,13 @@ _static_optional_config = {
 }
 
 
-def get_calibration_dataloader(data_root, user_module_loader, config):
-    dataloader = None
-
-    if config["dataloader_func"]:
-        # TODO(trajep): replace legacy dataloader_func with data config
-        data_dir = get_local_path_from_root(data_root, config["data_dir"])
-        dataloader = user_module_loader.call_object(
-            config["dataloader_func"],
-            data_dir,
-            config["batch_size"],
-            **(config["dataloader_func_kwargs"] or {}),
-        )
-    elif config["data_config"]:
-        data_config = validate_config(config["data_config"], DataConfig)
-        dataloader = data_config.to_data_container().create_calibration_dataloader(data_root)
-    return dataloader
+def get_calibration_dataloader(config):
+    data_config = validate_config(config["data_config"], DataConfig)
+    return data_config.to_data_container().create_calibration_dataloader()
 
 
 class OnnxQuantization(Pass):
     """Quantize ONNX model with static/dynamic quantization techniques."""
-
-    _requires_user_script = True
 
     def _initialize(self):
         super()._initialize()
@@ -382,7 +344,7 @@ class OnnxQuantization(Pass):
         return True
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
@@ -392,9 +354,7 @@ class OnnxQuantization(Pass):
         run_config = deepcopy(config)
         is_static = run_config["quant_mode"] == "static"
         if is_static:
-            assert (
-                config["dataloader_func"] or config["data_config"]
-            ), "dataloader_func or data_config is required for static quantization."
+            assert config["data_config"], "data_config is required for static quantization."
             # whether to prepare qnn config
             # we do the version check here and not in `validate_search_point` since search point validation
             # is done by the engine. Unless the host is local system, the ort version of the host is
@@ -434,20 +394,24 @@ class OnnxQuantization(Pass):
                 logger.info("Already processed model for quantization, skipping preprocessing")
                 model = ONNXModelHandler(LocalFile({"path": preprocessed_temp_model_path}))
 
+        # if enable _append_first_op_types_to_quantize_list
+        if run_config["append_first_op_types_to_quantize_list"]:
+            run_config["op_types_to_quantize"] = _append_first_op_types_to_quantize_list(
+                model, run_config["op_types_to_quantize"], run_config["nodes_to_exclude"]
+            )
+
         # keys not needed for quantization
         to_delete = [
             "quant_mode",
-            "script_dir",
-            "user_script",
             "quant_preprocess",
-            "data_config",
             "prepare_qnn_config",
+            "append_first_op_types_to_quantize_list",
+            *_dataloader_config.keys(),
+            *get_external_data_config().keys(),
         ]
-        to_delete += list(get_external_data_config().keys())
 
         # update string values to enum values
         if is_static:
-            to_delete += list(_dataloader_config.keys())
             run_config.update(
                 {
                     "calibrate_method": CalibrationMethod[run_config["calibrate_method"]],
@@ -458,7 +422,6 @@ class OnnxQuantization(Pass):
                 }
             )
         else:
-            to_delete += list(_dataloader_config.keys())
             to_delete += list(_static_optional_config.keys())
             run_config.update(
                 {
@@ -486,7 +449,7 @@ class OnnxQuantization(Pass):
 
         if is_static:
             # get the dataloader
-            dataloader = get_calibration_dataloader(data_root, self._user_module_loader, config)
+            dataloader = get_calibration_dataloader(config)
             if config["prepare_qnn_config"]:
                 import inspect
 
@@ -500,6 +463,8 @@ class OnnxQuantization(Pass):
                         "weight_symmetric": config["WeightSymmetric"],
                     }
                     qnn_extra_options = config["qnn_extra_options"] or {}
+                    if init_overrides := _get_qnn_init_overrides(model, config):
+                        qnn_extra_options["init_overrides"] = init_overrides
                 qnn_config = get_qnn_qdq_config(
                     model_input=model.model_path,
                     calibration_data_reader=dataloader,
@@ -585,8 +550,6 @@ class OnnxQuantization(Pass):
 class OnnxDynamicQuantization(OnnxQuantization):
     """ONNX Dynamic Quantization Pass."""
 
-    _requires_user_script = False
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         if accelerator_spec.execution_provider == "QNNExecutionProvider":
@@ -638,11 +601,9 @@ class OnnxStaticQuantization(OnnxQuantization):
 
 
 class OnnxMatMul4Quantizer(Pass):
-    _requires_user_script = True
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
+        return {
             "block_size": PassConfigParam(
                 type_=int,
                 default_value=32,
@@ -662,27 +623,32 @@ class OnnxMatMul4Quantizer(Pass):
                 # TODO(trajep): to make it searchable
                 type_=int,
                 default_value=None,
-                description="Available from onnxruntime>=1.17.0 "
-                "The minimum accuracy level of input A, can be: 0(unset), 1(fp32), 2(fp16), 3(bf16), "
-                "or 4(int8) (default unset when 0 or None). It is used to control how input A is quantized or downcast "
-                "internally while doing computation, for example: 0 means input A will not be quantized "
-                "or downcast while doing computation. 4 means input A can be quantized with the same "
-                "block_size to int8 internally from type T1. "
-                "Refer to the MatMulNBits contrib op's 'accuracy_level' attribute for details "
-                "(https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits).",
+                description=(
+                    "Available from onnxruntime>=1.17.0 "
+                    "The minimum accuracy level of input A, can be: 0(unset), 1(fp32), 2(fp16), 3(bf16), "
+                    "or 4(int8) (default unset when 0 or None). It is used to control how input A is quantized or"
+                    " downcast "
+                    "internally while doing computation, for example: 0 means input A will not be quantized "
+                    "or downcast while doing computation. 4 means input A can be quantized with the same "
+                    "block_size to int8 internally from type T1. "
+                    "Refer to the MatMulNBits contrib op's 'accuracy_level' attribute for details "
+                    "(https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits)."
+                ),
             ),
             "algorithm": PassConfigParam(
                 type_=str,
                 default_value=None,
-                description="If 'None', the Matmul node with fp32 const weight will be quantize to int4."
-                "1. 'RTN' and 'GPTQ' are available from onnxruntime>=1.17.0 "
-                "- For 4b quantize a model with RTN or GPTQ algorithm. Please refer to "
-                "https://github.com/intel/neural-compressor/blob/master/docs/source/quantization_weight_only.md "
-                "for more details on weight only quantization using Intel® Neural Compressor. "
-                "2. 'DEFAULT', 'HQQ' are available from onnxruntime>=1.18.0 "
-                "- `DEFAULT` takes the same effect as `None`"
-                "- For HQQ, please refer to onnxruntime for more details: "
-                "https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L102C1-L126C25",
+                description=(
+                    "If 'None', the Matmul node with fp32 const weight will be quantize to int4."
+                    "1. 'RTN' and 'GPTQ' are available from onnxruntime>=1.17.0 "
+                    "- For 4b quantize a model with RTN or GPTQ algorithm. Please refer to "
+                    "https://github.com/intel/neural-compressor/blob/master/docs/source/quantization_weight_only.md "
+                    "for more details on weight only quantization using Intel® Neural Compressor. "
+                    "2. 'DEFAULT', 'HQQ' are available from onnxruntime>=1.18.0 "
+                    "- `DEFAULT` takes the same effect as `None`"
+                    "- For HQQ, please refer to onnxruntime for more details: "
+                    "https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L102C1-L126C25"
+                ),
             ),
             "weight_only_quant_configs": PassConfigParam(
                 type_=dict,
@@ -722,11 +688,10 @@ class OnnxMatMul4Quantizer(Pass):
                     https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L63C1-L99C37
                 """,
             ),
+            **get_external_data_config(),
+            # static_dataloder_config
+            **deepcopy(_dataloader_config),
         }
-        config.update(get_external_data_config())
-        # static_dataloder_config
-        config.update(deepcopy(_dataloader_config))
-        return config
 
     @classmethod
     def _validators(cls) -> Dict[str, Callable]:
@@ -739,7 +704,7 @@ class OnnxMatMul4Quantizer(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
@@ -766,7 +731,7 @@ class OnnxMatMul4Quantizer(Pass):
                     # ort 1.17.0+ uses blocksize instead of block_size :(
                     algo_config["blocksize"] = algo_config["block_size"]
                     algo_config.pop("block_size")
-                dataloader = get_calibration_dataloader(data_root, self._user_module_loader, config)
+                dataloader = get_calibration_dataloader(config)
                 weight_only_quant_config_class = partial(GPTQWeightOnlyQuantConfig, calibration_data_reader=dataloader)
 
             if version.parse(OrtVersion) >= version.parse("1.18.0"):
@@ -857,3 +822,44 @@ def _validate_weight_only_quant_config(v, values, field):
         )
         v = {key: v[key] for key in default_config_keys if key in v}
     return v
+
+
+def _append_first_op_types_to_quantize_list(
+    model_handler: ONNXModelHandler, op_types_to_quantize: List[str] = None, exclude_node: List[str] = None
+) -> List[str]:
+    from collections import defaultdict
+
+    op_types_to_quantize = op_types_to_quantize or []
+    exclude_node = exclude_node or []
+    onnx_model = model_handler.load_model()
+    ops = defaultdict(int)
+    for node in onnx_model.graph.node:
+        ops[node.op_type] += 1
+        if ops[node.op_type] == 1 and node.op_type not in exclude_node:
+            op_types_to_quantize.append(node.op_type)
+    return op_types_to_quantize
+
+
+def _get_qnn_init_overrides(model_handler: ONNXModelHandler, config: Dict[str, Any]):
+    # get qnn overrides from the input model
+    model_attributes = model_handler.model_attributes or {}
+    mp_init_overrides = model_attributes.get("mixed_precision_overrides") or {}
+    init_overrides = {}
+    config["qnn_extra_options"] = config["qnn_extra_options"] or {}
+    if mp_init_overrides and "init_overrides" not in config["qnn_extra_options"]:
+        from onnxruntime.quantization import QuantType
+
+        # use QuantType to get the quantization type
+        init_overrides = {
+            tensor: [{"quant_type": QuantType.from_string(quant["quant_type"])} for quant in quant_types]
+            for tensor, quant_types in mp_init_overrides.items()
+        }
+        # add `convert_outputs` to the TensorQuantOverridesHelper
+        convert_outputs = config.get("convert_outputs") or {}
+        for output_name, output_convert_type in convert_outputs.items():
+            init_overrides[output_name] = init_overrides.get(output_name, [{}])
+            init_overrides[output_name][0]["quant_type"] = init_overrides[output_name][0].get(
+                "quant_type"
+            ) or QuantType.from_string(config.get("activation_type", "QUInt8"))
+            init_overrides[output_name][0]["convert"] = {"quant_type": QuantType.from_string(output_convert_type)}
+    return init_overrides

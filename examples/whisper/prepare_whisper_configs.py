@@ -10,7 +10,7 @@ from urllib import request
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
-from transformers import __version__ as TransformersVersion
+from transformers import AutoConfig
 
 SUPPORTED_WORKFLOWS = {
     ("cpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
@@ -95,7 +95,6 @@ def main(raw_args=None):
 
     # version check
     version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
-    transformers_version_4_36 = version.parse(TransformersVersion) >= version.parse("4.36.0")
 
     # multi-lingual support check
     if not version_1_16:
@@ -114,57 +113,60 @@ def main(raw_args=None):
         template_json = json.load(f)
     model_name = args.model_name
 
-    # update model name
-    template_json["input_model"]["config"]["hf_config"]["model_name"] = model_name
-    if transformers_version_4_36:
-        template_json["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {"attn_implementation": "eager"}
+    # update model paths
+    for model_component in template_json["input_model"]["model_components"]:
+        model_component["model_path"] = model_name
+    # update model attributes
+    template_json["input_model"]["model_attributes"] = model_attributes = AutoConfig.from_pretrained(
+        model_name
+    ).to_dict()
+    # remove suppress_tokens since it takes too much space in the config
+    model_attributes.pop("suppress_tokens", None)
+
+    load_dataset_config = template_json["data_configs"][0]["load_dataset_config"]
+    load_dataset_config["model_name"] = model_name
+    load_dataset_config["use_audio_decoder"] = not args.no_audio_decoder
 
     # set dataloader
-    if not args.skip_evaluation:
-        metric_dataloader_kwargs = template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"][
-            "func_kwargs"
-        ]["dataloader_func"]
-        metric_dataloader_kwargs["model_name"] = model_name
-        metric_dataloader_kwargs["use_audio_decoder"] = not args.no_audio_decoder
-    else:
+    if args.skip_evaluation:
         del template_json["evaluators"]
-        template_json["engine"]["evaluator"] = None
+        template_json["evaluator"] = None
 
     # update multi-lingual support
-    template_json["passes"]["insert_beam_search"]["config"]["use_forced_decoder_ids"] = args.multilingual
+    template_json["passes"]["insert_beam_search"]["use_forced_decoder_ids"] = args.multilingual
     # update predict timestep
-    template_json["passes"]["insert_beam_search"]["config"]["use_logits_processor"] = args.enable_timestamps
+    template_json["passes"]["insert_beam_search"]["use_logits_processor"] = args.enable_timestamps
     # update no audio decoder
-    template_json["passes"]["prepost"]["config"]["tool_command_args"]["use_audio_decoder"] = not args.no_audio_decoder
+    template_json["passes"]["prepost"]["tool_command_args"]["use_audio_decoder"] = not args.no_audio_decoder
     # update atol
-    template_json["passes"]["mixed_precision"]["config"]["atol"] = args.atol
+    template_json["passes"]["mixed_precision"]["atol"] = args.atol
 
     # set model name in prepost
-    template_json["passes"]["prepost"]["config"]["tool_command_args"]["model_name"] = model_name
+    template_json["passes"]["prepost"]["tool_command_args"]["model_name"] = model_name
 
     for device, precision in SUPPORTED_WORKFLOWS:
         workflow = SUPPORTED_WORKFLOWS[(device, precision)]
         config = deepcopy(template_json)
 
         # set output name
-        config["engine"]["output_name"] = f"whisper_{device}_{precision}"
+        config["output_name"] = f"whisper_{device}_{precision}"
         # add packaging config
         if args.package_model:
-            config["engine"]["packaging_config"] = {"type": "Zipfile", "name": f"whisper_{device}_{precision}"}
+            config["packaging_config"] = {"type": "Zipfile", "name": f"whisper_{device}_{precision}"}
 
         # set device for system
-        config["systems"]["local_system"]["config"]["accelerators"][0]["device"] = device
+        config["systems"]["local_system"]["accelerators"][0]["device"] = device
         # set ep
-        config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [DEVICE_TO_EP[device]]
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = [DEVICE_TO_EP[device]]
 
         # add passes
         config["passes"] = {}
         for pass_name in workflow:
             pass_config = deepcopy(template_json["passes"][pass_name])
             if pass_name == "insert_beam_search":
-                pass_config["config"]["fp16"] = precision == "fp16"
+                pass_config["fp16"] = precision == "fp16"
             if pass_name == "transformers_optimization":
-                pass_config["config"]["use_gpu"] = device == "gpu"
+                pass_config["use_gpu"] = device == "gpu"
             config["passes"][pass_name] = pass_config
 
         # dump config

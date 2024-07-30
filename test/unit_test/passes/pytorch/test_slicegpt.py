@@ -7,7 +7,7 @@ import sys
 import pytest
 
 from olive.data.template import huggingface_data_config_template
-from olive.model import PyTorchModelHandler
+from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 
 
@@ -18,7 +18,7 @@ def test_slicegpt(tmp_path):
     # setup
     model_name = "facebook/opt-125m"
     task = "text-generation"
-    input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task})
+    input_model = HfModelHandler(model_path=model_name, task=task)
     dataset = {
         "load_dataset_config": {
             "params": {
@@ -50,4 +50,4 @@ def test_slicegpt(tmp_path):
     output_folder = str(tmp_path / "slicegpt")
 
     # execute
-    p.run(input_model, None, output_folder)
+    p.run(input_model, output_folder)

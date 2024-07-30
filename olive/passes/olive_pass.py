@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
-from olive.common.config_utils import ConfigBase, ParamCategory, validate_config
+from olive.common.config_utils import NestedConfig, ParamCategory, validate_config
 from olive.common.pydantic_v1 import Field
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
@@ -176,7 +176,7 @@ class Pass(ABC):
         return True
 
     def run(
-        self, model: OliveModelHandler, data_root: str, output_model_path: str, point: Optional[Dict[str, Any]] = None
+        self, model: OliveModelHandler, output_model_path: str, point: Optional[Dict[str, Any]] = None
     ) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
         point = point or {}
@@ -191,7 +191,7 @@ class Pass(ABC):
             for rank in range(model.num_ranks):
                 input_ranked_model = model.load_model(rank)
                 ranked_output_path = Path(output_model_path).with_suffix("") / model.ranked_model_name(rank)
-                self._run_for_config(input_ranked_model, data_root, config, str(ranked_output_path))
+                self._run_for_config(input_ranked_model, config, str(ranked_output_path))
 
             # ranked model don't have their own model_attributes, they are just part of the distributed model
             # which has the model_attributes
@@ -204,14 +204,11 @@ class Pass(ABC):
             )
             Pass._carry_forward_additional_files(model, output_model)
         elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
-            # CompositePyTorchModel is also handled here.
             components = []
             component_names = []
             for component_name, component_model in model.get_model_components():
                 component_output_path = Path(output_model_path).with_suffix("") / component_name
-                output_model_component = self._run_for_config(
-                    component_model, data_root, config, str(component_output_path)
-                )
+                output_model_component = self._run_for_config(component_model, config, str(component_output_path))
                 output_model_component.model_attributes = (
                     output_model_component.model_attributes or component_model.model_attributes
                 )
@@ -221,7 +218,7 @@ class Pass(ABC):
             output_model = CompositeModelHandler(components, component_names)
             output_model.model_attributes = output_model.model_attributes or model.model_attributes
         else:
-            output_model = self._run_for_config(model, data_root, config, output_model_path)
+            output_model = self._run_for_config(model, config, output_model_path)
             # assumption: the model attributes from passes, if any, are more important than
             # the input model attributes, we should not update/extend anymore outside of the pass run
             output_model.model_attributes = output_model.model_attributes or model.model_attributes
@@ -377,7 +374,6 @@ class Pass(ABC):
             if default_config[key].category == ParamCategory.OBJECT and isinstance(value, str):
                 assert user_module_loader.user_script, f"'user_script' must be specified if a {key} is a string."
         # TODO(jambayk): once convention for user_script and script dir is finalized, let config class handle
-        # currently, Olive cannot have other types of pytorch models (entire model, custom loader, etc) + hf_config
         # the resolution during serialization
         if config["user_script"] is not None:
             config["user_script"] = str(Path(config["user_script"]).resolve())
@@ -457,13 +453,13 @@ class Pass(ABC):
 
     @abstractmethod
     def _run_for_config(
-        self, model: OliveModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: OliveModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> OliveModelHandler:
         """Run the pass on the model with the given configuration."""
         raise NotImplementedError
 
 
-class AbstractPassConfig(ConfigBase):
+class AbstractPassConfig(NestedConfig):
     """Base class for pass configuration."""
 
     type: str = Field(description="The type of the pass.")
