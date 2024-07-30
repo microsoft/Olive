@@ -193,13 +193,7 @@ class QuaRot(Pass):
             raise ValueError("QuaRot requires python3.10 or higher")
 
         from quarot import gptq, hf_utils, quant_utils, rotate, rtn
-        from quarot.adapters.llama_adapter import LlamaModelAdapter
-        from quarot.adapters.mixtral_adapter import MixtralModelAdapter
-        from quarot.adapters.phi3_adapter import Phi3ModelAdapter
-        from quarot.hf_utils import get_quarot_model, quarot_model_config
-        from quarot.modeling_llama import QuarotLlamaForCausalLM
-        from quarot.modeling_mixtral import QuarotMixtralForCausalLM
-        from quarot.modeling_phi3 import QuarotPhi3ForCausalLM
+        from quarot.hf_utils import get_quarot_model, get_quarot_model_adapter, quarot_model_config
         from slicegpt import layernorm_fusion
 
         # Renaming variables to match their contextual use
@@ -255,16 +249,8 @@ class QuaRot(Pass):
 
             # load the rotated weights into the quarot model
             quarot_model.load_state_dict(model_adapter.model.state_dict(), strict=False)
-        # Wrap the quarot model in an adapter, required for GPTQ and for distributing the model across GPUs.
-        quarot_model_adapter = None
-        if isinstance(quarot_model, QuarotLlamaForCausalLM):
-            quarot_model_adapter = LlamaModelAdapter(quarot_model)
-        elif isinstance(quarot_model, QuarotPhi3ForCausalLM):
-            quarot_model_adapter = Phi3ModelAdapter(quarot_model)
-        elif isinstance(quarot_model, QuarotMixtralForCausalLM):
-            quarot_model_adapter = MixtralModelAdapter(quarot_model)
-        else:
-            raise ValueError("Adapter for QuaRot model must be specified.")
+
+        quarot_model_adapter = get_quarot_model_adapter(quarot_model)
 
         if config.w_rtn:
             logger.info("Quantizing weights to INT%d using RTN.", config.w_bits)
