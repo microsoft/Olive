@@ -404,9 +404,7 @@ Please also find the detailed options from following table for each pass:
     },
     "onnx_quantization": {
         "type": "OnnxQuantization",
-        "user_script": "user_script.py",
-        "data_dir": "data",
-        "dataloader_func": "resnet_calibration_reader",
+        "data_config": "calib_data_coonfig",
         "weight_type": "QUInt8"
     }
 }
@@ -435,9 +433,7 @@ When `pass_flows` is not specified, the passes are executed in the order of the 
     },
     "onnx_quantization": {
         "type": "OnnxQuantization",
-        "user_script": "user_script.py",
-        "data_dir": "data",
-        "dataloader_func": "resnet_calibration_reader",
+        "data_config": "calib_data_coonfig",
         "weight_type": "QUInt8"
     }
 },

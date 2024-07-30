@@ -29,8 +29,7 @@ Let's take the example of the :ref:`onnx_quantization` Pass:
             {
                 "type": "OnnxQuantization",
                 "disable_search": false,
-                "user_script": "./user_script.py",
-                "dataloader_func": "glue_calibration_reader",
+                "data_config": "calib_data_config",
                 // set per_channel to "DEFAULT_VALUE"
                 "per_channel": "DEFAULT_VALUE",
                 // set reduce_range to "SEARCHABLE_VALUES" value
@@ -54,8 +53,7 @@ Let's take the example of the :ref:`onnx_quantization` Pass:
 
             onnx_quantization = create_pass_from_dict(OnnxQuantization,
                 config={
-                    "user_script": "./user_script.py",
-                    "dataloader_func": "glue_calibration_reader",
+                    "data_config": "calib_data_config",
                     # set per_channel to "DEFAULT_VALUE" value
                     "per_channel": "DEFAULT_VALUE",
                     # set reduce_range to "SEARCHABLE_VALUES"

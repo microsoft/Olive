@@ -198,19 +198,13 @@ returns metrics values for each output model.</p>
         <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
         <span class="s2">&quot;metric_config&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;warmup_num&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;repeat_test_num&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;sleep_num&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span>
     <span class="p">}],</span>
-    <span class="n">user_config</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>
-    <span class="p">}</span>
+    <span class="n">data_config</span><span class="o">=</span><span class="s2">&quot;latency_data_config&quot;</span>
 <span class="p">)</span>
 
 <span class="c1"># create evaluator configuration</span>
 <span class="n">evaluator_config</span> <span class="o">=</span>  <span class="n">OliveEvaluatorConfig</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">latency_metric</span><span class="p">])</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">latency_metric</span></code> requires you to provide a function as value for <code class="docutils literal notranslate"><span class="pre">dataloader_func</span></code> that returns a dataloader object when called on <code class="docutils literal notranslate"><span class="pre">data_dir</span></code>, <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>, optional positional argument list and keyword argument dictionary. You can provide the function object directly but here, let’s give it a function name <code class="docutils literal notranslate"><span class="pre">&quot;create_dataloader&quot;</span></code> that can be imported from <code class="docutils literal notranslate"><span class="pre">user_script</span></code>.</p>
 <p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py">This file</a> for
 has an example of how to write user scripts.</p>
 <!-- Refer to [User Scripts and Script Dir]() for more details on how Olive handles user scripts. -->
@@ -250,9 +244,7 @@ Passes available in Olive can be found at …</p>
 
 <span class="c1"># onnx quantization pass</span>
 <span class="n">quantization_config</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;resnet_calibration_reader&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;data_config&quot;</span><span class="p">:</span> <span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
     <span class="s2">&quot;weight_type&quot;</span> <span class="p">:</span> <span class="s2">&quot;QUInt8&quot;</span>
 <span class="p">}</span>
 <span class="c1"># search over the values for the other config parameters</span>

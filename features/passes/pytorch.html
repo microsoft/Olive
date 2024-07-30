@@ -282,14 +282,13 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <p>c. Run QAT training with default training loop.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuantizationAwareTraining&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;num_epochs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;train_dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_train_dataloader&quot;</span>
+<span class="w">    </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data_config&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py">this file</a>
-for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;create_train_dataloader&quot;</span></code>.</p>
+for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;train_data_config/dataloader_config/type&quot;</span></code>.</p>
 </section>
 </section>
 <section id="autogptq">

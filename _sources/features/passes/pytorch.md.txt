@@ -115,14 +115,13 @@ c. Run QAT training with default training loop.
 ```json
 {
     "type": "QuantizationAwareTraining",
-    "user_script": "user_script.py",
     "num_epochs": 5,
-    "train_dataloader_func": "create_train_dataloader"
+    "train_data_config": "train_data_config"
 }
 ```
 
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py)
-for an example implementation of `"user_script.py"` and `"create_train_dataloader"`.
+for an example implementation of `"user_script.py"` and `"train_data_config/dataloader_config/type"`.
 
 ## AutoGPTQ
 Olive also integrates [AutoGPTQ](https://github.com/AutoGPTQ/AutoGPTQ) for quantization.
