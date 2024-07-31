@@ -7,9 +7,10 @@ import platform
 from pathlib import Path
 
 import pytest
-from ..utils import check_output, patch_config
 
 from olive.common.constants import OS
+
+from ..utils import check_output, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)

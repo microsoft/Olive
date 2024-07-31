@@ -8,9 +8,10 @@ from pathlib import Path
 import pytest
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
-from ..utils import check_output, patch_config
 
 from olive.common.utils import retry_func, run_subprocess
+
+from ..utils import check_output, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)

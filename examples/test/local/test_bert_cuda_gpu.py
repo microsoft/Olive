@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import pytest
+
 from ..utils import check_output, patch_config
 
 

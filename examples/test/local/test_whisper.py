@@ -9,9 +9,10 @@ import sys
 from pathlib import Path
 
 import pytest
-from ..utils import check_output
 
 from olive.common.constants import OS
+
+from ..utils import check_output
 
 
 @pytest.fixture(scope="module", autouse=True)

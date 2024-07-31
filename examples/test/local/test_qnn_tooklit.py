@@ -7,11 +7,12 @@ import platform
 from pathlib import Path
 
 import pytest
-from ..utils import check_output, download_conda_installer, download_qc_toolkit
 
 from olive.common.constants import OS
 from olive.common.utils import retry_func, run_subprocess
 from olive.logging import set_verbosity_debug
+
+from ..utils import check_output, download_conda_installer, download_qc_toolkit
 
 set_verbosity_debug()
 
