@@ -1,6 +1,8 @@
-# Running Olive Workflow Remotely on Azure Machine Learning workspace compute
+# Remote Workflow
 
-If your workflow takes a long time to run or you need to step away, Olive provides the flexibility to run your workflow on a compute or cluster in your Azure Machine Learning workspace. This allows you to turn off your terminal session or shut down your local machine without interrupting the process.
+## Running Olive Workflow Remotely on Azure Machine Learning workspace compute
+
+If your Olive workflow takes a long time to run or you need to step away or your local environment is not powerful enough to run the workflow then Olive provides the flexibility to run your workflow on a compute or cluster in your Azure Machine Learning workspace. This allows you to turn off your terminal session or shut down your local machine without interrupting the process.
 
 ## Install Extra Dependencies
 
