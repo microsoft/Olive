@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from utils import check_output
+from ..utils import check_output
 
 from olive.common.constants import OS
 
@@ -17,7 +17,7 @@ from olive.common.constants import OS
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    cur_dir = Path(__file__).resolve().parent.parent
+    cur_dir = Path(__file__).resolve().parent.parent.parent
     example_dir = str(cur_dir / "whisper")
     os.chdir(example_dir)
     sys.path.insert(0, example_dir)

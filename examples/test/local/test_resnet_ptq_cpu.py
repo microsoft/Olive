@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
-from utils import check_output, patch_config
+from ..utils import check_output, patch_config
 
 from olive.common.utils import retry_func, run_subprocess
 
@@ -16,7 +16,7 @@ from olive.common.utils import retry_func, run_subprocess
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    cur_dir = Path(__file__).resolve().parent.parent
+    cur_dir = Path(__file__).resolve().parent.parent.parent
     example_dir = cur_dir / "resnet"
     os.chdir(example_dir)
 
@@ -30,7 +30,7 @@ def setup():
 
 @pytest.mark.parametrize("search_algorithm", ["random"])
 @pytest.mark.parametrize("execution_order", ["pass-by-pass"])
-@pytest.mark.parametrize("system", ["local_system", "aml_system"])
+@pytest.mark.parametrize("system", ["local_system"])
 @pytest.mark.parametrize(
     "olive_json",
     [

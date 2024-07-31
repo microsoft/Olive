@@ -6,27 +6,32 @@ import os
 from pathlib import Path
 
 import pytest
-from utils import check_output, patch_config
+from ..utils import check_output, patch_config
+
+from olive.common.utils import retry_func, run_subprocess
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    cur_dir = Path(__file__).resolve().parent.parent
-    example_dir = cur_dir / "bert"
+    cur_dir = Path(__file__).resolve().parent.parent.parent
+    example_dir = cur_dir / "resnet"
     os.chdir(example_dir)
+
+    # prepare model and data
+    # retry since it fails randomly
+    retry_func(run_subprocess, kwargs={"cmd": "python prepare_model_data.py", "check": True})
+
     yield
     os.chdir(cur_dir)
 
 
-@pytest.mark.parametrize("search_algorithm", ["tpe"])
-@pytest.mark.parametrize("execution_order", ["joint"])
-@pytest.mark.parametrize("system", ["local_system"])
-@pytest.mark.parametrize("olive_json", ["bert_ptq_cpu.json"])
-def test_bert(search_algorithm, execution_order, system, olive_json):
+@pytest.mark.parametrize("system", ["aml_system"])
+@pytest.mark.parametrize("olive_json", ["resnet_vitis_ai_ptq_cpu.json"])
+def test_resnet(system, olive_json):
     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json, search_algorithm, execution_order, system)
+    olive_config = patch_config(olive_json, None, None, system)
 
     footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     check_output(footprint)

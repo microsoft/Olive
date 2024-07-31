@@ -5,13 +5,14 @@ parameters:
   pool: ''
   python_version: '3.8'
   onnxruntime: 'onnxruntime'
+  subfolder: ''
   torch: 'torch'
 
 jobs:
-  - job: ${{parameters.name}}_Test_Examples
+  - job: ${{ parameters.name }}_Test_Examples
     timeoutInMinutes: 300
     pool:
-      name: ${{ parameters.pool}}
+      name: ${{ parameters.pool }}
     strategy:
       matrix:
         ${{ insert }}: ${{ parameters.examples }}
@@ -38,7 +39,7 @@ jobs:
           python -m pip install pytest
           python -m pip install azure-identity azure-storage-blob tabulate
           python -m pip install -r $(Build.SourcesDirectory)/examples/$(exampleFolder)/$(exampleRequirements)
-          python -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test_examples-TestOlive.xml $(Build.SourcesDirectory)/examples/test/test_$(exampleName).py --basetemp $(PYTEST_BASETEMP)
+          python -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test_examples-TestOlive.xml $(Build.SourcesDirectory)/examples/test/${{ parameters.subfolder }}/test_$(exampleName).py --basetemp $(PYTEST_BASETEMP)
       displayName: Test Examples
       env:
         WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)

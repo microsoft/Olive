@@ -43,9 +43,9 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
         if search_algorithm in ("random", "tpe"):
             olive_config["search_strategy"].update({"num_samples": 3, "seed": 0})
 
-    update_azureml_config(olive_config)
     if system == "aml_system":
         # set aml_system
+        update_azureml_config(olive_config)
         set_aml_system(olive_config, is_gpu=is_gpu)
         olive_config["host"] = system
         olive_config["target"] = system

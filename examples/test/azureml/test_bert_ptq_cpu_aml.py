@@ -6,13 +6,13 @@ import os
 from pathlib import Path
 
 import pytest
-from utils import check_output, patch_config
+from ..utils import check_output, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    cur_dir = Path(__file__).resolve().parent.parent
+    cur_dir = Path(__file__).resolve().parent.parent.parent
     example_dir = cur_dir / "bert"
     os.chdir(example_dir)
     yield
@@ -24,8 +24,6 @@ def setup():
     [
         # aml system test
         ("bert_ptq_cpu.json", "tpe", "joint", "aml_system"),
-        # aml model test in local system
-        ("bert_ptq_cpu_aml.json", False, None, "local_system"),
         # aml model test in aml system
         ("bert_ptq_cpu_aml.json", False, None, "aml_system"),
     ],
@@ -37,12 +35,9 @@ def test_bert(olive_test_knob):
     from olive.workflows import run as olive_run
 
     olive_config = patch_config(*olive_test_knob)
-    if olive_test_knob[3] == "aml_system":
-        # remove goal for aml system since sometimes the aml job will be reused.
-        # If the jobs perf cannot meet the goal, the test will fail definitely.
-        metrics = olive_config["evaluators"]["common_evaluator"]["metrics"]
-        metrics[0]["sub_types"][0].pop("goal", None)
-        metrics[1]["sub_types"][0].pop("goal", None)
+    metrics = olive_config["evaluators"]["common_evaluator"]["metrics"]
+    metrics[0]["sub_types"][0].pop("goal", None)
+    metrics[1]["sub_types"][0].pop("goal", None)
 
     output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     check_output(output)
