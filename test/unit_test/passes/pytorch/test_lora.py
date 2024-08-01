@@ -35,7 +35,7 @@ def get_pass_config(model_name, task, **kwargs):
             "params": {
                 "text_cols": ["sentence"],
                 "corpus_strategy": "line-by-line",
-                "source_max_len": 512,
+                "max_seq_len": 512,
                 "max_samples": 10,
                 "pad_to_max_len": False,
                 "trust_remote_code": True,

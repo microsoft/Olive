@@ -26,7 +26,7 @@ def test_sparsegpt(tmp_path):
             "params": {
                 "text_cols": ["sentence"],
                 "corpus_strategy": "join-random",
-                "source_max_len": 1024,
+                "max_seq_len": 1024,
                 "max_samples": 1,
                 "random_seed": 42,
                 "trust_remote_code": True,

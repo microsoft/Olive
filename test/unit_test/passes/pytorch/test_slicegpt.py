@@ -33,7 +33,7 @@ def test_slicegpt(tmp_path):
                 "text_cols": ["text"],
                 "corpus_strategy": "join",
                 "add_special_tokens": False,
-                "source_max_len": 2048,
+                "max_seq_len": 2048,
                 "max_samples": 128,
                 "joiner": "\n\n",
                 "trust_remote_code": True,
