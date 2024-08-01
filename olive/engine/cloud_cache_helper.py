@@ -177,13 +177,13 @@ class CloudCacheHelper:
             model_blob = str(Path(output_model_hash) / f"model/{model_path_map['model_path']}")
             adapter_blob = str(Path(output_model_hash) / "adapter")
 
-            self.upload_files(model_path, model_blob)
-            self.upload_files(adapter_path, adapter_blob)
+            self.upload_model_files(model_path, model_blob)
+            self.upload_model_files(adapter_path, adapter_blob)
 
             model_path_file = Path(temp_dir) / self.model_path_map
             with open(model_path_file, "w") as file:
                 file.write(json.dumps(model_path_map))
-            self.upload_file(model_path_file, f"{output_model_hash}/{self.model_path_map}")
+            self.upload_file_to_blob(model_path_file, f"{output_model_hash}/{self.model_path_map}")
 
         # upload model config file
         model_config_bytes = json.dumps(model_config_copy.to_json()).encode()
@@ -196,18 +196,18 @@ class CloudCacheHelper:
                 self._upload_dir_to_blob(item, f"{blob_folder_name}/{item.name}")
             else:
                 blob_name = f"{blob_folder_name}/{item.name}"
-                self.upload_file(item, blob_name)
+                self.upload_file_to_blob(item, blob_name)
 
-    def upload_files(self, model_path, model_blob):
+    def upload_model_files(self, model_path, model_blob):
         if model_path:
             model_path = Path(model_path)
             if model_path.exists():
                 if not model_path.is_dir():
-                    self.upload_file(model_path, model_blob)
+                    self.upload_file_to_blob(model_path, model_blob)
                 else:
                     self._upload_dir_to_blob(model_path, f"{model_blob}")
 
-    def upload_file(self, file_path, blob_name):
+    def upload_file_to_blob(self, file_path, blob_name):
         logger.info("Uploading %s to %s", file_path, blob_name)
         with open(file_path, "rb") as data:
             self.container_client.upload_blob(name=blob_name, data=data, overwrite=False)
