@@ -5,7 +5,7 @@ parameters:
   pool: ''
   python_version: '3.8'
   onnxruntime: 'onnxruntime'
-  subfolder: ''
+  subfolder: 'local'
   torch: 'torch'
 
 jobs:
