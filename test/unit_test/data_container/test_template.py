@@ -29,7 +29,7 @@ class TestDataConfigTemplate:
             pre_process_data_config=DataComponentConfig(
                 params={
                     "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
+                    "label_col": "label",
                 }
             ),
             dataloader_config=DataComponentConfig(

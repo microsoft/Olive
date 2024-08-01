@@ -27,8 +27,7 @@
                 "type": "snpe_post_process",
                 "max_length": 128,
                 "padding": "max_length",
-                "input_cols": [ "sentence1", "sentence2" ],
-                "label_cols": [ "label" ]
+                "input_cols": [ "sentence1", "sentence2" ]
             },
             "dataloader_config": { "batch_size": 2 }
         }
