@@ -255,5 +255,6 @@ def is_hf_repo_exist(repo_name: str):
             "huggingface_hub is not installed. "
             "Please install huggingface_hub to use the cloud model cache feature for Huggingface model."
         )
+        raise
 
     return HfApi().repo_exists(repo_name)
