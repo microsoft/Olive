@@ -843,10 +843,10 @@ class Engine:
         ):
             # download model files
             logger.info("Cloud model cache is enabled. Download final model files ...")
-            cloud_model_path, adapter_path = self.cloud_cache_helper.get_path_from_cloud(output_model_hash)
+            cloud_model_path, cloud_adapter_path = self.cloud_cache_helper.get_path_from_cloud(output_model_hash)
             self.cloud_cache_helper.update_model_config(
                 cloud_model_path,
-                adapter_path,
+                cloud_adapter_path,
                 model_config,
                 output_model_hash,
                 str(self.cache.get_model_output_path(model_id)),
