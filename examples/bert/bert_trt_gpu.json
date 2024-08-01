@@ -11,7 +11,7 @@
             "name": "glue_mrpc",
             "type": "HuggingfaceContainer",
             "load_dataset_config": { "data_name": "glue", "subset": "mrpc", "split": "validation" },
-            "pre_process_data_config": { "input_cols": [ "sentence1", "sentence2" ], "label_cols": [ "label" ] },
+            "pre_process_data_config": { "input_cols": [ "sentence1", "sentence2" ] },
             "dataloader_config": { "batch_size": 1 }
         }
     ],
