@@ -56,20 +56,8 @@ class HFTrainingArguments(NestedConfig):
 
     _nested_field_name = "extra_args"
 
-    seed: int = Field(42, description="Random seed for initialization.")
-    data_seed: int = Field(42, description="Random seed to be used with data samplers.")
+    # TODO(jambayk): is this default optim required? does it work for regular lora? what about lr_scheduler_type?
     optim: str = Field("paged_adamw_32bit", description="The optimizer to use.")
-    per_device_train_batch_size: int = Field(1, description="The batch size per GPU for training.")
-    per_device_eval_batch_size: int = Field(1, description="The batch size per GPU for evaluation.")
-    gradient_accumulation_steps: int = Field(
-        16,
-        description=(
-            "Number of updates steps to accumulate the gradients for, before performing a backward/update pass."
-        ),
-    )
-    max_steps: int = Field(1000, description="The total number of training steps to perform.")
-    # use lora dropout instead for regularization if needed
-    weight_decay: float = Field(0.0, description="The L2 weight decay rate of AdamW")
     learning_rate: float = Field(0.0002, description="The initial learning rate for AdamW.")
     gradient_checkpointing: bool = Field(True, description="Use gradient checkpointing. Recommended.")
     lr_scheduler_type: str = Field(
@@ -77,19 +65,12 @@ class HFTrainingArguments(NestedConfig):
         description="Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.",
     )
     warmup_ratio: float = Field(0.03, description="Fraction of steps to do a warmup for.")
-    logging_steps: int = Field(10, description="Number of update steps between two logs.")
     evaluation_strategy: str = Field(
-        "no", description="The evaluation strategy to use. Will be forced to 'no' if there is no eval dataset."
-    )
-    eval_steps: float = Field(
         None,
         description=(
-            "Number of update steps between two evaluations if `evaluation_strategy='steps'`. Will default to the same"
-            " value as `logging_steps` if not set"
+            "The evaluation strategy to use. Forced to 'no' if eval_dataset is not provided. Otherwise, 'steps' unless"
+            " set to 'epoch'."
         ),
-    )
-    group_by_length: bool = Field(
-        True, description="Whether or not to group samples of roughly the same length together when batching."
     )
     report_to: Union[str, List[str]] = Field(
         "none", description="The list of integrations to report the results and logs to."
@@ -150,6 +131,9 @@ class HFTrainingArguments(NestedConfig):
                 extra_args.pop("use_module_with_loss")
         return training_args_cls(**args, **extra_args)
 
+    def get_data_seed(self):
+        return self.extra_args.get("data_seed", self.extra_args.get("seed", 42))
+
 
 class LoRABase(Pass):
     """Base class for LoRA and QLoRA fine-tuning passes."""
@@ -177,9 +161,8 @@ class LoRABase(Pass):
                 type_=float, default_value=16, description="The alpha parameter for Lora scaling."
             ),
             "lora_dropout": PassConfigParam(
-                type_=float, default_value=0.0, description="The dropout probability for Lora layers."
+                type_=float, default_value=0.05, description="The dropout probability for Lora layers."
             ),
-            "bias": PassConfigParam(type_=str, default_value="none", description="Bias type for Lora"),
             "modules_to_save": PassConfigParam(
                 type_=None,
                 default_value=None,
@@ -206,7 +189,7 @@ class LoRABase(Pass):
             ),
             # data parameters
             # TODO(jambayk): only keep train and eval data configs, remove eval_dataset_size and data processing
-            # from this pass. dataconfig should handle everything related to data 
+            # from this pass. dataconfig should handle everything related to data
             "train_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 required=True,
@@ -367,7 +350,7 @@ class LoRABase(Pass):
                 eval_dataset_size = int(eval_dataset_size)
             # eval data config has not been provided, but eval_dataset_size has been provided
             split_data = train_dataset.train_test_split(
-                test_size=eval_dataset_size, shuffle=True, seed=config.training_args.data_seed
+                test_size=eval_dataset_size, shuffle=True, seed=config.training_args.get_data_seed()
             )
             train_dataset = split_data["train"]
             eval_dataset = split_data["test"]
@@ -489,7 +472,7 @@ class LoRABase(Pass):
             lora_alpha=config.lora_alpha,
             lora_dropout=config.lora_dropout,
             target_modules=target_modules,
-            bias=config.bias,
+            bias="none",
             task_type=peft_task_type,
             modules_to_save=config.modules_to_save,
             **lora_config_kwargs,
@@ -595,16 +578,11 @@ class LoRABase(Pass):
         train_dataset, eval_dataset = self.get_datasets(config)
 
         # get training arguments
-        if config.training_args.evaluation_strategy is None and eval_dataset is not None:
-            logger.info(
-                "evaluation_strategy is None, but eval_dataset is not None. Please set evaluation_strategy if"
-                " evaluation is needed while training."
-            )
-        elif config.training_args.evaluation_strategy is not None and eval_dataset is None:
-            logger.warning(
-                "evaluation_strategy is not None, but eval_dataset is None. Setting evaluation_strategy to 'no'."
-            )
-            config.training_args.evaluation_strategy = "no"
+        orig_eval_strat = config.training_args.evaluation_strategy
+        config.training_args.evaluation_strategy = "no"
+        if eval_dataset:
+            # default to "steps" if eval dataset is provided
+            config.training_args.evaluation_strategy = "steps" if orig_eval_strat in {None, "no"} else orig_eval_strat
 
         # We always create a temp dir even if output_dir is provided because we want the temp dir to be deleted
         # after training or if there is an error

@@ -2,23 +2,12 @@
     "input_model": {
         "type": "HfModel",
         "model_path": "<model_name_or_path>",
-        "load_kwargs": { "attn_implementation": "eager", "trust_remote_code": "<trust_remote_code>" },
-        "io_config": {
-            "input_names": [ "input_ids", "attention_mask", "position_ids" ],
-            "output_names": [ "logits" ],
-            "input_shapes": [ [ 2, 8 ], [ 2, 8 ], [ 2, 8 ] ],
-            "input_types": [ "int64", "int64", "int64" ],
-            "dynamic_axes": {
-                "input_ids": { "0": "batch_size", "1": "sequence_length" },
-                "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
-                "position_ids": { "0": "batch_size", "1": "sequence_length" }
-            }
-        }
+        "load_kwargs": { "attn_implementation": "eager", "trust_remote_code": "<trust_remote_code>" }
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "<device>", "execution_providers": [ "<execution_provider>" ] } ]
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
     "data_configs": [
@@ -29,48 +18,20 @@
             "pre_process_data_config": {
                 "text_cols": "<text_field>",
                 "text_template": "<text_template>",
-                "source_max_len": "<max_seq_length>"
+                "max_seq_len": "<max_seq_len>"
             }
         }
     ],
     "passes": {
         "finetune": {
             "type": "<method>",
-            "lora_dropout": 0.1,
+            "torch_dtype": "<torch_dtype>",
             "train_data_config": "train_data",
             "eval_data_config": "<eval_data_config>",
-            "eval_dataset_size": "<eval_dataset_size>",
-            "training_args": {
-                "per_device_train_batch_size": 16,
-                "per_device_eval_batch_size": 16,
-                "gradient_accumulation_steps": 1,
-                "max_steps": 150,
-                "logging_steps": 50,
-                "save_steps": 50,
-                "evaluation_strategy": "steps",
-                "adam_beta2": 0.999,
-                "max_grad_norm": 0.3,
-                "load_best_model_at_end": true
-            }
-        },
-        "conversion": {
-            "type": "OnnxConversion",
-            "target_opset": 17,
-            "torch_dtype": "float32",
-            "save_metadata_for_token_generation": true
-        },
-        "transformers_optimization": {
-            "type": "OrtTransformersOptimization",
-            "model_type": "gpt2",
-            "opt_level": 0,
-            "keep_io_types": false,
-            "float16": "<float16>"
-        },
-        "extract": { "type": "ExtractAdapters", "make_inputs": true },
-        "metadata": { "type": "ModelBuilder", "precision": "<precision>", "metadata_only": true }
+            "eval_dataset_size": "<eval_dataset_size>"
+        }
     },
     "host": "local_system",
     "target": "local_system",
-    "cache_dir": "cache",
-    "output_dir": "<output_dir>"
+    "output_dir": "models"
 }

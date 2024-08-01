@@ -3,9 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from argparse import ArgumentParser
+from typing import ClassVar, Dict
 
 from olive.cli.base import BaseOliveCLICommand
-from typing import ClassVar, Dict
 
 
 class FineTuneCommand(BaseOliveCLICommand):
@@ -47,7 +47,9 @@ class FineTuneCommand(BaseOliveCLICommand):
             help="The dataset name.",
         )
         # TODO(jambayk): currently only supports single file or list of files, support mapping
-        dataset_group.add_argument("--data_files", type=str, help="The dataset files. If multiple files, separate by comma.")
+        dataset_group.add_argument(
+            "--data_files", type=str, help="The dataset files. If multiple files, separate by comma."
+        )
         dataset_group.add_argument("--train_split", type=str, default="train", help="The split to use for training.")
         dataset_group.add_argument(
             "--eval_split",
@@ -66,7 +68,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             help=r"Template to generate text field from. E.g. '### Question: {prompt} \n### Answer: {response}'",
         )
         dataset_group.add_argument(
-            "--max_seq_length",
+            "--max_seq_len",
             type=int,
             default=1024,
             help="Maximum sequence length for the data.",
