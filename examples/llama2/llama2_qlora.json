@@ -32,10 +32,7 @@
             },
             "pre_process_data_config": { "text_template": "### Question: {prompt} \n### Answer: {response}" }
         },
-        {
-            "name": "transformer_prompt_dummy_data",
-            "type": "TransformersPromptDummyDataContainer"
-        }
+        { "name": "transformer_prompt_dummy_data", "type": "TransformersPromptDummyDataContainer" }
     ],
     "evaluators": {
         "merged_evaluator": {
