@@ -9,11 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from olive.common.hf.utils import get_model_config, get_tokenizer
 from olive.data.component.dataset import BaseDataset
-from olive.data.component.text_generation import (
-    TextGenDatasetType,
-    text_gen_corpus_pre_process,
-    text_gen_pair_pre_process,
-)
+from olive.data.component.text_generation import text_gen_pre_process
 from olive.data.registry import Registry
 
 
@@ -164,44 +160,27 @@ def ner_huggingface_preprocess(
 
 @Registry.register_pre_process()
 def text_generation_huggingface_pre_process(
-    dataset,
-    model_name: str,
-    source_max_len: int = 1024,
-    dataset_type: TextGenDatasetType = TextGenDatasetType.CORPUS,
-    max_samples: Optional[int] = None,
-    trust_remote_code: Optional[bool] = None,
-    **kwargs
+    dataset, model_name: str, trust_remote_code: Optional[bool] = None, **kwargs
 ):
     """Pre-process data for text generation task.
 
     Args:
         dataset (object): Data to be pre-processed, reserved for internal dataset assignment.
         model_name (str): Name of the huggingface model.
-        source_max_len (int): Max length of source sequence. For corpus, this is the max length of each sequence.
-            For pair, this is the max length of the input sequence.
-        dataset_type (TextGenDatasetType): Type of the dataset - 'corpus' or 'pair'. Defaults to 'corpus'.
-        max_samples (int, optional): Max number of samples to use. Defaults to None.
         trust_remote_code (bool, optional): Whether or not to allow for custom models defined on the Hub in their own
             modeling files. Defaults to None.
         **kwargs: Additional arguments.
             The common arguments are the fields in olive.data.component.text_generation.TextGenParams.
-            'corpus' arguments are the fields in olive.data.component.text_generation.TextGenCorpusParams.
-            'pair' arguments are the fields in olive.data.component.text_generation.TextGenPairParams.
-            Note: the TextGenCorpusParams and TextGenPairParams subclasses already include the common arguments.
 
     """
     all_kwargs = deepcopy(kwargs)
     # task is not used in the pre-process function. Will pop it so that the config validation doesn't warn about
     # unused kwargs
     all_kwargs.pop("task", None)
-    all_kwargs.update({"max_samples": max_samples, "source_max_len": source_max_len})
 
     tokenizer = get_tokenizer(model_name, trust_remote_code=trust_remote_code)
 
-    if dataset_type == TextGenDatasetType.CORPUS:
-        return text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs)
-    else:
-        return text_gen_pair_pre_process(dataset, tokenizer, all_kwargs)
+    return text_gen_pre_process(dataset, tokenizer, all_kwargs)
 
 
 @Registry.register_pre_process()
