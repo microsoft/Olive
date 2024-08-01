@@ -23,6 +23,7 @@ import pytest
 
 from olive.common.constants import OS
 from olive.evaluator.metric_result import joint_metric_key
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelConfig
 
@@ -71,8 +72,9 @@ class TestDockerEvaluation:
         docker_target = get_docker_target()
         model_config = model_config_func()
         metric = metric_func()
-        model_conf = ModelConfig.parse_obj({"type": model_type, "config": model_config})
-        actual_res = docker_target.evaluate_model(model_conf, [metric], DEFAULT_CPU_ACCELERATOR)
+        model_config = ModelConfig.parse_obj({"type": model_type, "config": model_config})
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+        actual_res = docker_target.evaluate_model(model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
         for sub_type in metric.sub_types:
             joint_key = joint_metric_key(metric.name, sub_type.name)
             assert actual_res[joint_key].value >= expected_res

@@ -31,6 +31,7 @@ from olive.common.constants import HF_LOGIN, KEYVAULT_NAME
 from olive.data.config import DataConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric
 from olive.evaluator.metric_result import MetricResult
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -110,11 +111,12 @@ class TestAzureMLSystem:
 
         # execute
         metric = metric_func()
-        res = self.system.evaluate_model(model_config, [metric], DEFAULT_CPU_ACCELERATOR)
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+        res = self.system.evaluate_model(model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         mock_create_pipeline.assert_called_once_with(
-            output_folder, model_config.to_json(check_object=True), [metric], DEFAULT_CPU_ACCELERATOR
+            output_folder, model_config.to_json(check_object=True), evaluator_config, DEFAULT_CPU_ACCELERATOR
         )
         ml_client.jobs.stream.assert_called_once()
         assert mock_retry_func.call_count == 2
@@ -414,8 +416,8 @@ class TestAzureMLSystem:
 
         inputs = {
             "model_config": Input(type=AssetTypes.URI_FILE),
-            "metric_config": Input(type=AssetTypes.URI_FILE),
-            "metric_resource_map": Input(type=AssetTypes.URI_FILE),
+            "evaluator_config": Input(type=AssetTypes.URI_FILE),
+            "evaluator_resource_map": Input(type=AssetTypes.URI_FILE),
             "accelerator_config": Input(type=AssetTypes.URI_FILE),
             "num_resources": Input(type="integer"),
             "resource__0": Input(type=AssetTypes.URI_FILE),
@@ -426,7 +428,10 @@ class TestAzureMLSystem:
 
         # execute
         actual_res = self.system._create_metric_component(
-            tmp_dir=tmp_path, model_config={}, metric=metric, accelerator_config={}
+            tmp_dir=tmp_path,
+            model_config={},
+            evaluator_config=OliveEvaluatorConfig(metrics=[metric]).to_json(check_object=True),
+            accelerator_config={},
         )
 
         # assert
@@ -460,7 +465,7 @@ class TestAzureMLSystem:
 
         return f"python {script_name} {' '.join(parameters)}"
 
-    @patch("olive.evaluator.olive_evaluator.OliveEvaluator.evaluate")
+    @patch("olive.evaluator.olive_evaluator._OliveEvaluator.evaluate")
     def test_aml_evaluation_runner(self, mock_evaluate, tmp_path):
         # create model_config.json
         with (tmp_path / "model_config.json").open("w") as f:
@@ -468,9 +473,9 @@ class TestAzureMLSystem:
 
         # create model.pt
         # create metrics_config.json
-        metrics_config = get_glue_latency_metric().to_json()
-        with (tmp_path / "metrics_config.json").open("w") as f:
-            json.dump(metrics_config, f)
+        evaluator_config = OliveEvaluatorConfig(metrics=[get_glue_latency_metric()]).to_json()
+        with (tmp_path / "evaluator_config.json").open("w") as f:
+            json.dump(evaluator_config, f)
 
         # create accelerator_config.json
         accelerator_config = DEFAULT_CPU_ACCELERATOR.to_json()
@@ -489,8 +494,8 @@ class TestAzureMLSystem:
         args = [
             "--model_config",
             str(tmp_path / "model_config.json"),
-            "--metric_config",
-            str(tmp_path / "metrics_config.json"),
+            "--evaluator_config",
+            str(tmp_path / "evaluator_config.json"),
             "--accelerator_config",
             str(tmp_path / "accelerator_config.json"),
             "--num_resources",

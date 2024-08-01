@@ -16,6 +16,7 @@ from olive.common.ort_inference import check_and_normalize_provider_args
 from olive.data.config import DataConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.metric_result import joint_metric_key
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -372,8 +373,6 @@ class PerfTuningRunner:
     ):
         import onnxruntime as ort
 
-        from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
-
         # prepare the inference_settings for metrics.
         tuning_result_file = None
         if test_params:
@@ -405,8 +404,9 @@ class PerfTuningRunner:
             joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
 
             start_time = time.perf_counter()
-            evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-            metric_result = evaluator.evaluate(model, [latency_metric], self.config.device, None)
+            evaluator_config = OliveEvaluatorConfig(metrics=[latency_metric])
+            evaluator = evaluator_config.create_evaluator(model)
+            metric_result = evaluator.evaluate(model, evaluator_config.metrics, self.config.device, None)
 
             end_time = time.perf_counter()
             latency_ms = metric_result[joint_key].value

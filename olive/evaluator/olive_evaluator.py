@@ -9,14 +9,16 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from functools import partial
 from numbers import Number
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, NamedTuple, Tuple, Type, Union
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Tuple, Union
 
 import numpy as np
 import torch
 
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import NestedConfig, validate_config
+from olive.common.import_lib import import_user_module
 from olive.common.ort_inference import OrtInferenceSession, prepare_io_bindings
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import Field, root_validator, validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
@@ -26,6 +28,7 @@ from olive.data.template import dummy_data_config_template
 from olive.evaluator.metric import LatencySubType, Metric, MetricType, ThroughputSubType, get_latency_config_from_metric
 from olive.evaluator.metric_backend import MetricBackend
 from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten_metric_result, joint_metric_key
+from olive.evaluator.registry import Registry
 from olive.hardware import Device
 from olive.model import DistributedOnnxModelHandler, ONNXModelHandler
 from olive.model.config.io_config import is_io_config_static
@@ -54,14 +57,140 @@ class OliveModelOutput(NamedTuple):
 
 
 class OliveEvaluator(ABC):
-    registry: ClassVar[Dict[str, Type["OliveEvaluator"]]] = {}
+    @abstractmethod
+    def evaluate(
+        self,
+        model: "OliveModelHandler",
+        metrics: List[Metric],
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        raise NotImplementedError
 
-    @classmethod
-    def __init_subclass__(cls, framework: Framework, **kwargs) -> None:
-        super().__init_subclass__(**kwargs)
-        cls.framework = framework
-        cls.registry[str(framework).lower()] = cls
+    @staticmethod
+    def generate_metric_user_config_with_model_io(metric: Metric, model: "OliveModelHandler"):
+        # if the io_config is not specified in the data config, use the one in the model
+        # should not change the original metric object which is created from config jsons
+        # otherwise, if affects hashing + caching of the olive restoring.
+        metric = deepcopy(metric)
+        if metric.data_config:
+            return metric
 
+        if metric.type != MetricType.LATENCY:
+            return metric
+
+        io_config = model.io_config
+        if not io_config:
+            return metric
+
+        if not is_io_config_static(io_config):
+            # since Olive will not save the pytorch model's io_config to olive onnx model
+            # we cannot generate dummy data for the onnx model if this model has dynamic input shapes
+            # TODO(trajep): try to get static input shapes from onnx model.
+            # If so, we can move the dataloader for latency measurement.
+            logger.debug(
+                "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will"
+                " cause an error when creating dummy data for tuning."
+            )
+
+        metric.data_config = dummy_data_config_template(
+            io_config.get("input_shapes"), io_config.get("input_names"), io_config.get("input_types")
+        )
+        metric.data_config = validate_config(metric.data_config, DataConfig)
+        return metric
+
+    @staticmethod
+    def get_user_config(framework: Framework, metric: Metric):
+        assert metric.user_config, "user_config is not specified in the metric config"
+
+        dataloader = None
+        eval_func = None
+        post_func = None
+
+        # load the evaluate function
+        # priority: evaluate_func > metric_func
+        if metric.type == MetricType.CUSTOM:
+            evaluate_func = getattr(metric.user_config, "evaluate_func", None)
+            kwargs = getattr(metric.user_config, "evaluate_func_kwargs", None) or {}
+            if not evaluate_func:
+                evaluate_func = getattr(metric.user_config, "metric_func", None)
+                kwargs = getattr(metric.user_config, "metric_func_kwargs", None) or {}
+
+            if not evaluate_func:
+                raise ValueError("evaluate_func or metric_func is not specified in the metric config")
+
+            user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
+            eval_func = user_module.load_object(evaluate_func)
+            if kwargs:
+                eval_func = partial(eval_func, **kwargs)
+
+        # get dataloader and/or post processing function from data_config if not specified in the metric config
+        if metric.data_config:
+            if metric.data_config.type in TRANSFORMER_DUMMY_DATA_CONTAINER:
+                metric.data_config.load_dataset_config.params["model_framework"] = framework
+
+            dc = metric.data_config.to_data_container()
+            dataloader = dc.create_dataloader()
+            post_func = dc.config.post_process
+
+        return dataloader, eval_func, post_func
+
+    @staticmethod
+    def compute_accuracy(metric: Metric, model_outputs: Union[Tuple, NamedTuple], targets: Any) -> MetricResult:
+        """Compute accuracy metrics."""
+        evaluate_backend_cls = MetricBackend.registry[metric.backend]
+        return evaluate_backend_cls().measure(model_outputs, targets, metric)
+
+    @staticmethod
+    def latency_helper(latencies) -> Dict:
+        return {
+            LatencySubType.AVG: round(sum(latencies) / len(latencies) * 1000, 5),
+            LatencySubType.MAX: round(max(latencies) * 1000, 5),
+            LatencySubType.MIN: round(min(latencies) * 1000, 5),
+            LatencySubType.P50: round(np.percentile(latencies, 50) * 1000, 5),
+            LatencySubType.P75: round(np.percentile(latencies, 75) * 1000, 5),
+            LatencySubType.P90: round(np.percentile(latencies, 90) * 1000, 5),
+            LatencySubType.P95: round(np.percentile(latencies, 95) * 1000, 5),
+            LatencySubType.P99: round(np.percentile(latencies, 99) * 1000, 5),
+            LatencySubType.P999: round(np.percentile(latencies, 99.9) * 1000, 5),
+        }
+
+    @staticmethod
+    def compute_latency(metric: Metric, latencies: Any) -> MetricResult:
+        """Compute latency metrics."""
+        latency_metrics = OliveEvaluator.latency_helper(latencies)
+        metric_res = {}
+        for sub_type in metric.sub_types:
+            metric_res[sub_type.name] = SubMetricResult(
+                value=latency_metrics[sub_type.name],
+                priority=sub_type.priority,
+                higher_is_better=sub_type.higher_is_better,
+            )
+        return MetricResult.parse_obj(metric_res)
+
+    @staticmethod
+    def compute_throughput(metric: Metric, latencies: Any) -> MetricResult:
+        """Compute throughput metrics."""
+        latency_metrics = OliveEvaluator.latency_helper(latencies)
+        metric_res = {}
+        batch_size = metric.data_config.dataloader_params.get("batch_size", 1) if metric.data_config else 1
+        for sub_type in metric.sub_types:
+            if sub_type.name == ThroughputSubType.MIN:
+                latency_sub_type_name = LatencySubType.MAX
+            elif sub_type.name == ThroughputSubType.MAX:
+                latency_sub_type_name = LatencySubType.MIN
+            else:
+                latency_sub_type_name = LatencySubType(sub_type.name)
+            metric_res[sub_type.name] = SubMetricResult(
+                # per second, so multiply by 1000
+                value=round(batch_size / latency_metrics[latency_sub_type_name] * 1000, 5),
+                priority=sub_type.priority,
+                higher_is_better=sub_type.higher_is_better,
+            )
+        return MetricResult.parse_obj(metric_res)
+
+
+class _OliveEvaluator(OliveEvaluator):
     @classmethod
     def io_bind_enabled(cls, metric: Metric, inference_settings: Dict) -> bool:
         if metric.user_config.io_bind:
@@ -197,128 +326,6 @@ class OliveEvaluator(ABC):
                 raise TypeError(f"{metric.type} is not a supported metric type")
         return flatten_metric_result(metrics_res)
 
-    @staticmethod
-    def generate_metric_user_config_with_model_io(metric: Metric, model: "OliveModelHandler"):
-        # if the io_config is not specified in the data config, use the one in the model
-        # should not change the original metric object which is created from config jsons
-        # otherwise, if affects hashing + caching of the olive restoring.
-        metric = deepcopy(metric)
-        if metric.data_config:
-            return metric
-
-        if metric.type != MetricType.LATENCY:
-            return metric
-
-        io_config = model.io_config
-        if not io_config:
-            return metric
-
-        if not is_io_config_static(io_config):
-            # since Olive will not save the pytorch model's io_config to olive onnx model
-            # we cannot generate dummy data for the onnx model if this model has dynamic input shapes
-            # TODO(trajep): try to get static input shapes from onnx model.
-            # If so, we can move the dataloader for latency measurement.
-            logger.debug(
-                "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will"
-                " cause an error when creating dummy data for tuning."
-            )
-
-        metric.data_config = dummy_data_config_template(
-            io_config.get("input_shapes"), io_config.get("input_names"), io_config.get("input_types")
-        )
-        metric.data_config = validate_config(metric.data_config, DataConfig)
-        return metric
-
-    @classmethod
-    def get_user_config(cls, framework: Framework, metric: Metric):
-        assert metric.user_config, "user_config is not specified in the metric config"
-
-        dataloader = None
-        eval_func = None
-        post_func = None
-
-        # load the evaluate function
-        # priority: evaluate_func > metric_func
-        if metric.type == MetricType.CUSTOM:
-            evaluate_func = getattr(metric.user_config, "evaluate_func", None)
-            kwargs = getattr(metric.user_config, "evaluate_func_kwargs", None) or {}
-            if not evaluate_func:
-                evaluate_func = getattr(metric.user_config, "metric_func", None)
-                kwargs = getattr(metric.user_config, "metric_func_kwargs", None) or {}
-
-            if not evaluate_func:
-                raise ValueError("evaluate_func or metric_func is not specified in the metric config")
-
-            user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
-            eval_func = user_module.load_object(evaluate_func)
-            if kwargs:
-                eval_func = partial(eval_func, **kwargs)
-
-        # get dataloader and/or post processing function from data_config if not specified in the metric config
-        if metric.data_config:
-            if metric.data_config.type in TRANSFORMER_DUMMY_DATA_CONTAINER:
-                metric.data_config.load_dataset_config.params["model_framework"] = framework
-
-            dc = metric.data_config.to_data_container()
-            dataloader = dc.create_dataloader()
-            post_func = dc.config.post_process
-
-        return dataloader, eval_func, post_func
-
-    @staticmethod
-    def compute_accuracy(metric: Metric, model_outputs: Union[Tuple, NamedTuple], targets: Any) -> MetricResult:
-        """Compute accuracy metrics."""
-        evaluate_backend_cls = MetricBackend.registry[metric.backend]
-        return evaluate_backend_cls().measure(model_outputs, targets, metric)
-
-    @staticmethod
-    def latency_helper(latencies) -> Dict:
-        return {
-            LatencySubType.AVG: round(sum(latencies) / len(latencies) * 1000, 5),
-            LatencySubType.MAX: round(max(latencies) * 1000, 5),
-            LatencySubType.MIN: round(min(latencies) * 1000, 5),
-            LatencySubType.P50: round(np.percentile(latencies, 50) * 1000, 5),
-            LatencySubType.P75: round(np.percentile(latencies, 75) * 1000, 5),
-            LatencySubType.P90: round(np.percentile(latencies, 90) * 1000, 5),
-            LatencySubType.P95: round(np.percentile(latencies, 95) * 1000, 5),
-            LatencySubType.P99: round(np.percentile(latencies, 99) * 1000, 5),
-            LatencySubType.P999: round(np.percentile(latencies, 99.9) * 1000, 5),
-        }
-
-    @staticmethod
-    def compute_latency(metric: Metric, latencies: Any) -> MetricResult:
-        """Compute latency metrics."""
-        latency_metrics = OliveEvaluator.latency_helper(latencies)
-        metric_res = {}
-        for sub_type in metric.sub_types:
-            metric_res[sub_type.name] = SubMetricResult(
-                value=latency_metrics[sub_type.name],
-                priority=sub_type.priority,
-                higher_is_better=sub_type.higher_is_better,
-            )
-        return MetricResult.parse_obj(metric_res)
-
-    @staticmethod
-    def compute_throughput(metric: Metric, latencies: Any) -> MetricResult:
-        """Compute throughput metrics."""
-        latency_metrics = OliveEvaluator.latency_helper(latencies)
-        metric_res = {}
-        batch_size = metric.data_config.dataloader_params.get("batch_size", 1) if metric.data_config else 1
-        for sub_type in metric.sub_types:
-            if sub_type.name == ThroughputSubType.MIN:
-                latency_sub_type_name = LatencySubType.MAX
-            elif sub_type.name == ThroughputSubType.MAX:
-                latency_sub_type_name = LatencySubType.MIN
-            else:
-                latency_sub_type_name = LatencySubType(sub_type.name)
-            metric_res[sub_type.name] = SubMetricResult(
-                # per second, so multiply by 1000
-                value=round(batch_size / latency_metrics[latency_sub_type_name] * 1000, 5),
-                priority=sub_type.priority,
-                higher_is_better=sub_type.higher_is_better,
-            )
-        return MetricResult.parse_obj(metric_res)
-
 
 class OnnxEvaluatorMixin:
 
@@ -357,7 +364,9 @@ class OnnxEvaluatorMixin:
         return inference_settings
 
 
-class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX):
+@Registry.register(str(Framework.ONNX))
+@Registry.register("OnnxEvaluator")
+class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
     @staticmethod
     def get_session_wrapper(
@@ -555,7 +564,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
             "model_path": None,
             "local_rank": None,
             "world_size": model.num_ranks,
-            "inference_settings": metric.get_inference_settings(self.framework.lower()),
+            "inference_settings": metric.get_inference_settings(Framework.ONNX.lower()),
             "metric": metric.to_json(),
         }
 
@@ -647,7 +656,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
             "model_path": None,
             "local_rank": None,
             "world_size": model.num_ranks,
-            "inference_settings": metric.get_inference_settings(self.framework.lower()),
+            "inference_settings": metric.get_inference_settings(Framework.ONNX.lower()),
             "metric": metric.to_json(),
         }
 
@@ -703,7 +712,9 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
             raise TypeError(f"Cannot evaluate latency for model of type: {type(model)}")
 
 
-class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
+@Registry.register(str(Framework.PYTORCH))
+@Registry.register("PyTorchEvaluator")
+class PyTorchEvaluator(_OliveEvaluator):
 
     @staticmethod
     def _device_string_to_torch_device(device: Device):
@@ -827,7 +838,9 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         return latencies
 
 
-class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
+@Registry.register(str(Framework.SNPE))
+@Registry.register("SNPEEvaluator")
+class SNPEEvaluator(_OliveEvaluator):
 
     def _inference(
         self,
@@ -839,7 +852,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
         dataloader = self._prepare_dataloader(dataloader, model)
-        inference_settings = metric.get_inference_settings(self.framework.lower())
+        inference_settings = metric.get_inference_settings(Framework.SNPE.lower())
         # for accuracy evaluation, the `return_numpy_results` is required to be True
         # but for model inference, it is not required to be True.
         # We just set it to True for simple evaluation.
@@ -894,7 +907,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         dataloader = self._prepare_dataloader(dataloader, model, 1)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
         session = model.prepare_session(
-            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+            inference_settings=metric.get_inference_settings(Framework.SNPE.lower()), device=device
         )
 
         data_dir, input_data, _ = next(iter(dataloader))
@@ -915,7 +928,9 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_chunk_size)
 
 
-class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
+@Registry.register(str(Framework.OPENVINO))
+@Registry.register("OpenVINOEvaluator")
+class OpenVINOEvaluator(_OliveEvaluator):
 
     def _inference(
         self,
@@ -927,7 +942,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
         session = model.prepare_session(
-            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+            inference_settings=metric.get_inference_settings(Framework.OPENVINO.lower()), device=device
         )
         run_kwargs = metric.get_run_kwargs()
 
@@ -965,7 +980,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         execution_providers: Union[str, List[str]] = None,
     ) -> List[float]:
         session = model.prepare_session(
-            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+            inference_settings=metric.get_inference_settings(Framework.OPENVINO.lower()), device=device
         )
         run_kwargs = metric.get_run_kwargs()
 
@@ -977,7 +992,9 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         return latencies
 
 
-class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
+@Registry.register(str(Framework.QNN))
+@Registry.register("QNNEvaluator")
+class QNNEvaluator(_OliveEvaluator):
 
     def _inference(
         self,
@@ -990,7 +1007,7 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
     ) -> Tuple[OliveModelOutput, Any]:
         dataloader = self._prepare_dataloader(dataloader, model)
         session = model.prepare_session(
-            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+            inference_settings=metric.get_inference_settings(Framework.QNN.lower()), device=device
         )
 
         preds = []
@@ -1037,7 +1054,7 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
         dataloader = self._prepare_dataloader(dataloader, model, 1)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
         session = model.prepare_session(
-            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+            inference_settings=metric.get_inference_settings(Framework.QNN.lower()), device=device
         )
 
         data_dir, input_data, _ = next(iter(dataloader))
@@ -1058,15 +1075,23 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
         return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_chunk_size)
 
 
-class OliveEvaluatorFactory:
-    @staticmethod
-    def create_evaluator_for_model(model: "OliveModelHandler") -> OliveEvaluator:
-        evaluator_cls = OliveEvaluator.registry[str(model.framework).lower()]
-        return evaluator_cls()
+class OliveEvaluatorConfig(NestedConfig):
+    _nested_field_name = "type_args"
 
+    type: str = None
+    type_args: Dict = Field(default_factory=dict)
 
-class OliveEvaluatorConfig(ConfigBase):
+    # user script to define and register the evaluator
+    user_script: Union[Path, str] = None
+    script_dir: Union[Path, str] = None
+
     metrics: List[Metric] = []  # noqa: RUF012
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # call import_user_module to load the user script once and register the evaluator
+        if self.user_script:
+            import_user_module(self.user_script, self.script_dir)
 
     @property
     def is_accuracy_drop_tolerance(self):
@@ -1075,6 +1100,17 @@ class OliveEvaluatorConfig(ConfigBase):
                 if metric.type == MetricType.ACCURACY and sub_metric.higher_is_better:
                     return sub_metric.goal is not None and sub_metric.goal.has_regression_goal()
         return False
+
+    @root_validator(pre=True)
+    def validate_type(cls, values):
+        if values.get("user_script"):
+            import_user_module(values["user_script"], values.get("script_dir"))
+
+        evaluator_type = values.get("type")
+        if evaluator_type is not None and Registry.get(evaluator_type) is None:
+            raise ValueError(f"Invalid/unknown evaluator type: {evaluator_type}")
+
+        return values
 
     @validator("metrics")
     def validate_metrics(cls, v):
@@ -1106,6 +1142,12 @@ class OliveEvaluatorConfig(ConfigBase):
         expected_rank_set = set(range(1, len(sub_type_with_rank) + 1))
         # Check if all ranks are present
         if rank_set != expected_rank_set:
-            raise ValueError(f"Priorities must be unique and in the range 1 to {metric_len}")
+            raise ValueError(
+                f"Priorities must be unique and in the range 1 to {metric_len}\n"
+                f"\tActual: {rank_set}\n\tExpected: {expected_rank_set}"
+            )
 
         return v
+
+    def create_evaluator(self, model: "OliveModelHandler" = None) -> OliveEvaluator:
+        return Registry.get(self.type or str(model.framework))(**(self.type_args or {}))

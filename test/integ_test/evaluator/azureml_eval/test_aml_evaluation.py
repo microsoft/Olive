@@ -18,6 +18,7 @@ from typing import ClassVar, List
 import pytest
 
 from olive.evaluator.metric_result import joint_metric_key
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelConfig
 
@@ -46,8 +47,9 @@ class TestAMLEvaluation:
         aml_target = get_aml_target()
         model_path = model_path_func()
         metric = metric_func()
-        config = ModelConfig.parse_obj({"type": model_type, "config": {"model_path": model_path}})
-        actual_res = aml_target.evaluate_model(config, [metric], DEFAULT_CPU_ACCELERATOR)
+        model_config = ModelConfig.parse_obj({"type": model_type, "config": {"model_path": model_path}})
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+        actual_res = aml_target.evaluate_model(model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
         for sub_type in metric.sub_types:
             joint_key = joint_metric_key(metric.name, sub_type.name)
             assert actual_res[joint_key].value >= expected_res

@@ -13,6 +13,7 @@ import pytest
 
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.metric_result import joint_metric_key
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
@@ -144,6 +145,7 @@ class TestDockerSystem:
 
         model_config = get_pytorch_model_config()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         docker_config = LocalDockerConfig(
             image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
         )
@@ -154,9 +156,9 @@ class TestDockerSystem:
                 docker.errors.ContainerError,
                 match=r".*returned non-zero exit status 1: Docker container evaluation failed with: mock_error",
             ):
-                _ = docker_system.evaluate_model(model_config, [metric], DEFAULT_CPU_ACCELERATOR)
+                _ = docker_system.evaluate_model(model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
         else:
-            actual_res = docker_system.evaluate_model(model_config, [metric], DEFAULT_CPU_ACCELERATOR)
+            actual_res = docker_system.evaluate_model(model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
 
             container_root_path = Path("/olive-ws/")
             eval_local_path = Path(__file__).resolve().parents[4] / "olive" / "systems" / "docker" / "eval.py"

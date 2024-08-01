@@ -132,8 +132,6 @@ def is_execution_provider_required(run_config: RunConfig, package_config: OliveP
 
 
 def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
-    import onnxruntime as ort
-
     from olive.passes import Pass
 
     workflow_id = run_config.workflow_id
@@ -144,7 +142,12 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     set_ort_logger_severity(run_config.engine.ort_py_log_severity_level)
 
     # ort_log_severity_level: C++ logging levels
-    ort.set_default_logger_severity(run_config.engine.ort_log_severity_level)
+    try:
+        import onnxruntime as ort
+
+        ort.set_default_logger_severity(run_config.engine.ort_log_severity_level)
+    except Exception:
+        logger.warning("ORT log severity level configuration ignored since the module isn't installed.")
 
     # input model
     input_model = run_config.input_model
