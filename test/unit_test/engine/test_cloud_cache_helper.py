@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-import shutil
+from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 from olive.common.utils import hash_dict
@@ -18,7 +18,6 @@ class TestCloudCacheHelper:
     @patch("azure.storage.blob.ContainerClient")
     @patch("builtins.open", new_callable=mock_open, read_data=json.dumps({"model": "model_path"}).encode("utf-8"))
     def setup_method(self, method, mock_file, mock_container_client, mock_get_credentials):
-        self.cache_dir = "cache_dir"
         account_url = "account_url"
         container_name = "container_name"
         mock_blob_client = MagicMock()
@@ -28,13 +27,9 @@ class TestCloudCacheHelper:
         mock_blob_client.download_blob.return_value = mock_download_stream
         mock_download_stream.readall.return_value = json.dumps({"model": "model_path"}, indent=2).encode("utf-8")
 
-        self.cloud_cache_helper = CloudCacheHelper(self.cache_dir, account_url, container_name)
+        self.cloud_cache_helper = CloudCacheHelper(account_url, container_name)
 
-    @classmethod
-    def teardown_class(cls):
-        shutil.rmtree("cache_dir")
-
-    def test_update_model_config(self):
+    def test_update_model_config(self, tmpdir):
         # setup
         input_model_hash = "input_model_hash"
         mock_blob = MagicMock(name=f"{input_model_hash}/model/blob")
@@ -46,12 +41,13 @@ class TestCloudCacheHelper:
         mock_download_stream.readall.return_value = "model"
         cloud_model_path = "cloud_model_path"
         model_config = ModelConfig(type="onnxmodel", config={})
+        output_path = Path(tmpdir) / "output"
 
         # execute
-        self.cloud_cache_helper.update_model_config(cloud_model_path, model_config, input_model_hash)
+        self.cloud_cache_helper.update_model_config(cloud_model_path, None, model_config, input_model_hash, output_path)
 
         # assert
-        assert model_config.config["model_path"] == str(self.cloud_cache_helper.output_model_path / cloud_model_path)
+        assert model_config.config["model_path"] == str(output_path / cloud_model_path)
 
     def test_get_hash_key_with_input_hash(self):
         # setup
@@ -96,7 +92,7 @@ class TestCloudCacheHelper:
         # assert
         assert expected_hash_key == actual_hash_key
 
-    def test_get_model_config_by_hash_key(self):
+    def test_get_model_config_by_hash_key(self, tmpdir):
         # setup
         output_model_hash = "output_model_hash"
         mock_blob_client = MagicMock()
@@ -108,7 +104,7 @@ class TestCloudCacheHelper:
         mock_download_stream.readall.return_value = json.dumps(model_config_json, indent=2).encode("utf-8")
 
         # execute
-        actual_model_config = self.cloud_cache_helper.get_model_config_by_hash_key(output_model_hash)
+        actual_model_config = self.cloud_cache_helper.get_model_config_by_hash_key(output_model_hash, Path(tmpdir))
 
         # assert
         assert expected_model_config == actual_model_config
@@ -119,8 +115,7 @@ class TestCloudCacheHelper:
         output_model_config = ModelConfig(type="onnxmodel", config={"model_path": "model.onnx"})
         model_binary_data = b"Test binary data"
         m = mock_open(read_data=model_binary_data)
-        with patch("builtins.open", m):
-            # Your function or code that uses open
+        with patch("builtins.open", m), patch.object(Path, "exists", return_value=True):
             with open("model.onnx", "rb") as model_data:
                 model_data.read()
 

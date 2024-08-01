@@ -38,7 +38,7 @@ def serialize_object(obj: Any) -> dict:
     }
 
 
-def _expanded_default(custom_default: Callable[[Any], Any], obj: Any) -> Any:
+def _expanded_default(custom_default: Callable[[Any], Any], make_absolute: bool, obj: Any) -> Any:
     if custom_default is not None:
         try:
             return custom_default(obj)
@@ -47,15 +47,15 @@ def _expanded_default(custom_default: Callable[[Any], Any], obj: Any) -> Any:
     if isinstance(obj, (FunctionType, MethodType)):
         return serialize_function(obj)
     if isinstance(obj, Path):
-        return str(obj.resolve())
+        return str(obj.resolve()) if make_absolute else str(obj)
     if hasattr(obj, "to_json"):
         return obj.to_json()
     return serialize_object(obj)
 
 
-def config_json_dumps(obj: Any, default: Callable[[Any], Any] = None, **kwargs) -> str:
+def config_json_dumps(obj: Any, default: Callable[[Any], Any] = None, make_absolute: bool = True, **kwargs) -> str:
     """Serialize a Python object into a JSON string. Also serializes functions and objects."""
-    default = partial(_expanded_default, default)
+    default = partial(_expanded_default, default, make_absolute)
     return json.dumps(obj, default=default, **kwargs)
 
 
@@ -76,12 +76,12 @@ def config_json_loads(s: Union[str, bytes, bytearray], *, object_hook: Callable[
     return json.loads(s, object_hook=object_hook, **kwargs)
 
 
-def serialize_to_json(obj: Any, check_object: bool = False) -> dict:
+def serialize_to_json(obj: Any, check_object: bool = False, make_absolute: bool = True) -> dict:
     """Serialize a Python object into a JSON dict. Also serializes functions and objects."""
     if isinstance(obj, BaseModel):
-        raw_json = obj.json()
+        raw_json = obj.json(encoder=partial(_expanded_default, None, make_absolute))
     else:
-        raw_json = config_json_dumps(obj)
+        raw_json = config_json_dumps(obj, make_absolute=make_absolute)
     if check_object:
         try:
             config_json_loads(raw_json)
@@ -101,8 +101,8 @@ class ConfigBase(BaseModel):
         json_dumps = config_json_dumps
         json_encoders = {Path: lambda x: str(x.resolve())}  # noqa: RUF012
 
-    def to_json(self, check_object: bool = False) -> dict:
-        return serialize_to_json(self, check_object)
+    def to_json(self, check_object: bool = False, make_absolute: bool = True) -> dict:
+        return serialize_to_json(self, check_object, make_absolute)
 
     @classmethod
     def from_json(cls, json_dict: dict) -> "ConfigBase":
