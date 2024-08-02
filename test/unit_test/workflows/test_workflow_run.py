@@ -1,3 +1,4 @@
+from pathlib import Path
 from test.unit_test.utils import (
     get_pytorch_model,
     get_pytorch_model_config,
@@ -110,3 +111,27 @@ def test_run_without_ep(mock_model_to_json, mock_model_from_json, mock_run, conf
     ret = olive_run(config)
     assert len(ret) == 1
     assert next(iter(ret)) == AcceleratorSpec("cpu")
+
+
+def test_run_packages():
+    # setup
+    config = {
+        "input_model": INPUT_MODEL_CONFIG,
+        "evaluators": {"common_evaluator": EVALUATORS_CONFIG},
+        "passes": PASS_CONFIG,
+        "data_configs": DATA_CONFIGS,
+        "engine": {"evaluator": "common_evaluator"},
+    }
+
+    # execute
+    olive_run(config, packages=True)
+    requirements_file_path = Path("local_requirements.txt")
+
+    # assert
+    assert (requirements_file_path).exists()
+    with (requirements_file_path).open() as f:
+        file = f.read()
+        assert file == "pytorch-lightning\nonnxruntime"
+
+    # cleanup
+    requirements_file_path.unlink()

@@ -23,6 +23,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         )
         sub_parser.add_argument("--run-config", "--config", type=str, help="Path to json config file", required=True)
         sub_parser.add_argument("--setup", help="Whether run environment setup", action="store_true")
+        sub_parser.add_argument("--packages", help="List required packages", action="store_true")
         sub_parser.add_argument(
             "--tempdir", type=str, help="Root directory for tempfile directories and files", required=False
         )
