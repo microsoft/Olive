@@ -76,6 +76,17 @@ olive run [--config CONFIGURATION_FILE]
 olive run --config phi3_mobile_int4.json
 ```
 
+We also introduce QuaRot, a new Quantization scheme based on Rotations, which is able to quantize LLMs end-to-end.
+Specific details about the algorithm can be found in the linked [paper](https://arxiv.org/pdf/2404.00456).
+
+## Prerequisites
+[QuaRot](https://github.com/microsoft/TransformerCompression/tree/quarot-main)
+
+To run the workflow,
+```bash
+python phi3.py --quarot
+```
+
 ## More Inference Examples
 - [Android chat APP with Phi-3 and ONNX Runtime Mobile](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/mobile/examples/phi-3/android)
 

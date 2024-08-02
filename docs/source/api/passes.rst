@@ -229,6 +229,12 @@ SliceGPT
 --------------------
 .. autoconfigclass:: olive.passes.SliceGPT
 
+.. _quarot:
+
+QuaRot
+------
+.. autoconfigclass:: olive.passes.QuaRot
+
 .. _gptq_quantizer:
 
 GptqQuantizer
