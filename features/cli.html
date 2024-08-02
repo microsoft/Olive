@@ -165,7 +165,7 @@
 <h3>run<a class="headerlink" href="#run" title="Permalink to this heading">¶</a></h3>
 <p>Run an olive workflow</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">package</span><span class="o">-</span><span class="n">config</span> <span class="n">PACKAGE_CONFIG</span><span class="p">]</span> <span class="o">--</span><span class="n">run</span><span class="o">-</span><span class="n">config</span> <span class="n">RUN_CONFIG</span>
-          <span class="p">[</span><span class="o">--</span><span class="n">setup</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span>
+          <span class="p">[</span><span class="o">--</span><span class="n">setup</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">packages</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -179,6 +179,10 @@
 </dd>
 <dt><kbd>--setup</kbd></dt>
 <dd><p>Whether run environment setup</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--packages</kbd></dt>
+<dd><p>List required packages</p>
 <p>Default: False</p>
 </dd>
 <dt><kbd>--tempdir</kbd></dt>
