@@ -300,11 +300,9 @@ def run(
 
         if packages:
             generate_requirements_files(local_packages, remote_packages)
-            return None
-
         if setup:
             install_packages(local_packages, ort_packages)
-            return None
+        return None
 
     if run_config.workflow_host is not None:
         workflow_host = run_config.workflow_host
