@@ -3,28 +3,22 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
-from pathlib import Path
 
 import pytest
 
 from olive.common.utils import retry_func, run_subprocess
 
-from ..utils import check_output, patch_config
+from ..utils import check_output, get_example_dir, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    cur_dir = Path(__file__).resolve().parent.parent.parent
-    example_dir = cur_dir / "resnet"
-    os.chdir(example_dir)
+    os.chdir(get_example_dir("resnet"))
 
     # prepare model and data
     # retry since it fails randomly
     retry_func(run_subprocess, kwargs={"cmd": "python prepare_model_data.py", "check": True})
-
-    yield
-    os.chdir(cur_dir)
 
 
 @pytest.mark.parametrize("search_algorithm", ["random"])

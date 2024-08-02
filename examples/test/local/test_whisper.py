@@ -6,20 +6,18 @@ import json
 import os
 import platform
 import sys
-from pathlib import Path
 
 import pytest
 
 from olive.common.constants import OS
 
-from ..utils import check_output
+from ..utils import check_output, get_example_dir
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    cur_dir = Path(__file__).resolve().parent.parent.parent
-    example_dir = str(cur_dir / "whisper")
+    example_dir = get_example_dir("whisper")
     os.chdir(example_dir)
     sys.path.insert(0, example_dir)
 
@@ -29,7 +27,6 @@ def setup():
     prepare_whisper_configs(["--package_model"])
 
     yield
-    os.chdir(cur_dir)
     sys.path.remove(example_dir)
 
 

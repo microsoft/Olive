@@ -7,6 +7,7 @@ import logging
 import os
 import platform
 import sys
+from pathlib import Path
 
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
@@ -43,9 +44,9 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
         if search_algorithm in ("random", "tpe"):
             olive_config["search_strategy"].update({"num_samples": 3, "seed": 0})
 
+    update_azureml_config(olive_config)
     if system == "aml_system":
         # set aml_system
-        update_azureml_config(olive_config)
         set_aml_system(olive_config, is_gpu=is_gpu)
         olive_config["host"] = system
         olive_config["target"] = system
@@ -207,3 +208,7 @@ def set_azure_identity_logging():
     identity_logger.setLevel(logging.DEBUG)
     handler = logging.StreamHandler(stream=sys.stdout)
     identity_logger.addHandler(handler)
+
+
+def get_example_dir(example_name: str):
+    return str(Path(__file__).resolve().parent.parent / example_name)

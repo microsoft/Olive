@@ -4,23 +4,22 @@
 # --------------------------------------------------------------------------
 import os
 import sys
-from pathlib import Path
 
 import pytest
 
 from olive.hardware import AcceleratorSpec
 
+from ..utils import get_example_dir
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    cur_dir = Path(__file__).resolve().parent.parent.parent
-    example_dir = str(cur_dir / "mobilenet")
+    example_dir = get_example_dir("mobilenet")
     os.chdir(example_dir)
     sys.path.insert(0, example_dir)
 
     yield
-    os.chdir(cur_dir)
     sys.path.remove(example_dir)
 
 

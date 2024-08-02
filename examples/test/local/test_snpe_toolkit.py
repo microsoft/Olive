@@ -12,7 +12,7 @@ from olive.common.constants import OS
 from olive.common.utils import retry_func, run_subprocess
 from olive.logging import set_verbosity_debug
 
-from ..utils import check_output, download_conda_installer, download_qc_toolkit
+from ..utils import check_output, download_conda_installer, download_qc_toolkit, get_example_dir
 
 set_verbosity_debug()
 
@@ -26,8 +26,7 @@ class TestSnpeToolkit:
 
     def _setup_resource(self, use_olive_env):
         """Setups any state specific to the execution of the given module."""
-        cur_dir = Path(__file__).resolve().parent.parent.parent
-        example_dir = cur_dir / "inception"
+        example_dir = get_example_dir("inception")
 
         os.chdir(example_dir)
         if use_olive_env:
