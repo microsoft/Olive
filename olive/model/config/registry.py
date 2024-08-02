@@ -9,18 +9,19 @@ def model_handler_registry(model_type):
     """Decorate and register all OliveModelHandler subclasses.
 
     Args:
-        model_type (str): The model type registration name
+        model_type (str): The model type registration name. Is case-insensitive and stored in lowercase.
 
     Returns:
         cls: The class of register.
 
     """
+    model_type = model_type.lower()
 
     def decorator_model_class(cls):
         if model_type in REGISTRY:
             raise ValueError("Cannot have two model handlers with the same name")
 
-        REGISTRY[model_type.lower()] = cls
+        REGISTRY[model_type] = cls
         cls.model_type = model_type
         return cls
 

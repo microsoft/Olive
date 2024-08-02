@@ -9,8 +9,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
-from olive.common.config_utils import NestedConfig, ParamCategory, validate_config
-from olive.common.pydantic_v1 import Field
+from olive.common.config_utils import NestedConfig, ParamCategory, validate_config, validate_lowercase
+from olive.common.pydantic_v1 import Field, validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
@@ -472,6 +472,10 @@ class AbstractPassConfig(NestedConfig):
             " provided."
         ),
     )
+
+    @validator("type", pre=True)
+    def validate_type(cls, v):
+        return validate_lowercase(v)
 
 
 # TODO(jambayk): rename. We are using FullPassConfig since PassConfigBase already refers to inner config

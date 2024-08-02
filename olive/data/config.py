@@ -8,7 +8,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
 
-from olive.common.config_utils import ConfigBase, NestedConfig
+from olive.common.config_utils import ConfigBase, NestedConfig, validate_lowercase
 from olive.common.import_lib import import_user_module
 from olive.common.pydantic_v1 import Field, validator
 from olive.data.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
@@ -25,6 +25,10 @@ class DataComponentConfig(NestedConfig):
 
     type: str = None
     params: Dict = Field(default_factory=dict)
+
+    @validator("type", pre=True)
+    def validate_type(cls, v):
+        return validate_lowercase(v)
 
 
 DefaultDataComponentCombos = {
@@ -54,6 +58,10 @@ class DataConfig(ConfigBase):
         if not re.match(pattern, v):
             raise ValueError(f"DataConfig name {v} should only contain letters, numbers and underscore.")
         return v
+
+    @validator("type", pre=True)
+    def validate_type(cls, v):
+        return validate_lowercase(v)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

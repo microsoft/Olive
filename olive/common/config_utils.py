@@ -212,8 +212,24 @@ class NestedConfig(ConfigBase):
         return values
 
 
+class CaseInsensitiveEnum(str, Enum):
+    """StrEnum class that is insensitive to the case of the input string.
+
+    Note: Only insensitive when creating the enum object like `CaseInsensitiveEnum("value")`.
+    The values of the enum are still case-sensitive.
+    """
+
+    @classmethod
+    def _missing_(cls, value):
+        value = value.lower()
+        for member in cls:
+            if member.lower() == value:
+                return member
+        return None
+
+
 # TODO(jambayk): remove ParamCategory once validate object is removed or updated
-class ParamCategory(str, Enum):
+class ParamCategory(CaseInsensitiveEnum):
     NONE = "none"
     OBJECT = "object"
     PATH = "path"
@@ -259,6 +275,13 @@ def validate_object(v, values, field):
         raise ValueError("Invalid user_script")
     if isinstance(v, str) and values["user_script"] is None:
         raise ValueError(f"user_script must be provided if {field.name} is a name string")
+    return v
+
+
+# validator that always converts string to lowercase
+def validate_lowercase(v):
+    if isinstance(v, str):
+        return v.lower()
     return v
 
 

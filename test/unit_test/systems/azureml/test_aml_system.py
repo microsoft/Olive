@@ -541,7 +541,7 @@ class TestAzureMLSystem:
         mock_conversion_run.assert_called_once()
         with (output_dir / "output_model_config.json").open() as f:
             output_model_json = json.load(f)
-            assert output_model_json["type"] == "ONNXModel"
+            assert output_model_json["type"] == ONNXModelHandler.model_type
             assert output_model_json["config"]["model_path"]["type"] == "file"
             assert output_model_json["config"]["model_path"]["config"]["path"] == ONNX_MODEL_PATH.name
 
