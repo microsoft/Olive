@@ -113,7 +113,7 @@ def test_run_without_ep(mock_model_to_json, mock_model_from_json, mock_run, conf
     assert next(iter(ret)) == AcceleratorSpec("cpu")
 
 
-def test_run_packages(tmp_path):
+def test_run_packages():
     # setup
     config = {
         "input_model": INPUT_MODEL_CONFIG,
@@ -125,7 +125,7 @@ def test_run_packages(tmp_path):
 
     # execute
     olive_run(config, packages=True)
-    requirements_file_path = Path(tmp_path) / "requirements.txt"
+    requirements_file_path = Path("local_requirements.txt")
 
     # assert
     assert (requirements_file_path).exists()

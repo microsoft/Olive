@@ -322,7 +322,7 @@ def run(
 
 
 def generate_requirements_files(local_packages, remote_packages):
-    package_list = [(local_packages, "requirements.txt")]
+    package_list = [(local_packages, "local_requirements.txt")]
     if remote_packages:
         package_list.append((remote_packages, "remote_requirements.txt"))
     for packages, file_name in package_list:
