@@ -16,12 +16,7 @@ from olive.cache import OliveCache
 from olive.common.config_utils import validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.utils import hash_dict
-from olive.engine.cloud_cache_helper import (
-    CloudCacheHelper,
-    check_model_cache,
-    update_input_model_config,
-    upload_model_to_cloud,
-)
+from olive.engine.cloud_cache_helper import CloudCacheHelper, check_model_cache, update_input_model_config
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS
 from olive.engine.footprint import Footprint, FootprintNodeMetric
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
@@ -469,9 +464,7 @@ class Engine:
             # output dir with pass flow
             output_dir_with_pf = Path(output_dir) / "-".join(pass_flow)
 
-            if (not pass_output_names[-1] or output_name) and (
-                cloud_cache_config is None or not cloud_cache_config.enable_cloud_cache
-            ):
+            if not pass_output_names[-1] or output_name:
                 # if the last pass does not have output name, use the prefix output name
                 pass_output_names[-1] = Engine._get_prefix_output_name(output_name, accelerator_spec)
             final_output_name = pass_output_names[-1]
@@ -821,7 +814,6 @@ class Engine:
                 cloud_cache_config.enable_cloud_cache = False
             else:
                 self.cloud_cache_helper = CloudCacheHelper(
-                    self.cache.dirs.cloud_cache,
                     cloud_cache_config.account_url,
                     cloud_cache_config.container_name,
                     cloud_cache_config.input_model_config,
@@ -851,8 +843,14 @@ class Engine:
         ):
             # download model files
             logger.info("Cloud model cache is enabled. Download final model files ...")
-            cloud_model_path = self.cloud_cache_helper.exist_in_cloud_cache(output_model_hash)
-            self.cloud_cache_helper.update_model_config(cloud_model_path, model_config, output_model_hash)
+            cloud_model_path, cloud_adapter_path = self.cloud_cache_helper.get_path_from_cloud(output_model_hash)
+            self.cloud_cache_helper.update_model_config(
+                cloud_model_path,
+                cloud_adapter_path,
+                model_config,
+                output_model_hash,
+                str(self.cache.get_model_output_path(model_id)),
+            )
 
         if not should_prune:
             # evaluate the model
@@ -944,14 +942,18 @@ class Engine:
         run_start_time = datetime.now().timestamp()
 
         if enable_cloud_cache:
-            output_model_config = check_model_cache(
-                self.cloud_cache_helper, input_model_config, pass_search_point, input_model_hash
+            output_model_hash = self.cloud_cache_helper.get_hash_key(
+                input_model_config, pass_search_point, input_model_hash
             )
+            output_model_config = check_model_cache(self.cloud_cache_helper, output_model_hash, Path(output_model_path))
             pass_run_locally = output_model_config is None
+
         # run pass
         if pass_run_locally:
             if enable_cloud_cache and input_model_config.config.get("model_path") is None:
-                update_input_model_config(self.cloud_cache_helper, input_model_config, input_model_hash)
+                update_input_model_config(
+                    self.cloud_cache_helper, input_model_config, input_model_hash, Path(output_model_path)
+                )
 
             host = self.host_for_pass(pass_id)
             if host.system_type != SystemType.AzureML:
@@ -985,14 +987,13 @@ class Engine:
         run_end_time = datetime.now().timestamp()
         logger.info("Pass %s:%s finished in %f seconds", pass_id, pass_name, run_end_time - run_start_time)
 
-        if not enable_cloud_cache:
-            # cache model
-            self._cache_model(output_model_config, output_model_id)
+        # cache model
+        self._cache_model(output_model_config, output_model_id)
 
-            # cache run
-            self._cache_run(
-                pass_name, pass_config, input_model_id, output_model_id, run_accel, run_start_time, run_end_time
-            )
+        # cache run
+        self._cache_run(
+            pass_name, pass_config, input_model_id, output_model_id, run_accel, run_start_time, run_end_time
+        )
 
         # footprint model and run
         self.footprints[accelerator_spec].record(
@@ -1006,9 +1007,7 @@ class Engine:
         )
 
         if enable_cloud_cache and upload_to_cloud and pass_run_locally:
-            upload_model_to_cloud(
-                self.cloud_cache_helper, input_model_config, pass_search_point, input_model_hash, output_model_config
-            )
+            self.cloud_cache_helper.upload_model_to_cloud_cache(output_model_hash, output_model_config)
 
         return output_model_config, output_model_id, output_model_hash
 
