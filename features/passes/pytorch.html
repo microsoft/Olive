@@ -104,8 +104,12 @@
 <li class="toctree-l4"><a class="reference internal" href="#id7">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#torchtrtconversion">TorchTRTConversion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#quarot">QuaRot</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id8">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#torchtrtconversion">TorchTRTConversion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id9">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
@@ -377,14 +381,33 @@ as 2:4 and 4:8 patterns.</p>
 </div>
 </section>
 </section>
+<section id="quarot">
+<h2>QuaRot<a class="headerlink" href="#quarot" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">QuaRot</span></code> is a quantization technique that combines quantization and rotation to reduce the number of bits required to represent the weights of a model. It is based on the <a class="reference external" href="https://arxiv.org/abs/2305.14314">QuaRot paper</a>.</p>
+<p>This pass only supports HuggingFace transformer PyTorch models. Please refer to <a class="reference internal" href="../../api/passes.html#quarot"><span class="std std-ref">QuaRot</span></a> for more details on the types of transformers models supported.</p>
+<section id="id8">
+<h3>Example Configuration<a class="headerlink" href="#id8" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuaRot&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;w_rtn&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;rotate&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;w_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;a_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;k_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;v_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
 <section id="torchtrtconversion">
 <h2>TorchTRTConversion<a class="headerlink" href="#torchtrtconversion" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TorchTRTConversion</span></code> converts the <code class="docutils literal notranslate"><span class="pre">torch.nn.Linear</span></code> modules in the transformer layers in a Hugging Face PyTorch model to <code class="docutils literal notranslate"><span class="pre">TRTModules</span></code> from <code class="docutils literal notranslate"><span class="pre">torch_tensorrt</span></code> with fp16 precision and sparse weights, if
 applicable. <code class="docutils literal notranslate"><span class="pre">torch_tensorrt</span></code> is an extension to <code class="docutils literal notranslate"><span class="pre">torch</span></code> where TensorRT compiled engines can be used like regular <code class="docutils literal notranslate"><span class="pre">torch.nn.Module</span></code>s. This pass can be used to accelerate inference on transformer models
 with sparse weights by taking advantage of the 2:4 structured sparsity pattern supported by TensorRT.</p>
 <p>This pass only supports HfModels. Please refer to <a class="reference internal" href="../../api/passes.html#torch-trt-conversion"><span class="std std-ref">TorchTRTConversion</span></a> for more details on the types of transformers models supported.</p>
-<section id="id8">
-<h3>Example Configuration<a class="headerlink" href="#id8" title="Permalink to this heading">¶</a></h3>
+<section id="id9">
+<h3>Example Configuration<a class="headerlink" href="#id9" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TorchTRTConversion&quot;</span>
 <span class="p">}</span>
