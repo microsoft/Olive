@@ -10,11 +10,7 @@ trigger:
     - README.md
     - CONTRIBUTING.md
     - LICENSE
-    # unrelated pipelines
     - .github/*
-    - .azure_pipelines/performance_check/*
-    - .azure_pipelines/performance.yaml
-    - .azure_pipelines/job_templates/olive-performance-template.yaml
     # commonly updated examples with no test
     - examples/directml/llm/*
     - examples/directml/stable_diffusion_xl/*

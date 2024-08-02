@@ -1,5 +1,22 @@
-trigger: none
-pr: none
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    exclude:
+    - docs/*
+    - examples/*
+    - README.md
+    - CONTRIBUTING.md
+    - LICENSE
+pr:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - olive/azureml/*
+    - olive/systems/azureml/*
 
 schedules:
 - cron: 0 6 * * 5
