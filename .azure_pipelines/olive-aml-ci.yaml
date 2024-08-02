@@ -6,7 +6,8 @@ trigger:
   paths:
     exclude:
     - docs/*
-    - examples/*
+    - examples/README.md
+    - examples/**/README.md
     - README.md
     - CONTRIBUTING.md
     - LICENSE
@@ -18,6 +19,8 @@ pr:
     include:
     - olive/azureml/*
     - olive/systems/azureml/*
+    - examples/test/azureml/*
+    - examples/test/utils.py
 
 jobs:
 # Linux examples test
