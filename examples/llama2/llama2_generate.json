@@ -2,12 +2,6 @@
     "input_model": { "type": "HfModel", "model_path": "meta-llama/Llama-2-7b-hf", "generative": true },
     "data_configs": [
         {
-            "name": "wikitext2_train",
-            "type": "HuggingfaceContainer",
-            "load_dataset_config": { "data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train" },
-            "pre_process_data_config": { "max_samples": 128, "joiner": "\n\n" }
-        },
-        {
             "name": "generation_latency_dummy_data",
             "type": "TransformersPromptDummyDataContainer",
             "load_dataset_config": { "generative": true }

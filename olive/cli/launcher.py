@@ -24,10 +24,10 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
 
     # Register commands
     WorkflowRunCommand.register_subcommand(commands_parser)
-    ConfigureQualcommSDKCommand.register_subcommand(commands_parser)
-    ManageAMLComputeCommand.register_subcommand(commands_parser)
     FineTuneCommand.register_subcommand(commands_parser)
     ExportAdaptersCommand.register_subcommand(commands_parser)
+    ConfigureQualcommSDKCommand.register_subcommand(commands_parser)
+    ManageAMLComputeCommand.register_subcommand(commands_parser)
 
     return parser
 

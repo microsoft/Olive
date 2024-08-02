@@ -2,7 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import json
+import codecs
+import logging
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
@@ -12,6 +13,8 @@ from typing import ClassVar, Dict
 from olive.cli.base import BaseOliveCLICommand
 from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir
 
+logger = logging.getLogger(__name__)
+
 
 class FineTuneCommand(BaseOliveCLICommand):
     allow_unknown_args: ClassVar[bool] = True
@@ -20,17 +23,20 @@ class FineTuneCommand(BaseOliveCLICommand):
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
             "finetune",
-            help="Fine-tune a model on a dataset using peft",
+            help=(
+                "Fine-tune a model on a dataset using peft and optimize the model for ONNX Runtime with adapters as"
+                " inputs. Huggingface training arguments can be provided along with the defined options."
+            ),
+        )
+        # TODO(jambayk): option to list/install required dependencies?
+        sub_parser.add_argument(
+            "--precision",
+            type=str,
+            default="float16",
+            choices=["float16", "float32"],
+            help="The precision of the optimized model and adapters.",
         )
 
-        # TODO(jambayk): change to lowercase
-        sub_parser.add_argument(
-            "--method",
-            type=str,
-            default="LoRA",
-            choices=["LoRA", "QLoRA"],
-            help="The method to use for fine-tuning",
-        )
         # model options
         model_group = sub_parser.add_argument_group("model options")
         model_group.add_argument(
@@ -44,7 +50,11 @@ class FineTuneCommand(BaseOliveCLICommand):
             "--trust_remote_code", action="store_true", help="Trust remote code when loading a model."
         )
         model_group.add_argument(
-            "--torch_dtype", type=str, default="bfloat16", help="The torch dtype to use for training."
+            "--torch_dtype",
+            type=str,
+            default="bfloat16",
+            choices=["bfloat16", "float16", "float32"],
+            help="The torch dtype to use for training.",
         )
         # dataset options
         dataset_group = sub_parser.add_argument_group("dataset options")
@@ -73,7 +83,8 @@ class FineTuneCommand(BaseOliveCLICommand):
         )
         text_group.add_argument(
             "--text_template",
-            type=str,
+            # using special string type to allow for escaped characters like \n
+            type=unescaped_str,
             help=r"Template to generate text field from. E.g. '### Question: {prompt} \n### Answer: {response}'",
         )
         dataset_group.add_argument(
@@ -85,26 +96,36 @@ class FineTuneCommand(BaseOliveCLICommand):
         # lora options
         lora_group = sub_parser.add_argument_group("lora options")
         lora_group.add_argument(
+            "--method",
+            type=str,
+            default="lora",
+            choices=["lora", "qlora"],
+            help="The method to use for fine-tuning",
+        )
+        lora_group.add_argument(
             "--lora_r",
             type=int,
-            default=16,
+            default=64,
             help="LoRA R value.",
         )
         lora_group.add_argument(
             "--lora_alpha",
             type=int,
-            default=32,
+            default=16,
             help="LoRA alpha value.",
         )
+        # peft doesn't know about phi3, should we set it ourself in the lora pass based on model type?
         lora_group.add_argument(
             "--target_modules", type=str, help="The target modules for LoRA. If multiple, separate by comma."
         )
 
         # directory options
-        sub_parser.add_argument("-o", "--output_path", type=str, default="finetuned-adapter", help="Output path")
+        sub_parser.add_argument("-o", "--output_path", type=str, default="optimized-model", help="Output path")
         sub_parser.add_argument(
             "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
         )
+        # TODO(jambayk): what about checkpoint_dir and resume from checkpoint support? clean checkpoint dir?
+        sub_parser.add_argument("--clean", action="store_true", help="Run in a clean cache directory")
 
         sub_parser.set_defaults(func=FineTuneCommand)
 
@@ -114,18 +135,16 @@ class FineTuneCommand(BaseOliveCLICommand):
         set_tempdir(self.args.tempdir)
 
         run_config = self.get_run_config()
-
         with tempfile.TemporaryDirectory() as tempdir:
             run_config["output_dir"] = tempdir
             olive_run(run_config)
 
             # need to improve the output structure of olive run
-            with open(Path(tempdir) / "finetune" / "gpu-cuda_model.json") as f:
-                model_config = json.load(f)
-
             output_path = Path(self.args.output_path)
             output_path.mkdir(parents=True, exist_ok=True)
-            hardlink_copy_dir(model_config["config"]["adapter_path"], output_path)
+            hardlink_copy_dir(Path(tempdir) / "f-c-o-e-m" / "gpu-cuda_model", output_path)
+
+            logger.info("Model and adapters saved to %s", output_path.resolve())
 
     def parse_training_args(self) -> Dict:
         if not self.unknown_args:
@@ -145,7 +164,7 @@ class FineTuneCommand(BaseOliveCLICommand):
     def get_run_config(self) -> Dict:
         load_key = ("data_configs", 0, "load_dataset_config")
         preprocess_key = ("data_configs", 0, "pre_process_data_config")
-        finetune_key = ("passes", "finetune")
+        finetune_key = ("passes", "f")
         to_replace = [
             (("input_model", "model_path"), self.args.model_name_or_path),
             ((*load_key, "data_name"), self.args.data_name),
@@ -162,10 +181,14 @@ class FineTuneCommand(BaseOliveCLICommand):
             ((*finetune_key, "training_args"), self.parse_training_args()),
             ((*finetune_key, "lora_r"), self.args.lora_r),
             ((*finetune_key, "lora_alpha"), self.args.lora_alpha),
+            (("passes", "o", "float16"), self.args.precision == "float16"),
+            # make the mapping of precisions better
+            (("passes", "m", "precision"), "fp16" if self.args.precision == "float16" else "fp32"),
+            (("clean_cache",), self.args.clean),
         ]
         if self.args.trust_remote_code:
             to_replace.append((("input_model", "load_kwargs", "trust_remote_code"), True))
-        if self.args.method == "LoRA":
+        if self.args.method == "lora":
             to_replace.append(((*finetune_key, "target_modules"), self.args.target_modules.split(",")))
 
         config = deepcopy(TEMPLATE)
@@ -179,7 +202,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             eval_data_config["name"] = "eval_data"
             eval_data_config["load_dataset_config"]["split"] = self.args.eval_split
             config["data_configs"].append(eval_data_config)
-            config["passes"]["finetune"]["eval_data_config"] = "eval_data"
+            config["passes"]["f"]["eval_data_config"] = "eval_data"
 
         return config
 
@@ -188,10 +211,23 @@ TEMPLATE = {
     "input_model": {
         "type": "HfModel",
         "load_kwargs": {"attn_implementation": "eager"},
+        "io_config": {
+            "input_names": ["input_ids", "attention_mask", "position_ids"],
+            "output_names": ["logits"],
+            "input_shapes": [[2, 8], [2, 8], [2, 8]],
+            "input_types": ["int64", "int64", "int64"],
+            "dynamic_axes": {
+                "input_ids": {"0": "batch_size", "1": "sequence_length"},
+                "attention_mask": {"0": "batch_size", "1": "total_sequence_length"},
+                "position_ids": {"0": "batch_size", "1": "sequence_length"},
+            },
+        },
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
+            # will just use cuda ep now, only genai metadata is not agnostic to ep
+            # revisit once model builder supports lora adapters
             "accelerators": [{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}],
         }
     },
@@ -203,7 +239,29 @@ TEMPLATE = {
             "pre_process_data_config": {},
         }
     ],
-    "passes": {"finetune": {"train_data_config": "train_data"}},
+    "passes": {
+        "f": {"train_data_config": "train_data"},
+        # TODO(jambayk): migrate to model builder once it supports lora adapters
+        # the models produced here are not fully optimized
+        "c": {
+            "type": "OnnxConversion",
+            "target_opset": 17,
+            "torch_dtype": "float32",
+            "save_metadata_for_token_generation": True,
+        },
+        "o": {
+            "type": "OrtTransformersOptimization",
+            "model_type": "gpt2",
+            "opt_level": 0,
+            "keep_io_types": False,
+        },
+        "e": {"type": "ExtractAdapters"},
+        "m": {"type": "ModelBuilder", "metadata_only": True},
+    },
     "host": "local_system",
     "target": "local_system",
 }
+
+
+def unescaped_str(arg_str):
+    return codecs.decode(arg_str, "unicode_escape")

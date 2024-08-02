@@ -4,14 +4,14 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 import transformers
 
 from olive.common.config_utils import NestedConfig
 from olive.common.pydantic_v1 import Field, validator
-from olive.common.utils import resolve_torch_dtype
+from olive.common.utils import exclude_keys, resolve_torch_dtype
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ class HfLoadKwargs(NestedConfig):
             )
             return v
 
-    def get_load_kwargs(self) -> Dict[str, Any]:
+    def get_load_kwargs(self, exclude_load_keys: Optional[List[str]] = None) -> Dict[str, Any]:
         """Return all args in a dict with types expected by `from_pretrained`."""
         loading_args = {}
         # copy args that can be directly copied
@@ -142,6 +142,10 @@ class HfLoadKwargs(NestedConfig):
         # add extra args
         if self.extra_args:
             loading_args.update(deepcopy(self.extra_args))
+        # exclude keys
+        if exclude_load_keys:
+            loading_args = exclude_keys(loading_args, exclude_load_keys)
+
         return loading_args
 
     def get_torch_dtype(self):

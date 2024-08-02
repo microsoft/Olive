@@ -595,7 +595,7 @@ class LoRABase(Pass):
         with tempfile.TemporaryDirectory(prefix="olive_tmp") as temp_dir:
             checkpoint = config.training_args.resume_from_checkpoint
             if not config.training_args.output_dir:
-                logger.info("No training_args.output_dir provided. Using a temp dir.")
+                logger.debug("No training_args.output_dir provided. Using a temp dir.")
                 config.training_args.output_dir = temp_dir
                 # set save_total_limit to 1 since the temp dir will be deleted after training
                 config.training_args.extra_args["save_total_limit"] = 1
@@ -702,7 +702,7 @@ class LoRABase(Pass):
         # resize model embedding layer
         model.resize_token_embeddings(len(tokenizer))
         if num_new_tokens > 0:
-            logger.info("Added %d new tokens to tokenizer and resized model embedding layer.", num_new_tokens)
+            logger.debug("Added %d new tokens to tokenizer and resized model embedding layer.", num_new_tokens)
             input_embeddings_data = model.get_input_embeddings().weight.data
             output_embeddings_data = model.get_output_embeddings().weight.data
 

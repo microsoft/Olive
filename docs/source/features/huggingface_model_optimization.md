@@ -86,7 +86,7 @@ Example: datasets in `data_configs`:
     },
     "pre_process_data_config": {
         "text_cols": ["text"],
-        "corpus_strategy": "line-by-line",
+        "strategy": "line-by-line",
         "max_seq_len": 512,
         "pad_to_max_len": false
     }

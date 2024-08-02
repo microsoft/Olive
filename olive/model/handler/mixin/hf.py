@@ -25,25 +25,41 @@ logger = logging.getLogger(__name__)
 class HfMixin:
     """Provide the following Hugging Face model functionalities."""
 
-    def get_load_kwargs(self) -> Dict[str, Any]:
-        """Return all args from load_kwargs in a dict with types expected by `from_pretrained`."""
-        return self.load_kwargs.get_load_kwargs() if self.load_kwargs else {}
+    def get_load_kwargs(self, exclude_load_keys: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Return all args from load_kwargs in a dict with types expected by `from_pretrained`.
 
-    def get_hf_model_config(self) -> "PretrainedConfig":
-        return get_model_config(self.model_path, **self.get_load_kwargs())
+        :param exclude_load_keys: list of keys to exclude from load_kwargs
+        :return: dict of load_kwargs
+        """
+        return self.load_kwargs.get_load_kwargs(exclude_load_keys) if self.load_kwargs else {}
 
-    def get_hf_generation_config(self) -> "GenerationConfig":
-        return get_generation_config(self.model_path, **self.get_load_kwargs())
+    def get_hf_model_config(self, exclude_load_keys: Optional[List[str]] = None) -> "PretrainedConfig":
+        """Get model config for the model.
+
+        :param exclude_load_keys: list of keys to exclude from load_kwargs
+        :return: model config
+        """
+        return get_model_config(self.model_path, **self.get_load_kwargs(exclude_load_keys))
+
+    def get_hf_generation_config(self, exclude_load_keys: Optional[List[str]] = None) -> Optional["GenerationConfig"]:
+        """Get generation config for the model if it exists.
+
+        :param exclude_load_keys: list of keys to exclude from load_kwargs
+        :return: generation config or None
+        """
+        return get_generation_config(self.model_path, **self.get_load_kwargs(exclude_load_keys))
 
     def get_hf_tokenizer(self) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
+        """Get tokenizer for the model."""
         # don't provide loading args for tokenizer directly since it tries to serialize all kwargs
         # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
         return get_tokenizer(self.model_path)
 
-    def save_metadata(self, output_dir: str, **kwargs) -> List[str]:
+    def save_metadata(self, output_dir: str, exclude_load_keys: Optional[List[str]] = None, **kwargs) -> List[str]:
         """Save model metadata files to the output directory.
 
         :param output_dir: output directory to save metadata files
+        :param exclude_load_keys: list of keys to exclude from load_kwargs
         :param kwargs: additional keyword arguments to pass to `save_pretrained` method
         :return: list of file paths
         """
@@ -56,12 +72,15 @@ class HfMixin:
         saved_filepaths = []
 
         # save config and module files
-        config = self.get_hf_model_config()
+        config = self.get_hf_model_config(exclude_load_keys=exclude_load_keys)
         if getattr(config, "auto_map", None):
             # needs model_name_or_path to find module files
             # conditional since model_name_or_path might trigger preprocessing for some mlflow models
             config, module_files = save_module_files(
-                config, self.model_name_or_path, str(output_dir), **self.get_load_kwargs()
+                config,
+                self.model_name_or_path,
+                str(output_dir),
+                **self.get_load_kwargs(exclude_load_keys=exclude_load_keys),
             )
             saved_filepaths.extend(module_files)
         save_model_config(config, output_dir, **kwargs)
@@ -69,7 +88,7 @@ class HfMixin:
 
         # save model generation config
         # non-generative models won't have generation config
-        generation_config = self.get_hf_generation_config()
+        generation_config = self.get_hf_generation_config(exclude_load_keys=exclude_load_keys)
         if generation_config:
             save_model_config(generation_config, output_dir, **kwargs)
             saved_filepaths.append(str(output_dir / "generation_config.json"))

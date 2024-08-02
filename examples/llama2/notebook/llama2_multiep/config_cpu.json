@@ -16,12 +16,6 @@
         }
     },
     "data_configs": [
-        {
-            "name": "wikitext2_train",
-            "type": "HuggingfaceContainer",
-            "load_dataset_config": { "data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train" },
-            "pre_process_data_config": { "max_samples": 128 }
-        },
         { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" },
         { "name": "transformer_prompt_dummy_data", "type": "TransformersPromptDummyDataContainer" }
     ],
