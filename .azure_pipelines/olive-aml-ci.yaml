@@ -1,4 +1,5 @@
 trigger:
+  batch: true
   branches:
     include:
     - main
@@ -17,14 +18,6 @@ pr:
     include:
     - olive/azureml/*
     - olive/systems/azureml/*
-
-schedules:
-- cron: 0 6 * * 5
-  displayName: Scheduled Build
-  branches:
-    include:
-    - main
-  always: true
 
 jobs:
 # Linux examples test
