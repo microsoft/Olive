@@ -52,7 +52,7 @@ def get_ort_inference_session(
 
     sess_options = ort.SessionOptions()
     if use_ort_extensions:
-        # register custom ops for onnxruntime-extensions
+        # register custom ops for onnxruntime_extensions
         from onnxruntime_extensions import get_library_path
 
         sess_options.register_custom_ops_library(get_library_path())

@@ -18,7 +18,7 @@ nncf==2.7.0
 nvidia-modelopt~=0.11.0
 onnx-graphsurgeon
 onnxconverter_common
-onnxruntime-extensions
+onnxruntime_extensions
 openvino==2023.2.0
 optimum>=1.17.0
 pandas

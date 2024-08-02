@@ -765,7 +765,7 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
             if system == OS.WINDOWS:
                 NIGHTLY_URL = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/"
                 download_command = create_python_download_command(NIGHTLY_URL).substitute(
-                    package_name="onnxruntime-extensions",
+                    package_name="onnxruntime_extensions",
                     version=version,
                     python_download_path=download_path,
                     python_version=python_version,
@@ -778,7 +778,7 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
                 )
         else:
             download_command = create_python_download_command().substitute(
-                package_name="onnxruntime-extensions",
+                package_name="onnxruntime_extensions",
                 version=version,
                 python_download_path=download_path,
                 python_version=python_version,

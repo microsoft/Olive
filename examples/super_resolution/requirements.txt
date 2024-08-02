@@ -1,1 +1,1 @@
-onnxruntime-extensions
+onnxruntime_extensions
