@@ -147,12 +147,7 @@
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.constants</span> <span class="kn">import</span> <span class="n">DEFAULT_CACHE_DIR</span><span class="p">,</span> <span class="n">DEFAULT_WORKFLOW_ID</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">hash_dict</span>
-<span class="kn">from</span> <span class="nn">olive.engine.cloud_cache_helper</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CloudCacheHelper</span><span class="p">,</span>
-    <span class="n">check_model_cache</span><span class="p">,</span>
-    <span class="n">update_input_model_config</span><span class="p">,</span>
-    <span class="n">upload_model_to_cloud</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">olive.engine.cloud_cache_helper</span> <span class="kn">import</span> <span class="n">CloudCacheHelper</span><span class="p">,</span> <span class="n">check_model_cache</span><span class="p">,</span> <span class="n">update_input_model_config</span>
 <span class="kn">from</span> <span class="nn">olive.engine.config</span> <span class="kn">import</span> <span class="n">FAILED_CONFIG</span><span class="p">,</span> <span class="n">INVALID_CONFIG</span><span class="p">,</span> <span class="n">PRUNED_CONFIGS</span>
 <span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span>
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
@@ -600,9 +595,7 @@
             <span class="c1"># output dir with pass flow</span>
             <span class="n">output_dir_with_pf</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;-&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pass_flow</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">pass_output_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">or</span> <span class="n">output_name</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
-                <span class="n">cloud_cache_config</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">cloud_cache_config</span><span class="o">.</span><span class="n">enable_cloud_cache</span>
-            <span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">pass_output_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">or</span> <span class="n">output_name</span><span class="p">:</span>
                 <span class="c1"># if the last pass does not have output name, use the prefix output name</span>
                 <span class="n">pass_output_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">Engine</span><span class="o">.</span><span class="n">_get_prefix_output_name</span><span class="p">(</span><span class="n">output_name</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
             <span class="n">final_output_name</span> <span class="o">=</span> <span class="n">pass_output_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
@@ -952,7 +945,6 @@
                 <span class="n">cloud_cache_config</span><span class="o">.</span><span class="n">enable_cloud_cache</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span> <span class="o">=</span> <span class="n">CloudCacheHelper</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">dirs</span><span class="o">.</span><span class="n">cloud_cache</span><span class="p">,</span>
                     <span class="n">cloud_cache_config</span><span class="o">.</span><span class="n">account_url</span><span class="p">,</span>
                     <span class="n">cloud_cache_config</span><span class="o">.</span><span class="n">container_name</span><span class="p">,</span>
                     <span class="n">cloud_cache_config</span><span class="o">.</span><span class="n">input_model_config</span><span class="p">,</span>
@@ -982,8 +974,14 @@
         <span class="p">):</span>
             <span class="c1"># download model files</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Cloud model cache is enabled. Download final model files ...&quot;</span><span class="p">)</span>
-            <span class="n">cloud_model_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="o">.</span><span class="n">exist_in_cloud_cache</span><span class="p">(</span><span class="n">output_model_hash</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="o">.</span><span class="n">update_model_config</span><span class="p">(</span><span class="n">cloud_model_path</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">output_model_hash</span><span class="p">)</span>
+            <span class="n">cloud_model_path</span><span class="p">,</span> <span class="n">cloud_adapter_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="o">.</span><span class="n">get_path_from_cloud</span><span class="p">(</span><span class="n">output_model_hash</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="o">.</span><span class="n">update_model_config</span><span class="p">(</span>
+                <span class="n">cloud_model_path</span><span class="p">,</span>
+                <span class="n">cloud_adapter_path</span><span class="p">,</span>
+                <span class="n">model_config</span><span class="p">,</span>
+                <span class="n">output_model_hash</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get_model_output_path</span><span class="p">(</span><span class="n">model_id</span><span class="p">)),</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">should_prune</span><span class="p">:</span>
             <span class="c1"># evaluate the model</span>
@@ -1075,14 +1073,18 @@
         <span class="n">run_start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">enable_cloud_cache</span><span class="p">:</span>
-            <span class="n">output_model_config</span> <span class="o">=</span> <span class="n">check_model_cache</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">,</span> <span class="n">input_model_hash</span>
+            <span class="n">output_model_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="o">.</span><span class="n">get_hash_key</span><span class="p">(</span>
+                <span class="n">input_model_config</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">,</span> <span class="n">input_model_hash</span>
             <span class="p">)</span>
+            <span class="n">output_model_config</span> <span class="o">=</span> <span class="n">check_model_cache</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="p">,</span> <span class="n">output_model_hash</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">))</span>
             <span class="n">pass_run_locally</span> <span class="o">=</span> <span class="n">output_model_config</span> <span class="ow">is</span> <span class="kc">None</span>
+
         <span class="c1"># run pass</span>
         <span class="k">if</span> <span class="n">pass_run_locally</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">enable_cloud_cache</span> <span class="ow">and</span> <span class="n">input_model_config</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">update_input_model_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_hash</span><span class="p">)</span>
+                <span class="n">update_input_model_config</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_hash</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">)</span>
+                <span class="p">)</span>
 
             <span class="n">host</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">host</span><span class="o">.</span><span class="n">system_type</span> <span class="o">!=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span>
@@ -1116,14 +1118,13 @@
         <span class="n">run_end_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Pass </span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2"> finished in </span><span class="si">%f</span><span class="s2"> seconds&quot;</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">run_end_time</span> <span class="o">-</span> <span class="n">run_start_time</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">enable_cloud_cache</span><span class="p">:</span>
-            <span class="c1"># cache model</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
+        <span class="c1"># cache model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
 
-            <span class="c1"># cache run</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_cache_run</span><span class="p">(</span>
-                <span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">,</span> <span class="n">run_accel</span><span class="p">,</span> <span class="n">run_start_time</span><span class="p">,</span> <span class="n">run_end_time</span>
-            <span class="p">)</span>
+        <span class="c1"># cache run</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_run</span><span class="p">(</span>
+            <span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">,</span> <span class="n">run_accel</span><span class="p">,</span> <span class="n">run_start_time</span><span class="p">,</span> <span class="n">run_end_time</span>
+        <span class="p">)</span>
 
         <span class="c1"># footprint model and run</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span>
@@ -1137,9 +1138,7 @@
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">enable_cloud_cache</span> <span class="ow">and</span> <span class="n">upload_to_cloud</span> <span class="ow">and</span> <span class="n">pass_run_locally</span><span class="p">:</span>
-            <span class="n">upload_model_to_cloud</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">,</span> <span class="n">input_model_hash</span><span class="p">,</span> <span class="n">output_model_config</span>
-            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="o">.</span><span class="n">upload_model_to_cloud_cache</span><span class="p">(</span><span class="n">output_model_hash</span><span class="p">,</span> <span class="n">output_model_config</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">,</span> <span class="n">output_model_hash</span>
 
