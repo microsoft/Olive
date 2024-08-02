@@ -31,7 +31,9 @@ olive_run("my_model_acceleration_description.json")
 ```{note}
 `olive.workflows.run` in python code also accepts python dictionary equivalent of the config JSON object.
 
-You can use setup mode `olive run --config my_model_acceleration_description.json --setup` to identify list of additional packages you may need to install for your workflow.
+You can use setup mode `olive run --config my_model_acceleration_description.json --packages` to identify list of additional packages you may need to install for your workflow. This command will generate a `requirements.txt` file for the packages you need. If you are using systems other than local system, another `remote_requirements.txt` will be generated for the packages you need for your remote systems.
+
+You can also use `--setup` to automatically install required packages: `olive run --config my_model_acceleration_description.json --setup`.
 
 To include user implemented (or proprietary, or private) passes as part of workflow, clone olive_config.json and update it.
 Provide the path to the cloned _olive_config.json_ file at launch using the '--package-config' command line option.

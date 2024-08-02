@@ -21,7 +21,7 @@ from olive.workflows.run.config import RunConfig, RunPassConfig
 logger = logging.getLogger(__name__)
 
 
-def dependency_setup(package_config: OlivePackageConfig, run_config: RunConfig):
+def get_required_packages(package_config: OlivePackageConfig, run_config: RunConfig):
     extras = deepcopy(package_config.extra_dependencies)
 
     def get_system_extras(host_type, accelerators, execution_providers):
@@ -87,9 +87,18 @@ def dependency_setup(package_config: OlivePackageConfig, run_config: RunConfig):
     system_extra_name = get_system_extras(host_type, accelerators, execution_providers)
     if system_extra_name:
         local_packages.extend(extras.get(system_extra_name))
-
-    # install missing packages to local or tell user to install packages in their environment
     logger.info("The following packages are required in the local environment: %s", local_packages)
+    if remote_packages:
+        logger.info(
+            "Please make sure the following packages are installed in %s environment: %s",
+            run_config.engine.host.type,
+            remote_packages,
+        )
+    return local_packages, remote_packages, ort_packages
+
+
+def install_packages(local_packages, ort_packages):
+    logger.info("installing packages: %s", local_packages)
     packages_install = []
     for package in set(local_packages):
         if package in ort_packages:
@@ -111,13 +120,6 @@ def dependency_setup(package_config: OlivePackageConfig, run_config: RunConfig):
         logger.info("Running: %s", " ".join(cmd))
         subprocess.check_call(cmd)
         logger.info("Successfully installed %s.", packages_install)
-
-    if remote_packages:
-        logger.info(
-            "Please make sure the following packages are installed in %s environment: %s",
-            run_config.engine.host.type,
-            remote_packages,
-        )
 
 
 def get_pass_module_path(pass_type: str, package_config: OlivePackageConfig) -> str:
@@ -280,6 +282,7 @@ def run(
     setup: bool = False,
     package_config: Optional[Union[str, Path, dict]] = None,
     tempdir: Union[str, Path] = None,
+    packages: bool = False,
 ):
     # set tempdir
     set_tempdir(tempdir)
@@ -289,6 +292,19 @@ def run(
 
     package_config = OlivePackageConfig.parse_file_or_obj(package_config)
     run_config: RunConfig = RunConfig.parse_file_or_obj(run_config)
+
+    if packages or setup:
+        # set the log level to INFO for packages
+        set_verbosity_info()
+        local_packages, remote_packages, ort_packages = get_required_packages(package_config, run_config)
+
+        if packages:
+            generate_requirements_files(local_packages, remote_packages)
+            return None
+
+        if setup:
+            install_packages(local_packages, ort_packages)
+            return None
 
     if run_config.workflow_host is not None:
         workflow_host = run_config.workflow_host
@@ -302,14 +318,25 @@ def run(
 
     # set log level for olive
     set_default_logger_severity(run_config.engine.log_severity_level)
+    return run_engine(package_config, run_config)
 
-    if setup:
-        # set the log level to INFO for setup
-        set_verbosity_info()
-        dependency_setup(package_config, run_config)
-        return None
+
+def generate_requirements_files(local_packages, remote_packages):
+    package_list = [(local_packages, "requirements.txt")]
+    if remote_packages:
+        package_list.append((remote_packages, "remote_requirements.txt"))
+    for packages, file_name in package_list:
+        generate_files_from_packages(packages, file_name)
+
+
+def generate_files_from_packages(packages, file_name):
+    file_path = Path(file_name)
+    if file_path.exists():
+        logger.warning("%s already exists. Skipping.", file_name)
     else:
-        return run_engine(package_config, run_config)
+        with file_path.open("w") as f:
+            f.write("\n".join(packages))
+        logger.info("Requirements file %s is generated.", file_name)
 
 
 def check_local_ort_installation(package_name: str):
