@@ -7,6 +7,7 @@ import logging
 import os
 import platform
 import sys
+from pathlib import Path
 
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
@@ -207,3 +208,7 @@ def set_azure_identity_logging():
     identity_logger.setLevel(logging.DEBUG)
     handler = logging.StreamHandler(stream=sys.stdout)
     identity_logger.addHandler(handler)
+
+
+def get_example_dir(example_name: str):
+    return str(Path(__file__).resolve().parent.parent / example_name)

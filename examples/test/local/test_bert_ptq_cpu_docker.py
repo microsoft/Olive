@@ -4,22 +4,18 @@
 # --------------------------------------------------------------------------
 import os
 import platform
-from pathlib import Path
 
 import pytest
-from utils import check_output, patch_config
 
 from olive.common.constants import OS
+
+from ..utils import check_output, get_example_dir, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    cur_dir = Path(__file__).resolve().parent.parent
-    example_dir = cur_dir / "bert"
-    os.chdir(example_dir)
-    yield
-    os.chdir(cur_dir)
+    os.chdir(get_example_dir("bert"))
 
 
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
