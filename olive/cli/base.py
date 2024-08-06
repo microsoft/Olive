@@ -4,11 +4,18 @@
 # --------------------------------------------------------------------------
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
+from typing import ClassVar, Optional
 
 
 class BaseOliveCLICommand(ABC):
-    def __init__(self, args: Namespace):
+    allow_unknown_args: ClassVar[bool] = False
+
+    def __init__(self, parser: ArgumentParser, args: Namespace, unknown_args: Optional[list] = None):
         self.args = args
+        self.unknown_args = unknown_args
+
+        if unknown_args and not self.allow_unknown_args:
+            parser.error(f"Unknown arguments: {unknown_args}")
 
     @staticmethod
     @abstractmethod

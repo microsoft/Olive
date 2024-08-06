@@ -34,7 +34,7 @@ def get_pass_config(model_name, task, **kwargs):
         "pre_process_data_config": {
             "params": {
                 "text_cols": ["sentence"],
-                "corpus_strategy": "line-by-line",
+                "strategy": "line-by-line",
                 "max_seq_len": 512,
                 "max_samples": 10,
                 "pad_to_max_len": False,

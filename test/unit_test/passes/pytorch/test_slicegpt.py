@@ -31,7 +31,7 @@ def test_slicegpt(tmp_path):
         "pre_process_data_config": {
             "params": {
                 "text_cols": ["text"],
-                "corpus_strategy": "join",
+                "strategy": "join",
                 "add_special_tokens": False,
                 "max_seq_len": 2048,
                 "max_samples": 128,

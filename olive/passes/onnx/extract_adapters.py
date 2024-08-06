@@ -40,7 +40,7 @@ class ExtractAdapters(Pass):
         config = {
             "make_inputs": PassConfigParam(
                 type_=bool,
-                default_value=False,
+                default_value=True,
                 description=(
                     "Convert adapter weights to inputs. If false, the adapter weights will be set as initializers with"
                     " external data."
@@ -48,7 +48,7 @@ class ExtractAdapters(Pass):
             ),
             "pack_inputs": PassConfigParam(
                 type_=bool,
-                default_value=True,
+                default_value=False,
                 description=(
                     "Pack adapter weights for the same module type into a single input tensor. Only used if make_inputs"
                     " is True."

@@ -163,7 +163,7 @@ def generate_config(args):
                 "name": "wikitext2_train",
                 "type": "HuggingfaceContainer",
                 "load_dataset_config": {"data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train"},
-                "pre_process_data_config": {"max_samples": 128},
+                "pre_process_data_config": {"add_special_tokens": False, "max_samples": 128},
             }
         ]
         template_json["passes"]["quarot"]["calibration_data_config"] = "wikitext2_train"

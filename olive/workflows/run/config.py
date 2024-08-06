@@ -200,13 +200,12 @@ class RunConfig(NestedConfig):
         model_info = {
             "model_name": input_model_config["config"]["model_path"],
             "task": input_model_config["config"].get("task", DEFAULT_HF_TASK),
+            "trust_remote_code": input_model_config["config"].get("load_kwargs", {}).get("trust_remote_code"),
         }
         kv_cache = input_model_config.get("io_config", {}).get("kv_cache")
         if isinstance(kv_cache, dict):
             for key in ["ort_past_key_name", "ort_past_value_name", "batch_size"]:
                 model_info[key] = kv_cache.get(key)
-        if input_model_config["config"].get("load_kwargs", {}).get("trust_remote_code"):
-            model_info["trust_remote_code"] = True
 
         # TODO(anyone): Will this container ever be used with non-HF models?
         if v["type"] in TRANSFORMER_DUMMY_DATA_CONTAINER:

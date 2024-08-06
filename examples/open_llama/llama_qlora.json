@@ -6,11 +6,7 @@
             "name": "oasst1",
             "type": "HuggingfaceContainer",
             "load_dataset_config": { "data_name": "timdettmers/openassistant-guanaco", "split": "train" },
-            "pre_process_data_config": {
-                "corpus_strategy": "line-by-line",
-                "max_seq_len": 512,
-                "pad_to_max_len": false
-            }
+            "pre_process_data_config": { "strategy": "line-by-line", "max_seq_len": 512, "pad_to_max_len": false }
         }
     ],
     "passes": {

@@ -45,7 +45,7 @@ class TextGenParams(ConfigBase):
     # if false, cannot guarantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
-    add_special_tokens: bool = False  # add bos and eos tokens to each sequence
+    add_special_tokens: bool = True  # add bos and eos tokens to each sequence
     use_attention_mask: bool = True  # add attention mask to each example
     # one of text_formatting_func, text_template, or text_cols must be provided
     # priority: text_formatting_func > text_template > text_cols
@@ -56,9 +56,9 @@ class TextGenParams(ConfigBase):
     # list of text columns, columns are concatenated together using a space
     text_cols: Union[str, List[str]] = "text"
     # in JOIN strategies, the rows of text_cols are concatenated together
-    corpus_strategy: TextGenStrategy = TextGenStrategy.JOIN
-    stride: int = None  # required when corpus_strategy is JOIN_SLIDING_WINDOW
-    # text to join the rows of input columns when corpus_strategy is JOIN
+    strategy: TextGenStrategy = TextGenStrategy.JOIN
+    stride: int = None  # required when strategy is JOIN_SLIDING_WINDOW
+    # text to join the rows of input columns when strategy is JOIN
     # add_special_tokens: "{bos_token} {text_col1} {eos_token} {joiner} {bos_token} {text_col2} {eos_token}..."
     # no add_special_tokens: "{text_col1} {joiner} {text_col2}..."
     # if None, joined with a space
@@ -99,21 +99,21 @@ class TextGenParams(ConfigBase):
 
     @validator("stride", always=True)
     def _check_stride(cls, v, values):
-        if "corpus_strategy" not in values:
-            raise ValueError("Invalid corpus_strategy")
-        if values["corpus_strategy"] == TextGenStrategy.JOIN_SLIDING_WINDOW and v is None:
-            raise ValueError("stride must be specified when corpus_strategy is JOIN_SLIDING_WINDOW")
+        if "strategy" not in values:
+            raise ValueError("Invalid strategy")
+        if values["strategy"] == TextGenStrategy.JOIN_SLIDING_WINDOW and v is None:
+            raise ValueError("stride must be specified when strategy is JOIN_SLIDING_WINDOW")
         return v
 
-    @validator("corpus_strategy", always=True)
+    @validator("strategy", always=True)
     def _check_max_samples(cls, v, values):
         if "max_samples" not in values:
             raise ValueError("Invalid max_samples")
         if "random" in v and values["max_samples"] is None:
-            raise ValueError("max_samples must be specified when corpus_strategy is random")
+            raise ValueError("max_samples must be specified when strategy is random")
         return v
 
-    @validator("corpus_strategy", always=True)
+    @validator("strategy", always=True)
     def _check_use_attention_mask(cls, v, values):
         if "use_attention_mask" not in values:
             raise ValueError("Invalid use_attention_mask")
@@ -132,10 +132,10 @@ class TextGenParams(ConfigBase):
 
     @validator("random_seed", always=True)
     def _check_random(cls, v, values):
-        if "corpus_strategy" not in values:
-            raise ValueError("Invalid corpus_strategy")
-        if "random" in values["corpus_strategy"] and v is None:
-            raise ValueError("random_seed must be specified when corpus_strategy is random")
+        if "strategy" not in values:
+            raise ValueError("Invalid strategy")
+        if "random" in values["strategy"] and v is None:
+            raise ValueError("random_seed must be specified when strategy is random")
         return v
 
     def get_user_module_loader(self):
@@ -147,7 +147,7 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
     """Pre-process data for text generation task.
 
     The input dataset is expected to have one or more text columns.
-    Depending on the corpus_strategy, the sequences are either joined together or processed individually.
+    Depending on the strategy, the sequences are either joined together or processed individually.
     """
     from datasets import Dataset as HFDataset
 
@@ -173,16 +173,16 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
     }
     if args.use_attention_mask:
         tokenized_inputs["attention_mask"] = []
-    if "join" in args.corpus_strategy:
+    if "join" in args.strategy:
         joiner_tokens = tokenizer.encode(args.joiner, add_special_tokens=False) if args.joiner else []
 
-        if args.corpus_strategy != TextGenStrategy.JOIN_RANDOM:
+        if args.strategy != TextGenStrategy.JOIN_RANDOM:
             # no randomization, just use contiguous blocks of tokens
-            if args.corpus_strategy == TextGenStrategy.JOIN_SLIDING_WINDOW:
+            if args.strategy == TextGenStrategy.JOIN_SLIDING_WINDOW:
                 # we use the stride as both the step between sequences and the context size
                 step, context = args.stride, args.max_seq_len - args.stride
             else:
-                # JOIN corpus_strategy
+                # JOIN strategy
                 # text is split into non-overlapping sequences and there is no context
                 step, context = args.max_seq_len, None
 
@@ -270,7 +270,7 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                     resamples += 1
     else:
         # each line is a sequence
-        if args.corpus_strategy == TextGenStrategy.LINE_BY_LINE:
+        if args.strategy == TextGenStrategy.LINE_BY_LINE:
             # batched tokenization might be faster so lets tokenize all the text at once
             if not args.max_samples:
                 batched_input_ids = batch_tokenize_text(text_list, tokenizer, args)

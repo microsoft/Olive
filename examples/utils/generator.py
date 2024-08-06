@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import onnx
@@ -197,7 +197,7 @@ class ORTGenerator:
         return sessions, adapters
 
     def get_adapter(
-        self, name: str = None, use_io_binding: bool = False
+        self, name: Optional[str] = None, use_io_binding: bool = False
     ) -> Tuple[InferenceSession, str, Dict[str, Any]]:
         """Get the session, template and inputs for the specified adapter.
 
@@ -220,8 +220,8 @@ class ORTGenerator:
 
     def generate(
         self,
-        prompt: Union[str, List[str]],
-        adapter: str = None,
+        prompt: Union[Union[str, Tuple[str]], List[Union[str, Tuple[str]]]],
+        adapter: Optional[str] = None,
         max_gen_len: int = 128,
         use_io_binding: bool = False,
         cache_type: str = "dynamic",
@@ -230,7 +230,7 @@ class ORTGenerator:
     ) -> Union[str, List[str]]:
         """Generate text from the model given a prompt.
 
-        :param prompt: The prompt to generate text from. Can be a string or a list of strings.
+        :param prompt: The prompt to generate text from. Can be a string/string-tuples or a list.
         :param adapter: The adapter to use for generation. If None, the default adapter is used.
         :param max_gen_len: The maximum length of the generated text.
         :param use_io_binding: Whether to use IO binding for the generation.
@@ -379,14 +379,14 @@ class ORTGenerator:
             io_binding.clear_binding_outputs()
 
         decoded_text = self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
-        if isinstance(prompt, str):
+        if isinstance(prompt, (str, tuple)):
             return decoded_text[0]
         return decoded_text
 
     def get_initial_inputs(
         self,
-        prompt: Union[str, List[str]],
-        template: str,
+        prompt: Union[Union[str, Tuple[str]], List[Union[str, Tuple[str]]]],
+        template: Optional[str],
         use_io_binding: bool,
         cache_type: str,
         max_cache_len: int,
@@ -401,10 +401,14 @@ class ORTGenerator:
 
         if template is not None:
             prompt = (
-                template.format(prompt=prompt)
-                if isinstance(prompt, str)
-                else [template.format(prompt=p) for p in prompt]
+                apply_template(template, prompt)
+                if isinstance(prompt, (str, tuple))
+                else [apply_template(template, p) for p in prompt]
             )
+        else:
+            assert isinstance(prompt, str) or (
+                isinstance(prompt, list) and all(isinstance(p, str) for p in prompt)
+            ), "tuple prompts require a template"
 
         encodings_dict = self.tokenizer(prompt, return_tensors="np", padding=True)
         input_ids = encodings_dict["input_ids"].astype(self.input_info["input_ids"]["dtype"])
@@ -467,3 +471,11 @@ class ORTGenerator:
             kwargs["max_cache_len"] = max_cache_len
 
         return cache_class(**kwargs, **self.cache_info)
+
+
+def apply_template(template: str, p: Union[str, Tuple[str]]) -> str:
+    if isinstance(p, tuple):
+        kwargs = {f"prompt_{i}": p[i] for i in range(len(p))}
+    else:
+        kwargs = {"prompt": p}
+    return template.format(**kwargs)

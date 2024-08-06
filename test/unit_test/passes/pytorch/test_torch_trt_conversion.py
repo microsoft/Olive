@@ -66,7 +66,7 @@ def test_torch_trt_conversion_success(tmp_path):
         "pre_process_data_config": {
             "params": {
                 "text_cols": ["sentence"],
-                "corpus_strategy": "join-random",
+                "strategy": "join-random",
                 "max_seq_len": 100,
                 "max_samples": 1,
                 "random_seed": 42,
