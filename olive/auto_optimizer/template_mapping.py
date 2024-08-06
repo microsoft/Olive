@@ -15,6 +15,9 @@ TEMPLATE_CONFIG_PATH = Path(__file__).resolve().parent / "config_template"
 PASS_CAPABILITY = "pass_capability.yaml"
 OPT_LEVEL_PASSES = "opt_level_passes.yaml"
 
+WORKFLOW_TEMPLATE_PATH = Path(__file__).resolve().parent / "workflow_template"
+PERF_TUNING_TEMPLATE = WORKFLOW_TEMPLATE_PATH / "ort_perf_tuning.yaml"
+
 
 def get_pass_capability():
     with (TEMPLATE_CONFIG_PATH / PASS_CAPABILITY).open() as f:
