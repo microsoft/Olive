@@ -22,7 +22,7 @@ repos:
     rev: v0.3.1
     hooks:
       - id: absolufy-imports
-        exclude: examples/directml/llm/chat_app/
+        exclude: examples/
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.4.5
