@@ -258,10 +258,10 @@ class PerfTuningCommand(BaseOliveCLICommand):
             return self._update_default_data_config_params(template_config["passes"]["perf_tuning"]["data_config"])
         data_config_path = Path(self.args.data_config_path)
         if data_config_path.suffix in (".yaml", ".yml"):
-            with data_config_path.open as f:
+            with data_config_path.open() as f:
                 return yaml.safe_load(f)
         elif data_config_path.suffix == ".json":
-            with data_config_path.open as f:
+            with data_config_path.open() as f:
                 return json.load(f)
         else:
             raise ValueError("Data config file should be either yaml or json.")
