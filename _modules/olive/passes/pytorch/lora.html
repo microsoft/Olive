@@ -187,20 +187,8 @@
 
     <span class="n">_nested_field_name</span> <span class="o">=</span> <span class="s2">&quot;extra_args&quot;</span>
 
-    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">42</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Random seed for initialization.&quot;</span><span class="p">)</span>
-    <span class="n">data_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">42</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Random seed to be used with data samplers.&quot;</span><span class="p">)</span>
+    <span class="c1"># TODO(jambayk): is this default optim required? does it work for regular lora? what about lr_scheduler_type?</span>
     <span class="n">optim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s2">&quot;paged_adamw_32bit&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The optimizer to use.&quot;</span><span class="p">)</span>
-    <span class="n">per_device_train_batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The batch size per GPU for training.&quot;</span><span class="p">)</span>
-    <span class="n">per_device_eval_batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The batch size per GPU for evaluation.&quot;</span><span class="p">)</span>
-    <span class="n">gradient_accumulation_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
-        <span class="mi">16</span><span class="p">,</span>
-        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">&quot;Number of updates steps to accumulate the gradients for, before performing a backward/update pass.&quot;</span>
-        <span class="p">),</span>
-    <span class="p">)</span>
-    <span class="n">max_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">10000</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The total number of training steps to perform.&quot;</span><span class="p">)</span>
-    <span class="c1"># use lora dropout instead for regularization if needed</span>
-    <span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The L2 weight decay rate of AdamW&quot;</span><span class="p">)</span>
     <span class="n">learning_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mf">0.0002</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The initial learning rate for AdamW.&quot;</span><span class="p">)</span>
     <span class="n">gradient_checkpointing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Use gradient checkpointing. Recommended.&quot;</span><span class="p">)</span>
     <span class="n">lr_scheduler_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
@@ -208,19 +196,12 @@
         <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.&quot;</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">warmup_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Fraction of steps to do a warmup for.&quot;</span><span class="p">)</span>
-    <span class="n">logging_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Number of update steps between two logs.&quot;</span><span class="p">)</span>
     <span class="n">evaluation_strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
-        <span class="s2">&quot;no&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The evaluation strategy to use. Will be forced to &#39;no&#39; if there is no eval dataset.&quot;</span>
-    <span class="p">)</span>
-    <span class="n">eval_steps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
         <span class="kc">None</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">&quot;Number of update steps between two evaluations if `evaluation_strategy=&#39;steps&#39;`. Will default to the same&quot;</span>
-            <span class="s2">&quot; value as `logging_steps` if not set&quot;</span>
+            <span class="s2">&quot;The evaluation strategy to use. Forced to &#39;no&#39; if eval_dataset is not provided. Otherwise, &#39;steps&#39; unless&quot;</span>
+            <span class="s2">&quot; set to &#39;epoch&#39;.&quot;</span>
         <span class="p">),</span>
-    <span class="p">)</span>
-    <span class="n">group_by_length</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
-        <span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Whether or not to group samples of roughly the same length together when batching.&quot;</span>
     <span class="p">)</span>
     <span class="n">report_to</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
         <span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The list of integrations to report the results and logs to.&quot;</span>
@@ -279,7 +260,10 @@
             <span class="k">if</span> <span class="s2">&quot;use_module_with_loss&quot;</span> <span class="ow">in</span> <span class="n">extra_args</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;use_module_with_loss is not supported by transformers.TrainingArguments. Ignoring.&quot;</span><span class="p">)</span>
                 <span class="n">extra_args</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;use_module_with_loss&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">training_args_cls</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_args</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">training_args_cls</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HFTrainingArguments.get_data_seed"><a class="viewcode-back" href="../../../../api/passes.html#olive.passes.pytorch.lora.HFTrainingArguments.get_data_seed">[docs]</a>    <span class="k">def</span> <span class="nf">get_data_seed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data_seed&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;seed&quot;</span><span class="p">,</span> <span class="mi">42</span><span class="p">))</span></div></div>
 
 
 <span class="k">class</span> <span class="nc">LoRABase</span><span class="p">(</span><span class="n">Pass</span><span class="p">):</span>
@@ -303,14 +287,13 @@
                     <span class="s2">&quot; True. 16+ is required when using bfloat16 and model has operators such as Where.&quot;</span>
                 <span class="p">),</span>
             <span class="p">),</span>
-            <span class="s2">&quot;lora_r&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Lora attention dimension.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;lora_r&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Lora R dimension.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;lora_alpha&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The alpha parameter for Lora scaling.&quot;</span>
             <span class="p">),</span>
             <span class="s2">&quot;lora_dropout&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The dropout probability for Lora layers.&quot;</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The dropout probability for Lora layers.&quot;</span>
             <span class="p">),</span>
-            <span class="s2">&quot;bias&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Bias type for Lora&quot;</span><span class="p">),</span>
             <span class="s2">&quot;modules_to_save&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -336,6 +319,8 @@
                 <span class="p">),</span>
             <span class="p">),</span>
             <span class="c1"># data parameters</span>
+            <span class="c1"># TODO(jambayk): only keep train and eval data configs, remove eval_dataset_size and data processing</span>
+            <span class="c1"># from this pass. dataconfig should handle everything related to data</span>
             <span class="s2">&quot;train_data_config&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">DataConfig</span><span class="p">,</span> <span class="n">Dict</span><span class="p">],</span>
                 <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -496,7 +481,7 @@
                 <span class="n">eval_dataset_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">eval_dataset_size</span><span class="p">)</span>
             <span class="c1"># eval data config has not been provided, but eval_dataset_size has been provided</span>
             <span class="n">split_data</span> <span class="o">=</span> <span class="n">train_dataset</span><span class="o">.</span><span class="n">train_test_split</span><span class="p">(</span>
-                <span class="n">test_size</span><span class="o">=</span><span class="n">eval_dataset_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">data_seed</span>
+                <span class="n">test_size</span><span class="o">=</span><span class="n">eval_dataset_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">get_data_seed</span><span class="p">()</span>
             <span class="p">)</span>
             <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">split_data</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">]</span>
             <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">split_data</span><span class="p">[</span><span class="s2">&quot;test&quot;</span><span class="p">]</span>
@@ -618,7 +603,7 @@
             <span class="n">lora_alpha</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">lora_alpha</span><span class="p">,</span>
             <span class="n">lora_dropout</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">lora_dropout</span><span class="p">,</span>
             <span class="n">target_modules</span><span class="o">=</span><span class="n">target_modules</span><span class="p">,</span>
-            <span class="n">bias</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">bias</span><span class="p">,</span>
+            <span class="n">bias</span><span class="o">=</span><span class="s2">&quot;none&quot;</span><span class="p">,</span>
             <span class="n">task_type</span><span class="o">=</span><span class="n">peft_task_type</span><span class="p">,</span>
             <span class="n">modules_to_save</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">modules_to_save</span><span class="p">,</span>
             <span class="o">**</span><span class="n">lora_config_kwargs</span><span class="p">,</span>
@@ -724,16 +709,11 @@
         <span class="n">train_dataset</span><span class="p">,</span> <span class="n">eval_dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_datasets</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
         <span class="c1"># get training arguments</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">eval_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;evaluation_strategy is None, but eval_dataset is not None. Please set evaluation_strategy if&quot;</span>
-                <span class="s2">&quot; evaluation is needed while training.&quot;</span>
-            <span class="p">)</span>
-        <span class="k">elif</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">eval_dataset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;evaluation_strategy is not None, but eval_dataset is None. Setting evaluation_strategy to &#39;no&#39;.&quot;</span>
-            <span class="p">)</span>
-            <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span> <span class="o">=</span> <span class="s2">&quot;no&quot;</span>
+        <span class="n">orig_eval_strat</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span> <span class="o">=</span> <span class="s2">&quot;no&quot;</span>
+        <span class="k">if</span> <span class="n">eval_dataset</span><span class="p">:</span>
+            <span class="c1"># default to &quot;steps&quot; if eval dataset is provided</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span> <span class="o">=</span> <span class="s2">&quot;steps&quot;</span> <span class="k">if</span> <span class="n">orig_eval_strat</span> <span class="ow">in</span> <span class="p">{</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;no&quot;</span><span class="p">}</span> <span class="k">else</span> <span class="n">orig_eval_strat</span>
 
         <span class="c1"># We always create a temp dir even if output_dir is provided because we want the temp dir to be deleted</span>
         <span class="c1"># after training or if there is an error</span>
@@ -746,7 +726,7 @@
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;olive_tmp&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
             <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">resume_from_checkpoint</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No training_args.output_dir provided. Using a temp dir.&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No training_args.output_dir provided. Using a temp dir.&quot;</span><span class="p">)</span>
                 <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">temp_dir</span>
                 <span class="c1"># set save_total_limit to 1 since the temp dir will be deleted after training</span>
                 <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">extra_args</span><span class="p">[</span><span class="s2">&quot;save_total_limit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
@@ -853,7 +833,7 @@
         <span class="c1"># resize model embedding layer</span>
         <span class="n">model</span><span class="o">.</span><span class="n">resize_token_embeddings</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">num_new_tokens</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Added </span><span class="si">%d</span><span class="s2"> new tokens to tokenizer and resized model embedding layer.&quot;</span><span class="p">,</span> <span class="n">num_new_tokens</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Added </span><span class="si">%d</span><span class="s2"> new tokens to tokenizer and resized model embedding layer.&quot;</span><span class="p">,</span> <span class="n">num_new_tokens</span><span class="p">)</span>
             <span class="n">input_embeddings_data</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_input_embeddings</span><span class="p">()</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span>
             <span class="n">output_embeddings_data</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_output_embeddings</span><span class="p">()</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span>
 
