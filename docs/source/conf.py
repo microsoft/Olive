@@ -68,6 +68,8 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 html_static_path = ["_static"]
 html_css_files = [
+    # better contrast between h3 and h4, high priority so that it overrides the theme
+    ("css/header.css", {"priority": 1000}),
     "css/width.css",
 ]
 html_js_files = [
