@@ -102,7 +102,8 @@ def test_configure_qualcomm_sdk_command(mock_configure):
 def test_cloud_cache_command(mock_container_client, test_set):
     # setup
     command_args = [
-        "remove-cloud-cache-model",
+        "cloud-cache-model",
+        "--delete",
         "--account",
         "account",
         "--container",

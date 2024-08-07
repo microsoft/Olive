@@ -3,8 +3,8 @@ import logging
 from olive.cli.base import BaseOliveCLICommand
 from olive.common.utils import get_credentials
 
-
 logger = logging.getLogger(__name__)
+
 
 class CloudCacheCommand(BaseOliveCLICommand):
     @staticmethod
@@ -44,17 +44,21 @@ class CloudCacheCommand(BaseOliveCLICommand):
             ) from exc
 
         account_url = f"https://{self.args.account}.blob.core.windows.net"
-        client = ContainerClient(account_url=account_url, container_name=self.args.container, credential=get_credentials({"exclude_managed_identity_credential":True}))
+        client = ContainerClient(
+            account_url=account_url,
+            container_name=self.args.container,
+            credential=get_credentials({"exclude_managed_identity_credential": True}),
+        )
 
         if self.args.delete:
             self._delete_model_cache(client, self.args.model_hash)
-            
+
     def _delete_model_cache(self, client, model_hash):
         for blob in client.list_blobs(model_hash):
-            logger.info(f"Deleting {blob.name}")
+            logger.info("Deleting %s", blob.name)
             client.delete_blob(blob.name)
-        
+
         if any(client.list_blobs(model_hash)):
-            logger.info(f"Deletion of the model cache with hash {model_hash} failed. Please try again.")
+            logger.error("Deletion of the model cache with hash %s failed. Please try again.", model_hash)
         else:
-            logger.info(f"Model cache with hash {model_hash} removed from the cloud cache successfully.")
+            logger.info("Model cache with hash %s removed from the cloud cache successfully.", model_hash)
