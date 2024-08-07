@@ -25,10 +25,12 @@ class PerfTuningCommand(BaseOliveCLICommand):
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
-            "perftuning",
+            "tune-session-params",
             help=(
-                "Automatically tune the inference performance(latency) for a given onnx model. "
-                "Currently, we only support tuning the model converted from huggingface model."
+                "Automatically tune the session parameters for a given onnx model. "
+                "Currently, for onnx model converted from huggingface model and used for "
+                "generative tasks, user can simply provide the --model onnx_model_path "
+                "--hf_model_name hf_model_name --device device_type to get the tuned session parameters."
             ),
         )
         # model options
@@ -75,11 +77,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
             "--max_seq_len",
             type=int,
             help="Max sequence length to use for the input data.",
-        )
-        dataset_group.add_argument(
-            "--use_fp16",
-            action="store_true",
-            help="Whether to use FP16 for the input data.",
         )
         dataset_group.add_argument(
             "--shared_kv",
@@ -208,7 +205,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
             "seq_len",
             "past_seq_len",
             "max_seq_len",
-            "use_fp16",
             "shared_kv",
             "generative",
             "ort_past_key_name",
@@ -308,10 +304,9 @@ class PerfTuningCommand(BaseOliveCLICommand):
             output_path.mkdir(parents=True, exist_ok=True)
             for provider in self.args.providers_list:
                 provider_key = provider.replace("ExecutionProvider", "").lower()
-                infer_setting_output_path = output_path / f"{self.args.device}-{provider_key}" / "infer_settings.json"
-                infer_setting_output_path.parent.mkdir(parents=True, exist_ok=True)
-                rls_json_apth = Path(tempdir) / "perf_tuning" / f"{self.args.device}-{provider_key}_model.json"
-                with rls_json_apth.open() as f:
+                infer_setting_output_path = output_path / f"{self.args.device}-{provider_key}.json"
+                rls_json_path = Path(tempdir) / "perf_tuning" / f"{self.args.device}-{provider_key}_model.json"
+                with rls_json_path.open() as f:
                     infer_settings = json.load(f)["config"]["inference_settings"]
                     json.dump(infer_settings, infer_setting_output_path.open("w"), indent=4)
-            logger.info("Model and adapters saved to %s", output_path.resolve())
+            logger.info("Inference session parameters are saved to %s", output_path.resolve())
