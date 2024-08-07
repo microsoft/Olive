@@ -9,7 +9,6 @@ from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionS
 from huggingface_hub import model_info
 from transformers.models.clip.modeling_clip import CLIPTextModel
 
-from olive.common.utils import get_attr
 from olive.data.registry import Registry
 
 
@@ -34,29 +33,17 @@ def is_lora_model(model_name):
     return model_name != get_base_model_name(model_name)
 
 
-def get_lora_weight_name():
-    import diffusers
-
-    lora_weight_name = None
-    # location changes in versions 0.24, 0.40
-    for submodules in ("loaders", "loaders.lora", "loaders.lora_pipeline"):
-        lora_weight_name = get_attr(diffusers, f"{submodules}.LORA_WEIGHT_NAME", warn_on_not_found=False)
-        if lora_weight_name is not None:
-            break
-
-    if lora_weight_name is None:
-        # should not reach here if the version is correct
-        raise ValueError("Could not find LoRA weight name")
-
-    return lora_weight_name
-
-
 # Merges LoRA weights into the layers of a base model
 def merge_lora_weights(base_model, lora_model_id, submodel_name="unet", scale=1.0):
     import inspect
     from collections import defaultdict
     from functools import reduce
 
+    try:
+        from diffusers.loaders import LORA_WEIGHT_NAME
+    except ImportError:
+        # moved in version 0.24.0
+        from diffusers.loaders.lora import LORA_WEIGHT_NAME
     from diffusers.models.attention_processor import LoRAAttnProcessor
     from diffusers.utils.hub_utils import _get_model_file
 
@@ -71,7 +58,7 @@ def merge_lora_weights(base_model, lora_model_id, submodel_name="unet", scale=1.
     # Load LoRA weights
     model_file = _get_model_file(
         lora_model_id,
-        weights_name=get_lora_weight_name(),
+        weights_name=LORA_WEIGHT_NAME,
         cache_dir=None,
         force_download=False,
         resume_download=False,
