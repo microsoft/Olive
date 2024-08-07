@@ -59,6 +59,24 @@ def get_args(raw_args):
         required=False,
         help="Whether to only dump the config file without running the optimization.",
     )
+    parser.add_argument(
+        "--remote_config",
+        type=str,
+        required=False,
+        help="Path to the azureml config file. If provided, the config file will be used to create the client.",
+    )
+    parser.add_argument(
+        "--cloud_cache",
+        type=str,
+        required=False,
+        help="Whether to use cloud cache for optimization.",
+    )
+    parser.add_argument(
+        "--qlora",
+        action="store_true",
+        required=False,
+        help="Whether to use qlora for optimization. Only supported on gpu.",
+    )
     parser.add_argument("--tempdir", type=str, help="Root directory for tempfile directories and files", required=False)
 
     return parser.parse_args(raw_args)
@@ -73,8 +91,65 @@ def main(raw_args=None):
     if args.use_gqa and not args.gpu:
         raise ValueError("GQA is only supported on gpu.")
 
-    json_file_template = "llama2_template.json"
-    with open(json_file_template) as f:
+    if args.qlora:
+        template_json, config_name = get_qlora_config()
+    else:
+        template_json, config_name = get_general_config(args)
+
+    if args.remote_config:
+        with open(args.remote_config) as f:
+            remote_config = json.load(f)
+        template_json["azureml_client"] = {
+            "subscription_id": get_valid_config(remote_config, "subscription_id"),
+            "resource_group": get_valid_config(remote_config, "resource_group"),
+            "workspace_name": get_valid_config(remote_config, "workspace_name"),
+            "keyvault_name": get_valid_config(remote_config, "keyvault_name"),
+        }
+        template_json["systems"]["aml_system"] = {
+            "type": "AzureML",
+            "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
+            "aml_compute": get_valid_config(remote_config, "compute"),
+            "aml_docker_config": {
+                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
+                "conda_file_path": "conda_gpu.yaml",
+            },
+            "hf_token": True,
+        }
+        template_json["workflow_host"] = "aml_system"
+
+    if args.cloud_cache:
+        with open(args.cloud_cache) as f:
+            cloud_cache_config = json.load(f)
+        template_json["cloud_cache_config"] = {
+            "account_url": get_valid_config(cloud_cache_config, "account_url"),
+            "container_name": get_valid_config(cloud_cache_config, "container_name"),
+            "upload_to_cloud": get_valid_config(cloud_cache_config, "upload_to_cloud", True),
+        }
+
+    # dump config
+    with open(f"{config_name}.json", "w") as f:
+        json.dump(template_json, f, indent=4)
+
+    if not args.only_config:
+        olive_run(template_json, tempdir=args.tempdir)  # pylint: disable=not-callable
+
+
+def get_valid_config(config, key, default=None):
+    if key in config:
+        return config[key]
+    if default is not None:
+        return default
+    raise ValueError(f"Key {key} is required in the config file.")
+
+
+def get_qlora_config():
+    with open("llama2_qlora.json") as f:
+        template_json = json.load(f)
+    return template_json, "llama2_gpu_qlora"
+
+
+def get_general_config(args):
+    with open("llama2_template.json") as f:
         template_json = json.load(f)
 
     model_name = args.model_name
@@ -116,12 +191,7 @@ def main(raw_args=None):
     template_json["systems"]["local_system"]["accelerators"][0]["execution_providers"] = [DEVICE_TO_EP[device]]
     template_json["output_dir"] = f"models/{config_name}/{model_name}"
 
-    # dump config
-    with open(f"{config_name}.json", "w") as f:
-        json.dump(template_json, f, indent=4)
-
-    if not args.only_config:
-        olive_run(template_json, tempdir=args.tempdir)  # pylint: disable=not-callable
+    return template_json, config_name
 
 
 if __name__ == "__main__":
