@@ -4,7 +4,8 @@
 # --------------------------------------------------------------------------
 import subprocess
 import sys
-from unittest.mock import patch
+import unittest
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -94,6 +95,32 @@ def test_configure_qualcomm_sdk_command(mock_configure):
 
     # assert
     mock_configure.assert_called_once_with("3.6", "snpe")
+
+
+@pytest.mark.parametrize("test_set", [(None, "successfully"), (MagicMock(name="blob1"), "failed")])
+@patch("azure.storage.blob.ContainerClient")
+def test_cloud_cache_command(mock_container_client, test_set):
+    # setup
+    command_args = [
+        "remove-cloud-cache-model",
+        "--account",
+        "account",
+        "--container",
+        "container",
+        "--model_hash",
+        "model_hash",
+    ]
+    mock_blob = MagicMock(name="blob1")
+    mock_container_client.return_value.list_blobs.side_effect = [[mock_blob], [test_set[0]]]
+
+    # execute
+    with unittest.TestCase().assertLogs(logger="olive.cli.cloud_cache", level="INFO") as log:
+        cli_main(command_args)
+
+    # assert
+    assert (test_set[1] in message for message in log.output), "Expected log message not found."
+    mock_container_client.assert_called_once()
+    mock_container_client().delete_blob.assert_called_once()
 
 
 # TODO(anyone): Add tests for ManageAMLComputeCommand
