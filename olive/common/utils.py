@@ -251,12 +251,13 @@ def resolve_torch_dtype(dtype):
     return dtype
 
 
-def get_attr(module, attr, fail_on_not_found=False):
+def get_attr(module, attr, fail_on_not_found=False, warn_on_not_found=True):
     """Get attribute from module.
 
     :param module: module to get attribute from.
     :param attr: attribute name, can be a string with dot notation. If empty, return module.
     :param fail_on_not_found: if True, raise AttributeError if attribute is not found.
+    :param warn_on_not_found: if fail_on_not_found is False, log a warning if attribute is not found.
     :return: attribute
     """
     if not attr:
@@ -271,9 +272,10 @@ def get_attr(module, attr, fail_on_not_found=False):
             not_found_message = f"Attribute {attr} not found."
             if fail_on_not_found:
                 raise AttributeError(not_found_message) from e
-            else:
+            elif warn_on_not_found:
                 logger.warning(not_found_message)
-                return None
+
+            return None
     return module
 
 
