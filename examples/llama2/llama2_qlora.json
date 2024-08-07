@@ -1,7 +1,6 @@
 {
     "input_model": {
         "type": "HfModel",
-        "model_path": "meta-llama/Llama-2-7b-hf",
         "load_kwargs": { "attn_implementation": "eager" },
         "io_config": {
             "input_names": [ "input_ids", "attention_mask", "position_ids" ],
@@ -13,7 +12,8 @@
                 "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
                 "position_ids": { "0": "batch_size", "1": "sequence_length" }
             }
-        }
+        },
+        "model_path": "meta-llama/Llama-2-7b-hf"
     },
     "systems": {
         "local_system": {
@@ -23,79 +23,56 @@
     },
     "data_configs": [
         {
-            "name": "tiny_codes_train",
+            "name": "train_data",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "data_name": "nampdn-ai/tiny-codes",
-                "split": "train",
-                "col_filters": { "programming_language": "Python" }
-            },
-            "pre_process_data_config": { "text_template": "### Question: {prompt} \n### Answer: {response}" }
+            "load_dataset_config": { "data_name": "nampdn-ai/tiny-codes", "split": "train[:4096]" },
+            "pre_process_data_config": {
+                "text_template": "### Language: {programming_language} \n### Question: {prompt} \n### Answer: {response}",
+                "max_seq_len": 1024
+            }
         },
-        { "name": "transformer_prompt_dummy_data", "type": "TransformersPromptDummyDataContainer" }
-    ],
-    "evaluators": {
-        "merged_evaluator": {
-            "metrics": [
-                {
-                    "name": "onnx_merged_latency",
-                    "type": "latency",
-                    "sub_types": [ { "name": "avg", "priority": 1 } ],
-                    "data_config": "transformer_prompt_dummy_data",
-                    "user_config": { "io_bind": true }
-                }
-            ]
+        {
+            "name": "eval_data",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": { "data_name": "nampdn-ai/tiny-codes", "split": "train[4096:4224]" },
+            "pre_process_data_config": {
+                "text_template": "### Language: {programming_language} \n### Question: {prompt} \n### Answer: {response}",
+                "max_seq_len": 1024
+            }
         }
-    },
+    ],
     "passes": {
-        "qlora": {
-            "type": "QLoRA",
-            "lora_dropout": 0.1,
-            "train_data_config": "tiny_codes_train",
-            "eval_dataset_size": 1024,
+        "f": {
+            "train_data_config": "train_data",
+            "type": "qlora",
+            "torch_dtype": "bfloat16",
             "training_args": {
                 "per_device_train_batch_size": 16,
                 "per_device_eval_batch_size": 16,
-                "gradient_accumulation_steps": 1,
                 "max_steps": 150,
-                "logging_steps": 50,
-                "save_steps": 50,
-                "evaluation_strategy": "steps",
-                "adam_beta2": 0.999,
-                "max_grad_norm": 0.3,
-                "load_best_model_at_end": true,
-                "output_dir": "models/qlora-checkpoints"
-            }
+                "logging_steps": 50.0
+            },
+            "lora_r": 64,
+            "lora_alpha": 16,
+            "eval_data_config": "eval_data"
         },
-        "conversion": {
+        "c": {
             "type": "OnnxConversion",
             "target_opset": 17,
-            "save_as_external_data": true,
-            "all_tensors_to_one_file": true,
             "torch_dtype": "float32",
             "save_metadata_for_token_generation": true
         },
-        "transformers_optimization": {
+        "o": {
             "type": "OrtTransformersOptimization",
-            "save_as_external_data": true,
-            "all_tensors_to_one_file": true,
             "model_type": "gpt2",
             "opt_level": 0,
-            "only_onnxruntime": false,
             "keep_io_types": false,
             "float16": true
         },
-        "extract": {
-            "type": "ExtractAdapters",
-            "save_as_external_data": true,
-            "all_tensors_to_one_file": true,
-            "make_inputs": true
-        },
-        "metadata": { "type": "ModelBuilder", "precision": "fp16", "metadata_only": true }
+        "e": { "type": "ExtractAdapters" },
+        "m": { "type": "ModelBuilder", "metadata_only": true, "precision": "fp16" }
     },
-    "evaluator": "merged_evaluator",
     "host": "local_system",
     "target": "local_system",
-    "cache_dir": "cache",
-    "output_dir": "models/tiny-codes-qlora"
+    "clean_cache": false
 }
