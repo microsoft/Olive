@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class CloudCacheCommand(BaseOliveCLICommand):
     @staticmethod
     def register_subcommand(parser):
-        sub_parser = parser.add_parser("cloud-cache-model", help="Cloud cache model operations")
+        sub_parser = parser.add_parser("cloud-cache", help="Cloud cache model operations")
         sub_parser.add_argument(
             "--delete",
             action="store_true",
