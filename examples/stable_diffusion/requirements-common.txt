@@ -1,5 +1,6 @@
 accelerate
-diffusers
+# breaking changes in diffusers lora implementation
+diffusers<0.30.0
 onnx
 pillow
 protobuf==3.20.3 # protobuf 4.x aborts with OOM when optimizing unet
