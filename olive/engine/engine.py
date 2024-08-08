@@ -1079,10 +1079,9 @@ class Engine:
             return signal
 
         # evaluate model
-        metrics = evaluator_config.metrics if evaluator_config else []
         if self.target.system_type != SystemType.AzureML:
             model_config = self.cache.prepare_resources_for_local(model_config)
-        signal = self.target.evaluate_model(model_config, metrics, accelerator_spec)
+        signal = self.target.evaluate_model(model_config, evaluator_config, accelerator_spec)
 
         # cache evaluation
         self._cache_evaluation(model_id_with_accelerator, signal)

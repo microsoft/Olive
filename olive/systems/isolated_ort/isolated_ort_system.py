@@ -16,7 +16,8 @@ from torch.utils.data import Dataset
 
 from olive.common.utils import run_subprocess
 from olive.evaluator.metric import get_latency_config_from_metric
-from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluatorMixin
+from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluatorMixin, _OliveEvaluator
+from olive.evaluator.registry import Registry
 from olive.hardware import Device
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
@@ -26,6 +27,7 @@ from olive.systems.utils import create_new_environ, run_available_providers_runn
 if TYPE_CHECKING:
     from olive.evaluator.metric import Metric
     from olive.evaluator.metric_result import MetricResult
+    from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import ModelConfig, ONNXModelHandler
     from olive.passes.olive_pass import Pass
@@ -71,7 +73,7 @@ class IsolatedORTSystem(OliveSystem):
         raise NotImplementedError
 
     def evaluate_model(
-        self, model_config: "ModelConfig", metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, model_config: "ModelConfig", evaluator_config: "OliveEvaluatorConfig", accelerator: "AcceleratorSpec"
     ) -> "MetricResult":
         """Evaluate the model."""
         # only onnx model handler is supported
@@ -83,7 +85,9 @@ class IsolatedORTSystem(OliveSystem):
 
         model = model_config.create_model()
         evaluator = IsolatedORTEvaluator(self.environ)
-        return evaluator.evaluate(model, metrics, device=device, execution_providers=execution_providers)
+        return evaluator.evaluate(
+            model, evaluator_config.metrics, device=device, execution_providers=execution_providers
+        )
 
     def get_supported_execution_providers(self) -> List[str]:
         """Get the available execution providers."""
@@ -97,7 +101,9 @@ class IsolatedORTSystem(OliveSystem):
         raise NotImplementedError("ORT inference system does not support system removal")
 
 
-class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_inference"):
+@Registry.register("ort_inference")
+@Registry.register("IsolatedORTEvaluator")
+class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
     def __init__(self, environ: Dict[str, str]):
         super().__init__()
 

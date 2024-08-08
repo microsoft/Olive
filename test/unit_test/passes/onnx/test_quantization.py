@@ -32,7 +32,7 @@ class DummyCalibrationDataReader(CalibrationDataReader):
 
 
 @Registry.register_dataloader()
-def _test_nvmo_quat_dataloader(dataset, batch_size, **kwargs):
+def _test_quat_dataloader(dataset, batch_size, **kwargs):
     return DummyCalibrationDataReader(batch_size=batch_size)
 
 
@@ -49,7 +49,7 @@ def test_static_quantization(calibrate_method, tmp_path):
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_nvmo_quat_dataloader"),
+            dataloader_config=DataComponentConfig(type="_test_quat_dataloader"),
         ),
         "weight_type": "QUInt8",
         "activation_type": "QUInt8",
@@ -86,7 +86,7 @@ def test_qnn_quantization(tmp_path):
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_nvmo_quat_dataloader"),
+            dataloader_config=DataComponentConfig(type="_test_quat_dataloader"),
         ),
         "weight_type": "QUInt8",
         "activation_type": "QUInt16",
@@ -177,7 +177,7 @@ def test_matmul_gptq_with_dataloader(tmp_path):
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_nvmo_quat_dataloader"),
+            dataloader_config=DataComponentConfig(type="_test_quat_dataloader"),
         ),
         "weight_only_quant_configs": {"percdamp": 0.01, "block_size": 128, "use_less_config": 1},
     }

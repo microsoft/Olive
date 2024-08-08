@@ -458,3 +458,20 @@ class TestOliveEvaluatorConfig:
         evaluator_config = [get_accuracy_metric(*m_arg["args"], **m_arg["kwargs"]) for m_arg in metric_args]
         evaluator_config_instance = OliveEvaluatorConfig(metrics=evaluator_config)
         assert evaluator_config_instance.is_accuracy_drop_tolerance == is_accuracy_drop_tolerance
+
+    @patch("olive.common.import_lib.import_user_module")
+    @patch("olive.evaluator.registry.Registry.get")
+    def test_valid_custom_type_validation(self, registry_get_mock, import_user_module_mock):
+        registry_get_mock.return_value = MagicMock()
+        OliveEvaluatorConfig.from_json({"type": "test_evaluator"})
+        registry_get_mock.called_once_with("test_evaluator")
+
+    @patch("olive.common.import_lib.import_user_module")
+    @patch("olive.evaluator.registry.Registry.get")
+    def test_invalid_custom_type_validation(self, registry_get_mock, import_user_module_mock):
+        registry_get_mock.return_value = None
+
+        with pytest.raises(ValidationError):
+            OliveEvaluatorConfig.from_json({"type": "test_evaluator"})
+
+        registry_get_mock.called_once_with("test_evaluator")

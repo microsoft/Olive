@@ -219,7 +219,7 @@ class TestEngine:
 
         assert system_object.run_pass.call_count == 2
         assert system_object.evaluate_model.call_count == 3
-        system_object.evaluate_model.assert_called_with(onnx_model_config.to_json(), [metric], accelerator_spec)
+        system_object.evaluate_model.assert_called_with(onnx_model_config, evaluator_config, accelerator_spec)
 
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_search_model_components(self, mock_local_system_init, tmpdir):

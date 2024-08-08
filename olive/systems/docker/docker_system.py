@@ -24,6 +24,7 @@ from olive.systems.system_config import DockerTargetUserConfig
 
 if TYPE_CHECKING:
     from olive.evaluator.metric import Metric
+    from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.passes import Pass
 
@@ -214,11 +215,13 @@ class DockerSystem(OliveSystem):
             return None
 
     def evaluate_model(
-        self, model_config: "ModelConfig", metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, model_config: "ModelConfig", evaluator_config: "OliveEvaluatorConfig", accelerator: "AcceleratorSpec"
     ) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
-            metric_json = self._run_eval_container(tempdir, model_config, metrics, accelerator, container_root_path)
+            metric_json = self._run_eval_container(
+                tempdir, model_config, evaluator_config, accelerator, container_root_path
+            )
             if metric_json.is_file():
                 with metric_json.open() as f:
                     metrics_res = json.load(f)
@@ -231,7 +234,7 @@ class DockerSystem(OliveSystem):
         self,
         workdir,
         model_config: "ModelConfig",
-        metrics: List["Metric"],
+        evaluator_config: "OliveEvaluatorConfig",
         accelerator: "AcceleratorSpec",
         container_root_path: Path,
     ):
@@ -254,7 +257,7 @@ class DockerSystem(OliveSystem):
         )
         volumes_list += model_mount_str_list
 
-        metrics_copy = copy.deepcopy(metrics)
+        metrics_copy = copy.deepcopy(evaluator_config.metrics)
         # mount metrics related external files
         volumes_list.extend(
             # the metrics_copy is modified when creating the volumes list

@@ -16,7 +16,7 @@ from olive.common.utils import exclude_keys
 from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric
 from olive.evaluator.metric_result import joint_metric_key
-from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -337,12 +337,13 @@ class IncQuantization(Pass):
             )
 
             # create evaluator for model
-            evaluator = OliveEvaluatorFactory.create_evaluator_for_model(olive_model)
+            evaluator_config = OliveEvaluatorConfig(metrics=[accuracy_metric])
+            evaluator = evaluator_config.create_evaluator(olive_model)
 
             # evaluate model
             result = evaluator.evaluate(
                 olive_model,
-                [accuracy_metric],
+                evaluator_config.metrics,
                 self.accelerator_spec.accelerator_type,
                 [self.accelerator_spec.execution_provider],
             )
