@@ -153,7 +153,7 @@
 <span class="kn">from</span> <span class="nn">olive.systems.utils</span> <span class="kn">import</span> <span class="n">create_new_environ</span><span class="p">,</span> <span class="n">get_package_name_from_ep</span><span class="p">,</span> <span class="n">run_available_providers_runner</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+    <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
     <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
     <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
 
@@ -262,12 +262,12 @@
         <span class="k">return</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">output_model_json</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;Metric&quot;</span><span class="p">],</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">:</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the model.&quot;&quot;&quot;</span>
         <span class="n">config_jsons</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;model_config&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-            <span class="s2">&quot;metrics_config&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">],</span>
+            <span class="s2">&quot;evaluator_config&quot;</span><span class="p">:</span> <span class="n">evaluator_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
             <span class="s2">&quot;accelerator_config&quot;</span><span class="p">:</span> <span class="n">accelerator</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span>
         <span class="p">}</span>
         <span class="n">metric_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_command</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluation_runner_path</span><span class="p">,</span> <span class="n">config_jsons</span><span class="p">,</span> <span class="n">tempdir</span><span class="o">=</span><span class="n">tempfile</span><span class="o">.</span><span class="n">tempdir</span><span class="p">)</span>

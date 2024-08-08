@@ -156,6 +156,7 @@
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+    <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
     <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
     <span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
 
@@ -346,11 +347,13 @@
             <span class="k">return</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;Metric&quot;</span><span class="p">],</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">:</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="n">container_root_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/olive-ws/&quot;</span><span class="p">)</span>
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
-            <span class="n">metric_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_eval_container</span><span class="p">(</span><span class="n">tempdir</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">,</span> <span class="n">container_root_path</span><span class="p">)</span>
+            <span class="n">metric_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_eval_container</span><span class="p">(</span>
+                <span class="n">tempdir</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">,</span> <span class="n">container_root_path</span>
+            <span class="p">)</span>
             <span class="k">if</span> <span class="n">metric_json</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
                 <span class="k">with</span> <span class="n">metric_json</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">metrics_res</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
@@ -363,7 +366,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">workdir</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span>
-        <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;Metric&quot;</span><span class="p">],</span>
+        <span class="n">evaluator_config</span><span class="p">:</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span><span class="p">,</span>
         <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">,</span>
         <span class="n">container_root_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
     <span class="p">):</span>
@@ -386,7 +389,7 @@
         <span class="p">)</span>
         <span class="n">volumes_list</span> <span class="o">+=</span> <span class="n">model_mount_str_list</span>
 
-        <span class="n">metrics_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">metrics</span><span class="p">)</span>
+        <span class="n">metrics_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">evaluator_config</span><span class="o">.</span><span class="n">metrics</span><span class="p">)</span>
         <span class="c1"># mount metrics related external files</span>
         <span class="n">volumes_list</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
             <span class="c1"># the metrics_copy is modified when creating the volumes list</span>

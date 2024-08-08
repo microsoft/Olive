@@ -329,6 +329,26 @@ to the fields of the class.</p>
 <dt class="sig sig-object py" id="olive.evaluator.olive_evaluator.OliveEvaluatorConfig">
 <em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.evaluator.olive_evaluator.</span></span><span class="sig-name descname"><span class="pre">OliveEvaluatorConfig</span></span><a class="reference internal" href="../_modules/olive/evaluator/olive_evaluator.html#OliveEvaluatorConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.evaluator.olive_evaluator.OliveEvaluatorConfig.type">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.evaluator.olive_evaluator.OliveEvaluatorConfig.type_args">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">type_args</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span></em><em class="property"> <span class="pre">[Optional]</span></em><a class="headerlink" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.type_args" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.evaluator.olive_evaluator.OliveEvaluatorConfig.user_script">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">user_script</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.user_script" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.evaluator.olive_evaluator.OliveEvaluatorConfig.script_dir">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">script_dir</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.script_dir" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.evaluator.olive_evaluator.OliveEvaluatorConfig.metrics">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metrics</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="metric.html#olive.evaluator.metric.Metric" title="olive.evaluator.metric.Metric"><span class="pre">Metric</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[]</span></em><a class="headerlink" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.metrics" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -336,6 +356,11 @@ to the fields of the class.</p>
 <dl class="py property">
 <dt class="sig sig-object py" id="olive.evaluator.olive_evaluator.OliveEvaluatorConfig.is_accuracy_drop_tolerance">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_accuracy_drop_tolerance</span></span><a class="headerlink" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.is_accuracy_drop_tolerance" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="olive.evaluator.olive_evaluator.OliveEvaluatorConfig.create_evaluator">
+<span class="sig-name descname"><span class="pre">create_evaluator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">OliveModelHandler</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="evaluator.html#olive.evaluator.olive_evaluator.OliveEvaluator" title="olive.evaluator.olive_evaluator.OliveEvaluator"><span class="pre">OliveEvaluator</span></a></span></span><a class="reference internal" href="../_modules/olive/evaluator/olive_evaluator.html#OliveEvaluatorConfig.create_evaluator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.create_evaluator" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

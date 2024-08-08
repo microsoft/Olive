@@ -1211,10 +1211,9 @@
             <span class="k">return</span> <span class="n">signal</span>
 
         <span class="c1"># evaluate model</span>
-        <span class="n">metrics</span> <span class="o">=</span> <span class="n">evaluator_config</span><span class="o">.</span><span class="n">metrics</span> <span class="k">if</span> <span class="n">evaluator_config</span> <span class="k">else</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="o">!=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span>
             <span class="n">model_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">prepare_resources_for_local</span><span class="p">(</span><span class="n">model_config</span><span class="p">)</span>
-        <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
+        <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
 
         <span class="c1"># cache evaluation</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_evaluation</span><span class="p">(</span><span class="n">model_id_with_accelerator</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span>

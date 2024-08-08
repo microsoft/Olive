@@ -164,6 +164,7 @@
 <span class="kn">from</span> <span class="nn">olive.model.config.hf_config</span> <span class="kn">import</span> <span class="n">HfLoadKwargs</span>
 <span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
 <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">PassConfigParam</span>
+<span class="kn">from</span> <span class="nn">olive.strategy.search_parameter</span> <span class="kn">import</span> <span class="n">Categorical</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">peft</span> <span class="kn">import</span> <span class="n">PeftModel</span>
@@ -288,7 +289,12 @@
                     <span class="s2">&quot; True. 16+ is required when using bfloat16 and model has operators such as Where.&quot;</span>
                 <span class="p">),</span>
             <span class="p">),</span>
-            <span class="s2">&quot;lora_r&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Lora R dimension.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;lora_r&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+                <span class="n">searchable_values</span><span class="o">=</span><span class="n">Categorical</span><span class="p">([</span><span class="mi">16</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">]),</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Lora R dimension.&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
             <span class="s2">&quot;lora_alpha&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The alpha parameter for Lora scaling.&quot;</span>
             <span class="p">),</span>
