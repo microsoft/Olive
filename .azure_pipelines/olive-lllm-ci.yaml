@@ -1,0 +1,24 @@
+trigger: none
+pr: none
+
+schedules:
+- cron: 0 6 * * 5
+  displayName: Scheduled Build
+  branches:
+    include:
+    - main
+  always: true
+
+jobs:
+# Linux examples test
+- template: job_templates/olive-example-template.yaml
+  parameters:
+    name: Linux_CI
+    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    onnxruntime: onnxruntime
+    subfolder: azureml
+    examples:
+      llama2:
+        exampleFolder: llama2
+        exampleName: llama2
+        exampleRequirements: requirements-pipeline.txt

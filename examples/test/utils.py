@@ -80,6 +80,8 @@ def update_azureml_config(olive_config):
     if workspace_name is None:
         raise Exception("Please set the environment variable WORKSPACE_NAME")
 
+    keyvault_name = os.environ.get("KEYVAULT_NAME")
+
     exclude_managed_identity_credential = (
         {"exclude_managed_identity_credential": True} if "EXCLUDE_MANAGED_IDENTITY_CREDENTIAL" in os.environ else {}
     )
@@ -94,6 +96,7 @@ def update_azureml_config(olive_config):
         "workspace_name": workspace_name,
         # pipeline agents have multiple managed identities, so we need to specify the client_id
         "default_auth_params": {"managed_identity_client_id": client_id, **exclude_managed_identity_credential},
+        "keyvault_name": keyvault_name,
     }
 
 
@@ -125,6 +128,21 @@ def set_aml_system(olive_config, is_gpu=False):
             },
             "is_dev": True,
         }
+
+
+def get_v100_compute():
+    return {
+        "type": "AzureML",
+        "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
+        "aml_compute": "v800",
+        "aml_docker_config": {
+            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
+            "conda_file_path": "conda_gpu.yaml",
+        },
+        "datastores": "pipelinetest",
+        "is_dev": True,
+        "hf_token": True,
+    }
 
 
 def set_docker_system(olive_config):
