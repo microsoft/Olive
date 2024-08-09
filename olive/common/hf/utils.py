@@ -161,7 +161,11 @@ def get_generation_config(model_name_or_path: str, **kwargs) -> Optional["Genera
 
 def get_tokenizer(model_name_or_path: str, **kwargs) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
     """Get HF model's tokenizer."""
-    return from_pretrained(AutoTokenizer, model_name_or_path, "tokenizer", **kwargs)
+    tokenizer = from_pretrained(AutoTokenizer, model_name_or_path, "tokenizer", **kwargs)
+    if getattr(tokenizer, "pad_token", None) is None:
+        logger.debug("Setting pad_token to eos_token for tokenizer %s", model_name_or_path)
+        tokenizer.pad_token = tokenizer.eos_token
+    return tokenizer
 
 
 def save_tokenizer(

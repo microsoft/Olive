@@ -111,7 +111,7 @@
         "inc": [ "neural-compressor" ],
         "optimum": [ "optimum" ],
         "torch-tensorrt": [ "torch-tensorrt" ],
-        "lora": [ "accelerate", "peft", "scipy" ],
+        "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "bnb": [ "bitsandbytes" ],
         "ort-training": [ "onnxruntime-training", "torch-ort" ],
         "ort": [ "onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino", "numpy<2.0" ],
