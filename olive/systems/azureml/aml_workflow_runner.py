@@ -43,14 +43,17 @@ def main(raw_args=None):
     remote_cache_dir = workflow_artifacts_path / "cache"
     remote_output_dir = workflow_artifacts_path / "output"
 
+    print("The cache of this workflow is stored at: ", str(remote_cache_dir))
+    print("The output of this workflow is stored at: ", str(remote_output_dir))
+
     # Clean up the remote cache and output directories if they exist
     if remote_cache_dir.exists():
         shutil.rmtree(remote_cache_dir)
     if remote_output_dir.exists():
         shutil.rmtree(remote_output_dir)
 
-    copy_dir(olive_config["engine"]["cache_dir"], workflow_artifacts_path / "cache")
-    copy_dir(olive_config["engine"]["output_dir"], workflow_artifacts_path / "output")
+    copy_dir(olive_config["engine"]["cache_dir"], remote_cache_dir)
+    copy_dir(olive_config["engine"]["output_dir"], remote_output_dir)
 
 
 if __name__ == "__main__":

@@ -45,4 +45,4 @@ The artifacts of the workflow, including cache and outputs, will be automaticall
 }
 ```
 
-The cache and outputs will be exported to `<datastore>/workflow_artifacts/<workflow_id>/cache` and `<datastore>/workflow_artifacts/<workflow_id>/output`.
+The cache and outputs will be exported to `<datastore>/workflow_artifacts/<workflow_id>/cache` and `<datastore>/workflow_artifacts/<workflow_id>/output`. You can check logs in your job to find the detailed output path.
