@@ -9,10 +9,10 @@ import json
 import logging
 import os
 import tempfile
-from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Union
 
+from olive.common.utils import IntEnumBase, StrEnumBase
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -28,7 +28,7 @@ class ModelBuilder(Pass):
     See https://github.com/microsoft/onnxruntime-genai
     """
 
-    class Precision(str, Enum):
+    class Precision(StrEnumBase):
         FP32 = "fp32"
         FP16 = "fp16"
         INT4 = "int4"
@@ -36,7 +36,7 @@ class ModelBuilder(Pass):
         def __str__(self) -> str:
             return self.value
 
-    class AccuracyLevel(int, Enum):
+    class AccuracyLevel(IntEnumBase):
         fp32 = 1
         fp16 = 2
         bf16 = 3

@@ -4,11 +4,11 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Union
 
 from olive.common.config_utils import validate_config
+from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OliveModelHandler
@@ -34,7 +34,7 @@ _dataloader_config = {
 class NVModelOptQuantization(Pass):
     """Quantize ONNX model with Nvidia-ModelOpt."""
 
-    class Precision(str, Enum):
+    class Precision(StrEnumBase):
         FP8 = "fp8"
         INT8 = "int8"
         INT4 = "int4"
@@ -42,7 +42,7 @@ class NVModelOptQuantization(Pass):
         def __str__(self) -> str:
             return self.value
 
-    class Algorithm(str, Enum):
+    class Algorithm(StrEnumBase):
         RTN = "RTN"
         AWQ = "AWQ"
 

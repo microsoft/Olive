@@ -13,21 +13,39 @@ import platform
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
-from olive.common.constants import OS
-
 logger = logging.getLogger(__name__)
+
+
+if sys.version_info >= (3, 11):
+    from enum import IntEnum, StrEnum
+
+    class StrEnumBase(StrEnum):
+        pass
+
+    class IntEnumBase(IntEnum):
+        pass
+
+else:
+    from enum import Enum
+
+    class StrEnumBase(str, Enum):
+        pass
+
+    class IntEnumBase(int, Enum):
+        pass
 
 
 def run_subprocess(cmd, env=None, cwd=None, check=False):
     logger.debug("Running command: %s", cmd)
 
     assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
-    windows = platform.system() == OS.WINDOWS
+    windows = platform.system() == "Windows"
     if isinstance(cmd, str):
         # In posix model, the cmd string will be handled with specific posix rules.
         # https://docs.python.org/3.8/library/shlex.html#parsing-rules

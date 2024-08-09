@@ -2,12 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from enum import Enum
 from typing import Optional, Union
 
 from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase, NestedConfig, validate_config
 from olive.common.constants import BASE_IMAGE
 from olive.common.pydantic_v1 import validator
+from olive.common.utils import StrEnumBase
 
 
 class PackagingType(CaseInsensitiveEnum):
@@ -43,7 +43,7 @@ class DockerfilePackagingConfig(CommonPackagingConfig):
     requirements_file: Optional[str] = None
 
 
-class InferencingServerType(str, Enum):
+class InferencingServerType(StrEnumBase):
     AzureMLOnline = "AzureMLOnline"
     AzureMLBatch = "AzureMLBatch"
 
@@ -54,7 +54,7 @@ class InferenceServerConfig(ConfigBase):
     scoring_script: str
 
 
-class AzureMLModelModeType(str, Enum):
+class AzureMLModelModeType(StrEnumBase):
     download = "download"
     copy = "copy"
 

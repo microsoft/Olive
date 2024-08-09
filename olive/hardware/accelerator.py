@@ -4,15 +4,15 @@
 # --------------------------------------------------------------------------
 import logging
 from dataclasses import dataclass
-from enum import Enum
 from typing import List, Optional, Union
 
+from olive.common.utils import StrEnumBase
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 
 logger = logging.getLogger(__name__)
 
 
-class Device(str, Enum):
+class Device(StrEnumBase):
     CPU = "cpu"
     CPU_SPR = "cpu_spr"
     GPU = "gpu"

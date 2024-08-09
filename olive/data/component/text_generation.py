@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from enum import Enum
 from pathlib import Path
 from random import Random
 from typing import Callable, Dict, List, Optional, Union
@@ -14,11 +13,12 @@ import transformers
 from olive.common.config_utils import ConfigBase, validate_config, validate_object
 from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
+from olive.common.utils import StrEnumBase
 from olive.data.component.dataset import BaseDataset
 from olive.data.constants import IGNORE_INDEX
 
 
-class TextGenStrategy(str, Enum):
+class TextGenStrategy(StrEnumBase):
     """Strategy for tokenizing a dataset."""
 
     LINE_BY_LINE = "line-by-line"  # each line is a sequence, in order of appearance

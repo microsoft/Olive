@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -11,13 +10,15 @@ from kv_cache_utils import DynamicCache, DynamicIOBoundCache, GQASharedCache, St
 from onnxruntime import InferenceSession, OrtValue, SessionOptions
 from transformers import PreTrainedTokenizer
 
+from olive.common.utils import StrEnumBase
+
 if TYPE_CHECKING:
     from kv_cache_utils import Cache, IOBoundCache
     from numpy.typing import NDArray
     from onnx import ValueInfoProto
 
 
-class AdapterMode(Enum):
+class AdapterMode(StrEnumBase):
     """Enum for adapter modes."""
 
     inputs = "inputs"

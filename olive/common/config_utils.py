@@ -5,7 +5,6 @@
 import inspect
 import json
 import logging
-from enum import Enum
 from functools import partial
 from pathlib import Path
 from types import FunctionType, MethodType
@@ -14,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 import yaml
 
 from olive.common.pydantic_v1 import BaseModel, create_model, root_validator, validator
-from olive.common.utils import hash_function, hash_object
+from olive.common.utils import StrEnumBase, hash_function, hash_object
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +211,7 @@ class NestedConfig(ConfigBase):
         return values
 
 
-class CaseInsensitiveEnum(str, Enum):
+class CaseInsensitiveEnum(StrEnumBase):
     """StrEnum class that is insensitive to the case of the input string.
 
     Note: Only insensitive when creating the enum object like `CaseInsensitiveEnum("value")`.

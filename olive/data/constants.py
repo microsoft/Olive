@@ -3,13 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from enum import Enum
+from olive.common.utils import StrEnumBase
 
 # index for targets that should be ignored when computing metrics
 IGNORE_INDEX = -100
 
 
-class DataComponentType(Enum):
+class DataComponentType(StrEnumBase):
     """enumerate for the different types of data components."""
 
     # dataset component type: to load data into memory
@@ -22,13 +22,13 @@ class DataComponentType(Enum):
     DATALOADER = "dataloader"
 
 
-class DataContainerType(Enum):
+class DataContainerType(StrEnumBase):
     """enumerate for the different types of data containers."""
 
     DATA_CONTAINER = "data_container"
 
 
-class DefaultDataComponent(Enum):
+class DefaultDataComponent(StrEnumBase):
     """enumerate for the default data components."""
 
     LOAD_DATASET = "default_load_dataset"
@@ -37,7 +37,7 @@ class DefaultDataComponent(Enum):
     DATALOADER = "default_dataloader"
 
 
-class DefaultDataContainer(Enum):
+class DefaultDataContainer(StrEnumBase):
     """enumerate for the default data containers."""
 
     DATA_CONTAINER = "DataContainer"

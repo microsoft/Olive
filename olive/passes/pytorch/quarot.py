@@ -5,7 +5,6 @@
 # -------------------------------------------------------------------------
 import logging
 import sys
-from enum import Enum
 from typing import Any, Dict, Union
 
 import torch
@@ -13,6 +12,7 @@ import transformers
 from torch.utils.data import DataLoader, SubsetRandomSampler
 
 from olive.common.config_utils import validate_config
+from olive.common.utils import StrEnumBase
 from olive.constants import ModelFileFormat
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
@@ -32,7 +32,7 @@ class QuaRot(Pass):
     This pass only supports HfModelHandler.
     """
 
-    class ModelDtype(str, Enum):
+    class ModelDtype(StrEnumBase):
         # input model's data type, we can assume the model is all float type
         # sometime, the model is in double type, but we can convert it to float type
         # before quantization

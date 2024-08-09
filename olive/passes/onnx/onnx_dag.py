@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 from collections import defaultdict
-from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Set, Union
 
@@ -13,6 +12,7 @@ from onnx import AttributeProto, GraphProto, NodeProto, TensorProto, ValueInfoPr
 
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import Field
+from olive.common.utils import StrEnumBase
 
 if TYPE_CHECKING:
     from onnx import ModelProto
@@ -20,14 +20,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class SpecialInput(str, Enum):
+class SpecialInput(StrEnumBase):
     """Special inputs for ONNX nodes."""
 
     INPUT = "__input__"  # user input
     INITIALIZER = "__initializer__"  # constant initializer
 
 
-class SpecialOutput(str, Enum):
+class SpecialOutput(StrEnumBase):
     """Special outputs for ONNX nodes."""
 
     OUTPUT = "__output__"  # model output
