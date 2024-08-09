@@ -10,13 +10,13 @@ from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.quant_utils import get_qmin_qmax_for_qType, quantize_nparray
 from packaging import version
 
-from olive.common.utils import StrEnumBase
+from olive.common.utils import IntEnumBase
 
 # pylint: skip-file
 # ruff: noqa
 
 
-class PowerOfTwoMethod(Enum):
+class PowerOfTwoMethod(IntEnumBase):
     NonOverflow = 0
     MinMSE = 1
 
