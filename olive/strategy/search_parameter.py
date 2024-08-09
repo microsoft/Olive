@@ -3,10 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import ABC, abstractmethod
-from enum import Enum
 from typing import Any, Dict, List, Tuple, Union
 
-from olive.common.utils import flatten_dict, unflatten_dict
+from olive.common.utils import StrEnumBase, flatten_dict, unflatten_dict
 
 
 class SearchParameter(ABC):
@@ -33,7 +32,7 @@ class SearchParameter(ABC):
         raise NotImplementedError
 
 
-class SpecialParamValue(str, Enum):
+class SpecialParamValue(StrEnumBase):
     """Special values for parameters.
 
     IGNORED: the parameter gets the value "OLIVE_IGNORED_PARAM_VALUE". The pass might ignore this parameter.

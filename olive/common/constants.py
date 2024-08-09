@@ -2,10 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from enum import Enum
+from olive.common.utils import StrEnumBase
 
 
-class OS(str, Enum):
+class OS(StrEnumBase):
     WINDOWS = "Windows"
     LINUX = "Linux"
 

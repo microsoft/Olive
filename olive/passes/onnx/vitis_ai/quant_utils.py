@@ -3,13 +3,14 @@
 # SPDX-License-Identifier: MIT
 #
 import sys
-from enum import Enum
 
 import numpy as np
 import onnx
 from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.quant_utils import get_qmin_qmax_for_qType, quantize_nparray
 from packaging import version
+
+from olive.common.utils import StrEnumBase
 
 # pylint: skip-file
 # ruff: noqa

@@ -5,12 +5,12 @@
 
 import logging
 from copy import deepcopy
-from enum import Enum
 from typing import List, Optional
 
 from olive.auto_optimizer.regulate_mixins import RegulatePassConfigMixin
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import validator
+from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware.accelerator import AcceleratorSpec
@@ -19,7 +19,7 @@ from olive.model import ModelConfig
 logger = logging.getLogger(__name__)
 
 
-class Precision(str, Enum):
+class Precision(StrEnumBase):
     FP32 = "fp32"
     FP16 = "fp16"
     INT8 = "int8"
