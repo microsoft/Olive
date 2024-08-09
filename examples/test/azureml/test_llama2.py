@@ -10,7 +10,7 @@ from olive.common.utils import get_credentials
 
 from ..utils import get_example_dir, patch_config
 
-account_url = os.environ.get("PIPELINE_TEST_ACCOUNT_NAME") or "olivestorageaccount"
+account_url = os.environ.get("PIPELINE_TEST_ACCOUNT_NAME") or "https://olivestorageaccount.blob.core.windows.net"
 container_name = os.environ.get("PIPELINE_TEST_CONTAINER_NAME") or "pipelinetest"
 
 
@@ -28,7 +28,7 @@ def setup():
 def test_bert(search_algorithm, execution_order, system, cloud_cache_config, olive_json):
     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json, search_algorithm, execution_order, system, is_gpu=True, hf_token=True)
+    olive_config = patch_config(olive_json, search_algorithm, execution_order, system, is_gpu=False, hf_token=True)
 
     # reduce qlora steps for faster test
     olive_config["passes"]["f"]["training_args"]["max_steps"] = 5
