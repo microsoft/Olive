@@ -28,24 +28,19 @@ def setup():
 def test_bert(search_algorithm, execution_order, system, cloud_cache_config, olive_json):
     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json, search_algorithm, execution_order, system)
+    olive_config = patch_config(olive_json, search_algorithm, execution_order, system, is_gpu=True, hf_token=True)
 
     # reduce qlora steps for faster test
     olive_config["passes"]["f"]["training_args"]["max_steps"] = 5
     olive_config["passes"]["f"]["training_args"]["logging_steps"] = 5
-    olive_config["passes"]["f"]["training_args"]["save_steps"] = 5
     olive_config["passes"]["f"]["training_args"]["per_device_train_batch_size"] = 2
     olive_config["passes"]["f"]["training_args"]["per_device_eval_batch_size"] = 2
-    olive_config["passes"]["f"]["eval_dataset_size"] = 8
-
-    # set compute
-    olive_config["systems"]["v100"] = get_v100_compute()
 
     # add cloud cache system
     olive_config["cloud_cache_config"] = cloud_cache_config
 
     # set workflow host
-    olive_config["workflow_host"] = "v100"
+    olive_config["workflow_host"] = "aml_system"
 
     workflow_id = "llama2_pipeline_test"
     olive_config["workflow_id"] = workflow_id

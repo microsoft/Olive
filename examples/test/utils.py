@@ -24,7 +24,7 @@ def check_output(footprints):
             assert all(metric_result.value > 0 for metric_result in v.metrics.value.values())
 
 
-def patch_config(config_json_path: str, search_algorithm: str, execution_order: str, system: str, is_gpu: bool = False):
+def patch_config(config_json_path: str, search_algorithm: str, execution_order: str, system: str, is_gpu: bool = False, hf_token: bool = False):
     """Load the config json file and patch it with the given search algorithm, execution order and system."""
     with open(config_json_path) as fin:
         olive_config = json.load(fin)
@@ -47,7 +47,7 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
     update_azureml_config(olive_config)
     if system == "aml_system":
         # set aml_system
-        set_aml_system(olive_config, is_gpu=is_gpu)
+        set_aml_system(olive_config, is_gpu=is_gpu, hf_token=hf_token)
         olive_config["host"] = system
         olive_config["target"] = system
     elif system == "docker_system":
@@ -100,7 +100,7 @@ def update_azureml_config(olive_config):
     }
 
 
-def set_aml_system(olive_config, is_gpu=False):
+def set_aml_system(olive_config, is_gpu=False, hf_token=False):
     """Set the aml_system in the olive config."""
     if "systems" not in olive_config:
         olive_config["systems"] = {}
@@ -115,6 +115,7 @@ def set_aml_system(olive_config, is_gpu=False):
                 "conda_file_path": "conda_gpu.yaml",
             },
             "is_dev": True,
+            "hf_token": hf_token,
         }
 
     else:
@@ -127,22 +128,8 @@ def set_aml_system(olive_config, is_gpu=False):
                 "conda_file_path": "conda.yaml",
             },
             "is_dev": True,
+            "hf_token": hf_token,
         }
-
-
-def get_v100_compute():
-    return {
-        "type": "AzureML",
-        "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
-        "aml_compute": "gpu-cluster",
-        "aml_docker_config": {
-            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
-            "conda_file_path": "conda_gpu.yaml",
-        },
-        "datastores": "pipelinetest",
-        "is_dev": True,
-        "hf_token": True,
-    }
 
 
 def set_docker_system(olive_config):
