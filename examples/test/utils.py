@@ -134,7 +134,7 @@ def get_v100_compute():
     return {
         "type": "AzureML",
         "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
-        "aml_compute": "v800",
+        "aml_compute": "gpu-cluster",
         "aml_docker_config": {
             "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
             "conda_file_path": "conda_gpu.yaml",
