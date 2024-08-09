@@ -612,10 +612,15 @@ class AzureMLSystem(OliveSystem):
             outputs = {}
             for metric in evaluator_config.metrics:
                 metric_tmp_dir = tmp_dir / metric.name
+                metric_clone = deepcopy(metric)
+                if metric_clone.sub_types:
+                    metric_clone.sub_types = sorted(metric_clone.sub_types, key=lambda st: st.priority, reverse=True)
+                    for priority, sub_type in enumerate(metric_clone.sub_types):
+                        sub_type.priority = priority + 1
                 metric_component = self._create_metric_component(
                     metric_tmp_dir,
                     model_config,
-                    OliveEvaluatorConfig(type=evaluator_config.type, metrics=[metric]).to_json(check_object=True),
+                    OliveEvaluatorConfig(type=evaluator_config.type, metrics=[metric_clone]).to_json(check_object=True),
                     accelerator.to_json(),
                 )
                 outputs[metric.name] = metric_component.outputs.pipeline_output
