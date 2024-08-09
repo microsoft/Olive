@@ -44,7 +44,7 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
         return extra_name
 
     def get_pass_extras(pass_type):
-        pass_module_config = package_config.passes.get(pass_type)
+        pass_module_config = package_config.get_pass_module_config(pass_type)
 
         extra_results = []
         extra_results.extend(pass_module_config.module_dependencies)
