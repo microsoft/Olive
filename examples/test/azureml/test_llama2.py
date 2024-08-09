@@ -8,7 +8,7 @@ import pytest
 
 from olive.common.utils import get_credentials
 
-from ..utils import get_example_dir, get_v100_compute, patch_config
+from ..utils import get_example_dir, patch_config
 
 account_url = os.environ.get("PIPELINE_TEST_ACCOUNT_NAME") or "olivestorageaccount"
 container_name = os.environ.get("PIPELINE_TEST_CONTAINER_NAME") or "pipelinetest"
