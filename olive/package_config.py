@@ -38,7 +38,7 @@ class OlivePackageConfig(ConfigBase):
         module = importlib.import_module(module_path, module_name)
         return getattr(module, module_name)
 
-    def get_pass_module_config(self, pass_type: str):
+    def get_pass_module_config(self, pass_type: str) -> PassModuleConfig:
         if "." in pass_type:
             _, module_name = pass_type.rsplit
             return self.get_pass_module_config(module_name)
