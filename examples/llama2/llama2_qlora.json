@@ -50,7 +50,7 @@
                 "per_device_train_batch_size": 16,
                 "per_device_eval_batch_size": 16,
                 "max_steps": 150,
-                "logging_steps": 50.0
+                "logging_steps": 50
             },
             "lora_r": 64,
             "lora_alpha": 16,

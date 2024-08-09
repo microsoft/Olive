@@ -339,7 +339,7 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
     hf_dataset.set_format("torch", output_all_columns=True)
 
     # return BaseDataset
-    return BaseDataset(hf_dataset, ["labels"], max_samples=args.max_samples)
+    return BaseDataset(hf_dataset, "labels", max_samples=args.max_samples)
 
 
 def get_text(

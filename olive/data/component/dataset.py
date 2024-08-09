@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from copy import deepcopy
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
@@ -42,55 +41,6 @@ class BaseDataset(TorchDataset):
         data = {k: v for k, v in self.data[index].items() if k != self.label_col}
         label = self.data[index][self.label_col]
         return data, label
-
-    def to_numpy(self):
-        """Convert the dataset to numpy array."""
-
-    def to_torch_tensor(self):
-        """Convert the dataset to torch tensor."""
-
-    def to_snpe_dataset(self):
-        """Convert the dataset to snpe dataset."""
-
-    # TODO(jambayk): improve this to just create a wrapper over the existing dataset
-    # and implement __getitem__ with the following logic
-    def to_hf_dataset(self, label_name="label"):
-        """Convert the dataset to huggingface dataset.
-
-        :param label_name: The name of the label column in the new dataset. Default is "label".
-        """
-        from datasets import Dataset
-
-        if hasattr(self, "data") and isinstance(self.data, Dataset):
-            # some children classes may not have data attribute
-            # this part assumes the class follows the format of BaseDataset and has data and label_col attributes
-            hf_dataset = self.data
-            # rename the label column
-            if self.label_col != label_name:
-                if label_name in hf_dataset.column_names:
-                    raise ValueError(f"Cannot rename label column to {label_name} since it already exists")
-                hf_dataset = self.data.rename_column(self.label_col, label_name)
-                self.label_col = label_name
-            # truncate the dataset to len (happen when max_samples is not None)
-            # this is not costly since the dataset is sliced when selected with range
-            hf_dataset = hf_dataset.select(range(len(self)))
-        else:
-            first_input, _ = self[0]
-            if not isinstance(first_input, dict):
-                raise ValueError("Cannot convert to huggingface dataset since the input is not a dict")
-            # convert the dataset to dict of lists
-            data_dict = {k: [] for k in first_input}
-            data_dict[label_name] = []
-            # loop over the dataset
-            for _, d in enumerate(self):
-                data, label = deepcopy(d)
-                for k, v in data.items():
-                    data_dict[k].append(v)
-                data_dict[label_name].append(label)
-            # convert the dict of lists to huggingface dataset
-            hf_dataset = Dataset.from_dict(data_dict)
-            hf_dataset.set_format("torch", output_all_columns=True)
-        return hf_dataset
 
 
 class DummyDataset(BaseDataset):

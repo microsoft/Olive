@@ -40,8 +40,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PAD_TOKEN = "[PAD]"
-
 # pylint: disable=unused-import
 
 
@@ -194,32 +192,14 @@ class LoRABase(Pass):
                 ),
             ),
             # data parameters
-            # TODO(jambayk): only keep train and eval data configs, remove eval_dataset_size and data processing
-            # from this pass. dataconfig should handle everything related to data
             "train_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 required=True,
-                description=(
-                    "Data config for fine-tuning training. If `eval_data_config` is not provided and"
-                    " `eval_dataset_size` is not None, the data will be split into train and eval. Otherwise, the data"
-                    " will be used for training only."
-                ),
+                description="Data config for fine-tuning training",
             ),
             "eval_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
-                description=(
-                    "Data config for fine-tuning evaluation. Optional if `eval_dataset_size` is provided or evaluation"
-                    " is not needed."
-                ),
-            ),
-            "eval_dataset_size": PassConfigParam(
-                type_=float,
-                default_value=None,
-                description=(
-                    "Size of the validation dataset. Should be either positive and smaller than the number of train"
-                    " sample or a float in the (0, 1) range. If `eval_data_config` is provided, this parameter will be"
-                    " ignored."
-                ),
+                description="Data config for fine-tuning evaluation. Optional if evaluation is not needed.",
             ),
             # training parameters
             "training_args": PassConfigParam(
@@ -304,13 +284,19 @@ class LoRABase(Pass):
                     " to overwrite or provide a new output_dir."
                 )
 
+    # TODO(jambayk): consider introducing a data collator component for data container
     @staticmethod
-    def collate_batch(batch: List[Dict], tokenizer: "PreTrainedTokenizer") -> Dict[str, torch.Tensor]:
+    def collate_batch(batch: List[Union[Dict, Tuple]], tokenizer: "PreTrainedTokenizer") -> Dict[str, torch.Tensor]:
         """Collate a batch of samples into a padded batch of tensors.
 
         Add padding to the input_ids, attention_mask and labels.
+        Each example can be a dictionary with inputs (and optionally labels) or a tuple with inputs and labels.
         """
         from torch.nn.utils.rnn import pad_sequence
+
+        if isinstance(batch[0], tuple):
+            # convert tuple to dict, this comes from the olive dataset
+            batch = [{**sample[0], "labels": sample[1]} for sample in batch]
 
         input_ids = [sample["input_ids"] for sample in batch]
         attention_mask = None
@@ -318,12 +304,18 @@ class LoRABase(Pass):
             attention_mask = [sample["attention_mask"] for sample in batch]
         label_col = "labels" if "labels" in batch[0] else "label"
         if label_col not in batch[0]:
-            raise ValueError("Batch does not contain 'labels' or 'label' column.")
-        labels = [sample[label_col] for sample in batch]
+            # labels is the same as input_ids, the trainer left shifts the labels when computing loss
+            labels = [input_id.clone() for input_id in input_ids]
+        else:
+            labels = [sample[label_col] for sample in batch]
 
         # apply padding and add to batch
+        # need to worry about left or right padding?
         new_batch = {
             "input_ids": pad_sequence(input_ids, batch_first=True, padding_value=tokenizer.pad_token_id),
+            # pad the labels with IGNORE_INDEX so that they are not used in loss computation
+            # don't want to clone batched input_ids and ignore padding tokens in case eos token is used
+            # as padding token
             "labels": pad_sequence(labels, batch_first=True, padding_value=IGNORE_INDEX),
         }
         if attention_mask:
@@ -337,32 +329,17 @@ class LoRABase(Pass):
         """Load training and evaluation datasets."""
         train_data_config = config.train_data_config
         eval_data_config = config.eval_data_config
-        eval_dataset_size = config.eval_dataset_size
 
         # load training dataset
         train_data_container = train_data_config.to_data_container()
         train_dataset = train_data_container.pre_process(train_data_container.load_dataset())
-        train_dataset = train_dataset.to_hf_dataset(label_name="labels")
 
         # load evaluation dataset if needed
+        eval_dataset = None
         if eval_data_config:
             # eval data config has been provided
             eval_data_container = eval_data_config.to_data_container()
             eval_dataset = eval_data_container.pre_process(eval_data_container.load_dataset())
-            eval_dataset = eval_dataset.to_hf_dataset(label_name="labels")
-        elif eval_dataset_size:
-            if eval_dataset_size >= 1:
-                # when eval_dataset_size is an integer, it is the number of samples
-                eval_dataset_size = int(eval_dataset_size)
-            # eval data config has not been provided, but eval_dataset_size has been provided
-            split_data = train_dataset.train_test_split(
-                test_size=eval_dataset_size, shuffle=True, seed=config.training_args.get_data_seed()
-            )
-            train_dataset = split_data["train"]
-            eval_dataset = split_data["test"]
-        else:
-            # eval data config has not been provided, and eval_dataset_size has not been provided
-            eval_dataset = None
 
         return train_dataset, eval_dataset
 
@@ -489,7 +466,6 @@ class LoRABase(Pass):
     def enable_lora(
         self,
         model: "PreTrainedModel",
-        tokenizer: "PreTrainedTokenizer",
         task: str,
         config: ConfigBase,
         adapter_path: Optional[str] = None,
@@ -513,15 +489,6 @@ class LoRABase(Pass):
         from peft.tuners.lora import LoraLayer
 
         logger.debug("Enabling LoRA fine-tuning")
-        # if there is no pad token, add to tokenizer and model
-        # TODO(jambayk): Do this in a better way since the embedding size might become unoptimal
-        # (not a multiple of 64, etc) perhaps use eos_token as pad_token, but need to ensure the actual eos_token
-        # at the end of the sequence is not masked (both in attention mask and loss calculation)
-        if not tokenizer.pad_token_id:
-            self.smart_tokenizer_and_embedding_resize(
-                special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN}, tokenizer=tokenizer, model=model
-            )
-
         if config.training_args.gradient_checkpointing and not model.supports_gradient_checkpointing:
             logger.warning(
                 "gradient_checkpointing is True, but model does not support gradient checkpointing! Setting"
@@ -631,41 +598,19 @@ class LoRABase(Pass):
 
                 trainer_cls = ORTTrainer
 
-            # there is a bug in accelerate where it assumes 4bit models on multiple gpus cannot be trained but it is
-            # not the case. refer to https://github.com/huggingface/accelerate/pull/2714 for more details
-            # we will force the accelerator to use the first device using the ACCELERATE_TORCH_DEVICE env variable
-            # only catches the bug on aml compute with multiple gpus where the model has no weights on device 0 for
-            # some reason
-            # TODO(jambayk): add a version check when the fix is released
-            accelerate_torch_device = os.environ.get("ACCELERATE_TORCH_DEVICE", None)
-            try:
-                # using a try finally block in case the environment variable is used elsewhere
-                first_device = next(iter(set(model.hf_device_map.values())))
-                first_device_index = first_device.index if isinstance(first_device, torch.device) else first_device
-                os.environ["ACCELERATE_TORCH_DEVICE"] = f"cuda:{first_device_index}"
-                logger.debug("ACCELERATE_TORCH_DEVICE set to: %s", os.environ["ACCELERATE_TORCH_DEVICE"])
+            # get trainer'
+            trainer = trainer_cls(
+                model=model,
+                args=config.training_args.create_training_args(config.use_ort_trainer),
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                data_collator=partial(self.collate_batch, tokenizer=tokenizer),
+            )
 
-                # get trainer'
-                trainer = trainer_cls(
-                    model=model,
-                    tokenizer=tokenizer,
-                    args=config.training_args.create_training_args(config.use_ort_trainer),
-                    train_dataset=train_dataset,
-                    eval_dataset=eval_dataset,
-                    data_collator=partial(self.collate_batch, tokenizer=tokenizer),
-                )
-                # TODO(jambayk): trainer callback for saving might be needed for DDP training
-                # worry about this later
-
-                # train
-                logger.info("Running fine-tuning")
-                train_result = trainer.train(resume_from_checkpoint=checkpoint)
-                logger.debug("train_result: %s", train_result)
-            finally:
-                if accelerate_torch_device is not None:
-                    os.environ["ACCELERATE_TORCH_DEVICE"] = accelerate_torch_device
-                else:
-                    os.environ.pop("ACCELERATE_TORCH_DEVICE", None)
+            # train
+            logger.info("Running fine-tuning")
+            train_result = trainer.train(resume_from_checkpoint=checkpoint)
+            logger.debug("train_result: %s", train_result)
 
         if torch.cuda.is_available():
             torch.backends.cuda.matmul.allow_tf32 = allow_tf32  # lgtm
@@ -692,33 +637,6 @@ class LoRABase(Pass):
         # set adapter_path
         output_model.set_resource("adapter_path", adapter_path)
         return output_model
-
-    @staticmethod
-    def smart_tokenizer_and_embedding_resize(
-        special_tokens_dict: Dict, tokenizer: "PreTrainedTokenizer", model: "PreTrainedModel"
-    ):
-        """Resize the tokenizer and the model embedding layer to take into account new special tokens.
-
-        NOTE: This is only used to ensure we have a pad token. The new embeddings don't get training signals
-        the pad tokens are masked out in the attention mask and loss calculation. Moreover, only the adapter weights
-        are set as trainable and saved in the final checkpoint.
-        """
-        # resize tokenizer
-        num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
-        # resize model embedding layer
-        model.resize_token_embeddings(len(tokenizer))
-        if num_new_tokens > 0:
-            logger.debug("Added %d new tokens to tokenizer and resized model embedding layer.", num_new_tokens)
-            input_embeddings_data = model.get_input_embeddings().weight.data
-            output_embeddings_data = model.get_output_embeddings().weight.data
-
-            # average the embeddings of the pre-existing tokens
-            input_embeddings_avg = input_embeddings_data[:-num_new_tokens].mean(dim=0, keepdim=True)
-            output_embeddings_avg = output_embeddings_data[:-num_new_tokens].mean(dim=0, keepdim=True)
-
-            # set the new embeddings to the average
-            input_embeddings_data[-num_new_tokens:] = input_embeddings_avg
-            output_embeddings_data[-num_new_tokens:] = output_embeddings_avg
 
     @staticmethod
     def get_torch_dtype(torch_dtype: str) -> torch.dtype:
@@ -797,7 +715,7 @@ class LoRA(LoRABase):
 
         # add lora modules
         pytorch_model = self.enable_lora(
-            pytorch_model, tokenizer, new_model_handler.task, config, target_modules=config.target_modules
+            pytorch_model, new_model_handler.task, config, target_modules=config.target_modules
         )
 
         # train and return new model
@@ -923,7 +841,7 @@ class QLoRA(QLoRABase):
 
         # enable lora fine-tuning with new lora modules
         pytorch_model = self.enable_lora(
-            pytorch_model, tokenizer, new_model_handler.task, config, target_modules=quantized_modules
+            pytorch_model, new_model_handler.task, config, target_modules=quantized_modules
         )
 
         return new_model_handler, pytorch_model, tokenizer, quantized_modules
@@ -1030,7 +948,7 @@ class LoftQ(QLoRABase):
 
         # enable lora fine-tuning with the loftq initialized adapter weights
         pytorch_model = self.enable_lora(
-            pytorch_model, tokenizer, new_model_handler.task, config, adapter_path=loftq_init_adapter_path
+            pytorch_model, new_model_handler.task, config, adapter_path=loftq_init_adapter_path
         )
 
         return new_model_handler, pytorch_model, tokenizer, quantized_modules
