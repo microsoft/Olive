@@ -80,6 +80,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#model-options">model options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#dataset-options">dataset options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#lora-options">lora options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#remote-options">remote options</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#export-adapters">export-adapters</a><ul>
@@ -211,7 +212,9 @@
                <span class="p">[</span><span class="o">--</span><span class="n">max_seq_len</span> <span class="n">MAX_SEQ_LEN</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">method</span> <span class="p">{</span><span class="n">lora</span><span class="p">,</span><span class="n">qlora</span><span class="p">}]</span>
                <span class="p">[</span><span class="o">--</span><span class="n">lora_r</span> <span class="n">LORA_R</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">lora_alpha</span> <span class="n">LORA_ALPHA</span><span class="p">]</span>
                <span class="p">[</span><span class="o">--</span><span class="n">target_modules</span> <span class="n">TARGET_MODULES</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
-               <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">clean</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">clean</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">azureml_config</span> <span class="n">AZUREML_CONFIG</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">azureml_cluster</span> <span class="n">AZUREML_CLUSTER</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">azureml_keyvault</span> <span class="n">AZUREML_KEYVAULT</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments_repeat1">
@@ -239,7 +242,7 @@
 <h4>model options<a class="headerlink" href="#model-options" title="Permalink to this heading">¶</a></h4>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
-<dd><p>The model checkpoint for weights initialization.</p>
+<dd><p>The model checkpoint for weights initialization. If using an AzureML Registry model, provide the model path as ‘registry_name:model_name:version’.</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a model.</p>
@@ -299,6 +302,20 @@
 </dd>
 <dt><kbd>--target_modules</kbd></dt>
 <dd><p>The target modules for LoRA. If multiple, separate by comma.</p>
+</dd>
+</dl>
+</section>
+<section id="remote-options">
+<h4>remote options<a class="headerlink" href="#remote-options" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--azureml_config</kbd></dt>
+<dd><p>Path to the azureml config file for remote run. Recommended to log in using <cite>az login</cite> before running.</p>
+</dd>
+<dt><kbd>--azureml_cluster</kbd></dt>
+<dd><p>The azureml cluster to use for remote run. Must be provided if using azureml_config.</p>
+</dd>
+<dt><kbd>--azureml_keyvault</kbd></dt>
+<dd><p>The azureml keyvault with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login</a> for more details.</p>
 </dd>
 </dl>
 </section>
