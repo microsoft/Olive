@@ -39,6 +39,17 @@ def test_bert(search_algorithm, execution_order, system, cloud_cache_config, oli
     # add cloud cache system
     olive_config["cloud_cache_config"] = cloud_cache_config
 
+    olive_config["systems"]["aml_system"] = {
+            "type": "AzureML",
+            "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
+            "aml_compute": "gpu-cluster",
+            "aml_docker_config": {
+                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
+                "conda_file_path": "conda_gpu.yaml",
+            },
+            "is_dev": True,
+            "hf_token": True,
+        }
     # set workflow host
     olive_config["workflow_host"] = "aml_system"
 
