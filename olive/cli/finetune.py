@@ -3,15 +3,19 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import codecs
+import json
 import logging
+import re
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
 from pathlib import Path
-from typing import ClassVar, Dict
+from typing import ClassVar, Dict, Union
+
+import yaml
 
 from olive.cli.base import BaseOliveCLICommand
-from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir
+from olive.common.utils import hardlink_copy_dir, hash_dict, set_nested_dict_value, set_tempdir
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +48,10 @@ class FineTuneCommand(BaseOliveCLICommand):
             "--model_name_or_path",
             type=str,
             required=True,
-            help="The model checkpoint for weights initialization.",
+            help=(
+                "The model checkpoint for weights initialization. If using an AzureML Registry model, provide the model"
+                " path as 'registry_name:model_name:version'."
+            ),
         )
         model_group.add_argument(
             "--trust_remote_code", action="store_true", help="Trust remote code when loading a model."
@@ -127,6 +134,31 @@ class FineTuneCommand(BaseOliveCLICommand):
         # TODO(jambayk): what about checkpoint_dir and resume from checkpoint support? clean checkpoint dir?
         sub_parser.add_argument("--clean", action="store_true", help="Run in a clean cache directory")
 
+        # remote options
+        remote_group = sub_parser.add_argument_group("remote options")
+        remote_group.add_argument(
+            "--azureml_config",
+            type=str,
+            help=(
+                "Path to the azureml config file for remote run. Recommended to log in using `az login` before running."
+            ),
+        )
+        remote_group.add_argument(
+            "--azureml_cluster",
+            type=str,
+            help="The azureml cluster to use for remote run. Must be provided if using azureml_config.",
+        )
+        remote_group.add_argument(
+            "--azureml_keyvault",
+            type=str,
+            help=(
+                "The azureml keyvault with huggingface token to use for remote run. Refer to"
+                " https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login for"
+                " more details."
+            ),
+        )
+        # Cloud cache doesn't support azureml resources yet, only hf-id
+
         sub_parser.set_defaults(func=FineTuneCommand)
 
     def run(self):
@@ -134,10 +166,15 @@ class FineTuneCommand(BaseOliveCLICommand):
 
         set_tempdir(self.args.tempdir)
 
-        run_config = self.get_run_config()
         with tempfile.TemporaryDirectory() as tempdir:
-            run_config["output_dir"] = tempdir
+            run_config = self.get_run_config(tempdir)
+
             olive_run(run_config)
+
+            if self.args.azureml_config:
+                # TODO(jambayk): point user to datastore with outputs or download outputs
+                # both are not implemented yet
+                return
 
             # need to improve the output structure of olive run
             output_path = Path(self.args.output_path)
@@ -161,12 +198,12 @@ class FineTuneCommand(BaseOliveCLICommand):
 
         return {k: v for k, v in vars(training_args).items() if k in arg_keys}
 
-    def get_run_config(self) -> Dict:
+    def get_run_config(self, tempdir: str) -> Dict:
         load_key = ("data_configs", 0, "load_dataset_config")
         preprocess_key = ("data_configs", 0, "pre_process_data_config")
         finetune_key = ("passes", "f")
         to_replace = [
-            (("input_model", "model_path"), self.args.model_name_or_path),
+            (("input_model", "model_path"), self.get_model_name_or_path()),
             ((*load_key, "data_name"), self.args.data_name),
             ((*load_key, "split"), self.args.train_split),
             (
@@ -185,10 +222,11 @@ class FineTuneCommand(BaseOliveCLICommand):
             # make the mapping of precisions better
             (("passes", "m", "precision"), "fp16" if self.args.precision == "float16" else "fp32"),
             (("clean_cache",), self.args.clean),
+            ("output_dir", tempdir),
         ]
         if self.args.trust_remote_code:
             to_replace.append((("input_model", "load_kwargs", "trust_remote_code"), True))
-        if self.args.method == "lora":
+        if self.args.method == "lora" and self.args.target_modules:
             to_replace.append(((*finetune_key, "target_modules"), self.args.target_modules.split(",")))
 
         config = deepcopy(TEMPLATE)
@@ -204,7 +242,50 @@ class FineTuneCommand(BaseOliveCLICommand):
             config["data_configs"].append(eval_data_config)
             config["passes"]["f"]["eval_data_config"] = "eval_data"
 
+        if self.args.azureml_config:
+            assert self.args.azureml_cluster, "AzureML cluster must be provided if using azureml_config."
+
+            # set the workflow id to be unique
+            # add before setting up the remote host since that's independent of the workflow
+            config["workflow_id"] = f"finetune-{hash_dict(config)}"
+
+            with open(self.args.azureml_config) as f:
+                azureml_client = json.load(f)
+                # don't use managed identity credential, instead use azure cli login or interactive login
+                azureml_client["default_auth_params"] = {"exclude_managed_identity_credential": True}
+                config["azureml_client"] = azureml_client
+
+            # update config for azureml run
+            config["systems"]["aml_system"] = aml_system = deepcopy(AZUREML_SYSTEM_TEMPLATE)
+            aml_system["aml_compute"] = self.args.azureml_cluster
+
+            # set up keyvault for huggingface token
+            if self.args.azureml_keyvault:
+                azureml_client["keyvault_name"] = self.args.azureml_keyvault
+                aml_system["hf_token"] = True
+
+            conda_file_path = Path(tempdir) / "conda_gpu.yaml"
+            with open(conda_file_path, "w") as f:
+                yaml.dump(CONDA_CONFIG, f)
+            aml_system["aml_docker_config"]["conda_file_path"] = str(conda_file_path)
+
+            # set the workflow host to azureml
+            config["workflow_host"] = "aml_system"
+
         return config
+
+    def get_model_name_or_path(self) -> Union[str, Dict]:
+        pattern = r"(?P<registry_name>[^:]+):(?P<model_name>[^:]+):(?P<version>[^:]+)"
+        match = re.match(pattern, self.args.model_name_or_path)
+        if not match:
+            return self.args.model_name_or_path
+
+        return {
+            "type": "azureml_registry_model",
+            "registry_name": match.group("registry_name"),
+            "name": match.group("model_name"),
+            "version": match.group("version"),
+        }
 
 
 TEMPLATE = {
@@ -260,6 +341,41 @@ TEMPLATE = {
     },
     "host": "local_system",
     "target": "local_system",
+}
+
+AZUREML_SYSTEM_TEMPLATE = {
+    "type": "AzureML",
+    "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
+    "aml_docker_config": {"base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04"},
+}
+
+CONDA_CONFIG = {
+    "name": "olive_finetune",
+    "channels": ["defaults"],
+    "dependencies": [
+        "python=3.8.13",
+        "pip=22.3.1",
+        {
+            "pip": [
+                "accelerate",
+                "bitsandbytes",
+                "peft",
+                "scikit-learn",
+                "sentencepiece",
+                "datasets",
+                "evaluate",
+                "psutil",
+                "optimum",
+                "scipy",
+                "scikit-learn",
+                "torch",
+                "onnxruntime-genai",
+                "--extra-index-url https://download.pytorch.org/whl/cu118",
+                "transformers>=4.41.1",
+                "git+https://github.com/microsoft/Olive#egg=olive-ai[gpu,azureml]",
+            ]
+        },
+    ],
 }
 
 
