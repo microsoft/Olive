@@ -2,10 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from enum import Enum
+from olive.common.utils import StrEnumBase
 
 
-class SDKTargetDevice(str, Enum):
+class SDKTargetDevice(StrEnumBase):
     x86_64_linux = "x86_64-linux-clang"
     x86_64_windows = "x86_64-windows-msvc"
     # evaluation only
@@ -14,20 +14,20 @@ class SDKTargetDevice(str, Enum):
     aarch64_android = "aarch64-android"
 
 
-class SNPEDevice(str, Enum):
+class SNPEDevice(StrEnumBase):
     CPU = "cpu"
     GPU = "gpu"
     DSP = "dsp"
     AIP = "aip"
 
 
-class InputType(str, Enum):
+class InputType(StrEnumBase):
     DEFAULT = "default"
     IMAGE = "image"
     OPAQUE = "opaque"
 
 
-class InputLayout(str, Enum):
+class InputLayout(StrEnumBase):
     NCDHW = "NCDHW"
     NDHWC = "NDHWC"
     NCHW = "NCHW"
@@ -42,7 +42,7 @@ class InputLayout(str, Enum):
     NONTRIVIAL = "NONTRIVIAL"
 
 
-class PerfProfile(str, Enum):
+class PerfProfile(StrEnumBase):
     SYSTEM_SETTINGS = "system_settings"
     POWER_SAVER = "power_saver"
     BALANCED = "balanced"
@@ -51,7 +51,7 @@ class PerfProfile(str, Enum):
     BURST = "burst"
 
 
-class ProfilingLevel(str, Enum):
+class ProfilingLevel(StrEnumBase):
     OFF = "off"
     BASIC = "basic"
     MODERATE = "moderate"

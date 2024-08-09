@@ -2,10 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from enum import Enum
+from olive.common.utils import StrEnumBase
 
 
-class Framework(str, Enum):
+class Framework(StrEnumBase):
     """Framework of the model."""
 
     ONNX = "ONNX"
@@ -16,7 +16,7 @@ class Framework(str, Enum):
     OPENVINO = "OpenVINO"
 
 
-class ModelFileFormat(str, Enum):
+class ModelFileFormat(StrEnumBase):
     """Given a framework, there might be 1 or more on-disk model file format(s), model save/Load logic may differ."""
 
     ONNX = "ONNX"

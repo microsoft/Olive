@@ -2,17 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from enum import Enum
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Type, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object
 from olive.common.pydantic_v1 import Field, create_model, validator
+from olive.common.utils import StrEnumBase
 from olive.resource_path import validate_resource_path
 from olive.strategy.search_parameter import SearchParameter, SpecialParamValue, json_to_search_parameter
 
 
-class PassParamDefault(str, Enum):
+class PassParamDefault(StrEnumBase):
     """Default values for passes."""
 
     DEFAULT_VALUE = "DEFAULT_VALUE"
