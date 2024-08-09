@@ -136,15 +136,15 @@
 <span class="c1"># --------------------------------------------------------------------------</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
+<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">StrEnumBase</span>
 <span class="kn">from</span> <span class="nn">olive.hardware.constants</span> <span class="kn">import</span> <span class="n">DEVICE_TO_EXECUTION_PROVIDERS</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="Device"><a class="viewcode-back" href="../../../api/systems.html#olive.hardware.accelerator.Device">[docs]</a><span class="k">class</span> <span class="nc">Device</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
+<div class="viewcode-block" id="Device"><a class="viewcode-back" href="../../../api/systems.html#olive.hardware.accelerator.Device">[docs]</a><span class="k">class</span> <span class="nc">Device</span><span class="p">(</span><span class="n">StrEnumBase</span><span class="p">):</span>
     <span class="n">CPU</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span>
     <span class="n">CPU_SPR</span> <span class="o">=</span> <span class="s2">&quot;cpu_spr&quot;</span>
     <span class="n">GPU</span> <span class="o">=</span> <span class="s2">&quot;gpu&quot;</span>
