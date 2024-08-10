@@ -34,6 +34,7 @@ from olive.passes.olive_pass import PassConfigParam
 from olive.strategy.search_parameter import Categorical
 
 if TYPE_CHECKING:
+    from datasets import Dataset
     from peft import PeftModel
     from transformers import PreTrainedModel, PreTrainedTokenizer
 
@@ -117,9 +118,6 @@ class HFTrainingArguments(NestedConfig):
             raise ValueError("output_dir must be provided.")
         extra_args = args.pop("extra_args")
         return transformers.TrainingArguments(**args, **extra_args)
-
-    def get_data_seed(self):
-        return self.extra_args.get("data_seed", self.extra_args.get("seed", 42))
 
 
 class LoRABase(Pass):
@@ -211,17 +209,13 @@ class LoRABase(Pass):
 
     # TODO(jambayk): consider introducing a data collator component for data container
     @staticmethod
-    def collate_batch(batch: List[Union[Dict, Tuple]], tokenizer: "PreTrainedTokenizer") -> Dict[str, torch.Tensor]:
+    def collate_batch(batch: List[Dict], tokenizer: "PreTrainedTokenizer") -> Dict[str, torch.Tensor]:
         """Collate a batch of samples into a padded batch of tensors.
 
         Add padding to the input_ids, attention_mask and labels.
-        Each example can be a dictionary with inputs (and optionally labels) or a tuple with inputs and labels.
+        Each example can be a dictionary with inputs (and optionally labels).
         """
         from torch.nn.utils.rnn import pad_sequence
-
-        if isinstance(batch[0], tuple):
-            # convert tuple to dict, this comes from the olive dataset
-            batch = [{**sample[0], "labels": sample[1]} for sample in batch]
 
         input_ids = [sample["input_ids"] for sample in batch]
         attention_mask = None
@@ -250,21 +244,34 @@ class LoRABase(Pass):
     @staticmethod
     def get_datasets(
         config: ConfigBase,
-    ) -> tuple:
+    ) -> Tuple["Dataset", Optional["Dataset"]]:
         """Load training and evaluation datasets."""
+        # we return dataset.Dataset object since the trainer works better with it
+        from datasets import Dataset
+
         train_data_config = config.train_data_config
         eval_data_config = config.eval_data_config
 
+        def data_generator(data_config):
+            data_container = data_config.to_data_container()
+            dataset = data_container.pre_process(data_container.load_dataset())
+
+            for idx in range(len(dataset)):
+                example = dataset[idx]
+                if isinstance(example, tuple):
+                    # coming from olive dataset, example is a tuple of inputs and labels
+                    example = {**example[0], "labels": example[1]}
+                yield example
+
         # load training dataset
-        train_data_container = train_data_config.to_data_container()
-        train_dataset = train_data_container.pre_process(train_data_container.load_dataset())
+        train_dataset = Dataset.from_generator(data_generator, gen_kwargs={"data_config": train_data_config})
+        train_dataset.set_format("torch")
 
         # load evaluation dataset if needed
         eval_dataset = None
         if eval_data_config:
-            # eval data config has been provided
-            eval_data_container = eval_data_config.to_data_container()
-            eval_dataset = eval_data_container.pre_process(eval_data_container.load_dataset())
+            eval_dataset = Dataset.from_generator(data_generator, gen_kwargs={"data_config": eval_data_config})
+            eval_dataset.set_format("torch")
 
         return train_dataset, eval_dataset
 
