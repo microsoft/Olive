@@ -118,8 +118,10 @@ def main(raw_args=None):
     # get output
     input_data, _ = dataset[0]
     input_data = OnnxEvaluator.format_input(input_data, olive_model.io_config)
+    # output is an list of numpy arrays, first element is the transcription 1Xnum_return_sequences
+    # [["transcription1", "transcription2"]]
     output = olive_model.run_session(session, input_data)
-    return output[0][0]
+    return output[0][0][0]
 
 
 if __name__ == "__main__":
