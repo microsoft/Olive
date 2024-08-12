@@ -9,7 +9,6 @@
 # --------------------------------------------------------------------------
 import dataclasses
 import logging
-import os
 import tempfile
 from abc import abstractmethod
 from copy import deepcopy
@@ -549,41 +548,22 @@ class LoRABase(Pass):
             # create training args
             logger.debug("Training args: %s", config.training_args.dict())
 
-            # there is a bug in accelerate where it assumes 4bit models on multiple gpus cannot be trained but it is
-            # not the case. refer to https://github.com/huggingface/accelerate/pull/2714 for more details
-            # we will force the accelerator to use the first device using the ACCELERATE_TORCH_DEVICE env variable
-            # only catches the bug on aml compute with multiple gpus where the model has no weights on device 0 for
-            # some reason
-            # TODO(jambayk): add a version check when the fix is released
-            accelerate_torch_device = os.environ.get("ACCELERATE_TORCH_DEVICE", None)
-            try:
-                # using a try finally block in case the environment variable is used elsewhere
-                first_device = next(iter(set(model.hf_device_map.values())))
-                first_device_index = first_device.index if isinstance(first_device, torch.device) else first_device
-                os.environ["ACCELERATE_TORCH_DEVICE"] = f"cuda:{first_device_index}"
-                logger.debug("ACCELERATE_TORCH_DEVICE set to: %s", os.environ["ACCELERATE_TORCH_DEVICE"])
+            # get trainer'
+            trainer = transformers.Trainer(
+                model=model,
+                tokenizer=tokenizer,
+                args=config.training_args.create_training_args(),
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                data_collator=partial(self.collate_batch, tokenizer=tokenizer),
+            )
+            # TODO(jambayk): trainer callback for saving might be needed for DDP training
+            # worry about this later
 
-                # get trainer'
-                trainer = transformers.Trainer(
-                    model=model,
-                    tokenizer=tokenizer,
-                    args=config.training_args.create_training_args(),
-                    train_dataset=train_dataset,
-                    eval_dataset=eval_dataset,
-                    data_collator=partial(self.collate_batch, tokenizer=tokenizer),
-                )
-                # TODO(jambayk): trainer callback for saving might be needed for DDP training
-                # worry about this later
-
-                # train
-                logger.info("Running fine-tuning")
-                train_result = trainer.train(resume_from_checkpoint=checkpoint)
-                logger.debug("train_result: %s", train_result)
-            finally:
-                if accelerate_torch_device is not None:
-                    os.environ["ACCELERATE_TORCH_DEVICE"] = accelerate_torch_device
-                else:
-                    os.environ.pop("ACCELERATE_TORCH_DEVICE", None)
+            # train
+            logger.info("Running fine-tuning")
+            train_result = trainer.train(resume_from_checkpoint=checkpoint)
+            logger.debug("train_result: %s", train_result)
 
         if torch.cuda.is_available():
             torch.backends.cuda.matmul.allow_tf32 = allow_tf32  # lgtm
