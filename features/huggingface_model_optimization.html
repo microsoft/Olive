@@ -294,6 +294,16 @@
 </div>
 </li>
 <li><p>Configure the Managed Service Identity (MSI) for the host compute or target compute. Detailed instruction can be found <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?view=azureml-api-2&amp;amp;tabs=sdk#configure-a-managed-identity">here</a>. Then grant the host compute or target compute access to the key vault resource following this <a class="reference external" href="https://learn.microsoft.com/en-us/azure/key-vault/general/assign-access-policy?tabs=azure-portal">guide</a></p></li>
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">hf_token:</span> <span class="pre">True</span></code> to AzureML system configuration:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;hf_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
 </ol>
 <p>With the above steps, Olive can automatically retrieve your Huggingface token from the <code class="docutils literal notranslate"><span class="pre">hf-token</span></code> secret in the <code class="docutils literal notranslate"><span class="pre">my_keyvault_name</span></code> key vault, and log in your Huggingface account in the AML job.</p>
 </section>

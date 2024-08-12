@@ -260,6 +260,12 @@
                 <span class="s2">&quot;Once the workflow is submitted, it is safe to terminate the process. &quot;</span>
                 <span class="s2">&quot;The workflow job will continue running.&quot;</span>
             <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;The outputs of the workflow will be saved to the AzureML datastore </span><span class="si">%s</span><span class="s2"> in </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastores</span><span class="p">,</span>
+                <span class="n">WORKFLOW_ARTIFACTS</span><span class="p">,</span>
+                <span class="n">workflow_id</span><span class="p">,</span>
+            <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_run_job</span><span class="p">(</span>
                 <span class="n">ml_client</span><span class="p">,</span>
                 <span class="n">workflow_pipeline</span><span class="p">,</span>

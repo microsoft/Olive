@@ -80,6 +80,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#install-extra-dependencies">Install Extra Dependencies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#configure-an-azureml-system">Configure an AzureML system</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#run-olive-workflow">Run Olive Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#workflow-outputs">Workflow outputs</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="cloud_model_cache.html">Cloud Model Cache</a></li>
@@ -153,13 +154,11 @@
 <section id="configure-an-azureml-system">
 <h2>Configure an AzureML system<a class="headerlink" href="#configure-an-azureml-system" title="Permalink to this heading">¶</a></h2>
 <p>To run the workflow on AzureML system, the configuration is same as normal AzureML system configuration. Please find more details in <a class="reference internal" href="../tutorials/configure_systems.html"><span class="std std-doc">this instruction</span></a>.</p>
-<p>The artifacts of the workflow, including cache and outputs, will be automatically exported to Azure Machine Learning datastore. The default datastore is <code class="docutils literal notranslate"><span class="pre">workspaceblobstore</span></code>. If you want to export to your own datastore, please add <code class="docutils literal notranslate"><span class="pre">datastore:</span> <span class="pre">&lt;your-datastore-name&gt;</span></code> in AzureML system config.</p>
-<p>The cache and outputs will be exported to <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/cache</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/output</span></code>.</p>
 </section>
 <section id="run-olive-workflow">
 <h2>Run Olive Workflow<a class="headerlink" href="#run-olive-workflow" title="Permalink to this heading">¶</a></h2>
 <p>To run the Olive workflow, add a <code class="docutils literal notranslate"><span class="pre">workflow_host</span></code> configuation at the top level of the Olive config file:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;workflow_host&quot;</span><span class="p">:</span> <span class="s2">&quot;aml_system&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;workflow_host&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aml_system&quot;</span>
 </pre></div>
 </div>
 <p>Then run the Olive workflow with the following command:</p>
@@ -167,6 +166,19 @@
 </pre></div>
 </div>
 <p>Olive will submit this workflow to the Azure ML system compute. It is safe to close your terminal session or turn off your local machine. The workflow will continue running on the Azure ML workspace compute.</p>
+</section>
+<section id="workflow-outputs">
+<h2>Workflow outputs<a class="headerlink" href="#workflow-outputs" title="Permalink to this heading">¶</a></h2>
+<p>The artifacts of the workflow, including cache and outputs, will be automatically exported to Azure Machine Learning datastore. The default datastore is <code class="docutils literal notranslate"><span class="pre">workspaceblobstore</span></code>. If you want to export to your own datastore, please add <code class="docutils literal notranslate"><span class="pre">datastore:</span> <span class="pre">&lt;your-datastore-name&gt;</span></code> in AzureML system config:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;datastore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;datastore-name&gt;&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The cache and outputs will be exported to <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/cache</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/output</span></code>. You can check logs to find the detailed output path.</p>
 </section>
 </section>
 
