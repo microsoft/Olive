@@ -16,7 +16,7 @@ from olive.cache import OliveCache
 from olive.common.config_utils import validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.utils import hash_dict
-from olive.engine.cloud_cache_helper import CloudCacheHelper, check_model_cache, update_input_model_config
+from olive.engine.cloud_cache_helper import check_model_cache, is_valid_cloud_cache_model, update_input_model_config
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS
 from olive.engine.footprint import Footprint, FootprintNodeMetric
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
@@ -27,7 +27,6 @@ from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.hardware import AcceleratorSpec
 from olive.logging import enable_filelog
 from olive.model import ModelConfig
-from olive.resource_path import create_resource_path
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
 from olive.systems.system_config import SystemConfig
@@ -803,21 +802,16 @@ class Engine:
         output_model_hash = None
 
         if cloud_cache_config.enable_cloud_cache:
-            if not (
-                model_config.type.lower() == "hfmodel"
-                and create_resource_path(model_config.config.get("model_path")).is_string_name()
-            ):
+            if not is_valid_cloud_cache_model(model_config):
                 logger.warning(
-                    "Only HfModel with huggingface id as model_path is supported by cloud cache. Setting"
-                    " enable_cloud_cache=False."
+                    "Only HfModel with huggingface id as model_path "
+                    "or HfModel from Azure ML registry model and Azure ML curated model "
+                    "is supported by cloud cache. "
+                    "Setting enable_cloud_cache=False."
                 )
                 cloud_cache_config.enable_cloud_cache = False
             else:
-                self.cloud_cache_helper = CloudCacheHelper(
-                    cloud_cache_config.account_url,
-                    cloud_cache_config.container_name,
-                    cloud_cache_config.input_model_config,
-                )
+                self.cloud_cache_helper = cloud_cache_config.create_cloud_cache_helper()
 
         for pass_id, pass_search_point in passes:
             model_config, model_id, output_model_hash = self._run_pass(
@@ -849,7 +843,7 @@ class Engine:
                 cloud_adapter_path,
                 model_config,
                 output_model_hash,
-                str(self.cache.get_model_output_path(model_id)),
+                self.cache.get_model_output_path(model_id),
             )
 
         if not should_prune:
@@ -987,13 +981,14 @@ class Engine:
         run_end_time = datetime.now().timestamp()
         logger.info("Pass %s:%s finished in %f seconds", pass_id, pass_name, run_end_time - run_start_time)
 
-        # cache model
-        self._cache_model(output_model_config, output_model_id)
+        if not enable_cloud_cache:
+            # cache model
+            self._cache_model(output_model_config, output_model_id)
 
-        # cache run
-        self._cache_run(
-            pass_name, pass_config, input_model_id, output_model_id, run_accel, run_start_time, run_end_time
-        )
+            # cache run
+            self._cache_run(
+                pass_name, pass_config, input_model_id, output_model_id, run_accel, run_start_time, run_end_time
+            )
 
         # footprint model and run
         self.footprints[accelerator_spec].record(
