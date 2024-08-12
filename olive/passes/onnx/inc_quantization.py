@@ -521,9 +521,6 @@ class IncQuantization(Pass):
             #  which is data_config's create_dataloader but not create_calibration_dataloader
             inc_calib_dataloader = data_config.to_data_container().create_dataloader()
 
-        if run_config.get("diagnosis", False):
-            assert inc_calib_dataloader is not None, "diagnosis mode requires dataloader"
-
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
         )
@@ -571,13 +568,7 @@ class IncStaticQuantization(IncQuantization):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
         config = {
-            "approach": PassConfigParam(type_=str, default_value="static", description="static quantization mode"),
-            "diagnosis": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="""Whether to enable diagnosis mode. If enabled,
-                Intel® Neural Compressor will print the quantization summary.""",
-            ),
+            "approach": PassConfigParam(type_=str, default_value="static", description="static quantization mode")
         }
         # common quantization config
         config.update(deepcopy(_inc_quantization_config))
