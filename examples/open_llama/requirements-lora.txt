@@ -1,5 +1,0 @@
--r requirements.txt
-accelerate
-bitsandbytes
-peft>=0.7.0
-scikit-learn

@@ -41,7 +41,6 @@ def get_pass_config(model_name, task, **kwargs):
     data_config = huggingface_data_config_template(model_name=model_name, task=task, **dataset).to_json()
     return {
         "train_data_config": data_config,
-        "eval_dataset_size": 2,
         # hidden sizes are 4 or 16
         # will have invalid adapter weights since `in_features` and/or `out_features` say 64 (lora_r) even though
         # the actual weights are 4 or 16. Bug not from our code, it's from peft
