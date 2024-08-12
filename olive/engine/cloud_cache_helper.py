@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 from olive.common.config_utils import ConfigBase
 from olive.common.utils import get_credentials, hash_dict
 from olive.model.config.model_config import ModelConfig
-from olive.resource_path import ResourceType, create_resource_path
+from olive.resource_path import create_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -337,9 +337,6 @@ def is_valid_cloud_cache_model(model_config: ModelConfig):
     """
     if model_config.type == "hfmodel":
         resource_path = create_resource_path(model_config.config.get("model_path"))
-        if (
-            resource_path.is_string_name()
-            or resource_path.is_azureml_models()
-        ):
+        if resource_path.is_string_name() or resource_path.is_azureml_models():
             return True
     return False
