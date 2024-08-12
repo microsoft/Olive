@@ -128,6 +128,12 @@ class AzureMLSystem(OliveSystem):
                 "Once the workflow is submitted, it is safe to terminate the process. "
                 "The workflow job will continue running."
             )
+            logger.info(
+                "The outputs of the workflow will be saved to the AzureML datastore %s in %s/%s.",
+                self.config.datastores,
+                WORKFLOW_ARTIFACTS,
+                workflow_id,
+            )
             self._run_job(
                 ml_client,
                 workflow_pipeline,
