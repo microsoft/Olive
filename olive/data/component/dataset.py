@@ -24,10 +24,10 @@ class BaseDataset(TorchDataset):
     The data should be a list or dict of numpy arrays or torch tensors
     """
 
-    def __init__(self, data, label_cols=None, max_samples=None, **kwargs):
+    def __init__(self, data, label_col, max_samples=None, **kwargs):
         """Initialize the dataset."""
         self.data = data
-        self.label_cols = label_cols or []
+        self.label_col = label_col
         self.max_samples = max_samples
 
     def __len__(self):
@@ -39,8 +39,8 @@ class BaseDataset(TorchDataset):
         return num_samples
 
     def __getitem__(self, index):
-        data = {k: v for k, v in self.data[index].items() if k not in self.label_cols}
-        label = self.data[index][self.label_cols[0]]
+        data = {k: v for k, v in self.data[index].items() if k != self.label_col}
+        label = self.data[index][self.label_col]
         return data, label
 
     def to_numpy(self):
@@ -52,6 +52,8 @@ class BaseDataset(TorchDataset):
     def to_snpe_dataset(self):
         """Convert the dataset to snpe dataset."""
 
+    # TODO(jambayk): improve this to just create a wrapper over the existing dataset
+    # and implement __getitem__ with the following logic
     def to_hf_dataset(self, label_name="label"):
         """Convert the dataset to huggingface dataset.
 
@@ -61,18 +63,14 @@ class BaseDataset(TorchDataset):
 
         if hasattr(self, "data") and isinstance(self.data, Dataset):
             # some children classes may not have data attribute
-            # this part assumes the class follows the format of BaseDataset and has data and label_cols attributes
-            # deepcopy the dataset since we might modify it
-            hf_dataset = deepcopy(self.data)
-            for col_name in self.label_cols[1:]:
-                # label_cols is a list but we only use the first element for now
-                # remove the other label columns
-                hf_dataset = hf_dataset.remove_columns(col_name)
+            # this part assumes the class follows the format of BaseDataset and has data and label_col attributes
+            hf_dataset = self.data
             # rename the label column
-            if self.label_cols[0] != label_name:
+            if self.label_col != label_name:
                 if label_name in hf_dataset.column_names:
                     raise ValueError(f"Cannot rename label column to {label_name} since it already exists")
-                hf_dataset = hf_dataset.rename_column(self.label_cols[0], label_name)
+                hf_dataset = self.data.rename_column(self.label_col, label_name)
+                self.label_col = label_name
             # truncate the dataset to len (happen when max_samples is not None)
             # this is not costly since the dataset is sliced when selected with range
             hf_dataset = hf_dataset.select(range(len(self)))

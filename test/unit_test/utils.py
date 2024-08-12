@@ -296,7 +296,7 @@ def get_glue_huggingface_data_config():
                 "model_name": "Intel/bert-base-uncased-mrpc",
                 "task": "text-classification",
                 "input_cols": ["sentence1", "sentence2"],
-                "label_cols": ["label"],
+                "label_col": "label",
             }
         ),
         post_process_data_config=DataComponentConfig(

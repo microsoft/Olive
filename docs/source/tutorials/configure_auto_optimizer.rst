@@ -120,7 +120,7 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                     },
                     "pre_process_data_config": {
                         "input_cols": [ "sentence1", "sentence2" ],
-                        "label_cols": [ "label" ]
+                        "label_col": "label"
                     },
                     "dataloader_config": {
                         "batch_size": 1
@@ -201,7 +201,7 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                     "pre_process_data_config": {
                         "max_samples": 100,
                         "input_cols": [ "sentence1", "sentence2" ],
-                        "label_cols": [ "label" ]
+                        "label_col": "label"
                     },
                     "dataloader_config": {
                         "batch_size": 1
