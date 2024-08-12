@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Dict, Union
 
 from olive.common.config_utils import ConfigBase, NestedConfig, validate_lowercase
 from olive.common.import_lib import import_user_module
-from olive.common.pydantic_v1 import Field, validator
+from olive.common.pydantic_v1 import Field, root_validator, validator
 from olive.data.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
 from olive.data.registry import Registry
 
@@ -52,6 +52,12 @@ class DataConfig(ConfigBase):
     post_process_data_config: DataComponentConfig = None
     dataloader_config: DataComponentConfig = None
 
+    @root_validator(pre=True)
+    def validate_data_config(cls, values):
+        if values.get("user_script"):
+            import_user_module(values["user_script"], values.get("script_dir"))
+        return values
+
     @validator("name", pre=True)
     def validate_name(cls, v):
         pattern = r"^[A-Za-z0-9_]+$"
@@ -61,13 +67,12 @@ class DataConfig(ConfigBase):
 
     @validator("type", pre=True)
     def validate_type(cls, v):
+        if v is not None and Registry.get_container(v) is None:
+            raise ValueError(f"Invalid/unknown DataConfig type: {v}")
         return validate_lowercase(v)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # call import_user_module to load the user script once and register the components
-        if self.user_script:
-            import_user_module(self.user_script, self.script_dir)
         self._update_components()
         self._fill_in_params()
 

@@ -53,29 +53,28 @@ class PassConfigParam(ConfigParam):
         return f"({', '.join(repr_list)})"
 
 
-# TODO(jambayk): set types for user_script and script_dir once we decide on a convention
-def get_user_script_config(
-    required: Optional[bool] = False, allow_path: Optional[bool] = False
+def get_user_script_data_config(
+    required: Optional[bool] = False, allow_path: Optional[bool] = True
 ) -> Dict[str, PassConfigParam]:
     type_ = str
     if allow_path:
         type_ = Union[Path, str]
 
     user_script_config = {
-        "script_dir": PassConfigParam(
-            type_=type_,
-            required=required,
-            category=ParamCategory.PATH,
-            description="Directory containing user script dependencies.",
-        ),
         "user_script": PassConfigParam(
             type_=type_,
             required=required,
             category=ParamCategory.PATH,
             description=(
-                "Path to user script. The values for other parameters which were assigned function or object names will"
-                " be imported from this script."
+                "Path to user script. The values for other parameters which were assigned "
+                "function or object names will be imported from this script."
             ),
+        ),
+        "script_dir": PassConfigParam(
+            type_=type_,
+            required=False,
+            category=ParamCategory.PATH,
+            description="Directory containing user script dependencies.",
         ),
     }
     return user_script_config  # noqa: RET504

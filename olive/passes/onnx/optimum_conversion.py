@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Union
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +18,10 @@ logger = logging.getLogger(__name__)
 class OptimumConversion(Pass):
     """Convert a Hugging Face PyTorch model to ONNX model using the Optimum export function."""
 
-    _requires_user_script = True
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
+            **get_user_script_data_config(),
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
             ),

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 import onnx
 
@@ -15,7 +15,7 @@ from olive.resource_path import LocalFile, LocalFolder
 logger = logging.getLogger(__name__)
 
 
-def get_external_data_config():
+def get_external_data_config() -> Dict[str, PassConfigParam]:
     return {
         "save_as_external_data": PassConfigParam(
             type_=bool,

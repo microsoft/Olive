@@ -11,12 +11,11 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import ParamCategory, PassConfigParam
+from olive.passes.pass_config import get_user_script_data_config
 
 
 class QuantizationAwareTraining(Pass):
     """Run quantization aware training on PyTorch model."""
-
-    _requires_user_script = True
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -28,6 +27,7 @@ class QuantizationAwareTraining(Pass):
         else:
             from pytorch_lightning.loggers import LightningLoggerBase as Logger
         return {
+            **get_user_script_data_config(),
             "train_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 required=True,

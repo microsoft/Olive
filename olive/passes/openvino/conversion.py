@@ -9,17 +9,16 @@ from olive.constants import Framework
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, ONNXModelHandler, OpenVINOModelHandler, PyTorchModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
 
 
 class OpenVINOConversion(Pass):
     """Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model."""
 
-    _requires_user_script = True
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
+            **get_user_script_data_config(),
             "input": PassConfigParam(
                 type_=Union[Callable, str, List],
                 required=False,

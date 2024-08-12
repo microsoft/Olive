@@ -13,7 +13,7 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
 from olive.passes.pytorch.common import inherit_pytorch_from_hf, inherit_pytorch_from_pytorch
 
 logger = logging.getLogger(__name__)
@@ -22,11 +22,10 @@ logger = logging.getLogger(__name__)
 class GptqQuantizer(Pass):
     """GPTQ quantization using Hugging Face Optimum and export model with onnxruntime optimized kernel."""
 
-    _requires_user_script = True
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
+            **get_user_script_data_config(),
             "nsamples": PassConfigParam(
                 type_=int,
                 default_value=128,
