@@ -169,32 +169,14 @@ class LoRABase(Pass):
                 ),
             ),
             # data parameters
-            # TODO(jambayk): only keep train and eval data configs, remove eval_dataset_size and data processing
-            # from this pass. dataconfig should handle everything related to data
             "train_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 required=True,
-                description=(
-                    "Data config for fine-tuning training. If `eval_data_config` is not provided and"
-                    " `eval_dataset_size` is not None, the data will be split into train and eval. Otherwise, the data"
-                    " will be used for training only."
-                ),
+                description="Data config for fine-tuning training.",
             ),
             "eval_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
-                description=(
-                    "Data config for fine-tuning evaluation. Optional if `eval_dataset_size` is provided or evaluation"
-                    " is not needed."
-                ),
-            ),
-            "eval_dataset_size": PassConfigParam(
-                type_=float,
-                default_value=None,
-                description=(
-                    "Size of the validation dataset. Should be either positive and smaller than the number of train"
-                    " sample or a float in the (0, 1) range. If `eval_data_config` is provided, this parameter will be"
-                    " ignored."
-                ),
+                description="Data config for fine-tuning evaluation. Optional if evaluation is not needed.",
             ),
             # training parameters
             "training_args": PassConfigParam(
@@ -260,7 +242,6 @@ class LoRABase(Pass):
         """Load training and evaluation datasets."""
         train_data_config = config.train_data_config
         eval_data_config = config.eval_data_config
-        eval_dataset_size = config.eval_dataset_size
 
         # load training dataset
         train_data_container = train_data_config.to_data_container()
@@ -273,19 +254,6 @@ class LoRABase(Pass):
             eval_data_container = eval_data_config.to_data_container()
             eval_dataset = eval_data_container.pre_process(eval_data_container.load_dataset())
             eval_dataset = eval_dataset.to_hf_dataset(label_name="labels")
-        elif eval_dataset_size:
-            if eval_dataset_size >= 1:
-                # when eval_dataset_size is an integer, it is the number of samples
-                eval_dataset_size = int(eval_dataset_size)
-            # eval data config has not been provided, but eval_dataset_size has been provided
-            split_data = train_dataset.train_test_split(
-                test_size=eval_dataset_size, shuffle=True, seed=config.training_args.get_data_seed()
-            )
-            train_dataset = split_data["train"]
-            eval_dataset = split_data["test"]
-        else:
-            # eval data config has not been provided, and eval_dataset_size has not been provided
-            eval_dataset = None
 
         return train_dataset, eval_dataset
 
