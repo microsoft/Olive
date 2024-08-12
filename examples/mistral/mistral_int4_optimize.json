@@ -54,8 +54,7 @@
             "data_config": "inc_static_quant_data_config",
             "calibration_sampling_size": [ 8 ],
             "save_as_external_data": true,
-            "all_tensors_to_one_file": true,
-            "diagnosis": false
+            "all_tensors_to_one_file": true
         }
     },
     "pass_flows": [ [ "convert", "optimize", "quantization" ] ],
