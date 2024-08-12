@@ -17,7 +17,6 @@
             "pre_process_data_config": {
                 "align_labels": true,
                 "input_cols": [ "premise", "hypothesis" ],
-                "label_cols": [ "label" ],
                 "max_samples": 100
             },
             "dataloader_config": { "batch_size": 1 }
