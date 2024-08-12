@@ -113,7 +113,6 @@
         "torch-tensorrt": [ "torch-tensorrt" ],
         "lora": [ "accelerate", "peft", "scipy" ],
         "bnb": [ "bitsandbytes" ],
-        "ort-training": [ "onnxruntime-training", "torch-ort" ],
         "ort": [ "onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino", "numpy<2.0" ],
         "nvmo": [ "nvidia-modelopt~=0.11.0", "onnx-graphsurgeon" ]
     }
