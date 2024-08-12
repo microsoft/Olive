@@ -40,8 +40,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PAD_TOKEN = "[PAD]"
-
 # pylint: disable=unused-import
 
 
@@ -489,7 +487,6 @@ class LoRABase(Pass):
     def enable_lora(
         self,
         model: "PreTrainedModel",
-        tokenizer: "PreTrainedTokenizer",
         task: str,
         config: ConfigBase,
         adapter_path: Optional[str] = None,
@@ -513,15 +510,6 @@ class LoRABase(Pass):
         from peft.tuners.lora import LoraLayer
 
         logger.debug("Enabling LoRA fine-tuning")
-        # if there is no pad token, add to tokenizer and model
-        # TODO(jambayk): Do this in a better way since the embedding size might become unoptimal
-        # (not a multiple of 64, etc) perhaps use eos_token as pad_token, but need to ensure the actual eos_token
-        # at the end of the sequence is not masked (both in attention mask and loss calculation)
-        if not tokenizer.pad_token_id:
-            self.smart_tokenizer_and_embedding_resize(
-                special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN}, tokenizer=tokenizer, model=model
-            )
-
         if config.training_args.gradient_checkpointing and not model.supports_gradient_checkpointing:
             logger.warning(
                 "gradient_checkpointing is True, but model does not support gradient checkpointing! Setting"
@@ -694,33 +682,6 @@ class LoRABase(Pass):
         return output_model
 
     @staticmethod
-    def smart_tokenizer_and_embedding_resize(
-        special_tokens_dict: Dict, tokenizer: "PreTrainedTokenizer", model: "PreTrainedModel"
-    ):
-        """Resize the tokenizer and the model embedding layer to take into account new special tokens.
-
-        NOTE: This is only used to ensure we have a pad token. The new embeddings don't get training signals
-        the pad tokens are masked out in the attention mask and loss calculation. Moreover, only the adapter weights
-        are set as trainable and saved in the final checkpoint.
-        """
-        # resize tokenizer
-        num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
-        # resize model embedding layer
-        model.resize_token_embeddings(len(tokenizer))
-        if num_new_tokens > 0:
-            logger.debug("Added %d new tokens to tokenizer and resized model embedding layer.", num_new_tokens)
-            input_embeddings_data = model.get_input_embeddings().weight.data
-            output_embeddings_data = model.get_output_embeddings().weight.data
-
-            # average the embeddings of the pre-existing tokens
-            input_embeddings_avg = input_embeddings_data[:-num_new_tokens].mean(dim=0, keepdim=True)
-            output_embeddings_avg = output_embeddings_data[:-num_new_tokens].mean(dim=0, keepdim=True)
-
-            # set the new embeddings to the average
-            input_embeddings_data[-num_new_tokens:] = input_embeddings_avg
-            output_embeddings_data[-num_new_tokens:] = output_embeddings_avg
-
-    @staticmethod
     def get_torch_dtype(torch_dtype: str) -> torch.dtype:
         """Get the torch dtype from the string."""
         supported_dtypes = ("bfloat16", "float16", "float32")
@@ -797,7 +758,7 @@ class LoRA(LoRABase):
 
         # add lora modules
         pytorch_model = self.enable_lora(
-            pytorch_model, tokenizer, new_model_handler.task, config, target_modules=config.target_modules
+            pytorch_model, new_model_handler.task, config, target_modules=config.target_modules
         )
 
         # train and return new model
@@ -923,7 +884,7 @@ class QLoRA(QLoRABase):
 
         # enable lora fine-tuning with new lora modules
         pytorch_model = self.enable_lora(
-            pytorch_model, tokenizer, new_model_handler.task, config, target_modules=quantized_modules
+            pytorch_model, new_model_handler.task, config, target_modules=quantized_modules
         )
 
         return new_model_handler, pytorch_model, tokenizer, quantized_modules
@@ -1030,7 +991,7 @@ class LoftQ(QLoRABase):
 
         # enable lora fine-tuning with the loftq initialized adapter weights
         pytorch_model = self.enable_lora(
-            pytorch_model, tokenizer, new_model_handler.task, config, adapter_path=loftq_init_adapter_path
+            pytorch_model, new_model_handler.task, config, adapter_path=loftq_init_adapter_path
         )
 
         return new_model_handler, pytorch_model, tokenizer, quantized_modules
