@@ -167,6 +167,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         set_tempdir(self.args.tempdir)
 
         with tempfile.TemporaryDirectory() as tempdir:
+            # tempdir = "jk"
             run_config = self.get_run_config(tempdir)
 
             olive_run(run_config)
@@ -179,7 +180,20 @@ class FineTuneCommand(BaseOliveCLICommand):
             # need to improve the output structure of olive run
             output_path = Path(self.args.output_path)
             output_path.mkdir(parents=True, exist_ok=True)
-            hardlink_copy_dir(Path(tempdir) / "f-c-o-e-m" / "gpu-cuda_model", output_path)
+            # hardlink_copy_dir(Path(tempdir) / "f-c-o-e-m" / "gpu-cuda_model", output_path)
+            from olive.cli.launcher import main as cli_main
+
+            cli_main(
+                [
+                    "export-adapters",
+                    "--adapter_path",
+                    str(Path(tempdir) / "f" / "gpu-cuda_model" / "adapter"),
+                    "--output_path",
+                    str(Path(self.args.output_path) / "adapter_weights.npz"),
+                    "--dtype",
+                    self.args.precision,
+                ]
+            )
 
             logger.info("Model and adapters saved to %s", output_path.resolve())
 
@@ -339,6 +353,7 @@ TEMPLATE = {
         "e": {"type": "ExtractAdapters"},
         "m": {"type": "ModelBuilder", "metadata_only": True},
     },
+    "pass_flows": [["f"]],
     "host": "local_system",
     "target": "local_system",
 }
