@@ -99,7 +99,7 @@ Convert the huggingface data config to the data container.
                     "model_name": "Intel/bert-base-uncased-mrpc",
                     "task": "text-classification",
                     "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"]
+                    "label_col": "label"
                 },
                 "post_process_data_config": {
                     "task": "text-classification"
@@ -126,7 +126,7 @@ Convert the huggingface data config to the data container.
                 }),
                 pre_process_data_config=DataComponentConfig(params={
                     "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
+                    "label_col": "label",
                 })
                 dataloader_config=DataComponentConfig(params={
                     "batch_size": 1,
@@ -268,9 +268,7 @@ Then the complete config would be like:
                         "sentence1",
                         "sentence2"
                     ],
-                    "label_cols": [
-                        "label"
-                    ],
+                    "label_col": "label",
                     "max_samples": null
                 },
                 "post_process_data_config": {
@@ -307,9 +305,7 @@ Then the complete config would be like:
                             "sentence1",
                             "sentence2"
                         ],
-                        "label_cols": [
-                            "label"
-                        ],
+                        "label_col": "label",
                         "max_samples": null
                     }
                 ),

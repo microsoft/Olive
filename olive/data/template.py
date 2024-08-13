@@ -58,7 +58,7 @@ def huggingface_data_config_template(model_name, task, **kwargs) -> DataConfig:
             more details in https://huggingface.co/docs/datasets/nlp_process#align
             - `model_config_path`: str, path to the model config file
             - `input_cols`: list, input columns of data
-            - `label_cols`: list, label columns of data
+            - `label_col`: str, label column of data
             - `max_samples`: int, maximum number of samples in the dataset
             - others is used for huggingface tokenizer
 
@@ -68,7 +68,7 @@ def huggingface_data_config_template(model_name, task, **kwargs) -> DataConfig:
                         "align_labels": true
                         "max_samples": 1024
                         "input_cols": [0],
-                        "label_cols": ["text"],
+                        "label_col": "label",
                     }
                 }
         - olive.data.component.dataloader_config

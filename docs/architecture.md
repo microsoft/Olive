@@ -347,7 +347,7 @@ For popular huggingface dataset, we can wrap above data config with more concise
         },
         "pre_process_data_config": {
             "input_cols": ["sentence1", "sentence2"],
-            "label_cols": ["label"]
+            "label_col": "label"
         },
         "dataloader_config":{
             "batch_size": 1

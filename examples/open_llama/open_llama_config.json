@@ -21,7 +21,7 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg", "goal": { "type": "percent-min-improvement", "value": 10 } } ],
+                    "sub_types": [ { "name": "avg" } ],
                     "data_config": "transformer_token_dummy_data"
                 }
             ]
