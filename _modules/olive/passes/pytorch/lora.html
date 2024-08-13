@@ -171,8 +171,6 @@
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
-<span class="n">DEFAULT_PAD_TOKEN</span> <span class="o">=</span> <span class="s2">&quot;[PAD]&quot;</span>
-
 <span class="c1"># pylint: disable=unused-import</span>
 
 
@@ -544,7 +542,6 @@
     <span class="k">def</span> <span class="nf">enable_lora</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span>
-        <span class="n">tokenizer</span><span class="p">:</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">,</span>
         <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span>
         <span class="n">adapter_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -568,15 +565,6 @@
         <span class="kn">from</span> <span class="nn">peft.tuners.lora</span> <span class="kn">import</span> <span class="n">LoraLayer</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Enabling LoRA fine-tuning&quot;</span><span class="p">)</span>
-        <span class="c1"># if there is no pad token, add to tokenizer and model</span>
-        <span class="c1"># TODO(jambayk): Do this in a better way since the embedding size might become unoptimal</span>
-        <span class="c1"># (not a multiple of 64, etc) perhaps use eos_token as pad_token, but need to ensure the actual eos_token</span>
-        <span class="c1"># at the end of the sequence is not masked (both in attention mask and loss calculation)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">pad_token_id</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">smart_tokenizer_and_embedding_resize</span><span class="p">(</span>
-                <span class="n">special_tokens_dict</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;pad_token&quot;</span><span class="p">:</span> <span class="n">DEFAULT_PAD_TOKEN</span><span class="p">},</span> <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span>
-            <span class="p">)</span>
-
         <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">gradient_checkpointing</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">model</span><span class="o">.</span><span class="n">supports_gradient_checkpointing</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;gradient_checkpointing is True, but model does not support gradient checkpointing! Setting&quot;</span>
@@ -724,33 +712,6 @@
         <span class="k">return</span> <span class="n">output_model</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">smart_tokenizer_and_embedding_resize</span><span class="p">(</span>
-        <span class="n">special_tokens_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">:</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span>
-    <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resize the tokenizer and the model embedding layer to take into account new special tokens.</span>
-
-<span class="sd">        NOTE: This is only used to ensure we have a pad token. The new embeddings don&#39;t get training signals</span>
-<span class="sd">        the pad tokens are masked out in the attention mask and loss calculation. Moreover, only the adapter weights</span>
-<span class="sd">        are set as trainable and saved in the final checkpoint.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># resize tokenizer</span>
-        <span class="n">num_new_tokens</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">add_special_tokens</span><span class="p">(</span><span class="n">special_tokens_dict</span><span class="p">)</span>
-        <span class="c1"># resize model embedding layer</span>
-        <span class="n">model</span><span class="o">.</span><span class="n">resize_token_embeddings</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">num_new_tokens</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Added </span><span class="si">%d</span><span class="s2"> new tokens to tokenizer and resized model embedding layer.&quot;</span><span class="p">,</span> <span class="n">num_new_tokens</span><span class="p">)</span>
-            <span class="n">input_embeddings_data</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_input_embeddings</span><span class="p">()</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span>
-            <span class="n">output_embeddings_data</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_output_embeddings</span><span class="p">()</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span>
-
-            <span class="c1"># average the embeddings of the pre-existing tokens</span>
-            <span class="n">input_embeddings_avg</span> <span class="o">=</span> <span class="n">input_embeddings_data</span><span class="p">[:</span><span class="o">-</span><span class="n">num_new_tokens</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">output_embeddings_avg</span> <span class="o">=</span> <span class="n">output_embeddings_data</span><span class="p">[:</span><span class="o">-</span><span class="n">num_new_tokens</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-            <span class="c1"># set the new embeddings to the average</span>
-            <span class="n">input_embeddings_data</span><span class="p">[</span><span class="o">-</span><span class="n">num_new_tokens</span><span class="p">:]</span> <span class="o">=</span> <span class="n">input_embeddings_avg</span>
-            <span class="n">output_embeddings_data</span><span class="p">[</span><span class="o">-</span><span class="n">num_new_tokens</span><span class="p">:]</span> <span class="o">=</span> <span class="n">output_embeddings_avg</span>
-
-    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">get_torch_dtype</span><span class="p">(</span><span class="n">torch_dtype</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the torch dtype from the string.&quot;&quot;&quot;</span>
         <span class="n">supported_dtypes</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span> <span class="s2">&quot;float16&quot;</span><span class="p">,</span> <span class="s2">&quot;float32&quot;</span><span class="p">)</span>
@@ -827,7 +788,7 @@
 
         <span class="c1"># add lora modules</span>
         <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span>
-            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">target_modules</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">target_modules</span>
+            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">target_modules</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">target_modules</span>
         <span class="p">)</span>
 
         <span class="c1"># train and return new model</span>
@@ -866,7 +827,7 @@
         <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="ow">or</span> <span class="n">HFTrainingArguments</span><span class="p">()</span>
 
         <span class="c1"># get models and tokenizer</span>
-        <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">quantized_modules</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_tokenizer</span><span class="p">(</span>
+        <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">quantized_modules</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_model_tokenizer</span><span class="p">(</span>
             <span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">output_model_path</span>
         <span class="p">)</span>
 
@@ -879,7 +840,7 @@
         <span class="k">return</span> <span class="n">output_model</span>
 
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">get_tokenizer</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">get_model_tokenizer</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model and tokenizer for fine-tuning.&quot;&quot;&quot;</span>
@@ -910,7 +871,7 @@
         <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">config</span>
 
-    <span class="k">def</span> <span class="nf">get_tokenizer</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">get_model_tokenizer</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model and tokenizer for QLoRA fine-tuning.</span>
@@ -945,7 +906,7 @@
 
         <span class="c1"># enable lora fine-tuning with new lora modules</span>
         <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span>
-            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">target_modules</span><span class="o">=</span><span class="n">quantized_modules</span>
+            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">target_modules</span><span class="o">=</span><span class="n">quantized_modules</span>
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">quantized_modules</span>
@@ -978,7 +939,7 @@
         <span class="k">if</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">peft_version</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;0.7.0&quot;</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Please install peft &gt;= 0.7.0 to use </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> pass.&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">get_tokenizer</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">get_model_tokenizer</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model and tokenizer for LoftQ fine-tuning.</span>
@@ -1052,7 +1013,7 @@
 
         <span class="c1"># enable lora fine-tuning with the loftq initialized adapter weights</span>
         <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span>
-            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">adapter_path</span><span class="o">=</span><span class="n">loftq_init_adapter_path</span>
+            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">adapter_path</span><span class="o">=</span><span class="n">loftq_init_adapter_path</span>
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">quantized_modules</span>
