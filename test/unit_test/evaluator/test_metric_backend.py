@@ -11,6 +11,7 @@ import pytest
 
 from olive.evaluator.metric_backend import HuggingfaceMetrics
 from olive.evaluator.metric_result import SubMetricResult
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 
@@ -67,9 +68,10 @@ class TestMetricBackend:
             system = LocalSystem()
 
             # execute
-            model_config = model_config_func()
             metric = metric_func()
-            actual_res = system.evaluate_model(model_config, [metric], DEFAULT_CPU_ACCELERATOR)
+            model_config = model_config_func()
+            evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+            actual_res = system.evaluate_model(model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
 
             # assert
             assert mock_measure.call_count == len(metric.sub_types)

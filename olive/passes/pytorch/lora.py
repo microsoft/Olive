@@ -32,6 +32,7 @@ from olive.model import HfModelHandler
 from olive.model.config.hf_config import HfLoadKwargs
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.strategy.search_parameter import Categorical
 
 if TYPE_CHECKING:
     from peft import PeftModel
@@ -156,7 +157,12 @@ class LoRABase(Pass):
                     " True. 16+ is required when using bfloat16 and model has operators such as Where."
                 ),
             ),
-            "lora_r": PassConfigParam(type_=int, default_value=64, description="Lora R dimension."),
+            "lora_r": PassConfigParam(
+                type_=int,
+                default_value=64,
+                searchable_values=Categorical([16, 32, 64]),
+                description="Lora R dimension.",
+            ),
             "lora_alpha": PassConfigParam(
                 type_=float, default_value=16, description="The alpha parameter for Lora scaling."
             ),

@@ -3,11 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Union
 
 from olive.common.config_utils import validate_config
+from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import OliveModelHandler
@@ -41,22 +41,22 @@ def _default_validate_func(model: "CompiledModel", validation_loader) -> float:
     return accuracy_score(predictions, references)
 
 
-class ModelTypeEnum(str, Enum):
+class ModelTypeEnum(StrEnumBase):
     TRANSFORMER = "TRANSFORMER"
 
 
-class PresetEnum(str, Enum):
+class PresetEnum(StrEnumBase):
     PERFORMANCE = "PERFORMANCE"
     MIXED = "MIXED"
 
 
-class IgnoreScopeTypeEnum(str, Enum):
+class IgnoreScopeTypeEnum(StrEnumBase):
     NAMES = "names"
     TYPES = "types"
     PATTERNS = "patterns"
 
 
-class DropTypeEnum(str, Enum):
+class DropTypeEnum(StrEnumBase):
     ABSOLUTE = "ABSOLUTE"
     RELATIVE = "RELATIVE"
 

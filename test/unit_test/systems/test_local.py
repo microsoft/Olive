@@ -12,6 +12,7 @@ import pytest
 from olive.constants import Framework
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import PyTorchModelHandler
 from olive.systems.local import LocalSystem
@@ -72,6 +73,7 @@ class TestLocalSystem:
         olive_model.framework = Framework.ONNX
 
         metric = metric_func()
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         # olive_model.framework = Framework.ONNX
         expected_res = MetricResult.parse_obj(
             {
@@ -89,7 +91,7 @@ class TestLocalSystem:
         mock_get_user_config.return_value = (None, None, None)
 
         # execute
-        actual_res = self.system.evaluate_model(olive_model_config, [metric], DEFAULT_CPU_ACCELERATOR)
+        actual_res = self.system.evaluate_model(olive_model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
         # assert
         if metric.type == MetricType.ACCURACY:
             mock_evaluate_accuracy.assert_called_once_with(

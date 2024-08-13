@@ -10,8 +10,8 @@ from olive.common.config_utils import validate_config
 from olive.systems.common import AcceleratorConfig, SystemType
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import Metric
     from olive.evaluator.metric_result import MetricResult
+    from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import ModelConfig
     from olive.passes.olive_pass import Pass
@@ -53,7 +53,7 @@ class OliveSystem(ABC):
 
     @abstractmethod
     def evaluate_model(
-        self, model_config: "ModelConfig", metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, model_config: "ModelConfig", evaluator_config: "OliveEvaluatorConfig", accelerator: "AcceleratorSpec"
     ) -> "MetricResult":
         """Evaluate the model."""
         raise NotImplementedError

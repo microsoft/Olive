@@ -96,5 +96,43 @@ def test_configure_qualcomm_sdk_command(mock_configure):
     mock_configure.assert_called_once_with("3.6", "snpe")
 
 
+@patch("olive.workflows.run")
+@patch("olive.cli.finetune.tempfile.TemporaryDirectory")
+def test_finetune_command(mock_tempdir, mock_run, tmp_path):
+    # some directories
+    tmpdir = tmp_path / "tmpdir"
+    tmpdir.mkdir()
+
+    output_dir = tmp_path / "output_dir"
+
+    # setup
+    mock_tempdir.return_value = tmpdir.resolve()
+    workflow_output_dir = tmpdir / "f-c-o-e-m" / "gpu-cuda_model"
+    workflow_output_dir.mkdir(parents=True)
+    dummy_output = workflow_output_dir / "dummy_output"
+    with open(dummy_output, "w") as f:
+        f.write("dummy_output")
+
+    # setup
+    command_args = [
+        "finetune",
+        "-m",
+        "dummy_model",
+        "-d",
+        "dummy_dataset",
+        "--text_field",
+        "dummy_text_field",
+        "-o",
+        str(output_dir),
+    ]
+
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == "dummy_model"
+    assert {el.name for el in output_dir.iterdir()} == {dummy_output.name}
+
+
 # TODO(anyone): Add tests for ManageAMLComputeCommand
 # Test for ExportAdaptersCommand is added as part of test/unit_test/passes/onnx/test_export_adapters.py

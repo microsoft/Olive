@@ -21,7 +21,7 @@ from olive.systems.system_config import PythonEnvironmentTargetUserConfig
 from olive.systems.utils import create_new_environ, get_package_name_from_ep, run_available_providers_runner
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import Metric
+    from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.passes.olive_pass import Pass
 
@@ -130,12 +130,12 @@ class PythonEnvironmentSystem(OliveSystem):
         return ModelConfig.parse_obj(output_model_json)
 
     def evaluate_model(
-        self, model_config: ModelConfig, metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, model_config: ModelConfig, evaluator_config: "OliveEvaluatorConfig", accelerator: "AcceleratorSpec"
     ) -> MetricResult:
         """Evaluate the model."""
         config_jsons = {
             "model_config": model_config.to_json(check_object=True),
-            "metrics_config": [metric.to_json(check_object=True) for metric in metrics],
+            "evaluator_config": evaluator_config.to_json(check_object=True),
             "accelerator_config": accelerator.to_json(),
         }
         metric_results = self._run_command(self.evaluation_runner_path, config_jsons, tempdir=tempfile.tempdir)

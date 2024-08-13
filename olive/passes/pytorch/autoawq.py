@@ -3,11 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from enum import Enum
 from typing import Any, Dict, Union
 
 import torch
 
+from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, PyTorchModelHandler
@@ -24,7 +24,7 @@ class AutoAWQQuantizer(Pass):
 
     _requires_user_script = True
 
-    class ModelDtype(str, Enum):
+    class ModelDtype(StrEnumBase):
         # input model's data type, we can assume the model is all float type
         # sometime, the model is in double type, but we can convert it to float type
         # before quantization

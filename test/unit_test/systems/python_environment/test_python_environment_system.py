@@ -23,6 +23,7 @@ import pytest
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.python_environment import PythonEnvironmentSystem
 from olive.systems.python_environment.evaluation_runner import main as evaluation_runner_main
@@ -104,6 +105,9 @@ class TestPythonEnvironmentSystem:
         dummy_model_config = {"dummy_key": "dummy_value"}
         model_config.to_json.return_value = dummy_model_config
         metrics = [get_glue_accuracy_metric(), get_glue_latency_metric()]
+        metrics[0].sub_types[0].priority = 1
+        metrics[1].sub_types[0].priority = 2
+        evaluator_config = OliveEvaluatorConfig(metrics=metrics)
 
         # mock return value
         metrics_key = [
@@ -117,7 +121,7 @@ class TestPythonEnvironmentSystem:
         mock__run_command.return_value = mock_return_value
 
         # execute
-        res = self.system.evaluate_model(model_config, metrics, DEFAULT_CPU_ACCELERATOR)
+        res = self.system.evaluate_model(model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert res[metrics_key[0]].value == 0.9
@@ -126,7 +130,7 @@ class TestPythonEnvironmentSystem:
             self.system.evaluation_runner_path,
             {
                 "model_config": dummy_model_config,
-                "metrics_config": [metric.to_json() for metric in metrics],
+                "evaluator_config": evaluator_config.to_json(),
                 "accelerator_config": DEFAULT_CPU_ACCELERATOR.to_json(),
             },
             tempdir=tempfile.tempdir,
@@ -177,7 +181,7 @@ class TestPythonEnvironmentSystem:
             output_model_path=dummy_output_model_path,
         )
 
-    @patch("olive.evaluator.olive_evaluator.OliveEvaluator.evaluate")
+    @patch("olive.evaluator.olive_evaluator._OliveEvaluator.evaluate")
     def test_evaluation_runner(self, mock_evaluate, tmp_path):
         # create model_config.json
         model_config = get_onnx_model_config().to_json()
@@ -185,9 +189,9 @@ class TestPythonEnvironmentSystem:
             json.dump(model_config, f)
 
         # create metrics_config.json
-        metrics_config = [get_glue_accuracy_metric().to_json()]
-        with (tmp_path / "metrics_config.json").open("w") as f:
-            json.dump(metrics_config, f)
+        evaluator_config = OliveEvaluatorConfig(metrics=[get_glue_accuracy_metric()]).to_json()
+        with (tmp_path / "evaluator_config.json").open("w") as f:
+            json.dump(evaluator_config, f)
 
         # create accelerator_config.json
         accelerator_config = DEFAULT_CPU_ACCELERATOR.to_json()
@@ -206,8 +210,8 @@ class TestPythonEnvironmentSystem:
         args = [
             "--model_config",
             str(tmp_path / "model_config.json"),
-            "--metrics_config",
-            str(tmp_path / "metrics_config.json"),
+            "--evaluator_config",
+            str(tmp_path / "evaluator_config.json"),
             "--accelerator_config",
             str(tmp_path / "accelerator_config.json"),
             "--output_path",

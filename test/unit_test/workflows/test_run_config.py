@@ -13,17 +13,11 @@ import pytest
 from olive.common.pydantic_v1 import ValidationError
 from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
-from olive.data.registry import Registry
 from olive.package_config import OlivePackageConfig
 from olive.workflows.run.config import RunConfig
 from olive.workflows.run.run import get_pass_module_path, is_execution_provider_required
 
 # pylint: disable=attribute-defined-outside-init, unsubscriptable-object
-
-
-@Registry.register_dataloader()
-def _resnet_calibration_dataloader(dataset, **kwargs):
-    return None
 
 
 class TestRunConfig:

@@ -77,15 +77,15 @@ class TestIsolatedORTSystem:
         olive_model_config.type = "ONNXModel"
         olive_model = olive_model_config.create_model()
         olive_model.framework = Framework.ONNX
+        evaluator_config = MagicMock()
+        evaluator_config.metrics = MagicMock()
 
-        metric = MagicMock()
-
-        self.system.evaluate_model(olive_model_config, [metric], DEFAULT_CPU_ACCELERATOR)
+        self.system.evaluate_model(olive_model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         mock_evaluate.assert_called_once_with(
             olive_model,
-            [metric],
+            evaluator_config.metrics,
             device=DEFAULT_CPU_ACCELERATOR.accelerator_type,
             execution_providers=DEFAULT_CPU_ACCELERATOR.execution_provider,
         )
