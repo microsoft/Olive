@@ -57,7 +57,7 @@ class TestCloudCacheHelper:
         input_model_hash = "input_model_hash"
         expected_hash_key = hash_dict(
             {
-                "hf_hub_model_commit_id": None,
+                "model_identifier": None,
                 "model_config": expected_model_config.to_json(),
                 "pass_search_point": pass_search_point,
                 "input_model_hash": input_model_hash,
@@ -79,7 +79,7 @@ class TestCloudCacheHelper:
         mock_repo_info.return_value.sha = "sha"
         expected_hash_key = hash_dict(
             {
-                "hf_hub_model_commit_id": "sha",
+                "model_identifier": "sha",
                 "model_config": model_config.to_json(),
                 "pass_search_point": pass_search_point,
                 "input_model_hash": input_model_hash,

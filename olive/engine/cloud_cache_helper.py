@@ -25,6 +25,13 @@ class CloudCacheConfig(ConfigBase):
     upload_to_cloud: bool = True
     input_model_config: ModelConfig = None
 
+    def create_cloud_cache_helper(self):
+        return CloudCacheHelper(
+            account_url=self.account_url,
+            container_name=self.container_name,
+            input_model_config=self.input_model_config,
+        )
+
 
 class CloudCacheHelper:
     def __init__(
@@ -92,32 +99,35 @@ class CloudCacheHelper:
         self, model_config: ModelConfig, pass_search_point: Dict[str, Any], input_model_hash: Optional[str]
     ):
         """Get hash key from input model config, pass search point, and input model hash."""
-        try:
-            from huggingface_hub import repo_info
-        except ImportError:
-            logger.exception(
-                "huggingface_hub is not installed. "
-                "Please install huggingface_hub to use the cloud model cache feature for Huggingface model."
-            )
-
-        hf_hub_model_commit_id = None
         model_config_copy = deepcopy(model_config)
-        if (
-            input_model_hash is None
-            and model_config.type.lower() == "hfmodel"
-            and create_resource_path(model_config.config["model_path"]).is_string_name()
-        ):
-            hf_hub_model_commit_id = repo_info(model_config.config["model_path"]).sha
+        model_identifier = None
+        model_path = model_config.config.get("model_path")
+        if input_model_hash is None:
+            model_identifier = self.get_model_identifier(model_path)
         else:
             model_config_copy.config.pop("model_path", None)
         return hash_dict(
             {
-                "hf_hub_model_commit_id": hf_hub_model_commit_id,
+                "model_identifier": model_identifier,
                 "model_config": model_config_copy.to_json(),
                 "pass_search_point": pass_search_point,
                 "input_model_hash": input_model_hash,
             }
         )
+
+    def get_model_identifier(self, model_path: str):
+        model_path_resource_path = create_resource_path(model_path)
+        if model_path_resource_path.is_string_name():
+            try:
+                from huggingface_hub import repo_info
+            except ImportError as exc:
+                logger.exception(
+                    "huggingface_hub is not installed. "
+                    "Please install huggingface_hub to use the cloud model cache feature for Huggingface model."
+                )
+                raise ImportError("huggingface_hub is not installed.") from exc
+            return repo_info(model_path).sha
+        return None
 
     def exist_in_cloud_cache(self, output_model_hash: str) -> bool:
         logger.info("Checking cloud cache for model hash: %s", output_model_hash)
@@ -316,3 +326,17 @@ def is_hf_repo_exist(repo_name: str):
         raise
 
     return HfApi().repo_exists(repo_name)
+
+
+def is_valid_cloud_cache_model(model_config: ModelConfig):
+    """Check if the model is a valid model for cloud cache.
+
+    1. HfModel with model path as repo name.
+    2. HF AzureML registered model.
+    3. HF AzureML registry model.
+    """
+    if model_config.type == "hfmodel":
+        resource_path = create_resource_path(model_config.config.get("model_path"))
+        if resource_path.is_string_name() or resource_path.is_azureml_models():
+            return True
+    return False

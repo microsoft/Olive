@@ -77,6 +77,10 @@ class ResourcePath(AutoConfigClass):
         """Return True if the resource is an AzureML resource."""
         return self.type in AZUREML_RESOURCE_TYPES
 
+    def is_azureml_models(self) -> bool:
+        """Return True if the resource is an AzureML model."""
+        return self.type in (ResourceType.AzureMLModel, ResourceType.AzureMLRegistryModel)
+
     def is_string_name(self) -> bool:
         """Return True if the resource is a string name."""
         return self.type == ResourceType.StringName
