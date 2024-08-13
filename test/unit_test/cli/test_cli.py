@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import subprocess
 import sys
 from unittest.mock import patch
@@ -12,7 +13,9 @@ from olive.cli.launcher import main as cli_main
 
 
 @pytest.mark.parametrize("console_script", [True, False])
-@pytest.mark.parametrize("command", ["run", "configure-qualcomm-sdk", "manage-aml-compute", "export-adapters"])
+@pytest.mark.parametrize(
+    "command", ["run", "configure-qualcomm-sdk", "manage-aml-compute", "export-adapters", "tune-session-params"]
+)
 def test_valid_command(console_script, command):
     # setup
     command_args = []
@@ -132,6 +135,55 @@ def test_finetune_command(mock_tempdir, mock_run, tmp_path):
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == "dummy_model"
     assert {el.name for el in output_dir.iterdir()} == {dummy_output.name}
+
+
+@patch("olive.cli.perf_tuning.olive_run")
+@patch("olive.cli.perf_tuning.tempfile.TemporaryDirectory")
+@patch("olive.common.ort_inference.get_ort_inference_session")
+@pytest.mark.parametrize("data_config_path", ["", "dummy_data_config_path.json"])
+def test_perf_tuning_command(mock_ort_infer_sess, mock_tempdir, mock_run, data_config_path, tmp_path):
+    # some directories
+    tmpdir = tmp_path / "tmpdir"
+    tmpdir.mkdir()
+
+    output_dir = tmp_path / "output_dir"
+
+    # setup
+    data_config = {
+        "name": "dummy_data",
+        "type": "TransformersTokenDummyDataContainer",
+        "load_dataset_config": {"model_name": "microsoft/phi-2"},
+    }
+    if data_config_path:
+        data_config_path = str(tmpdir / data_config_path)
+        with open(data_config_path, "w") as f:
+            json.dump(data_config, f)
+    mock_tempdir.return_value = tmpdir.resolve()
+    workflow_output_dir = tmpdir / "perf_tuning" / "gpu-cuda-model"
+    workflow_output_dir.mkdir(parents=True)
+    dummy_output = workflow_output_dir / "dummy_output"
+    with open(dummy_output, "w") as f:
+        f.write("dummy_output")
+
+    # setup
+    command_args = [
+        "tune-session-params",
+        "--model",
+        "dummy_model",
+        "--data_config_path",
+        data_config_path,
+        "--hf_model_name",
+        "Intel/bert-base-uncased-mrpc",
+        "--output_path",
+        str(output_dir),
+    ]
+
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == "dummy_model"
+    assert config["data_configs"][0].name == config["passes"]["perf_tuning"]["data_config"]
 
 
 # TODO(anyone): Add tests for ManageAMLComputeCommand

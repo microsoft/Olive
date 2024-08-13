@@ -1,0 +1,19 @@
+input_model:
+  type: "ONNXModel"
+  model_path: <<model_path>>
+data_configs:
+  - name: "perf_tuning_data"
+    type: "TransformersTokenDummyDataContainer"
+passes:
+  perf_tuning:
+    type: "OrtPerfTuning"
+    # the name will be updated if user provides customized data_config
+    data_config: "perf_tuning_data"
+systems:
+  local_system:
+    type: "LocalSystem"
+    accelerators:
+      - device: <<device>>
+engine:
+  target: "local_system"
+  host: "local_system"
