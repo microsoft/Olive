@@ -281,8 +281,8 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                         append_text_gen_input_ids(
                             tokenized_inputs, torch.tensor(native_input_ids), torch.tensor(native_attention_mask)
                         )
+                        num_samples += 1
                     # update counters
-                    num_samples += len(tokenized_texts)
                     example_idx += examples_to_get
         else:
             # randomization, sample random lines
