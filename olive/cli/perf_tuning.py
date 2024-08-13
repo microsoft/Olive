@@ -259,7 +259,9 @@ class PerfTuningCommand(BaseOliveCLICommand):
         if not self.args.data_config_path:
             if template_config is None:
                 raise ValueError("Template config is required when data config is not provided.")
-            return self._update_default_data_config_params(template_config["data_configs"][0])
+            return DataConfig.parse_file_or_obj(
+                self._update_default_data_config_params(template_config["data_configs"][0])
+            )
         return DataConfig.parse_file_or_obj(self.args.data_config_path)
 
     def refine_args(self):
