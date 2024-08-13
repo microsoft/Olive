@@ -15,6 +15,7 @@ import yaml
 from olive.auto_optimizer.template_mapping import PERF_TUNING_TEMPLATE
 from olive.cli.base import BaseOliveCLICommand
 from olive.common.utils import set_nested_dict_value, set_tempdir
+from olive.data.config import DataConfig
 from olive.workflows import run as olive_run
 
 logger = logging.getLogger(__name__)
@@ -42,73 +43,80 @@ class PerfTuningCommand(BaseOliveCLICommand):
         )
 
         # dataset options
-        dataset_group = sub_parser.add_argument_group("dataset options")
+        dataset_group = sub_parser.add_argument_group(
+            "dataset options, which mutually exclusive with huggingface dataset options"
+        )
         dataset_group.add_argument(
             "--data_config_path",
             type=str,
-            help="Path to the data config file. It allows to customize the data config for the model.",
+            help="Path to the data config file. It allows to customize the data config(json/yaml) for the model.",
         )
-        dataset_group.add_argument(
+
+        hf_dataset_group = sub_parser.add_argument_group(
+            "huggingface dataset options, if dataset options are not provided, "
+            "user should provide the following options to modify the default data config. "
+            "Please refer to olive.data.container.TransformersTokenDummyDataContainer for more details."
+        )
+        hf_dataset_group.add_argument(
             "--predict_with_kv_cache",
             action="store_true",
             help="Whether to use key-value cache for perf_tuning",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--hf_model_name",
-            required=True,
             help="Huggingface model name used to load model configs from huggingface.",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--batch_size",
             type=int,
             help="Batch size of the input data.",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--seq_len",
             type=int,
             help="Sequence length to use for the input data.",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--past_seq_len",
             type=int,
             help="Past sequence length to use for the input data.",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--max_seq_len",
             type=int,
             help="Max sequence length to use for the input data.",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--shared_kv",
             action="store_true",
             help="Whether to enable share kv cache in the input data.",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--generative",
             action="store_true",
             help="Whether to enable generative mode in the input data.",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--ort_past_key_name",
             type=str,
             help="Past key name for the input data.",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--ort_past_value_name",
             type=str,
             help="Past value name for the input data.",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--trust_remote_code",
             action="store_true",
             help="Whether to trust remote code in the input data.",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--max_samples",
             type=int,
             help="Max samples to use for the input data.",
         )
-        dataset_group.add_argument(
+        hf_dataset_group.add_argument(
             "--fields_no_batch",
             nargs="*",
             help="List of fields that should not be batched.",
@@ -251,16 +259,8 @@ class PerfTuningCommand(BaseOliveCLICommand):
         if not self.args.data_config_path:
             if template_config is None:
                 raise ValueError("Template config is required when data config is not provided.")
-            return self._update_default_data_config_params(template_config["passes"]["perf_tuning"]["data_config"])
-        data_config_path = Path(self.args.data_config_path)
-        if data_config_path.suffix in (".yaml", ".yml"):
-            with data_config_path.open() as f:
-                return yaml.safe_load(f)
-        elif data_config_path.suffix == ".json":
-            with data_config_path.open() as f:
-                return json.load(f)
-        else:
-            raise ValueError("Data config file should be either yaml or json.")
+            return self._update_default_data_config_params(template_config["data_configs"][0])
+        return DataConfig.parse_file_or_obj(self.args.data_config_path)
 
     def refine_args(self):
         self.args.providers_list = self.args.providers_list or []
@@ -273,11 +273,13 @@ class PerfTuningCommand(BaseOliveCLICommand):
         perf_tuning_key = ("passes", "perf_tuning")
         system_device_key = ("systems", "local_system", "accelerators", 0, "device")
 
+        data_configs = [self._get_data_config(template_config)]
         to_replace = [
             (("input_model", "model_path"), self.args.model),
+            (("data_configs"), data_configs),
             (perf_tuning_key, self._update_pass_config(template_config["passes"]["perf_tuning"])),
             (system_device_key, self.args.device),
-            ((*perf_tuning_key, "data_config"), self._get_data_config(template_config)),
+            ((*perf_tuning_key, "data_config"), data_configs[0].name),
         ]
 
         if self.args.providers_list:
