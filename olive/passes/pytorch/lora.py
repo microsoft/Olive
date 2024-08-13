@@ -805,7 +805,7 @@ class QLoRABase(LoRABase):
         config.training_args = config.training_args or HFTrainingArguments()
 
         # get models and tokenizer
-        new_model_handler, pytorch_model, tokenizer, quantized_modules = self.get_tokenizer(
+        new_model_handler, pytorch_model, tokenizer, quantized_modules = self.get_model_tokenizer(
             model, config, output_model_path
         )
 
@@ -818,7 +818,7 @@ class QLoRABase(LoRABase):
         return output_model
 
     @abstractmethod
-    def get_tokenizer(
+    def get_model_tokenizer(
         self, model: HfModelHandler, config: ConfigBase, output_model_path: str
     ) -> Tuple[HfModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
         """Get the model handler, LoRA model and tokenizer for fine-tuning."""
@@ -849,7 +849,7 @@ class QLoRA(QLoRABase):
         config.update(super()._default_config(accelerator_spec))
         return config
 
-    def get_tokenizer(
+    def get_model_tokenizer(
         self, model: HfModelHandler, config: ConfigBase, output_model_path: str
     ) -> Tuple[HfModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
         """Get the model handler, LoRA model and tokenizer for QLoRA fine-tuning.
@@ -917,7 +917,7 @@ class LoftQ(QLoRABase):
         if version.parse(peft_version) < version.parse("0.7.0"):
             raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
 
-    def get_tokenizer(
+    def get_model_tokenizer(
         self, model: HfModelHandler, config: ConfigBase, output_model_path: str
     ) -> Tuple[HfModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
         """Get the model handler, LoRA model and tokenizer for LoftQ fine-tuning.
