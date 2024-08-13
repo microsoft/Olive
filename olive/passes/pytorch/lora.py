@@ -256,7 +256,7 @@ class LoRABase(Pass):
             data_container = data_config.to_data_container()
             dataset = data_container.pre_process(data_container.load_dataset())
 
-            for idx in range(len(dataset)):
+            for idx in range(len(dataset)):  # pylint: disable=consider-using-enumerate
                 example = dataset[idx]
                 if isinstance(example, tuple):
                     # if example = {**example[0], "labels": example[1]}, the attention_mask is not the same
