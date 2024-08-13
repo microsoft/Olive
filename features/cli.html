@@ -96,6 +96,14 @@
 <li class="toctree-l4"><a class="reference internal" href="#named-arguments_repeat4">Named Arguments</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#tune-session-params">tune-session-params</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#named-arguments_repeat5">Named Arguments</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#model-options_repeat1">model options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dataset-options,-which-mutually-exclusive-with-huggingface-dataset-options">dataset options, which mutually exclusive with huggingface dataset options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#huggingface-dataset-options,-if-dataset-options-are-not-provided,-user-should-provide-the-following-options-to-modify-the-default-data-config.-please-refer-to-olive.data.container.transformerstokendummydatacontainer-for-more-details.">huggingface dataset options, if dataset options are not provided, user should provide the following options to modify the default data config. Please refer to olive.data.container.TransformersTokenDummyDataContainer for more details.</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pass-options">pass options</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -447,6 +455,163 @@
 <dt><kbd>--idle_time_before_scale_down</kbd></dt>
 <dd><p>Idle seconds before scaledown</p>
 <p>Default: 120</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="tune-session-params">
+<h3>tune-session-params<a class="headerlink" href="#tune-session-params" title="Permalink to this heading">¶</a></h3>
+<p>Automatically tune the session parameters for a given onnx model. Currently, for onnx model converted from huggingface model and used for generative tasks, user can simply provide the –model onnx_model_path –hf_model_name hf_model_name –device device_type to get the tuned session parameters.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">tune</span><span class="o">-</span><span class="n">session</span><span class="o">-</span><span class="n">params</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">model</span> <span class="n">MODEL</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">data_config_path</span> <span class="n">DATA_CONFIG_PATH</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">predict_with_kv_cache</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">hf_model_name</span> <span class="n">HF_MODEL_NAME</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">seq_len</span> <span class="n">SEQ_LEN</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">past_seq_len</span> <span class="n">PAST_SEQ_LEN</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">max_seq_len</span> <span class="n">MAX_SEQ_LEN</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">shared_kv</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">generative</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">ort_past_key_name</span> <span class="n">ORT_PAST_KEY_NAME</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">ort_past_value_name</span> <span class="n">ORT_PAST_VALUE_NAME</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">max_samples</span> <span class="n">MAX_SAMPLES</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">fields_no_batch</span> <span class="p">[</span><span class="n">FIELDS_NO_BATCH</span> <span class="p">[</span><span class="n">FIELDS_NO_BATCH</span> <span class="o">...</span><span class="p">]]]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">cpu_cores</span> <span class="n">CPU_CORES</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">io_bind</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">enable_cuda_graph</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">providers_list</span> <span class="p">[</span><span class="n">PROVIDERS_LIST</span> <span class="p">[</span><span class="n">PROVIDERS_LIST</span> <span class="o">...</span><span class="p">]]]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">execution_mode_list</span> <span class="p">[</span><span class="n">EXECUTION_MODE_LIST</span> <span class="p">[</span><span class="n">EXECUTION_MODE_LIST</span> <span class="o">...</span><span class="p">]]]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">opt_level_list</span> <span class="p">[</span><span class="n">OPT_LEVEL_LIST</span> <span class="p">[</span><span class="n">OPT_LEVEL_LIST</span> <span class="o">...</span><span class="p">]]]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">trt_fp16_enable</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">intra_thread_num_list</span> <span class="p">[</span><span class="n">INTRA_THREAD_NUM_LIST</span> <span class="p">[</span><span class="n">INTRA_THREAD_NUM_LIST</span> <span class="o">...</span><span class="p">]]]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">inter_thread_num_list</span> <span class="p">[</span><span class="n">INTER_THREAD_NUM_LIST</span> <span class="p">[</span><span class="n">INTER_THREAD_NUM_LIST</span> <span class="o">...</span><span class="p">]]]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">extra_session_config</span> <span class="n">EXTRA_SESSION_CONFIG</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">disable_force_evaluate_other_eps</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">enable_profiling</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">output_path</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+                          <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span>
+</pre></div>
+</div>
+<section id="named-arguments_repeat5">
+<h4>Named Arguments<a class="headerlink" href="#named-arguments_repeat5" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--output_path</kbd></dt>
+<dd><p>Path to save the tuned inference settings.</p>
+<p>Default: “perf_tuning_output”</p>
+</dd>
+<dt><kbd>--tempdir</kbd></dt>
+<dd><p>Root directory for tempfile directories and files</p>
+</dd>
+</dl>
+</section>
+<section id="model-options_repeat1">
+<h4>model options<a class="headerlink" href="#model-options_repeat1" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--model</kbd></dt>
+<dd><p>Onnx input model path.</p>
+</dd>
+</dl>
+</section>
+<section id="dataset-options,-which-mutually-exclusive-with-huggingface-dataset-options">
+<h4>dataset options, which mutually exclusive with huggingface dataset options<a class="headerlink" href="#dataset-options,-which-mutually-exclusive-with-huggingface-dataset-options" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--data_config_path</kbd></dt>
+<dd><p>Path to the data config file. It allows to customize the data config(json/yaml) for the model.</p>
+</dd>
+</dl>
+</section>
+<section id="huggingface-dataset-options,-if-dataset-options-are-not-provided,-user-should-provide-the-following-options-to-modify-the-default-data-config.-please-refer-to-olive.data.container.transformerstokendummydatacontainer-for-more-details.">
+<h4>huggingface dataset options, if dataset options are not provided, user should provide the following options to modify the default data config. Please refer to olive.data.container.TransformersTokenDummyDataContainer for more details.<a class="headerlink" href="#huggingface-dataset-options,-if-dataset-options-are-not-provided,-user-should-provide-the-following-options-to-modify-the-default-data-config.-please-refer-to-olive.data.container.transformerstokendummydatacontainer-for-more-details." title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--predict_with_kv_cache</kbd></dt>
+<dd><p>Whether to use key-value cache for perf_tuning</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--hf_model_name</kbd></dt>
+<dd><p>Huggingface model name used to load model configs from huggingface.</p>
+</dd>
+<dt><kbd>--batch_size</kbd></dt>
+<dd><p>Batch size of the input data.</p>
+</dd>
+<dt><kbd>--seq_len</kbd></dt>
+<dd><p>Sequence length to use for the input data.</p>
+</dd>
+<dt><kbd>--past_seq_len</kbd></dt>
+<dd><p>Past sequence length to use for the input data.</p>
+</dd>
+<dt><kbd>--max_seq_len</kbd></dt>
+<dd><p>Max sequence length to use for the input data.</p>
+</dd>
+<dt><kbd>--shared_kv</kbd></dt>
+<dd><p>Whether to enable share kv cache in the input data.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--generative</kbd></dt>
+<dd><p>Whether to enable generative mode in the input data.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--ort_past_key_name</kbd></dt>
+<dd><p>Past key name for the input data.</p>
+</dd>
+<dt><kbd>--ort_past_value_name</kbd></dt>
+<dd><p>Past value name for the input data.</p>
+</dd>
+<dt><kbd>--trust_remote_code</kbd></dt>
+<dd><p>Whether to trust remote code in the input data.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--max_samples</kbd></dt>
+<dd><p>Max samples to use for the input data.</p>
+</dd>
+<dt><kbd>--fields_no_batch</kbd></dt>
+<dd><p>List of fields that should not be batched.</p>
+</dd>
+</dl>
+</section>
+<section id="pass-options">
+<h4>pass options<a class="headerlink" href="#pass-options" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--device</kbd></dt>
+<dd><p>Possible choices: gpu, cpu</p>
+<p>Device to use for the model.</p>
+<p>Default: “cpu”</p>
+</dd>
+<dt><kbd>--cpu_cores</kbd></dt>
+<dd><p>CPU cores used for thread tuning.</p>
+</dd>
+<dt><kbd>--io_bind</kbd></dt>
+<dd><p>Whether enable IOBinding Search for ONNX Runtime inference.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--enable_cuda_graph</kbd></dt>
+<dd><p>Whether enable CUDA Graph for CUDA execution provider.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--providers_list</kbd></dt>
+<dd><p>List of execution providers to use for ONNX model. They are case sensitive. If not provided, all available providers will be used.</p>
+</dd>
+<dt><kbd>--execution_mode_list</kbd></dt>
+<dd><p>Parallelism list between operators.</p>
+</dd>
+<dt><kbd>--opt_level_list</kbd></dt>
+<dd><p>Optimization level list for ONNX Model.</p>
+</dd>
+<dt><kbd>--trt_fp16_enable</kbd></dt>
+<dd><p>Enable TensorRT FP16 mode.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--intra_thread_num_list</kbd></dt>
+<dd><p>List of intra thread number for test.</p>
+</dd>
+<dt><kbd>--inter_thread_num_list</kbd></dt>
+<dd><p>List of inter thread number for test.</p>
+</dd>
+<dt><kbd>--extra_session_config</kbd></dt>
+<dd><p>Extra customized session options during tuning process. It should be a json string.E.g. –extra_session_config ‘{“key1”: “value1”, “key2”: “value2”}’</p>
+</dd>
+<dt><kbd>--disable_force_evaluate_other_eps</kbd></dt>
+<dd><p>Whether force to evaluate all execution providers which are different with the associated execution provider.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--enable_profiling</kbd></dt>
+<dd><p>Whether enable profiling for ONNX Runtime inference.</p>
+<p>Default: False</p>
 </dd>
 </dl>
 </section>
