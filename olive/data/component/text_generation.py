@@ -167,12 +167,7 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
     text_list = dataset["text"]
     total_examples = len(text_list)  # total number of examples
 
-    tokenized_inputs = {
-        "input_ids": [],
-        "labels": [],
-    }
-    if args.use_attention_mask:
-        tokenized_inputs["attention_mask"] = []
+    tokenized_inputs = {"input_ids": [], "labels": [], "attention_mask": []}
     if "join" in args.strategy:
         joiner_tokens = tokenizer.encode(args.joiner, add_special_tokens=False) if args.joiner else []
 
@@ -219,13 +214,7 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                     end_loc = begin_loc + args.max_seq_len
                     # get the input sequence
                     input_ids = torch.tensor(joined_input_ids[begin_loc:end_loc])
-                    append_text_gen_input_ids(
-                        tokenized_inputs,
-                        input_ids,
-                        tokenizer,
-                        context=context,
-                        use_attention_mask=args.use_attention_mask,
-                    )
+                    append_text_gen_input_ids(tokenized_inputs, input_ids, torch.ones_like(input_ids), context=context)
                     num_samples += 1
                     if args.max_samples is not None and num_samples >= args.max_samples:
                         # we have reached max_samples
@@ -263,9 +252,7 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                     if len(joined_input_ids) >= args.max_seq_len:
                         # found a good example
                         input_ids = torch.tensor(joined_input_ids[: args.max_seq_len])
-                        append_text_gen_input_ids(
-                            tokenized_inputs, input_ids, tokenizer, use_attention_mask=args.use_attention_mask
-                        )
+                        append_text_gen_input_ids(tokenized_inputs, input_ids, torch.ones_like(input_ids))
                         break
                     resamples += 1
     else:
@@ -273,11 +260,9 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
         if args.strategy == TextGenStrategy.LINE_BY_LINE:
             # batched tokenization might be faster so lets tokenize all the text at once
             if not args.max_samples:
-                batched_input_ids = batch_tokenize_text(text_list, tokenizer, args)
-                for native_input_ids in batched_input_ids:
-                    input_ids = torch.tensor(native_input_ids)
+                for native_input_ids, native_attention_mask in batch_tokenize_text(text_list, tokenizer, args):
                     append_text_gen_input_ids(
-                        tokenized_inputs, input_ids, tokenizer, use_attention_mask=args.use_attention_mask
+                        tokenized_inputs, torch.tensor(native_input_ids), torch.tensor(native_attention_mask)
                     )
             else:
                 example_idx = 0  # index of the first example in the current batch
@@ -289,16 +274,15 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                     # get as many examples as possible without going over max_samples
                     examples_to_get = min(args.max_samples - num_samples, total_examples - example_idx)
                     # batch tokenize
-                    batched_input_ids = batch_tokenize_text(
+                    tokenized_texts = batch_tokenize_text(
                         text_list[example_idx : example_idx + examples_to_get], tokenizer, args  # noqa: E203, RUF100
                     )
-                    for native_input_ids in batched_input_ids:
-                        input_ids = torch.tensor(native_input_ids)
+                    for native_input_ids, native_attention_mask in tokenized_texts:
                         append_text_gen_input_ids(
-                            tokenized_inputs, input_ids, tokenizer, use_attention_mask=args.use_attention_mask
+                            tokenized_inputs, torch.tensor(native_input_ids), torch.tensor(native_attention_mask)
                         )
+                        num_samples += 1
                     # update counters
-                    num_samples += len(batched_input_ids)
                     example_idx += examples_to_get
         else:
             # randomization, sample random lines
@@ -330,9 +314,11 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                 if not encodings:
                     # could not find a good sample after resampling
                     continue
-                append_text_gen_input_ids(
-                    tokenized_inputs, encodings.input_ids[0], tokenizer, use_attention_mask=args.use_attention_mask
-                )
+                append_text_gen_input_ids(tokenized_inputs, encodings.input_ids[0], encodings.attention_mask[0])
+
+    if not args.use_attention_mask:
+        # remove attention_mask
+        tokenized_inputs.pop("attention_mask")
 
     # convert to HFDataset
     hf_dataset = HFDataset.from_dict(tokenized_inputs)
@@ -375,37 +361,26 @@ def batch_tokenize_text(text_list, tokenizer, args):
         padding="max_length" if args.pad_to_max_len else False,
         add_special_tokens=False,
     )
-    batched_input_ids = batched_encodings.input_ids
+    batched_encodings = zip(batched_encodings.input_ids, batched_encodings.attention_mask)
     if args.drop_short_sequences:
-        batched_input_ids = [input_ids for input_ids in batched_input_ids if len(input_ids) >= args.max_seq_len]
-    return batched_input_ids
+        batched_encodings = filter(lambda encoding: len(encoding[0]) >= args.max_seq_len, batched_encodings)
+    return batched_encodings
 
 
 def append_text_gen_input_ids(
-    tokenized_inputs, input_ids, tokenizer, context: int = None, ignore_index=IGNORE_INDEX, use_attention_mask=True
+    tokenized_inputs, input_ids, attention_mask, context: int = None, ignore_index=IGNORE_INDEX
 ):
     """Convert input_ids to inputs dict and append to tokenized_inputs."""
-    inputs = {"input_ids": input_ids}
-
-    # create attention_mask
-    if use_attention_mask:
-        attention_mask = (
-            torch.ones_like(input_ids)
-            if tokenizer.pad_token_id is None
-            else input_ids.ne(tokenizer.pad_token_id).to(input_ids.dtype)  # is boolean otherwise
-        )
-        inputs["attention_mask"] = attention_mask
+    inputs = {"input_ids": input_ids, "attention_mask": attention_mask}
 
     # create labels
     # target is not shifted by 1 since causal lm models shifts internally when computing loss
-    labels = input_ids.clone()
+    inputs["labels"] = labels = input_ids.clone()
     # set context to ignore_index
     if context is not None:
         labels[:context] = ignore_index
     # set padding to ignore_index
-    if use_attention_mask:
-        labels[attention_mask != 1] = ignore_index
-    inputs["labels"] = labels
+    labels[attention_mask != 1] = ignore_index
 
     # add to list
     for k, v in inputs.items():
