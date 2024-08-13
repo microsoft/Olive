@@ -216,7 +216,7 @@ Convert the huggingface data config to the data container.</p>
 <span class="w">        </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-classification&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;input_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sentence2&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;label_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="nt">&quot;label_col&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;label&quot;</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;post_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-classification&quot;</span>
@@ -240,7 +240,7 @@ Convert the huggingface data config to the data container.</p>
     <span class="p">}),</span>
     <span class="n">pre_process_data_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">&quot;input_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span> <span class="s2">&quot;sentence2&quot;</span><span class="p">],</span>
-        <span class="s2">&quot;label_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;label_col&quot;</span><span class="p">:</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
     <span class="p">})</span>
     <span class="n">dataloader_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
@@ -388,9 +388,7 @@ Convert the transformer dummy data config to the data container.</p>
 <span class="w">            </span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span>
 <span class="w">            </span><span class="s2">&quot;sentence2&quot;</span>
 <span class="w">        </span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;label_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">            </span><span class="s2">&quot;label&quot;</span>
-<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;label_col&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;label&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;max_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;post_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -424,9 +422,7 @@ Convert the transformer dummy data config to the data container.</p>
                 <span class="s2">&quot;sentence1&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;sentence2&quot;</span>
             <span class="p">],</span>
-            <span class="s2">&quot;label_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
-                <span class="s2">&quot;label&quot;</span>
-            <span class="p">],</span>
+            <span class="s2">&quot;label_col&quot;</span><span class="p">:</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
             <span class="s2">&quot;max_samples&quot;</span><span class="p">:</span> <span class="n">null</span>
         <span class="p">}</span>
     <span class="p">),</span>
