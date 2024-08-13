@@ -18,7 +18,6 @@ Inference optimization workflows
 Fine-tune optimization workflows
 - [Using LoRA in PyTorch for model fine tune on a chatbot dataset](#fine-tune-llama-model-on-a-chatbot-dataset-using-qlora)
 - [Using LoRA/QLoRA/LoftQ in PyTorch for model fine tune on a code generation dataset](#fine-tune-open-llama-model-on-a-code-generation-dataset)
-- [Using QLoRA in ONNX Runtime Training for model fine tune](#fine-tune-openllama-model-using-qlora-with-onnx-runtime-training)
 
 Go to [How to run](#prerequisites)
 
@@ -220,21 +219,6 @@ The code language is set to `Python` but can be changed to other languages in th
 Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
 
 Note: You must first request access to the [nampdn-ai/tiny-codes](https://huggingface.co/datasets/nampdn-ai/tiny-codes) datatset. Then login in to HuggingFace on your machine using `huggingface-cli login`.
-
-### Fine-tune OpenLlama model using QLoRA with ONNX Runtime Training
-You can also train the model using [ONNX Runtime Training](https://techcommunity.microsoft.com/t5/ai-machine-learning-blog/onnx-runtime-training-technical-deep-dive/ba-p/1398310).
-The relevant config file is [open_llama_qlora_ort_tinycodes.json](open_llama_qlora_ort_tinycodes.json). Requirements file: [requirements-qlora-ort.txt](requirements-qlora-ort.txt)
-
-It also requires the latest version of onnxruntime-training:
-```bash
-python -m pip uninstall -y onnxruntime onnxruntime-gpu ort-nightly ort-nightly-gpu
-python -m pip install onnxruntime-training --pre --upgrade --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-```
-
-Configure `torch-ort`:
-```bash
-python -m torch_ort.configure
-```
 
 ## How to run
 ### Pip requirements

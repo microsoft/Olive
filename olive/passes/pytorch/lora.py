@@ -9,7 +9,6 @@
 # --------------------------------------------------------------------------
 import dataclasses
 import logging
-import os
 import tempfile
 from abc import abstractmethod
 from copy import deepcopy
@@ -105,8 +104,6 @@ class HFTrainingArguments(NestedConfig):
             v = {}
         # make sure extra args are fields of transformers.Trainer
         training_args_fields = {f.name for f in dataclasses.fields(transformers.TrainingArguments) if f.init}
-        # use_module_with_loss is a field of optimum.onnxruntime.ORTTrainingArguments
-        training_args_fields.add("use_module_with_loss")
         for k in list(v):  # need a copy of the keys since we are mutating the dict
             if k == "fp16":
                 logger.warning("Extra arg %s is not allowed. Please use `torch_dtype` instead.", k)
@@ -116,21 +113,12 @@ class HFTrainingArguments(NestedConfig):
                 del v[k]
         return v
 
-    def create_training_args(self, use_ort_trainer: bool) -> transformers.TrainingArguments:
+    def create_training_args(self) -> transformers.TrainingArguments:
         args = self.dict()
         if not args["output_dir"]:
             raise ValueError("output_dir must be provided.")
         extra_args = args.pop("extra_args")
-        if use_ort_trainer:
-            from optimum.onnxruntime import ORTTrainingArguments
-
-            training_args_cls = ORTTrainingArguments
-        else:
-            training_args_cls = transformers.TrainingArguments
-            if "use_module_with_loss" in extra_args:
-                logger.warning("use_module_with_loss is not supported by transformers.TrainingArguments. Ignoring.")
-                extra_args.pop("use_module_with_loss")
-        return training_args_cls(**args, **extra_args)
+        return transformers.TrainingArguments(**args, **extra_args)
 
     def get_data_seed(self):
         return self.extra_args.get("data_seed", self.extra_args.get("seed", 42))
@@ -146,17 +134,6 @@ class LoRABase(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
-            "use_ort_trainer": PassConfigParam(
-                type_=bool, default_value=False, description="Whether or not to use ORTTrainer."
-            ),
-            "ortmodule_onnx_opset_version": PassConfigParam(
-                type_=int,
-                default_value=16,
-                description=(
-                    "The opset version to use for ONNX export when using ORTTrainer. Only used if use_ort_trainer is"
-                    " True. 16+ is required when using bfloat16 and model has operators such as Where."
-                ),
-            ),
             "lora_r": PassConfigParam(
                 type_=int,
                 default_value=64,
@@ -231,61 +208,9 @@ class LoRABase(Pass):
             ),
         }
 
-    def validate_search_point(
-        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
-    ) -> bool:
-        if with_fixed_value:
-            search_point = self.config_at_search_point(search_point or {})
-        if search_point.get("use_ort_trainer") and search_point.get("training_args", {}).get("gradient_checkpointing"):
-            logger.info(
-                "gradient_checkpointing is not supported by onnxruntime-training. Please set gradient_checkpointing"
-                " to False."
-            )
-            return False
-        return True
-
     @classmethod
     def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
         """Check dependencies for the pass."""
-        if config.use_ort_trainer:
-            # check for ort trainer dependencies
-            try:
-                from optimum.onnxruntime import ORTTrainer  # noqa: F401
-                from optimum.onnxruntime.utils import is_onnxruntime_training_available
-                from torch_ort import ORTModule  # noqa: F401
-
-                assert is_onnxruntime_training_available(), "onnxruntime-training is not available."
-            except (ImportError, AssertionError):
-                raise ImportError(
-                    "Please install `olive-ai[optimum,ort-training]` or `onnxruntime-training optimum torch-ort` to use"
-                    f" {cls.__name__} pass with use_ort_trainer=True."
-                ) from None
-
-            # check if model uses bfloat16
-            uses_bf16 = cls.get_torch_dtype(config.torch_dtype) == torch.bfloat16
-            if is_qlora and config.compute_dtype:
-                # qlora compute dtype might be different from torch dtype
-                uses_bf16 |= cls.get_torch_dtype(config.compute_dtype) == torch.bfloat16
-
-            from onnxruntime import __version__ as OrtVersion
-
-            # onnxruntime-training doesn't support bfloat16 fully until 1.17.0
-            if uses_bf16 and version.parse(OrtVersion) < version.parse("1.17.0"):
-                raise ImportError(
-                    f"Please install onnxruntime >= 1.17.0 to use {cls.__name__} with bfloat16 and"
-                    " use_ort_trainer=True."
-                )
-
-            assert config.ortmodule_onnx_opset_version > 0, "ortmodule_onnx_opset_version must be a positive integer."
-            # ops such as Where only support bfloat16 from opset 16
-            if uses_bf16 and config.ortmodule_onnx_opset_version < 16:
-                logger.warning(
-                    "ortmodule_onnx_opset_version is %d but training with bfloat16"
-                    " might not work properly with opset versions < 16",
-                    config.ortmodule_onnx_opset_version,
-                )
-            os.environ["ORTMODULE_ONNX_OPSET_VERSION"] = str(config.ortmodule_onnx_opset_version)
-
         # bitsandbytes quantization only supported after transformers 4.30.0
         if is_qlora and version.parse(transformers.__version__) < version.parse("4.30.0"):
             raise ImportError(f"Please install transformers >= 4.30.0 to use {cls.__name__} pass.")
@@ -431,9 +356,7 @@ class LoRABase(Pass):
                 "torch_dtype": model_dtype,
                 # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
                 # "auto": uses all available GPUs, model parallel
-                # ORTTrainer falls back to pytorch when model parallel is used
-                # None: maps to cpu for non-quantized models, first gpu for quantized models
-                "device_map": "auto" if not config.use_ort_trainer else None,
+                "device_map": "auto",
             }
         )
         # overwrite load_kwargs with kwargs
@@ -625,47 +548,22 @@ class LoRABase(Pass):
             # create training args
             logger.debug("Training args: %s", config.training_args.dict())
 
-            trainer_cls = transformers.Trainer
-            if config.use_ort_trainer:
-                from optimum.onnxruntime import ORTTrainer
+            # get trainer'
+            trainer = transformers.Trainer(
+                model=model,
+                tokenizer=tokenizer,
+                args=config.training_args.create_training_args(),
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                data_collator=partial(self.collate_batch, tokenizer=tokenizer),
+            )
+            # TODO(jambayk): trainer callback for saving might be needed for DDP training
+            # worry about this later
 
-                trainer_cls = ORTTrainer
-
-            # there is a bug in accelerate where it assumes 4bit models on multiple gpus cannot be trained but it is
-            # not the case. refer to https://github.com/huggingface/accelerate/pull/2714 for more details
-            # we will force the accelerator to use the first device using the ACCELERATE_TORCH_DEVICE env variable
-            # only catches the bug on aml compute with multiple gpus where the model has no weights on device 0 for
-            # some reason
-            # TODO(jambayk): add a version check when the fix is released
-            accelerate_torch_device = os.environ.get("ACCELERATE_TORCH_DEVICE", None)
-            try:
-                # using a try finally block in case the environment variable is used elsewhere
-                first_device = next(iter(set(model.hf_device_map.values())))
-                first_device_index = first_device.index if isinstance(first_device, torch.device) else first_device
-                os.environ["ACCELERATE_TORCH_DEVICE"] = f"cuda:{first_device_index}"
-                logger.debug("ACCELERATE_TORCH_DEVICE set to: %s", os.environ["ACCELERATE_TORCH_DEVICE"])
-
-                # get trainer'
-                trainer = trainer_cls(
-                    model=model,
-                    tokenizer=tokenizer,
-                    args=config.training_args.create_training_args(config.use_ort_trainer),
-                    train_dataset=train_dataset,
-                    eval_dataset=eval_dataset,
-                    data_collator=partial(self.collate_batch, tokenizer=tokenizer),
-                )
-                # TODO(jambayk): trainer callback for saving might be needed for DDP training
-                # worry about this later
-
-                # train
-                logger.info("Running fine-tuning")
-                train_result = trainer.train(resume_from_checkpoint=checkpoint)
-                logger.debug("train_result: %s", train_result)
-            finally:
-                if accelerate_torch_device is not None:
-                    os.environ["ACCELERATE_TORCH_DEVICE"] = accelerate_torch_device
-                else:
-                    os.environ.pop("ACCELERATE_TORCH_DEVICE", None)
+            # train
+            logger.info("Running fine-tuning")
+            train_result = trainer.train(resume_from_checkpoint=checkpoint)
+            logger.debug("train_result: %s", train_result)
 
         if torch.cuda.is_available():
             torch.backends.cuda.matmul.allow_tf32 = allow_tf32  # lgtm
@@ -831,14 +729,6 @@ class QLoRABase(LoRABase):
 
         # check dependencies
         self.check_dependencies(config, is_qlora=True)
-
-        # MatMulBnb4 contrib op doesn't support double quantization so the trainer falls back to PythonOp
-        # which uses more memory and is slower
-        if config.use_ort_trainer and getattr(config, "double_quant", False):
-            logger.warning(
-                "double_quant is set to True but it is inefficient with onnxruntime-training! Consider setting it to"
-                " False."
-            )
 
         # use default training args if not provided
         config.training_args = config.training_args or HFTrainingArguments()

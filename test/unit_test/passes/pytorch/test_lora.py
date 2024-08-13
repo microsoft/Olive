@@ -2,12 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
-import os
 import platform
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
@@ -114,47 +110,3 @@ def test_loftq(tmp_path):
     # assert
     assert Path(out.get_resource("model_path")).exists()
     assert Path(out.get_resource("adapter_path")).exists()
-
-
-@pytest.fixture(name="mock_torch_ort")
-def mock_torch_ort_fixture():
-    # mock torch_ort since we don't install it in the test environment
-    mock_torch_ort = MagicMock()
-    sys.modules["torch_ort"] = mock_torch_ort
-    yield mock_torch_ort
-    del sys.modules["torch_ort"]
-
-
-@pytest.fixture(name="clean_env")
-def clean_env_fixture():
-    yield
-    if "ORTMODULE_ONNX_OPSET_VERSION" in os.environ:
-        del os.environ["ORTMODULE_ONNX_OPSET_VERSION"]
-
-
-@pytest.mark.usefixtures("clean_env", "mock_torch_ort")
-@pytest.mark.parametrize(("value", "expected_value"), [(None, "16"), (-1, None), (16, "16"), (15, "15"), (17, "17")])
-@patch("olive.passes.pytorch.lora.LoRA.train_and_save_new_model")
-@patch("optimum.onnxruntime.utils.is_onnxruntime_training_available", return_value=True)
-@patch("onnxruntime.__version__", "1.17.0")
-def test_ortmodule_onnx_opset_version(_, tmp_path, caplog, value, expected_value):
-    # execute
-    pass_config_kwargs = {"use_ort_trainer": True}
-    if value is not None:
-        pass_config_kwargs["ortmodule_onnx_opset_version"] = value
-
-    if expected_value is None:
-        # invalid value
-        with pytest.raises(AssertionError):
-            run_finetuning(LoRA, tmp_path, **pass_config_kwargs)
-    else:
-        # capture logging to check for opset < 16 warning
-        logger = logging.getLogger("olive")
-        logger.propagate = True
-
-        run_finetuning(LoRA, tmp_path, **pass_config_kwargs)
-
-        # assert
-        assert os.environ["ORTMODULE_ONNX_OPSET_VERSION"] == expected_value
-        if int(expected_value) < 16:
-            assert "training with bfloat16 might not work properly" in caplog.text
