@@ -141,7 +141,6 @@
 <span class="c1"># --------------------------------------------------------------------------</span>
 <span class="kn">import</span> <span class="nn">dataclasses</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
@@ -237,8 +236,6 @@
             <span class="n">v</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="c1"># make sure extra args are fields of transformers.Trainer</span>
         <span class="n">training_args_fields</span> <span class="o">=</span> <span class="p">{</span><span class="n">f</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">fields</span><span class="p">(</span><span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">init</span><span class="p">}</span>
-        <span class="c1"># use_module_with_loss is a field of optimum.onnxruntime.ORTTrainingArguments</span>
-        <span class="n">training_args_fields</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;use_module_with_loss&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>  <span class="c1"># need a copy of the keys since we are mutating the dict</span>
             <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;fp16&quot;</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Extra arg </span><span class="si">%s</span><span class="s2"> is not allowed. Please use `torch_dtype` instead.&quot;</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
@@ -248,21 +245,12 @@
                 <span class="k">del</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">v</span>
 
-<div class="viewcode-block" id="HFTrainingArguments.create_training_args"><a class="viewcode-back" href="../../../../api/passes.html#olive.passes.pytorch.lora.HFTrainingArguments.create_training_args">[docs]</a>    <span class="k">def</span> <span class="nf">create_training_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_ort_trainer</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">:</span>
+<div class="viewcode-block" id="HFTrainingArguments.create_training_args"><a class="viewcode-back" href="../../../../api/passes.html#olive.passes.pytorch.lora.HFTrainingArguments.create_training_args">[docs]</a>    <span class="k">def</span> <span class="nf">create_training_args</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">:</span>
         <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;output_dir&quot;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;output_dir must be provided.&quot;</span><span class="p">)</span>
         <span class="n">extra_args</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;extra_args&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">use_ort_trainer</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">optimum.onnxruntime</span> <span class="kn">import</span> <span class="n">ORTTrainingArguments</span>
-
-            <span class="n">training_args_cls</span> <span class="o">=</span> <span class="n">ORTTrainingArguments</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">training_args_cls</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span>
-            <span class="k">if</span> <span class="s2">&quot;use_module_with_loss&quot;</span> <span class="ow">in</span> <span class="n">extra_args</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;use_module_with_loss is not supported by transformers.TrainingArguments. Ignoring.&quot;</span><span class="p">)</span>
-                <span class="n">extra_args</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;use_module_with_loss&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">training_args_cls</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_args</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_args</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="HFTrainingArguments.get_data_seed"><a class="viewcode-back" href="../../../../api/passes.html#olive.passes.pytorch.lora.HFTrainingArguments.get_data_seed">[docs]</a>    <span class="k">def</span> <span class="nf">get_data_seed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data_seed&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;seed&quot;</span><span class="p">,</span> <span class="mi">42</span><span class="p">))</span></div></div>
@@ -278,17 +266,6 @@
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;use_ort_trainer&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Whether or not to use ORTTrainer.&quot;</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;ortmodule_onnx_opset_version&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
-                <span class="n">default_value</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
-                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-                    <span class="s2">&quot;The opset version to use for ONNX export when using ORTTrainer. Only used if use_ort_trainer is&quot;</span>
-                    <span class="s2">&quot; True. 16+ is required when using bfloat16 and model has operators such as Where.&quot;</span>
-                <span class="p">),</span>
-            <span class="p">),</span>
             <span class="s2">&quot;lora_r&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
                 <span class="n">default_value</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
@@ -363,61 +340,9 @@
             <span class="p">),</span>
         <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">validate_search_point</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">search_point</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">,</span> <span class="n">with_fixed_value</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">with_fixed_value</span><span class="p">:</span>
-            <span class="n">search_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config_at_search_point</span><span class="p">(</span><span class="n">search_point</span> <span class="ow">or</span> <span class="p">{})</span>
-        <span class="k">if</span> <span class="n">search_point</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;use_ort_trainer&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">search_point</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;training_args&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;gradient_checkpointing&quot;</span><span class="p">):</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;gradient_checkpointing is not supported by onnxruntime-training. Please set gradient_checkpointing&quot;</span>
-                <span class="s2">&quot; to False.&quot;</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">return</span> <span class="kc">True</span>
-
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">check_dependencies</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">is_qlora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Check dependencies for the pass.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">use_ort_trainer</span><span class="p">:</span>
-            <span class="c1"># check for ort trainer dependencies</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="kn">from</span> <span class="nn">optimum.onnxruntime</span> <span class="kn">import</span> <span class="n">ORTTrainer</span>  <span class="c1"># noqa: F401</span>
-                <span class="kn">from</span> <span class="nn">optimum.onnxruntime.utils</span> <span class="kn">import</span> <span class="n">is_onnxruntime_training_available</span>
-                <span class="kn">from</span> <span class="nn">torch_ort</span> <span class="kn">import</span> <span class="n">ORTModule</span>  <span class="c1"># noqa: F401</span>
-
-                <span class="k">assert</span> <span class="n">is_onnxruntime_training_available</span><span class="p">(),</span> <span class="s2">&quot;onnxruntime-training is not available.&quot;</span>
-            <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AssertionError</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-                    <span class="s2">&quot;Please install `olive-ai[optimum,ort-training]` or `onnxruntime-training optimum torch-ort` to use&quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> pass with use_ort_trainer=True.&quot;</span>
-                <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
-
-            <span class="c1"># check if model uses bfloat16</span>
-            <span class="n">uses_bf16</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_torch_dtype</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span><span class="p">)</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span>
-            <span class="k">if</span> <span class="n">is_qlora</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">compute_dtype</span><span class="p">:</span>
-                <span class="c1"># qlora compute dtype might be different from torch dtype</span>
-                <span class="n">uses_bf16</span> <span class="o">|=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_torch_dtype</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">compute_dtype</span><span class="p">)</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span>
-
-            <span class="kn">from</span> <span class="nn">onnxruntime</span> <span class="kn">import</span> <span class="n">__version__</span> <span class="k">as</span> <span class="n">OrtVersion</span>
-
-            <span class="c1"># onnxruntime-training doesn&#39;t support bfloat16 fully until 1.17.0</span>
-            <span class="k">if</span> <span class="n">uses_bf16</span> <span class="ow">and</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">OrtVersion</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;1.17.0&quot;</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Please install onnxruntime &gt;= 1.17.0 to use </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> with bfloat16 and&quot;</span>
-                    <span class="s2">&quot; use_ort_trainer=True.&quot;</span>
-                <span class="p">)</span>
-
-            <span class="k">assert</span> <span class="n">config</span><span class="o">.</span><span class="n">ortmodule_onnx_opset_version</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;ortmodule_onnx_opset_version must be a positive integer.&quot;</span>
-            <span class="c1"># ops such as Where only support bfloat16 from opset 16</span>
-            <span class="k">if</span> <span class="n">uses_bf16</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">ortmodule_onnx_opset_version</span> <span class="o">&lt;</span> <span class="mi">16</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;ortmodule_onnx_opset_version is </span><span class="si">%d</span><span class="s2"> but training with bfloat16&quot;</span>
-                    <span class="s2">&quot; might not work properly with opset versions &lt; 16&quot;</span><span class="p">,</span>
-                    <span class="n">config</span><span class="o">.</span><span class="n">ortmodule_onnx_opset_version</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;ORTMODULE_ONNX_OPSET_VERSION&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">ortmodule_onnx_opset_version</span><span class="p">)</span>
-
         <span class="c1"># bitsandbytes quantization only supported after transformers 4.30.0</span>
         <span class="k">if</span> <span class="n">is_qlora</span> <span class="ow">and</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">transformers</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;4.30.0&quot;</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Please install transformers &gt;= 4.30.0 to use </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> pass.&quot;</span><span class="p">)</span>
@@ -563,9 +488,7 @@
                 <span class="s2">&quot;torch_dtype&quot;</span><span class="p">:</span> <span class="n">model_dtype</span><span class="p">,</span>
                 <span class="c1"># TODO(jambayk): Worry about `use_multi_gpu` and distributed training later</span>
                 <span class="c1"># &quot;auto&quot;: uses all available GPUs, model parallel</span>
-                <span class="c1"># ORTTrainer falls back to pytorch when model parallel is used</span>
-                <span class="c1"># None: maps to cpu for non-quantized models, first gpu for quantized models</span>
-                <span class="s2">&quot;device_map&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">use_ort_trainer</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">&quot;device_map&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
             <span class="p">}</span>
         <span class="p">)</span>
         <span class="c1"># overwrite load_kwargs with kwargs</span>
@@ -757,47 +680,22 @@
             <span class="c1"># create training args</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Training args: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">dict</span><span class="p">())</span>
 
-            <span class="n">trainer_cls</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">Trainer</span>
-            <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">use_ort_trainer</span><span class="p">:</span>
-                <span class="kn">from</span> <span class="nn">optimum.onnxruntime</span> <span class="kn">import</span> <span class="n">ORTTrainer</span>
+            <span class="c1"># get trainer&#39;</span>
+            <span class="n">trainer</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">Trainer</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+                <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span>
+                <span class="n">args</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">create_training_args</span><span class="p">(),</span>
+                <span class="n">train_dataset</span><span class="o">=</span><span class="n">train_dataset</span><span class="p">,</span>
+                <span class="n">eval_dataset</span><span class="o">=</span><span class="n">eval_dataset</span><span class="p">,</span>
+                <span class="n">data_collator</span><span class="o">=</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collate_batch</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="c1"># TODO(jambayk): trainer callback for saving might be needed for DDP training</span>
+            <span class="c1"># worry about this later</span>
 
-                <span class="n">trainer_cls</span> <span class="o">=</span> <span class="n">ORTTrainer</span>
-
-            <span class="c1"># there is a bug in accelerate where it assumes 4bit models on multiple gpus cannot be trained but it is</span>
-            <span class="c1"># not the case. refer to https://github.com/huggingface/accelerate/pull/2714 for more details</span>
-            <span class="c1"># we will force the accelerator to use the first device using the ACCELERATE_TORCH_DEVICE env variable</span>
-            <span class="c1"># only catches the bug on aml compute with multiple gpus where the model has no weights on device 0 for</span>
-            <span class="c1"># some reason</span>
-            <span class="c1"># TODO(jambayk): add a version check when the fix is released</span>
-            <span class="n">accelerate_torch_device</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ACCELERATE_TORCH_DEVICE&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="c1"># using a try finally block in case the environment variable is used elsewhere</span>
-                <span class="n">first_device</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">hf_device_map</span><span class="o">.</span><span class="n">values</span><span class="p">())))</span>
-                <span class="n">first_device_index</span> <span class="o">=</span> <span class="n">first_device</span><span class="o">.</span><span class="n">index</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first_device</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="k">else</span> <span class="n">first_device</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;ACCELERATE_TORCH_DEVICE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;cuda:</span><span class="si">{</span><span class="n">first_device_index</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;ACCELERATE_TORCH_DEVICE set to: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;ACCELERATE_TORCH_DEVICE&quot;</span><span class="p">])</span>
-
-                <span class="c1"># get trainer&#39;</span>
-                <span class="n">trainer</span> <span class="o">=</span> <span class="n">trainer_cls</span><span class="p">(</span>
-                    <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
-                    <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span>
-                    <span class="n">args</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">create_training_args</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">use_ort_trainer</span><span class="p">),</span>
-                    <span class="n">train_dataset</span><span class="o">=</span><span class="n">train_dataset</span><span class="p">,</span>
-                    <span class="n">eval_dataset</span><span class="o">=</span><span class="n">eval_dataset</span><span class="p">,</span>
-                    <span class="n">data_collator</span><span class="o">=</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collate_batch</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">),</span>
-                <span class="p">)</span>
-                <span class="c1"># TODO(jambayk): trainer callback for saving might be needed for DDP training</span>
-                <span class="c1"># worry about this later</span>
-
-                <span class="c1"># train</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running fine-tuning&quot;</span><span class="p">)</span>
-                <span class="n">train_result</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">resume_from_checkpoint</span><span class="o">=</span><span class="n">checkpoint</span><span class="p">)</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;train_result: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">train_result</span><span class="p">)</span>
-            <span class="k">finally</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">accelerate_torch_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;ACCELERATE_TORCH_DEVICE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">accelerate_torch_device</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;ACCELERATE_TORCH_DEVICE&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="c1"># train</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running fine-tuning&quot;</span><span class="p">)</span>
+            <span class="n">train_result</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">resume_from_checkpoint</span><span class="o">=</span><span class="n">checkpoint</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;train_result: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">train_result</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">matmul</span><span class="o">.</span><span class="n">allow_tf32</span> <span class="o">=</span> <span class="n">allow_tf32</span>  <span class="c1"># lgtm</span>
@@ -963,14 +861,6 @@
 
         <span class="c1"># check dependencies</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">check_dependencies</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">is_qlora</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-        <span class="c1"># MatMulBnb4 contrib op doesn&#39;t support double quantization so the trainer falls back to PythonOp</span>
-        <span class="c1"># which uses more memory and is slower</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">use_ort_trainer</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;double_quant&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;double_quant is set to True but it is inefficient with onnxruntime-training! Consider setting it to&quot;</span>
-                <span class="s2">&quot; False.&quot;</span>
-            <span class="p">)</span>
 
         <span class="c1"># use default training args if not provided</span>
         <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="ow">or</span> <span class="n">HFTrainingArguments</span><span class="p">()</span>
