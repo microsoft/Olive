@@ -43,8 +43,8 @@ python phi3.py [--target HARDWARE_TARGET(cpu|cuda)] [--precision DATA_TYPE] [--o
 
 # Examples
 # optimize model and start a inference process
-python phi3_vision.py --cache_dir cache/ --output_dir output --inference
+python phi3_vision.py --cache_dir cache --output_dir output --inference
 
 # inference with optimized model
-python phi3_vision.py --optimized_model_path --inference
+python phi3_vision.py --optimized_model_path optimized_model_path --inference
 ```

@@ -1,4 +1,4 @@
-# !/bin/bash
+#!/bin/bash
 
 # get following instructions from https://github.com/microsoft/onnxruntime-genai/blob/main/examples/python/phi-3-vision.md
 
@@ -8,15 +8,15 @@ then
     echo "Usage: prepare_phi3_vision_for_olive.sh <output_dir>"
     exit 1
 else
-    output_dir=$1/phi3-vision-128k-instruct/pytorch
+    base_output_dir="$1"/phi3-vision-128k-instruct
+    pytorch_output_dir="$base_output_dir"/pytorch
 fi
 
-mkdir -p $output_dir
-cd $output_dir
+mkdir -p "$pytorch_output_dir"
 echo "downloading microsoft/Phi-3-vision-128k-instruct"
-huggingface-cli download microsoft/Phi-3-vision-128k-instruct --local-dir .
+huggingface-cli download microsoft/Phi-3-vision-128k-instruct --local-dir "$pytorch_output_dir"
 
-cd ..
+cd "$base_output_dir" || exit
 echo "downloading microsoft/Phi-3-vision-128k-instruct-onnx-cpu"
 huggingface-cli download microsoft/Phi-3-vision-128k-instruct-onnx-cpu --include "onnx/*" --local-dir .
 huggingface-cli download microsoft/Phi-3-vision-128k-instruct-onnx-cpu --include "cpu-int4-rtn-block-32-acc-level-4/*.json" --local-dir .
@@ -35,7 +35,7 @@ mv onnx/image_embedding_phi3_v_for_onnx.py pytorch/
 mv onnx/builder.py .
 
 # mv genai-config.json, preprocess_config.json to output_dir
-mv cpu-int4-rtn-block-32-acc-level-4/*.json $1
+mv cpu-int4-rtn-block-32-acc-level-4/*.json "$1"
 
 # Delete empty `onnx` directory
 rm -rf onnx/ cpu-int4-rtn-block-32-acc-level-4/

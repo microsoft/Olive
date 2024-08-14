@@ -20,7 +20,7 @@ def get_dummy_inputs(model=None):
     prompt_suffix = "<|end|>\n"
     prompt = f"{user_prompt}<|image_1|>\nWhat is shown in this image?{prompt_suffix}{assistant_prompt}"
     url = "https://www.ilankelman.org/stopsigns/australia.jpg"
-    image = Image.open(requests.get(url, stream=True).raw)
+    image = Image.open(requests.get(url, stream=True, timeout=10).raw)
     inputs = processor(prompt, image, return_tensors="pt")
     return (
         inputs["pixel_values"],

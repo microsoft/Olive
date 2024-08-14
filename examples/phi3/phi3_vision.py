@@ -85,8 +85,6 @@ def build_text_embedding(args, input_model_path):
     #########################################
     # Functions/variables from model builder
     #########################################
-    import os
-
     import numpy as np
     import torch
     from onnx import TensorProto, external_data_helper, helper, numpy_helper, save_model
