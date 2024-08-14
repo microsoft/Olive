@@ -20,7 +20,7 @@ from olive.common.import_lib import import_user_module
 from olive.common.ort_inference import OrtInferenceSession, prepare_io_bindings
 from olive.common.pydantic_v1 import Field, root_validator, validator
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import tensor_data_to_device
+from olive.common.utils import load_weights, tensor_data_to_device
 from olive.constants import Framework
 from olive.data.config import DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
@@ -397,7 +397,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         # load constant inputs if any
         constant_inputs = None
         if model.constant_inputs_path:
-            constant_inputs = OnnxEvaluator.format_input(dict(np.load(model.constant_inputs_path)), io_config)
+            constant_inputs = OnnxEvaluator.format_input(load_weights(model.constant_inputs_path), io_config)
 
         # create session wrapper
         session_wrapper = OrtInferenceSession(

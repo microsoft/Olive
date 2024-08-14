@@ -6,11 +6,11 @@ import logging
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
-import numpy as np
 import onnx
 from onnx import GraphProto, ModelProto
 
 from olive.common.ort_inference import OrtSessionFallbackError, get_ort_inference_session
+from olive.common.utils import load_weights
 from olive.constants import Framework, ModelFileFormat
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import AcceleratorLookup, Device
@@ -110,7 +110,9 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         # device id for ranked model
         device_id = rank if device == Device.GPU else None
         # load external initializers if available
-        external_initializers = np.load(self.external_initializers_path) if self.external_initializers_path else None
+        external_initializers = (
+            load_weights(self.external_initializers_path) if self.external_initializers_path else None
+        )
 
         try:
             return get_ort_inference_session(

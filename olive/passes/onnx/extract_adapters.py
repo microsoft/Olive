@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple
 import numpy as np
 import onnx
 
+from olive.common.config_utils import CaseInsensitiveEnum
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -35,6 +36,10 @@ class ExtractAdapters(Pass):
     If make_inputs is True, the adapter weights are inputs to the model and must be provided during inference.
     """
 
+    class SaveFormat(CaseInsensitiveEnum):
+        NPZ = "npz"
+        SAFETENSORS = "safetensors"
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
@@ -53,6 +58,11 @@ class ExtractAdapters(Pass):
                     "Pack adapter weights for the same module type into a single input tensor. Only used if make_inputs"
                     " is True."
                 ),
+            ),
+            "save_format": PassConfigParam(
+                type_=ExtractAdapters.SaveFormat,
+                default_value=ExtractAdapters.SaveFormat.NPZ,
+                description="Format to save the weights in.",
             ),
         }
         config.update(get_external_data_config())
@@ -206,10 +216,9 @@ class ExtractAdapters(Pass):
         dag.update()
 
         # save the weights
-        # TODO(jambayk): Consider other methods for saving the weights
-        # safetensors is an option but it is not available on ARM64 Windows
-        weights_path = Path(output_model_path).parent / "adapter_weights.npz"
-        np.savez(weights_path, **weights)
+        weights_path = self.save_weights(
+            weights, Path(output_model_path).parent / "adapter_weights", config["save_format"]
+        )
 
         # save the model
         output_model = model_proto_to_olive_model(
@@ -279,6 +288,27 @@ class ExtractAdapters(Pass):
             packed_weights[weight_name] = np.concatenate([np.atleast_1d(weights[name]) for name in to_pack], axis=0)
 
         return packed_weights, packings
+
+    @staticmethod
+    def save_weights(weights: Dict[str, "NDArray"], output_path: str, save_format: SaveFormat) -> Path:
+        """Save the weights to a file.
+
+        :param weights: dictionary of weights
+        :param output_path: path to save the weights
+        :param save_format: format to save the weights in
+        :return: path to the saved file
+        """
+        output_path = Path(output_path).with_suffix(f".{save_format}")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if save_format == ExtractAdapters.SaveFormat.NPZ:
+            np.savez(output_path, **weights)
+        elif save_format == ExtractAdapters.SaveFormat.SAFETENSORS:
+            from safetensors.numpy import save_file
+
+            save_file(weights, output_path)
+
+        return output_path
 
     @staticmethod
     def _get_lora_name_patterns(lora_modules: List[str]) -> List[str]:

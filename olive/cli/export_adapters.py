@@ -2,14 +2,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from argparse import ArgumentParser
-from pathlib import Path
 from typing import TYPE_CHECKING, Tuple
 
 from olive.cli.base import BaseOliveCLICommand
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+logger = logging.getLogger(__name__)
 
 
 class ExportAdaptersCommand(BaseOliveCLICommand):
@@ -28,9 +30,16 @@ class ExportAdaptersCommand(BaseOliveCLICommand):
             help="Path to the adapters weights saved after peft fine-tuning. Can be a local folder or huggingface id.",
         )
         sub_parser.add_argument(
+            "--save_format",
+            type=str,
+            choices=["npz", "safetensors"],
+            default="npz",
+            help="Format to save the weights in. Default is npz.",
+        )
+        sub_parser.add_argument(
             "--output_path",
             type=str,
-            help="Path to save the exported weights. Will be saved as a .npz file.",
+            help="Path to save the exported weights. Will be saved in the `save_format` format.",
         )
         sub_parser.add_argument(
             "--dtype",
@@ -74,9 +83,10 @@ class ExportAdaptersCommand(BaseOliveCLICommand):
         sub_parser.set_defaults(func=ExportAdaptersCommand)
 
     def run(self):
-        import numpy as np
         import torch
         from peft import LoraConfig, load_peft_weights
+
+        from olive.passes.onnx.extract_adapters import ExtractAdapters
 
         adapter_weights = load_peft_weights(self.args.adapter_path, device="cpu")
 
@@ -103,16 +113,13 @@ class ExportAdaptersCommand(BaseOliveCLICommand):
                 quant_modules.add(new_name.replace(".weight", ".quant"))
 
         if self.args.pack_weights:
-            from olive.passes.onnx.extract_adapters import ExtractAdapters
-
             lora_config = LoraConfig.from_pretrained(self.args.adapter_path)
             transformed_weights, _ = ExtractAdapters.pack_weights(
                 transformed_weights, lora_config.target_modules, float_modules, quant_modules
             )
 
-        output_path = Path(self.args.output_path).with_suffix(".npz")
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez(output_path, **transformed_weights)
+        output_path = ExtractAdapters.save_weights(transformed_weights, self.args.output_path, self.args.save_format)
+        logger.info("Exported adapter weights to %s", output_path)
 
         return output_path
 

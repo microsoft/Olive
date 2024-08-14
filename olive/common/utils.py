@@ -466,3 +466,55 @@ def get_credentials(default_auth_params: Dict = None):
         credential = InteractiveBrowserCredential()
 
     return credential
+
+
+def load_weights(path: Union[str, Path], file_format: Optional[str] = None, framework: str = "numpy"):
+    """Load weights from a file.
+
+    :param path: Path to the file.
+    :param file_format: Format of the file. If None, will try to infer from the file extension.
+        Supported formats are "pt" (torch), "numpy" (numpy), and "safetensors".
+    :param framework: Framework to load the weights into. Supported values are "pt" (torch) and "numpy" (numpy).
+    :return: Weights.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path}")
+
+    if file_format is not None:
+        pass
+    elif path.suffix.startswith(".pt"):
+        file_format = "torch"
+    elif path.suffix.startswith(".np"):
+        file_format = "numpy"
+    elif path.suffix == ".safetensors":
+        file_format = "safetensors"
+    else:
+        raise ValueError(f"Unknown file format for {path}. Please provide file_format.")
+
+    weights = None
+    if file_format == "torch":
+        import torch
+
+        weights = torch.load(path, weights_only=True)
+        if framework == "numpy":
+            weights = {k: v.numpy() for k, v in weights.items()}
+    elif file_format == "numpy":
+        import numpy as np
+
+        weights = dict(np.load(path))
+        if framework == "pt":
+            import torch
+
+            weights = {k: torch.from_numpy(v) for k, v in weights.items()}
+    elif file_format == "safetensors":
+        from safetensors import safe_open
+
+        weights = {}
+        with safe_open(path, framework=framework, device="cpu") as f:
+            for key in f.keys():  # noqa: SIM118
+                weights[key] = f.get_tensor(key)
+    else:
+        raise ValueError(f"Unknown file format: {file_format}")
+
+    return weights
