@@ -289,21 +289,7 @@ class FineTuneCommand(BaseOliveCLICommand):
 
 
 TEMPLATE = {
-    "input_model": {
-        "type": "HfModel",
-        "load_kwargs": {"attn_implementation": "eager"},
-        "io_config": {
-            "input_names": ["input_ids", "attention_mask", "position_ids"],
-            "output_names": ["logits"],
-            "input_shapes": [[2, 8], [2, 8], [2, 8]],
-            "input_types": ["int64", "int64", "int64"],
-            "dynamic_axes": {
-                "input_ids": {"0": "batch_size", "1": "sequence_length"},
-                "attention_mask": {"0": "batch_size", "1": "total_sequence_length"},
-                "position_ids": {"0": "batch_size", "1": "sequence_length"},
-            },
-        },
-    },
+    "input_model": {"type": "HfModel", "load_kwargs": {"attn_implementation": "eager"}},
     "systems": {
         "local_system": {
             "type": "LocalSystem",

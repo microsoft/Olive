@@ -63,18 +63,7 @@ You can also provide your own IO config which will override the automatically fe
 ```json
 "input_model": {
     "type": "HfModel",
-    "model_path": "meta-llama/Llama-2-7b-hf",
-    "io_config": {
-        "input_names": [ "input_ids", "attention_mask", "position_ids" ],
-        "output_names": [ "logits" ],
-        "input_shapes": [ [ 2, 8 ], [ 2, 8 ], [ 2, 8 ] ],
-        "input_types": [ "int64", "int64", "int64" ],
-        "dynamic_axes": {
-            "input_ids": { "0": "batch_size", "1": "sequence_length" },
-            "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
-            "position_ids": { "0": "batch_size", "1": "sequence_length" }
-        }
-    }
+    "model_path": "meta-llama/Llama-2-7b-hf"
 }
 ```
 

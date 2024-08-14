@@ -6,6 +6,7 @@ dependencies:
   - pip=22.3.1
   - pip:
       - datasets
+      - optimum
       - sentencepiece
       - transformers
       - git+https://github.com/microsoft/Olive#egg=olive-ai[gpu]
