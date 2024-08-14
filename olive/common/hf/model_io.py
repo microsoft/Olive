@@ -25,6 +25,7 @@ def get_preprocessors(model_name: str, **kwargs) -> Optional[Dict]:
     try:
         tokenizer = get_tokenizer(model_name, **kwargs)
     except Exception:
+        # there is no tokenizer for the model_name
         pass
 
     model_name = get_pretrained_name_or_path(model_name, "model")
