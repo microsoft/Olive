@@ -20,14 +20,11 @@ def get_export_config(model_name: str, task: str, **kwargs) -> Optional["OnnxCon
     try:
         from optimum.exporters.tasks import TasksManager
     except ImportError:
-        logger.debug("optimum is not installed. Cannot get onnx_config.")
+        logger.debug("optimum is not installed. Cannot get export config")
         return None
 
     model_config = get_model_config(model_name, **kwargs)
-    if hasattr(model_config, "export_model_type"):
-        model_type = model_config.export_model_type.replace("_", "-")
-    else:
-        model_type = model_config.model_type.replace("_", "-")
+    model_type = model_config.model_type.replace("_", "-")
 
     task = TasksManager.map_from_synonym(task)
     # use try except block since we don't want to access private class attributes like
@@ -37,10 +34,10 @@ def get_export_config(model_name: str, task: str, **kwargs) -> Optional["OnnxCon
             model_type, exporter="onnx", library_name="transformers"
         )
         if task not in supported_tasks:
-            logger.debug("Task %s is not supported for model type %s.", task, model_type)
+            logger.debug("Task %s is not supported for model type %s", task, model_type)
             return None
     except KeyError:
-        logger.debug("Model type %s is not supported.", model_type)
+        logger.debug("Model type %s is not supported", model_type)
         return None
 
     # TODO(jambayk): ask caller for dtype?
