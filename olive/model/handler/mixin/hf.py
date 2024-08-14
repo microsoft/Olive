@@ -101,7 +101,7 @@ class HfMixin:
 
     def get_hf_io_config(self) -> Optional[Dict[str, Any]]:
         """Get Io config for the model."""
-        return get_model_io_config(self.model_path, self.task, **self.get_load_kwargs())
+        return get_model_io_config(self.model_path, self.task, self.load_model(), **self.get_load_kwargs())
 
     def get_hf_dummy_inputs(self) -> Optional[Dict[str, Any]]:
         """Get dummy inputs for the model."""

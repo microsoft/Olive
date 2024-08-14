@@ -3,118 +3,108 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from functools import partial
 from itertools import chain
-from typing import TYPE_CHECKING, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
-from olive.common.hf.utils import get_feature_from_task, get_model_config, get_tokenizer
-from olive.common.utils import get_attr
-
-if TYPE_CHECKING:
-    from transformers.onnx import OnnxConfig
+from olive.common.hf.utils import get_model_config, get_tokenizer
 
 logger = logging.getLogger(__name__)
 
-
-# patched version of transformers.onnx.features.supported_features_mapping
-# to support additional models in olive
-def patched_supported_features_mapping(
-    *supported_features: str, onnx_config_cls: Optional[str] = None
-) -> Dict[str, Callable]:
-    """Generate the mapping between supported the features and their corresponding OnnxConfig for a given model.
-
-    Args:
-        *supported_features: The names of the supported features.
-        onnx_config_cls: The OnnxConfig full name corresponding to the model.
-
-    Returns:
-        The dictionary mapping a feature to an OnnxConfig constructor.
-
-    """
-    if onnx_config_cls is None:
-        raise ValueError("A OnnxConfig class must be provided")
-
-    from olive.common.hf import onnx_config
-
-    config_cls = get_attr(onnx_config, onnx_config_cls)
-    mapping = {}
-    for feature in supported_features:
-        if "-with-past" in feature:
-            mapping[feature] = partial(config_cls.with_past, task=feature.replace("-with-past", ""))
-        else:
-            mapping[feature] = partial(config_cls.from_model_config, task=feature)
-
-    return mapping
+if TYPE_CHECKING:
+    from optimum.exporters.onnx import OnnxConfig
+    from transformers import PreTrainedModel
 
 
-# TODO(jambayk): switch to optimum backend and make this an optional feature
-# remove "feature" entirely from the codebase
-def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None, **kwargs) -> "OnnxConfig":
-    # pylint: disable=protected-access
-    from transformers.onnx import FeaturesManager
+def get_export_config(model_name: str, task: str, **kwargs) -> Optional["OnnxConfig"]:
+    """Get the export config for the model_name and task."""
+    try:
+        from optimum.exporters.tasks import TasksManager
+    except ImportError:
+        logger.debug("optimum is not installed. Cannot get onnx_config.")
+        return None
 
-    from olive.common.hf.onnx_config import ADDITIONAL_MODEL_TYPES
+    model_config = get_model_config(model_name, **kwargs)
+    if hasattr(model_config, "export_model_type"):
+        model_type = model_config.export_model_type.replace("_", "-")
+    else:
+        model_type = model_config.model_type.replace("_", "-")
 
-    # patch FeaturesManager._SUPPORTED_MODEL_TYPE to support additional models in olive
-    for model_type, feature_list in ADDITIONAL_MODEL_TYPES.items():
-        if model_type in FeaturesManager._SUPPORTED_MODEL_TYPE:
-            continue
-        # TODO(trajep): remove the need for unpacking feature_list
-        features, onnx_config_cls = feature_list
-        FeaturesManager._SUPPORTED_MODEL_TYPE[model_type] = patched_supported_features_mapping(
-            *features, onnx_config_cls=onnx_config_cls
+    task = TasksManager.map_from_synonym(task)
+    # use try except block since we don't want to access private class attributes like
+    # TasksManager._SUPPORTED_MODEL_TYPE
+    try:
+        supported_tasks = TasksManager.get_supported_tasks_for_model_type(
+            model_type, exporter="onnx", library_name="transformers"
+        )
+        if task not in supported_tasks:
+            logger.debug("Task %s is not supported for model type %s.", task, model_type)
+            return None
+    except KeyError:
+        logger.debug("Model type %s is not supported.", model_type)
+        return None
+
+    # TODO(jambayk): ask caller for dtype?
+    dtype = getattr(model_config, "torch_dtype", "float32")
+    if "bfloat16" in str(dtype):
+        float_dtype = "bf16"
+    elif "float16" in str(dtype):
+        float_dtype = "fp16"
+    else:
+        float_dtype = "fp32"
+
+    export_config_constructor = TasksManager.get_exporter_config_constructor(
+        exporter="onnx", task=task, model_type=model_type, library_name="transformers"
+    )
+    export_config = export_config_constructor(
+        model_config,
+        int_dtype="int64",
+        float_dtype=float_dtype,
+        # TODO(jambayk): other preprocessors needed?
+        preprocessors=[get_tokenizer(model_name, **kwargs)],
+    )
+
+    if task.startswith("text-generation"):
+        # need kv cache for both input and output
+        export_config = export_config.__class__(
+            model_config,
+            use_past=export_config.use_past,
+            use_past_in_inputs=export_config.use_past,
+            task=task,
+            float_dtype=float_dtype,
+            int_dtype="int64",
         )
 
-    # if feature is not provided, try to get it from task
-    # else use "default"
-    feature = feature or get_feature_from_task(task) or "default"
-
-    # don't want to load the model here since all we need is the config
-    # model loading is expensive computationally and memory-wise for large models
-    config = get_model_config(model_name, **kwargs)
-    # recreate the logic for FeaturesManager.check_supported_model_or_raise to get the model_onnx_config
-    # https://github.com/huggingface/transformers/blob/main/src/transformers/onnx/features.py#L712
-    model_type = config.model_type.replace("_", "-")
-    onnx_config = None
-    try:
-        model_features = FeaturesManager.get_supported_features_for_model_type(model_type, model_name=model_name)
-        if feature in model_features:
-            onnx_config = FeaturesManager.get_config(model_type, feature)(config)
-        else:
-            logger.debug(
-                "%s doesn't support feature %s. Supported features are: %s", model_type, feature, model_features
-            )
-    except KeyError:
-        logger.debug("Model type %s is not supported", model_type)
-
-    return onnx_config
+    return export_config
 
 
-def get_model_io_config(model_name: str, task: str, feature: Optional[str] = None, **kwargs):
+def get_model_io_config(model_name: str, task: str, model: "PreTrainedModel", **kwargs) -> Optional[Dict]:
+    """Get the input/output config for the model_name and task."""
     # just log a debug message if io_config is not found
     # this is not a critical error and the caller may not need the io_config
-    model_config = get_onnx_config(model_name, task, feature, **kwargs)
-    if not model_config:
+    export_config = get_export_config(model_name, task, **kwargs)
+    if not export_config:
         return None
 
-    inputs = model_config.inputs
-    outputs = model_config.outputs
-    if not inputs or not outputs:
-        # just log a warning and return None, since this is not a critical error
-        # and following pass may not use the io_config, like OptimumConversion
-        logger.debug("No inputs or outputs found from hf onnx_config %s. Won't use it to get io config", model_config)
+    inputs = export_config.ordered_inputs(model)
+    input_names = list(inputs.keys())
+    output_names = list(export_config.outputs.keys())
+    dynamic_axes = dict(chain(inputs.items(), export_config.outputs.items()))
+    # optimum has the total sequence length as "past_sequence_length  + 1" but that is not always the case
+    # change it to "past_sequence_length + sequence_length" if past is used
+    for value in dynamic_axes.values():
+        for axis, axis_name in value.items():
+            if axis_name == "past_sequence_length + 1":
+                value[axis] = "past_sequence_length + sequence_length"
+    return {"input_names": input_names, "output_names": output_names, "dynamic_axes": dynamic_axes}
+
+
+def get_model_dummy_input(model_name: str, task: str, **kwargs) -> Optional[Dict]:
+    """Get dummy inputs for the model_name and task."""
+    export_config = get_export_config(model_name, task, **kwargs)
+    if not export_config:
         return None
 
-    io_config = {}
-    io_config["input_names"] = list(inputs.keys())
-    io_config["output_names"] = list(outputs.keys())
-    io_config["dynamic_axes"] = dict(chain(inputs.items(), outputs.items()))
-    return io_config
+    from optimum.utils import DEFAULT_DUMMY_SHAPES
 
-
-def get_model_dummy_input(model_name: str, task: str, feature: Optional[str] = None, **kwargs):
-    model_config = get_onnx_config(model_name, task, feature, **kwargs)
-    if not model_config:
-        return None
-    tokenizer = get_tokenizer(model_name)
-    return model_config.generate_dummy_inputs(tokenizer, framework="pt")
+    dummy_inputs = export_config.generate_dummy_inputs(framework="pt", **DEFAULT_DUMMY_SHAPES)
+    return export_config.rename_ambiguous_inputs(dummy_inputs)
