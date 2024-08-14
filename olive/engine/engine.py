@@ -7,7 +7,6 @@ import logging
 import time
 from collections import OrderedDict, defaultdict
 from contextlib import contextmanager
-from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
@@ -324,8 +323,6 @@ class Engine:
         input_model_id = self._init_input_model(input_model_config)
         self.footprints[accelerator_spec].record(model_id=input_model_id)
         prefix_output_name = Engine._get_prefix_output_name(output_name, accelerator_spec)
-        if cloud_cache_config.enable_cloud_cache:
-            cloud_cache_config.input_model_config = deepcopy(input_model_config)
 
         try:
             if evaluate_input_model and not self.evaluator_config:
@@ -802,7 +799,7 @@ class Engine:
         output_model_hash = None
 
         if cloud_cache_config.enable_cloud_cache:
-            if not is_valid_cloud_cache_model(model_config):
+            if not cloud_cache_config.input_model_identifier and not is_valid_cloud_cache_model(model_config):
                 logger.warning(
                     "Only HfModel with huggingface id as model_path "
                     "or HfModel from Azure ML registry model and Azure ML curated model "

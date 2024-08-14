@@ -23,13 +23,14 @@ class CloudCacheConfig(ConfigBase):
     account_url: str = "https://olivepublicmodels.blob.core.windows.net"
     container_name: str = "olivecachemodels"
     upload_to_cloud: bool = True
-    input_model_config: ModelConfig = None
+    # TODO(xiaoyu): make input_model_identifier private
+    input_model_identifier: str = None
 
     def create_cloud_cache_helper(self):
         return CloudCacheHelper(
             account_url=self.account_url,
             container_name=self.container_name,
-            input_model_config=self.input_model_config,
+            input_model_identifier=self.input_model_identifier,
         )
 
 
@@ -38,7 +39,7 @@ class CloudCacheHelper:
         self,
         account_url: str,
         container_name: str,
-        input_model_config: ModelConfig = None,
+        input_model_identifier: str = None,
     ):
         try:
             from azure.storage.blob import ContainerClient
@@ -51,9 +52,8 @@ class CloudCacheHelper:
         self.container_client = ContainerClient(
             account_url=account_url, container_name=self.container_name, credential=credential
         )
-
+        self.input_model_identifier = input_model_identifier
         self.model_path_map = "model_path.json"
-        self.input_model_config = input_model_config
 
     def update_model_config(
         self,
@@ -96,22 +96,29 @@ class CloudCacheHelper:
         return model_config
 
     def get_hash_key(
-        self, model_config: ModelConfig, pass_search_point: Dict[str, Any], input_model_hash: Optional[str]
+        self,
+        model_config: ModelConfig,
+        pass_search_point: Dict[str, Any],
+        input_model_hash: Optional[str],
     ):
         """Get hash key from input model config, pass search point, and input model hash."""
         model_config_copy = deepcopy(model_config)
-        model_identifier = None
         model_path = model_config.config.get("model_path")
+        input_model_identifier = input_model_hash
         if input_model_hash is None:
-            model_identifier = self.get_model_identifier(model_path)
+            # For AzureML model, input_model_identifier is azureml path
+            # For Huggingface hub model, input_model_identifier is model name
+            input_model_identifier = self.input_model_identifier or self.get_model_identifier(model_path)
         else:
             model_config_copy.config.pop("model_path", None)
+            if model_config_copy.config.get("model_attributes"):
+                model_config_copy.config["model_attributes"].pop("_name_or_path", None)
+
         return hash_dict(
             {
-                "model_identifier": model_identifier,
+                "input_model_identifier": input_model_identifier,
                 "model_config": model_config_copy.to_json(),
                 "pass_search_point": pass_search_point,
-                "input_model_hash": input_model_hash,
             }
         )
 
