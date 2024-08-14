@@ -166,6 +166,7 @@
 <span class="kn">from</span> <span class="nn">olive.strategy.search_parameter</span> <span class="kn">import</span> <span class="n">Categorical</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">datasets</span> <span class="kn">import</span> <span class="n">Dataset</span>
     <span class="kn">from</span> <span class="nn">peft</span> <span class="kn">import</span> <span class="n">PeftModel</span>
     <span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">PreTrainedModel</span><span class="p">,</span> <span class="n">PreTrainedTokenizer</span>
 
@@ -248,10 +249,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;output_dir&quot;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;output_dir must be provided.&quot;</span><span class="p">)</span>
         <span class="n">extra_args</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;extra_args&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_args</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="HFTrainingArguments.get_data_seed"><a class="viewcode-back" href="../../../../api/passes.html#olive.passes.pytorch.lora.HFTrainingArguments.get_data_seed">[docs]</a>    <span class="k">def</span> <span class="nf">get_data_seed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data_seed&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;seed&quot;</span><span class="p">,</span> <span class="mi">42</span><span class="p">))</span></div></div>
+        <span class="k">return</span> <span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_args</span><span class="p">)</span></div></div>
 
 
 <span class="k">class</span> <span class="nc">LoRABase</span><span class="p">(</span><span class="n">Pass</span><span class="p">):</span>
@@ -301,32 +299,14 @@
                 <span class="p">),</span>
             <span class="p">),</span>
             <span class="c1"># data parameters</span>
-            <span class="c1"># TODO(jambayk): only keep train and eval data configs, remove eval_dataset_size and data processing</span>
-            <span class="c1"># from this pass. dataconfig should handle everything related to data</span>
             <span class="s2">&quot;train_data_config&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">DataConfig</span><span class="p">,</span> <span class="n">Dict</span><span class="p">],</span>
                 <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-                    <span class="s2">&quot;Data config for fine-tuning training. If `eval_data_config` is not provided and&quot;</span>
-                    <span class="s2">&quot; `eval_dataset_size` is not None, the data will be split into train and eval. Otherwise, the data&quot;</span>
-                    <span class="s2">&quot; will be used for training only.&quot;</span>
-                <span class="p">),</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Data config for fine-tuning training.&quot;</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="s2">&quot;eval_data_config&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">DataConfig</span><span class="p">,</span> <span class="n">Dict</span><span class="p">],</span>
-                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-                    <span class="s2">&quot;Data config for fine-tuning evaluation. Optional if `eval_dataset_size` is provided or evaluation&quot;</span>
-                    <span class="s2">&quot; is not needed.&quot;</span>
-                <span class="p">),</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;eval_dataset_size&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
-                <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-                    <span class="s2">&quot;Size of the validation dataset. Should be either positive and smaller than the number of train&quot;</span>
-                    <span class="s2">&quot; sample or a float in the (0, 1) range. If `eval_data_config` is provided, this parameter will be&quot;</span>
-                    <span class="s2">&quot; ignored.&quot;</span>
-                <span class="p">),</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Data config for fine-tuning evaluation. Optional if evaluation is not needed.&quot;</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="c1"># training parameters</span>
             <span class="s2">&quot;training_args&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
@@ -359,11 +339,13 @@
                     <span class="s2">&quot; to overwrite or provide a new output_dir.&quot;</span>
                 <span class="p">)</span>
 
+    <span class="c1"># TODO(jambayk): consider introducing a data collator component for data container</span>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">collate_batch</span><span class="p">(</span><span class="n">batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">tokenizer</span><span class="p">:</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Collate a batch of samples into a padded batch of tensors.</span>
 
 <span class="sd">        Add padding to the input_ids, attention_mask and labels.</span>
+<span class="sd">        Each example can be a dictionary with inputs (and optionally labels).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span> <span class="nn">torch.nn.utils.rnn</span> <span class="kn">import</span> <span class="n">pad_sequence</span>
 
@@ -373,12 +355,18 @@
             <span class="n">attention_mask</span> <span class="o">=</span> <span class="p">[</span><span class="n">sample</span><span class="p">[</span><span class="s2">&quot;attention_mask&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">]</span>
         <span class="n">label_col</span> <span class="o">=</span> <span class="s2">&quot;labels&quot;</span> <span class="k">if</span> <span class="s2">&quot;labels&quot;</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">else</span> <span class="s2">&quot;label&quot;</span>
         <span class="k">if</span> <span class="n">label_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Batch does not contain &#39;labels&#39; or &#39;label&#39; column.&quot;</span><span class="p">)</span>
-        <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">sample</span><span class="p">[</span><span class="n">label_col</span><span class="p">]</span> <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">]</span>
+            <span class="c1"># labels is the same as input_ids, the trainer left shifts the labels when computing loss</span>
+            <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">input_id</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">input_id</span> <span class="ow">in</span> <span class="n">input_ids</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">sample</span><span class="p">[</span><span class="n">label_col</span><span class="p">]</span> <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">]</span>
 
         <span class="c1"># apply padding and add to batch</span>
+        <span class="c1"># need to worry about left or right padding?</span>
         <span class="n">new_batch</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;input_ids&quot;</span><span class="p">:</span> <span class="n">pad_sequence</span><span class="p">(</span><span class="n">input_ids</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">padding_value</span><span class="o">=</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">pad_token_id</span><span class="p">),</span>
+            <span class="c1"># pad the labels with IGNORE_INDEX so that they are not used in loss computation</span>
+            <span class="c1"># don&#39;t want to clone batched input_ids and ignore padding tokens in case eos token is used</span>
+            <span class="c1"># as padding token</span>
             <span class="s2">&quot;labels&quot;</span><span class="p">:</span> <span class="n">pad_sequence</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">padding_value</span><span class="o">=</span><span class="n">IGNORE_INDEX</span><span class="p">),</span>
         <span class="p">}</span>
         <span class="k">if</span> <span class="n">attention_mask</span><span class="p">:</span>
@@ -388,36 +376,36 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">get_datasets</span><span class="p">(</span>
         <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="s2">&quot;Dataset&quot;</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Dataset&quot;</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load training and evaluation datasets.&quot;&quot;&quot;</span>
+        <span class="c1"># we return dataset.Dataset object since the trainer works better with it</span>
+        <span class="kn">from</span> <span class="nn">datasets</span> <span class="kn">import</span> <span class="n">Dataset</span>
+
         <span class="n">train_data_config</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">train_data_config</span>
         <span class="n">eval_data_config</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">eval_data_config</span>
-        <span class="n">eval_dataset_size</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">eval_dataset_size</span>
+
+        <span class="k">def</span> <span class="nf">data_generator</span><span class="p">(</span><span class="n">data_config</span><span class="p">):</span>
+            <span class="n">data_container</span> <span class="o">=</span> <span class="n">data_config</span><span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
+            <span class="n">dataset</span> <span class="o">=</span> <span class="n">data_container</span><span class="o">.</span><span class="n">pre_process</span><span class="p">(</span><span class="n">data_container</span><span class="o">.</span><span class="n">load_dataset</span><span class="p">())</span>
+
+            <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">)):</span>  <span class="c1"># pylint: disable=consider-using-enumerate</span>
+                <span class="n">example</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">example</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                    <span class="c1"># if example = {**example[0], &quot;labels&quot;: example[1]}, the attention_mask is not the same</span>
+                    <span class="c1"># for some reason, so yield a new dict</span>
+                    <span class="k">yield</span> <span class="p">{</span><span class="o">**</span><span class="n">example</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;labels&quot;</span><span class="p">:</span> <span class="n">example</span><span class="p">[</span><span class="mi">1</span><span class="p">]}</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">yield</span> <span class="n">example</span>
 
         <span class="c1"># load training dataset</span>
-        <span class="n">train_data_container</span> <span class="o">=</span> <span class="n">train_data_config</span><span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
-        <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">train_data_container</span><span class="o">.</span><span class="n">pre_process</span><span class="p">(</span><span class="n">train_data_container</span><span class="o">.</span><span class="n">load_dataset</span><span class="p">())</span>
-        <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">train_dataset</span><span class="o">.</span><span class="n">to_hf_dataset</span><span class="p">(</span><span class="n">label_name</span><span class="o">=</span><span class="s2">&quot;labels&quot;</span><span class="p">)</span>
+        <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">Dataset</span><span class="o">.</span><span class="n">from_generator</span><span class="p">(</span><span class="n">data_generator</span><span class="p">,</span> <span class="n">gen_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;data_config&quot;</span><span class="p">:</span> <span class="n">train_data_config</span><span class="p">})</span>
+        <span class="n">train_dataset</span><span class="o">.</span><span class="n">set_format</span><span class="p">(</span><span class="s2">&quot;torch&quot;</span><span class="p">)</span>
 
         <span class="c1"># load evaluation dataset if needed</span>
+        <span class="n">eval_dataset</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">eval_data_config</span><span class="p">:</span>
-            <span class="c1"># eval data config has been provided</span>
-            <span class="n">eval_data_container</span> <span class="o">=</span> <span class="n">eval_data_config</span><span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
-            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">eval_data_container</span><span class="o">.</span><span class="n">pre_process</span><span class="p">(</span><span class="n">eval_data_container</span><span class="o">.</span><span class="n">load_dataset</span><span class="p">())</span>
-            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">eval_dataset</span><span class="o">.</span><span class="n">to_hf_dataset</span><span class="p">(</span><span class="n">label_name</span><span class="o">=</span><span class="s2">&quot;labels&quot;</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">eval_dataset_size</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">eval_dataset_size</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="c1"># when eval_dataset_size is an integer, it is the number of samples</span>
-                <span class="n">eval_dataset_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">eval_dataset_size</span><span class="p">)</span>
-            <span class="c1"># eval data config has not been provided, but eval_dataset_size has been provided</span>
-            <span class="n">split_data</span> <span class="o">=</span> <span class="n">train_dataset</span><span class="o">.</span><span class="n">train_test_split</span><span class="p">(</span>
-                <span class="n">test_size</span><span class="o">=</span><span class="n">eval_dataset_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">get_data_seed</span><span class="p">()</span>
-            <span class="p">)</span>
-            <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">split_data</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">]</span>
-            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">split_data</span><span class="p">[</span><span class="s2">&quot;test&quot;</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># eval data config has not been provided, and eval_dataset_size has not been provided</span>
-            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">Dataset</span><span class="o">.</span><span class="n">from_generator</span><span class="p">(</span><span class="n">data_generator</span><span class="p">,</span> <span class="n">gen_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;data_config&quot;</span><span class="p">:</span> <span class="n">eval_data_config</span><span class="p">})</span>
+            <span class="n">eval_dataset</span><span class="o">.</span><span class="n">set_format</span><span class="p">(</span><span class="s2">&quot;torch&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">train_dataset</span><span class="p">,</span> <span class="n">eval_dataset</span>
 
@@ -671,14 +659,11 @@
             <span class="c1"># get trainer&#39;</span>
             <span class="n">trainer</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">Trainer</span><span class="p">(</span>
                 <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
-                <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span>
                 <span class="n">args</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">create_training_args</span><span class="p">(),</span>
                 <span class="n">train_dataset</span><span class="o">=</span><span class="n">train_dataset</span><span class="p">,</span>
                 <span class="n">eval_dataset</span><span class="o">=</span><span class="n">eval_dataset</span><span class="p">,</span>
                 <span class="n">data_collator</span><span class="o">=</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collate_batch</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">),</span>
             <span class="p">)</span>
-            <span class="c1"># TODO(jambayk): trainer callback for saving might be needed for DDP training</span>
-            <span class="c1"># worry about this later</span>
 
             <span class="c1"># train</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running fine-tuning&quot;</span><span class="p">)</span>
