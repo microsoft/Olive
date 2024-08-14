@@ -633,8 +633,9 @@
           "default": true,
           "type": "boolean"
         },
-        "input_model_config": {
-          "$ref": "#/definitions/ModelConfig"
+        "input_model_identifier": {
+          "title": "Input Model Identifier",
+          "type": "string"
         }
       }
     },
