@@ -12,7 +12,7 @@ Alternatively the user can use simplified command line to finetune HF model and 
 $ olive finetune --method qlora --m meta-llama/Llama-2-7b-hf -d nampdn-ai/tiny-codes \
 --train_split "train[:4096]" --eval_split "train[4096:4224]" --per_device_train_batch_size 16 \
 --per_device_eval_batch_size 16 --max_steps 150 --logging_steps 50 -o models/tiny-codes \
---text_template "### Language: {programming_language} \n### Question: {prompt} \n### Answer: {response}" 
+--text_template "### Language: {programming_language} \n### Question: {prompt} \n### Answer: {response}"
 ```
 
 The output of the above commands will be LoRA adapter file as well as optimized ONNX Model.
