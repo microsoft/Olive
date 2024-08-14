@@ -34,6 +34,7 @@ from olive.passes.olive_pass import PassConfigParam
 from olive.strategy.search_parameter import Categorical
 
 if TYPE_CHECKING:
+    from datasets import Dataset
     from peft import PeftModel
     from transformers import PreTrainedModel, PreTrainedTokenizer
 
@@ -118,9 +119,6 @@ class HFTrainingArguments(NestedConfig):
         extra_args = args.pop("extra_args")
         return transformers.TrainingArguments(**args, **extra_args)
 
-    def get_data_seed(self):
-        return self.extra_args.get("data_seed", self.extra_args.get("seed", 42))
-
 
 class LoRABase(Pass):
     """Base class for LoRA and QLoRA fine-tuning passes."""
@@ -169,32 +167,14 @@ class LoRABase(Pass):
                 ),
             ),
             # data parameters
-            # TODO(jambayk): only keep train and eval data configs, remove eval_dataset_size and data processing
-            # from this pass. dataconfig should handle everything related to data
             "train_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 required=True,
-                description=(
-                    "Data config for fine-tuning training. If `eval_data_config` is not provided and"
-                    " `eval_dataset_size` is not None, the data will be split into train and eval. Otherwise, the data"
-                    " will be used for training only."
-                ),
+                description="Data config for fine-tuning training.",
             ),
             "eval_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
-                description=(
-                    "Data config for fine-tuning evaluation. Optional if `eval_dataset_size` is provided or evaluation"
-                    " is not needed."
-                ),
-            ),
-            "eval_dataset_size": PassConfigParam(
-                type_=float,
-                default_value=None,
-                description=(
-                    "Size of the validation dataset. Should be either positive and smaller than the number of train"
-                    " sample or a float in the (0, 1) range. If `eval_data_config` is provided, this parameter will be"
-                    " ignored."
-                ),
+                description="Data config for fine-tuning evaluation. Optional if evaluation is not needed.",
             ),
             # training parameters
             "training_args": PassConfigParam(
@@ -227,11 +207,13 @@ class LoRABase(Pass):
                     " to overwrite or provide a new output_dir."
                 )
 
+    # TODO(jambayk): consider introducing a data collator component for data container
     @staticmethod
     def collate_batch(batch: List[Dict], tokenizer: "PreTrainedTokenizer") -> Dict[str, torch.Tensor]:
         """Collate a batch of samples into a padded batch of tensors.
 
         Add padding to the input_ids, attention_mask and labels.
+        Each example can be a dictionary with inputs (and optionally labels).
         """
         from torch.nn.utils.rnn import pad_sequence
 
@@ -241,12 +223,18 @@ class LoRABase(Pass):
             attention_mask = [sample["attention_mask"] for sample in batch]
         label_col = "labels" if "labels" in batch[0] else "label"
         if label_col not in batch[0]:
-            raise ValueError("Batch does not contain 'labels' or 'label' column.")
-        labels = [sample[label_col] for sample in batch]
+            # labels is the same as input_ids, the trainer left shifts the labels when computing loss
+            labels = [input_id.clone() for input_id in input_ids]
+        else:
+            labels = [sample[label_col] for sample in batch]
 
         # apply padding and add to batch
+        # need to worry about left or right padding?
         new_batch = {
             "input_ids": pad_sequence(input_ids, batch_first=True, padding_value=tokenizer.pad_token_id),
+            # pad the labels with IGNORE_INDEX so that they are not used in loss computation
+            # don't want to clone batched input_ids and ignore padding tokens in case eos token is used
+            # as padding token
             "labels": pad_sequence(labels, batch_first=True, padding_value=IGNORE_INDEX),
         }
         if attention_mask:
@@ -256,36 +244,36 @@ class LoRABase(Pass):
     @staticmethod
     def get_datasets(
         config: ConfigBase,
-    ) -> tuple:
+    ) -> Tuple["Dataset", Optional["Dataset"]]:
         """Load training and evaluation datasets."""
+        # we return dataset.Dataset object since the trainer works better with it
+        from datasets import Dataset
+
         train_data_config = config.train_data_config
         eval_data_config = config.eval_data_config
-        eval_dataset_size = config.eval_dataset_size
+
+        def data_generator(data_config):
+            data_container = data_config.to_data_container()
+            dataset = data_container.pre_process(data_container.load_dataset())
+
+            for idx in range(len(dataset)):  # pylint: disable=consider-using-enumerate
+                example = dataset[idx]
+                if isinstance(example, tuple):
+                    # if example = {**example[0], "labels": example[1]}, the attention_mask is not the same
+                    # for some reason, so yield a new dict
+                    yield {**example[0], "labels": example[1]}
+                else:
+                    yield example
 
         # load training dataset
-        train_data_container = train_data_config.to_data_container()
-        train_dataset = train_data_container.pre_process(train_data_container.load_dataset())
-        train_dataset = train_dataset.to_hf_dataset(label_name="labels")
+        train_dataset = Dataset.from_generator(data_generator, gen_kwargs={"data_config": train_data_config})
+        train_dataset.set_format("torch")
 
         # load evaluation dataset if needed
+        eval_dataset = None
         if eval_data_config:
-            # eval data config has been provided
-            eval_data_container = eval_data_config.to_data_container()
-            eval_dataset = eval_data_container.pre_process(eval_data_container.load_dataset())
-            eval_dataset = eval_dataset.to_hf_dataset(label_name="labels")
-        elif eval_dataset_size:
-            if eval_dataset_size >= 1:
-                # when eval_dataset_size is an integer, it is the number of samples
-                eval_dataset_size = int(eval_dataset_size)
-            # eval data config has not been provided, but eval_dataset_size has been provided
-            split_data = train_dataset.train_test_split(
-                test_size=eval_dataset_size, shuffle=True, seed=config.training_args.get_data_seed()
-            )
-            train_dataset = split_data["train"]
-            eval_dataset = split_data["test"]
-        else:
-            # eval data config has not been provided, and eval_dataset_size has not been provided
-            eval_dataset = None
+            eval_dataset = Dataset.from_generator(data_generator, gen_kwargs={"data_config": eval_data_config})
+            eval_dataset.set_format("torch")
 
         return train_dataset, eval_dataset
 
@@ -539,14 +527,11 @@ class LoRABase(Pass):
             # get trainer'
             trainer = transformers.Trainer(
                 model=model,
-                tokenizer=tokenizer,
                 args=config.training_args.create_training_args(),
                 train_dataset=train_dataset,
                 eval_dataset=eval_dataset,
                 data_collator=partial(self.collate_batch, tokenizer=tokenizer),
             )
-            # TODO(jambayk): trainer callback for saving might be needed for DDP training
-            # worry about this later
 
             # train
             logger.info("Running fine-tuning")
