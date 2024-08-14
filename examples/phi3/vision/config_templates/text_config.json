@@ -1,0 +1,16 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "<<str: model_path>>",
+        "load_kwargs": { "trust_remote_code": true }
+    },
+    "passes": { "builder": { "type": "ModelBuilder", "precision": "int4", "exclude_embeds": true } },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ]
+        }
+    },
+    "host": "local_system",
+    "target": "local_system"
+}

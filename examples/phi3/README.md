@@ -17,7 +17,7 @@ If you target GPU, pls install onnxruntime and onnxruntime-genai gpu packages.
 
 
 ### For optimizing model from Hugging Face
-if you have not loged in Hugging Face account,
+if you have not logged in Hugging Face account,
 - Install Hugging Face CLI and login your Hugging Face account for model access
 ```
 huggingface-cli login
@@ -29,7 +29,7 @@ huggingface-cli login
 ```
 pip install olive-ai[azureml]
 ```
-if you have not loged in Azure account,
+if you have not logged in Azure account,
 - Install Azure Command-Line Interface (CLI) following [this link](https://learn.microsoft.com/en-us/cli/azure/)
 - Run `az login` to login your Azure account to allows Olive to access the model.
 
