@@ -32,14 +32,15 @@ This document introduces Olive and provides some examples to get you started.
    :maxdepth: 1
    :caption: FEATURES
 
-   features/cli
-   features/model_transformations_and_optimizations
-   features/huggingface_model_optimization
-   features/packaging_output_models
-   features/custom_scripts
    features/azureml_integration
-   features/run_workflow_remotely
+   features/cli
    features/cloud_model_cache
+   features/custom_scripts
+   features/huggingface_model_optimization
+   features/lora
+   features/model_transformations_and_optimizations
+   features/packaging_output_models
+   features/run_workflow_remotely
 
 .. toctree::
    :maxdepth: 1

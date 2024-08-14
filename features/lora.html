@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Remote Workflow &mdash; Olive  documentation</title>
+  <title>LoRA Adapters &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
@@ -26,8 +26,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Design" href="../extending_olive/design.html" />
-    <link rel="prev" title="Packaging Olive artifacts" href="packaging_output_models.html" /> 
+    <link rel="next" title="Model Transformations and Optimizations" href="model_transformations_and_optimizations.html" />
+    <link rel="prev" title="Huggingface Model Optimization" href="huggingface_model_optimization.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -74,17 +74,10 @@
 <li class="toctree-l1"><a class="reference internal" href="cloud_model_cache.html">Cloud Model Cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
-<li class="toctree-l1"><a class="reference internal" href="lora.html">LoRA Adapters</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">LoRA Adapters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Remote Workflow</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#running-olive-workflow-remotely-on-azure-machine-learning-workspace-compute">Running Olive Workflow Remotely on Azure Machine Learning workspace compute</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#install-extra-dependencies">Install Extra Dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#configure-an-azureml-system">Configure an AzureML system</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#run-olive-workflow">Run Olive Workflow</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#workflow-outputs">Workflow outputs</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="run_workflow_remotely.html">Remote Workflow</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -129,9 +122,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Remote Workflow</li>
+      <li class="breadcrumb-item active">LoRA Adapters</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/features/run_workflow_remotely.md.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/features/lora.md.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -139,56 +132,36 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="remote-workflow">
-<h1>Remote Workflow<a class="headerlink" href="#remote-workflow" title="Permalink to this heading">¶</a></h1>
-<section id="running-olive-workflow-remotely-on-azure-machine-learning-workspace-compute">
-<h2>Running Olive Workflow Remotely on Azure Machine Learning workspace compute<a class="headerlink" href="#running-olive-workflow-remotely-on-azure-machine-learning-workspace-compute" title="Permalink to this heading">¶</a></h2>
-<p>If your Olive workflow takes a long time to run or you need to step away or your local environment is not powerful enough to run the workflow then Olive provides the flexibility to run your workflow on a compute or cluster in your Azure Machine Learning workspace. This allows you to turn off your terminal session or shut down your local machine without interrupting the process.</p>
-</section>
-<section id="install-extra-dependencies">
-<h2>Install Extra Dependencies<a class="headerlink" href="#install-extra-dependencies" title="Permalink to this heading">¶</a></h2>
-<p>You can install the necessary dependencies by running:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>azureml<span class="o">]</span>
+  <section id="lora-adapters">
+<h1>LoRA Adapters<a class="headerlink" href="#lora-adapters" title="Permalink to this heading">¶</a></h1>
+<p>Olive provides a standard interface and a specialized interface to finetune a model and generate LoRA adapter. The standard interface, usually powered with an UX such as VS Code, provides maximum flexibility where the user can describe the fine-tuning parameters, model transformations parameters, datasets etc., in a .json or .yaml configuration which is provided to Olive as an input. For example,</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>olive<span class="w"> </span>run<span class="w"> </span>--<span class="w"> </span>config<span class="w"> </span>llama2_qlora.config
 </pre></div>
 </div>
-</section>
-<section id="configure-an-azureml-system">
-<h2>Configure an AzureML system<a class="headerlink" href="#configure-an-azureml-system" title="Permalink to this heading">¶</a></h2>
-<p>To run the workflow on AzureML system, the configuration is same as normal AzureML system configuration. Please find more details in <a class="reference internal" href="../tutorials/configure_systems.html"><span class="std std-doc">this instruction</span></a>.</p>
-</section>
-<section id="run-olive-workflow">
-<h2>Run Olive Workflow<a class="headerlink" href="#run-olive-workflow" title="Permalink to this heading">¶</a></h2>
-<p>To run the Olive workflow, add a <code class="docutils literal notranslate"><span class="pre">workflow_host</span></code> configuation at the top level of the Olive config file:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;workflow_host&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aml_system&quot;</span>
+<p>Alternatively the user can use simplified command line to finetune HF model and generate LoRA adapters. For example,</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>olive<span class="w"> </span>finetune<span class="w"> </span>--method<span class="w"> </span>qlora<span class="w"> </span>--m<span class="w"> </span>meta-llama/Llama-2-7b-hf<span class="w"> </span>-d<span class="w"> </span>nampdn-ai/tiny-codes<span class="w"> </span><span class="se">\</span>
+--train_split<span class="w"> </span><span class="s2">&quot;train[:4096]&quot;</span><span class="w"> </span>--eval_split<span class="w"> </span><span class="s2">&quot;train[4096:4224]&quot;</span><span class="w"> </span>--per_device_train_batch_size<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
+--per_device_eval_batch_size<span class="w"> </span><span class="m">16</span><span class="w"> </span>--max_steps<span class="w"> </span><span class="m">150</span><span class="w"> </span>--logging_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span>-o<span class="w"> </span>models/tiny-codes<span class="w"> </span><span class="se">\</span>
+--text_template<span class="w"> </span><span class="s2">&quot;### Language: {programming_language} \n### Question: {prompt} \n### Answer: {response}&quot;</span>
 </pre></div>
 </div>
-<p>Then run the Olive workflow with the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>&lt;config_file.json&gt;
+<p>The output of the above commands will be LoRA adapter file as well as optimized ONNX Model.</p>
+<p>In addition, Olive provides a separate command to produce LoRA adapter for ORT’s consumption from already finetuned PEFT model.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>olive<span class="w"> </span>export-adapters<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--adapter_path<span class="w"> </span>ADAPTER_PATH<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+<span class="w">                      </span><span class="o">[</span>--output_path<span class="w"> </span>OUTPUT_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dtype<span class="w"> </span><span class="o">{</span>float32,float16<span class="o">}]</span><span class="w"> </span><span class="se">\</span>
+<span class="w">                      </span><span class="o">[</span>--pack_weights<span class="o">]</span><span class="w"> </span><span class="o">[</span>--quantize_int4<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+<span class="w">                      </span><span class="o">[</span>--int4_block_size<span class="w"> </span><span class="o">{</span><span class="m">16</span>,32,64,128,256<span class="o">}]</span><span class="w"> </span><span class="se">\</span>
+<span class="w">                      </span><span class="o">[</span>--int4_quantization_mode<span class="w"> </span><span class="o">{</span>symmetric,asymmetric<span class="o">}]</span>
 </pre></div>
 </div>
-<p>Olive will submit this workflow to the Azure ML system compute. It is safe to close your terminal session or turn off your local machine. The workflow will continue running on the Azure ML workspace compute.</p>
-</section>
-<section id="workflow-outputs">
-<h2>Workflow outputs<a class="headerlink" href="#workflow-outputs" title="Permalink to this heading">¶</a></h2>
-<p>The artifacts of the workflow, including cache and outputs, will be automatically exported to Azure Machine Learning datastore. The default datastore is <code class="docutils literal notranslate"><span class="pre">workspaceblobstore</span></code>. If you want to export to your own datastore, please add <code class="docutils literal notranslate"><span class="pre">datastore:</span> <span class="pre">&lt;your-datastore-name&gt;</span></code> in AzureML system config:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;datastore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;datastore-name&gt;&quot;</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p>The cache and outputs will be exported to <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/cache</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/output</span></code>. You can check logs to find the detailed output path.</p>
-</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="packaging_output_models.html" class="btn btn-neutral float-left" title="Packaging Olive artifacts" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="../extending_olive/design.html" class="btn btn-neutral float-right" title="Design" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="huggingface_model_optimization.html" class="btn btn-neutral float-left" title="Huggingface Model Optimization" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="model_transformations_and_optimizations.html" class="btn btn-neutral float-right" title="Model Transformations and Optimizations" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
