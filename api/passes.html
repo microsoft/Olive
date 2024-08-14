@@ -192,20 +192,65 @@
 <p><strong>Input:</strong> handler.hf.DistributedHfModelHandler | handler.hf.HfModelHandler | handler.pytorch.PyTorchModelHandler</p>
 <p><strong>Output:</strong> handler.onnx.DistributedOnnxModelHandler | handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-user_script">
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-user_script" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-script_dir">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-script_dir" title="Permalink to this definition">¶</a></dt>
 <dd><p>Directory containing user script dependencies.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-save_as_external_data">
+<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-save_as_external_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-all_tensors_to_one_file">
+<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-all_tensors_to_one_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-external_data_name">
+<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-external_data_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-user_script">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-user_script" title="Permalink to this definition">¶</a></dt>
-<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
-<p><strong>type:</strong> str</p>
-<p><strong>default_value:</strong> None</p>
+<dt class="sig sig-object std" id="cmdoption-arg-size_threshold">
+<span class="sig-name descname"><span class="pre">size_threshold</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-size_threshold" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 1024</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-convert_attribute">
+<span class="sig-name descname"><span class="pre">convert_attribute</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-convert_attribute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
@@ -276,51 +321,6 @@
 <dt class="sig sig-object std" id="cmdoption-arg-save_metadata_for_token_generation">
 <span class="sig-name descname"><span class="pre">save_metadata_for_token_generation</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-save_metadata_for_token_generation" title="Permalink to this definition">¶</a></dt>
 <dd><p>Whether to save metadata for token generation or not. Includes config.json, generation_config.json, and  tokenizer related files.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-save_as_external_data">
-<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-save_as_external_data" title="Permalink to this definition">¶</a></dt>
-<dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-all_tensors_to_one_file">
-<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-all_tensors_to_one_file" title="Permalink to this definition">¶</a></dt>
-<dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-external_data_name">
-<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-external_data_name" title="Permalink to this definition">¶</a></dt>
-<dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
-<p><strong>type:</strong> str</p>
-<p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-size_threshold">
-<span class="sig-name descname"><span class="pre">size_threshold</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-size_threshold" title="Permalink to this definition">¶</a></dt>
-<dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
-<p><strong>type:</strong> int</p>
-<p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-convert_attribute">
-<span class="sig-name descname"><span class="pre">convert_attribute</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-convert_attribute" title="Permalink to this definition">¶</a></dt>
-<dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
 <p><strong>searchable_values:</strong> None</p>
@@ -633,18 +633,18 @@
 <p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-16">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-16" title="Permalink to this definition">¶</a></dt>
-<dd><p>Directory containing user script dependencies.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-16" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-17">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-17" title="Permalink to this definition">¶</a></dt>
-<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-17" title="Permalink to this definition">¶</a></dt>
+<dd><p>Directory containing user script dependencies.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
@@ -3796,18 +3796,18 @@
 <p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-209">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-209" title="Permalink to this definition">¶</a></dt>
-<dd><p>Directory containing user script dependencies.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-209" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-210">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-210" title="Permalink to this definition">¶</a></dt>
-<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-210" title="Permalink to this definition">¶</a></dt>
+<dd><p>Directory containing user script dependencies.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
@@ -3945,18 +3945,18 @@
 <p><strong>Output:</strong> handler.openvino.OpenVINOModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-212">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-212" title="Permalink to this definition">¶</a></dt>
-<dd><p>Directory containing user script dependencies.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-212" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-213">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-213" title="Permalink to this definition">¶</a></dt>
-<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-213" title="Permalink to this definition">¶</a></dt>
+<dd><p>Directory containing user script dependencies.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
@@ -4013,18 +4013,18 @@
 <p><strong>Output:</strong> handler.openvino.OpenVINOModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-214">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-214" title="Permalink to this definition">¶</a></dt>
-<dd><p>Directory containing user script dependencies.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-214" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-215">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-215" title="Permalink to this definition">¶</a></dt>
-<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-215" title="Permalink to this definition">¶</a></dt>
+<dd><p>Directory containing user script dependencies.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
@@ -4765,18 +4765,18 @@
 <p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-239">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-239" title="Permalink to this definition">¶</a></dt>
-<dd><p>Directory containing user script dependencies.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-239" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-240">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-240" title="Permalink to this definition">¶</a></dt>
-<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-240" title="Permalink to this definition">¶</a></dt>
+<dd><p>Directory containing user script dependencies.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
@@ -4908,18 +4908,18 @@
 <p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-243">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-243" title="Permalink to this definition">¶</a></dt>
-<dd><p>Directory containing user script dependencies.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-243" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-244">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-244" title="Permalink to this definition">¶</a></dt>
-<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-244" title="Permalink to this definition">¶</a></dt>
+<dd><p>Directory containing user script dependencies.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
@@ -5079,18 +5079,18 @@
 <p><strong>Output:</strong> handler.onnx.ONNXModelHandler | handler.composite.CompositeModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-252">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-252" title="Permalink to this definition">¶</a></dt>
-<dd><p>Directory containing user script dependencies.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-252" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-253">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-253" title="Permalink to this definition">¶</a></dt>
-<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
-<p><strong>type:</strong> str</p>
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-253" title="Permalink to this definition">¶</a></dt>
+<dd><p>Directory containing user script dependencies.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
