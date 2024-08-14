@@ -16,8 +16,8 @@ from olive.common.import_lib import import_user_module
 @patch("olive.common.import_lib.importlib.util")
 def test_import_user_module_user_script_is_file(mock_importlib_util, mock_sys_path):
     # setup
-    user_script = "user_script.py"
-    script_dir = "script_dir"
+    user_script = "user_script_a.py"
+    script_dir = "script_dir_a"
 
     Path(script_dir).mkdir(parents=True, exist_ok=True)
 
@@ -37,7 +37,7 @@ def test_import_user_module_user_script_is_file(mock_importlib_util, mock_sys_pa
     assert actual_res == expected_res
 
     user_script_path = Path(user_script).resolve()
-    mock_importlib_util.spec_from_file_location.assert_called_once_with("user_script", user_script_path)
+    mock_importlib_util.spec_from_file_location.assert_called_once_with("user_script_a", user_script_path)
     mock_importlib_util.module_from_spec.assert_called_once_with(mock_spec)
 
     # cleanup
@@ -51,8 +51,8 @@ def test_import_user_module_user_script_is_file(mock_importlib_util, mock_sys_pa
 @patch("olive.common.import_lib.importlib.util")
 def test_import_user_module_user_script_is_dir(mock_importlib_util, mock_sys_path):
     # setup
-    user_script = "user_script"
-    script_dir = "script_dir"
+    user_script = "user_script_b"
+    script_dir = "script_dir_b"
 
     Path(script_dir).mkdir(parents=True, exist_ok=True)
     Path(user_script).mkdir(parents=True, exist_ok=True)
@@ -72,7 +72,7 @@ def test_import_user_module_user_script_is_dir(mock_importlib_util, mock_sys_pat
 
     user_script_path = Path(user_script).resolve()
     user_script_path_init = user_script_path / "__init__.py"
-    mock_importlib_util.spec_from_file_location.assert_called_once_with("user_script", user_script_path_init)
+    mock_importlib_util.spec_from_file_location.assert_called_once_with("user_script_b", user_script_path_init)
     mock_importlib_util.module_from_spec.assert_called_once_with(mock_spec)
 
     # cleanup
@@ -84,8 +84,8 @@ def test_import_user_module_user_script_is_dir(mock_importlib_util, mock_sys_pat
 
 def test_import_user_module_script_dir_exception():
     # setup
-    user_script = "user_script"
-    script_dir = "script_dir"
+    user_script = "user_script_c"
+    script_dir = "script_dir_c"
 
     # execute
     with pytest.raises(ValueError) as errinfo:  # noqa: PT011
@@ -98,7 +98,7 @@ def test_import_user_module_script_dir_exception():
 
 def test_import_user_module_user_script_exception():
     # setup
-    user_script = "user_script"
+    user_script = "user_script_d"
 
     # execute
     with pytest.raises(ValueError) as errinfo:  # noqa: PT011

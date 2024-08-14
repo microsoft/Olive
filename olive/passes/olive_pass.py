@@ -15,13 +15,7 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
 from olive.model import CompositeModelHandler, DistributedOnnxModelHandler, OliveModelHandler, ONNXModelHandler
-from olive.passes.pass_config import (
-    PassConfigBase,
-    PassConfigParam,
-    PassParamDefault,
-    create_config_class,
-    get_user_script_config,
-)
+from olive.passes.pass_config import PassConfigBase, PassConfigParam, PassParamDefault, create_config_class
 from olive.resource_path import ResourcePath
 from olive.strategy.search_parameter import (
     Categorical,
@@ -45,8 +39,6 @@ class Pass(ABC):
     """
 
     registry: ClassVar[Dict[str, Type["Pass"]]] = {}
-    # True if pass configuration requires user script for non-local host support
-    _requires_user_script: bool = False
     # True if the pass processes a composite model at once. Otherwise, the components of the
     # composite model will be processed individually.
     _accepts_composite_model: bool = False
@@ -89,8 +81,7 @@ class Pass(ABC):
 
         self._config_class = config_class
         self.config = config
-        if self._requires_user_script:
-            self._user_module_loader = UserModuleLoader(self.config["user_script"], self.config["script_dir"])
+        self._user_module_loader = UserModuleLoader(self.config.get("user_script"), self.config.get("script_dir"))
 
         self._fixed_params = {}
         self.search_space = {}
@@ -145,12 +136,7 @@ class Pass(ABC):
     @classmethod
     def default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         """Get the default configuration for the pass."""
-        config = {}
-        if cls._requires_user_script:
-            # add user script related parameters
-            config.update(get_user_script_config())
-        # add all other parameters
-        config.update(cls._default_config(accelerator_spec))
+        config = cls._default_config(accelerator_spec)
         # validate that all parameters ending with data_config are of type DataConfig, Union[DataConfig, dict], ...
         # this requirement is on the pass developer but we can only check it here
         for param, param_config in config.items():
@@ -165,8 +151,7 @@ class Pass(ABC):
         """Get the configuration for the pass at a specific point in the search space."""
         assert set(point.keys()) == set(self.search_space.keys()), "Search point is not in the search space."
         config = self._fixed_params.copy()
-        for key, value in point.items():
-            config[key] = value
+        config.update(**point)
         return self._config_class(**config).dict()
 
     def validate_search_point(
@@ -443,7 +428,7 @@ class Pass(ABC):
         """Resolve config to PassConfigBase."""
         config = input_config.dict()
         config = cls._resolve_defaults(config, default_config)
-        if cls._requires_user_script:
+        if "user_script" in config:
             user_module_loader = UserModuleLoader(config["user_script"], config["script_dir"])
             config = cls._validate_user_script(config, user_module_loader, default_config)
         return config

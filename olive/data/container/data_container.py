@@ -23,8 +23,7 @@ class DataContainer(BaseModel):
 
     def load_dataset(self):
         """Run load dataset."""
-        params_config = self.config.load_dataset_params
-        return self.config.load_dataset(**params_config)
+        return self.config.load_dataset(**self.config.load_dataset_params)
 
     def pre_process(self, dataset):
         """Run pre_process."""

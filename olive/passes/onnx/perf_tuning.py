@@ -21,7 +21,7 @@ from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +194,6 @@ def get_thread_affinity_nums(affinity_str):
 class OrtPerfTuning(Pass):
     """Optimize ONNX Runtime inference settings."""
 
-    _requires_user_script = True
     run_on_target = True
 
     @staticmethod
@@ -208,6 +207,7 @@ class OrtPerfTuning(Pass):
         execution_provider = accelerator_spec.execution_provider
 
         return {
+            **get_user_script_data_config(),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 description="Data config to load data for computing latency.",

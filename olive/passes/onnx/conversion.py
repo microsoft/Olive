@@ -29,7 +29,7 @@ from olive.model.config.hf_config import HfLoadKwargs
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +58,11 @@ def is_peft_model(model: torch.nn.Module) -> bool:
 class OnnxConversion(Pass):
     """Convert a PyTorch model to ONNX model using torch.onnx.export on CPU."""
 
-    _requires_user_script = True
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
+        return {
+            **get_user_script_data_config(),
+            **get_external_data_config(),
             "target_opset": PassConfigParam(
                 type_=int, default_value=13, description="The version of the default (ai.onnx) opset to target."
             ),
@@ -116,8 +116,6 @@ class OnnxConversion(Pass):
                 ),
             ),
         }
-        config.update(get_external_data_config())
-        return config
 
     def _run_for_config(
         self,

@@ -13,7 +13,7 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import OliveModelHandler
 from olive.model.handler import OpenVINOModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import ParamCategory, PassConfigParam
+from olive.passes.pass_config import ParamCategory, PassConfigParam, get_user_script_data_config
 
 if TYPE_CHECKING:
     from openvino import CompiledModel
@@ -67,11 +67,10 @@ class OpenVINOQuantizationBase(Pass):
     Please refer to https://docs.openvino.ai/2023.3/ptq_introduction.html for more details.
     """
 
-    _requires_user_script = True
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
+            **get_user_script_data_config(),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 required=True,
