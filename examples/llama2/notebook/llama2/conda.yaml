@@ -11,6 +11,7 @@ dependencies:
       - bitsandbytes
       - datasets
       - huggingface_hub
+      - optimum
       - peft
       - scipy
       - sentencepiece
