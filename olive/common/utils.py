@@ -35,7 +35,8 @@ else:
     from enum import Enum
 
     class StrEnumBase(str, Enum):
-        pass
+        def __str__(self) -> str:
+            return self.value
 
     class IntEnumBase(int, Enum):
         pass

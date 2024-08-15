@@ -20,9 +20,6 @@ class Device(StrEnumBase):
     VPU = "vpu"
     INTEL_MYRIAD = "intel_myriad"
 
-    def __str__(self) -> str:
-        return self.value
-
 
 @dataclass(frozen=True, eq=True)
 class AcceleratorSpec:

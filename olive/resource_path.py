@@ -36,9 +36,6 @@ class ResourceType(CaseInsensitiveEnum):
     AzureMLDatastore = "azureml_datastore"
     AzureMLJobOutput = "azureml_job_output"
 
-    def __str__(self) -> str:
-        return self.value
-
 
 LOCAL_RESOURCE_TYPES = (ResourceType.LocalFile, ResourceType.LocalFolder)
 AZUREML_RESOURCE_TYPES = (

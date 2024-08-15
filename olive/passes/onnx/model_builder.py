@@ -33,17 +33,11 @@ class ModelBuilder(Pass):
         FP16 = "fp16"
         INT4 = "int4"
 
-        def __str__(self) -> str:
-            return self.value
-
     class AccuracyLevel(IntEnumBase):
         fp32 = 1
         fp16 = 2
         bf16 = 3
         int8 = 4
-
-        def __str__(self) -> str:
-            return str(self.value)
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
