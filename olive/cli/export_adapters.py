@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import math
 from argparse import ArgumentParser
 from typing import TYPE_CHECKING, Tuple
 
@@ -89,6 +90,18 @@ class ExportAdaptersCommand(BaseOliveCLICommand):
         import torch
         from peft import LoraConfig, load_peft_weights
 
+        lora_config = LoraConfig.from_pretrained(self.args.adapter_path)
+
+        if getattr(lora_config, "use_dora", False):
+            raise ValueError("DoRA adapters are not supported for export.")
+
+        # compute scaling factor for LoRA
+        # use_rslora was only added in peft 0.8.0
+        if getattr(lora_config, "use_rslora", False):
+            scaling = lora_config.lora_alpha / math.sqrt(lora_config.r)
+        else:
+            scaling = lora_config.lora_alpha / lora_config.r
+
         adapter_weights = load_peft_weights(self.args.adapter_path, device="cpu")
 
         transformed_weights = {}
@@ -99,6 +112,8 @@ class ExportAdaptersCommand(BaseOliveCLICommand):
             # cast to dtype first since some dtypes like bfloat16 are not supported by numpy
             # need to copy since the numpy array is read-only
             float_weight = value.to(getattr(torch, self.args.dtype)).numpy().transpose().copy()
+            if "lora_B" in new_name:
+                float_weight *= scaling
             if not self.args.quantize_int4:
                 transformed_weights[new_name] = float_weight
                 float_modules.add(new_name.replace(".weight", ""))
@@ -116,7 +131,6 @@ class ExportAdaptersCommand(BaseOliveCLICommand):
         if self.args.pack_weights:
             from olive.passes.onnx.extract_adapters import ExtractAdapters
 
-            lora_config = LoraConfig.from_pretrained(self.args.adapter_path)
             transformed_weights, _ = ExtractAdapters.pack_weights(
                 transformed_weights, lora_config.target_modules, float_modules, quant_modules
             )
