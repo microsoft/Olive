@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import importlib
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
@@ -14,7 +13,6 @@ from olive.common.hf.mlflow import get_pretrained_name_or_path
 from olive.common.utils import hardlink_copy_file
 
 if TYPE_CHECKING:
-    import torch
     from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 logger = logging.getLogger(__name__)
@@ -213,12 +211,3 @@ def get_model_max_length(model_name_or_path: str, fail_on_not_found=False) -> in
             else:
                 logger.warning(not_found_msg)
                 return None
-
-
-def is_peft_model(model: "torch.nn.Module") -> bool:
-    """Check if the model is a PeftModel."""
-    if importlib.util.find_spec("peft"):
-        from peft import PeftModel
-
-        return isinstance(model, PeftModel)
-    return False

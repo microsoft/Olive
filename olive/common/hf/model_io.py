@@ -7,7 +7,8 @@ from itertools import chain
 from typing import TYPE_CHECKING, Dict, Optional
 
 from olive.common.hf.mlflow import get_pretrained_name_or_path
-from olive.common.hf.utils import get_model_config, get_tokenizer, is_peft_model
+from olive.common.hf.peft import is_peft_model
+from olive.common.hf.utils import get_model_config, get_tokenizer
 
 logger = logging.getLogger(__name__)
 
