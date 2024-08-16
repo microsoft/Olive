@@ -99,10 +99,10 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
                 self._io_config, force_kv_cache=self.task.endswith("-with-past"), model_attributes=self.model_attributes
             )
         else:
-            logger.debug("Trying hf onnx_config to get io_config")
+            logger.debug("Trying hf optimum export config to get io_config")
             io_config = self.get_hf_io_config()
             if io_config:
-                logger.debug("Got io_config from hf onnx_config")
+                logger.debug("Got io_config from hf optimum export config")
 
         return io_config
 
@@ -120,13 +120,16 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         if dummy_inputs:
             return dummy_inputs
 
-        logger.debug("Trying hf onnx_config to get dummy inputs")
+        logger.debug("Trying hf optimum export config to get dummy inputs")
         dummy_inputs = self.get_hf_dummy_inputs()
         if dummy_inputs:
-            logger.debug("Got dummy inputs from hf onnx_config")
+            logger.debug("Got dummy inputs from hf optimum export config")
 
         if dummy_inputs is None:
-            raise ValueError("Unable to get dummy inputs for the model.")
+            raise ValueError(
+                "Unable to get dummy inputs for the model. Please provide io_config or install an optimum version that"
+                " supports the model for export."
+            )
 
         return dummy_inputs
 

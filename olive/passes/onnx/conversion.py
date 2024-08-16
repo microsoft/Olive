@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import importlib
 import logging
 import multiprocessing
 import tempfile
@@ -15,6 +14,7 @@ import torch
 from packaging import version
 
 from olive.common.config_utils import validate_config
+from olive.common.hf.utils import is_peft_model
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
 from olive.hardware import AcceleratorSpec
 from olive.model import (
@@ -25,7 +25,6 @@ from olive.model import (
     PyTorchModelHandler,
 )
 from olive.model.config import IoConfig
-from olive.model.config.hf_config import HfLoadKwargs
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -43,16 +42,6 @@ class TraceModelWrapper(torch.nn.Module):
         if isinstance(self.model(*input_data, **input_dict), dict):
             return list(self.model(*input_data, **input_dict).values())
         return self.model(*input_data, **input_dict)
-
-
-# TODO(jambayk): Consider conditional import of PeftModel so that we can type hint it.
-def is_peft_model(model: torch.nn.Module) -> bool:
-    """Check if the model is a PeftModel."""
-    if importlib.util.find_spec("peft"):
-        from peft import PeftModel
-
-        return isinstance(model, PeftModel)
-    return False
 
 
 class OnnxConversion(Pass):
@@ -277,14 +266,14 @@ class OnnxConversion(Pass):
         return onnx_model
 
     @staticmethod
-    def _load_pytorch_model(
-        model: Union[HfModelHandler, PyTorchModelHandler], device: str, torch_dtype: Optional[torch.dtype] = None
-    ) -> Tuple[torch.nn.Module, Optional[Dict]]:
-        """Load the model and return the model and the model attributes.
+    def _prepare_hf_model(
+        model: HfModelHandler, device: str, torch_dtype: Optional[torch.dtype] = None
+    ) -> HfModelHandler:
+        """Prepare the HfModelHandler for conversion.
 
         This method handles the following cases:
-        1. PyTorchModelHandler or HfModelHandler with no load kwargs
-            - load the model directly
+        1. HfModelHandler with no load kwargs
+            - no need to change the model
         2. HfModelHandler with load kwargs
             - update load_kwargs.torch_dtype if torch_dtype is specified
             - if torch_dtype not specified, make sure the load kwargs specify a dtype that is supported for
@@ -293,77 +282,66 @@ class OnnxConversion(Pass):
                 - remove quantization config from the load kwargs
                 - find quantized modules and add them to the model attributes
                 - the onnx model must be quantized using OnnxBnb4Quantization pass after conversion
-        Model attributes is None if the output model should inherit the model attributes from the input model.
         """
-        pytorch_model = None
+        if not model.load_kwargs:
+            return model
+
         model_attributes = deepcopy(model.model_attributes or {})
-        if isinstance(model, PyTorchModelHandler) or not model.load_kwargs:
-            # if the model is a PyTorchModelHandler or HfModelHandler with no load kwargs,
-            # we can load the model directly
-            pytorch_model = model.load_model()
-        else:
-            load_kwargs = model.load_kwargs
-            model_dtype = load_kwargs.get_torch_dtype()
-            new_load_kwargs = deepcopy(load_kwargs.dict())
-            if torch_dtype and torch_dtype != model_dtype:
-                # if the load kwargs specify a different dtype, update the load kwargs
-                logger.debug(
-                    "Changing torch_dtype in load kwargs from %s to %s.",
-                    load_kwargs.get_torch_dtype(),
-                    torch_dtype,
-                )
-                new_load_kwargs["torch_dtype"] = torch_dtype
-                model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
-            elif model_dtype == torch.float16 and device == "cpu":
-                logger.warning(
-                    "Loading model on CPU, but the load kwargs specify dtype float16 which is not supported  for"
-                    " conversion on CPU. The dtype is changed to float32. If float16 model is desired, please specify"
-                    " device as 'cuda' or use OrtTransformerOptimization/OnnxFloatToFloat16 pass after conversion to"
-                    " convert the model to float16."
-                )
-                new_load_kwargs["torch_dtype"] = torch.float32
-                model_attributes["torch_dtype"] = "float32"
+        load_kwargs = model.load_kwargs
+        model_dtype = load_kwargs.get_torch_dtype()
+        new_load_kwargs = deepcopy(load_kwargs.dict())
 
-            if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config["load_in_4bit"]:
-                logger.debug(
-                    "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
-                    " from the load kwargs. Use OnnxBnb4Quantization pass after conversion to quantize the"
-                    " model."
-                )
-                new_load_kwargs["quantization_method"] = None
-                new_load_kwargs["quantization_config"] = None
-                model_attributes["quantization_config"] = load_kwargs.quantization_config
-                if "quantized_modules" not in model_attributes:
-                    # find and add quantized modules to the model attributes
-                    # the QLoRA pass already adds quantized_modules to the model attributes, so this will not be
-                    # executed if the model was generated by QLoRA
-                    quantized_model = model.load_model()
+        if torch_dtype and torch_dtype != model_dtype:
+            # if the load kwargs specify a different dtype, update the load kwargs
+            logger.debug(
+                "Changing torch_dtype in load kwargs from %s to %s.",
+                load_kwargs.get_torch_dtype(),
+                torch_dtype,
+            )
+            new_load_kwargs["torch_dtype"] = torch_dtype
+            model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
+        elif model_dtype == torch.float16 and device == "cpu":
+            logger.warning(
+                "Loading model on CPU, but the load kwargs specify dtype float16 which is not supported  for"
+                " conversion on CPU. The dtype is changed to float32. If float16 model is desired, please specify"
+                " device as 'cuda' or use OrtTransformerOptimization/OnnxFloatToFloat16 pass after conversion to"
+                " convert the model to float16."
+            )
+            new_load_kwargs["torch_dtype"] = torch.float32
+            model_attributes["torch_dtype"] = "float32"
 
-                    # if PeftModel, need to unload adapter before finding quantized modules
-                    if is_peft_model(quantized_model):
-                        quantized_model = quantized_model.unload()
+        if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config["load_in_4bit"]:
+            logger.debug(
+                "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
+                " from the load kwargs. Use OnnxBnb4Quantization pass after conversion to quantize the"
+                " model."
+            )
+            new_load_kwargs["quantization_method"] = None
+            new_load_kwargs["quantization_config"] = None
+            model_attributes["quantization_config"] = load_kwargs.quantization_config
+            if "quantized_modules" not in model_attributes:
+                # find and add quantized modules to the model attributes
+                # the QLoRA pass already adds quantized_modules to the model attributes, so this will not be
+                # executed if the model was generated by QLoRA
+                quantized_model = model.load_model()
 
-                    import bitsandbytes as bnb
+                # if PeftModel, need to unload adapter before finding quantized modules
+                if is_peft_model(quantized_model):
+                    quantized_model = quantized_model.unload()
 
-                    model_attributes["quantized_modules"] = find_submodules(quantized_model, bnb.nn.Linear4bit)
+                import bitsandbytes as bnb
 
-                    # required for peft models since unloading changes the model
-                    # for others, do this to free gpu memory as quantized model is always on gpu
-                    del quantized_model
-                    model.model = None
+                model_attributes["quantized_modules"] = find_submodules(quantized_model, bnb.nn.Linear4bit)
 
-            # load the model with the updated load kwargs
-            pytorch_model = HfModelHandler(
-                model_path=model.model_path,
-                task=model.task,
-                adapter_path=model.adapter_path,
-                load_kwargs=HfLoadKwargs(**new_load_kwargs),
-            ).load_model()
+                # required for peft models since unloading changes the model
+                # for others, do this to free gpu memory as quantized model is always on gpu
+                del quantized_model
+                model.model = None
 
-        if is_peft_model(pytorch_model):
-            model_attributes["lora_modules"] = list(pytorch_model.peft_config["default"].target_modules)
-
-        return pytorch_model, model_attributes
+        model_config = model.to_json()["config"]
+        model_config["load_kwargs"] = new_load_kwargs
+        model_config["model_attributes"] = model_attributes
+        return HfModelHandler(**model_config)
 
     def _convert_model_on_device(
         self,
@@ -374,8 +352,14 @@ class OnnxConversion(Pass):
         torch_dtype: Optional[torch.dtype] = None,
     ) -> ONNXModelHandler:
         """Convert an HfModelHandler or PyTorchModelHandler to an ONNXModelHandler."""
+        # prepare the model for conversion
+        if isinstance(model, HfModelHandler):
+            # optimum export config needs the loaded model to get io_config so we create a new model handler
+            # which will be used to load the model and get the io_config
+            model = self._prepare_hf_model(model, device, torch_dtype)
+
         # load the model
-        pytorch_model, model_attributes = self._load_pytorch_model(model, device, torch_dtype)
+        pytorch_model = model.load_model()
         if config["merge_adapter_weights"] and is_peft_model(pytorch_model):
             logger.debug("Merging adapter weights into base model. This is specific to PeftModel.")
             pytorch_model = pytorch_model.merge_and_unload()
@@ -392,7 +376,9 @@ class OnnxConversion(Pass):
         # save the model to the output path and return the model
         output_model_path = resolve_onnx_path(output_model_path)
         output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
-        output_model.model_attributes = model_attributes
+        output_model.model_attributes = model_attributes = deepcopy(model.model_attributes or {})
+        if is_peft_model(pytorch_model):
+            model_attributes["lora_modules"] = list(pytorch_model.peft_config["default"].target_modules)
         return output_model
 
     @staticmethod

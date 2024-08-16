@@ -2,17 +2,19 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 from transformers import AutoConfig, AutoModel, AutoTokenizer, GenerationConfig
 
-from olive.common.hf.mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
+from olive.common.hf.mappings import MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_PEFT_TASK_TYPE
 from olive.common.hf.mlflow import get_pretrained_name_or_path
 from olive.common.utils import hardlink_copy_file
 
 if TYPE_CHECKING:
+    import torch
     from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 logger = logging.getLogger(__name__)
@@ -175,24 +177,9 @@ def save_tokenizer(
     return tokenizer.save_pretrained(output_dir, **kwargs)
 
 
-# TODO(jambayk): Remove this once we transition away from using "feature"
-def get_feature_from_task(task: str, fail_on_not_found=False) -> str:
-    """Get feature from task."""
-    feature = TASK_TO_FEATURE.get(task.replace("-with-past", ""), None)
-    not_found_msg = f"There is no feature for task {task}"
-    if feature is None and fail_on_not_found:
-        raise ValueError(not_found_msg)
-    elif feature is None:
-        logger.warning(not_found_msg)
-    elif task.endswith("-with-past"):
-        feature += "-with-past"
-    return feature
-
-
 def get_peft_task_type_from_task(task: str, fail_on_not_found=False) -> str:
-    """Get peft task type from feature."""
-    feature = get_feature_from_task(task)
-    peft_task_type = FEATURE_TO_PEFT_TASK_TYPE.get(feature.replace("-with-past", ""), None) if feature else None
+    """Get peft task type from task."""
+    peft_task_type = TASK_TO_PEFT_TASK_TYPE.get(task.replace("-with-past", ""), None)
     not_found_msg = f"There is no peft task type for task {task}"
     if peft_task_type is None and fail_on_not_found:
         raise ValueError(not_found_msg)
@@ -226,3 +213,12 @@ def get_model_max_length(model_name_or_path: str, fail_on_not_found=False) -> in
             else:
                 logger.warning(not_found_msg)
                 return None
+
+
+def is_peft_model(model: "torch.nn.Module") -> bool:
+    """Check if the model is a PeftModel."""
+    if importlib.util.find_spec("peft"):
+        from peft import PeftModel
+
+        return isinstance(model, PeftModel)
+    return False

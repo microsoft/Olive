@@ -19,6 +19,7 @@ RUN pip install pandas \
             psutil \
             datasets \
             transformers \
+            optimum \
             onnxruntime-openvino \
             "numpy<2.0" \
             evaluate \

@@ -56,7 +56,7 @@ Olive can automatically retrieve model configurations from Huggingface hub:
 
 - Olive retrieves model [configuration](https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoConfig) from transformers for future usage.
 
-- Olive simplifies the process by automatically fetching configurations such as IO config and dummy input required for the `OnnxConversion` pass from [OnnxConfig](https://huggingface.co/docs/transformers/main_classes/onnx#onnx-configurations). This means there's no need for you to manually specify the IO config when using the `OnnxConversion` pass.
+- Olive simplifies the process by automatically fetching configurations such as IO config and dummy input required for the `OnnxConversion` pass from [OnnxConfig](https://huggingface.co/docs/optimum/main/en/exporters/onnx/package_reference/configuration#optimum.exporters.onnx.OnnxConfig) if `optimum` is installed and the `model_type` and `task` are supported. This means there's no need for you to manually specify the IO config when using the `OnnxConversion` pass.
 
 You can also provide your own IO config which will override the automatically fetched IO config and dummy inputs:
 
