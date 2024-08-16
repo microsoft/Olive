@@ -933,8 +933,9 @@ class Engine:
         run_start_time = datetime.now().timestamp()
 
         if enable_cloud_cache:
+            pass_hash_key = {"pass": pass_name, "config": pass_config}
             output_model_hash = self.cloud_cache_helper.get_hash_key(
-                input_model_config, pass_search_point, input_model_hash
+                input_model_config, pass_hash_key, input_model_hash
             )
             output_model_config = check_model_cache(self.cloud_cache_helper, output_model_hash, Path(output_model_path))
             pass_run_locally = output_model_config is None
@@ -978,14 +979,13 @@ class Engine:
         run_end_time = datetime.now().timestamp()
         logger.info("Pass %s:%s finished in %f seconds", pass_id, pass_name, run_end_time - run_start_time)
 
-        if not enable_cloud_cache:
-            # cache model
-            self._cache_model(output_model_config, output_model_id)
+        # cache model
+        self._cache_model(output_model_config, output_model_id)
 
-            # cache run
-            self._cache_run(
-                pass_name, pass_config, input_model_id, output_model_id, run_accel, run_start_time, run_end_time
-            )
+        # cache run
+        self._cache_run(
+            pass_name, pass_config, input_model_id, output_model_id, run_accel, run_start_time, run_end_time
+        )
 
         # footprint model and run
         self.footprints[accelerator_spec].record(

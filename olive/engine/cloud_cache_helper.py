@@ -85,6 +85,14 @@ class CloudCacheHelper:
         blob_list = self.container_client.list_blobs(name_starts_with=adapter_directory_prefix)
         self._download_blob_list(blob_list, adapter_directory_prefix, output_model_path, "adapter")
 
+        additional_files_directory_prefix = f"{input_model_hash}/additional_files"
+        additional_files_blob_list = self.container_client.list_blobs(
+            name_starts_with=additional_files_directory_prefix
+        )
+        self._download_blob_list(
+            additional_files_blob_list, additional_files_directory_prefix, output_model_path, "additional_files"
+        )
+
         if model_config.type.lower() == "hfmodel" and is_hf_repo_exist(cloud_model_path):
             model_config.config["model_path"] = cloud_model_path
         else:
@@ -93,32 +101,39 @@ class CloudCacheHelper:
         if model_config.type.lower() == "hfmodel" and cloud_adapter_path:
             model_config.config["adapter_path"] = str(output_model_path / cloud_adapter_path)
 
+        additional_files_path = output_model_path / "additional_files"
+        if additional_files_path.exists():
+            additional_files = [str(file) for file in additional_files_path.iterdir()]
+            model_config.config["model_attributes"]["additional_files"] = additional_files
+
         return model_config
 
     def get_hash_key(
         self,
         model_config: ModelConfig,
-        pass_search_point: Dict[str, Any],
-        input_model_hash: Optional[str],
+        pass_hash_key: Dict[str, Any],
+        model_identifier: Optional[str],
     ):
         """Get hash key from input model config, pass search point, and input model hash."""
         model_config_copy = deepcopy(model_config)
-        model_path = model_config.config.get("model_path")
-        input_model_identifier = input_model_hash
-        if input_model_hash is None:
-            # For AzureML model, input_model_identifier is azureml path
-            # For Huggingface hub model, input_model_identifier is model name
-            input_model_identifier = self.input_model_identifier or self.get_model_identifier(model_path)
+        if model_identifier is None:
+            # For AzureML model, model_identifier is azureml path
+            # For Huggingface hub model, model_identifier is model name
+            model_path = model_config.config.get("model_path")
+            model_identifier = self.input_model_identifier or self.get_model_identifier(model_path)
         else:
             model_config_copy.config.pop("model_path", None)
-            if model_config_copy.config.get("model_attributes"):
-                model_config_copy.config["model_attributes"].pop("_name_or_path", None)
+            model_config_copy.config.pop("adapter_path", None)
+
+        if model_config_copy.config.get("model_attributes"):
+            model_config_copy.config["model_attributes"].pop("additional_files", None)
+            model_config_copy.config["model_attributes"].pop("_name_or_path", None)
 
         return hash_dict(
             {
-                "input_model_identifier": input_model_identifier,
+                "model_identifier": model_identifier,
                 "model_config": model_config_copy.to_json(),
-                "pass_search_point": pass_search_point,
+                "pass_hash_key": pass_hash_key,
             }
         )
 
@@ -211,13 +226,26 @@ class CloudCacheHelper:
             model_config_copy.config["model_path"] = None
             if output_model_config.type.lower() == "hfmodel":
                 model_config_copy.config["adapter_path"] = None
+            if output_model_config.config.get("model_attributes"):
+                model_config_copy.config["model_attributes"].pop("additional_files", None)
 
-            # upload model file
+            # upload model files
             model_blob = str(Path(output_model_hash) / f"model/{model_path_map['model_path']}")
-            adapter_blob = str(Path(output_model_hash) / "adapter")
-
             self.upload_model_files(model_path, model_blob)
+
+            # upload adapter files
+            adapter_blob = str(Path(output_model_hash) / "adapter")
             self.upload_model_files(adapter_path, adapter_blob)
+
+            # upload additional files
+            if output_model_config.config.get("model_attributes") and output_model_config.config[
+                "model_attributes"
+            ].get("additional_files"):
+                additional_files = output_model_config.config["model_attributes"]["additional_files"]
+                for file in additional_files:
+                    file_path = Path(file)
+                    if file_path.exists():
+                        self._upload_file_to_blob(file_path, f"{output_model_hash}/additional_files/{file_path.name}")
 
             model_path_file = Path(temp_dir) / self.model_path_map
             with open(model_path_file, "w") as file:

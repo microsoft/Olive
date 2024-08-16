@@ -34,15 +34,15 @@ Olive will submit this workflow to the Azure ML system compute. It is safe to cl
 
 ## Workflow outputs
 
-The artifacts of the workflow, including cache and outputs, will be automatically exported to Azure Machine Learning datastore. The default datastore is `workspaceblobstore`. If you want to export to your own datastore, please add `datastore: <your-datastore-name>` in AzureML system config:
+The artifacts of the workflow, including cache and outputs, will be automatically exported as Azure Machine Learning and stored to Azure Machine Learning datastore. The Data asset name will be `<workflow_id>`. The default datastore is `workspaceblobstore`. If you want to export to your own datastore, please add `datastores: <your-datastore-name>` in AzureML system config:
 
 ```json
 "aml_system": {
     "type": "AzureML",
     "config": {
-        "datastore": "<datastore-name>"
+        "datastores": "<datastore-name>"
     }
 }
 ```
 
-The cache and outputs will be exported to `<datastore>/workflow_artifacts/<workflow_id>/cache` and `<datastore>/workflow_artifacts/<workflow_id>/output`. You can check logs to find the detailed output path.
+The cache and outputs will be exported to `<datastores>/<yyyy-mm-dd-hh-mm-ss>/<workflow_id>/cache` and `<datastores>/<yyyy-mm-dd-hh-mm-ss>/<workflow_id>/output`. `<yyyy-mm-dd-hh-mm-ss>` will be the pipeline running date and time. You can check logs to find the detailed output path.
