@@ -105,6 +105,10 @@
 <li class="toctree-l4"><a class="reference internal" href="#pass-options">pass options</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#cloud-cache">cloud-cache</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#named-arguments_repeat6">Named Arguments</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -613,6 +617,32 @@
 <dt><kbd>--enable_profiling</kbd></dt>
 <dd><p>Whether enable profiling for ONNX Runtime inference.</p>
 <p>Default: False</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="cloud-cache">
+<h3>cloud-cache<a class="headerlink" href="#cloud-cache" title="Permalink to this heading">¶</a></h3>
+<p>Cloud cache model operations</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">cloud</span><span class="o">-</span><span class="n">cache</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">delete</span><span class="p">]</span> <span class="o">--</span><span class="n">account</span> <span class="n">ACCOUNT</span> <span class="o">--</span><span class="n">container</span> <span class="n">CONTAINER</span>
+                  <span class="o">--</span><span class="n">model_hash</span> <span class="n">MODEL_HASH</span>
+</pre></div>
+</div>
+<section id="named-arguments_repeat6">
+<h4>Named Arguments<a class="headerlink" href="#named-arguments_repeat6" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--delete</kbd></dt>
+<dd><p>Delete a model cache from the cloud cache.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--account</kbd></dt>
+<dd><p>The account name for the cloud cache.</p>
+</dd>
+<dt><kbd>--container</kbd></dt>
+<dd><p>The container name for the cloud cache.</p>
+</dd>
+<dt><kbd>--model_hash</kbd></dt>
+<dd><p>The model hash to remove from the cloud cache.</p>
 </dd>
 </dl>
 </section>
