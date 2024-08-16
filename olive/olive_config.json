@@ -5,8 +5,9 @@
         },
         "DynamicToFixedShape": { "module_path": "olive.passes.onnx.dynamic_to_fixed_shape.DynamicToFixedShape" },
         "ExtractAdapters": { "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters" },
-        "ModelBuilder": { "module_path": "olive.passes.onnx.model_builder.ModelBuilder",
-            "extra_dependencies" : [ "ort-genai"]
+        "ModelBuilder": {
+            "module_path": "olive.passes.onnx.model_builder.ModelBuilder",
+            "extra_dependencies": [ "ort-genai" ]
         },
         "IncDynamicQuantization": {
             "module_path": "olive.passes.onnx.inc_quantization.IncDynamicQuantization",
