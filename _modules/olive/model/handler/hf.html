@@ -232,10 +232,10 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span><span class="p">,</span> <span class="n">force_kv_cache</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;-with-past&quot;</span><span class="p">),</span> <span class="n">model_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Trying hf onnx_config to get io_config&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Trying hf optimum export config to get io_config&quot;</span><span class="p">)</span>
             <span class="n">io_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hf_io_config</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">io_config</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Got io_config from hf onnx_config&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Got io_config from hf optimum export config&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">io_config</span>
 
@@ -253,13 +253,16 @@
         <span class="k">if</span> <span class="n">dummy_inputs</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">dummy_inputs</span>
 
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Trying hf onnx_config to get dummy inputs&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Trying hf optimum export config to get dummy inputs&quot;</span><span class="p">)</span>
         <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hf_dummy_inputs</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">dummy_inputs</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Got dummy inputs from hf onnx_config&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Got dummy inputs from hf optimum export config&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unable to get dummy inputs for the model.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Unable to get dummy inputs for the model. Please provide io_config or install an optimum version that&quot;</span>
+                <span class="s2">&quot; supports the model for export.&quot;</span>
+            <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">dummy_inputs</span>
 
