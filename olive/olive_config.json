@@ -5,7 +5,10 @@
         },
         "DynamicToFixedShape": { "module_path": "olive.passes.onnx.dynamic_to_fixed_shape.DynamicToFixedShape" },
         "ExtractAdapters": { "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters" },
-        "ModelBuilder": { "module_path": "olive.passes.onnx.model_builder.ModelBuilder" },
+        "ModelBuilder": {
+            "module_path": "olive.passes.onnx.model_builder.ModelBuilder",
+            "extra_dependencies": [ "ort-genai" ]
+        },
         "IncDynamicQuantization": {
             "module_path": "olive.passes.onnx.inc_quantization.IncDynamicQuantization",
             "extra_dependencies": [ "inc" ]
@@ -114,6 +117,7 @@
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "bnb": [ "bitsandbytes" ],
         "ort": [ "onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino", "numpy<2.0" ],
-        "nvmo": [ "nvidia-modelopt~=0.11.0", "onnx-graphsurgeon" ]
+        "nvmo": [ "nvidia-modelopt~=0.11.0", "onnx-graphsurgeon" ],
+        "ort-genai": [ "onnxruntime-genai" ]
     }
 }
