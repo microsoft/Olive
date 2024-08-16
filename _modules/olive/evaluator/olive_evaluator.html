@@ -153,7 +153,7 @@
 <span class="kn">from</span> <span class="nn">olive.common.ort_inference</span> <span class="kn">import</span> <span class="n">OrtInferenceSession</span><span class="p">,</span> <span class="n">prepare_io_bindings</span>
 <span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">root_validator</span><span class="p">,</span> <span class="n">validator</span>
 <span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
-<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">tensor_data_to_device</span>
+<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">load_weights</span><span class="p">,</span> <span class="n">tensor_data_to_device</span>
 <span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span>
 <span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
 <span class="kn">from</span> <span class="nn">olive.data.container.dummy_data_container</span> <span class="kn">import</span> <span class="n">TRANSFORMER_DUMMY_DATA_CONTAINER</span>
@@ -530,7 +530,7 @@
         <span class="c1"># load constant inputs if any</span>
         <span class="n">constant_inputs</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">constant_inputs_path</span><span class="p">:</span>
-            <span class="n">constant_inputs</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">format_input</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">constant_inputs_path</span><span class="p">)),</span> <span class="n">io_config</span><span class="p">)</span>
+            <span class="n">constant_inputs</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">format_input</span><span class="p">(</span><span class="n">load_weights</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">constant_inputs_path</span><span class="p">),</span> <span class="n">io_config</span><span class="p">)</span>
 
         <span class="c1"># create session wrapper</span>
         <span class="n">session_wrapper</span> <span class="o">=</span> <span class="n">OrtInferenceSession</span><span class="p">(</span>
