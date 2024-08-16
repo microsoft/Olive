@@ -54,14 +54,7 @@
     "passes": {
         "conversion": { "type": "OnnxConversion" },
         "transformers_optimization": { "type": "OrtTransformersOptimization", "model_type": "vit" },
-        "quantization": {
-            "type": "OnnxQuantization",
-            "quant_mode": "static",
-            "quant_preprocess": true,
-            "per_channel": false,
-            "reduce_range": false,
-            "data_config": "speech_commands_v0.02"
-        },
+        "quantization": { "type": "OnnxQuantization", "data_config": "speech_commands_v0.02" },
         "perf_tuning": { "type": "OrtPerfTuning", "data_config": "speech_commands_v0.02" }
     },
     "evaluator": "common_evaluator",
