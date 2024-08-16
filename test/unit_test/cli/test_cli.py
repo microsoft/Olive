@@ -5,7 +5,8 @@
 import json
 import subprocess
 import sys
-from unittest.mock import patch
+import unittest
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -184,6 +185,33 @@ def test_perf_tuning_command(mock_ort_infer_sess, mock_tempdir, mock_run, data_c
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == "dummy_model"
     assert config["data_configs"][0].name == config["passes"]["perf_tuning"]["data_config"]
+
+
+@pytest.mark.parametrize("test_set", [(None, "successfully"), (MagicMock(name="blob1"), "failed")])
+@patch("azure.storage.blob.ContainerClient")
+def test_cloud_cache_command(mock_container_client, test_set):
+    # setup
+    command_args = [
+        "cloud-cache",
+        "--delete",
+        "--account",
+        "account",
+        "--container",
+        "container",
+        "--model_hash",
+        "model_hash",
+    ]
+    mock_blob = MagicMock(name="blob1")
+    mock_container_client.return_value.list_blobs.side_effect = [[mock_blob], [test_set[0]]]
+
+    # execute
+    with unittest.TestCase().assertLogs(logger="olive.cli.cloud_cache", level="INFO") as log:
+        cli_main(command_args)
+
+    # assert
+    assert (test_set[1] in message for message in log.output), "Expected log message not found."
+    mock_container_client.assert_called_once()
+    mock_container_client().delete_blob.assert_called_once()
 
 
 # TODO(anyone): Add tests for ManageAMLComputeCommand
