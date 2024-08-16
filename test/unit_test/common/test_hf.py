@@ -6,9 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
-from transformers.onnx import OnnxConfig
 
-from olive.common.hf.model_io import get_onnx_config
+from olive.common.hf.model_io import get_export_config, get_model_dummy_input, get_model_io_config
 from olive.common.hf.utils import load_model_from_task
 
 
@@ -63,12 +62,49 @@ def test_load_model_from_task_exception_handling(exceptions, expected_exception,
 
 
 @pytest.mark.parametrize(
-    ("model_name", "task", "feature"),
+    ("model_name", "task"),
     [
-        ("hf-internal-testing/tiny-random-BertForSequenceClassification", "text-classification", "default"),
-        ("hf-internal-testing/tiny-random-LlamaForCausalLM", "text-generation", "default"),
+        ("hf-internal-testing/tiny-random-BertForSequenceClassification", "text-classification"),
+        ("hf-internal-testing/tiny-random-LlamaForCausalLM", "text-generation"),
     ],
 )
-def test_get_onnx_config(model_name, task, feature):
-    onnx_config = get_onnx_config(model_name, task, feature)
-    assert isinstance(onnx_config, OnnxConfig)
+def test_get_export_config(model_name, task):
+    from optimum.exporters.onnx import OnnxConfig
+
+    export_config = get_export_config(model_name, task)
+    assert isinstance(export_config, OnnxConfig)
+
+
+def get_model_name_task(with_past: bool):
+    model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    task = "text-generation"
+    if with_past:
+        task = "text-generation-with-past"
+    return model_name, task
+
+
+@pytest.mark.parametrize("with_past", [True, False])
+def test_get_model_dummy_input(with_past):
+    dummy_input = get_model_dummy_input(*get_model_name_task(with_past))
+    expected_keys = ["input_ids", "attention_mask", "position_ids"]
+    if with_past:
+        expected_keys.append("past_key_values")
+    assert set(dummy_input.keys()) == set(expected_keys)
+
+
+@pytest.mark.parametrize("with_past", [True, False])
+def test_get_model_io_config(with_past):
+    model_name, task = get_model_name_task(with_past)
+    model = load_model_from_task(task, model_name)
+    io_config = get_model_io_config(model_name, task, model)
+    expected_keys = ["input_names", "output_names", "dynamic_axes"]
+    assert set(io_config.keys()) == set(expected_keys)
+    expected_input_names = ["input_ids", "attention_mask", "position_ids"]
+    expected_output_names = ["logits"]
+    if with_past:
+        for layer_id in range(model.config.num_hidden_layers):
+            expected_input_names.extend([f"past_key_values.{layer_id}.key", f"past_key_values.{layer_id}.value"])
+            expected_output_names.extend([f"present.{layer_id}.key", f"present.{layer_id}.value"])
+    assert io_config["input_names"] == expected_input_names
+    assert io_config["output_names"] == expected_output_names
+    assert set(io_config["dynamic_axes"].keys()) == set(expected_input_names + expected_output_names)

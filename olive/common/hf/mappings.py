@@ -3,35 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-# mapping from task to feature
-TASK_TO_FEATURE = {
-    "automatic-speech-recognition": "speech2seq-lm",
-    "fill-mask": "masked-lm",
-    "image-classification": "image-classification",
-    "image-segmentation": "image-segmentation",
-    "image-to-text": "vision2seq-lm",
-    "multiple-choice": "multiple-choice",
-    "ner": "token-classification",
-    "object-detection": "object-detection",
-    "question-answering": "question-answering",
-    "sentiment-analysis": "sequence-classification",
-    "summarization": "seq2seq-lm",
-    "text2text-generation": "seq2seq-lm",
-    "text-classification": "sequence-classification",
-    "text-generation": "causal-lm",
-    "token-classification": "token-classification",
-    "translation": "seq2seq-lm",
-}
-
-# mapping from feature to peft task type
+# mapping from task to peft task type
 # refer to peft.utils.peft_types.TaskType for all possible values
-FEATURE_TO_PEFT_TASK_TYPE = {
-    "sequence-classification": "SEQ_CLS",
-    "seq2seq-lm": "SEQ_2_SEQ_LM",
-    "causal-lm": "CAUSAL_LM",
-    "token-classification": "TOKEN_CLS",
-    "question-answering": "QUESTION_ANS",
-    # TODO(jambayk): see if we need feature extraction
+TASK_TO_PEFT_TASK_TYPE = {
+    "text-classification": "SEQ_CLS",
+    "text-generation": "CAUSAL_LM",
+    # TODO(jambayk): see if we need more task types
 }
 
 # model_type -> name for layers

@@ -188,7 +188,7 @@ class TestHFDummyInput(unittest.TestCase):
         # get io config
         io_config = olive_model.io_config
         assert io_config == self.io_config
-        get_model_io_config.assert_called_once_with(self.model_name, self.task)
+        get_model_io_config.assert_called_once_with(self.model_name, self.task, olive_model.load_model())
 
     @patch("olive.data.template.dummy_data_config_template")
     def test_input_shapes_dummy_inputs(self, dummy_data_config_template):

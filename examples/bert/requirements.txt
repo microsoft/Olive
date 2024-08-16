@@ -4,6 +4,7 @@ datasets
 docker>=7.1.0
 evaluate
 neural-compressor
+optimum
 scikit-learn
 scipy
 tabulate
