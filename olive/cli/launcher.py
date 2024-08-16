@@ -6,6 +6,7 @@ import sys
 from argparse import ArgumentParser
 from warnings import warn
 
+from olive.cli.cloud_cache import CloudCacheCommand
 from olive.cli.configure_qualcomm_sdk import ConfigureQualcommSDKCommand
 from olive.cli.export_adapters import ExportAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
@@ -30,6 +31,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     ConfigureQualcommSDKCommand.register_subcommand(commands_parser)
     ManageAMLComputeCommand.register_subcommand(commands_parser)
     PerfTuningCommand.register_subcommand(commands_parser)
+    CloudCacheCommand.register_subcommand(commands_parser)
 
     return parser
 
