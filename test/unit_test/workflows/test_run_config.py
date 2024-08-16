@@ -51,7 +51,7 @@ class TestRunConfig:
             RunConfig.parse_obj(user_script_config)
         assert "azureml_client is required for AzureML System but not provided." in str(e.value)
 
-    @pytest.fixture()
+    @pytest.fixture
     def mock_aml_credentials(self):
         # we need to mock all the credentials because the default credential will get tokens from all of them
         self.mocked_env_credentials = patch("azure.identity._credentials.default.EnvironmentCredential").start()

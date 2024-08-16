@@ -24,7 +24,7 @@ class DependencySetupEnvBuilder(venv.EnvBuilder):
         run_subprocess([context.env_exe, "-Im", "pip", "install", olive_root], check=True)
 
 
-@pytest.fixture()
+@pytest.fixture
 def config_json(tmp_path):
     if platform.system() == OS.WINDOWS:
         ep = "DmlExecutionProvider"
