@@ -103,7 +103,7 @@ class TestDockerSystem:
             buildargs=docker_config.build_args,
         )
 
-    @pytest.fixture()
+    @pytest.fixture
     def mock_docker_system_info(self):
         self.mock_from_env = patch("olive.systems.docker.docker_system.docker.from_env").start()
         self.mock_tempdir = patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory").start()
