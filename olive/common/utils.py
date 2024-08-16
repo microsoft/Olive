@@ -35,7 +35,8 @@ else:
     from enum import Enum
 
     class StrEnumBase(str, Enum):
-        pass
+        def __str__(self) -> str:
+            return self.value
 
     class IntEnumBase(int, Enum):
         pass
@@ -466,3 +467,92 @@ def get_credentials(default_auth_params: Dict = None):
         credential = InteractiveBrowserCredential()
 
     return credential
+
+
+class WeightsFileFormat(StrEnumBase):
+    PT = "pt"
+    NUMPY = "numpy"
+    SAFETENSORS = "safetensors"
+
+
+def save_weights(weights: Dict, path: str, file_format: WeightsFileFormat = WeightsFileFormat.NUMPY):
+    """Save the weights to a file.
+
+    :param weights: Dictionary of numpy arrays.
+    :param path: Path to save the weights.
+    :param file_format: Format to save the weights in.
+    :return: Path to the saved file.
+    """
+    # validate file_format
+    file_format = WeightsFileFormat(file_format)
+
+    path = Path(path).with_suffix(".npz" if file_format == WeightsFileFormat.NUMPY else f".{file_format}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if file_format == WeightsFileFormat.PT:
+        import torch
+
+        weights = {k: torch.from_numpy(v) for k, v in weights.items()}
+        torch.save(weights, path)
+    elif file_format == WeightsFileFormat.NUMPY:
+        import numpy as np
+
+        np.savez(path, **weights)
+    elif file_format == WeightsFileFormat.SAFETENSORS:
+        from safetensors.numpy import save_file
+
+        save_file(weights, path)
+
+    return path
+
+
+def load_weights(path: Union[str, Path], file_format: Optional[WeightsFileFormat] = None, framework: str = "numpy"):
+    """Load weights from a file.
+
+    :param path: Path to the file.
+    :param file_format: Format of the file. If None, will try to infer from the file extension.
+    :param framework: Framework to load the weights into. Supported values are "pt" (pytorch) and "numpy".
+    :return: Weights.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path}")
+
+    if file_format is not None:
+        pass
+    elif path.suffix.startswith(".pt"):
+        file_format = "pt"
+    elif path.suffix.startswith(".np"):
+        file_format = "numpy"
+    elif path.suffix == ".safetensors":
+        file_format = "safetensors"
+    else:
+        raise ValueError(f"Unknown file format for {path}. Please provide file_format.")
+
+    # validate file_format
+    file_format = WeightsFileFormat(file_format)
+
+    weights = None
+    if file_format == WeightsFileFormat.PT:
+        import torch
+
+        weights = torch.load(path, weights_only=True)
+        if framework == "numpy":
+            weights = {k: v.numpy() for k, v in weights.items()}
+    elif file_format == WeightsFileFormat.NUMPY:
+        import numpy as np
+
+        weights = dict(np.load(path))
+        if framework == "pt":
+            import torch
+
+            weights = {k: torch.from_numpy(v) for k, v in weights.items()}
+    elif file_format == WeightsFileFormat.SAFETENSORS:
+        from safetensors import safe_open
+
+        weights = {}
+        with safe_open(path, framework=framework, device="cpu") as f:
+            for key in f.keys():  # noqa: SIM118
+                weights[key] = f.get_tensor(key)
+
+    return weights

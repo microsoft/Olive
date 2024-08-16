@@ -234,9 +234,6 @@ class ParamCategory(CaseInsensitiveEnum):
     PATH = "path"
     DATA = "data"
 
-    def __str__(self) -> str:
-        return self.value
-
 
 class ConfigParam(ConfigBase):
     """Dataclass for pass configuration parameters."""

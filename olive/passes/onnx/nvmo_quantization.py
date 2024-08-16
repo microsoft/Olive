@@ -39,15 +39,9 @@ class NVModelOptQuantization(Pass):
         INT8 = "int8"
         INT4 = "int4"
 
-        def __str__(self) -> str:
-            return self.value
-
     class Algorithm(StrEnumBase):
         RTN = "RTN"
         AWQ = "AWQ"
-
-        def __str__(self) -> str:
-            return str(self.value)
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:

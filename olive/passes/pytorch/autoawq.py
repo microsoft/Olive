@@ -30,9 +30,6 @@ class AutoAWQQuantizer(Pass):
         FP16 = "fp16"
         FP64 = "fp64"
 
-        def __str__(self) -> str:
-            return self.value
-
         def get_torch_dtype(self):
             return {
                 AutoAWQQuantizer.ModelDtype.FP32: torch.float32,

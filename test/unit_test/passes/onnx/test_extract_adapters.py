@@ -132,7 +132,7 @@ def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type
         pytest.skip("QDQ model test is disabled due to flaky quantization failure")
 
     # setup
-    p = create_pass_from_dict(ExtractAdapters, {}, disable_search=True)
+    p = create_pass_from_dict(ExtractAdapters, {"make_inputs": False}, disable_search=True)
     output_folder = tmp_path / "extracted-adapters"
 
     # execute
@@ -140,14 +140,19 @@ def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type
 
     # assert
     assert Path(extracted_model.model_path).is_file()
-    assert Path(extracted_model.constant_inputs_path).is_file()
+    assert Path(extracted_model.external_initializers_path).is_file()
     # all lora weights should be extracted as external initializers
     expected_weights = set(input_model_info[model_type]["all_weights"])
-    assert expected_weights == set(extracted_model.model_attributes["constant_inputs"])
-    assert expected_weights == set(np.load(extracted_model.constant_inputs_path))
+    assert expected_weights == set(extracted_model.model_attributes["external_initializers"])
+    assert expected_weights == set(np.load(extracted_model.external_initializers_path))
     # ensure all external initializers are marked as such
     model_proto = onnx.load(extracted_model.model_path, load_external_data=False)
-    assert expected_weights.issubset({i.name for i in model_proto.graph.input})
+    seen_weights = set()
+    for initializer in model_proto.graph.initializer:
+        if initializer.name in expected_weights:
+            assert initializer.data_location == onnx.TensorProto.EXTERNAL
+            seen_weights.add(initializer.name)
+    assert seen_weights == expected_weights
 
 
 @pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])

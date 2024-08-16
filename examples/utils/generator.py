@@ -10,7 +10,7 @@ from kv_cache_utils import DynamicCache, DynamicIOBoundCache, GQASharedCache, St
 from onnxruntime import InferenceSession, OrtValue, SessionOptions
 from transformers import PreTrainedTokenizer
 
-from olive.common.utils import StrEnumBase
+from olive.common.utils import StrEnumBase, load_weights
 
 if TYPE_CHECKING:
     from kv_cache_utils import Cache, IOBoundCache
@@ -163,7 +163,7 @@ class ORTGenerator:
                     "template": info.get("template"),
                 }
                 if info.get("weights") is not None:
-                    np_weights = dict(np.load(info["weights"])) if isinstance(info["weights"], str) else info["weights"]
+                    np_weights = load_weights(info["weights"]) if isinstance(info["weights"], str) else info["weights"]
                     # TODO(jambayk): provide an option to lazy load the ortvalues if needed
                     # for example, there is not enough memory to load all adapters at once
                     if execution_provider != "QNNExecutionProvider":
@@ -180,7 +180,7 @@ class ORTGenerator:
                 initializer_names = []
                 initializer_values = []
                 if info.get("weights") is not None:
-                    np_weights = dict(np.load(info["weights"])) if isinstance(info["weights"], str) else info["weights"]
+                    np_weights = load_weights(info["weights"]) if isinstance(info["weights"], str) else info["weights"]
                     for i_name, value in np_weights.items():
                         initializer_names.append(i_name)
                         initializer_values.append(OrtValue.ortvalue_from_numpy(value))

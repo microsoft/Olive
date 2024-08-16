@@ -59,5 +59,5 @@ class TestOliveManagedDockerSystem:
         )
         assert cpu_res.metrics.value.__root__
         assert openvino_res.metrics.value.__root__
-        assert "Creating olive_managed_env SystemType.Docker with EP CPUExecutionProvider" in caplog.text
-        assert "Creating olive_managed_env SystemType.Docker with EP OpenVINOExecutionProvider" in caplog.text
+        assert "Creating olive_managed_env Docker with EP CPUExecutionProvider" in caplog.text
+        assert "Creating olive_managed_env Docker with EP OpenVINOExecutionProvider" in caplog.text

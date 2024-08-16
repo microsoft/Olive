@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple
 import numpy as np
 import onnx
 
+from olive.common.utils import WeightsFileFormat, save_weights
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -53,6 +54,11 @@ class ExtractAdapters(Pass):
                     "Pack adapter weights for the same module type into a single input tensor. Only used if make_inputs"
                     " is True."
                 ),
+            ),
+            "save_format": PassConfigParam(
+                type_=WeightsFileFormat,
+                default_value=WeightsFileFormat.NUMPY,
+                description="Format to save the weights in.",
             ),
         }
         config.update(get_external_data_config())
@@ -206,10 +212,7 @@ class ExtractAdapters(Pass):
         dag.update()
 
         # save the weights
-        # TODO(jambayk): Consider other methods for saving the weights
-        # safetensors is an option but it is not available on ARM64 Windows
-        weights_path = Path(output_model_path).parent / "adapter_weights.npz"
-        np.savez(weights_path, **weights)
+        weights_path = save_weights(weights, Path(output_model_path).parent / "adapter_weights", config["save_format"])
 
         # save the model
         output_model = model_proto_to_olive_model(
