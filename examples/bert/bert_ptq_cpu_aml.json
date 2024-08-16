@@ -43,14 +43,7 @@
             "float16": false,
             "only_onnxruntime": false
         },
-        "quantization": {
-            "type": "OnnxQuantization",
-            "quant_preprocess": true,
-            "per_channel": false,
-            "reduce_range": false,
-            "calibrate_method": "MinMax",
-            "data_config": "glue_mrpc"
-        },
+        "quantization": { "type": "OnnxQuantization", "data_config": "glue_mrpc" },
         "perf_tuning": { "type": "OrtPerfTuning", "data_config": "glue_mrpc" }
     },
     "evaluator": "common_evaluator",

@@ -18,7 +18,7 @@ from olive.platform_sdk.qualcomm.snpe.utils.adb import run_adb_command
 # pylint: disable=redefined-outer-name, unused-variable
 
 
-@pytest.fixture()
+@pytest.fixture
 def android_target():
     return "emulator-5554"
 

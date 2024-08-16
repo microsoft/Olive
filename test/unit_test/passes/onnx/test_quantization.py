@@ -38,6 +38,12 @@ def _test_quat_dataloader(dataset, batch_size, **kwargs):
 
 @pytest.mark.parametrize("calibrate_method", ["MinMax", "Entropy", "Percentile"])
 def test_static_quantization(calibrate_method, tmp_path):
+    if version.parse(OrtVersion) >= version.parse("1.19.0") and calibrate_method != "MinMax":
+        pytest.skip(
+            "Entropy and Percentile calibration methods sometimes hit nan issue during histogram computation in"
+            " onnxruntime>=1.19.0"
+        )
+
     input_model = get_onnx_model()
     config = {
         "quant_mode": "static",
