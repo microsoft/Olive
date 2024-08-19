@@ -35,17 +35,18 @@ This document introduces Olive and provides some examples to get you started.
    features/azureml_integration
    features/cli
    features/cloud_model_cache
-   features/custom_scripts
    features/huggingface_model_optimization
    features/lora
    features/model_transformations_and_optimizations
    features/packaging_output_models
    features/run_workflow_remotely
+   features/quantiztion
 
 .. toctree::
    :maxdepth: 1
    :caption: EXTENDING OLIVE
 
+   extending_olive/custom_scripts
    extending_olive/design
    extending_olive/how_to_add_optimization_pass
 
