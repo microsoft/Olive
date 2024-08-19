@@ -919,8 +919,9 @@ class Engine:
         # Note: the final output model id need contains the accelerator information
         # if the output model is accelerator dependent.
 
+        model_number = self.cache.get_new_model_number()
         output_model_id_parts = [
-            f"{self.cache.get_new_model_number()}_{pass_name}",
+            pass_name,
             input_model_number,
             hash_dict(pass_config)[:8],
         ]
@@ -928,7 +929,7 @@ class Engine:
         if not p.is_accelerator_agnostic(accelerator_spec):
             output_model_id_parts.append(f"{accelerator_spec}")
 
-        output_model_id = hash_string("-".join(map(str, output_model_id_parts)))[:8]
+        output_model_id = f"{model_number}_{hash_string('-'.join(map(str, output_model_id_parts)))[:8]}"
         output_model_path = str(self.cache.get_model_output_path(output_model_id))
 
         run_start_time = datetime.now().timestamp()
