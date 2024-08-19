@@ -517,12 +517,8 @@ class OnnxOpVersionConversion(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
-        # get current models's opset version
-        if config["save_as_external_data"]:
-            # since external data is saved in a separate file, we need to load the model to get the opset version
-            model_proto = onnx.load(model.model_path, load_external_data=False)
-        else:
-            model_proto = model.load_model()
+        # since external data is saved in a separate file, we need to load the model to get the opset version
+        model_proto = onnx.load(model.model_path, load_external_data=False)
 
         model_opset_version = model_proto.opset_import[0].version
         if model_opset_version == config["target_opset"]:
@@ -531,14 +527,13 @@ class OnnxOpVersionConversion(Pass):
 
         output_model_path = resolve_onnx_path(output_model_path)
         converted_model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
-        if config["save_as_external_data"]:
-            # copy the external data of original model to the new model
-            dst_init_map = {init.name: init for init in converted_model_proto.graph.initializer}
-            for src_init in model_proto.graph.initializer:
-                if (
-                    src_init.name in dst_init_map
-                    and src_init.HasField("data_location")
-                    and src_init.data_location == onnx.TensorProto.EXTERNAL
-                ):
-                    dst_init_map[src_init.name].CopyFrom(src_init)
+        # copy the external data of original model to the new model
+        dst_init_map = {init.name: init for init in converted_model_proto.graph.initializer}
+        for src_init in model_proto.graph.initializer:
+            if (
+                src_init.name in dst_init_map
+                and src_init.HasField("data_location")
+                and src_init.data_location == onnx.TensorProto.EXTERNAL
+            ):
+                dst_init_map[src_init.name].CopyFrom(src_init)
         return model_proto_to_olive_model(converted_model_proto, output_model_path, config)

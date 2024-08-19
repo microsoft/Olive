@@ -61,16 +61,12 @@ def test_onnx_conversion_pass_quant_model(add_quantized_modules, tmp_path):
 
 
 @pytest.mark.parametrize("target_opset", [9, 10, 16])
-@pytest.mark.parametrize("save_as_external_data", [True, False])
-def test_onnx_op_version_conversion_pass(target_opset, save_as_external_data, tmp_path):
+def test_onnx_op_version_conversion_pass(target_opset, tmp_path):
     input_model = get_onnx_model()
     # setup
     p = create_pass_from_dict(
         OnnxOpVersionConversion,
-        {
-            "target_opset": target_opset,
-            "save_as_external_data": save_as_external_data,
-        },
+        {"target_opset": target_opset},
         disable_search=True,
     )
     output_folder = str(tmp_path / "onnx")
