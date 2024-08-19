@@ -1,5 +1,5 @@
-Model Transformations and Optimizations
-=======================================
+Model Quantizations
+===================
 
 Olive supports multiple Quantization algorithms. Olive support PyTorch and ONNX model quantization.
 
