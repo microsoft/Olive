@@ -108,8 +108,7 @@ class OliveCache:
             run_json_path = hash_string(f"{pass_name}-{input_model_number}-{pass_config_hash}")[:8]
         else:
             run_json_path = hash_string(f"{pass_name}-{input_model_number}-{pass_config_hash}-{accelerator_spec}")[:8]
-        run_json_path = self.dirs.runs / f"{run_json_path}.json"
-        return run_json_path
+        return self.dirs.runs / f"{run_json_path}.json"
 
     def clean_pass_run_cache(self, pass_type: str):
         """Clean the cache of runs for a given pass type.
