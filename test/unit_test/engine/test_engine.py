@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from olive.common.utils import hash_dict
+from olive.common.utils import hash_dict, hash_string
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.engine import Engine
 from olive.engine.cloud_cache_helper import CloudCacheConfig
@@ -167,8 +167,8 @@ class TestEngine:
         p1, pass_config1 = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
         p2, pass_config2 = get_onnxconversion_pass(ignore_pass_config=False, target_opset=14)
         model_ids = [
-            f"0_{p1.__class__.__name__}-{input_model_id}-{hash_dict(pass_config1)[:8]}",
-            f"1_{p2.__class__.__name__}-{input_model_id}-{hash_dict(pass_config2)[:8]}",
+            f"0_{hash_string('-'.join([p1.__class__.__name__, input_model_id, hash_dict(pass_config1)[:8]]))[:8]}",
+            f"1_{hash_string('-'.join([p2.__class__.__name__, input_model_id, hash_dict(pass_config2)[:8]]))[:8]}",
         ]
         expected_res = {
             model_id: {
