@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, serialize_to_json, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
-from olive.common.utils import hash_dict, set_nested_dict_value
+from olive.common.utils import hash_dict, hash_string, set_nested_dict_value
 from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
 
 if TYPE_CHECKING:
@@ -105,11 +105,10 @@ class OliveCache:
         """Get the path to the run json."""
         pass_config_hash = hash_dict(pass_config)[:8]
         if not accelerator_spec:
-            run_json_path = self.dirs.runs / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
+            run_json_path = hash_string(f"{pass_name}-{input_model_number}-{pass_config_hash}")[:8]
         else:
-            run_json_path = (
-                self.dirs.runs / f"{pass_name}-{input_model_number}-{pass_config_hash}-{accelerator_spec}.json"
-            )
+            run_json_path = hash_string(f"{pass_name}-{input_model_number}-{pass_config_hash}-{accelerator_spec}")[:8]
+        run_json_path = self.dirs.runs / f"{run_json_path}.json"
         return run_json_path
 
     def clean_pass_run_cache(self, pass_type: str):

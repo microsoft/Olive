@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 from olive.cache import OliveCache
 from olive.common.config_utils import validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
-from olive.common.utils import hash_dict
+from olive.common.utils import hash_dict, hash_string
 from olive.engine.cloud_cache_helper import check_model_cache, is_valid_cloud_cache_model, update_input_model_config
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS
 from olive.engine.footprint import Footprint, FootprintNodeMetric
@@ -918,6 +918,7 @@ class Engine:
         input_model_number = input_model_id.split("_")[0]
         # Note: the final output model id need contains the accelerator information
         # if the output model is accelerator dependent.
+
         output_model_id_parts = [
             f"{self.cache.get_new_model_number()}_{pass_name}",
             input_model_number,
@@ -927,7 +928,7 @@ class Engine:
         if not p.is_accelerator_agnostic(accelerator_spec):
             output_model_id_parts.append(f"{accelerator_spec}")
 
-        output_model_id = "-".join(map(str, output_model_id_parts))
+        output_model_id = hash_string("-".join(map(str, output_model_id_parts)))[:8]
         output_model_path = str(self.cache.get_model_output_path(output_model_id))
 
         run_start_time = datetime.now().timestamp()
