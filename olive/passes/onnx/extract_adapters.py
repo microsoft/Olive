@@ -55,6 +55,14 @@ class ExtractAdapters(Pass):
                     " is True."
                 ),
             ),
+            "dynamic_lora_r": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=(
+                    "Whether the model uses dynamic shape for lora_r. Only used if make_inputs is True. Valid only for"
+                    " float modules."
+                ),
+            ),
             "save_format": PassConfigParam(
                 type_=WeightsFileFormat,
                 default_value=WeightsFileFormat.NUMPY,
@@ -180,12 +188,21 @@ class ExtractAdapters(Pass):
             # create inputs for the weights
             for weight_name in weights:
                 dag.convert_initializer_to_input(weight_name)
+                if "quant" not in weight_name and config["dynamic_lora_r"]:
+                    dim_idx = 1 if "lora_A" in weight_name else 0
+                    dag.make_input_dim_dynamic(weight_name, dim_idx, "lora_r")
         elif config["make_inputs"] and config["pack_inputs"]:
             # what weights are packed together
             packed_weights, packings = self.pack_weights(weights, lora_modules, float_modules, quant_modules)
 
             # create inputs and split nodes for the packed weights
             for weight_name, to_pack in packings.items():
+                # shape
+                shape = packed_weights[weight_name].shape
+                if "quant" not in weight_name and config["dynamic_lora_r"]:
+                    dim_idx = 1 if "lora_A" in weight_name else 0
+                    shape[dim_idx] = "lora_r"
+
                 # input proto
                 input_proto = onnx.helper.make_tensor_value_info(
                     name=weight_name,

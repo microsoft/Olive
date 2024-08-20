@@ -269,6 +269,37 @@ class OnnxDAG:
             graph_idx=io.graph_idx,
         )
 
+    def make_input_dim_dynamic(self, input_name: str, dim_idx: int, dim_param: str):
+        """Make a dimension of an input dynamic.
+
+        This assumes changing the dimension of the input doesn't break the graph, especially if it has gone through
+        shape inference.
+
+        :param input_name: name of the input.
+        :param dim_idx: index of the dimension to make dynamic.
+        :param dim_value: symbolic value of the dimension.
+        """
+        if not self.is_input(input_name):
+            raise ValueError(f"{input_name} is not an input.")
+
+        io_proto = self.ios[input_name].proto[0]
+
+        # graph inputs are required to have a shape to provide the rank
+        shape = io_proto.type.tensor_type.shape
+        if dim_idx >= len(shape.dim):
+            raise ValueError(f"Input {input_name} has rank {len(shape.dim)} but trying to access dim {dim_idx}.")
+
+        for idx, dim in enumerate(shape.dim):
+            if idx != dim_idx:
+                continue
+
+            if dim.HasField("dim_param"):
+                raise ValueError(f"Can't replace existing dynamic dim {dim.dim_param} with {dim_param}")
+
+            dim.Clear()
+            dim.dim_param = dim_param
+            break
+
     def add_node(self, node_proto: NodeProto, graph_idx: int, overwrite_input_initializers: bool = False):
         """Add a node to the graph.
 
