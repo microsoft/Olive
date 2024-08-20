@@ -26,6 +26,7 @@ Add logs here.
  - OS: [e.g. Windows, Linux]
  - Olive version: [e.g. 0.4.0 or main]
  - ONNXRuntime package and version: [e.g. onnxruntime-gpu: 1.16.1]
+ - Transformers package version: [e.g. transformers 4.44.1]
 
 
 **Additional context**
