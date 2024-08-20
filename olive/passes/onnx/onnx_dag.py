@@ -139,7 +139,7 @@ class OnnxDAG:
             else:
                 ios[initializer.name] = OnnxIO(
                     proto=[initializer],
-                    source=SpecialInput.INPUT_INITIALIZER,
+                    source=SpecialInput.INITIALIZER,
                     graph_idx=graph_idx,
                 )
         for vi in graph.value_info:
@@ -200,7 +200,7 @@ class OnnxDAG:
             ):
                 # if the output's original source is an input/initializer, we can overwrite it
                 raise ValueError(f"Output {o} is already connected to another node.")
-            ios[o] = OnnxIO(source=name, destination=ios[o].destination, graph_idx=graph_idx)
+            ios[o].source = name
             for destination in ios[o].destination:
                 if destination != SpecialOutput.OUTPUT:
                     connections[name].append(destination)
@@ -367,7 +367,7 @@ class OnnxDAG:
 
                 # update the connections
                 old_parent = self.ios[old_input].source
-                if SpecialInput.is_special_input(old_parent):
+                if not SpecialInput.is_special_input(old_parent):
                     self.connections[old_parent].remove(node_name)
 
                 new_parent = self.ios[new_input].source
@@ -544,8 +544,10 @@ class OnnxDAG:
                     # no consumers, so don't add it to the graph proto
                     continue
                 if self.is_input(i):
+                    print(i, "is input")
                     inputs.append(io.proto[0])
                 elif self.is_initializer(i):
+                    print(i, "is initializer")
                     initializers.append(io.proto[-1])
 
             # update the graph proto
