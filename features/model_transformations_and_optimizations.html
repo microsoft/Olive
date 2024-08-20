@@ -27,7 +27,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="PyTorch" href="passes/pytorch.html" />
-    <link rel="prev" title="LoRA Adapters" href="lora.html" /> 
+    <link rel="prev" title="ONNX" href="passes/quant_onnx.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -69,12 +69,15 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="azureml_integration.html">Azure ML integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html">Command Line Tools</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cloud_model_cache.html">Cloud Model Cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="custom_scripts.html">Custom Scripts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="lora.html">LoRA Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cloud_model_cache.html">Cloud Model Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="run_workflow_remotely.html">Remote Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="conversion.html">Model Conversions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quantization.html">Model Quantizations</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Model Transformations and Optimizations</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html">PyTorch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html">ONNX</a></li>
@@ -83,13 +86,12 @@
 <li class="toctree-l2"><a class="reference internal" href="passes/qnn.html">QNN</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="run_workflow_remotely.html">Remote Workflow</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/custom_scripts.html">Custom Scripts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
 <ul>
@@ -157,29 +159,17 @@ native model as an output.</p>
 <li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#qlora">QLoRA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#loftq">LoftQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#quantization-aware-training">Quantization Aware Training</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#autogptq">AutoGPTQ</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#autoawq">AutoAWQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#mergeadapterweights">MergeAdapterWeights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#sparsegpt">SparseGPT</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#slicegpt">SliceGPT</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#quarot">QuaRot</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#torchtrtconversion">TorchTRTConversion</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="passes/onnx.html">ONNX</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#model-conversion">Model Conversion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#model-optimizer">Model Optimizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#ort-transformers-optimization">ORT Transformers Optimization</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#append-pre-post-processing-ops">Append Pre/Post Processing Ops</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#insert-beam-search-op">Insert Beam Search Op</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#quantize-with-onnxruntime">Quantize with onnxruntime</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#quantize-with-amd-vitis-ai-quantizer">Quantize with AMD Vitis AI Quantizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#ort-performance-tuning">ORT Performance Tuning</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#float16-conversion">Float16 Conversion</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#inputs-outputs-float16-to-float32-conversion">Inputs/Outputs Float16 to Float32 Conversion</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#mixed-precision-conversion">Mixed Precision Conversion</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#convert-dynamic-shape-to-fixed-shape">Convert dynamic shape to fixed shape</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#extract-adapters">Extract Adapters</a></li>
 </ul>
 </li>
@@ -210,7 +200,7 @@ native model as an output.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="lora.html" class="btn btn-neutral float-left" title="LoRA Adapters" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="passes/quant_onnx.html" class="btn btn-neutral float-left" title="ONNX" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="passes/pytorch.html" class="btn btn-neutral float-right" title="PyTorch" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

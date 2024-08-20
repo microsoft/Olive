@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ONNX &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/width.css?v=b55249da" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Model Transformations and Optimizations" href="../model_transformations_and_optimizations.html" />
+    <link rel="prev" title="PyTorch" href="quant_pytorch.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                latest
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">Command Line Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../huggingface_model_optimization.html">Huggingface Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../lora.html">LoRA Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cloud_model_cache.html">Cloud Model Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../run_workflow_remotely.html">Remote Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../conversion.html">Model Conversions</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../quantization.html">Model Quantizations</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="quant_pytorch.html">PyTorch</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">ONNX</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#example-configuration">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#quantize-with-amd-vitis-ai-quantizer">Quantize with AMD Vitis AI Quantizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id2">Example Configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../quantization.html">Model Quantizations</a></li>
+      <li class="breadcrumb-item active">ONNX</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/features/passes/quant_onnx.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="onnx">
+<h1>ONNX<a class="headerlink" href="#onnx" title="Permalink to this heading">¶</a></h1>
+<p><a class="reference external" href="https://onnx.ai/">ONNX</a> is an open graph format to represent machine learning models. <a class="reference external" href="https://onnxruntime.ai/docs/">ONNX Runtime</a> is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.</p>
+<section id="quantize-with-onnxruntime">
+<h2>Quantize with onnxruntime<a class="headerlink" href="#quantize-with-onnxruntime" title="Permalink to this heading">¶</a></h2>
+<p>[Quantization][1] is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This
+technique is used to reduce the memory footprint and improve the inference performance of the model. Quantization can be applied to the
+weights of the model, the activations of the model, or both.</p>
+<p>There are two ways to quantize a model in onnxruntime:</p>
+<ol class="arabic">
+<li><p>[Dynamic Quantization][2]:
+Dynamic quantization calculates the quantization parameters (scale and zero point) for activations dynamically, which means there is no
+any requirement for the calibration dataset.</p>
+<p>These calculations increase the cost of inference, while usually achieve higher accuracy comparing to static ones.</p>
+</li>
+<li><p>[Static Quantization][3]:
+Static quantization method runs the model using a set of inputs called calibration data. In this way, user must provide a calibration
+dataset to calculate the quantization parameters (scale and zero point) for activations before quantizing the model.</p></li>
+</ol>
+<p>Olive consolidates the dynamic and static quantization into a single pass called <code class="docutils literal notranslate"><span class="pre">OnnxQuantization</span></code>, and provide the user with the ability to
+tune both quantization methods and hyperparameter at the same time.
+If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">OnnxDynamicQuantization</span></code> and
+<code class="docutils literal notranslate"><span class="pre">OnnxStaticQuantization</span></code> respectively.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#onnx-quantization"><span class="std std-ref">OnnxQuantization</span></a>, <a class="reference internal" href="../../api/passes.html#onnx-dynamic-quantization"><span class="std std-ref">OnnxDynamicQuantization</span></a> and
+<a class="reference internal" href="../../api/passes.html#onnx-static-quantization"><span class="std std-ref">OnnxStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
+<p><strong>Note:</strong> If target execution provider is QNN EP, the model might need to be preprocessed before quantization. Please refer to <a class="reference internal" href="../../api/passes.html#qnn-preprocess"><span class="std std-ref">QnnPreprocess</span></a> for more details about the pass and its config parameters.
+This preprocessing step fuses operators unsupported by QNN EP and inserts necessary operators to make the model compatible with QNN EP.</p>
+<section id="example-configuration">
+<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading">¶</a></h3>
+<p>a. Tune the parameters of the OlivePass with pre-defined searchable values</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. Select parameters to tune</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// select per_channel to tune with &quot;SEARCHABLE_VALUES&quot;.</span>
+<span class="w">    </span><span class="c1">// other parameters will use the default value, not to be tuned.</span>
+<span class="w">    </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SEARCHABLE_VALUES&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;disable_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>c. Use default values of the OlivePass (no tuning in this way)</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// set per_channel to &quot;DEFAULT_VALUE&quot;</span>
+<span class="w">    </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEFAULT_VALUE&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>d. Specify parameters with user defined values</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;onnx_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// set per_channel to True.</span>
+<span class="w">    </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;disable_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py">this file</a>
+for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;calib_data_config/dataloader_config/type&quot;</span></code>.</p>
+<p>check out <a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu">this file</a> for an example for Intel® Neural Compressor quantization.</p>
+</section>
+</section>
+<section id="quantize-with-intel-neural-compressor">
+<h2>Quantize with Intel® Neural Compressor<a class="headerlink" href="#quantize-with-intel-neural-compressor" title="Permalink to this heading">¶</a></h2>
+<p>In addition to the default onnxruntime quantization tool, Olive also integrates <a class="reference external" href="https://github.com/intel/neural-compressor">Intel® Neural Compressor</a>.</p>
+<p>Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.</p>
+<p>Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called <code class="docutils literal notranslate"><span class="pre">IncQuantization</span></code>, and provide the user with the ability to
+tune both quantization methods and hyperparameter at the same time.
+If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">IncDynamicQuantization</span></code> and
+<code class="docutils literal notranslate"><span class="pre">IncStaticQuantization</span></code> respectively.</p>
+<section id="id1">
+<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;inc_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;IncStaticQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;approach&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;weight_only&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;weight_only_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GPTQ&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;calibration_sampling_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;all_tensors_to_one_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#inc-quantization"><span class="std std-ref">IncQuantization</span></a>, <a class="reference internal" href="../../api/passes.html#inc-dynamic-quantization"><span class="std std-ref">IncDynamicQuantization</span></a> and
+<a class="reference internal" href="../../api/passes.html#inc-static-quantization"><span class="std std-ref">IncStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
+</section>
+</section>
+<section id="quantize-with-amd-vitis-ai-quantizer">
+<h2>Quantize with AMD Vitis AI Quantizer<a class="headerlink" href="#quantize-with-amd-vitis-ai-quantizer" title="Permalink to this heading">¶</a></h2>
+<p>Olive also integrates <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py">AMD Vitis AI Quantizer</a> for quantization.</p>
+<p>The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
+Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.</p>
+<section id="id2">
+<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;vitis_ai_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;VitisAIQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;calibrate_method&quot;</span><span class="p">:</span><span class="s2">&quot;NonOverflow&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;quant_format&quot;</span><span class="p">:</span><span class="s2">&quot;QDQ&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;activation_type&quot;</span><span class="p">:</span><span class="s2">&quot;QUInt8&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="s2">&quot;QInt8&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#vitis-ai-quantization"><span class="std std-ref">VitisAIQuantization</span></a> for more details about the pass and its config parameters.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="quant_pytorch.html" class="btn btn-neutral float-left" title="PyTorch" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../model_transformations_and_optimizations.html" class="btn btn-neutral float-right" title="Model Transformations and Optimizations" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
