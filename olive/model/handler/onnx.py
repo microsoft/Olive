@@ -91,6 +91,21 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         model_path = super().model_path
         return get_additional_file_path(model_path, self.constant_inputs_file_name) if model_path else None
 
+    def change_model_path_to_dir(self) -> Path:
+        """Change the model path to the parent directory of the model file.
+
+        This is used when we want to store more files in the same directory as the model file.
+        :return: The parent directory of the model file.
+        """
+        model_path_resource = Path(self.get_resource("model_path"))
+        if model_path_resource.is_dir():
+            return model_path_resource
+
+        self.set_resource("model_path", model_path_resource.parent)
+        self.onnx_file_name = model_path_resource.name
+
+        return model_path_resource.parent
+
     def load_model(self, rank: int = None) -> ModelProto:
         return onnx.load(self.model_path)
 

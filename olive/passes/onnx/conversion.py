@@ -117,10 +117,7 @@ class OnnxConversion(Pass):
 
         if isinstance(model, HfModelHandler) and config["save_metadata_for_token_generation"]:
             # output_model can only be an ONNXModelHandler
-            output_dir = Path(output_model.get_resource("model_path"))
-            if not output_dir.is_dir():
-                output_dir = str(output_dir.parent)
-                output_model.set_resource("model_path", output_dir)
+            output_dir = output_model.change_model_path_to_dir()
 
             output_model.model_attributes = model_attributes = output_model.model_attributes or {}
             model_attributes["additional_files"] = additional_files = model_attributes.get("additional_files", [])
