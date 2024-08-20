@@ -239,18 +239,22 @@ class OnnxDAG:
         """
         name = proto.name
         proto_list = [proto]
+        destination = []
+        # type and proto index for the other type
         other_type = SpecialInput.INITIALIZER
-        insert_idx = 0
+        other_index = 1
         if i_type == SpecialInput.INITIALIZER:
             other_type = SpecialInput.INPUT
-            insert_idx = 1
+            other_index = 0
         if name in self.ios and not (keep_existing and self.ios[name].source == other_type):
             raise ValueError(f"{i_type} {name} already exists in the graph.")
         elif name in self.ios:
             # keep the other type
-            proto_list.insert(insert_idx, self.ios[name].proto[0])
+            i_type = SpecialInput.INPUT_INITIALIZER
+            proto_list.insert(other_index, self.ios[name].proto[0])
+            destination = self.ios[name].destination
 
-        self.ios[name] = OnnxIO(proto=proto_list, source=i_type, graph_idx=graph_idx)
+        self.ios[name] = OnnxIO(proto=proto_list, source=i_type, graph_idx=graph_idx, destination=destination)
 
     def convert_initializer_to_input(self, initializer_name: str):
         """Convert an initializer to an input.
@@ -279,7 +283,7 @@ class OnnxDAG:
         :param dim_idx: index of the dimension to make dynamic.
         :param dim_value: symbolic value of the dimension.
         """
-        if not self.is_input(input_name):
+        if self.ios[input_name].source != SpecialInput.INPUT:
             raise ValueError(f"{input_name} is not an input.")
 
         io_proto = self.ios[input_name].proto[0]
@@ -544,10 +548,8 @@ class OnnxDAG:
                     # no consumers, so don't add it to the graph proto
                     continue
                 if self.is_input(i):
-                    print(i, "is input")
                     inputs.append(io.proto[0])
-                elif self.is_initializer(i):
-                    print(i, "is initializer")
+                if self.is_initializer(i):
                     initializers.append(io.proto[-1])
 
             # update the graph proto
