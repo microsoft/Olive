@@ -56,10 +56,7 @@ CLASSIFIERS = [
 ]
 
 long_description = (
-    "Olive is an easy-to-use hardware-aware model optimization tool that composes industry-leading techniques across"
-    " model compression, optimization, and compilation. Given a model and targeted hardware, Olive composes the best"
-    " suitable optimization techniques to output the most efficient model(s) for inferencing on cloud or edge, while"
-    " taking a set of constraints such as accuracy and latency into consideration."
+    "Olive: Simplify ML Model Finetuning, Conversion, Quantization, and Optimization for CPUs, GPUs and NPUs"
 )
 
 description = long_description.split(".", maxsplit=1)[0] + "."
