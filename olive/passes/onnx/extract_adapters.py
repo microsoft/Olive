@@ -203,7 +203,7 @@ class ExtractAdapters(Pass):
                     name=f"{weight_name}.split",
                     axis=0,
                 )
-                dag.add_node(split_node_proto, 0, overwrite_initializers=True)
+                dag.add_node(split_node_proto, 0, overwrite_input_initializers=True)
 
             # remove the original weights
             weights = packed_weights
