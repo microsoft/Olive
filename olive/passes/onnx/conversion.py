@@ -519,7 +519,7 @@ class OnnxOpVersionConversion(Pass):
     ) -> ONNXModelHandler:
         # resave the input model to the output model path firstly, then convert the opset version
         output_model_path = resolve_onnx_path(output_model_path)
-        model_proto_to_file(model.load_model(), output_model_path, **config)
+        model_proto_to_file(model.load_model(), output_model_path)
 
         # since external data is saved in a separate file, we need to load the model to get the opset version
         model_proto = onnx.load(output_model_path, load_external_data=False)
