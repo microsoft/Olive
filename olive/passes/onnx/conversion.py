@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
 import onnx
+import onnx.external_data_helper
 import torch
 from packaging import version
 
@@ -27,7 +28,7 @@ from olive.model import (
 from olive.model.config import IoConfig
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
@@ -517,12 +518,9 @@ class OnnxOpVersionConversion(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
-        # resave the input model to the output model path firstly, then convert the opset version
         output_model_path = resolve_onnx_path(output_model_path)
-        model_proto_to_file(model.load_model(), output_model_path)
-
         # since external data is saved in a separate file, we need to load the model to get the opset version
-        model_proto = onnx.load(output_model_path, load_external_data=False)
+        model_proto = onnx.load(model.model_path, load_external_data=False)
 
         model_opset_version = model_proto.opset_import[0].version
         if model_opset_version == config["target_opset"]:
@@ -539,4 +537,7 @@ class OnnxOpVersionConversion(Pass):
                 and src_init.data_location == onnx.TensorProto.EXTERNAL
             ):
                 dst_init_map[src_init.name].CopyFrom(src_init)
+        onnx.external_data_helper.load_external_data_for_model(
+            converted_model_proto, str(Path(model.model_path).resolve().parent)
+        )
         return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
