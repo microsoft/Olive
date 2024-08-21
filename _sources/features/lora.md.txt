@@ -26,4 +26,3 @@ $ olive export-adapters [-h] [--adapter_path ADAPTER_PATH] \
                       [--int4_block_size {16,32,64,128,256}] \
                       [--int4_quantization_mode {symmetric,asymmetric}]
 ```
-
