@@ -64,7 +64,11 @@ def test_onnx_conversion_pass_quant_model(add_quantized_modules, tmp_path):
 def test_onnx_op_version_conversion_pass(target_opset, tmp_path):
     input_model = get_onnx_model()
     # setup
-    p = create_pass_from_dict(OnnxOpVersionConversion, {"target_opset": target_opset}, disable_search=True)
+    p = create_pass_from_dict(
+        OnnxOpVersionConversion,
+        {"target_opset": target_opset},
+        disable_search=True,
+    )
     output_folder = str(tmp_path / "onnx")
 
     onnx_model = p.run(input_model, output_folder)

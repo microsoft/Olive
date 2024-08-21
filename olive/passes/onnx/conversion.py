@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
 import onnx
+import onnx.external_data_helper
 import torch
 from packaging import version
 
@@ -517,13 +518,26 @@ class OnnxOpVersionConversion(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
-        # get current models's opset version
-        model_proto = model.load_model()
+        output_model_path = resolve_onnx_path(output_model_path)
+        # since external data is saved in a separate file, we need to load the model to get the opset version
+        model_proto = onnx.load(model.model_path, load_external_data=False)
+
         model_opset_version = model_proto.opset_import[0].version
         if model_opset_version == config["target_opset"]:
             logger.info("Model is already in target opset version %s.", config["target_opset"])
             return model
 
-        output_model_path = resolve_onnx_path(output_model_path)
-        model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
-        return model_proto_to_olive_model(model_proto, output_model_path, config)
+        converted_model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
+        # copy the external data of original model to the new model
+        dst_init_map = {init.name: init for init in converted_model_proto.graph.initializer}
+        for src_init in model_proto.graph.initializer:
+            if (
+                src_init.name in dst_init_map
+                and src_init.HasField("data_location")
+                and src_init.data_location == onnx.TensorProto.EXTERNAL
+            ):
+                dst_init_map[src_init.name].CopyFrom(src_init)
+        onnx.external_data_helper.load_external_data_for_model(
+            converted_model_proto, str(Path(model.model_path).resolve().parent)
+        )
+        return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
