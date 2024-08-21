@@ -3,7 +3,7 @@
         "type": "PyTorchModel",
         "model_path": "<<str: model_path>>",
         "model_loader": "vision_embed_tokens_loader",
-        "model_script": "scripts/user_script.py",
+        "model_script": "vision/scripts/user_script.py",
         "io_config": {
             "input_names": [ "pixel_values", "image_sizes" ],
             "input_types": [ "float32", "int64" ],

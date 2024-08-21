@@ -154,7 +154,10 @@ class OnnxConversion(Pass):
         # get the dtype to use for conversion
         torch_dtype = resolve_torch_dtype(config["torch_dtype"]) if config["torch_dtype"] else None
         if torch_dtype == torch.float16 and device == "cpu":
-            raise ValueError("Conversion to float16 is not supported for CPU.")
+            logger.info(
+                "Conversion to float16 on CPU may not be supported for all models. If you encounter issues, "
+                "please try converting the model on GPU."
+            )
 
         if isinstance(model, DistributedHfModelHandler):
             if not config["device"]:
