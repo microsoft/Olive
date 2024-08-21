@@ -264,9 +264,11 @@
                 <span class="s2">&quot;The workflow job will continue running.&quot;</span>
             <span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;The outputs of the workflow will be saved to the AzureML datastore </span><span class="si">%s</span><span class="s2"> in </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;The outputs of the workflow will be saved as Data asset named </span><span class="si">%s</span><span class="s2">, &quot;</span>
+                <span class="s2">&quot;and all artifacts will be exported to the AzureML datastore </span><span class="si">%s</span><span class="s2"> in &quot;</span>
+                <span class="s2">&quot;&lt;yyyy-mm-dd-hh-mm-ss&gt;/</span><span class="si">%s</span><span class="s2"> folder.&quot;</span><span class="p">,</span>
+                <span class="n">workflow_id</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastores</span><span class="p">,</span>
-                <span class="n">WORKFLOW_ARTIFACTS</span><span class="p">,</span>
                 <span class="n">workflow_id</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_run_job</span><span class="p">(</span>
@@ -286,6 +288,8 @@
         <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
 
         <span class="n">run_config</span><span class="o">.</span><span class="n">workflow_host</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">run_config</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">run_config</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">output_dir</span> <span class="ow">or</span> <span class="s2">&quot;output&quot;</span>
+        <span class="n">run_config</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">cache_dir</span> <span class="o">=</span> <span class="n">run_config</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">cache_dir</span> <span class="ow">or</span> <span class="s2">&quot;cache&quot;</span>
 
         <span class="n">config_root</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;config&quot;</span>
         <span class="n">cur_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>

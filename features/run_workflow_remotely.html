@@ -172,16 +172,16 @@
 </section>
 <section id="workflow-outputs">
 <h2>Workflow outputs<a class="headerlink" href="#workflow-outputs" title="Permalink to this heading">¶</a></h2>
-<p>The artifacts of the workflow, including cache and outputs, will be automatically exported to Azure Machine Learning datastore. The default datastore is <code class="docutils literal notranslate"><span class="pre">workspaceblobstore</span></code>. If you want to export to your own datastore, please add <code class="docutils literal notranslate"><span class="pre">datastore:</span> <span class="pre">&lt;your-datastore-name&gt;</span></code> in AzureML system config:</p>
+<p>The artifacts of the workflow, including cache and outputs, will be automatically exported as Azure Machine Learning and stored to Azure Machine Learning datastore. The Data asset name will be <code class="docutils literal notranslate"><span class="pre">&lt;workflow_id&gt;</span></code>. The default datastore is <code class="docutils literal notranslate"><span class="pre">workspaceblobstore</span></code>. If you want to export to your own datastore, please add <code class="docutils literal notranslate"><span class="pre">datastores:</span> <span class="pre">&lt;your-datastore-name&gt;</span></code> in AzureML system config:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;datastore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;datastore-name&gt;&quot;</span>
+<span class="w">        </span><span class="nt">&quot;datastores&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;datastore-name&gt;&quot;</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>The cache and outputs will be exported to <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/cache</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;datastore&gt;/workflow_artifacts/&lt;workflow_id&gt;/output</span></code>. You can check logs to find the detailed output path.</p>
+<p>The cache and outputs will be exported to <code class="docutils literal notranslate"><span class="pre">&lt;datastores&gt;/&lt;yyyy-mm-dd-hh-mm-ss&gt;/&lt;workflow_id&gt;/cache</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;datastores&gt;/&lt;yyyy-mm-dd-hh-mm-ss&gt;/&lt;workflow_id&gt;/output</span></code>. <code class="docutils literal notranslate"><span class="pre">&lt;yyyy-mm-dd-hh-mm-ss&gt;</span></code> will be the pipeline running date and time. You can check logs to find the detailed output path.</p>
 </section>
 </section>
 

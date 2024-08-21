@@ -1068,8 +1068,9 @@
         <span class="n">run_start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">enable_cloud_cache</span><span class="p">:</span>
+            <span class="n">pass_hash_key</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pass&quot;</span><span class="p">:</span> <span class="n">pass_name</span><span class="p">,</span> <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">}</span>
             <span class="n">output_model_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="o">.</span><span class="n">get_hash_key</span><span class="p">(</span>
-                <span class="n">input_model_config</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">,</span> <span class="n">input_model_hash</span>
+                <span class="n">input_model_config</span><span class="p">,</span> <span class="n">pass_hash_key</span><span class="p">,</span> <span class="n">input_model_hash</span>
             <span class="p">)</span>
             <span class="n">output_model_config</span> <span class="o">=</span> <span class="n">check_model_cache</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cloud_cache_helper</span><span class="p">,</span> <span class="n">output_model_hash</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">))</span>
             <span class="n">pass_run_locally</span> <span class="o">=</span> <span class="n">output_model_config</span> <span class="ow">is</span> <span class="kc">None</span>
@@ -1113,14 +1114,13 @@
         <span class="n">run_end_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Pass </span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2"> finished in </span><span class="si">%f</span><span class="s2"> seconds&quot;</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">run_end_time</span> <span class="o">-</span> <span class="n">run_start_time</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">enable_cloud_cache</span><span class="p">:</span>
-            <span class="c1"># cache model</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
+        <span class="c1"># cache model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
 
-            <span class="c1"># cache run</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_cache_run</span><span class="p">(</span>
-                <span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">,</span> <span class="n">run_accel</span><span class="p">,</span> <span class="n">run_start_time</span><span class="p">,</span> <span class="n">run_end_time</span>
-            <span class="p">)</span>
+        <span class="c1"># cache run</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_run</span><span class="p">(</span>
+            <span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">,</span> <span class="n">run_accel</span><span class="p">,</span> <span class="n">run_start_time</span><span class="p">,</span> <span class="n">run_end_time</span>
+        <span class="p">)</span>
 
         <span class="c1"># footprint model and run</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span>
