@@ -95,12 +95,7 @@ def test_pass_model_attributes_additional_files(self, tmpdir):
         content = strm.read()
     assert content == "model_3_filepath_3"
 
-    def model_4_side_effect(arg):
-        return str(model_4_path) if arg == "model_path" else None
-
-    model_4 = MagicMock(spec=ONNXModelHandler)
-    model_4.get_resource = MagicMock(side_effect=model_4_side_effect)
-    model_4.model_attributes = {}
+    model_4 = ONNXModelHandler(model_path=str(model_4_path))
 
     # Output model's output path is a file rather than directory
     Pass._carry_forward_additional_files(model_3, model_4)  # pylint: disable=W0212
