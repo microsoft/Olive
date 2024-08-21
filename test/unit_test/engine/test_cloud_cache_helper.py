@@ -53,18 +53,18 @@ class TestCloudCacheHelper:
         # setup
         model_config = ModelConfig(type="onnxmodel", config={"model_path": "model.onnx"})
         expected_model_config = ModelConfig(type="onnxmodel", config={})
-        pass_search_point = {"search_point": "point"}
+        pass_hash_key = {"search_point": "point"}
         input_model_hash = "input_model_hash"
         expected_hash_key = hash_dict(
             {
-                "input_model_identifier": input_model_hash,
+                "model_identifier": input_model_hash,
                 "model_config": expected_model_config.to_json(),
-                "pass_search_point": pass_search_point,
+                "pass_hash_key": pass_hash_key,
             }
         )
 
         # execute
-        actual_hash_key = self.cloud_cache_helper.get_hash_key(model_config, pass_search_point, input_model_hash)
+        actual_hash_key = self.cloud_cache_helper.get_hash_key(model_config, pass_hash_key, input_model_hash)
 
         # assert
         assert expected_hash_key == actual_hash_key
@@ -73,19 +73,18 @@ class TestCloudCacheHelper:
     def test_get_hash_key_without_input_hash(self, mock_repo_info):
         # setup
         model_config = ModelConfig(type="HfModel", config={"model_path": "model_name"})
-        pass_search_point = {"search_point": "point"}
-        input_model_hash = None
+        pass_hash_key = {"search_point": "point"}
         mock_repo_info.return_value.sha = "sha"
         expected_hash_key = hash_dict(
             {
-                "input_model_identifier": "sha",
+                "model_identifier": "sha",
                 "model_config": model_config.to_json(),
-                "pass_search_point": pass_search_point,
+                "pass_hash_key": pass_hash_key,
             }
         )
 
         # execute
-        actual_hash_key = self.cloud_cache_helper.get_hash_key(model_config, pass_search_point, input_model_hash)
+        actual_hash_key = self.cloud_cache_helper.get_hash_key(model_config, pass_hash_key, None)
 
         # assert
         assert expected_hash_key == actual_hash_key

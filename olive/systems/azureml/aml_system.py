@@ -129,9 +129,11 @@ class AzureMLSystem(OliveSystem):
                 "The workflow job will continue running."
             )
             logger.info(
-                "The outputs of the workflow will be saved to the AzureML datastore %s in %s/%s.",
+                "The outputs of the workflow will be saved as Data asset named %s, "
+                "and all artifacts will be exported to the AzureML datastore %s in "
+                "<yyyy-mm-dd-hh-mm-ss>/%s folder.",
+                workflow_id,
                 self.config.datastores,
-                WORKFLOW_ARTIFACTS,
                 workflow_id,
             )
             self._run_job(
@@ -151,6 +153,8 @@ class AzureMLSystem(OliveSystem):
         tmp_dir = Path(tmp_dir)
 
         run_config.workflow_host = None
+        run_config.engine.output_dir = run_config.engine.output_dir or "output"
+        run_config.engine.cache_dir = run_config.engine.cache_dir or "cache"
 
         config_root = tmp_dir / "config"
         cur_dir = Path(__file__).resolve().parent
