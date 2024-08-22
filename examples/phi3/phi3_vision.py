@@ -180,6 +180,7 @@ def main(raw_args=None):
     to_remove_folders = [
         Path(args.output_dir).resolve() / "vision",
         Path(args.output_dir).resolve() / "text",
+        Path(args.output_dir).resolve() / "text-embedding",
     ]
     for folder in to_remove_folders:
         shutil.rmtree(folder, ignore_errors=True)
