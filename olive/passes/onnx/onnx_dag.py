@@ -25,6 +25,24 @@ class SpecialInput(StrEnumBase):
 
     INPUT = "__input__"  # user input
     INITIALIZER = "__initializer__"  # constant initializer
+    INPUT_INITIALIZER = "__input_initializer__"  # input + initializer
+
+    @classmethod
+    def is_special_input(cls, value: str) -> bool:
+        try:
+            cls(value)
+            return True
+        except ValueError:
+            # check if value is a valid input name
+            return False
+
+    @classmethod
+    def is_input(cls, value: str) -> bool:
+        return value in {cls.INPUT, cls.INPUT_INITIALIZER}
+
+    @classmethod
+    def is_initializer(cls, value: str) -> bool:
+        return value in {cls.INITIALIZER, cls.INPUT_INITIALIZER}
 
 
 class SpecialOutput(StrEnumBase):
@@ -56,7 +74,7 @@ class OnnxIO(ConfigBase):
     graph_idx: int
     # reference to the protobuf object
     # can't be serialized to JSON, but we don't need it
-    proto: Union[ValueInfoProto, TensorProto] = None
+    proto: List[Union[ValueInfoProto, TensorProto]] = Field(default_factory=list)
 
 
 class OnnxDAG:
@@ -109,14 +127,24 @@ class OnnxDAG:
         :param graph_idx: index of the graph in the model.
         """
         for i in graph.input:
-            ios[i.name] = OnnxIO(proto=i, source=SpecialInput.INPUT, graph_idx=graph_idx)
+            ios[i.name] = OnnxIO(proto=[i], source=SpecialInput.INPUT, graph_idx=graph_idx)
         for o in graph.output:
-            ios[o.name] = OnnxIO(proto=o, destination=[SpecialOutput.OUTPUT], graph_idx=graph_idx)
+            ios[o.name] = OnnxIO(proto=[o], destination=[SpecialOutput.OUTPUT], graph_idx=graph_idx)
         for initializer in graph.initializer:
-            ios[initializer.name] = OnnxIO(proto=initializer, source=SpecialInput.INITIALIZER, graph_idx=graph_idx)
+            if initializer.name in ios:
+                # it can be both an input and an initializer
+                io = ios[initializer.name]
+                io.proto.append(initializer)
+                io.source = SpecialInput.INPUT_INITIALIZER
+            else:
+                ios[initializer.name] = OnnxIO(
+                    proto=[initializer],
+                    source=SpecialInput.INITIALIZER,
+                    graph_idx=graph_idx,
+                )
         for vi in graph.value_info:
             if vi.name not in ios:
-                ios[vi.name] = OnnxIO(proto=vi, graph_idx=graph_idx)
+                ios[vi.name] = OnnxIO(proto=[vi], graph_idx=graph_idx)
         return ios
 
     @staticmethod
@@ -126,7 +154,7 @@ class OnnxDAG:
         ios: Dict[str, OnnxIO],
         connections: Dict[str, List[str]],
         graph_idx: int,
-        overwrite_initializers: bool = False,
+        overwrite_input_initializers: bool = False,
     ):
         """Process a node and populate the nodes and connections attributes.
 
@@ -135,8 +163,8 @@ class OnnxDAG:
         :param ios: dictionary to store the inputs, outputs, and initializers.
         :param connections: dictionary to store the connections between nodes.
         :param graph_idx: index of the graph in the model.
-        :param overwrite_initializers: whether to overwrite the initializers if a node output is already present
-            as an initializer. If False, it will raise an error.
+        :param overwrite_input_initializers: whether to overwrite the inputs and/or initializers if a node
+            output is already present as an one. If False, it will raise an error.
         """
         name = node_proto.name
         onnx_node = OnnxNode(
@@ -158,7 +186,7 @@ class OnnxDAG:
                 )
             ios[i].destination.append(name)
             parent = ios[i].source
-            if parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
+            if not SpecialInput.is_special_input(parent):
                 connections[parent].append(name)
 
         for o in node_proto.output:
@@ -168,63 +196,125 @@ class OnnxDAG:
             if o not in ios:
                 ios[o] = OnnxIO(graph_idx=graph_idx)
             elif ios[o].source is not None and not (
-                overwrite_initializers and ios[o].source == SpecialInput.INITIALIZER
+                overwrite_input_initializers and SpecialInput.is_special_input(ios[o].source)
             ):
-                # if the output's original source is an initializer, we can overwrite it
+                # if the output's original source is an input/initializer, we can overwrite it
                 raise ValueError(f"Output {o} is already connected to another node.")
             ios[o].source = name
             for destination in ios[o].destination:
                 if destination != SpecialOutput.OUTPUT:
                     connections[name].append(destination)
 
-    def add_input(self, input_proto: ValueInfoProto, graph_idx: int):
+    def add_input(self, input_proto: ValueInfoProto, graph_idx: int, keep_initializer: bool = False):
         """Add an input to the graph.
 
         :param input_proto: ValueInfoProto of the input.
         :param graph_idx: index of the graph in the model.
+        :param keep_initializer: whether to keep the initializer if it exists with the same name.
         """
-        if input_proto.name in self.ios:
-            raise ValueError(f"Input {input_proto.name} already exists in the graph.")
+        self._add_special_input(input_proto, graph_idx, SpecialInput.INPUT, keep_initializer)
 
-        self.ios[input_proto.name] = OnnxIO(proto=input_proto, source=SpecialInput.INPUT, graph_idx=graph_idx)
-
-    def add_initializer(self, initializer: TensorProto, graph_idx: int):
+    def add_initializer(self, initializer: TensorProto, graph_idx: int, keep_input: bool = False):
         """Add an initializer to the graph.
 
         :param initializer: TensorProto of the initializer.
         :param graph_idx: index of the graph in the model.
+        :param keep_input: whether to keep the input if it exists with the same name.
         """
-        if initializer.name in self.ios:
-            raise ValueError(f"Initializer {initializer.name} already exists in the graph.")
+        self._add_special_input(initializer, graph_idx, SpecialInput.INITIALIZER, keep_input)
 
-        self.ios[initializer.name] = OnnxIO(proto=initializer, source=SpecialInput.INITIALIZER, graph_idx=graph_idx)
+    def _add_special_input(
+        self,
+        proto: Union[ValueInfoProto, TensorProto],
+        graph_idx: int,
+        i_type: SpecialInput,
+        keep_existing: bool = False,
+    ):
+        """Add a special input to the graph.
+
+        :param proto: ValueInfoProto or TensorProto of the input.
+        :param graph_idx: index of the graph in the model.
+        :param i_type: type of the special input.
+        :param keep_existing: whether to keep the existing input/initializer if it exists with the same name.
+        """
+        name = proto.name
+        proto_list = [proto]
+        destination = []
+        # type and proto index for the other type
+        other_type = SpecialInput.INITIALIZER
+        other_index = 1
+        if i_type == SpecialInput.INITIALIZER:
+            other_type = SpecialInput.INPUT
+            other_index = 0
+        if name in self.ios and not (keep_existing and self.ios[name].source == other_type):
+            raise ValueError(f"{i_type} {name} already exists in the graph.")
+        elif name in self.ios:
+            # keep the other type
+            i_type = SpecialInput.INPUT_INITIALIZER
+            proto_list.insert(other_index, self.ios[name].proto[0])
+            destination = self.ios[name].destination
+
+        self.ios[name] = OnnxIO(proto=proto_list, source=i_type, graph_idx=graph_idx, destination=destination)
 
     def convert_initializer_to_input(self, initializer_name: str):
         """Convert an initializer to an input.
 
         :param initializer_name: name of the initializer to convert to an input.
         """
-        if not self.is_initializer(initializer_name):
+        io = self.ios[initializer_name]
+        if io.source != SpecialInput.INITIALIZER:
             raise ValueError(f"{initializer_name} is not an initializer.")
 
-        io = self.ios[initializer_name]
+        # update the ios
+        self.ios[initializer_name] = OnnxIO(
+            proto=[onnx.helper.make_tensor_value_info(initializer_name, io.proto[0].data_type, io.proto[0].dims)],
+            source=SpecialInput.INPUT,
+            destination=io.destination,
+            graph_idx=io.graph_idx,
+        )
 
-        old_proto = io.proto
-        new_proto = onnx.helper.make_tensor_value_info(initializer_name, old_proto.data_type, old_proto.dims)
-        io.source = SpecialInput.INPUT
-        io.proto = new_proto
+    def make_input_dim_dynamic(self, input_name: str, dim_idx: int, dim_param: str):
+        """Make a dimension of an input dynamic.
 
-    def add_node(self, node_proto: NodeProto, graph_idx: int, overwrite_initializers: bool = False):
+        This assumes changing the dimension of the input doesn't break the graph, especially if it has gone through
+        shape inference.
+
+        :param input_name: name of the input.
+        :param dim_idx: index of the dimension to make dynamic.
+        :param dim_value: symbolic value of the dimension.
+        """
+        if self.ios[input_name].source != SpecialInput.INPUT:
+            raise ValueError(f"{input_name} is not an input.")
+
+        io_proto = self.ios[input_name].proto[0]
+
+        # graph inputs are required to have a shape to provide the rank
+        shape = io_proto.type.tensor_type.shape
+        if dim_idx >= len(shape.dim):
+            raise ValueError(f"Input {input_name} has rank {len(shape.dim)} but trying to access dim {dim_idx}.")
+
+        for idx, dim in enumerate(shape.dim):
+            if idx != dim_idx:
+                continue
+
+            if dim.HasField("dim_param"):
+                raise ValueError(f"Can't replace existing dynamic dim {dim.dim_param} with {dim_param}")
+
+            dim.Clear()
+            dim.dim_param = dim_param
+            break
+
+    def add_node(self, node_proto: NodeProto, graph_idx: int, overwrite_input_initializers: bool = False):
         """Add a node to the graph.
 
         This adds the node to the `nodes` attribute and connects them using the `ios` attribute.
 
         :param node_proto: ONNX node.
         :param graph_idx: index of the graph in the model.
-        :param overwrite_initializers: whether to overwrite the initializers if a node output is already present
-            as an initializer. If false, it will raise an error.
+        :param overwrite_input_initializers: whether to overwrite the inputs and/or initializers if a node
+            output is already present as an one. If False, it will raise an error.
         """
-        self._process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx, overwrite_initializers)
+        self._process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx, overwrite_input_initializers)
 
     def remove_node(self, node_name: str, check_no_consumers: bool = False):
         """Remove a node from the graph.
@@ -281,11 +371,11 @@ class OnnxDAG:
 
                 # update the connections
                 old_parent = self.ios[old_input].source
-                if old_parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
+                if not SpecialInput.is_special_input(old_parent):
                     self.connections[old_parent].remove(node_name)
 
                 new_parent = self.ios[new_input].source
-                if new_parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
+                if not SpecialInput.is_special_input(new_parent):
                     self.connections[new_parent].append(node_name)
 
                 num_updated += 1
@@ -346,7 +436,7 @@ class OnnxDAG:
         :param io_name: name of the input/output.
         :return: True if the input/output is a user input.
         """
-        return self.ios[io_name].source == SpecialInput.INPUT
+        return SpecialInput.is_input(self.ios[io_name].source)
 
     def is_initializer(self, io_name: str) -> bool:
         """Check if an input/output is an initializer.
@@ -354,7 +444,7 @@ class OnnxDAG:
         :param io_name: name of the input/output.
         :return: True if the input/output is an initializer.
         """
-        return self.ios[io_name].source == SpecialInput.INITIALIZER
+        return SpecialInput.is_initializer(self.ios[io_name].source)
 
     def is_output(self, io_name: str) -> bool:
         """Check if an input/output is an output.
@@ -378,7 +468,7 @@ class OnnxDAG:
         :param node_name: name of the node. It can also be an input or initializer.
         :return: list of names of nodes that consume one/more outputs of the node.
         """
-        if node_name in self.ios and self.ios[node_name].source in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
+        if node_name in self.ios and SpecialInput.is_special_input(self.ios[node_name].source):
             return list(self.ios[node_name].destination)
 
         return list(self.connections[node_name])
@@ -450,7 +540,7 @@ class OnnxDAG:
                     continue
                 if self.is_output(i):
                     # outputs are handled separately
-                    outputs.append(io.proto)
+                    outputs.append(io.proto[0])
                     continue
 
                 # inputs, initializers or intermediate connections
@@ -458,9 +548,9 @@ class OnnxDAG:
                     # no consumers, so don't add it to the graph proto
                     continue
                 if self.is_input(i):
-                    inputs.append(io.proto)
-                elif self.is_initializer(i):
-                    initializers.append(io.proto)
+                    inputs.append(io.proto[0])
+                if self.is_initializer(i):
+                    initializers.append(io.proto[-1])
 
             # update the graph proto
             graph.ClearField("node")

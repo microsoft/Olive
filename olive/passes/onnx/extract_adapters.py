@@ -55,6 +55,23 @@ class ExtractAdapters(Pass):
                     " is True."
                 ),
             ),
+            "dynamic_lora_r": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=(
+                    "Whether the model uses dynamic shape for lora_r. Only used if make_inputs is True. Valid only for"
+                    " float modules."
+                ),
+            ),
+            "optional_inputs": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=(
+                    "Create default initializers (empty tensor with lora_r dimension set to 0) for the adapter weights,"
+                    " if inputs not provided during inference. Only used if make_inputs is True. Valid only for float"
+                    " modules."
+                ),
+            ),
             "save_format": PassConfigParam(
                 type_=WeightsFileFormat,
                 default_value=WeightsFileFormat.NUMPY,
@@ -116,7 +133,7 @@ class ExtractAdapters(Pass):
                 elif dag.is_initializer(old_weight_name):
                     # weight is an float initializer
                     # create initializer with new weight name
-                    self._create_empty_initializer(dag, weights, old_weight_name, new_weight_name)
+                    self._externalize_initializer(dag, weights, old_weight_name, new_weight_name)
 
                     # change input to the new name
                     dag.replace_node_input(node_name, old_weight_name, new_weight_name)
@@ -133,7 +150,7 @@ class ExtractAdapters(Pass):
                     used_inputs = []
                     # create new initializers for the dequantize node
                     for old_input, new_input in zip(old_dequantize_node.inputs, new_quantized_names):
-                        self._create_empty_initializer(dag, weights, old_input, new_input)
+                        self._externalize_initializer(dag, weights, old_input, new_input)
                         used_inputs.append(new_input)
 
                     # create a new dequantize node
@@ -166,7 +183,7 @@ class ExtractAdapters(Pass):
                 # weight is Nbits quantized
                 # create empty initializers and change node inputs
                 for old_input, new_input in zip(dag.get_node_inputs(node_name)[1:], new_quantized_names):
-                    self._create_empty_initializer(dag, weights, old_input, new_input)
+                    self._externalize_initializer(dag, weights, old_input, new_input)
                     dag.replace_node_input(node_name, old_input, new_input)
 
                 # add the module to the quant modules
@@ -176,37 +193,47 @@ class ExtractAdapters(Pass):
         for node_name in nodes_to_remove:
             dag.remove_node(node_name, check_no_consumers=True)
 
-        if config["make_inputs"] and not config["pack_inputs"]:
-            # create inputs for the weights
-            for weight_name in weights:
-                dag.convert_initializer_to_input(weight_name)
-        elif config["make_inputs"] and config["pack_inputs"]:
-            # what weights are packed together
-            packed_weights, packings = self.pack_weights(weights, lora_modules, float_modules, quant_modules)
+        if config["make_inputs"]:
+            if quant_modules and (config["dynamic_lora_r"] or config["optional_inputs"]):
+                # dynamic shape and optional inputs not supported for quantized modules yet
+                logger.warning("Quantized modules are not supported with dynamic_lora_r or optional_inputs. Ignoring.")
+                logger.debug("Quantized modules: %s", quant_modules)
 
-            # create inputs and split nodes for the packed weights
-            for weight_name, to_pack in packings.items():
-                # input proto
-                input_proto = onnx.helper.make_tensor_value_info(
-                    name=weight_name,
-                    elem_type=onnx.helper.np_dtype_to_tensor_dtype(packed_weights[weight_name].dtype),
-                    shape=packed_weights[weight_name].shape,
-                )
-                # TODO(jambayk): check if graph_idx can be 0 even if they might be used in subgraphs
-                dag.add_input(input_proto, 0)
+            if not config["pack_inputs"]:
+                # create inputs for the weights
+                for weight_name in weights:
+                    dag.convert_initializer_to_input(weight_name)
+                    self._make_dynamic_optional(dag, weights, weight_name, config)
+            else:
+                # what weights are packed together
+                packed_weights, packings = self.pack_weights(weights, lora_modules, float_modules, quant_modules)
 
-                # split nodes
-                split_node_proto = onnx.helper.make_node(
-                    "Split",
-                    inputs=[weight_name],
-                    outputs=to_pack,
-                    name=f"{weight_name}.split",
-                    axis=0,
-                )
-                dag.add_node(split_node_proto, 0, overwrite_initializers=True)
+                # create inputs and split nodes for the packed weights
+                for weight_name, to_pack in packings.items():
+                    # input proto
+                    input_proto = onnx.helper.make_tensor_value_info(
+                        name=weight_name,
+                        elem_type=onnx.helper.np_dtype_to_tensor_dtype(packed_weights[weight_name].dtype),
+                        shape=packed_weights[weight_name].shape,
+                    )
+                    # TODO(jambayk): check if graph_idx can be 0 even if they might be used in subgraphs
+                    dag.add_input(input_proto, 0)
 
-            # remove the original weights
-            weights = packed_weights
+                    # split nodes
+                    split_node_proto = onnx.helper.make_node(
+                        "Split",
+                        inputs=[weight_name],
+                        outputs=to_pack,
+                        name=f"{weight_name}.split",
+                        axis=0,
+                    )
+                    dag.add_node(split_node_proto, 0, overwrite_input_initializers=True)
+
+                    # make the inputs dynamic and optional
+                    self._make_dynamic_optional(dag, packed_weights, weight_name, config)
+
+                # remove the original weights
+                weights = packed_weights
 
         # update the model with the changes
         dag.update()
@@ -329,9 +356,10 @@ class ExtractAdapters(Pass):
         return new_initializer
 
     @classmethod
-    def _create_empty_initializer(cls, dag: OnnxDAG, weights: Dict[str, "NDArray"], old_name: str, new_name: str):
-        """Create an empty initializer with the same shape and type as the old initializer.
+    def _externalize_initializer(cls, dag: OnnxDAG, weights: Dict[str, "NDArray"], old_name: str, new_name: str):
+        """Create a new initializer with the same shape and type as the old initializer.
 
+        The initializer points to a dummy external location.
         Add the new initializer to the graph and store the weight in a dictionary.
 
         :param dag: OnnxDAG object
@@ -341,7 +369,7 @@ class ExtractAdapters(Pass):
         """
         assert dag.is_initializer(old_name), f"{old_name} is not an initializer"
 
-        old_proto = dag.get_io(old_name).proto
+        old_proto = dag.get_io(old_name).proto[-1]
 
         # store the weight in a dictionary
         weights[new_name] = onnx.numpy_helper.to_array(old_proto)
@@ -350,3 +378,24 @@ class ExtractAdapters(Pass):
         new_initializer = cls._copy_initializer(old_proto, new_name)
         # add the new initializer to the graph
         dag.add_initializer(new_initializer, dag.get_io(old_name).graph_idx)
+
+    @classmethod
+    def _make_dynamic_optional(cls, dag: OnnxDAG, weights: Dict[str, "NDArray"], name: str, config: Dict[str, Any]):
+        """Make the input dynamic and optional."""
+        if "quant" in name:
+            # already logged warning before
+            return
+
+        # lora r dimension index
+        dim_idx = 1 if "lora_A" in name else 0
+
+        # make the input dynamic
+        if config["dynamic_lora_r"]:
+            dag.make_input_dim_dynamic(name, dim_idx, "lora_r")
+
+        # create default initializer
+        if config["optional_inputs"]:
+            shape = list(weights[name].shape)
+            shape[dim_idx] = 0
+            initializer_proto = onnx.numpy_helper.from_array(np.zeros(shape, dtype=weights[name].dtype), name)
+            dag.add_initializer(initializer_proto, 0, keep_input=True)

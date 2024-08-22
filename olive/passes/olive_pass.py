@@ -232,9 +232,7 @@ class Pass(ABC):
         if not output_model_path.is_dir():
             if isinstance(output_model, ONNXModelHandler):
                 # change the "model_path" resource to the parent directory of the model file
-                output_model.set_resource("model_path", output_model_path.parent)
-                output_model.onnx_file_name = output_model_path.name
-                output_model_path = output_model_path.parent
+                output_model_path = output_model.change_model_path_to_dir()
             else:
                 logger.warning("Expecting the output model to be in a directory but found a file.")
                 return
