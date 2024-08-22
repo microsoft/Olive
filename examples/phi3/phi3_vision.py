@@ -11,7 +11,11 @@ import readline
 import shutil
 from pathlib import Path
 
+import onnx
+
 from olive.common.utils import run_subprocess
+from olive.model import ModelConfig
+from olive.passes.onnx.common import model_proto_to_file
 from olive.workflows import run as olive_run
 from olive.workflows.run.config import RunConfig
 
@@ -86,107 +90,7 @@ def is_model_ready(input_model_path):
     return True
 
 
-def build_text_embedding(args, input_model_path):
-    #########################################
-    # Functions/variables from model builder
-    #########################################
-    import numpy as np
-    import torch
-    from onnx import TensorProto, external_data_helper, helper, numpy_helper, save_model
-    from transformers import AutoConfig, AutoModelForCausalLM
-
-    model = AutoModelForCausalLM.from_pretrained(input_model_path, trust_remote_code=True)
-    config = AutoConfig.from_pretrained(input_model_path, trust_remote_code=True)
-
-    # User inputs
-    io_dtype = (
-        TensorProto.FLOAT16
-        if args.precision == "fp16" or (args.precision == "int4" and args.target == "cuda")
-        else TensorProto.FLOAT
-    )
-    os.makedirs(args.output_dir, exist_ok=True)
-
-    # Map TensorProto dtypes
-    to_torch_dtype = {
-        TensorProto.FLOAT16: torch.float16,
-        TensorProto.FLOAT: torch.float32,
-    }
-    to_numpy_dtype = {
-        TensorProto.FLOAT16: np.float16,
-        TensorProto.FLOAT: np.float32,
-    }
-
-    def make_external_tensor(np_data, name, **kwargs):
-        tensor = numpy_helper.from_array(np_data)
-        tensor.name = name
-
-        filename = f"{name}.bin"
-        external_data_helper.set_external_data(tensor, location=filename)
-        with open(os.path.join(args.output_dir, filename), "wb") as f:
-            f.write(tensor.raw_data)
-        tensor.ClearField("raw_data")
-        tensor.data_location = TensorProto.EXTERNAL
-
-        return tensor
-
-    # Make model
-    embedding = model.model.embed_tokens.weight.to(to_torch_dtype[io_dtype]).detach().cpu().numpy()
-    weight_name = "model.embed_tokens.weight"
-    embed_weight = make_external_tensor(embedding.astype(to_numpy_dtype[io_dtype]), weight_name)
-    model = helper.make_model(
-        opset_imports=[helper.make_operatorsetid("", 14), helper.make_operatorsetid("com.microsoft", 1)],
-        ir_version=7,
-        producer_name="onnxruntime-genai-olive",
-        producer_version="0.0.0",
-        graph=helper.make_graph(
-            name="main_graph",
-            inputs=[
-                helper.make_tensor_value_info("input_ids", TensorProto.INT64, shape=["batch_size", "sequence_length"])
-            ],
-            outputs=[
-                helper.make_tensor_value_info(
-                    "inputs_embeds", io_dtype, shape=["batch_size", "sequence_length", config.hidden_size]
-                )
-            ],
-            initializer=[embed_weight],
-            value_info=[],
-            nodes=[
-                helper.make_node(
-                    "Gather",
-                    inputs=[weight_name, "input_ids"],
-                    outputs=["inputs_embeds"],
-                    name="/model/embed_tokens/Gather",
-                )
-            ],
-        ),
-    )
-
-    external_data_helper.load_external_data_for_model(model, args.output_dir)
-
-    # Delete external data files on disk before re-saving
-    for path in os.listdir(args.output_dir):
-        if path.endswith(".bin"):
-            (Path(args.output_dir) / path).unlink()
-
-    # Save ONNX model with only one external data file and delete any existing duplicate copies
-    filename = "phi-3-v-128k-instruct-text-embedding.onnx"
-    output_path = Path(args.output_dir) / filename
-    save_model(
-        model,
-        output_path,
-        save_as_external_data=True,
-        all_tensors_to_one_file=True,
-        location=f"{filename}.data",
-        size_threshold=0,
-        convert_attribute=False,
-    )
-
-
 def resave_onnx_model(model_path, target_output_path, pass_config):
-    import onnx
-
-    from olive.passes.onnx.common import model_proto_to_file
-
     model_proto_to_file(
         onnx.load(model_path),
         target_output_path,
@@ -196,6 +100,15 @@ def resave_onnx_model(model_path, target_output_path, pass_config):
         size_threshold=pass_config.get("size_threshold", 1024),
         convert_attribute=pass_config.get("convert_attribute", False),
     )
+
+
+def run_and_save(config, output_dir, suffix):
+    run_output = olive_run(config)
+    output_node = next(iter(run_output.values())).get_top_ranked_nodes(1)[0]
+    # "model_path" resource can be folder for model with external data
+    model_path = ModelConfig.parse_file_or_obj(output_node.model_config).create_model().model_path
+    pass_config = output_node.pass_run_config
+    resave_onnx_model(model_path, output_dir / f"phi-3-v-128k-instruct-{suffix}.onnx", pass_config)
 
 
 def main(raw_args=None):
@@ -236,24 +149,17 @@ def main(raw_args=None):
     with genai_config_path.open("w") as f:
         json.dump(genai_config, f, indent=4)
 
-    build_text_embedding(args, input_model_path)
+    text_embedding_config = generate_text_embedding_config(args, input_model_path)
+    run_and_save(text_embedding_config, output_dir, "text-embedding")
 
     # Generate Olive configuration file for specific target
     print("\nGenerating Olive configuration file...")
     vision_config = generate_vision_config(args, input_model_path)
-    vision_output = olive_run(vision_config)
-    output_node = next(iter(vision_output.values())).get_top_ranked_nodes(1)[0]
-    model_path = output_node.model_config["config"]["model_path"]
-    pass_config = output_node.pass_run_config
-    resave_onnx_model(model_path, output_dir / "phi-3-v-128k-instruct-vision.onnx", pass_config)
+    run_and_save(vision_config, output_dir, "vision")
 
     text_config = generate_text_config(args, input_model_path)
     try:
-        text_output = olive_run(text_config)
-        output_node = next(iter(text_output.values())).get_top_ranked_nodes(1)[0]
-        model_path = output_node.model_config["config"]["model_path"]
-        pass_config = output_node.pass_run_config
-        resave_onnx_model(model_path, output_dir / "phi-3-v-128k-instruct-text.onnx", pass_config)
+        run_and_save(text_config, output_dir, "text")
     except Exception:
         config_link = "https://huggingface.co/microsoft/Phi-3-vision-128k-instruct-onnx-cpu/tree/main/cpu-int4-rtn-block-32-acc-level-4."
         print(
@@ -324,6 +230,27 @@ def generate_text_config(args, input_model_path):
     config["engine"] = {
         "cache_dir": Path(args.cache_dir).resolve() / "text",
         "output_dir": Path(args.output_dir).resolve() / "text",
+    }
+    return config
+
+
+def generate_text_embedding_config(args, input_model_path):
+    config = json.load((config_path / "text_embedding_config.json").open())
+    config["input_model"]["model_path"] = input_model_path
+
+    if args.precision == "fp16" or (args.precision == "int4" and args.target == "cuda"):
+        config["passes"]["convert"]["torch_dtype"] = "float16"
+    else:
+        config["passes"]["convert"]["torch_dtype"] = "float32"
+
+    if args.target == "cuda":
+        config["passes"]["convert"]["device"] = "cuda"
+        config["systems"]["local_system"]["accelerators"] = [
+            {"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}
+        ]
+    config["engine"] = {
+        "cache_dir": Path(args.cache_dir).resolve() / "text_embedding",
+        "output_dir": Path(args.output_dir).resolve() / "text_embedding",
     }
     return config
 

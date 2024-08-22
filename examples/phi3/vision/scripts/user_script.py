@@ -26,3 +26,8 @@ def get_dummy_inputs(model=None):
         inputs["pixel_values"],
         inputs["image_sizes"],
     )
+
+
+def text_embedding_loader(model_name):
+    model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)
+    return model.model.embed_tokens
