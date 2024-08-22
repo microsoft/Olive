@@ -289,7 +289,7 @@ class ExtractAdapters(Pass):
         return [
             f".*[./]{key}[./]{name}[./]{matmul}$"
             for key in lora_modules
-            for name in ["default", "default_1"]
+            for name in ["default", "default_1", "lora_A", "lora_B"]
             for matmul in ["MatMul", "MatMul_Q4"]
         ]
 

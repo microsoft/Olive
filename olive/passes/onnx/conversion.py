@@ -15,7 +15,7 @@ import torch
 from packaging import version
 
 from olive.common.config_utils import validate_config
-from olive.common.hf.utils import is_peft_model
+from olive.common.hf.peft import is_peft_model, peft_export_context_manager
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
 from olive.hardware import AcceleratorSpec
 from olive.model import (
@@ -177,11 +177,6 @@ class OnnxConversion(Pass):
         if use_gpu and torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        # if pytorch_model is PeftModel, we need to get the base model
-        # otherwise, the model forward has signature (*args, **kwargs) and torch.onnx.export ignores the dummy_inputs
-        if is_peft_model(pytorch_model):
-            pytorch_model = pytorch_model.get_base_model()
-
         # put pytorch_model and dummy_inputs at the same device
         logger.debug("Converting model on device %s with dtype %s.", device, torch_dtype)
         pytorch_model.to(device)
@@ -216,11 +211,12 @@ class OnnxConversion(Pass):
                 tmp_dir_path = Path(tmp_dir)
                 tmp_model_path = resolve_onnx_path(tmp_dir_path)
 
-                dynamo_export(
-                    pytorch_model,
-                    *dummy_inputs,
-                    export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
-                ).save(tmp_model_path)
+                with peft_export_context_manager(pytorch_model) as model_to_export:
+                    dynamo_export(
+                        model_to_export,
+                        *dummy_inputs,
+                        export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
+                    ).save(tmp_model_path)
                 onnx.checker.check_model(tmp_model_path)
                 onnx.shape_inference.infer_shapes_path(tmp_model_path)
                 onnx_model = onnx.load(tmp_model_path)
@@ -232,16 +228,17 @@ class OnnxConversion(Pass):
                 tmp_dir_path = Path(tmp_dir)
                 tmp_model_path = resolve_onnx_path(tmp_dir_path)
 
-                torch.onnx.export(
-                    pytorch_model,
-                    dummy_inputs,
-                    tmp_model_path,
-                    export_params=True,
-                    opset_version=config["target_opset"],
-                    input_names=io_config.input_names,
-                    output_names=io_config.output_names,
-                    dynamic_axes=io_config.dynamic_axes,
-                )
+                with peft_export_context_manager(pytorch_model) as model_to_export:
+                    torch.onnx.export(
+                        model_to_export,
+                        dummy_inputs,
+                        tmp_model_path,
+                        export_params=True,
+                        opset_version=config["target_opset"],
+                        input_names=io_config.input_names,
+                        output_names=io_config.output_names,
+                        dynamic_axes=io_config.dynamic_axes,
+                    )
                 onnx_model = onnx.load(tmp_model_path)
                 # the model is loaded into memory, so it's safe to delete previously exported file(s)
 
