@@ -8,6 +8,7 @@ import glob
 import json
 import os
 import readline
+import shutil
 from pathlib import Path
 
 from olive.common.utils import run_subprocess
@@ -200,6 +201,9 @@ def resave_onnx_model(model_path, target_output_path, pass_config):
 def main(raw_args=None):
     args = get_args(raw_args)
 
+    if args.precision == "fp16" and args.target == "cpu":
+        raise ValueError("fp16 precision is only supported on CUDA target, try --precision fp16 --target cuda instead")
+
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     cache_dir = Path(args.cache_dir).resolve()
@@ -266,6 +270,13 @@ def main(raw_args=None):
         model_path = list(cache_dir.rglob("*.onnx"))[-1]
         resave_onnx_model(model_path, output_dir / "phi-3-v-128k-instruct-text.onnx", pass_config)
     print("Model generation completed, output saved to ", output_dir)
+    # clean up the output directory in olive.workflows
+    to_remove_folders = [
+        Path(args.output_dir).resolve() / "vision",
+        Path(args.output_dir).resolve() / "text",
+    ]
+    for folder in to_remove_folders:
+        shutil.rmtree(folder, ignore_errors=True)
 
     if args.inference:
         generate(output_dir)
@@ -282,7 +293,6 @@ def generate_vision_config(args, input_model_path):
         config["passes"]["convert"]["torch_dtype"] = "float32"
 
     if args.target == "cpu":
-        config["passes"]["convert"]["torch_dtype"] = "float32"
         config["passes"]["matmul_4bits"]["accuracy_level"] = 4
     else:
         config["passes"]["convert"]["device"] = "cuda"
