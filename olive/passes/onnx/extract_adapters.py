@@ -193,42 +193,47 @@ class ExtractAdapters(Pass):
         for node_name in nodes_to_remove:
             dag.remove_node(node_name, check_no_consumers=True)
 
-        if config["make_inputs"] and not config["pack_inputs"]:
-            # create inputs for the weights
-            for weight_name in weights:
-                dag.convert_initializer_to_input(weight_name)
-                self._make_dynamic_optional(dag, weights, weight_name, config)
+        if config["make_inputs"]:
+            if quant_modules and (config["dynamic_lora_r"] or config["optional_inputs"]):
+                # dynamic shape and optional inputs not supported for quantized modules yet
+                logger.warning("Quantized modules are not supported with dynamic_lora_r or optional_inputs. Ignoring.")
+                logger.debug("Quantized modules: %s", quant_modules)
 
-        elif config["make_inputs"] and config["pack_inputs"]:
-            # what weights are packed together
-            packed_weights, packings = self.pack_weights(weights, lora_modules, float_modules, quant_modules)
+            if not config["pack_inputs"]:
+                # create inputs for the weights
+                for weight_name in weights:
+                    dag.convert_initializer_to_input(weight_name)
+                    self._make_dynamic_optional(dag, weights, weight_name, config)
+            else:
+                # what weights are packed together
+                packed_weights, packings = self.pack_weights(weights, lora_modules, float_modules, quant_modules)
 
-            # create inputs and split nodes for the packed weights
-            for weight_name, to_pack in packings.items():
-                # input proto
-                input_proto = onnx.helper.make_tensor_value_info(
-                    name=weight_name,
-                    elem_type=onnx.helper.np_dtype_to_tensor_dtype(packed_weights[weight_name].dtype),
-                    shape=packed_weights[weight_name].shape,
-                )
-                # TODO(jambayk): check if graph_idx can be 0 even if they might be used in subgraphs
-                dag.add_input(input_proto, 0)
+                # create inputs and split nodes for the packed weights
+                for weight_name, to_pack in packings.items():
+                    # input proto
+                    input_proto = onnx.helper.make_tensor_value_info(
+                        name=weight_name,
+                        elem_type=onnx.helper.np_dtype_to_tensor_dtype(packed_weights[weight_name].dtype),
+                        shape=packed_weights[weight_name].shape,
+                    )
+                    # TODO(jambayk): check if graph_idx can be 0 even if they might be used in subgraphs
+                    dag.add_input(input_proto, 0)
 
-                # split nodes
-                split_node_proto = onnx.helper.make_node(
-                    "Split",
-                    inputs=[weight_name],
-                    outputs=to_pack,
-                    name=f"{weight_name}.split",
-                    axis=0,
-                )
-                dag.add_node(split_node_proto, 0, overwrite_input_initializers=True)
+                    # split nodes
+                    split_node_proto = onnx.helper.make_node(
+                        "Split",
+                        inputs=[weight_name],
+                        outputs=to_pack,
+                        name=f"{weight_name}.split",
+                        axis=0,
+                    )
+                    dag.add_node(split_node_proto, 0, overwrite_input_initializers=True)
 
-                # make the inputs dynamic and optional
-                self._make_dynamic_optional(dag, packed_weights, weight_name, config)
+                    # make the inputs dynamic and optional
+                    self._make_dynamic_optional(dag, packed_weights, weight_name, config)
 
-            # remove the original weights
-            weights = packed_weights
+                # remove the original weights
+                weights = packed_weights
 
         # update the model with the changes
         dag.update()
@@ -378,9 +383,10 @@ class ExtractAdapters(Pass):
     def _make_dynamic_optional(cls, dag: OnnxDAG, weights: Dict[str, "NDArray"], name: str, config: Dict[str, Any]):
         """Make the input dynamic and optional."""
         if "quant" in name:
-            # dynamic shape and optional inputs not supported for quantized modules yet
+            # already logged warning before
             return
 
+        # lora r dimension index
         dim_idx = 1 if "lora_A" in name else 0
 
         # make the input dynamic
