@@ -1,0 +1,7 @@
+accelerate
+bitsandbytes
+datasets
+deepspeed
+peft
+scikit-learn
+sentencepiece
