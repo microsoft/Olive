@@ -226,6 +226,21 @@
         <span class="n">model_path</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">model_path</span>
         <span class="k">return</span> <span class="n">get_additional_file_path</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">constant_inputs_file_name</span><span class="p">)</span> <span class="k">if</span> <span class="n">model_path</span> <span class="k">else</span> <span class="kc">None</span>
 
+    <span class="k">def</span> <span class="nf">change_model_path_to_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Change the model path to the parent directory of the model file.</span>
+
+<span class="sd">        This is used when we want to store more files in the same directory as the model file.</span>
+<span class="sd">        :return: The parent directory of the model file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">model_path_resource</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">model_path_resource</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">model_path_resource</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_resource</span><span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">,</span> <span class="n">model_path_resource</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">onnx_file_name</span> <span class="o">=</span> <span class="n">model_path_resource</span><span class="o">.</span><span class="n">name</span>
+
+        <span class="k">return</span> <span class="n">model_path_resource</span><span class="o">.</span><span class="n">parent</span>
+
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelProto</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">onnx</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
 

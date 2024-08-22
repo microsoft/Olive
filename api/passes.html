@@ -3353,6 +3353,24 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-dynamic_lora_r">
+<span class="sig-name descname"><span class="pre">dynamic_lora_r</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-dynamic_lora_r" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether the model uses dynamic shape for lora_r. Only used if make_inputs is True. Valid only for float modules.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-optional_inputs">
+<span class="sig-name descname"><span class="pre">optional_inputs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-optional_inputs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create default initializers (empty tensor with lora_r dimension set to 0) for the adapter weights, if inputs not provided during inference. Only used if make_inputs is True. Valid only for float modules.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-save_format">
 <span class="sig-name descname"><span class="pre">save_format</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-save_format" title="Permalink to this definition">¶</a></dt>
 <dd><p>Format to save the weights in.</p>
