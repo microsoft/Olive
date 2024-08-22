@@ -35,8 +35,12 @@ def get_args(raw_args):
         "--precision",
         type=str,
         default="int4",
-        choices=["int4"],
-        help=("Precision of quantized model. Currently only int4 is supported. "),
+        choices=["int4", "fp16"],
+        help=(
+            "Precision of optimized model. "
+            "int4: run quantization on the model, which is able to run on CPU and CUDA."
+            "fp16: no quantization, only run on CUDA.",
+        ),
     )
     parser.add_argument(
         "--inference",
@@ -94,7 +98,11 @@ def build_text_embedding(args, input_model_path):
     config = AutoConfig.from_pretrained(input_model_path, trust_remote_code=True)
 
     # User inputs
-    io_dtype = TensorProto.FLOAT16 if args.precision == torch.float16 else TensorProto.FLOAT
+    io_dtype = (
+        TensorProto.FLOAT16
+        if args.precision == "fp16" or (args.precision == "int4" and args.target == "cuda")
+        else TensorProto.FLOAT
+    )
     os.makedirs(args.output_dir, exist_ok=True)
 
     # Map TensorProto dtypes
@@ -268,15 +276,21 @@ def generate_vision_config(args, input_model_path):
     config["input_model"]["model_path"] = input_model_path
     config["input_model"]["model_script"] = config_path.parent / "scripts" / "user_script.py"
 
+    if args.precision == "fp16" or (args.precision == "int4" and args.target == "cuda"):
+        config["passes"]["convert"]["torch_dtype"] = "float16"
+    else:
+        config["passes"]["convert"]["torch_dtype"] = "float32"
+
     if args.target == "cpu":
         config["passes"]["convert"]["torch_dtype"] = "float32"
         config["passes"]["matmul_4bits"]["accuracy_level"] = 4
     else:
-        config["passes"]["convert"]["torch_dtype"] = "float16"
         config["passes"]["convert"]["device"] = "cuda"
         config["systems"]["local_system"]["accelerators"] = [
             {"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}
         ]
+    if args.precision != "int4":
+        del config["passes"]["matmul_4bits"]
 
     config["engine"] = {
         "cache_dir": Path(args.cache_dir).resolve() / "vision",
@@ -289,9 +303,11 @@ def generate_text_config(args, input_model_path):
     config = json.load((config_path / "text_config.json").open())
     config["input_model"]["model_path"] = input_model_path
 
-    if args.target == "cpu":
+    config["passes"]["builder"]["precision"] = args.precision
+
+    if args.target == "cpu" and args.precision == "int4":
         config["passes"]["builder"]["int4_accuracy_level"] = 4
-    else:
+    elif args.target == "cuda":
         config["systems"]["local_system"]["accelerators"] = [
             {"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}
         ]

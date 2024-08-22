@@ -3,11 +3,9 @@
         "type": "PyTorchModel",
         "model_path": "<<str: model_path>>",
         "model_loader": "vision_embed_tokens_loader",
-        "model_script": "scripts/user_script.py",
+        "model_script": "vision/scripts/user_script.py",
         "io_config": {
             "input_names": [ "pixel_values", "image_sizes" ],
-            "input_types": [ "float32", "int64" ],
-            "input_shapes": [ [ 1, 17, 3, 336, 336 ], [ 1008, 1344 ] ],
             "output_names": [ "visual_features" ],
             "dynamic_axes": {
                 "pixel_values": { "0": "num_images", "1": "max_num_crops", "3": "height", "4": "width" },

@@ -2,11 +2,11 @@
 This folder contains an example of optimizing the microsoft/Phi-3-vision-128k-instruct model from [Hugging Face](https://huggingface.co/microsoft/Phi-3-vision-128k-instruct) with Olive.
 
 ## Prerequisites
-Please refer to the [pre-requisites of Phi3-vision optimization with GenAI](https://github.com/microsoft/onnxruntime-genai/blob/main/examples/python/phi-3-vision.md#0-pre-requisites) for more details.
-Basically, you need to install the following packages:
-- `huggingface_hub[cli]`
-- `numpy`
-- `onnx`
+Install python packages
+```
+pip install -r requirements-vision.txt
+```
+Also, this example requires org-nightly package for ORT. Please install the following packages as you need:
 - `ort-nightly>=1.19.0.dev20240601002` or `ort-nightly-gpu>=1.19.0.dev20240601002`
     - [ORT nightly package](https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages) is needed until the latest changes are in the newest ORT stable package
     - For CPU:
@@ -21,12 +21,6 @@ Basically, you need to install the following packages:
     ```bash
     pip install ort-nightly-gpu --index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-12-nightly/pypi/simple/
     ```
-- `pillow`
-- `requests`
-- `torch`
-- `torchvision`
-- `transformers`
-
 
 ### For optimizing model from Hugging Face
 if you have not logged in Hugging Face account,
