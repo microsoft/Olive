@@ -1,0 +1,4 @@
+-r requirements.txt
+huggingface_hub[cli]
+pillow
+requests

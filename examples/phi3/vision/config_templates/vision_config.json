@@ -1,0 +1,44 @@
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "model_path": "<<str: model_path>>",
+        "model_loader": "vision_embed_tokens_loader",
+        "model_script": "vision/scripts/user_script.py",
+        "io_config": {
+            "input_names": [ "pixel_values", "image_sizes" ],
+            "output_names": [ "visual_features" ],
+            "dynamic_axes": {
+                "pixel_values": { "0": "num_images", "1": "max_num_crops", "3": "height", "4": "width" },
+                "image_sizes": { "0": "num_images" },
+                "visual_features": { "0": "batch_size", "1": "num_img_tokens" }
+            }
+        },
+        "dummy_inputs_func": "get_dummy_inputs"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ]
+        }
+    },
+    "passes": {
+        "convert": {
+            "type": "OnnxConversion",
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "convert_attribute": false,
+            "size_threshold": 0,
+            "target_opset": 14
+        },
+        "transformer_opt": {
+            "type": "OrtTransformersOptimization",
+            "model_type": "clip",
+            "num_heads": 16,
+            "hidden_size": 1024,
+            "opt_level": 0
+        },
+        "matmul_4bits": { "type": "OnnxMatMul4Quantizer", "block_size": 32 }
+    },
+    "host": "local_system",
+    "target": "local_system"
+}
