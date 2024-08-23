@@ -4,3 +4,4 @@ bitsandbytes
 peft
 scikit-learn
 sentencepiece
+onnxruntime_genai
