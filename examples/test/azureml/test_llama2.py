@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
+import uuid
 
 import pytest
 
@@ -45,7 +46,8 @@ def test_llama2(search_algorithm, execution_order, system, cloud_cache_config, o
     # set workflow host
     olive_config["workflow_host"] = "aml_system"
 
-    workflow_id = "llama2_pipeline_test"
+    # set a random workflow id, otherwise the test will fail due to aml job cache
+    workflow_id = uuid.uuid4()
     olive_config["workflow_id"] = workflow_id
 
     olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))

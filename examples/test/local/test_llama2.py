@@ -8,7 +8,7 @@ import pytest
 
 from olive.common.hf.login import huggingface_login
 
-from ..utils import check_output, get_example_dir, patch_config
+from ..utils import assert_nodes, get_example_dir, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -36,4 +36,4 @@ def test_llama2(search_algorithm, execution_order, system, olive_json):
     olive_config["passes"]["f"]["training_args"]["per_device_eval_batch_size"] = 2
 
     footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
-    check_output(footprint)
+    assert_nodes(footprint)
