@@ -150,6 +150,10 @@ jobs:
         exampleFolder: stable_diffusion
         exampleName: stable_diffusion_cuda_gpu
         exampleRequirements: requirements-common.txt
+      llama2:
+        exampleFolder: llama2
+        exampleName: llama2
+        exampleRequirements: requirements-pipeline.txt
 
 # Multiple EP Linux testing
 - template: job_templates/olive-test-template.yaml
