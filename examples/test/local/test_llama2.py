@@ -26,7 +26,7 @@ def test_llama2(search_algorithm, execution_order, system, olive_json):
 
     hf_token = os.environ.get("HF_TOKEN")
     huggingface_login(hf_token)
-    
+
     olive_config = patch_config(olive_json, search_algorithm, execution_order, system)
 
     # reduce qlora steps for faster test
