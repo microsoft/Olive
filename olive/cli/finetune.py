@@ -38,7 +38,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             help="The precision of the optimized model and adapters.",
         )
 
-        # model options
+        # Model options
         model_group = sub_parser.add_argument_group("model options")
         model_group.add_argument(
             "-m",
@@ -60,7 +60,11 @@ class FineTuneCommand(BaseOliveCLICommand):
             choices=["bfloat16", "float16", "float32"],
             help="The torch dtype to use for training.",
         )
-        # dataset options
+        model_group.add_argument(
+            "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
+        )
+
+        # Dataset options
         dataset_group = sub_parser.add_argument_group("dataset options")
         dataset_group.add_argument(
             "-d",
@@ -97,7 +101,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             default=1024,
             help="Maximum sequence length for the data.",
         )
-        # lora options
+        # LoRA options
         lora_group = sub_parser.add_argument_group("lora options")
         lora_group.add_argument(
             "--method",
@@ -154,7 +158,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             # need to improve the output structure of olive run
             output_path = Path(self.args.output_path)
             output_path.mkdir(parents=True, exist_ok=True)
-            hardlink_copy_dir(Path(tempdir) / "f-c-o-e-m" / "gpu-cuda_model", output_path)
+            hardlink_copy_dir(Path(tempdir) / "-".join(run_config["passes"].keys()) / "gpu-cuda_model", output_path)
 
             logger.info("Model and adapters saved to %s", output_path.resolve())
 
@@ -217,7 +221,11 @@ class FineTuneCommand(BaseOliveCLICommand):
             config["data_configs"].append(eval_data_config)
             config["passes"]["f"]["eval_data_config"] = "eval_data"
 
+        if not self.args.use_ort_genai:
+            del config["passes"]["m"]
+
         update_remote_option(config, self.args, "fintuine", tempdir)
+
         return config
 
     def get_model_name_or_path(self) -> Union[str, Dict]:
