@@ -224,7 +224,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         if not self.args.use_ort_genai:
             del config["passes"]["m"]
 
-        update_remote_option(config, self.args, "fintuine", tempdir)
+        update_remote_option(config, self.args, "finetune", tempdir)
 
         return config
 
