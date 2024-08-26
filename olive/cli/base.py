@@ -86,8 +86,9 @@ def update_remote_option(config, args, cli_action, tempdir):
             logger.info("Using Azure subscription ID: %s", subscription_id)
 
         except subprocess.CalledProcessError as e:
-            logger.error(
-                "Error: Unable to retrieve account information. Make sure you are logged in to Azure CLI with command `az login`."
+            logger.exception(
+                "Error: Unable to retrieve account information. "
+                "Make sure you are logged in to Azure CLI with command `az login`."
                 "Details: %s",
                 e,
             )
