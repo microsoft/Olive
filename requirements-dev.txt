@@ -1,6 +1,6 @@
 -r requirements.txt
 black
-editorconfig-checker==2.7.3
+editorconfig-checker
 flake8
 isort
 lintrunner

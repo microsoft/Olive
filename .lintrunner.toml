@@ -240,7 +240,8 @@ code = 'EDITORCONFIG-CHECKER'
 include_patterns = ['**']
 exclude_patterns = [
   '**/*.ipynb',
-  '**/*.json'
+  '**/*.json',
+  '**/Makefile'
 ]
 command = [
   'python',
