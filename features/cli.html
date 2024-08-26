@@ -229,7 +229,7 @@
                <span class="p">[</span><span class="o">--</span><span class="n">target_modules</span> <span class="n">TARGET_MODULES</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">clean</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">azureml_config</span> <span class="n">AZUREML_CONFIG</span><span class="p">]</span>
                <span class="p">[</span><span class="o">--</span><span class="n">azureml_cluster</span> <span class="n">AZUREML_CLUSTER</span><span class="p">]</span>
-               <span class="p">[</span><span class="o">--</span><span class="n">azureml_keyvault</span> <span class="n">AZUREML_KEYVAULT</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">azureml_keyvault</span> <span class="n">AZUREML_KEYVAULT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments_repeat1">
@@ -267,6 +267,10 @@
 <dd><p>Possible choices: bfloat16, float16, float32</p>
 <p>The torch dtype to use for training.</p>
 <p>Default: “bfloat16”</p>
+</dd>
+<dt><kbd>--use_ort_genai</kbd></dt>
+<dd><p>Use OnnxRuntie generate() API to run the model</p>
+<p>Default: False</p>
 </dd>
 </dl>
 </section>
