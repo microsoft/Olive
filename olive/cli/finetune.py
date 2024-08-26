@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import codecs
-import json
 import logging
 import re
 import tempfile
@@ -12,10 +11,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar, Dict, Union
 
-import yaml
-
-from olive.cli.base import BaseOliveCLICommand
-from olive.common.utils import hardlink_copy_dir, hash_dict, set_nested_dict_value, set_tempdir
+from olive.cli.base import BaseOliveCLICommand, add_remote_options, is_remote_run, update_remote_option
+from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir
 
 logger = logging.getLogger(__name__)
 
@@ -135,29 +132,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         sub_parser.add_argument("--clean", action="store_true", help="Run in a clean cache directory")
 
         # remote options
-        remote_group = sub_parser.add_argument_group("remote options")
-        remote_group.add_argument(
-            "--azureml_config",
-            type=str,
-            help=(
-                "Path to the azureml config file for remote run. Recommended to log in using `az login` before running."
-            ),
-        )
-        remote_group.add_argument(
-            "--azureml_cluster",
-            type=str,
-            help="The azureml cluster to use for remote run. Must be provided if using azureml_config.",
-        )
-        remote_group.add_argument(
-            "--azureml_keyvault",
-            type=str,
-            help=(
-                "The azureml keyvault with huggingface token to use for remote run. Refer to"
-                " https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login for"
-                " more details."
-            ),
-        )
-        # Cloud cache doesn't support azureml resources yet, only hf-id
+        add_remote_options(sub_parser)
 
         sub_parser.set_defaults(func=FineTuneCommand)
 
@@ -171,7 +146,7 @@ class FineTuneCommand(BaseOliveCLICommand):
 
             olive_run(run_config)
 
-            if self.args.azureml_config:
+            if is_remote_run(self.args):
                 # TODO(jambayk): point user to datastore with outputs or download outputs
                 # both are not implemented yet
                 return
@@ -242,36 +217,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             config["data_configs"].append(eval_data_config)
             config["passes"]["f"]["eval_data_config"] = "eval_data"
 
-        if self.args.azureml_config:
-            assert self.args.azureml_cluster, "AzureML cluster must be provided if using azureml_config."
-
-            # set the workflow id to be unique
-            # add before setting up the remote host since that's independent of the workflow
-            config["workflow_id"] = f"finetune-{hash_dict(config)}"
-
-            with open(self.args.azureml_config) as f:
-                azureml_client = json.load(f)
-                # don't use managed identity credential, instead use azure cli login or interactive login
-                azureml_client["default_auth_params"] = {"exclude_managed_identity_credential": True}
-                config["azureml_client"] = azureml_client
-
-            # update config for azureml run
-            config["systems"]["aml_system"] = aml_system = deepcopy(AZUREML_SYSTEM_TEMPLATE)
-            aml_system["aml_compute"] = self.args.azureml_cluster
-
-            # set up keyvault for huggingface token
-            if self.args.azureml_keyvault:
-                azureml_client["keyvault_name"] = self.args.azureml_keyvault
-                aml_system["hf_token"] = True
-
-            conda_file_path = Path(tempdir) / "conda_gpu.yaml"
-            with open(conda_file_path, "w") as f:
-                yaml.dump(CONDA_CONFIG, f)
-            aml_system["aml_docker_config"]["conda_file_path"] = str(conda_file_path)
-
-            # set the workflow host to azureml
-            config["workflow_host"] = "aml_system"
-
+        update_remote_option(config, self.args, "fintuine", tempdir)
         return config
 
     def get_model_name_or_path(self) -> Union[str, Dict]:
@@ -333,35 +279,6 @@ AZUREML_SYSTEM_TEMPLATE = {
     "type": "AzureML",
     "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
     "aml_docker_config": {"base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04"},
-}
-
-CONDA_CONFIG = {
-    "name": "olive_finetune",
-    "channels": ["defaults"],
-    "dependencies": [
-        "python=3.8.13",
-        "pip=22.3.1",
-        {
-            "pip": [
-                "accelerate",
-                "bitsandbytes",
-                "peft",
-                "scikit-learn",
-                "sentencepiece",
-                "datasets",
-                "evaluate",
-                "psutil",
-                "optimum",
-                "scipy",
-                "scikit-learn",
-                "torch",
-                "onnxruntime-genai",
-                "--extra-index-url https://download.pytorch.org/whl/cu118",
-                "transformers>=4.41.1",
-                "git+https://github.com/microsoft/Olive#egg=olive-ai[gpu,azureml]",
-            ]
-        },
-    ],
 }
 
 
