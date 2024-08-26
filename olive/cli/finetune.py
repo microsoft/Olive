@@ -182,7 +182,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             # need to improve the output structure of olive run
             output_path = Path(self.args.output_path)
             output_path.mkdir(parents=True, exist_ok=True)
-            hardlink_copy_dir(Path(tempdir) / "f-c-o-e-m" / "gpu-cuda_model", output_path)
+            hardlink_copy_dir(Path(tempdir) / "-".join(run_config["passes"].keys()) / "gpu-cuda_model", output_path)
 
             logger.info("Model and adapters saved to %s", output_path.resolve())
 
