@@ -41,7 +41,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             help="The precision of the optimized model and adapters.",
         )
 
-        # model options
+        # Model options
         model_group = sub_parser.add_argument_group("model options")
         model_group.add_argument(
             "-m",
@@ -63,7 +63,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             choices=["bfloat16", "float16", "float32"],
             help="The torch dtype to use for training.",
         )
-        # dataset options
+        # Dataset options
         dataset_group = sub_parser.add_argument_group("dataset options")
         dataset_group.add_argument(
             "-d",
@@ -100,7 +100,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             default=1024,
             help="Maximum sequence length for the data.",
         )
-        # lora options
+        # LoRA options
         lora_group = sub_parser.add_argument_group("lora options")
         lora_group.add_argument(
             "--method",
@@ -134,7 +134,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         # TODO(jambayk): what about checkpoint_dir and resume from checkpoint support? clean checkpoint dir?
         sub_parser.add_argument("--clean", action="store_true", help="Run in a clean cache directory")
 
-        # remote options
+        # AzureML options
         remote_group = sub_parser.add_argument_group("remote options")
         remote_group.add_argument(
             "--azureml_config",
@@ -158,6 +158,9 @@ class FineTuneCommand(BaseOliveCLICommand):
             ),
         )
         # Cloud cache doesn't support azureml resources yet, only hf-id
+        model_group.add_argument(
+            "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
+        )
 
         sub_parser.set_defaults(func=FineTuneCommand)
 
@@ -241,6 +244,9 @@ class FineTuneCommand(BaseOliveCLICommand):
             eval_data_config["load_dataset_config"]["split"] = self.args.eval_split
             config["data_configs"].append(eval_data_config)
             config["passes"]["f"]["eval_data_config"] = "eval_data"
+
+        if not self.args.use_ort_genai:
+            del config["passes"]["m"]
 
         if self.args.azureml_config:
             assert self.args.azureml_cluster, "AzureML cluster must be provided if using azureml_config."
