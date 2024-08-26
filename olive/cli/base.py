@@ -85,12 +85,10 @@ def update_remote_option(config, args, cli_action, tempdir):
             subscription_id = json.loads(subprocess.check_output("az account show", shell=True).decode("utf-8"))["id"]
             logger.info("Using Azure subscription ID: %s", subscription_id)
 
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             logger.exception(
                 "Error: Unable to retrieve account information. "
                 "Make sure you are logged in to Azure CLI with command `az login`."
-                "Details: %s",
-                e,
             )
 
         config["azureml_client"] = {
