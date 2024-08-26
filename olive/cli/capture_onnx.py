@@ -81,7 +81,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         )
 
         # directory options
-        sub_parser.add_argument("-o", "--output_path", type=str, default="onnx-model", help="Output path")
+        sub_parser.add_argument(
+            "-o", "--output_path", 
+            type=str, 
+            default="onnx-model",
+            required=True, 
+            help="Output path")
         sub_parser.add_argument(
             "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
         )
@@ -110,12 +115,15 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     def run(self):
         from olive.workflows import run as olive_run
 
-        set_tempdir(self.args.tempdir)
+        set_tempdir(self.args.output_path)
 
         with tempfile.TemporaryDirectory() as tempdir:
             run_config = self.get_run_config(tempdir)
 
             olive_run(run_config)
+
+            output_path = Path(self.args.output_path)
+            logger.info("Model and adapters saved to %s", output_path.resolve())
 
     def get_model_name_or_path(self) -> Union[str, Dict]:
         pattern = r"(?P<registry_name>[^:]+):(?P<model_name>[^:]+):(?P<version>[^:]+)"
@@ -136,6 +144,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         config["input_model"]["model_path"] = self.get_model_name_or_path()
         if self.args.task is not None:
             config["input_model"]["task"] = self.args.task
+
+        config["output_dir"] = self.args.output_path
 
         if self.args.use_model_builder:
             del config["passes"]["c"]
