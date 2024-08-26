@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import logging
 import subprocess
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
@@ -13,6 +14,8 @@ import yaml
 
 from olive.cli.constants import CONDA_CONFIG
 from olive.common.utils import hash_dict
+
+logger = logging.getLogger(__name__)
 
 
 class BaseOliveCLICommand(ABC):
@@ -78,8 +81,19 @@ def update_remote_option(config, args, cli_action, tempdir):
 
         config["workflow_id"] = f"{cli_action}-{hash_dict(config)}"
 
+        try:
+            subscription_id = json.loads(subprocess.check_output("az account show", shell=True).decode("utf-8"))["id"]
+            logger.info("Using Azure subscription ID: %s", subscription_id)
+
+        except subprocess.CalledProcessError as e:
+            logger.error(
+                "Error: Unable to retrieve account information. Make sure you are logged in to Azure CLI with command `az login`."
+                "Details: %s",
+                e,
+            )
+
         config["azureml_client"] = {
-            "subscription_id": json.loads(subprocess.check_output("az account show", shell=True).decode("utf-8"))["id"],
+            "subscription_id": subscription_id,
             "resource_group": args.resource_group,
             "workspace_name": args.workspace_name,
             "keyvault_name": args.keyvault_name,
@@ -98,6 +112,6 @@ def update_remote_option(config, args, cli_action, tempdir):
                 "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
                 "conda_file_path": str(conda_file_path),
             },
-            "hf_token": True,
+            "hf_token": bool(args.keyvault_name),
         }
         config["workflow_host"] = "aml_system"
