@@ -4,14 +4,19 @@
 # --------------------------------------------------------------------------
 import codecs
 import logging
-import re
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
 from pathlib import Path
-from typing import ClassVar, Dict, Union
+from typing import ClassVar, Dict
 
-from olive.cli.base import BaseOliveCLICommand, add_remote_options, is_remote_run, update_remote_option
+from olive.cli.base import (
+    BaseOliveCLICommand,
+    add_remote_options,
+    get_model_name_or_path,
+    is_remote_run,
+    update_remote_option,
+)
 from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir
 
 logger = logging.getLogger(__name__)
@@ -181,8 +186,9 @@ class FineTuneCommand(BaseOliveCLICommand):
         load_key = ("data_configs", 0, "load_dataset_config")
         preprocess_key = ("data_configs", 0, "pre_process_data_config")
         finetune_key = ("passes", "f")
+        model_path = get_model_name_or_path(self.args.model_name_or_path)
         to_replace = [
-            (("input_model", "model_path"), self.get_model_name_or_path()),
+            (("input_model", "model_path"), model_path),
             ((*load_key, "data_name"), self.args.data_name),
             ((*load_key, "split"), self.args.train_split),
             (
@@ -227,19 +233,6 @@ class FineTuneCommand(BaseOliveCLICommand):
         update_remote_option(config, self.args, "finetune", tempdir)
 
         return config
-
-    def get_model_name_or_path(self) -> Union[str, Dict]:
-        pattern = r"(?P<registry_name>[^:]+):(?P<model_name>[^:]+):(?P<version>[^:]+)"
-        match = re.match(pattern, self.args.model_name_or_path)
-        if not match:
-            return self.args.model_name_or_path
-
-        return {
-            "type": "azureml_registry_model",
-            "registry_name": match.group("registry_name"),
-            "name": match.group("model_name"),
-            "version": match.group("version"),
-        }
 
 
 TEMPLATE = {

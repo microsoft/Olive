@@ -187,6 +187,35 @@ def test_perf_tuning_command(mock_ort_infer_sess, mock_tempdir, mock_run, data_c
     assert config["data_configs"][0].name == config["passes"]["perf_tuning"]["data_config"]
 
 
+@patch("olive.workflows.run")
+@patch("olive.cli.capture_onnx.tempfile.TemporaryDirectory")
+@pytest.mark.parametrize("use_model_builder", [True, False])
+def test_capture_onnx_command(mock_tempdir, mock_run, use_model_builder, tmp_path):
+    # setup
+    mock_tempdir.return_value = tmp_path.resolve()
+    output_dir = tmp_path / "output_dir"
+    model_id = "microsoft/phi-2"
+
+    # setup
+    command_args = [
+        "capture-onnx-graph",
+        "-m",
+        model_id,
+        "-o",
+        str(output_dir),
+    ]
+
+    if use_model_builder:
+        command_args.extend(["--use_model_builder", "--precision", "int4"])
+
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == model_id
+    assert "m" in config["passes"] if use_model_builder else "c" in config["passes"]
+
+
 @pytest.mark.parametrize("test_set", [(None, "successfully"), (MagicMock(name="blob1"), "failed")])
 @patch("azure.storage.blob.ContainerClient")
 def test_cloud_cache_command(mock_container_client, test_set):
