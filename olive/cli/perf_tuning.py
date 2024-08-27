@@ -13,7 +13,7 @@ from typing import Dict
 import yaml
 
 from olive.auto_optimizer.template_mapping import PERF_TUNING_TEMPLATE
-from olive.cli.base import BaseOliveCLICommand
+from olive.cli.base import BaseOliveCLICommand, add_remote_options, is_remote_run, update_remote_option
 from olive.common.utils import set_nested_dict_value, set_tempdir
 from olive.data.config import DataConfig
 from olive.workflows import run as olive_run
@@ -200,6 +200,10 @@ class PerfTuningCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
         )
+
+        # remote options
+        add_remote_options(sub_parser)
+
         sub_parser.set_defaults(func=PerfTuningCommand)
 
     @staticmethod
@@ -270,7 +274,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
             if not provider.endswith("ExecutionProvider"):
                 self.args.providers_list[idx] = f"{provider}ExecutionProvider"
 
-    def get_run_config(self) -> Dict:
+    def get_run_config(self, tempdir) -> Dict:
         template_config = PerfTuningCommand.perf_tuning_template()
         perf_tuning_key = ("passes", "perf_tuning")
         system_device_key = ("systems", "local_system", "accelerators", 0, "device")
@@ -293,15 +297,23 @@ class PerfTuningCommand(BaseOliveCLICommand):
             if v is None:
                 continue
             set_nested_dict_value(config, k, v)
+
+        update_remote_option(config, self.args, "perf-tuning", tempdir)
+
         return config
 
     def run(self):
         self.refine_args()
         set_tempdir(self.args.tempdir)
-        run_config = self.get_run_config()
         with tempfile.TemporaryDirectory() as tempdir:
+            run_config = self.get_run_config(tempdir)
             run_config["output_dir"] = tempdir
             olive_run(run_config)
+
+            if is_remote_run(self.args):
+                # TODO(jambayk): point user to datastore with outputs or download outputs
+                # both are not implemented yet
+                return
 
             # need to improve the output structure of olive run
             output_path = Path(self.args.output_path)

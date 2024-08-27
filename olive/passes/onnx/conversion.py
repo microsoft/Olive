@@ -102,7 +102,7 @@ class OnnxConversion(Pass):
                 default_value=False,
                 description=(
                     "Whether to save metadata for token generation or not. "
-                    "Includes config.json, generation_config.json, and  tokenizer related files."
+                    "Includes config.json, generation_config.json, and tokenizer related files."
                 ),
             ),
         }

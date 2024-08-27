@@ -39,7 +39,7 @@ def get_args(raw_args):
         "--target",
         type=str,
         default=None,
-        required=False,
+        required=True,
         choices=TARGETS,
         help="Choose from cpu, cuda, mobile or web",
     )
@@ -155,7 +155,6 @@ def generate_config(args):
     json_file_template = "phi3_template.json"
     with open(json_file_template) as f:
         template_json = json.load(f)
-    args.quarot = True
     if args.quarot:
         template_json["passes"] = get_quarot_passes()
         template_json["data_configs"] = [
