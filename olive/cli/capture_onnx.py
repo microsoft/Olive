@@ -17,6 +17,7 @@ from olive.cli.base import (
     update_remote_option,
 )
 from olive.common.utils import IntEnumBase, set_tempdir
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,10 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         # model options
         model_group = sub_parser.add_argument_group("model options")
+        model_group.add_argument(
+            "--pt", type=bool, default=False, help="Is local pytorch model or not"
+        )
+        model_group.add_argument("--io_config", type=str, help="IO config json file")
         model_group.add_argument(
             "-m",
             "--model_name_or_path",
@@ -178,13 +183,23 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
-
-        config["input_model"]["model_path"] = get_model_name_or_path(self.args.model_name_or_path)
-        if self.args.task is not None:
-            config["input_model"]["task"] = self.args.task
-
         config["output_dir"] = self.args.output_path
 
+        # Local pytorch model
+        if self.args.pt:
+            if not self.args.io_config:
+                raise ValueError("io_config is required for local pytorch model")
+            with open(self.args.io_config) as f:
+                config["input_model"]["io_config"] = json.load(f)
+            config["input_model"]["io_config"] = self.args.io_config
+            config["input_model"]["type"] = "PyTorchModel"
+            config["input_model"]["model_path"] = self.args.model_name_or_path
+        else:
+            # Huggingface model
+            config["input_model"]["model_path"] = get_model_name_or_path(self.args.model_name_or_path)
+            if self.args.task is not None:
+                config["input_model"]["task"] = self.args.task
+            
         if self.args.use_model_builder:
             del config["passes"]["c"]
             config["passes"]["m"]["precision"] = self.args.precision

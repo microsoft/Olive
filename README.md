@@ -1,3 +1,27 @@
+# Super Dev Version Update
+
+## Examples
+
+* Docker system example json: bert -> bert_docker.json
+* AzureMLDeployment packaging type example json: bert -> bert_ptq_cpu_deploy.json
+
+## CLI
+
+* Add cli support to delete all blobs in a container:
+  
+  ```
+  python -m olive cloud-cache --delete --all --account <account> --container <container>
+  ```
+
+* Add cli to export local python model to onnx model:
+ 
+  ```
+  python -m olive capture-onnx-graph --pt --io_config <io_config.json path> -m <model.pt path>
+  ```
+
+That's it!
+
+
 # Olive
 [![PyPI release](https://img.shields.io/pypi/v/olive-ai)](https://pypi.org/project/olive-ai/)
 [![Documentation](https://img.shields.io/website/https/microsoft.github.io/Olive?down_color=red&down_message=offline&up_message=online)](https://microsoft.github.io/Olive/)
