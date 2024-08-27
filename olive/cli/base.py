@@ -4,11 +4,12 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import re
 import subprocess
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import ClassVar, Dict, Optional, Union
 
 import yaml
 
@@ -36,6 +37,21 @@ class BaseOliveCLICommand(ABC):
     @abstractmethod
     def run(self):
         raise NotImplementedError
+
+
+def get_model_name_or_path(model_name_or_path) -> Union[str, Dict[str, str]]:
+    pattern = r"^(?P<registry_name>[^:]+):(?P<model_name>[^:]+):(?P<version>[^:]+)$"
+    match = re.match(pattern, model_name_or_path)
+
+    if not match:
+        return model_name_or_path
+
+    return {
+        "type": "azureml_registry_model",
+        "registry_name": match.group("registry_name"),
+        "name": match.group("model_name"),
+        "version": match.group("version"),
+    }
 
 
 def add_remote_options(sub_parser):
