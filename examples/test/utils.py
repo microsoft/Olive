@@ -17,14 +17,30 @@ from olive.common.utils import run_subprocess
 
 def check_output(footprints):
     """Check if the search output is valid."""
+    assert_nodes(footprints)
+    assert_metrics(footprints)
+
+
+def assert_nodes(footprints):
     assert footprints, "footprints is empty. The search must have failed for all accelerator specs."
     for footprint in footprints.values():
         assert footprint.nodes
+
+
+def assert_metrics(footprints):
+    for footprint in footprints.values():
         for v in footprint.nodes.values():
             assert all(metric_result.value > 0 for metric_result in v.metrics.value.values())
 
 
-def patch_config(config_json_path: str, search_algorithm: str, execution_order: str, system: str, is_gpu: bool = False):
+def patch_config(
+    config_json_path: str,
+    search_algorithm: str,
+    execution_order: str,
+    system: str,
+    is_gpu: bool = False,
+    hf_token: bool = False,
+):
     """Load the config json file and patch it with the given search algorithm, execution order and system."""
     with open(config_json_path) as fin:
         olive_config = json.load(fin)
@@ -47,7 +63,7 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
     update_azureml_config(olive_config)
     if system == "aml_system":
         # set aml_system
-        set_aml_system(olive_config, is_gpu=is_gpu)
+        set_aml_system(olive_config, is_gpu=is_gpu, hf_token=hf_token)
         olive_config["host"] = system
         olive_config["target"] = system
     elif system == "docker_system":
@@ -88,43 +104,52 @@ def update_azureml_config(olive_config):
     if client_id is None and not exclude_managed_identity_credential:
         raise Exception("Please set the environment variable MANAGED_IDENTITY_CLIENT_ID")
 
+    keyvault_name = os.environ.get("KEYVAULT_NAME")
+
     olive_config["azureml_client"] = {
         "subscription_id": subscription_id,
         "resource_group": resource_group,
         "workspace_name": workspace_name,
         # pipeline agents have multiple managed identities, so we need to specify the client_id
         "default_auth_params": {"managed_identity_client_id": client_id, **exclude_managed_identity_credential},
+        "keyvault_name": keyvault_name,
     }
 
 
-def set_aml_system(olive_config, is_gpu=False):
+def set_aml_system(olive_config, is_gpu=False, hf_token=False):
     """Set the aml_system in the olive config."""
     if "systems" not in olive_config:
         olive_config["systems"] = {}
 
-    if is_gpu:
-        olive_config["systems"]["aml_system"] = {
-            "type": "AzureML",
-            "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
-            "aml_compute": "gpu-cluster",
-            "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
-                "conda_file_path": "conda_gpu.yaml",
-            },
-            "is_dev": True,
-        }
+    olive_config["systems"]["aml_system"] = get_gpu_compute(hf_token) if is_gpu else get_cpu_compute(hf_token)
 
-    else:
-        olive_config["systems"]["aml_system"] = {
-            "type": "AzureML",
-            "accelerators": [{"device": "CPU", "execution_providers": ["CPUExecutionProvider"]}],
-            "aml_compute": "cpu-cluster",
-            "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                "conda_file_path": "conda.yaml",
-            },
-            "is_dev": True,
-        }
+
+def get_gpu_compute(hf_token):
+    return {
+        "type": "AzureML",
+        "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
+        "aml_compute": "gpu-cluster",
+        "aml_docker_config": {
+            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
+            "conda_file_path": "conda_gpu.yaml",
+        },
+        "is_dev": True,
+        "hf_token": hf_token,
+    }
+
+
+def get_cpu_compute(hf_token):
+    return {
+        "type": "AzureML",
+        "accelerators": [{"device": "CPU", "execution_providers": ["CPUExecutionProvider"]}],
+        "aml_compute": "cpu-cluster",
+        "aml_docker_config": {
+            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+            "conda_file_path": "conda.yaml",
+        },
+        "is_dev": True,
+        "hf_token": hf_token,
+    }
 
 
 def set_docker_system(olive_config):

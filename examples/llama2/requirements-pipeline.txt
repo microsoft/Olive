@@ -1,0 +1,6 @@
+-r requirements-qlora.txt
+azure-ai-ml
+azure-identity
+azure-keyvault-secrets
+azureml-fsspec
+huggingface_hub
