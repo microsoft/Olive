@@ -17,7 +17,7 @@ from olive.cli.base import (
     is_remote_run,
     update_remote_option,
 )
-from olive.common.utils import IntEnumBase, set_tempdir
+from olive.common.utils import IntEnumBase, set_nested_dict_value, set_tempdir
 
 logger = logging.getLogger(__name__)
 
@@ -174,26 +174,33 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             config["input_model"]["task"] = self.args.task
 
         config["output_dir"] = self.args.output_path
-
+        to_replace = None
         if self.args.use_model_builder:
             del config["passes"]["c"]
-            config["passes"]["m"]["precision"] = self.args.precision
+            to_replace = [
+                (("passes", "m", "precision"), self.args.precision),
+                (("passes", "m", "exclude_embeds"), self.args.exclude_embeds),
+                (("passes", "m", "exclude_lm_head"), self.args.exclude_lm_head),
+                (("passes", "m", "enable_cuda_graph"), self.args.enable_cuda_graph),
+            ]
             if self.args.int4_block_size is not None:
-                config["passes"]["m"]["int4_block_size"] = self.args.int4_block_size
+                to_replace.append((("passes", "m", "int4_block_size"), self.args.int4_block_size))
             if self.args.int4_accuracy_level is not None:
-                config["passes"]["m"]["int4_accuracy_level"] = self.args.int4_accuracy_level
-            config["passes"]["m"]["exclude_embeds"] = self.args.exclude_embeds
-            config["passes"]["m"]["exclude_lm_head"] = self.args.exclude_lm_head
-            config["passes"]["m"]["enable_cuda_graph"] = self.args.enable_cuda_graph
+                to_replace.append((("passes", "m", "int4_accuracy_level"), self.args.int4_accuracy_level))
         else:
             del config["passes"]["m"]
-            config["passes"]["c"]["past_key_value_name"] = self.args.past_key_value_name
-            config["passes"]["c"]["device"] = self.args.device
-            config["passes"]["c"]["torch_dtype"] = self.args.torch_dtype
-            config["passes"]["c"]["target_opset"] = self.args.target_opset
-            config["passes"]["c"]["use_dynamo_exporter"] = self.args.use_dynamo_exporter
-            config["passes"]["c"]["save_metadata_for_token_generation"] = self.args.use_ort_genai
-
+            to_replace = [
+                (("passes", "c", "past_key_value_name"), self.args.past_key_value_name),
+                (("passes", "c", "device"), self.args.device),
+                (("passes", "c", "torch_dtype"), self.args.torch_dtype),
+                (("passes", "c", "target_opset"), self.args.target_opset),
+                (("passes", "c", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
+                (("passes", "c", "save_metadata_for_token_generation"), self.args.use_ort_genai),
+            ]
+        for keys, value in to_replace:
+            if value is None:
+                continue
+            set_nested_dict_value(config, keys, value)
         update_remote_option(config, self.args, "capture-onnx-graph", tempdir)
 
         return config

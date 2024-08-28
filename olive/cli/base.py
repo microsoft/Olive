@@ -85,6 +85,7 @@ def add_remote_options(sub_parser):
         help="The compute name to run the workflow on.",
     )
 
+
 def add_hf_model_options(sub_parser):
     model_group = sub_parser.add_argument_group("model options")
     model_group.add_argument(
@@ -97,9 +98,7 @@ def add_hf_model_options(sub_parser):
             " path as 'registry_name:model_name:version'."
         ),
     )
-    model_group.add_argument(
-        "--trust_remote_code", action="store_true", help="Trust remote code when loading a model."
-    )
+    model_group.add_argument("--trust_remote_code", action="store_true", help="Trust remote code when loading a model.")
     model_group.add_argument("-t", "--task", type=str, help="Task for which the model is used.")
 
 
