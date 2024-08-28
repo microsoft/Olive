@@ -11,6 +11,7 @@ from typing import ClassVar, Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
+    add_hf_model_options,
     add_remote_options,
     get_model_name_or_path,
     is_remote_run,
@@ -39,18 +40,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         )
 
         # model options
-        model_group = sub_parser.add_argument_group("model options")
-        model_group.add_argument(
-            "-m",
-            "--model_name_or_path",
-            type=str,
-            required=True,
-            help=(
-                "The model checkpoint for weights initialization. If using an AzureML Registry model, provide the model"
-                " path as 'registry_name:model_name:version'."
-            ),
-        )
-        model_group.add_argument("-t", "--task", type=str, help="Task for which the model is used.")
+        add_hf_model_options(sub_parser)
 
         sub_parser.add_argument("-o", "--output_path", type=str, default="onnx-model", help="Output path")
         sub_parser.add_argument(
@@ -174,7 +164,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 return
 
             output_path = Path(self.args.output_path)
-            logger.info("Model and adapters are saved to %s", output_path.resolve())
+            logger.info("ONNX Model is saved to %s", output_path.resolve())
 
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
