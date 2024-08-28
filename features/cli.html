@@ -197,8 +197,8 @@
 <section id="capture-onnx-graph">
 <h3>capture-onnx-graph<a class="headerlink" href="#capture-onnx-graph" title="Permalink to this heading">¶</a></h3>
 <p>Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
-                         <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
+                         <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span>
                          <span class="p">[</span><span class="o">--</span><span class="n">use_dynamo_exporter</span> <span class="n">USE_DYNAMO_EXPORTER</span><span class="p">]</span>
                          <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span> <span class="n">USE_ORT_GENAI</span><span class="p">]</span>
                          <span class="p">[</span><span class="o">--</span><span class="n">past_key_value_name</span> <span class="n">PAST_KEY_VALUE_NAME</span><span class="p">]</span>
@@ -233,6 +233,10 @@
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>The model checkpoint for weights initialization. If using an AzureML Registry model, provide the model path as ‘registry_name:model_name:version’.</p>
+</dd>
+<dt><kbd>--trust_remote_code</kbd></dt>
+<dd><p>Trust remote code when loading a model.</p>
+<p>Default: False</p>
 </dd>
 <dt><kbd>-t, --task</kbd></dt>
 <dd><p>Task for which the model is used.</p>
@@ -350,7 +354,7 @@
 <h3>finetune<a class="headerlink" href="#finetune" title="Permalink to this heading">¶</a></h3>
 <p>Fine-tune a model on a dataset using peft and optimize the model for ONNX Runtime with adapters as inputs. Huggingface training arguments can be provided along with the defined options.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">float16</span><span class="p">,</span><span class="n">float32</span><span class="p">}]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span>
-               <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="p">{</span><span class="n">bfloat16</span><span class="p">,</span><span class="n">float16</span><span class="p">,</span><span class="n">float32</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span>
                <span class="n">DATA_NAME</span> <span class="p">[</span><span class="o">--</span><span class="n">data_files</span> <span class="n">DATA_FILES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">train_split</span> <span class="n">TRAIN_SPLIT</span><span class="p">]</span>
                <span class="p">[</span><span class="o">--</span><span class="n">eval_split</span> <span class="n">EVAL_SPLIT</span><span class="p">]</span>
@@ -370,6 +374,15 @@
 <dd><p>Possible choices: float16, float32</p>
 <p>The precision of the optimized model and adapters.</p>
 <p>Default: “float16”</p>
+</dd>
+<dt><kbd>--torch_dtype</kbd></dt>
+<dd><p>Possible choices: bfloat16, float16, float32</p>
+<p>The torch dtype to use for training.</p>
+<p>Default: “bfloat16”</p>
+</dd>
+<dt><kbd>--use_ort_genai</kbd></dt>
+<dd><p>Use OnnxRuntie generate() API to run the model</p>
+<p>Default: False</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Output path</p>
@@ -394,14 +407,8 @@
 <dd><p>Trust remote code when loading a model.</p>
 <p>Default: False</p>
 </dd>
-<dt><kbd>--torch_dtype</kbd></dt>
-<dd><p>Possible choices: bfloat16, float16, float32</p>
-<p>The torch dtype to use for training.</p>
-<p>Default: “bfloat16”</p>
-</dd>
-<dt><kbd>--use_ort_genai</kbd></dt>
-<dd><p>Use OnnxRuntie generate() API to run the model</p>
-<p>Default: False</p>
+<dt><kbd>-t, --task</kbd></dt>
+<dd><p>Task for which the model is used.</p>
 </dd>
 </dl>
 </section>
