@@ -86,6 +86,22 @@ def add_remote_options(sub_parser):
     )
 
 
+def add_hf_model_options(sub_parser):
+    model_group = sub_parser.add_argument_group("model options")
+    model_group.add_argument(
+        "-m",
+        "--model_name_or_path",
+        type=str,
+        required=True,
+        help=(
+            "The model checkpoint for weights initialization. If using an AzureML Registry model, provide the model"
+            " path as 'registry_name:model_name:version'."
+        ),
+    )
+    model_group.add_argument("--trust_remote_code", action="store_true", help="Trust remote code when loading a model.")
+    model_group.add_argument("-t", "--task", type=str, help="Task for which the model is used.")
+
+
 def is_remote_run(args):
     return all([args.resource_group, args.workspace_name, args.aml_compute])
 
