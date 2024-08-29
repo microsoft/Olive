@@ -6,6 +6,7 @@ import sys
 from argparse import ArgumentParser
 from warnings import warn
 
+from olive.cli.auto_opt import AutoOptCommand
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand
 from olive.cli.cloud_cache import CloudCacheCommand
 from olive.cli.configure_qualcomm_sdk import ConfigureQualcommSDKCommand
@@ -26,6 +27,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     commands_parser = parser.add_subparsers()
 
     # Register commands
+    AutoOptCommand.register_subcommand(commands_parser)
     CaptureOnnxGraphCommand.register_subcommand(commands_parser)
     WorkflowRunCommand.register_subcommand(commands_parser)
     FineTuneCommand.register_subcommand(commands_parser)
