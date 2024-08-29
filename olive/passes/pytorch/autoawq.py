@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from copy import deepcopy
 from typing import Any, Dict, Union
 
 import torch
@@ -188,7 +189,11 @@ class AutoAWQQuantizer(Pass):
         awq_model.save_quantized(output_model_path)
 
         # return HfModelHandler with updated model path
-        return inherit_hf_from_hf(model, output_model_path)
+        new_load_kwargs = deepcopy(model.load_kwargs.dict())
+        # model is saved in safetensors format so need to enable safetensors load
+        if model.load_kwargs.extra_args and new_load_kwargs["extra_args"].get("use_safetensors") is False:
+            new_load_kwargs["extra_args"]["use_safetensors"] = True
+        return inherit_hf_from_hf(model, output_model_path, load_kwargs=new_load_kwargs)
 
     def _pack_model_for_onnx_conversion(self, config):
         from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer

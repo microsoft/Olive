@@ -20,7 +20,7 @@ from olive.passes.pytorch.autoawq import AutoAWQQuantizer
 @pytest.mark.parametrize("pack_model_for_onnx_conversion", [True, False])
 def test_awq(pack_model_for_onnx_conversion, tmp_path: Path):
     # setup
-    input_model = HfModelHandler(model_path="facebook/opt-125m")
+    input_model = HfModelHandler(model_path="facebook/opt-125m", load_kwargs={"use_safetensors": False})
 
     p = create_pass_from_dict(
         AutoAWQQuantizer,

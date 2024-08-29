@@ -12,11 +12,14 @@ from olive.model import DistributedHfModelHandler, HfModelHandler, PyTorchModelH
 
 
 def inherit_hf_from_hf(
-    model: HfModelHandler, model_path: Union[str, Path], adapter_path: Union[str, Path] = None
+    model: HfModelHandler, model_path: Union[str, Path], adapter_path: Union[str, Path] = None, load_kwargs: dict = None
 ) -> HfModelHandler:
     model_config = model.to_json()["config"]
     model_config["model_path"] = model_path
     model_config["adapter_path"] = adapter_path
+    if load_kwargs:
+        # only overwrite the load_kwargs if provided
+        model_config["load_kwargs"] = load_kwargs
     return HfModelHandler(**model_config)
 
 
