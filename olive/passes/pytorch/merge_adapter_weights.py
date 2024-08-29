@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from copy import deepcopy
 from typing import Any, Dict
 
 import torch
@@ -30,7 +31,20 @@ class MergeAdapterWeights(Pass):
                 "No adapter path found in the model. Please check your input "
                 "model type or remove `MergeAdapterWeights` from passes configs"
             )
-        pytorch_model = model.load_model()
+
+        load_kwargs = model.load_kwargs
+        new_load_kwargs = deepcopy(load_kwargs.dict())
+        if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config["load_in_4bit"]:
+            logger.debug(
+                "Merging adapter weights for Bitsandbytes 4bit quantized model is not supported. The quantization"
+                " config is removed from the load kwargs."
+            )
+            new_load_kwargs["quantization_method"] = None
+            new_load_kwargs["quantization_config"] = None
+
+        pytorch_model = HfModelHandler(
+            model_path=model.model_path, task=model.task, adapter_path=model.adapter_path, load_kwargs=new_load_kwargs
+        ).load_model()
         merged_model = pytorch_model.merge_and_unload()
 
         model.save_metadata(output_model_path)

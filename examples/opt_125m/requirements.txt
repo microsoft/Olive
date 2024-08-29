@@ -1,2 +1,4 @@
 autoawq
 optimum
+# version mismatch between torch in autoawq and transformers
+transformers==4.41.2

@@ -1,0 +1,5 @@
+autoawq
+# awq export only added in 0.4.0
+onnxruntime-genai>=0.4.0
+# autoawq requires older torch but newer transformers imports missing torch submodules
+transformers==4.41.2
