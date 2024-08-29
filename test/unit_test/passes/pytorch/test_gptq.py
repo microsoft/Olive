@@ -9,7 +9,7 @@ import torch
 
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import HfModelHandler
+from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.gptq import GptqQuantizer
 
@@ -18,7 +18,8 @@ from olive.passes.pytorch.gptq import GptqQuantizer
     not torch.cuda.is_available(),
     reason="gptq requires GPU.",
 )
-def test_gptq_default(tmp_path: Path):
+@pytest.mark.parametrize("pack_model_for_onnx_conversion", [True, False])
+def test_gptq_default(pack_model_for_onnx_conversion, tmp_path: Path):
     # setup
     input_model = HfModelHandler(model_path="facebook/opt-125m")
     config = {
@@ -37,6 +38,7 @@ def test_gptq_default(tmp_path: Path):
             pre_process_data_config=DataComponentConfig(type="skip_pre_process"),
             post_process_data_config=DataComponentConfig(type="skip_post_process"),
         ),
+        "pack_model_for_onnx_conversion": pack_model_for_onnx_conversion,
     }
     p = create_pass_from_dict(
         GptqQuantizer,
@@ -48,4 +50,13 @@ def test_gptq_default(tmp_path: Path):
 
     # execute
     out = p.run(input_model, gptq_out_folder)
-    assert out is not None
+
+    # assert
+    if pack_model_for_onnx_conversion:
+        assert isinstance(out, PyTorchModelHandler)
+    else:
+        assert isinstance(out, HfModelHandler)
+
+    from transformers import OPTForCausalLM
+
+    assert isinstance(out.load_model(), OPTForCausalLM)
