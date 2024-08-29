@@ -45,8 +45,8 @@
                 "per_device_eval_batch_size": 1,
                 "gradient_accumulation_steps": 4,
                 "gradient_checkpointing": false,
-                "max_steps": 15,
-                "logging_steps": 5,
+                "max_steps": 150,
+                "logging_steps": 50,
                 "max_grad_norm": 0.3
             }
         },
@@ -59,8 +59,8 @@
                 "per_device_eval_batch_size": 1,
                 "gradient_accumulation_steps": 4,
                 "gradient_checkpointing": false,
-                "max_steps": 15,
-                "logging_steps": 5,
+                "max_steps": 150,
+                "logging_steps": 50,
                 "group_by_length": true,
                 "max_grad_norm": 0.3
             }
