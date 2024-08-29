@@ -32,9 +32,11 @@ class MergeAdapterWeights(Pass):
                 "model type or remove `MergeAdapterWeights` from passes configs"
             )
 
-        load_kwargs = model.load_kwargs
-        new_load_kwargs = deepcopy(load_kwargs.dict())
-        if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config["load_in_4bit"]:
+        new_load_kwargs = deepcopy(model.load_kwargs.dict()) if model.load_kwargs else {}
+        if (
+            new_load_kwargs.get("quantization_method") == "bitsandbytes"
+            and new_load_kwargs["quantization_config"]["load_in_4bit"]
+        ):
             logger.debug(
                 "Merging adapter weights for Bitsandbytes 4bit quantized model is not supported. The quantization"
                 " config is removed from the load kwargs."
