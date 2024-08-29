@@ -225,6 +225,6 @@ class GptqQuantizer(Pass):
         # return HfModelHandler with updated model path
         new_load_kwargs = deepcopy(model.load_kwargs.dict()) if model.load_kwargs else {}
         # model is saved in safetensors format so need to enable safetensors load
-        if new_load_kwargs.get("extra_args", {}).get("use_safetensors") is False:
+        if new_load_kwargs.get("extra_args") and new_load_kwargs["extra_args"].get("use_safetensors") is False:
             new_load_kwargs["extra_args"]["use_safetensors"] = True
         return inherit_hf_from_hf(model, output_model_path, load_kwargs=new_load_kwargs)
