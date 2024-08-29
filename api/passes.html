@@ -4934,7 +4934,7 @@
 <span id="awq-quantizer"></span><h2>AutoAWQQuantizer<a class="headerlink" href="#autoawqquantizer" title="Permalink to this heading">¶</a></h2>
 <p>AWQ quantization.</p>
 <p><strong>Input:</strong> handler.hf.HfModelHandler</p>
-<p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Output:</strong> handler.hf.HfModelHandler | handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-243">
 <span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-243" title="Permalink to this definition">¶</a></dt>
@@ -5037,7 +5037,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-pack_model_for_onnx_conversion">
 <span class="sig-name descname"><span class="pre">pack_model_for_onnx_conversion</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-pack_model_for_onnx_conversion" title="Permalink to this definition">¶</a></dt>
-<dd><p>Whether to pack the model for ONNX conversion. Default is False.</p>
+<dd><p>Whether to pack the model for ONNX conversion. If True, the model will be saved as a PyTorch model. If False, the model will be saved as a HF model with quantized weights. Default value is False.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
 <p><strong>searchable_values:</strong> None</p>
