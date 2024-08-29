@@ -57,7 +57,7 @@ def inherit_pytorch_from_hf(
             "dynamic_axes": {
                 k: v
                 for k, v in hf_io_config.get("dynamic_axes", {}).items()
-                if not k.startswith("present", "past_key_values")
+                if not k.startswith(("present", "past_key_values"))
             },
         }
 

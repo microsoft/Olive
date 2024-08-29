@@ -118,7 +118,7 @@ class AutoAWQQuantizer(Pass):
     @torch.no_grad()
     def _run_for_config(
         self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModelHandler:
+    ) -> Union[HfModelHandler, PyTorchModelHandler]:
         from awq import AutoAWQForCausalLM
         from awq.models import base as awq_model_base
         from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer
@@ -184,7 +184,7 @@ class AutoAWQQuantizer(Pass):
             return inherit_pytorch_from_hf(model, output_model_path)
 
         # save_quantized also saves the metadata, so we just save the tokenizer
-        model.get_hf_tokenizer().save_pretrained(output_model_path)
+        tokenizer.save_pretrained(output_model_path)
         awq_model.save_quantized(output_model_path)
 
         # return HfModelHandler with updated model path
