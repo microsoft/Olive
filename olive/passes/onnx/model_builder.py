@@ -163,7 +163,8 @@ class ModelBuilder(Pass):
             input_path = str(model.get_resource("model_path"))
         else:
             model_path = model.model_name_or_path
-            input_path = ""
+            # provide the model path as input path, model builder uses input_path for quantized models
+            input_path = model_path
 
         if config.get("int4_block_size"):
             if int(config["int4_block_size"]) not in [16, 32, 64, 128, 256]:

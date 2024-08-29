@@ -43,10 +43,30 @@ def inherit_pytorch_from_hf(
 ) -> PyTorchModelHandler:
     # keep original io_config if present otherwise use the hf onnx_config
     io_config = model.to_json()["config"].get("io_config")
+    if not io_config and model.io_config:
+        # must have come from the automatic io config using optimum
+        hf_io_config = deepcopy(model.io_config)
+        hf_dummy_inputs = model.get_dummy_inputs()
+
+        # kv cache will be handled by the kv_cache flag in io_config
+        io_config = {
+            "input_names": [i for i in hf_io_config.get("input_names", []) if not i.startswith("past_key_values")],
+            "input_shapes": [],
+            "input_types": [],
+            "output_names": [o for o in hf_io_config.get("output_names", []) if not o.startswith("present")],
+            "dynamic_axes": {
+                k: v
+                for k, v in hf_io_config.get("dynamic_axes", {}).items()
+                if not k.startswith("present", "past_key_values")
+            },
+        }
+
+        for i_name in io_config["input_names"]:
+            io_config["input_shapes"].append(hf_dummy_inputs[i_name].shape)
+            io_config["input_types"].append(str(hf_dummy_inputs[i_name].dtype).strip("torch."))
+
     if io_config and not io_config.get("kv_cache") and model.task.endswith("-with-past"):
         io_config["kv_cache"] = True
-    elif model.io_config:
-        io_config = deepcopy(model.io_config)
 
     return PyTorchModelHandler(
         model_path=model_path,

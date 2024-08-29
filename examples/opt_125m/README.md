@@ -3,6 +3,7 @@ Sample use case of Olive to optimize facebook/opt_125m model using AutoAwq which
 
 ## Optimization Workflows
 Performs optimization pipeline:
+- *Pytorch Model -> AutoAwqQuantization -> Pytorch Model*
 - *Pytorch Model -> AutoAwqQuantization -> Onnx Model -> Transformers Optimized*
 
 ## Prerequisite
@@ -19,5 +20,9 @@ Also, please ensure you already installed olive-ai. Please refer to the [install
 Olive already simplifies the optimization process by providing a single json config to run the optimization workflow. You can run the following command to execute the workflow:
 
 ```bash
+# only run awq
 python -m olive.workflows.run --config awq.json
+
+# run awq, export onnx, and optimize onnx
+python -m olive.workflows.run --config awq_onnx.json
 ```
