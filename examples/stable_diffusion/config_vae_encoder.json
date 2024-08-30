@@ -1,7 +1,7 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "model_path": "runwayml/stable-diffusion-v1-5",
+        "model_path": "CompVis/stable-diffusion-v1-4",
         "model_loader": "vae_encoder_load",
         "model_script": "user_script.py",
         "io_config": {

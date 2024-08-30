@@ -1,6 +1,6 @@
 # Stable Diffusion Optimization with DirectML <!-- omit in toc -->
 
-This sample shows how to optimize [Stable Diffusion v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4), [Stable Diffusion v1-5](https://huggingface.co/runwayml/stable-diffusion-v1-5) or [Stable Diffusion v2](https://huggingface.co/stabilityai/stable-diffusion-2) to run with ONNX Runtime and DirectML.
+This sample shows how to optimize [Stable Diffusion v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4) or [Stable Diffusion v2](https://huggingface.co/stabilityai/stable-diffusion-2) to run with ONNX Runtime and DirectML.
 
 Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime. Output models are only guaranteed to be compatible with onnxruntime-directml 1.16.0 or newer.
 
@@ -45,8 +45,8 @@ The above command will enumerate the `config_<model_name>.json` files and optimi
 The stable diffusion models are large, and the optimization process is resource intensive. It is recommended to run optimization on a system with a minimum of 16GB of memory (preferably 32GB). Expect optimization to take several minutes (especially the U-Net model).
 
 Once the script successfully completes:
-- The optimized ONNX pipeline will be stored under `models/optimized/[model_id]` (for example `models/optimized/runwayml/stable-diffusion-v1-5`).
-- The unoptimized ONNX pipeline (models converted to ONNX, but not run through transformer optimization pass) will be stored under `models/unoptimized/[model_id]` (for example `models/unoptimized/runwayml/stable-diffusion-v1-5`).
+- The optimized ONNX pipeline will be stored under `models/optimized/[model_id]` (for example `models/optimized/CompVis/stable-diffusion-v1-4`).
+- The unoptimized ONNX pipeline (models converted to ONNX, but not run through transformer optimization pass) will be stored under `models/unoptimized/[model_id]` (for example `models/unoptimized/CompVis/stable-diffusion-v1-4`).
 
 Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
 
@@ -75,8 +75,7 @@ Inference will loop until the generated image passes the safety checker (otherwi
 
 Run `python stable_diffusion.py --help` for additional options. A few particularly relevant ones:
 - `--model_id <string>` : name of a stable diffusion model ID hosted by huggingface.co. This script has been tested with the following:
-  - `CompVis/stable-diffusion-v1-4`
-  - `runwayml/stable-diffusion-v1-5` (default)
+  - `CompVis/stable-diffusion-v1-4` (default)
   - `sayakpaul/sd-model-finetuned-lora-t4`
   - `stabilityai/stable-diffusion-2`
   - LoRA variants of the above base models may work as well. See [LoRA Models (Experimental)](#lora-models-experimental).
@@ -115,7 +114,7 @@ Olive merges the LoRA weights into the base model before conversion to ONNX (see
 - If you run into the following error while optimizing models, it is likely that your local HuggingFace cache has an incomplete copy of the stable diffusion model pipeline. Deleting `C:\users\<username>\.cache\huggingface` should resolve the issue by ensuring a fresh copy is downloaded.
 
   ```
-  OSError: Can't load tokenizer for 'C:\Users\<username>\.cache\huggingface\hub\models--runwayml--stable-diffusion-v1-5\snapshots\<sha>'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'C:\Users\<username>\.cache\huggingface\hub\models--runwayml--stable-diffusion-v1-5\snapshots\<sha>' is the correct path to a directory containing all relevant files for a CLIPTokenizer tokenizer.
+  OSError: Can't load tokenizer for 'C:\Users\<username>\.cache\huggingface\hub\models--CompVis--stable-diffusion-v1-4\snapshots\<sha>'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'C:\Users\<username>\.cache\huggingface\hub\models--CompVis--stable-diffusion-v1-4\snapshots\<sha>' is the correct path to a directory containing all relevant files for a CLIPTokenizer tokenizer.
   ```
 
 - Onnx conversion for unet terminates silently without any error message. This could be because your system ran out of disk space in the temp directory. You can add `--tempdir .` to the command line to use the current directory as the temp directory root. `.` can be replaced with any other directory with sufficient disk space and write permission.
