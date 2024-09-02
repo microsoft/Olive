@@ -15,7 +15,7 @@ pip install -r requirements.txt
 
 If you target GPU, pls install onnxruntime and onnxruntime-genai gpu packages.
 
-
+<!-- TODO(anyone): Remove this when genai doesn't require login -->
 ### For optimizing model from Hugging Face
 if you have not logged in Hugging Face account,
 - Install Hugging Face CLI and login your Hugging Face account for model access
@@ -50,7 +50,7 @@ python phi3.py --target mobile --inference --prompt "Write a story starting with
 # Fine-tune the model with lora method, optimize the model for cuda target and inference with ONNX Runtime Generate() API
 python phi3.py --target cuda --finetune_method lora --inference --prompt "Write a story starting with once upon a time" --max_length 200
 
-# Fine-tune, quantize and optimize the model
+# Fine-tune, quantize using AWQ and optimize the model for cpu target
 python phi3.py --target cpu --precision int4 --finetune_method lora --awq
 ```
 
@@ -85,6 +85,11 @@ To run the workflow,
 ```bash
 python phi3.py --quarot
 ```
+
+### Get access to fine-tuning dataset
+Get access to the following resources on Hugging Face Hub:
+- [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
+
 
 ## More Inference Examples
 - [Android chat APP with Phi-3 and ONNX Runtime Mobile](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/mobile/examples/phi-3/android)

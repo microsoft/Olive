@@ -11,7 +11,7 @@ from pathlib import Path
 
 import onnxruntime_genai as og
 
-from olive.common.utils import hardlink_copy_dir
+from olive.common.utils import hardlink_copy_dir, unescaped_str
 from olive.hardware import AcceleratorSpec
 from olive.workflows import run as olive_run
 
@@ -64,25 +64,25 @@ def get_args(raw_args):
         help="Choose from cpu, cuda, mobile or web",
     )
     parser.add_argument(
-        "--quarot",
-        action="store_true",
-        help="Run QuaRot on a Hugging Face PyTorch model",
-    )
-    parser.add_argument(
         "--finetune_method",
         type=str,
         default=None,
         choices=["qlora", "lora"],
-        help=(
-            "Finetune method before onnxruntime optimization. "
-            "qlora finetuned model cannot be converted to onnx by model builder."
-        ),
+        help="Finetune method before onnxruntime optimization",
     )
-    parser.add_argument(
+
+    quant_group = parser.add_mutually_exclusive_group()
+    quant_group.add_argument(
+        "--quarot",
+        action="store_true",
+        help="Run QuaRot on a Hugging Face PyTorch model",
+    )
+    quant_group.add_argument(
         "--awq",
         action="store_true",
         help="Run AWQ on the base model or the finetuned model",
     )
+
     parser.add_argument(
         "--precision",
         type=str,
@@ -103,19 +103,22 @@ def get_args(raw_args):
         nargs="*",
         type=str,
         default=["Write a joke"],
-        help="The prompt text fed into the model. Not supported with Web target. Only used with --inference",
+        help="The prompt text fed into the model. Only used with --inference",
     )
     parser.add_argument(
         "--chat_template",
-        type=str,
-        default="<|user|>\n{input}<|end|>\n<|assistant|>",
-        help="The chat template for the prompt. Not supported with Web target. Only used with --inference",
+        type=unescaped_str,
+        default=None,
+        help=(
+            "The chat template for the prompt. If not provided, will use default templates for base and finetuned"
+            " models. Only used with --inference"
+        ),
     )
     parser.add_argument(
         "--max_length",
         type=int,
         default=200,
-        help="Max length for generation. Not supported with Web target. Only used with --inference",
+        help="Max length for generation. Only used with --inference",
     )
 
     parser.add_argument("--output_dir", type=str, default="models/phi3", help="Output path for optimized model")
@@ -177,6 +180,13 @@ def main(raw_args=None):
         print("\nOptimized model is generated in", args.output_dir)
 
     if args.inference:
+        if not args.chat_template:
+            args.chat_template = (
+                "### Question: {input} \n### Answer: "
+                if args.finetune_method
+                else "<|user|>\n{input}<|end|>\n<|assistant|>"
+            )
+
         prompts = "Write a joke" if not args.prompt else "".join(args.prompt)
 
         prompts = f"{args.chat_template.format(input=prompts)}"

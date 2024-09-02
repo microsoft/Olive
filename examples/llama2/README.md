@@ -91,7 +91,6 @@ This workflow quantizes the Llama2 model using [GPTQ](https://arxiv.org/abs/2210
 
 - This workflow is only supported for GPU and need GPU to run.
 - GPTQ quantization can be enabled by passing `--use_gptq` flag to the script.
-- You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
 
 Requirements file: [requirements-gptq.txt](requirements-gptq.txt)
 
@@ -179,6 +178,15 @@ Run the following command to execute the workflow:
 
 ```bash
 python llama2.py --qlora
+```
+
+**Note:**
+Get access to the following resource on Hugging Face Hub:
+- [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
+
+Login to your Hugging Face account:
+```bash
+huggingface-cli login
 ```
 
 ### Running Workflows on the Cloud

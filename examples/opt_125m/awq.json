@@ -10,5 +10,5 @@
     "host": "local_system",
     "target": "local_system",
     "cache_dir": "cache",
-    "output_dir": "models/opt_125m"
+    "output_dir": "models/awq"
 }

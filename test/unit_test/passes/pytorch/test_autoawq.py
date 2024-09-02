@@ -28,10 +28,10 @@ def test_awq(pack_model_for_onnx_conversion, tmp_path: Path):
         disable_search=True,
         accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider"),
     )
-    gptq_out_folder = str(tmp_path / "gptq")
+    awq_out_folder = str(tmp_path / "awq")
 
     # execute
-    out = p.run(input_model, gptq_out_folder)
+    out = p.run(input_model, awq_out_folder)
 
     # assert
     if pack_model_for_onnx_conversion:

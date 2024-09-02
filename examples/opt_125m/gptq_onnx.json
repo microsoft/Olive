@@ -6,8 +6,20 @@
             "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
+    "data_configs": [
+        {
+            "name": "wikitext2_train",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": { "data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train" },
+            "pre_process_data_config": { "add_special_tokens": false, "max_samples": 128 }
+        }
+    ],
     "passes": {
-        "4bit_awq_quantizer": { "type": "AutoAWQQuantizer", "pack_model_for_onnx_conversion": true },
+        "gptq_quant_int4": {
+            "type": "GptqQuantizer",
+            "data_config": "wikitext2_train",
+            "pack_model_for_onnx_conversion": true
+        },
         "conversion_merged": { "type": "OnnxConversion", "device": "cuda", "torch_dtype": "float32" },
         "transformers_optimization_fp16": {
             "type": "OrtTransformersOptimization",
@@ -20,5 +32,5 @@
     "host": "local_system",
     "target": "local_system",
     "cache_dir": "cache",
-    "output_dir": "models/awq_onnx"
+    "output_dir": "models/gptq_onnx"
 }

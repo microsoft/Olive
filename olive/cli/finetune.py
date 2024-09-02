@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import codecs
 import logging
 import tempfile
 from argparse import ArgumentParser
@@ -18,7 +17,7 @@ from olive.cli.base import (
     is_remote_run,
     update_remote_option,
 )
-from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir
+from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir, unescaped_str
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +269,3 @@ AZUREML_SYSTEM_TEMPLATE = {
     "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
     "aml_docker_config": {"base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04"},
 }
-
-
-def unescaped_str(arg_str):
-    return codecs.decode(arg_str, "unicode_escape")

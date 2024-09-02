@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import codecs
 import hashlib
 import inspect
 import io
@@ -556,3 +557,8 @@ def load_weights(path: Union[str, Path], file_format: Optional[WeightsFileFormat
                 weights[key] = f.get_tensor(key)
 
     return weights
+
+
+def unescaped_str(arg_str):
+    """Decode strings without escaping."""
+    return codecs.decode(arg_str, "unicode_escape")
