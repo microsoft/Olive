@@ -17,4 +17,3 @@
   - [OnnxConversion]
   - [OrtTransformersOptimization]
   - [OrtMixedPrecision, OnnxQuantization, IncQuantization, VitisAIQuantization, OnnxMatMul4Quantizer]
-  - [OrtPerfTuning]
