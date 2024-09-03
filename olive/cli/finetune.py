@@ -160,7 +160,7 @@ class FineTuneCommand(BaseOliveCLICommand):
                 hardlink_copy_dir(Path(tempdir) / "-".join(run_config["passes"].keys()) / "gpu-cuda_model", output_path)
                 logger.info("Model and adapters saved to %s", output_path.resolve())
             else:
-                logger.error("Failed to run fintune. Please set the log_level to 1 for more detailed logs.")
+                logger.error("Failed to run finetune. Please set the log_level to 1 for more detailed logs.")
 
     def parse_training_args(self) -> Dict:
         if not self.unknown_args:

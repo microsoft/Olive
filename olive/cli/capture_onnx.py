@@ -171,7 +171,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 output_path = Path(self.args.output_path)
                 logger.info("ONNX Model is saved to %s", output_path.resolve())
             else:
-                logger.error("Failed to capture ONNX graph. Please set the log_level to 1 for more detailed logs.")
+                logger.error("Failed to run capture-onnx-graph. Please set the log_level to 1 for more detailed logs.")
 
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
