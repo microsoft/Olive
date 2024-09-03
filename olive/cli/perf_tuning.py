@@ -13,7 +13,14 @@ from typing import Dict
 import yaml
 
 from olive.auto_optimizer.template_mapping import PERF_TUNING_TEMPLATE
-from olive.cli.base import BaseOliveCLICommand, add_remote_options, is_remote_run, update_remote_option
+from olive.cli.base import (
+    BaseOliveCLICommand,
+    add_logging_options,
+    add_remote_options,
+    get_output_model_number,
+    is_remote_run,
+    update_remote_option,
+)
 from olive.common.utils import set_nested_dict_value, set_tempdir
 from olive.data.config import DataConfig
 from olive.workflows import run as olive_run
@@ -34,6 +41,8 @@ class PerfTuningCommand(BaseOliveCLICommand):
                 "--hf_model_name hf_model_name --device device_type to get the tuned session parameters."
             ),
         )
+        add_logging_options(sub_parser)
+
         # model options
         model_group = sub_parser.add_argument_group("model options")
         model_group.add_argument(
@@ -299,6 +308,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
             set_nested_dict_value(config, k, v)
 
         update_remote_option(config, self.args, "perf-tuning", tempdir)
+        config["log_severity_level"] = self.args.log_level
 
         return config
 
@@ -308,21 +318,24 @@ class PerfTuningCommand(BaseOliveCLICommand):
         with tempfile.TemporaryDirectory() as tempdir:
             run_config = self.get_run_config(tempdir)
             run_config["output_dir"] = tempdir
-            olive_run(run_config)
+            output = olive_run(run_config)
 
             if is_remote_run(self.args):
                 # TODO(jambayk): point user to datastore with outputs or download outputs
                 # both are not implemented yet
                 return
 
-            # need to improve the output structure of olive run
-            output_path = Path(self.args.output_path)
-            output_path.mkdir(parents=True, exist_ok=True)
-            for provider in self.args.providers_list:
-                provider_key = provider.replace("ExecutionProvider", "").lower()
-                infer_setting_output_path = output_path / f"{self.args.device}-{provider_key}.json"
-                rls_json_path = Path(tempdir) / "perf_tuning" / f"{self.args.device}-{provider_key}_model.json"
-                with rls_json_path.open() as f:
-                    infer_settings = json.load(f)["config"]["inference_settings"]
-                    json.dump(infer_settings, infer_setting_output_path.open("w"), indent=4)
-            logger.info("Inference session parameters are saved to %s", output_path.resolve())
+            if get_output_model_number(output) > 0:
+                # need to improve the output structure of olive run
+                output_path = Path(self.args.output_path)
+                output_path.mkdir(parents=True, exist_ok=True)
+                for provider in self.args.providers_list:
+                    provider_key = provider.replace("ExecutionProvider", "").lower()
+                    infer_setting_output_path = output_path / f"{self.args.device}-{provider_key}.json"
+                    rls_json_path = Path(tempdir) / "perf_tuning" / f"{self.args.device}-{provider_key}_model.json"
+                    with rls_json_path.open() as f:
+                        infer_settings = json.load(f)["config"]["inference_settings"]
+                        json.dump(infer_settings, infer_setting_output_path.open("w"), indent=4)
+                logger.info("Inference session parameters are saved to %s", output_path.resolve())
+            else:
+                logger.error("Failed to run tune-session-params. Please set the log_level to 1 for more detailed logs.")

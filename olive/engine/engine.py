@@ -326,10 +326,7 @@ class Engine:
 
         try:
             if evaluate_input_model and not self.evaluator_config:
-                logger.debug(
-                    "evaluate_input_model is True but no evaluator provided in no-search mode. Skipping input model"
-                    " evaluation."
-                )
+                logger.debug("evaluate_input_model is True but no evaluator provided. Skipping input model evaluation.")
             elif evaluate_input_model:
                 results = self._evaluate_model(
                     input_model_config, input_model_id, self.evaluator_config, accelerator_spec

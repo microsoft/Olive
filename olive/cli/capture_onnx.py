@@ -12,8 +12,10 @@ from typing import ClassVar, Dict
 from olive.cli.base import (
     BaseOliveCLICommand,
     add_hf_model_options,
+    add_logging_options,
     add_remote_options,
     get_model_name_or_path,
+    get_output_model_number,
     is_remote_run,
     update_remote_option,
 )
@@ -38,6 +40,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "capture-onnx-graph",
             help=("Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model."),
         )
+
+        add_logging_options(sub_parser)
 
         # model options
         add_hf_model_options(sub_parser)
@@ -156,15 +160,18 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         with tempfile.TemporaryDirectory() as tempdir:
             run_config = self.get_run_config(tempdir)
 
-            olive_run(run_config)
+            output = olive_run(run_config)
 
             if is_remote_run(self.args):
                 # TODO(jambayk): point user to datastore with outputs or download outputs
                 # both are not implemented yet
                 return
 
-            output_path = Path(self.args.output_path)
-            logger.info("ONNX Model is saved to %s", output_path.resolve())
+            if get_output_model_number(output) > 0:
+                output_path = Path(self.args.output_path)
+                logger.info("ONNX Model is saved to %s", output_path.resolve())
+            else:
+                logger.error("Failed to capture ONNX graph. Please set the log_level to 1 for more detailed logs.")
 
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
@@ -174,6 +181,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             config["input_model"]["task"] = self.args.task
 
         config["output_dir"] = self.args.output_path
+        config["log_severity_level"] = self.args.log_level
+
         to_replace = None
         if self.args.use_model_builder:
             del config["passes"]["c"]
@@ -190,13 +199,15 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         else:
             del config["passes"]["m"]
             to_replace = [
-                (("passes", "c", "past_key_value_name"), self.args.past_key_value_name),
                 (("passes", "c", "device"), self.args.device),
                 (("passes", "c", "torch_dtype"), self.args.torch_dtype),
                 (("passes", "c", "target_opset"), self.args.target_opset),
                 (("passes", "c", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
                 (("passes", "c", "save_metadata_for_token_generation"), self.args.use_ort_genai),
             ]
+            if self.args.use_dynamo_exporter:
+                to_replace.append(("passes", "c", "past_key_value_name"), self.args.past_key_value_name)
+
         for keys, value in to_replace:
             if value is None:
                 continue
@@ -207,7 +218,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
 
 TEMPLATE = {
-    "input_model": {"type": "HfModel"},
+    "input_model": {"type": "HfModel", "load_kwargs": {"trust_remote_code": True}},
     "systems": {
         "local_system": {
             "type": "LocalSystem",

@@ -43,15 +43,31 @@ def get_model_name_or_path(model_name_or_path) -> Union[str, Dict[str, str]]:
     pattern = r"^(?P<registry_name>[^:]+):(?P<model_name>[^:]+):(?P<version>[^:]+)$"
     match = re.match(pattern, model_name_or_path)
 
-    if not match:
-        return model_name_or_path
+    if match:
+        return {
+            "type": "azureml_registry_model",
+            "registry_name": match.group("registry_name"),
+            "name": match.group("model_name"),
+            "version": match.group("version"),
+        }
 
-    return {
-        "type": "azureml_registry_model",
-        "registry_name": match.group("registry_name"),
-        "name": match.group("model_name"),
-        "version": match.group("version"),
-    }
+    pattern = r"https://huggingface\.co/([^/]+/[^/]+)(?:/.*)?"
+    match = re.search(pattern, model_name_or_path)
+
+    if match:
+        return match.group(1)
+
+    return model_name_or_path
+
+
+def add_logging_options(sub_parser):
+    log_group = sub_parser.add_argument_group("logging options")
+    log_group.add_argument(
+        "--log_level",
+        type=int,
+        default=3,
+        help="Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL",
+    )
 
 
 def add_remote_options(sub_parser):
@@ -146,3 +162,8 @@ def update_remote_option(config, args, cli_action, tempdir):
             "hf_token": bool(args.keyvault_name),
         }
         config["workflow_host"] = "aml_system"
+
+
+# TODO(team): Remove this function once the output structure is refactored
+def get_output_model_number(outputs: Dict) -> int:
+    return sum(len(f.nodes) for f in outputs.values())
