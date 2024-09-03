@@ -2,7 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
+from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, List, Union
 
 import torch
@@ -14,7 +17,7 @@ from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
-from olive.passes.pytorch.common import inherit_pytorch_from_hf, inherit_pytorch_from_pytorch
+from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_hf, inherit_pytorch_from_pytorch
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +103,22 @@ class GptqQuantizer(Pass):
                     Data config for quantization. Default value is None.
                 """,
             ),
+            "pack_model_for_onnx_conversion": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to pack the model for ONNX conversion. If True, the model will be saved as a PyTorch model"
+                    " with custom quantized layers. If False, the model will be saved in the same format as the input"
+                    " model."
+                ),
+            ),
         }
 
     @torch.no_grad()
     def _run_for_config(
         self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
+        # pylint: disable=protected-access
         from auto_gptq import BaseQuantizeConfig
         from auto_gptq.modeling import BaseGPTQForCausalLM
         from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
@@ -115,7 +128,7 @@ class GptqQuantizer(Pass):
         if not torch.cuda.is_available():
             raise ValueError("Please use GPU to run gptq quantization.")
         elif self.host_device != Device.GPU:
-            logger.warning(
+            logger.debug(
                 "GPTQ quantization requires GPU but the host device is %s, will ignore the host device",
                 self.host_device,
             )
@@ -146,6 +159,8 @@ class GptqQuantizer(Pass):
             true_sequential=config["true_sequential"],
             desc_act=config["desc_act"],
             sym=config["sym"],
+            # this is so that the weight gets saved as "model.safetensors"
+            model_file_base_name="model",
         )
 
         def get_onnx_quant_linear(*args, **kwargs):
@@ -168,25 +183,48 @@ class GptqQuantizer(Pass):
 
         import auto_gptq
 
-        original = auto_gptq.modeling._utils.dynamically_import_QuantLinear  # pylint: disable=protected-access
+        original = auto_gptq.modeling._utils.dynamically_import_QuantLinear
+
+        quantizer = get_onnx_quant_linear if config["pack_model_for_onnx_conversion"] else original
         try:
             # Replace QuantLinear in autogptq with QuantLinear for quant linear layer packing
-            auto_gptq.modeling._utils.dynamically_import_QuantLinear = (  # pylint: disable=protected-access
-                get_onnx_quant_linear
-            )
+            auto_gptq.modeling._utils.dynamically_import_QuantLinear = quantizer
 
             # Autogpq quantize_model currently only support cuda device. It accepts model on cpu but
             # will move each block(layer) to cuda before quantization and move back to cpu when finished.
             quantized_model.quantize(dataset)
         finally:
-            auto_gptq.modeling._utils.dynamically_import_QuantLinear = original  # pylint: disable=protected-access
+            auto_gptq.modeling._utils.dynamically_import_QuantLinear = original
 
-        quantized_model = quantized_model.model
+        if config["pack_model_for_onnx_conversion"] or isinstance(model, PyTorchModelHandler):
 
-        output_model_path = normalize_path_suffix(output_model_path, "model.pt")
-        torch.save(quantized_model, output_model_path)
+            quantized_model = quantized_model.model
 
-        if isinstance(model, HfModelHandler):
-            return inherit_pytorch_from_hf(model, output_model_path)
+            output_model_path = normalize_path_suffix(output_model_path, "model.pt")
+            torch.save(quantized_model, output_model_path)
 
-        return inherit_pytorch_from_pytorch(model, output_model_path)
+            if isinstance(model, HfModelHandler):
+                return inherit_pytorch_from_hf(model, output_model_path)
+
+            return inherit_pytorch_from_pytorch(model, output_model_path)
+
+        # save quantized model and metadata
+        model.save_metadata(output_model_path)
+        quantized_model.save_quantized(output_model_path)
+
+        # need to disable exllama to be able to load on cpu
+        # should we do this using load kwargs? It works but transformers prints a warning
+        config_json_path = Path(output_model_path) / "config.json"
+        with open(config_json_path, encoding="utf-8") as f:
+            model_config = json.load(f)
+
+        model_config["quantization_config"]["use_exllama"] = False
+        with open(config_json_path, "w", encoding="utf-8") as f:
+            json.dump(model_config, f, indent=2)
+
+        # return HfModelHandler with updated model path
+        new_load_kwargs = deepcopy(model.load_kwargs.dict()) if model.load_kwargs else {}
+        # model is saved in safetensors format so need to enable safetensors load
+        if new_load_kwargs.get("extra_args") and new_load_kwargs["extra_args"].get("use_safetensors") is False:
+            new_load_kwargs["extra_args"]["use_safetensors"] = True
+        return inherit_hf_from_hf(model, output_model_path, load_kwargs=new_load_kwargs)

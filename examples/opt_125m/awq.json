@@ -1,49 +1,14 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "facebook/opt_125m" },
+    "input_model": { "type": "HfModel", "model_path": "facebook/opt-125m" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
             "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
-    "data_configs": [
-        {
-            "name": "transformer_prompt_dummy_data",
-            "type": "TransformersPromptDummyDataContainer",
-            "load_dataset_config": { "ignore_input_fields": [ "position_ids" ], "use_step": true }
-        }
-    ],
-    "evaluators": {
-        "common_evaluator": {
-            "metrics": [
-                {
-                    "name": "latency",
-                    "type": "latency",
-                    "sub_types": [ { "name": "avg", "priority": 1 } ],
-                    "data_config": "transformer_prompt_dummy_data",
-                    "user_config": {
-                        "inference_settings": { "onnx": { "session_options": { "enable_profiling": false } } }
-                    }
-                }
-            ]
-        }
-    },
-    "passes": {
-        "4bit_awq_quantizer": { "type": "AutoAWQQuantizer", "pack_model_for_onnx_conversion": true },
-        "conversion_merged": { "type": "OnnxConversion", "device": "cuda" },
-        "transformers_optimization_fp16": {
-            "type": "OrtTransformersOptimization",
-            "model_type": "gpt2",
-            "opt_level": 0,
-            "only_onnxruntime": false,
-            "keep_io_types": false,
-            "float16": true,
-            "use_gqa": false
-        }
-    },
-    "evaluator": "common_evaluator",
+    "passes": { "4bit_awq_quantizer": { "type": "AutoAWQQuantizer" } },
     "host": "local_system",
     "target": "local_system",
     "cache_dir": "cache",
-    "output_dir": "models/opt_125m"
+    "output_dir": "models/awq"
 }

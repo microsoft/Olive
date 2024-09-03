@@ -15,7 +15,7 @@ pip install -r requirements.txt
 
 If you target GPU, pls install onnxruntime and onnxruntime-genai gpu packages.
 
-
+<!-- TODO(anyone): Remove this when genai doesn't require login -->
 ### For optimizing model from Hugging Face
 if you have not logged in Hugging Face account,
 - Install Hugging Face CLI and login your Hugging Face account for model access
@@ -47,24 +47,23 @@ python phi3.py --target mobile --source AzureML
 
 python phi3.py --target mobile --inference --prompt "Write a story starting with once upon a time" --max_length 200
 
+# Fine-tune the model with lora method, optimize the model for cuda target and inference with ONNX Runtime Generate() API
 python phi3.py --target cuda --finetune_method lora --inference --prompt "Write a story starting with once upon a time" --max_length 200
-# qlora introduce the quantization into base model which is not supported by onnxruntime-genai as of now!
-python phi3.py --target cuda --finetune_method qlora
+
+# Fine-tune, quantize using AWQ and optimize the model for cpu target
+python phi3.py --target cpu --precision int4 --finetune_method lora --awq
 ```
 
-- `--target`: cpu, cuda, mobile, web
-- `--finetune_method`: optional. The method used for fine-tuning. Options: `qlora`, `lora`. Default is none. Note that onnxruntime-genai only supports `lora` method as of now.
-- `--precision`: optional, for data precision. fp32 or int4 (default) for cpu target; fp32, fp16, or int4 (default) for GPU target; int4 (default) for mobile or web.
-- `--source`: optional, for model path. HF or AzureML. HF(Hugging Face model) by default.
-- `--inference`: optional, for non-web models inference/validation.
-- `--prompt`: optional, the prompt text fed into the model. Take effect only when `--inference` is set.
-- `--max_length`: optional, the max length of the output from the model. Take effect only when `--inference` is set.
-
+Run the following to get more information about the script:
+```
+python phi3.py --help
+```
 
 This script includes
 - Generate the Olive configuration file for the chosen HW target
-- Fine-tune model by lora or qlora method with dataset of `nampdn-ai/tiny-codes`.
-- Generate optimized model with Olive based on the configuration file for the chosen HW target
+- (optional) Fine-tune model by lora or qlora method with dataset of `nampdn-ai/tiny-codes`.
+- (optional) Quantize the original or fine-tuned model using AWQ. If AWQ is not used, the model will be quantized using RTN if precision is int4.
+- Generate optimized onnx model with Olive based on the configuration file for the chosen HW target
 - (optional) Inference the optimized model with ONNX Runtime Generate() API with non-web target
 
 
@@ -86,6 +85,11 @@ To run the workflow,
 ```bash
 python phi3.py --quarot
 ```
+
+### Get access to fine-tuning dataset
+Get access to the following resources on Hugging Face Hub:
+- [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
+
 
 ## More Inference Examples
 - [Android chat APP with Phi-3 and ONNX Runtime Mobile](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/mobile/examples/phi-3/android)

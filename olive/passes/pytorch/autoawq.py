@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from copy import deepcopy
 from typing import Any, Dict, Union
 
 import torch
@@ -14,7 +15,7 @@ from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
-from olive.passes.pytorch.common import inherit_pytorch_from_hf
+from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_hf
 
 logger = logging.getLogger(__name__)
 
@@ -107,23 +108,27 @@ class AutoAWQQuantizer(Pass):
             "pack_model_for_onnx_conversion": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Whether to pack the model for ONNX conversion. Default is False.",
+                description=(
+                    "Whether to pack the model for ONNX conversion. If True, the model will be saved as a PyTorch model"
+                    " with custom quantized linears. If False, the model will be saved as a HF model with quantized"
+                    " weights. Default value is False."
+                ),
             ),
         }
 
     @torch.no_grad()
     def _run_for_config(
         self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModelHandler:
+    ) -> Union[HfModelHandler, PyTorchModelHandler]:
         from awq import AutoAWQForCausalLM
         from awq.models import base as awq_model_base
         from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer
 
         if not torch.cuda.is_available():
-            raise ValueError("Please use GPU to run gptq quantization.")
+            raise ValueError("Please use GPU to run AWQ quantization.")
         elif self.host_device != Device.GPU:
-            logger.warning(
-                "GPTQ quantization requires GPU but the host device is %s, will ignore the host device",
+            logger.debug(
+                "AWQ quantization requires GPU but the host device is %s, will ignore the host device",
                 self.host_device,
             )
 
@@ -173,10 +178,22 @@ class AutoAWQQuantizer(Pass):
         finally:
             awq_model_base.AwqQuantizer = PyAutoAWQQuantizer
 
-        output_model_path = normalize_path_suffix(output_model_path, "model.pt")
-        torch.save(awq_model.model, output_model_path)
+        if config["pack_model_for_onnx_conversion"]:
+            output_model_path = normalize_path_suffix(output_model_path, "model.pt")
+            torch.save(awq_model.model, output_model_path)
 
-        return inherit_pytorch_from_hf(model, output_model_path)
+            return inherit_pytorch_from_hf(model, output_model_path)
+
+        # save_quantized also saves the metadata, so we just save the tokenizer
+        tokenizer.save_pretrained(output_model_path)
+        awq_model.save_quantized(output_model_path)
+
+        # return HfModelHandler with updated model path
+        new_load_kwargs = deepcopy(model.load_kwargs.dict()) if model.load_kwargs else {}
+        # model is saved in safetensors format so need to enable safetensors load
+        if new_load_kwargs.get("extra_args") and new_load_kwargs["extra_args"].get("use_safetensors") is False:
+            new_load_kwargs["extra_args"]["use_safetensors"] = True
+        return inherit_hf_from_hf(model, output_model_path, load_kwargs=new_load_kwargs)
 
     def _pack_model_for_onnx_conversion(self, config):
         from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer

@@ -1,7 +1,7 @@
 # Stable Diffusion Optimization
 
 This folder contains sample use cases of Olive with ONNX Runtime and OpenVINO to optimize:
-- Stable Diffusion: [Stable Diffusion v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4), [Stable Diffusion v1-5](https://huggingface.co/runwayml/stable-diffusion-v1-5), [Stable Diffusion v2](https://huggingface.co/stabilityai/stable-diffusion-2)
+- Stable Diffusion: [Stable Diffusion v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4), [Stable Diffusion v2](https://huggingface.co/stabilityai/stable-diffusion-2)
 - Stable Diffusion XL: [Stable Diffusion XL Base](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0), [Stable Diffusion XL Refiner](https://huggingface.co/stabilityai/stable-diffusion-xl-refiner-1.0)
 
 Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*.
@@ -77,7 +77,7 @@ The easiest way to optimize the pipeline is with the `stable_diffusion.py` and `
 
 **_Stable Diffusion_**
 ```bash
-# default model_id is "runwayml/stable-diffusion-v1-5"
+# default model_id is "CompVis/stable-diffusion-v1-4"
 python stable_diffusion.py --provider cuda --optimize
 ```
 
@@ -94,8 +94,8 @@ python stable_diffusion_xl.py --provider cuda --model_id stabilityai/stable-diff
 Otherwise, the vae models (vae-decoder for base and both vae-decoder and vae-encoder for refiner) will be in fp32 and all other sub-models will be in fp16 with fp32 input/output.
 
 Once the script successfully completes:
-- The optimized ONNX pipeline will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/runwayml/stable-diffusion-v1-5` or `models/optimized-cuda/stabilityai/stable-diffusion-xl-base-1.0`).
-- The unoptimized ONNX pipeline (models converted to ONNX, but not run through transformer optimization pass) will be stored under `models/unoptimized/[model_id]` (for example `models/unoptimized/runwayml/stable-diffusion-v1-5` or `models/unoptimized/stabilityai/stable-diffusion-xl-base-1.0`).
+- The optimized ONNX pipeline will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/CompVis/stable-diffusion-v1-4` or `models/optimized-cuda/stabilityai/stable-diffusion-xl-base-1.0`).
+- The unoptimized ONNX pipeline (models converted to ONNX, but not run through transformer optimization pass) will be stored under `models/unoptimized/[model_id]` (for example `models/unoptimized/CompVis/stable-diffusion-v1-4` or `models/unoptimized/stabilityai/stable-diffusion-xl-base-1.0`).
 
 Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
 
@@ -160,7 +160,7 @@ The above command will enumerate the `config_<model_name>.json` files and optimi
 The stable diffusion models are large, and the optimization process is resource intensive. It is recommended to run optimization on a system with a minimum of 16GB of memory (preferably 32GB). Expect optimization to take several minutes (especially the U-Net model).
 
 Once the script successfully completes:
-- The converted OpenVINO IR model will be stored under `models/optimized-openvino/[model_id]` (for example `models/optimized-openvino/runwayml/stable-diffusion-v1-5`).
+- The converted OpenVINO IR model will be stored under `models/optimized-openvino/[model_id]` (for example `models/optimized-openvino/CompVis/stable-diffusion-v1-4`).
 
 Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
 
