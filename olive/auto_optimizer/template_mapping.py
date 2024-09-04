@@ -42,6 +42,7 @@ def remove_incompatible_passes(pass_flows):
         "VitisAIQuantization",
         "OnnxMatMul4Quantizer",
         "OrtTransformersOptimization",
+        "OrtMixedPrecision",
     ]
     for pass_flow in pass_flows:
         if "ModelBuilder" in pass_flow:
