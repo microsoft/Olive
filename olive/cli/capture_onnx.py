@@ -226,7 +226,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
 
 TEMPLATE = {
-    "input_model": {"type": "HfModel"},
+    "input_model": {"type": "HfModel", "load_kwargs": {}},
     "systems": {
         "local_system": {
             "type": "LocalSystem",
