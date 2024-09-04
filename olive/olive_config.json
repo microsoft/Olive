@@ -119,9 +119,9 @@
         "ort": [ "onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino", "numpy<2.0" ],
         "nvmo": [ "nvidia-modelopt~=0.11.0", "onnx-graphsurgeon" ],
         "ort-genai": [ "onnxruntime-genai" ],
-        "capture-onnx-graph": [ "onnxruntime-genai" ],
+        "capture-onnx-graph": [ "onnxruntime-genai", "optimum" ],
         "cloud-cache": [ "azure-storage-blob" ],
-        "finetune": [ "onnxruntime-genai" ],
+        "finetune": [ "onnxruntime-genai", "optimum", "accelerate>=0.30.0", "peft", "scipy" ],
         "tune-session-params": [ "psutil" ]
     }
 }

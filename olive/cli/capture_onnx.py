@@ -179,13 +179,15 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
 
-        config["input_model"]["model_path"] = get_model_name_or_path(self.args.model_name_or_path)
         if self.args.task is not None:
             config["input_model"]["task"] = self.args.task
 
-        config["log_severity_level"] = self.args.log_level
-
-        to_replace = [("output_dir", tempdir)]
+        to_replace = [
+            ("output_dir", tempdir),
+            ("log_severity_level", self.args.log_level),
+            (("input_model", "model_path"), get_model_name_or_path(self.args.model_name_or_path)),
+            (("input_model", "load_kwargs", "trust_remote_code"), self.args.trust_remote_code),
+        ]
         if self.args.use_model_builder:
             del config["passes"]["c"]
             to_replace.extend(
@@ -224,7 +226,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
 
 TEMPLATE = {
-    "input_model": {"type": "HfModel", "load_kwargs": {"trust_remote_code": True}},
+    "input_model": {"type": "HfModel"},
     "systems": {
         "local_system": {
             "type": "LocalSystem",
