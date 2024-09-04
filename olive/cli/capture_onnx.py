@@ -46,6 +46,14 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         # model options
         add_hf_model_options(sub_parser)
 
+        sub_parser.add_argument(
+            "--device",
+            type=str,
+            default="cpu",
+            choices = ["cpu", "gpu"],
+            help="The device to use to convert the model to ONNX.",
+        )
+
         sub_parser.add_argument("-o", "--output_path", type=str, default="onnx-model", help="Output path")
         sub_parser.add_argument(
             "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
@@ -69,14 +77,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             help=(
                 "The arguments name to point to past key values. For model loaded from huggingface, "
                 "it is 'past_key_values'. Basically, it is used only when `use_dynamo_exporter` is True."
-            ),
-        )
-        pte_group.add_argument(
-            "--device",
-            type=str,
-            help=(
-                "The device to use to trace the model, e.g., 'cuda' or 'cpu'. If not specified, will"
-                " use 'cpu' for PyTorch model and 'cuda' for the distributed model."
             ),
         )
         pte_group.add_argument(
@@ -171,7 +171,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 output_path = Path(self.args.output_path)
                 output_path.mkdir(parents=True, exist_ok=True)
                 pass_name = "m" if self.args.use_model_builder else "c"
-                hardlink_copy_dir(Path(tempdir) / pass_name / "cpu-cpu_model", output_path)
+                device_name = "gpu-cuda_model" if self.args.device == "gpu" else "cpu-cpu_model"
+                hardlink_copy_dir(Path(tempdir) / pass_name / device_name, output_path)
                 print("ONNX Model is saved to %s", output_path.resolve())
             else:
                 print("Failed to run capture-onnx-graph. Please set the log_level to 1 for more detailed logs.")
@@ -187,6 +188,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             ("log_severity_level", self.args.log_level),
             (("input_model", "model_path"), get_model_name_or_path(self.args.model_name_or_path)),
             (("input_model", "load_kwargs", "trust_remote_code"), self.args.trust_remote_code),
+            (("systems", "local_system", "accelerators", 0, "device"), self.args.device),
         ]
         if self.args.use_model_builder:
             del config["passes"]["c"]
@@ -206,7 +208,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             del config["passes"]["m"]
             to_replace.extend(
                 [
-                    (("passes", "c", "device"), self.args.device),
+                    (("passes", "c", "device"), self.args.device if self.args.device == "cpu" else "cuda"),
                     (("passes", "c", "torch_dtype"), self.args.torch_dtype),
                     (("passes", "c", "target_opset"), self.args.target_opset),
                     (("passes", "c", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
@@ -230,7 +232,7 @@ TEMPLATE = {
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [{"device": "cpu"}],
+            "accelerators": [{"device": "gpu"}],
         }
     },
     "passes": {
