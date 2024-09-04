@@ -232,7 +232,7 @@ TEMPLATE = {
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [{"device": "gpu"}],
+            "accelerators": [{"device": "cpu"}],
         }
     },
     "passes": {
