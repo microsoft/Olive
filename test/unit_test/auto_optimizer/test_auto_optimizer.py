@@ -82,6 +82,11 @@ class TestAutoOptimizer:
                     ["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"],
                     ["OnnxConversion", "OrtTransformersOptimization", "OnnxQuantization", "OrtPerfTuning"],
                     ["OnnxConversion", "OrtTransformersOptimization", "IncQuantization", "OrtPerfTuning"],
+                    ["OnnxConversion", "OrtTransformersOptimization", "OnnxMatMul4Quantizer", "OrtPerfTuning"],
+                    ["ModelBuilder_fp32", "OrtPerfTuning"],
+                    ["ModelBuilder_int4", "OrtPerfTuning"],
+                    ["ModelBuilder_int8", "OrtPerfTuning"],
+                    ["ModelBuilder_fp16", "OrtPerfTuning"],
                 ],
             ),
             (
@@ -94,13 +99,16 @@ class TestAutoOptimizer:
                 ],
                 DEFAULT_CPU_ACCELERATOR,
                 AutoOptimizerConfig(precisions=["fp32"]),
-                [["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"]],
+                [
+                    ["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"],
+                    ["ModelBuilder_fp32", "OrtPerfTuning"],
+                ],
             ),
             (
                 # running on gpu-cuda, skip quantization
                 [{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {"goal_type": "max-degradation"}}],
                 DEFAULT_GPU_CUDA_ACCELERATOR,
-                AutoOptimizerConfig(precisions=["fp16"]),
+                AutoOptimizerConfig(precisions=["fp16"], excluded_passes=["ModelBuilder"]),
                 [
                     ["OnnxConversion", "OrtTransformerOptimization_cuda_fp16", "OrtPerfTuning"],
                     ["OnnxConversion", "OrtTransformersOptimization", "OrtMixedPrecision", "OrtPerfTuning"],

@@ -24,6 +24,14 @@ OnnxConversion:
   EP: null
   precision: null
   accelerator: null
+ModelBuilder:
+  EP:
+    - CPU
+    - CUDA
+  precision: null
+  accelerator:
+    - cpu
+    - gpu
 OrtTransformersOptimization:
   EP: null
   precision: null

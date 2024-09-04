@@ -24,8 +24,6 @@ EVALUATE_TEMPLATE = {
                 "type": "accuracy",
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                    {"name": "f1_score"},
-                    {"name": "auroc"},
                 ],
                 "data_config": "data_config",
             },
@@ -34,8 +32,6 @@ EVALUATE_TEMPLATE = {
                 "type": "latency",
                 "sub_types": [
                     {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
-                    {"name": "max"},
-                    {"name": "min"},
                 ],
                 "data_config": "data_config",
                 "user_config": {"io_bind": True},
@@ -85,10 +81,10 @@ class AutoOptCommand(BaseOliveCLICommand):
             help="The task of the input model. Need to be specified if the input model is downloaded from huggingface.",
         )
         model_group.add_argument(
-            "--model_type",
+            "--model_framework",
             type=str,
-            default="HfModel",
-            choices=["HfModel", "ONNXModel"],
+            default="hf",
+            choices=["hf", "onnx", "pytorch"],
             help="model type, choose from HfModel and ONNXModel",
         )
 
@@ -97,8 +93,8 @@ class AutoOptCommand(BaseOliveCLICommand):
             "--device",
             type=str,
             default=None,
-            choices=["cpu", "gpu"],
-            # TODO(anyone): add more devices cpu_spr, npu, vpu, intel_myriad
+            choices=["cpu", "gpu", "npu"],
+            # TODO(anyone): add more devices cpu_spr, vpu, intel_myriad
             help=(
                 "Device to use for optimization, choose from cpu and gpu. If not specified,"
                 " will deduce from the value of execution providers, CPU/VistisAi for cpu and"
@@ -110,7 +106,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             "--providers",
             type=str,
             nargs="*",
-            choices=["CPU", "CUDA", "Tensorrt", "Dml", "VitisAI"],
+            choices=["CPU", "CUDA", "Tensorrt", "Dml", "VitisAI", "Qnn"],
             help="List of execution providers to use for optimization",
         )
 
@@ -121,7 +117,6 @@ class AutoOptCommand(BaseOliveCLICommand):
         dataset_group.add_argument(
             "--data_config_path",
             type=str,
-            required=True,
             help="Path to the data config file. It allows to customize the data config(json/yaml) for the model.",
         )
 
@@ -136,14 +131,31 @@ class AutoOptCommand(BaseOliveCLICommand):
                 "the default precision is fp32 for cpu and fp16 for gpu"
             ),
         )
+        auto_opt_config_group.add_argument(
+            "--excluded_passes",
+            type=str,
+            nargs="*",
+            help=(
+                "List of passes to disable for optimization, if not specified, "
+                "auto-opt will disable ModelBuilder/OrtPerfTuning by default."
+            ),
+        )
+        auto_opt_config_group.add_argument(
+            "--use_model_builder",
+            action="store_true",
+            help=(
+                "Whether to use model builder pass for optimization, enable only "
+                "when the model is supported by model builder"
+            ),
+        )
 
         search_strategy_group = sub_parser.add_argument_group("search strategy options")
         search_strategy_group.add_argument(
-            "--num-samples", type=int, default=5, help="Number of samples for search algorithm"
+            "--num_samples", type=int, default=5, help="Number of samples for search algorithm"
         )
         search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search algorithm")
         search_strategy_group.add_argument(
-            "--execution_order",
+            "--search_order",
             type=str,
             default="joint",
             choices=["joint", "pass-by-pass"],
@@ -172,7 +184,6 @@ class AutoOptCommand(BaseOliveCLICommand):
             data_config = json.load(f)
             data_config["name"] = "data_config"
             return data_config
-        return None
 
     def run(self):
         from olive.workflows import run as olive_run
@@ -199,14 +210,11 @@ class AutoOptCommand(BaseOliveCLICommand):
         config = deepcopy(TEMPLATE)
 
         config["input_model"]["model_path"] = self.args.model
-        config["input_model"]["type"] = self.args.model_type
+        config["input_model"]["type"] = f"{self.args.model_framework}model"
         if self.args.task:
             config["input_model"]["task"] = self.args.task
         config["cache_dir"] = Path(tempdir) / "cache"
         config["output_dir"] = self.args.output_path
-
-        data_configs = self._get_data_config()
-        config["data_configs"] = [data_configs]
 
         device = self.args.device
         if not device:
@@ -218,13 +226,30 @@ class AutoOptCommand(BaseOliveCLICommand):
             )
         providers = self.args.providers or ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
         config["systems"]["local_system"]["accelerators"] = [{"device": device, "execution_providers": providers}]
-        config["auto_optimizer_config"]["precisions"] = self.args.precisions
+
+        excluded_passes = self.args.excluded_passes or ["ModelBuilder", "OrtPerfTuning"]
+        if self.args.use_model_builder:
+            excluded_passes.remove("ModelBuilder")
+            excluded_passes.append("OnnxConversion")
+        config["auto_optimizer_config"] = {
+            "precisions": self.args.precisions,
+            "excluded_passes": excluded_passes,
+        }
 
         config["search_strategy"] = {
-            "execution_order": self.args.execution_order,
+            # TODO(anyone): rename execution_order to search_order in search_strategy
+            "execution_order": self.args.search_order,
             "search_algorithm": self.args.search_algorithm,
             "num_samples": self.args.num_samples,
             "seed": self.args.seed,
         }
         # TODO(anyone): add remote options to auto opt passes
+
+        if self.args.data_config_path:
+            data_configs = self._get_data_config()
+            config["data_configs"] = [data_configs]
+        else:
+            del config["evaluators"]
+            del config["evaluator"]
+            del config["search_strategy"]
         return config

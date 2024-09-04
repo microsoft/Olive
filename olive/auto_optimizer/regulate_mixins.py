@@ -13,26 +13,26 @@ class RegulatePassConfigMixin:
         # remove useless passes according to the olive model type, for example if onnx model
         # the conversion pass will be removed
         if self.input_model_config.type.lower().endswith("onnxmodel"):
+            to_remove_passes = ["OnnxConversion", "ModelBuilder"]
             for pfs in pass_flows_dict.values():
                 for pf in pfs:
-                    pf.remove("OnnxConversion")
+                    for p in to_remove_passes:
+                        if p in pf:
+                            pf.remove(p)
 
-        # special passes: OrtTransformerOptimization and OrtPerfTuning can be used for both fp16 and fp32
-        # we need assign different pass name for them
+        # special passes: ModelBuilder, OrtTransformerOptimization and OrtPerfTuning can
+        # be used for both fp16 and fp32 we need assign different pass name for them
         # for example: gpu_cuda_fp16, we need rename OrtTransformerOptimization to OrtTransformerOptimization_cuda_fp16
-        pass_flows_by_fp16 = pass_flows_dict.get("fp16", [])
-        pass_config, pass_flows_16 = self._regulate_fp16(None, pass_flows_by_fp16)
+        pass_config, pass_flows_dict = self._regulate_precision(None, pass_flows_dict)
 
         # flatten pass_flows_dict to pass_flows and generate the default pass_configs
         pass_flows = []
         unique_pass_flows = set()
-        if pass_flows_16:
-            pass_flows_dict["fp16"] = pass_flows_16
         for pfs in pass_flows_dict.values():
             for pf in pfs:
                 if tuple(pf) not in unique_pass_flows:
+                    unique_pass_flows.add(tuple(pf))
                     pass_flows.append(pf)
-                unique_pass_flows.add(tuple(pf))
                 for p in pf:
                     if p not in pass_config:
                         pass_config.update({p: {"type": p, "config": {}}})
@@ -42,15 +42,34 @@ class RegulatePassConfigMixin:
                 pass_config[pass_name]["disable_search"] = True
         return pass_config, pass_flows
 
-    def _regulate_fp16(self, pass_config, pass_flows):
+    def _fill_precision_for_model_builder(self, pass_config, pass_flows):
+        for precision, pfs in pass_flows.items():
+            for pass_flow in pfs:
+                for i, p in enumerate(pass_flow):
+                    if p == "ModelBuilder":
+                        pass_flow[i] = f"ModelBuilder_{precision}"
+                        pass_config.update(
+                            {
+                                pass_flow[i]: {
+                                    "type": "ModelBuilder",
+                                    "config": {
+                                        "precision": precision,
+                                    },
+                                }
+                            }
+                        )
+
+    def _regulate_precision(self, pass_config, pass_flows):
         pass_config = pass_config or {}
+        # if it is model builder, we need to add suffix for all precisions to distinguish them
+        self._fill_precision_for_model_builder(pass_config, pass_flows)
         is_gpu = self.accelerator_spec.accelerator_type == Device.GPU and self.accelerator_spec.execution_provider in [
             "CUDAExecutionProvider",
             "DmlExecutionProvider",
             "TensorrtExecutionProvider",
         ]
         if not is_gpu or not self.is_accuracy_drop_tolerance:
-            return {}, []
+            return pass_config, pass_flows
 
         is_cuda_ep = self.accelerator_spec.execution_provider != "TensorrtExecutionProvider"
         is_trt_ep = self.accelerator_spec.execution_provider == "TensorrtExecutionProvider"
@@ -66,8 +85,8 @@ class RegulatePassConfigMixin:
         perf_tuning = "OrtPerfTuning"
         trans_opt_fp16 = "OrtTransformerOptimization_cuda_fp16"
         perf_tuning_fp16 = "OrtPerfTuning_trt_fp16"
-
-        for i, pf in enumerate(pass_flows):
+        pass_flows_by_fp16 = pass_flows.get("fp16", [])
+        for i, pf in enumerate(pass_flows_by_fp16):
             new_pf = deepcopy(pf)
             if "OrtMixedPrecision" not in pf:
                 for j, p in enumerate(pf):
@@ -98,24 +117,36 @@ class RegulatePassConfigMixin:
                                 }
                             }
                         )
-
-            pass_flows[i] = new_pf
-
+            pass_flows_by_fp16[i] = new_pf
+        if pass_flows_by_fp16:
+            pass_flows["fp16"] = pass_flows_by_fp16
         return pass_config, pass_flows
 
     def regulate_data_config(self, pass_config, pass_flows):
-        if not self.data_configs or not self.auto_optimizer_config or self.auto_optimizer_config.disable_auto_optimizer:
+        if not self.auto_optimizer_config or self.auto_optimizer_config.disable_auto_optimizer:
             return pass_config, pass_flows
 
-        if len(self.data_configs) != 1:
-            raise ValueError("AutoOptimizer expects exactly one data config.")
+        passes_require_data_config = ["OrtPerfTuning", "IncQuantization"]
+        if not self.data_configs:
+            # remove the passes which require data_config
+            for pass_flow in pass_flows:
+                for p in passes_require_data_config:
+                    p_names = self._find_pass_name_in_pass_flow(p, [pass_flow])
+                    for pn in p_names:
+                        pass_flow.remove(pn)
+                        pass_config.pop(pn, None)
+                for p in pass_flow:
+                    if p.lower().startswith("onnxquantization"):
+                        pass_config["config"]["quant_mode"] = "dynamic"
+        else:
+            if len(self.data_configs) != 1:
+                raise ValueError("AutoOptimizer expects exactly one data config.")
 
-        passes_require_data_config = ["OnnxQuantization", "OrtPerfTuning", "IncQuantization"]
-        for p in passes_require_data_config:
-            # TODO(anyone): support multi data_config for different passes, pass_flows
-            p_names = self._find_pass_name_in_pass_flow(p, pass_flows)
-            for pn in p_names:
-                pass_config[pn]["config"]["data_config"] = self.data_configs[0]
+            for p in passes_require_data_config:
+                # TODO(anyone): support multi data_config for different passes, pass_flows
+                p_names = self._find_pass_name_in_pass_flow(p, pass_flows)
+                for pn in p_names:
+                    pass_config[pn]["config"]["data_config"] = self.data_configs[0]
 
         return pass_config, pass_flows
 
