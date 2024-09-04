@@ -63,6 +63,6 @@ class CloudCacheCommand(BaseOliveCLICommand):
             client.delete_blob(blob.name)
 
         if any(client.list_blobs(model_hash)):
-            logger.info("Deletion of the model cache with hash %s failed. Please try again.", model_hash)
+            logger.error("Deletion of the model cache with hash %s failed. Please try again.", model_hash)
         else:
             logger.info("Model cache with hash %s removed from the cloud cache successfully.", model_hash)
