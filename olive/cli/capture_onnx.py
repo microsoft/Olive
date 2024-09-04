@@ -50,7 +50,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--device",
             type=str,
             default="cpu",
-            choices = ["cpu", "gpu"],
+            choices=["cpu", "gpu"],
             help="The device to use to convert the model to ONNX.",
         )
 
