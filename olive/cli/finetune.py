@@ -2,7 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
+
+# ruff: noqa: T201
+
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
@@ -20,8 +22,6 @@ from olive.cli.base import (
     update_remote_option,
 )
 from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir, unescaped_str
-
-logger = logging.getLogger(__name__)
 
 
 class FineTuneCommand(BaseOliveCLICommand):
@@ -158,9 +158,9 @@ class FineTuneCommand(BaseOliveCLICommand):
                 output_path = Path(self.args.output_path)
                 output_path.mkdir(parents=True, exist_ok=True)
                 hardlink_copy_dir(Path(tempdir) / "-".join(run_config["passes"].keys()) / "gpu-cuda_model", output_path)
-                logger.info("Model and adapters saved to %s", output_path.resolve())
+                print("Model and adapters saved to %s", output_path.resolve())
             else:
-                logger.error("Failed to run finetune. Please set the log_level to 1 for more detailed logs.")
+                print("Failed to run finetune. Please set the log_level to 1 for more detailed logs.")
 
     def parse_training_args(self) -> Dict:
         if not self.unknown_args:

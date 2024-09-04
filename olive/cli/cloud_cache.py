@@ -1,9 +1,12 @@
-import logging
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
+# ruff: noqa: T201
 
 from olive.cli.base import BaseOliveCLICommand
 from olive.common.utils import get_credentials
-
-logger = logging.getLogger(__name__)
 
 
 class CloudCacheCommand(BaseOliveCLICommand):
@@ -55,10 +58,10 @@ class CloudCacheCommand(BaseOliveCLICommand):
 
     def _delete_model_cache(self, client, model_hash):
         for blob in client.list_blobs(model_hash):
-            logger.info("Deleting %s", blob.name)
+            print("Deleting %s", blob.name)
             client.delete_blob(blob.name)
 
         if any(client.list_blobs(model_hash)):
-            logger.error("Deletion of the model cache with hash %s failed. Please try again.", model_hash)
+            print("Deletion of the model cache with hash %s failed. Please try again.", model_hash)
         else:
-            logger.info("Model cache with hash %s removed from the cloud cache successfully.", model_hash)
+            print("Model cache with hash %s removed from the cloud cache successfully.", model_hash)

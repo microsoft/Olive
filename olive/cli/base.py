@@ -2,8 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+
+# ruff: noqa: T201
+
 import json
-import logging
 import re
 import subprocess
 from abc import ABC, abstractmethod
@@ -15,8 +17,6 @@ import yaml
 
 from olive.cli.constants import CONDA_CONFIG
 from olive.common.utils import hash_dict
-
-logger = logging.getLogger(__name__)
 
 
 class BaseOliveCLICommand(ABC):
@@ -131,10 +131,10 @@ def update_remote_option(config, args, cli_action, tempdir):
 
         try:
             subscription_id = json.loads(subprocess.check_output("az account show", shell=True).decode("utf-8"))["id"]
-            logger.info("Using Azure subscription ID: %s", subscription_id)
+            print("Using Azure subscription ID: %s", subscription_id)
 
         except subprocess.CalledProcessError:
-            logger.exception(
+            print(
                 "Error: Unable to retrieve account information. "
                 "Make sure you are logged in to Azure CLI with command `az login`."
             )

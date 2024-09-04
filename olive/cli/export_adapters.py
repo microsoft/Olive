@@ -2,7 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
+
+# ruff: noqa: T201
+
 import math
 from argparse import ArgumentParser
 from typing import TYPE_CHECKING, Tuple
@@ -12,8 +14,6 @@ from olive.common.utils import WeightsFileFormat, save_weights
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
-logger = logging.getLogger(__name__)
 
 
 class ExportAdaptersCommand(BaseOliveCLICommand):
@@ -136,7 +136,7 @@ class ExportAdaptersCommand(BaseOliveCLICommand):
             )
 
         output_path = save_weights(transformed_weights, self.args.output_path, self.args.save_format)
-        logger.info("Exported adapter weights to %s", output_path)
+        print("Exported adapter weights to %s", output_path)
 
         return output_path
 

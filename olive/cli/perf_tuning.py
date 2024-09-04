@@ -2,8 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+
+# ruff: noqa: T201
+
 import json
-import logging
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
@@ -24,8 +26,6 @@ from olive.cli.base import (
 from olive.common.utils import set_nested_dict_value, set_tempdir
 from olive.data.config import DataConfig
 from olive.workflows import run as olive_run
-
-logger = logging.getLogger(__name__)
 
 
 class PerfTuningCommand(BaseOliveCLICommand):
@@ -336,6 +336,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
                     with rls_json_path.open() as f:
                         infer_settings = json.load(f)["config"]["inference_settings"]
                         json.dump(infer_settings, infer_setting_output_path.open("w"), indent=4)
-                logger.info("Inference session parameters are saved to %s", output_path.resolve())
+                print("Inference session parameters are saved to %s", output_path.resolve())
             else:
-                logger.error("Failed to run tune-session-params. Please set the log_level to 1 for more detailed logs.")
+                print("Failed to run tune-session-params. Please set the log_level to 1 for more detailed logs.")
