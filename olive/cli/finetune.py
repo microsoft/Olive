@@ -2,7 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
+
+# ruff: noqa: T201
+
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
@@ -12,14 +14,14 @@ from typing import ClassVar, Dict
 from olive.cli.base import (
     BaseOliveCLICommand,
     add_hf_model_options,
+    add_logging_options,
     add_remote_options,
     get_model_name_or_path,
+    get_output_model_number,
     is_remote_run,
     update_remote_option,
 )
 from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir, unescaped_str
-
-logger = logging.getLogger(__name__)
 
 
 class FineTuneCommand(BaseOliveCLICommand):
@@ -34,6 +36,9 @@ class FineTuneCommand(BaseOliveCLICommand):
                 " inputs. Huggingface training arguments can be provided along with the defined options."
             ),
         )
+
+        add_logging_options(sub_parser)
+
         # TODO(jambayk): option to list/install required dependencies?
         sub_parser.add_argument(
             "--precision",
@@ -141,19 +146,21 @@ class FineTuneCommand(BaseOliveCLICommand):
         with tempfile.TemporaryDirectory() as tempdir:
             run_config = self.get_run_config(tempdir)
 
-            olive_run(run_config)
+            output = olive_run(run_config)
 
             if is_remote_run(self.args):
                 # TODO(jambayk): point user to datastore with outputs or download outputs
                 # both are not implemented yet
                 return
 
-            # need to improve the output structure of olive run
-            output_path = Path(self.args.output_path)
-            output_path.mkdir(parents=True, exist_ok=True)
-            hardlink_copy_dir(Path(tempdir) / "-".join(run_config["passes"].keys()) / "gpu-cuda_model", output_path)
-
-            logger.info("Model and adapters saved to %s", output_path.resolve())
+            if get_output_model_number(output) > 0:
+                # need to improve the output structure of olive run
+                output_path = Path(self.args.output_path)
+                output_path.mkdir(parents=True, exist_ok=True)
+                hardlink_copy_dir(Path(tempdir) / "-".join(run_config["passes"].keys()) / "gpu-cuda_model", output_path)
+                print("Model and adapters saved to %s", output_path.resolve())
+            else:
+                print("Failed to run finetune. Please set the log_level to 1 for more detailed logs.")
 
     def parse_training_args(self) -> Dict:
         if not self.unknown_args:
@@ -219,6 +226,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             del config["passes"]["m"]
 
         update_remote_option(config, self.args, "finetune", tempdir)
+        config["log_severity_level"] = self.args.log_level
 
         return config
 

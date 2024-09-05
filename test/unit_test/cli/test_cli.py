@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.cli.launcher import main as cli_main
+from olive.engine.footprint import Footprint
 
 
 @pytest.mark.parametrize("console_script", [True, False])
@@ -111,6 +112,7 @@ def test_finetune_command(mock_tempdir, mock_run, tmp_path):
 
     # setup
     mock_tempdir.return_value = tmpdir.resolve()
+    mock_run.return_value = {"output_dir": Footprint(nodes={"dummy_output": "dummy_output"})}
     workflow_output_dir = tmpdir / "f-c-o-e" / "gpu-cuda_model"
     workflow_output_dir.mkdir(parents=True)
     dummy_output = workflow_output_dir / "dummy_output"
