@@ -205,29 +205,30 @@ class RunConfig(NestedConfig):
                 model_info[key] = kv_cache.get(key)
 
         # TODO(anyone): Will this container ever be used with non-HF models?
-        if v["type"] in TRANSFORMER_DUMMY_DATA_CONTAINER:
-            _auto_fill_data_config(
-                v,
-                model_info,
-                ["load_dataset_config"],
-                ["model_name", "ort_past_key_name", "ort_past_value_name", "batch_size"],
-            )
-        elif v["type"] == HuggingfaceContainer.__name__:
-            # auto insert model_name and task from input model hf config if not present
-            # both are required for huggingface container
-            _auto_fill_data_config(
-                v, model_info, ["pre_process_data_config", "post_process_data_config"], ["model_name", "task"]
-            )
+        if v.get("type"):
+            if v["type"] in TRANSFORMER_DUMMY_DATA_CONTAINER:
+                _auto_fill_data_config(
+                    v,
+                    model_info,
+                    ["load_dataset_config"],
+                    ["model_name", "ort_past_key_name", "ort_past_value_name", "batch_size"],
+                )
+            elif v["type"] == HuggingfaceContainer.__name__:
+                # auto insert model_name and task from input model hf config if not present
+                # both are required for huggingface container
+                _auto_fill_data_config(
+                    v, model_info, ["pre_process_data_config", "post_process_data_config"], ["model_name", "task"]
+                )
 
-            # auto insert trust_remote_code from input model hf config
-            # won't override if value was set to False explicitly
-            _auto_fill_data_config(
-                v,
-                model_info,
-                ["pre_process_data_config", "load_dataset_config"],
-                ["trust_remote_code"],
-                only_none=True,
-            )
+                # auto insert trust_remote_code from input model hf config
+                # won't override if value was set to False explicitly
+                _auto_fill_data_config(
+                    v,
+                    model_info,
+                    ["pre_process_data_config", "load_dataset_config"],
+                    ["trust_remote_code"],
+                    only_none=True,
+                )
 
         return validate_config(v, DataConfig)
 
