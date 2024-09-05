@@ -23,6 +23,9 @@ def is_mlflow_transformers(model_name_or_path: str) -> bool:
     if not mlflow_data:
         return False
 
+    # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
+    # "hftransformers" from azureml.evaluate.mlflow<0.0.8
+    # "transformers" from mlflow.transformers
     # TODO(trajep): let user specify flavor name if needed
     # to support other flavors in mlflow not only hftransformers
     flavors = mlflow_data.get("flavors", {})
