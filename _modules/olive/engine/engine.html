@@ -461,10 +461,7 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">evaluate_input_model</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                    <span class="s2">&quot;evaluate_input_model is True but no evaluator provided in no-search mode. Skipping input model&quot;</span>
-                    <span class="s2">&quot; evaluation.&quot;</span>
-                <span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;evaluate_input_model is True but no evaluator provided. Skipping input model evaluation.&quot;</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">evaluate_input_model</span><span class="p">:</span>
                 <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span>
                     <span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span>

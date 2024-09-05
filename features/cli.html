@@ -73,6 +73,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#Sub-commands">Sub-commands</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#capture-onnx-graph">capture-onnx-graph</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#logging-options">logging options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#model-options">model options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#pytorch-exporter-options">PyTorch Exporter options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#model-builder-options">Model Builder options</a></li>
@@ -85,6 +86,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#finetune">finetune</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#named-arguments_repeat2">Named Arguments</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#logging-options_repeat1">logging options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#model-options_repeat1">model options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#dataset-options">dataset options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#lora-options">lora options</a></li>
@@ -106,6 +108,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#tune-session-params">tune-session-params</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#named-arguments_repeat6">Named Arguments</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#logging-options_repeat2">logging options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#model-options_repeat2">model options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#dataset-options,-which-mutually-exclusive-with-huggingface-dataset-options">dataset options, which mutually exclusive with huggingface dataset options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#huggingface-dataset-options,-if-dataset-options-are-not-provided,-user-should-provide-the-following-options-to-modify-the-default-data-config.-please-refer-to-olive.data.container.transformerstokendummydatacontainer-for-more-details.">huggingface dataset options, if dataset options are not provided, user should provide the following options to modify the default data config. Please refer to olive.data.container.TransformersTokenDummyDataContainer for more details.</a></li>
@@ -197,12 +200,13 @@
 <section id="capture-onnx-graph">
 <h3>capture-onnx-graph<a class="headerlink" href="#capture-onnx-graph" title="Permalink to this heading">¶</a></h3>
 <p>Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
-                         <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span>
+                         <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">}]</span>
+                         <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span>
                          <span class="p">[</span><span class="o">--</span><span class="n">use_dynamo_exporter</span> <span class="n">USE_DYNAMO_EXPORTER</span><span class="p">]</span>
                          <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span> <span class="n">USE_ORT_GENAI</span><span class="p">]</span>
                          <span class="p">[</span><span class="o">--</span><span class="n">past_key_value_name</span> <span class="n">PAST_KEY_VALUE_NAME</span><span class="p">]</span>
-                         <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="n">DEVICE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="n">TORCH_DTYPE</span><span class="p">]</span>
+                         <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="n">TORCH_DTYPE</span><span class="p">]</span>
                          <span class="p">[</span><span class="o">--</span><span class="n">target_opset</span> <span class="n">TARGET_OPSET</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span>
                          <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">}]</span>
                          <span class="p">[</span><span class="o">--</span><span class="n">int4_block_size</span> <span class="p">{</span><span class="mi">16</span><span class="p">,</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">128</span><span class="p">,</span><span class="mi">256</span><span class="p">}]</span>
@@ -219,12 +223,26 @@
 <section id="named-arguments">
 <h4>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h4>
 <dl class="option-list">
+<dt><kbd>--device</kbd></dt>
+<dd><p>Possible choices: cpu, gpu</p>
+<p>The device to use to convert the model to ONNX.If ‘gpu’ is selected, the execution_providers will be set to CUDAExecutionProvider.If ‘cpu’ is selected, the execution_providers will be set to CPUExecutionProvider.For PyTorch Exporter, the device is used to cast the model to before capturing the ONNX graph.</p>
+<p>Default: “cpu”</p>
+</dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Output path</p>
 <p>Default: “onnx-model”</p>
 </dd>
 <dt><kbd>--tempdir</kbd></dt>
 <dd><p>Root directory for tempfile directories and files</p>
+</dd>
+</dl>
+</section>
+<section id="logging-options">
+<h4>logging options<a class="headerlink" href="#logging-options" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
 </dd>
 </dl>
 </section>
@@ -257,9 +275,6 @@
 <dt><kbd>--past_key_value_name</kbd></dt>
 <dd><p>The arguments name to point to past key values. For model loaded from huggingface, it is ‘past_key_values’. Basically, it is used only when <cite>use_dynamo_exporter</cite> is True.</p>
 <p>Default: “past_key_values”</p>
-</dd>
-<dt><kbd>--device</kbd></dt>
-<dd><p>The device to use to trace the model, e.g., ‘cuda’ or ‘cpu’. If not specified, will use ‘cpu’ for PyTorch model and ‘cuda’ for the distributed model.</p>
 </dd>
 <dt><kbd>--torch_dtype</kbd></dt>
 <dd><p>The dtype to cast the model to before capturing the ONNX graph, e.g., ‘float32’ or ‘float16’. If not specified will use the model as is.</p>
@@ -353,8 +368,8 @@
 <section id="finetune">
 <h3>finetune<a class="headerlink" href="#finetune" title="Permalink to this heading">¶</a></h3>
 <p>Fine-tune a model on a dataset using peft and optimize the model for ONNX Runtime with adapters as inputs. Huggingface training arguments can be provided along with the defined options.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">float16</span><span class="p">,</span><span class="n">float32</span><span class="p">}]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span>
-               <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">float16</span><span class="p">,</span><span class="n">float32</span><span class="p">}]</span> <span class="o">-</span><span class="n">m</span>
+               <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="p">{</span><span class="n">bfloat16</span><span class="p">,</span><span class="n">float16</span><span class="p">,</span><span class="n">float32</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span> <span class="o">-</span><span class="n">d</span>
                <span class="n">DATA_NAME</span> <span class="p">[</span><span class="o">--</span><span class="n">data_files</span> <span class="n">DATA_FILES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">train_split</span> <span class="n">TRAIN_SPLIT</span><span class="p">]</span>
                <span class="p">[</span><span class="o">--</span><span class="n">eval_split</span> <span class="n">EVAL_SPLIT</span><span class="p">]</span>
@@ -394,6 +409,15 @@
 <dt><kbd>--clean</kbd></dt>
 <dd><p>Run in a clean cache directory</p>
 <p>Default: False</p>
+</dd>
+</dl>
+</section>
+<section id="logging-options_repeat1">
+<h4>logging options<a class="headerlink" href="#logging-options_repeat1" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
 </dd>
 </dl>
 </section>
@@ -619,7 +643,7 @@
 <section id="tune-session-params">
 <h3>tune-session-params<a class="headerlink" href="#tune-session-params" title="Permalink to this heading">¶</a></h3>
 <p>Automatically tune the session parameters for a given onnx model. Currently, for onnx model converted from huggingface model and used for generative tasks, user can simply provide the –model onnx_model_path –hf_model_name hf_model_name –device device_type to get the tuned session parameters.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">tune</span><span class="o">-</span><span class="n">session</span><span class="o">-</span><span class="n">params</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">model</span> <span class="n">MODEL</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">tune</span><span class="o">-</span><span class="n">session</span><span class="o">-</span><span class="n">params</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="o">--</span><span class="n">model</span> <span class="n">MODEL</span>
                           <span class="p">[</span><span class="o">--</span><span class="n">data_config_path</span> <span class="n">DATA_CONFIG_PATH</span><span class="p">]</span>
                           <span class="p">[</span><span class="o">--</span><span class="n">predict_with_kv_cache</span><span class="p">]</span>
                           <span class="p">[</span><span class="o">--</span><span class="n">hf_model_name</span> <span class="n">HF_MODEL_NAME</span><span class="p">]</span>
@@ -658,6 +682,15 @@
 </dd>
 <dt><kbd>--tempdir</kbd></dt>
 <dd><p>Root directory for tempfile directories and files</p>
+</dd>
+</dl>
+</section>
+<section id="logging-options_repeat2">
+<h4>logging options<a class="headerlink" href="#logging-options_repeat2" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
 </dd>
 </dl>
 </section>
