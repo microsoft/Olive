@@ -51,7 +51,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             type=str,
             default="cpu",
             choices=["cpu", "gpu"],
-            help="The device to use to convert the model to ONNX.",
+            help=(
+                "The device to use to convert the model to ONNX."
+                "If 'gpu' is selected, the execution_providers will be set to CUDAExecutionProvider."
+                "If 'cpu' is selected, the execution_providers will be set to CPUExecutionProvider."
+                "For PyTorch Exporter, the device is used to cast the model to before capturing the ONNX graph."
+            ),
         )
 
         sub_parser.add_argument("-o", "--output_path", type=str, default="onnx-model", help="Output path")
@@ -189,6 +194,10 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             (("input_model", "model_path"), get_model_name_or_path(self.args.model_name_or_path)),
             (("input_model", "load_kwargs", "trust_remote_code"), self.args.trust_remote_code),
             (("systems", "local_system", "accelerators", 0, "device"), self.args.device),
+            (
+                ("systems", "local_system", "accelerators", 0, "execution_providers"),
+                ["CPUExecutionProvider"] if self.args.device == "cpu" else ["CUDAExecutionProvider"],
+            ),
         ]
         if self.args.use_model_builder:
             del config["passes"]["c"]
@@ -232,7 +241,7 @@ TEMPLATE = {
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [{"device": "cpu"}],
+            "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
         }
     },
     "passes": {
