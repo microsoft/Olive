@@ -47,7 +47,7 @@ def get_pretrained_name_or_path(model_name_or_path: str, name: str) -> str:
         path = parent_dir / "data" / name
         if path.exists():
             return str(path)
-    
+
     elif "transformers" in flavors:
         if name in ("model", "config"):
             path = parent_dir / "model"
