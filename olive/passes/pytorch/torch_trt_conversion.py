@@ -10,7 +10,7 @@ import torch
 
 from olive.common.config_utils import validate_config
 from olive.common.hf.utils import get_model_max_length
-from olive.common.utils import get_attr, tensor_data_to_device
+from olive.common.utils import set_attr, tensor_data_to_device
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, PyTorchModelHandler
@@ -164,13 +164,8 @@ class TorchTRTConversion(Pass):
                 inputs = torch.zeros(shape, dtype=torch.float16, device=device)
                 # create trt module
                 trt_module = compile_trt_model(info["submodules"][name], inputs, batch_size, seqlen)
-                # get parent module
-                parent_name = ".".join(name.split(".")[:-1])
-                parent_module = get_attr(layers[layer_index], parent_name)
-                # get submodule name
-                module_name = name.split(".")[-1]
-                # replace submodule with trt module
-                setattr(parent_module, module_name, trt_module)
+                # replace linear with trt module
+                set_attr(layers[layer_index], name, trt_module)
                 # remove submodule from layer_info
                 del info["submodules"][name]
                 # TODO(jambayk): is the empty cache necessary? does it add processing time?

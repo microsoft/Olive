@@ -78,6 +78,10 @@
             "module_path": "olive.passes.pytorch.rtn.RTNQuantizer",
             "module_dependencies": [ "autoawq" ]
         },
+        "RTNQuantizer2": {
+            "module_path": "olive.passes.pytorch.rtn2.RTNQuantizer2",
+            "module_dependencies": [ "neural-compressor" ]
+        },
         "MergeAdapterWeights": { "module_path": "olive.passes.pytorch.merge_adapter_weights.MergeAdapterWeights" },
         "LoftQ": { "module_path": "olive.passes.pytorch.lora.LoftQ" },
         "LoRA": { "module_path": "olive.passes.pytorch.lora.LoRA", "extra_dependencies": [ "lora" ] },
