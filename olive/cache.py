@@ -165,10 +165,8 @@ class OliveCache:
 
         if resource_path.is_local_resource_or_string_name():
             return resource_path.get_path()
-        elif resource_path.is_azureml_resource():
-            return self.download_resource(resource_path).get_path()
         else:
-            return None
+            return self.download_resource(resource_path).get_path()
 
     def download_resource(self, resource_path: ResourcePath):
         """Return the path to a non-local resource.
