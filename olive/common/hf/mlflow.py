@@ -7,23 +7,26 @@ from pathlib import Path
 import yaml
 
 
-def load_mlflow_model_data(model_name_or_path: str) -> dict:
+def _load_mlflow_model_data(model_name_or_path: str) -> dict:
     yaml_path = Path(model_name_or_path) / "MLmodel"
 
     if not yaml_path.exists():
-        raise FileNotFoundError(f"No MLmodel file found at path: {yaml_path}")
+        return None
 
     with open(yaml_path) as fp:
         return yaml.safe_load(fp)
 
 
 def is_mlflow_transformers(model_name_or_path: str) -> bool:
-    mlflow_data = load_mlflow_model_data(model_name_or_path)
+    mlflow_data = _load_mlflow_model_data(model_name_or_path)
+
+    if not mlflow_data:
+        return False
 
     # TODO(trajep): let user specify flavor name if needed
     # to support other flavors in mlflow not only hftransformers
     flavors = mlflow_data.get("flavors", {})
-    if not flavors or not ({"hftransformersv2", "transformers"} & flavors.keys()):
+    if not flavors or not ({"hftransformers", "hftransformersv2", "transformers"} & flavors.keys()):
         raise ValueError(
             "Invalid MLFlow model format. Please make sure the input model"
             " format is the same as the result of mlflow.transformers.save_model,"
@@ -40,13 +43,19 @@ def get_pretrained_name_or_path(model_name_or_path: str, name: str) -> str:
 
     parent_dir = Path(model_name_or_path).resolve()
 
-    mlflow_data = load_mlflow_model_data(model_name_or_path)
+    mlflow_data = _load_mlflow_model_data(model_name_or_path)
     flavors = mlflow_data.get("flavors", {}).keys()
 
-    if "hftransformersv2" in flavors:
+    if flavors in ("hftransformers", "hftransformersv2"):
         path = parent_dir / "data" / name
         if path.exists():
             return str(path)
+
+        # some mlflow models only have model directory
+        # e.g. https://ml.azure.com/models/Llama-2-7b-chat/version/24/catalog/registry/azureml-meta
+        model_dir = parent_dir / "data" / "model"
+        if model_dir.exists():
+            return str(model_dir)
 
     elif "transformers" in flavors:
         if name in ("model", "config"):
