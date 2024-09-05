@@ -49,7 +49,7 @@ def get_pretrained_name_or_path(model_name_or_path: str, name: str) -> str:
     mlflow_data = _load_mlflow_model_data(model_name_or_path)
     flavors = mlflow_data.get("flavors", {}).keys()
 
-    if flavors in ("hftransformers", "hftransformersv2"):
+    if {"hftransformers", "hftransformersv2"} & flavors.keys():
         path = parent_dir / "data" / name
         if path.exists():
             return str(path)
