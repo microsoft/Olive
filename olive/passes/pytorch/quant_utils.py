@@ -4,9 +4,11 @@
 # --------------------------------------------------------------------------
 import math
 import os
+from typing import Dict
 
 import torch
 import torch.nn as nn
+from tqdm import tqdm
 
 
 def _packed4bit_to_float(data, axis=-1):
@@ -280,3 +282,123 @@ class QuantLinear(nn.Module):
         self._general_pack_on_row(qzeros, zeros, self.bits)
 
         self.qzeros = qzeros.T.contiguous()
+
+
+# Based on https://github.com/casper-hansen/AutoAWQ/blob/main/awq/quantize/quantizer.py
+class AutoRTNQuantizer:
+    def __init__(
+        self,
+        awq_model,
+        model,
+        tokenzier,
+        w_bit,
+        group_size,
+        zero_point,
+        # to handle unused positional arguments
+        *args,
+        modules_to_not_convert=None,
+        # to handle unused keyword arguments
+        **kwargs
+    ):
+        self.awq_model = awq_model
+        self.model = model
+        self.tokenzier = tokenzier
+        self.w_bit = w_bit
+        self.group_size = group_size
+        self.zero_point = zero_point
+        self.modules_to_not_convert = modules_to_not_convert
+
+        self.modules = self.awq_model.get_model_layers(self.model)
+
+    def pseudo_quantize_tensor(self, w: torch.Tensor):
+        org_w_shape = w.shape
+        if self.group_size > 0:
+            assert org_w_shape[-1] % self.group_size == 0
+            w = w.reshape(-1, self.group_size)
+        assert w.dim() == 2
+        assert torch.isnan(w).sum() == 0
+
+        # zero point quantization
+        if self.zero_point:
+            max_val = w.amax(dim=1, keepdim=True)
+            min_val = w.amin(dim=1, keepdim=True)
+            max_int = 2**self.w_bit - 1
+            min_int = 0
+            scales = (max_val - min_val).clamp(min=1e-5) / max_int
+            zeros = (-torch.round(min_val / scales)).clamp_(min_int, max_int)
+            w = (torch.clamp(torch.round(w / scales) + zeros, min_int, max_int) - zeros) * scales
+            zeros = zeros.view(org_w_shape[0], -1)
+        else:
+            max_val = w.abs().amax(dim=1, keepdim=True)
+            max_val = max_val.clamp(min=1e-5)
+            max_int = 2 ** (self.w_bit - 1) - 1
+            min_int = -(2 ** (self.w_bit - 1))
+            scales = max_val / max_int
+            zeros = None
+            w = torch.clamp(torch.round(w / scales), min_int, max_int) * scales
+
+        assert torch.isnan(scales).sum() == 0
+        assert torch.isnan(w).sum() == 0
+
+        scales = scales.view(org_w_shape[0], -1)
+        w = w.reshape(org_w_shape)
+
+        return w, scales, zeros
+
+    def quantize(self):
+        from awq.utils.module import exclude_layers_to_not_quantize, get_named_linears
+        from awq.utils.utils import clear_memory, get_best_device
+
+        for i in tqdm(range(len(self.modules)), desc="RTN"):
+            # Move module and inputs to correct device
+            common_device = next(self.modules[i].parameters()).device
+            if common_device is None or str(common_device) == "cpu":
+                if torch.cuda.is_available():
+                    best_device = "cuda:" + str(i % torch.cuda.device_count())
+                else:
+                    best_device = get_best_device()
+
+                self.modules[i] = self.modules[i].to(best_device)
+                common_device = next(self.modules[i].parameters()).device
+
+            # [STEP 1]: Get layer, extract linear modules
+            named_linears = get_named_linears(self.modules[i])
+
+            # Filter out the linear layers we don't want to exclude
+            named_linears = exclude_layers_to_not_quantize(named_linears, self.modules_to_not_convert)
+
+            # [STEP 2]: Quantize weights
+            self._apply_quant(self.modules[i], named_linears)
+
+            clear_memory()
+
+    def _apply_quant(self, module, named_linears: Dict[str, nn.Linear]):
+        from awq.modules.linear import WQLinear_GEMM
+        from awq.utils.module import set_op_by_name
+        from awq.utils.utils import clear_memory, get_best_device
+
+        for name, linear_layer in named_linears.items():
+            # NOTE: small regression in perplexity if linear layer uses .cpu().float()
+            linear_layer = linear_layer.to(get_best_device()).half()  # noqa: PLW2901
+
+            linear_layer.weight.data, scales, zeros = self.pseudo_quantize_tensor(linear_layer.weight.data)
+
+            if zeros is None:
+                # the gemm implementation requires zeros
+                zeros = torch.zeros_like(scales)
+            scales = scales.t().contiguous()
+            zeros = zeros.t().contiguous()
+
+            q_linear = WQLinear_GEMM.from_linear(
+                linear=linear_layer,
+                w_bit=self.w_bit,
+                group_size=self.group_size,
+                init_only=False,
+                scales=scales,
+                zeros=zeros,
+            )
+
+            linear_layer.cpu()
+            q_linear.to(next(module.parameters()).device)
+            set_op_by_name(module, name, q_linear)
+            clear_memory()
