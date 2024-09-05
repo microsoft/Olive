@@ -137,7 +137,7 @@ class RegulatePassConfigMixin:
                         pass_config.pop(pn, None)
                 for p in pass_flow:
                     if p.lower().startswith("onnxquantization"):
-                        pass_config["config"]["quant_mode"] = "dynamic"
+                        pass_config[p]["config"]["quant_mode"] = "dynamic"
         else:
             if len(self.data_configs) != 1:
                 raise ValueError("AutoOptimizer expects exactly one data config.")
