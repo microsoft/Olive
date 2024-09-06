@@ -3,17 +3,25 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-import logging
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar, Dict
 
-from olive.cli.base import BaseOliveCLICommand, add_remote_options, is_remote_run
+from olive.cli.base import (
+    BaseOliveCLICommand,
+    add_hf_model_options,
+    add_logging_options,
+    add_remote_options,
+    get_model_name_or_path,
+    get_output_model_number,
+    is_remote_run,
+    update_remote_option,
+)
 from olive.common.utils import set_tempdir
 
-logger = logging.getLogger(__name__)
+# ruff: noqa: T201
 
 
 EVALUATE_TEMPLATE = {
@@ -67,20 +75,12 @@ class AutoOptCommand(BaseOliveCLICommand):
             help=("Automatically performance optimize input model"),
         )
 
+        add_hf_model_options(sub_parser)
+        add_logging_options(sub_parser)
+
         # model options
-        model_group = sub_parser.add_argument_group("model options")
-        model_group.add_argument(
-            "--model",
-            required=True,
-            help="Onnx input model path.",
-        )
-        model_group.add_argument(
-            "--task",
-            type=str,
-            default=None,
-            help="The task of the input model. Need to be specified if the input model is downloaded from huggingface.",
-        )
-        model_group.add_argument(
+        model_attributes_group = sub_parser.add_argument_group("model attributes options")
+        model_attributes_group.add_argument(
             "--model_framework",
             type=str,
             default="hf",
@@ -191,25 +191,28 @@ class AutoOptCommand(BaseOliveCLICommand):
         set_tempdir(self.args.output_path)
         with tempfile.TemporaryDirectory() as tempdir:
             run_config = self.get_run_config(tempdir)
-            olive_run(run_config)
+            output = olive_run(run_config)
             if is_remote_run(self.args):
                 # TODO(jambayk): point user to datastore with outputs or download outputs
                 # both are not implemented yet
                 return
-            output_path = Path(self.args.output_path)
-            logger.info("Optimized ONNX Model is saved to %s", output_path.resolve())
+            if get_output_model_number(output) > 0:
+                print("Optimized ONNX Model is saved to ", Path(self.args.output_path).resolve())
+            else:
+                print("No optimized model is generated")
 
-    def refine_args(self):
+    def resolve_providers(self):
         self.args.providers = self.args.providers or []
         for idx, provider in enumerate(self.args.providers):
             if not provider.endswith("ExecutionProvider"):
                 self.args.providers[idx] = f"{provider}ExecutionProvider"
 
     def get_run_config(self, tempdir) -> Dict:
-        self.refine_args()
+        self.resolve_providers()
         config = deepcopy(TEMPLATE)
 
-        config["input_model"]["model_path"] = self.args.model
+        config["log_severity_level"] = self.args.log_level
+        config["input_model"]["model_path"] = get_model_name_or_path(self.args.model_name_or_path)
         config["input_model"]["type"] = f"{self.args.model_framework}model"
         if self.args.task:
             config["input_model"]["task"] = self.args.task
@@ -243,7 +246,6 @@ class AutoOptCommand(BaseOliveCLICommand):
             "num_samples": self.args.num_samples,
             "seed": self.args.seed,
         }
-        # TODO(anyone): add remote options to auto opt passes
 
         if self.args.data_config_path:
             data_configs = self._get_data_config()
@@ -252,4 +254,5 @@ class AutoOptCommand(BaseOliveCLICommand):
             del config["evaluators"]
             del config["evaluator"]
             del config["search_strategy"]
+        update_remote_option(config, self.args, "auto-opt", tempdir)
         return config
