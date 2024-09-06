@@ -7,10 +7,10 @@
 import copy
 import json
 import logging
-import os
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, Union
+
+import transformers
 
 from olive.common.utils import IntEnumBase, StrEnumBase
 from olive.hardware.accelerator import AcceleratorSpec, Device
@@ -147,16 +147,6 @@ class ModelBuilder(Pass):
         else:
             target_execution_provider = "cpu"
 
-        # Select cache location based on priority
-        # HF_CACHE (HF >= v5) -> TRANSFORMERS_CACHE (HF < v5) -> local dir
-        cache_dir = os.environ.get("HF_HOME", None)
-        if not cache_dir:
-            cache_dir = os.environ.get("TRANSFORMERS_CACHE", None)
-        if not cache_dir:
-            # please do not clean up the cache dir as it contains huggingface model
-            # snapshots that can be reused for future runs
-            cache_dir = str(Path(tempfile.gettempdir()) / "hf_cache")
-
         extra_args = {"filename": str(output_model_filepath.name)}
         if metadata_only:
             extra_args["config_only"] = True
@@ -185,15 +175,26 @@ class ModelBuilder(Pass):
             if config[arg] is not None:
                 extra_args[arg] = "1" if config[arg] else "0"
 
-        create_model(
-            model_name=model_path,
-            input_path=input_path,
-            output_dir=str(output_model_filepath.parent),
-            precision=precision,
-            execution_provider=target_execution_provider,
-            cache_dir=cache_dir,
-            **extra_args,
-        )
+        try:
+            create_model(
+                model_name=model_path,
+                input_path=input_path,
+                output_dir=str(output_model_filepath.parent),
+                precision=precision,
+                execution_provider=target_execution_provider,
+                # model builder uses the cache_dir both as hf cache and also to store intermediate files
+                # not ideal, but we can't change this without changing the model builder
+                cache_dir=transformers.utils.TRANSFORMERS_CACHE,
+                **extra_args,
+            )
+        except Exception:
+            # if model building fails, clean up the intermediate files in the cache_dir
+            cache_dir = Path(transformers.utils.TRANSFORMERS_CACHE)
+            if cache_dir.is_dir():
+                for file in cache_dir.iterdir():
+                    if file.suffix == ".bin":
+                        file.unlink()
+            raise
 
         # Override default search options with ones from user config
         genai_config_filepath = str(output_model_filepath.parent / "genai_config.json")

@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
 from pathlib import Path
 from typing import Dict, List, Union
 
@@ -24,8 +23,6 @@ from olive.passes import AbstractPassConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
-
-logger = logging.getLogger(__name__)
 
 
 class RunPassConfig(AbstractPassConfig):
@@ -208,29 +205,30 @@ class RunConfig(NestedConfig):
                 model_info[key] = kv_cache.get(key)
 
         # TODO(anyone): Will this container ever be used with non-HF models?
-        if v["type"] in TRANSFORMER_DUMMY_DATA_CONTAINER:
-            _auto_fill_data_config(
-                v,
-                model_info,
-                ["load_dataset_config"],
-                ["model_name", "ort_past_key_name", "ort_past_value_name", "batch_size"],
-            )
-        elif v["type"] == HuggingfaceContainer.__name__:
-            # auto insert model_name and task from input model hf config if not present
-            # both are required for huggingface container
-            _auto_fill_data_config(
-                v, model_info, ["pre_process_data_config", "post_process_data_config"], ["model_name", "task"]
-            )
+        if v.get("type"):
+            if v["type"] in TRANSFORMER_DUMMY_DATA_CONTAINER:
+                _auto_fill_data_config(
+                    v,
+                    model_info,
+                    ["load_dataset_config"],
+                    ["model_name", "ort_past_key_name", "ort_past_value_name", "batch_size"],
+                )
+            elif v["type"] == HuggingfaceContainer.__name__:
+                # auto insert model_name and task from input model hf config if not present
+                # both are required for huggingface container
+                _auto_fill_data_config(
+                    v, model_info, ["pre_process_data_config", "post_process_data_config"], ["model_name", "task"]
+                )
 
-            # auto insert trust_remote_code from input model hf config
-            # won't override if value was set to False explicitly
-            _auto_fill_data_config(
-                v,
-                model_info,
-                ["pre_process_data_config", "load_dataset_config"],
-                ["trust_remote_code"],
-                only_none=True,
-            )
+                # auto insert trust_remote_code from input model hf config
+                # won't override if value was set to False explicitly
+                _auto_fill_data_config(
+                    v,
+                    model_info,
+                    ["pre_process_data_config", "load_dataset_config"],
+                    ["trust_remote_code"],
+                    only_none=True,
+                )
 
         return validate_config(v, DataConfig)
 
@@ -245,13 +243,6 @@ class RunConfig(NestedConfig):
         v = _resolve_system(v, values, "host")
         v = _resolve_system(v, values, "target")
         return _resolve_evaluator(v, values)
-
-    @validator("engine")
-    def validate_evaluate_input_model(cls, v):
-        if v.evaluate_input_model and v.evaluator is None:
-            logger.info("No evaluator is specified, skip to evaluate model")
-            v.evaluate_input_model = False
-        return v
 
     @validator("passes", pre=True, each_item=True)
     def validate_pass_host_evaluator(cls, v, values):
