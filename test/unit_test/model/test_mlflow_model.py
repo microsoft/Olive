@@ -13,7 +13,7 @@ from olive.common.utils import dict_diff
 from olive.model.handler.hf import HfModelHandler
 
 
-@pytest.fixture(params=["aml_mlflow", "mlflow"])
+@pytest.fixture(params=["aml_mlflow", "mlflow"], name="setup")
 def setup_model(request, tmp_path):
     save_method = request.param
     root_dir = tmp_path
@@ -64,8 +64,8 @@ def setup_model(request, tmp_path):
 
 
 @pytest.mark.parametrize("dtype", [None, "float16"])
-def test_load_model_with_kwargs(setup_model, dtype):
-    model_path, task, _ = setup_model
+def test_load_model_with_kwargs(setup, dtype):
+    model_path, task, _ = setup
     load_kwargs = {"torch_dtype": dtype} if dtype else {}
 
     olive_model = HfModelHandler(model_path=model_path, task=task, load_kwargs=load_kwargs).load_model()
@@ -75,8 +75,8 @@ def test_load_model_with_kwargs(setup_model, dtype):
         assert olive_model.dtype == torch.float16
 
 
-def test_mlflow_model_hfconfig_function(setup_model):
-    model_path, task, model_name = setup_model
+def test_mlflow_model_hfconfig_function(setup):
+    model_path, task, model_name = setup
 
     hf_model = HfModelHandler(model_path=model_name, task=task)
     mlflow_olive_model = HfModelHandler(model_path=model_path, task=task)
@@ -86,8 +86,8 @@ def test_mlflow_model_hfconfig_function(setup_model):
     assert len(mlflow_olive_model.get_hf_dummy_inputs()) == len(hf_model.get_hf_dummy_inputs())
 
 
-def test_hf_model_attributes(setup_model):
-    model_path, task, model_name = setup_model
+def test_hf_model_attributes(setup):
+    model_path, task, model_name = setup
     olive_model = HfModelHandler(model_path=model_path, task=task)
     original_hf_model_config = transformers.AutoConfig.from_pretrained(model_name).to_dict()
 
@@ -98,14 +98,14 @@ def test_hf_model_attributes(setup_model):
     assert "_name_or_path" in difference
 
 
-def test_load_model(setup_model):
-    model_path, task, _ = setup_model
+def test_load_model(setup):
+    model_path, task, _ = setup
     olive_model = HfModelHandler(model_path=model_path, task=task).load_model()
 
     assert isinstance(olive_model, transformers.BertForSequenceClassification)
 
 
-def test_model_name_or_path(setup_model):
-    model_path, task, _ = setup_model
+def test_model_name_or_path(setup):
+    model_path, task, _ = setup
     olive_model = HfModelHandler(model_path=model_path, task=task)
     assert olive_model.model_name_or_path.startswith(os.environ["OLIVE_CACHE_DIR"])
