@@ -266,11 +266,16 @@ class OrtTransformersOptimization(Pass):
                         break
 
         if run_config["model_type"] is None or run_config["model_type"] not in transformers_optimizer.MODEL_TYPES:
-            raise ValueError(
-                f"Unsupported model type: {run_config['model_type']}, please select one from "
-                f"[{', '.join(transformers_optimizer.MODEL_TYPES.keys())}] which need to be set under "
-                "OrtTransformersOptimization.config"
+            logger.warning(
+                (
+                    "Unsupported model type: %s, will skip this pass. Please select one from "
+                    "[%s] which need to be set under "
+                    "OrtTransformersOptimization.config"
+                ),
+                run_config["model_type"],
+                ", ".join(transformers_optimizer.MODEL_TYPES),
             )
+            return model
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 

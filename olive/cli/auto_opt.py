@@ -19,7 +19,7 @@ from olive.cli.base import (
     is_remote_run,
     update_remote_option,
 )
-from olive.common.utils import set_tempdir
+from olive.common.utils import hardlink_copy_dir, set_tempdir
 
 # ruff: noqa: T201
 
@@ -31,7 +31,7 @@ EVALUATE_TEMPLATE = {
                 "name": "accuracy",
                 "type": "accuracy",
                 "sub_types": [
-                    {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+                    {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.1}},
                 ],
                 "data_config": "data_config",
             },
@@ -39,7 +39,7 @@ EVALUATE_TEMPLATE = {
                 "name": "latency",
                 "type": "latency",
                 "sub_types": [
-                    {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                    {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 1}},
                 ],
                 "data_config": "data_config",
                 "user_config": {"io_bind": True},
@@ -197,6 +197,13 @@ class AutoOptCommand(BaseOliveCLICommand):
                 # both are not implemented yet
                 return
             if get_output_model_number(output) > 0:
+                output_path = Path(self.args.output_path)
+                output_path.mkdir(parents=True, exist_ok=True)
+                for v in output.values():
+                    for model_id, model in v.nodes.items():
+                        output_model_name = Path(self.args.output_path) / model_id
+                        original_model_path = Path(model.model_config["config"]["model_path"]).parent
+                        hardlink_copy_dir(original_model_path, output_model_name)
                 print("Optimized ONNX Model is saved to ", Path(self.args.output_path).resolve())
             else:
                 print("No optimized model is generated")

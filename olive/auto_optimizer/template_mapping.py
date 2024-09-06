@@ -98,6 +98,10 @@ def get_pass_flows_by_accelerator_ep_precision(opt_level, accelerator, ep, preci
                         pass_deque.append((next_level, [*pf_candidate, p_next]))
                         # if we find one pass in next_level, break the outer loop
                         keep_try = False
+                # did not find any pass in next level, we cannot step over it
+                if keep_try:
+                    # push back and increase depth
+                    pass_deque.append((next_level, pf_candidate))
             # not `elif` here, as we need to check special case for fp16
             if not keep_try:
                 if precision == "fp16" and len(pf_candidate) > 1 and pf_candidate[-1] == "OrtTransformersOptimization":
