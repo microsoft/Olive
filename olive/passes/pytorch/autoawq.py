@@ -114,6 +114,14 @@ class AutoAWQQuantizer(Pass):
                     " weights. Default value is False."
                 ),
             ),
+            "accuracy_level_4_aware": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Calibrate the weight scales to be aware about the input being quantized to 8bits when using"
+                    " MatMulNBits with accuracy_level=4. Default value is False."
+                ),
+            ),
         }
 
     @torch.no_grad()
@@ -152,7 +160,7 @@ class AutoAWQQuantizer(Pass):
         quantizer = (
             self._pack_model_for_onnx_conversion(config)
             if config["pack_model_for_onnx_conversion"]
-            else PyAutoAWQQuantizer
+            else (self._awq_with_quant_activation() if config["accuracy_level_4_aware"] else PyAutoAWQQuantizer)
         )
 
         # autoawq load the model with fp16 by default and they did not expose the interface to change it
@@ -221,6 +229,24 @@ class AutoAWQQuantizer(Pass):
                     clear_memory()
 
         return OrtAutoAWQQuantizer
+
+    def _awq_with_quant_activation(self):
+        from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer
+
+        from olive.passes.pytorch.quant_utils import symmetric_quantize_dequantize
+
+        class AwqQuantizerWithQuantActivation(PyAutoAWQQuantizer):
+            # meant to make the weight scales be aware about the input being quantized
+            # to 8bits when using MatMulNBits with accuracy_level=4
+            @torch.no_grad()
+            def _search_best_scale(self, module, prev_op, layers, inp, module2inspect=None, kwargs=None):
+                # quantize dequantize to mimic accuracy level 4 impl
+                inp = symmetric_quantize_dequantize(inp, 8, self.group_size)
+                return super()._search_best_scale(
+                    module, prev_op, layers, inp, module2inspect=module2inspect, kwargs=(kwargs or {})
+                )
+
+        return AwqQuantizerWithQuantActivation
 
     def _resolve_load_args(self, hf_loading_args):
         loading_args = {}

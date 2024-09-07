@@ -280,3 +280,37 @@ class QuantLinear(nn.Module):
         self._general_pack_on_row(qzeros, zeros, self.bits)
 
         self.qzeros = qzeros.T.contiguous()
+
+
+def symmetric_quantize_dequantize(w: torch.Tensor, nbits: int, block_size: int):
+    # symmetric blockwise quantization
+    qmax = 2 ** (nbits - 1) - 1
+    qmin = -qmax
+
+    # reshape
+    orig_w_shape = w.shape
+    if block_size > 0:
+        assert orig_w_shape[-1] % block_size == 0
+        w = w.reshape(-1, block_size)
+
+    # try to move to cuda if available
+    original_device = w.device
+    device = "cuda" if (torch.cuda.is_available() and original_device == torch.device("cpu")) else original_device
+    w = w.to(device)
+
+    # get scale
+    absmax = w.abs().amax(dim=1, keepdim=True)
+    absmax = absmax.clamp(min=1e-5)
+    scales = 2 * absmax / (qmax - qmin)
+    # replace 0 with 1 to avoid division by zero
+    scales[scales == 0] = 1
+
+    # quantize
+    w = torch.clamp(torch.round(w / scales), qmin, qmax)
+
+    # dequantize
+    w = w * scales
+    w = w.to(original_device)
+
+    # reshape back
+    return w.reshape(orig_w_shape)
