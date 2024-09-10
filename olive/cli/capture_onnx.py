@@ -225,7 +225,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 ]
             )
             if self.args.use_dynamo_exporter:
-                to_replace.append(("passes", "c", "past_key_value_name"), self.args.past_key_value_name)
+                to_replace.append((("passes", "c", "past_key_value_name"), self.args.past_key_value_name))
 
         for keys, value in to_replace:
             if value is None:
