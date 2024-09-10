@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import json
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
@@ -19,7 +18,7 @@ from olive.cli.base import (
     is_remote_run,
     update_remote_option,
 )
-from olive.common.utils import hardlink_copy_dir, set_tempdir
+from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir
 
 # ruff: noqa: T201
 
@@ -115,9 +114,32 @@ class AutoOptCommand(BaseOliveCLICommand):
             "dataset options, required for some optimization passes like quantization, and evaluation components"
         )
         dataset_group.add_argument(
-            "--data_config_path",
+            "-d",
+            "--data_name",
             type=str,
-            help="Path to the data config file. It allows to customize the data config(json/yaml) for the model.",
+            help="The dataset name.",
+        )
+        dataset_group.add_argument(
+            "--split",
+            type=str,
+            help="The dataset split to use for evaluation.",
+        )
+        dataset_group.add_argument(
+            "--subset",
+            type=str,
+            help="The dataset subset to use for evaluation.",
+        )
+        dataset_group.add_argument(
+            "--input_cols",
+            type=str,
+            nargs="*",
+            help="The input columns to use for evaluation.",
+        )
+        dataset_group.add_argument(
+            "--batch_size",
+            type=int,
+            default=1,
+            help="Batch size for evaluation.",
         )
 
         auto_opt_config_group = sub_parser.add_argument_group("auto optimizer options")
@@ -180,10 +202,27 @@ class AutoOptCommand(BaseOliveCLICommand):
         sub_parser.set_defaults(func=AutoOptCommand)
 
     def _get_data_config(self) -> Dict:
-        with open(self.args.data_config_path) as f:
-            data_config = json.load(f)
-            data_config["name"] = "data_config"
-            return data_config
+        if not self.args.data_name:
+            return []
+        to_replace = [
+            (("load_dataset_config", "data_name"), self.args.data_name),
+            (("load_dataset_config", "split"), self.args.split),
+            (("load_dataset_config", "subset"), self.args.subset),
+            (("pre_process_data_config", "input_cols"), self.args.input_cols),
+            (("dataloader_config", "batch_size"), self.args.batch_size),
+        ]
+        data_config = {
+            "name": "data_config",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": {},
+            "pre_process_data_config": {},
+            "dataloader_config": {},
+        }
+        for keys, value in to_replace:
+            if value is None:
+                continue
+            set_nested_dict_value(data_config, keys, value)
+        return [data_config]
 
     def run(self):
         from olive.workflows import run as olive_run
@@ -254,10 +293,8 @@ class AutoOptCommand(BaseOliveCLICommand):
             "seed": self.args.seed,
         }
 
-        if self.args.data_config_path:
-            data_configs = self._get_data_config()
-            config["data_configs"] = [data_configs]
-        else:
+        config["data_configs"] = self._get_data_config()
+        if not config["data_configs"]:
             del config["evaluators"]
             del config["evaluator"]
             del config["search_strategy"]
