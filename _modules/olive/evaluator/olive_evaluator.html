@@ -192,6 +192,9 @@
 
 
 <div class="viewcode-block" id="OliveEvaluator"><a class="viewcode-back" href="../../../api/evaluator.html#olive.evaluator.olive_evaluator.OliveEvaluator">[docs]</a><span class="k">class</span> <span class="nc">OliveEvaluator</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -326,6 +329,10 @@
 
 
 <span class="k">class</span> <span class="nc">_OliveEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">io_bind_enabled</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">io_bind</span><span class="p">:</span>
@@ -850,11 +857,6 @@
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Framework</span><span class="o">.</span><span class="n">PYTORCH</span><span class="p">))</span>
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;PyTorchEvaluator&quot;</span><span class="p">)</span>
 <span class="k">class</span> <span class="nc">PyTorchEvaluator</span><span class="p">(</span><span class="n">_OliveEvaluator</span><span class="p">):</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-
     <span class="nd">@torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">()</span>
     <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -869,7 +871,7 @@
         <span class="n">preds</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">logits</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">device</span> <span class="o">=</span> <span class="n">PyTorchEvaluator</span><span class="o">.</span><span class="n">_device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">_OliveEvaluator</span><span class="o">.</span><span class="n">device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="n">run_kwargs</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">get_run_kwargs</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">device</span><span class="p">:</span>
             <span class="n">session</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
@@ -926,7 +928,7 @@
         <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span><span class="n">inference_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
         <span class="n">input_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">dataloader</span><span class="p">))</span>
-        <span class="n">torch_device</span> <span class="o">=</span> <span class="n">PyTorchEvaluator</span><span class="o">.</span><span class="n">_device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">torch_device</span> <span class="o">=</span> <span class="n">_OliveEvaluator</span><span class="o">.</span><span class="n">device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="n">run_kwargs</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">get_run_kwargs</span><span class="p">()</span>
 
         <span class="n">is_cuda</span> <span class="o">=</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span>
@@ -1208,6 +1210,67 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">FileListDataLoader</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">dataloader</span>
         <span class="k">return</span> <span class="n">FileListCommonDataLoader</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">io_config</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">file_chunk_size</span><span class="p">)</span>
+
+
+<span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;LMEvaluator&quot;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LMEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_class</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tasks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span> <span class="o">=</span> <span class="n">model_class</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tasks</span> <span class="o">=</span> <span class="n">tasks</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;limit&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_gen_toks</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_gen_toks&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
+        <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">lm_eval</span>
+
+        <span class="n">device</span> <span class="o">=</span> <span class="n">_OliveEvaluator</span><span class="o">.</span><span class="n">device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="c1"># device = torch.device(&quot;cuda:5&quot;)</span>
+        <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_hf_tokenizer</span><span class="p">()</span>
+        <span class="n">nn_module</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">lmmodel</span> <span class="o">=</span> <span class="n">lm_eval</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">registry</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="p">)(</span>
+            <span class="n">pretrained</span><span class="o">=</span><span class="n">nn_module</span><span class="p">,</span>
+            <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span>
+            <span class="n">batch_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">max_gen_toks</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_gen_toks</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">task_manager</span> <span class="o">=</span> <span class="n">lm_eval</span><span class="o">.</span><span class="n">tasks</span><span class="o">.</span><span class="n">TaskManager</span><span class="p">()</span>
+
+        <span class="n">results</span> <span class="o">=</span> <span class="n">lm_eval</span><span class="o">.</span><span class="n">simple_evaluate</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">lmmodel</span><span class="p">,</span>
+            <span class="n">tasks</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks</span><span class="p">,</span>
+            <span class="n">task_manager</span><span class="o">=</span><span class="n">task_manager</span><span class="p">,</span>
+            <span class="n">log_samples</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">batch_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">limit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">metrics</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">task_name</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;results&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="n">metric_items</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;results&quot;</span><span class="p">][</span><span class="n">task_name</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+
+            <span class="n">task_metrics</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">mf</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">metric_items</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">mf</span> <span class="o">!=</span> <span class="s2">&quot;alias&quot;</span><span class="p">:</span>
+                    <span class="n">m</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">m</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;_stderr&quot;</span><span class="p">):</span>
+                        <span class="n">task_metrics</span><span class="p">[</span><span class="n">m</span><span class="p">]</span> <span class="o">=</span> <span class="n">SubMetricResult</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">priority</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">higher_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="n">metrics</span><span class="p">[</span><span class="n">task_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">task_metrics</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">flatten_metric_result</span><span class="p">(</span><span class="n">metrics</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="OliveEvaluatorConfig"><a class="viewcode-back" href="../../../api/engine.html#olive.evaluator.olive_evaluator.OliveEvaluatorConfig">[docs]</a><span class="k">class</span> <span class="nc">OliveEvaluatorConfig</span><span class="p">(</span><span class="n">NestedConfig</span><span class="p">):</span>
