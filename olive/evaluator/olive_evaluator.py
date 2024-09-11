@@ -57,6 +57,9 @@ class OliveModelOutput(NamedTuple):
 
 
 class OliveEvaluator(ABC):
+    def __init__(self, **kwargs):
+        super().__init__()
+
     @abstractmethod
     def evaluate(
         self,
@@ -191,6 +194,10 @@ class OliveEvaluator(ABC):
 
 
 class _OliveEvaluator(OliveEvaluator):
+    @staticmethod
+    def device_string_to_torch_device(device: Device):
+        return torch.device("cuda") if device == Device.GPU else torch.device(device)
+
     @classmethod
     def io_bind_enabled(cls, metric: Metric, inference_settings: Dict) -> bool:
         if metric.user_config.io_bind:
@@ -715,11 +722,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 @Registry.register(str(Framework.PYTORCH))
 @Registry.register("PyTorchEvaluator")
 class PyTorchEvaluator(_OliveEvaluator):
-
-    @staticmethod
-    def _device_string_to_torch_device(device: Device):
-        return torch.device("cuda") if device == Device.GPU else torch.device(device)
-
     @torch.no_grad()
     def _inference(
         self,
@@ -734,7 +736,7 @@ class PyTorchEvaluator(_OliveEvaluator):
         preds = []
         targets = []
         logits = []
-        device = PyTorchEvaluator._device_string_to_torch_device(device)
+        device = _OliveEvaluator.device_string_to_torch_device(device)
         run_kwargs = metric.get_run_kwargs()
         if device:
             session.to(device)
@@ -791,7 +793,7 @@ class PyTorchEvaluator(_OliveEvaluator):
         session = model.prepare_session(inference_settings=None, device=device)
 
         input_data, _ = next(iter(dataloader))
-        torch_device = PyTorchEvaluator._device_string_to_torch_device(device)
+        torch_device = _OliveEvaluator.device_string_to_torch_device(device)
         run_kwargs = metric.get_run_kwargs()
 
         is_cuda = device == Device.GPU
@@ -1073,6 +1075,67 @@ class QNNEvaluator(_OliveEvaluator):
         if isinstance(dataloader, FileListDataLoader):
             return dataloader
         return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_chunk_size)
+
+
+@Registry.register("LMEvaluator")
+class LMEvaluator(OliveEvaluator):
+    def __init__(self, model_class: str, tasks: List[str], **kwargs):
+        super().__init__(**kwargs)
+
+        self.model_class = model_class
+        self.tasks = tasks
+        self.limit = kwargs.get("limit")
+        self.batch_size = kwargs.get("batch_size", 1)
+        self.max_gen_toks = kwargs.get("max_gen_toks")
+
+    def evaluate(
+        self,
+        model: "OliveModelHandler",
+        metrics: List[Metric],
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        import lm_eval
+
+        device = _OliveEvaluator.device_string_to_torch_device(device)
+        # device = torch.device("cuda:5")
+        tokenizer = model.get_hf_tokenizer()
+        nn_module = model.load_model().eval().to(device)
+
+        lmmodel = lm_eval.api.registry.get_model(self.model_class)(
+            pretrained=nn_module,
+            tokenizer=tokenizer,
+            batch_size=self.batch_size,
+            device=device,
+            max_gen_toks=self.max_gen_toks,
+        )
+
+        task_manager = lm_eval.tasks.TaskManager()
+
+        results = lm_eval.simple_evaluate(
+            model=lmmodel,
+            tasks=self.tasks,
+            task_manager=task_manager,
+            log_samples=False,
+            batch_size=self.batch_size,
+            device=device,
+            limit=self.limit,
+        )
+
+        metrics = {}
+        for task_name in sorted(results["results"].keys()):
+            metric_items = sorted(results["results"][task_name].items())
+
+            task_metrics = {}
+            for mf, v in metric_items:
+                if mf != "alias":
+                    m, _ = mf.split(",", 1)
+                    if not m.endswith("_stderr"):
+                        task_metrics[m] = SubMetricResult(value=v, priority=-1, higher_is_better=True)
+
+            metrics[task_name] = MetricResult.parse_obj(task_metrics)
+
+        return flatten_metric_result(metrics)
 
 
 class OliveEvaluatorConfig(NestedConfig):

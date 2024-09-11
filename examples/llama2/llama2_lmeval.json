@@ -1,0 +1,30 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "generative": true,
+        "model_path": "meta-llama/Llama-2-7b-hf",
+        "load_kwargs": { "attn_implementation": "eager" }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
+        }
+    },
+    "evaluators": {
+        "evaluator": {
+            "type": "LMEvaluator",
+            "model_class": "hf",
+            "tasks": [ "hellaswag" ],
+            "batch_size": 16,
+            "limit": 0.05,
+            "max_gen_toks": 10
+        }
+    },
+    "auto_optimizer_config": { "opt_level": 0, "disable_auto_optimizer": true, "precision": "fp16" },
+    "evaluator": "evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "output"
+}
