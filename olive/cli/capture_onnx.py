@@ -72,9 +72,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             help="Whether to use dynamo_export API to export ONNX model.",
         )
         pte_group.add_argument(
-            "--use_ort_genai",
-            action="store_true",
-            help="Use OnnxRuntie generate() API to run the model"
+            "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
         )
         pte_group.add_argument(
             "--past_key_value_name",
