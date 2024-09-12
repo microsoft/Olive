@@ -158,7 +158,7 @@ class FineTuneCommand(BaseOliveCLICommand):
                 output_path = Path(self.args.output_path)
                 output_path.mkdir(parents=True, exist_ok=True)
                 hardlink_copy_dir(Path(tempdir) / "-".join(run_config["passes"].keys()) / "gpu-cuda_model", output_path)
-                print("Model and adapters saved to %s", output_path.resolve())
+                print(f"Model and adapters saved to {output_path.resolve()}")
             else:
                 print("Failed to run finetune. Please set the log_level to 1 for more detailed logs.")
 

@@ -16,6 +16,7 @@ from typing import ClassVar, Dict, Optional, Union
 import yaml
 
 from olive.cli.constants import CONDA_CONFIG
+from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import hash_dict
 
 
@@ -40,7 +41,9 @@ class BaseOliveCLICommand(ABC):
 
 
 def get_model_name_or_path(model_name_or_path) -> Union[str, Dict[str, str]]:
-    pattern = r"^(?P<registry_name>[^:]+):(?P<model_name>[^:]+):(?P<version>[^:]+)$"
+    pattern = (
+        r"^azureml://registries/(?P<registry_name>[^/]+)/models/(?P<model_name>[^/]+)/versions/(?P<version>[^/]+)$"
+    )
     match = re.match(pattern, model_name_or_path)
 
     if match:
@@ -56,6 +59,20 @@ def get_model_name_or_path(model_name_or_path) -> Union[str, Dict[str, str]]:
 
     if match:
         return match.group(1)
+
+    return model_name_or_path
+
+
+def get_pt_model_path(model_name_or_path) -> Union[str, Dict[str, str]]:
+    pattern = r"^azureml:(?P<model_name>[^:]+):(?P<version>[^:]+)$"
+    match = re.match(pattern, model_name_or_path)
+
+    if match:
+        return {
+            "type": "azureml_model",
+            "name": match.group("model_name"),
+            "version": match.group("version"),
+        }
 
     return model_name_or_path
 
@@ -102,13 +119,13 @@ def add_remote_options(sub_parser):
     )
 
 
-def add_hf_model_options(sub_parser):
-    model_group = sub_parser.add_argument_group("model options")
+def add_hf_model_options(sub_parser, required=True):
+    model_group = sub_parser.add_argument_group("HF model options")
     model_group.add_argument(
         "-m",
         "--model_name_or_path",
         type=str,
-        required=True,
+        required=required,
         help=(
             "The model checkpoint for weights initialization. If using an AzureML Registry model, provide the model"
             " path as 'registry_name:model_name:version'."
@@ -116,6 +133,81 @@ def add_hf_model_options(sub_parser):
     )
     model_group.add_argument("--trust_remote_code", action="store_true", help="Trust remote code when loading a model.")
     model_group.add_argument("-t", "--task", type=str, help="Task for which the model is used.")
+
+
+def add_pt_model_options(sub_parser):
+    pt_model_group = sub_parser.add_argument_group("PyTorch model options")
+
+    pt_model_group.add_argument(
+        "--model_script",
+        type=str,
+        help="The script file containing the model definition. Required for PyTorch model.",
+    )
+    pt_model_group.add_argument(
+        "--script_dir",
+        type=str,
+        default=None,
+        help="The directory containing the model script file.",
+    )
+
+
+def insert_input_model(config, args):
+    if not args.model_script:
+        model_path = Path(get_model_name_or_path(args.model_name_or_path))
+
+        # Check if local PyTorch model file
+        if model_path.is_file() and model_path.suffix in (".pt", ".pth"):
+            raise ValueError("model script is required for PyTorch model.")
+
+        # HfModel
+        if not args.model_name_or_path:
+            raise ValueError("model_name_or_path is required for HF model.")
+
+        config["input_model"] = {
+            "type": "HfModel",
+            "model_path": get_model_name_or_path(args.model_name_or_path),
+            "load_kwargs": {"trust_remote_code": args.trust_remote_code},
+        }
+        if args.task:
+            config["input_model"]["task"] = args.task
+    else:
+        # PyTorchModel
+        user_module_loader = UserModuleLoader(args.model_script, args.script_dir)
+        input_model_config = {
+            "type": "PyTorchModel",
+            "model_script": args.model_script,
+        }
+
+        if args.script_dir:
+            input_model_config["script_dir"] = args.script_dir
+
+        # model path has high priority than model loader
+        if args.model_name_or_path:
+            input_model_config["model_path"] = get_pt_model_path(args.model_name_or_path)
+        else:
+            if not user_module_loader.has_function("_model_loader"):
+                raise ValueError(
+                    "_model_loader is required for PyTorch model in the script if model_name_or_path is not provided."
+                )
+            input_model_config["model_loader"] = "_model_loader"
+
+        model_funcs = [
+            ("io_config", "_io_config"),
+            ("dummy_inputs_func", "_dummy_inputs"),
+            ("model_file_format", "_model_file_format"),
+        ]
+        input_model_config.update(
+            {
+                config_key: func_name
+                for config_key, func_name in model_funcs
+                if user_module_loader.has_function(func_name)
+            }
+        )
+
+        if "io_config" not in input_model_config and "dummy_inputs_func" not in input_model_config:
+            raise ValueError("_io_config or _dummy_inputs is required in the script for PyTorch model.")
+
+        config["input_model"] = input_model_config
 
 
 def is_remote_run(args):

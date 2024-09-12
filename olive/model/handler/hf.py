@@ -113,7 +113,6 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
 
         # Priority: io_config > hf onnx_config
         dummy_inputs = self._get_dummy_inputs_from_io_config(
-            force_kv_cache=self.task.endswith("-with-past"),
             filter_hook=filter_hook,
             filter_hook_kwargs=filter_hook_kwargs,
         )

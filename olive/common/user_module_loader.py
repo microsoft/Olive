@@ -40,3 +40,6 @@ class UserModuleLoader:
             assert self.user_module is not None, "There is no user module to load object from."
             return getattr(self.user_module, obj)
         return obj
+
+    def has_function(self, func_name: str) -> bool:
+        return hasattr(self.user_module, func_name) and callable(getattr(self.user_module, func_name))

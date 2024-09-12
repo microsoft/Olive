@@ -336,6 +336,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
                     with rls_json_path.open() as f:
                         infer_settings = json.load(f)["config"]["inference_settings"]
                         json.dump(infer_settings, infer_setting_output_path.open("w"), indent=4)
-                print("Inference session parameters are saved to %s", output_path.resolve())
+                print(f"Inference session parameters are saved to {output_path.resolve()}")
             else:
                 print("Failed to run tune-session-params. Please set the log_level to 1 for more detailed logs.")
