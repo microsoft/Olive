@@ -87,7 +87,7 @@ def test_insert_input_model_hf_model():
         "task",
         "model_script",
         "script_dir",
-        "func_exist_results",
+        "has_function_results",
         "expected_config",
     ),
     [
@@ -97,7 +97,7 @@ def test_insert_input_model_hf_model():
             None,  # task
             "model.py",  # model_script
             "scripts",  # script_dir
-            {"_model_loader": False, "_io_config": True, "_dummy_inputs": False},  # func_exist results
+            {"_model_loader": False, "_io_config": True, "_dummy_inputs": False},  # has_function results
             {  # expected config
                 "input_model": {
                     "type": "PyTorchModel",
@@ -114,7 +114,7 @@ def test_insert_input_model_hf_model():
             None,  # task
             "model.py",  # model_script
             "scripts",  # script_dir
-            {"_model_loader": True, "_io_config": False, "_dummy_inputs": True},  # func_exist results
+            {"_model_loader": True, "_io_config": False, "_dummy_inputs": True},  # has_function results
             {  # expected config
                 "input_model": {
                     "type": "PyTorchModel",
@@ -135,7 +135,7 @@ def test_insert_input_model_pt_model(
     task,
     model_script,
     script_dir,
-    func_exist_results,
+    has_function_results,
     expected_config,
 ):
     # setup
@@ -150,10 +150,10 @@ def test_insert_input_model_pt_model(
 
     mock_instance = MockUserModuleLoader.return_value
 
-    def func_exist_side_effect(arg):
-        return func_exist_results.get(arg, False)
+    def has_function_side_effect(arg):
+        return has_function_results.get(arg, False)
 
-    mock_instance.func_exist.side_effect = func_exist_side_effect
+    mock_instance.has_function.side_effect = has_function_side_effect
 
     # execute
     insert_input_model(config, args)
@@ -173,7 +173,7 @@ def test_insert_input_model_pt_model_missing_loader(MockUserModuleLoader):
         model_script="model.py",
         script_dir="scripts",
     )
-    MockUserModuleLoader.return_value.func_exist.return_value = False
+    MockUserModuleLoader.return_value.has_function.return_value = False
 
     # execute and assert
     with pytest.raises(ValueError, match="_model_loader is required for PyTorch model in the script"):
