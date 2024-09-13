@@ -5,7 +5,7 @@
 
 from pathlib import Path
 from random import Random
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Union
 
 import torch
 import transformers
@@ -45,8 +45,15 @@ class TextGenParams(ConfigBase):
     # if false, cannot guarantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
-    add_special_tokens: bool = True  # add bos and eos tokens to each sequence
     use_attention_mask: bool = True  # add attention mask to each example
+    # either use chat template or text
+    # Chat template: template is applied to the chat messages to generate the text
+    # use default (True) or custom (str) chat template
+    # chat template must handle its own bos and eos tokens
+    chat_template: Union[bool, str] = None
+    message_col: str = "messages"  # column with chat messages
+    # Text: text is extracted from the dataset
+    add_special_tokens: bool = True  # add bos and eos tokens to each sequence
     # one of text_formatting_func, text_template, or text_cols must be provided
     # priority: text_formatting_func > text_template > text_cols
     # function that formats the text, must take in an example dict and return a string
@@ -83,6 +90,16 @@ class TextGenParams(ConfigBase):
 
     @validator("text_cols", always=True)
     def _check_text_cols(cls, v, values):
+        if "chat_template" not in values:
+            raise ValueError("Invalid chat_template")
+
+        if isinstance(v, str):
+            v = [v]
+
+        if values["chat_template"]:
+            # chat template is used, so text_cols is not relevant
+            return v
+
         alternatives = ["text_formatting_func", "text_template"]
         for alternate in alternatives:
             # for good validation error, check that all alternates are in values
@@ -93,8 +110,6 @@ class TextGenParams(ConfigBase):
             # check that at least one alternate is specified
             raise ValueError(f"One of text_cols, {', '.join(alternatives)} must be specified")
 
-        if v is not None and isinstance(v, str):
-            v = [v]
         return v
 
     @validator("stride", always=True)
@@ -160,7 +175,14 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
     dataset = dataset.map(
         lambda x: {
             "text": get_text(
-                x, args.text_formatting_func, args.text_template, args.text_cols, args.add_special_tokens, tokenizer
+                x,
+                args.chat_template,
+                args.message_col,
+                args.text_formatting_func,
+                args.text_template,
+                args.text_cols,
+                args.add_special_tokens,
+                tokenizer,
             )
         }
     )
@@ -330,14 +352,23 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
 
 def get_text(
     example: Dict[str, str],
-    formatting_func: Optional[Callable] = None,
+    chat_template: Union[bool, str] = None,
+    message_col: str = "messages",
+    formatting_func: Callable = None,
     template: str = None,
     cols: List[str] = None,
     add_special_tokens: bool = False,
     tokenizer: transformers.PreTrainedTokenizer = None,
 ):
     """Get text from example using formatting_func, template, or cols."""
-    text = None
+    if chat_template:
+        # do we need to add generation prompt?
+        return tokenizer.apply_chat_template(
+            example[message_col],
+            tokenize=False,
+            chat_template=chat_template if isinstance(chat_template, str) else None,
+        )
+
     if formatting_func:
         text = formatting_func(example)
     elif template:
