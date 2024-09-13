@@ -126,7 +126,7 @@ class RegulatePassConfigMixin:
         if not self.auto_optimizer_config or self.auto_optimizer_config.disable_auto_optimizer:
             return pass_config, pass_flows
 
-        passes_require_data_config = ["OrtPerfTuning", "IncQuantization"]
+        passes_require_data_config = ["OrtPerfTuning", "IncQuantization", "OnnxQuantization"]
         if not self.data_configs:
             # remove the passes which require data_config
             for pass_flow in pass_flows:
