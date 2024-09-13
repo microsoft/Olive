@@ -13,12 +13,13 @@ from typing import ClassVar, Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
-    add_hf_model_options,
     add_logging_options,
+    add_model_options,
     add_remote_options,
-    get_model_name_or_path,
+    get_input_model_config,
     get_output_model_number,
     is_remote_run,
+    save_model_config,
     update_remote_option,
 )
 from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir, unescaped_str
@@ -49,7 +50,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         )
 
         # Model options
-        add_hf_model_options(sub_parser)
+        add_model_options(sub_parser)
 
         sub_parser.add_argument(
             "--torch_dtype",
@@ -158,6 +159,8 @@ class FineTuneCommand(BaseOliveCLICommand):
                 output_path = Path(self.args.output_path)
                 output_path.mkdir(parents=True, exist_ok=True)
                 hardlink_copy_dir(Path(tempdir) / "-".join(run_config["passes"].keys()) / "gpu-cuda_model", output_path)
+
+                save_model_config(output, output_path)
                 print(f"Model and adapters saved to {output_path.resolve()}")
             else:
                 print("Failed to run finetune. Please set the log_level to 1 for more detailed logs.")
@@ -181,9 +184,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         load_key = ("data_configs", 0, "load_dataset_config")
         preprocess_key = ("data_configs", 0, "pre_process_data_config")
         finetune_key = ("passes", "f")
-        model_path = get_model_name_or_path(self.args.model_name_or_path)
         to_replace = [
-            (("input_model", "model_path"), model_path),
             ((*load_key, "data_name"), self.args.data_name),
             ((*load_key, "split"), self.args.train_split),
             (
@@ -204,12 +205,12 @@ class FineTuneCommand(BaseOliveCLICommand):
             (("clean_cache",), self.args.clean),
             ("output_dir", tempdir),
         ]
-        if self.args.trust_remote_code:
-            to_replace.append((("input_model", "load_kwargs", "trust_remote_code"), True))
         if self.args.method == "lora" and self.args.target_modules:
             to_replace.append(((*finetune_key, "target_modules"), self.args.target_modules.split(",")))
 
         config = deepcopy(TEMPLATE)
+        config["input_model"] = get_input_model_config(self.args)
+
         for keys, value in to_replace:
             if value is None:
                 continue
@@ -232,7 +233,6 @@ class FineTuneCommand(BaseOliveCLICommand):
 
 
 TEMPLATE = {
-    "input_model": {"type": "HfModel", "load_kwargs": {"attn_implementation": "eager"}},
     "systems": {
         "local_system": {
             "type": "LocalSystem",
