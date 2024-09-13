@@ -80,7 +80,6 @@ class RTNQuantizer2(Pass):
         pytorch_model = model.load_model()
         if is_peft_model(pytorch_model):
             pytorch_model = pytorch_model.get_base_model()
-        pytorch_model.to(torch.float16)
         pytorch_model.eval()
         model.model = None
 
@@ -119,9 +118,14 @@ class RTNQuantizer2(Pass):
                     use_optimum_format=True,
                 )
                 q_linear.pack(int_weight, scale, zp, linear_layer.bias)
+                q_linear.weight = q_linear.recover().to(device)
 
                 linear_layer.cpu()
                 set_attr(layers[i], name, q_linear)
+
+        if hasattr(pytorch_model, "quantize_config"):
+            # cannot save gptq model otherwise
+            pytorch_model.quantize_config = None
 
         output_model_path = normalize_path_suffix(output_model_path, "model.pt")
         torch.save(pytorch_model, output_model_path)
