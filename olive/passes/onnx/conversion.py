@@ -229,8 +229,8 @@ class OnnxConversion(Pass):
                         input_names=io_config.input_names,
                         output_names=io_config.output_names,
                         dynamic_axes=io_config.dynamic_axes,
-                        dynamo=True,
-                        fallback=True,
+                        dynamo=True,  # pylint: disable=unexpected-keyword-arg
+                        fallback=True,  # pylint: disable=unexpected-keyword-arg
                     )
                 assert onnx_program is not None
                 onnx_model = onnx_program.model_proto
