@@ -20,7 +20,7 @@ from olive.cli.base import (
     get_input_model_config,
     get_output_model_number,
     is_remote_run,
-    save_model_config,
+    update_model_config,
     update_remote_option,
 )
 from olive.common.utils import IntEnumBase, hardlink_copy_dir, set_nested_dict_value, set_tempdir
@@ -185,7 +185,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 else:
                     shutil.move(str(source_path.with_suffix(".onnx")), output_path)
 
-                save_model_config(output, output_path)
+                update_model_config(source_path.with_suffix(".json"), output_path)
                 print(f"ONNX Model is saved to {output_path.resolve()}")
             else:
                 print("Failed to run capture-onnx-graph. Please set the log_level to 1 for more detailed logs.")

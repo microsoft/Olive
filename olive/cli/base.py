@@ -300,10 +300,9 @@ def get_output_model_number(outputs: Dict) -> int:
     return sum(len(f.nodes) for f in outputs.values())
 
 
-# TODO(team): Remove this function once the output structure is refactored
-def save_model_config(outputs: Dict, output_path: Path):
-    pf_footprint = next(iter(outputs.values()))
-    model_config = next(iter(pf_footprint.get_top_ranked_nodes(1))).model_config
+def update_model_config(model_config_path: Path, output_path: Path):
+    with open(model_config_path) as f:
+        model_config = json.load(f)
     model_path = model_config["config"]["model_path"]
     model_config["config"]["model_path"] = str(output_path.resolve() / Path(model_path).name)
     model_config_path = output_path / "model_config.json"

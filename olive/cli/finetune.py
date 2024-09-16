@@ -19,7 +19,7 @@ from olive.cli.base import (
     get_input_model_config,
     get_output_model_number,
     is_remote_run,
-    save_model_config,
+    update_model_config,
     update_remote_option,
 )
 from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir, unescaped_str
@@ -158,9 +158,10 @@ class FineTuneCommand(BaseOliveCLICommand):
                 # need to improve the output structure of olive run
                 output_path = Path(self.args.output_path)
                 output_path.mkdir(parents=True, exist_ok=True)
-                hardlink_copy_dir(Path(tempdir) / "-".join(run_config["passes"].keys()) / "gpu-cuda_model", output_path)
+                source_path = Path(tempdir) / "-".join(run_config["passes"].keys()) / "gpu-cuda_model"
+                hardlink_copy_dir(source_path, output_path)
 
-                save_model_config(output, output_path)
+                update_model_config(source_path.with_suffix(".json"), output_path)
                 print(f"Model and adapters saved to {output_path.resolve()}")
             else:
                 print("Failed to run finetune. Please set the log_level to 1 for more detailed logs.")
