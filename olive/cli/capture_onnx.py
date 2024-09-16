@@ -14,13 +14,13 @@ from typing import ClassVar, Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
-    add_hf_model_options,
     add_logging_options,
-    add_pt_model_options,
+    add_model_options,
     add_remote_options,
+    get_input_model_config,
     get_output_model_number,
-    insert_input_model,
     is_remote_run,
+    save_model_config,
     update_remote_option,
 )
 from olive.common.utils import IntEnumBase, hardlink_copy_dir, set_nested_dict_value, set_tempdir
@@ -46,8 +46,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # model options
-        add_hf_model_options(sub_parser, required=False)
-        add_pt_model_options(sub_parser)
+        add_model_options(sub_parser)
 
         sub_parser.add_argument(
             "--device",
@@ -185,14 +184,15 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                     hardlink_copy_dir(source_path, output_path)
                 else:
                     shutil.move(str(source_path.with_suffix(".onnx")), output_path)
+
+                save_model_config(output, output_path)
                 print(f"ONNX Model is saved to {output_path.resolve()}")
             else:
                 print("Failed to run capture-onnx-graph. Please set the log_level to 1 for more detailed logs.")
 
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
-
-        insert_input_model(config, self.args)
+        config["input_model"] = get_input_model_config(self.args)
 
         to_replace = [
             ("output_dir", tempdir),
@@ -241,7 +241,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
 
 TEMPLATE = {
-    "input_model": {"type": "HfModel", "load_kwargs": {}},
     "systems": {
         "local_system": {
             "type": "LocalSystem",

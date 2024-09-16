@@ -3,12 +3,19 @@
 Command Line Tools
 ==================
 
-Olive provides command line tools that can be invoked using the ``olive`` command. The command line tools are used to perform various tasks such as running an Olive workflow, managing AzureML compute, and more.
+Olive provides command line tools that can be invoked using the ``olive`` command. |
+The command line tools are used to perform various tasks such as running an Olive workflow, |
+managing AzureML compute, and more.
 
 If ``olive`` is not in your PATH, you can run the command line tools by replacing ``olive`` with ``python -m olive``.
 
 Input Model
 -----------
+
+Olive Cli Procuded Model
+^^^^^^^^^^^^^^^^^^^
+
+The Olive command-line tools support using a model produced by Olive CLI as an input model. You can specify the model file path using the ``-m <output_model>`` option, where ``<output_model>`` is the output folder defined by ``-o <output_model>`` in the previous cli command.
 
 Local PyTorch Model
 ^^^^^^^^^^^^^^^^^^^
