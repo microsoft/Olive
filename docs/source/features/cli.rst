@@ -13,7 +13,7 @@ Input Model
 -----------
 
 Olive Cli Procuded Model
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Olive command-line tools support using a model produced by Olive CLI as an input model. You can specify the model file path using the ``-m <output_model>`` option, where ``<output_model>`` is the output folder defined by ``-o <output_model>`` in the previous cli command.
 
