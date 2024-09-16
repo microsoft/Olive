@@ -496,9 +496,9 @@
 <dt class="sig sig-object std" id="cmdoption-arg-opt_level">
 <span class="sig-name descname"><span class="pre">opt_level</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-opt_level" title="Permalink to this definition">¶</a></dt>
 <dd><p>Graph optimization level of Onnx Runtime: 0 - disable all (default), 1 - basic, 2 - extended, 99 - all.</p>
-<p><strong>type:</strong> Any</p>
+<p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> Categorical([0, 1, 2, 99])</p>
+<p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -516,7 +516,7 @@
 <dd><p>Whether only use onnxruntime to optimize model, and no python fusion. Disable some optimizers that might cause failure in symbolic shape inference or attention fusion, when opt_level &gt; 1.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Conditional(parents: (‘opt_level’,), support: {(2,): Categorical([False]), (99,): Categorical([False])}, default: Categorical([True, False]))</p>
+<p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
