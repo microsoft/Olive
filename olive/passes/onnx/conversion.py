@@ -222,15 +222,15 @@ class OnnxConversion(Pass):
                 dummy_inputs = tuple(dummy_inputs.values()) if isinstance(dummy_inputs, dict) else dummy_inputs
 
                 with peft_export_context_manager(pytorch_model) as model_to_export:
-                    onnx_program = torch.onnx.export(
+                    onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg
                         model_to_export,
                         dummy_inputs,
                         opset_version=config["target_opset"],
                         input_names=io_config.input_names,
                         output_names=io_config.output_names,
                         dynamic_axes=io_config.dynamic_axes,
-                        dynamo=True,  # pylint: disable=unexpected-keyword-arg
-                        fallback=True,  # pylint: disable=unexpected-keyword-arg
+                        dynamo=True,
+                        fallback=True,
                     )
                 assert onnx_program is not None
                 onnx_model = onnx_program.model_proto
