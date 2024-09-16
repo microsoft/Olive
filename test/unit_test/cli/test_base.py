@@ -191,7 +191,7 @@ def test_get_input_model_config(
         return path == Path(model_name_or_path) and "output_model" in path.name
 
     def mock_path_is_file(path):
-        return path == Path(model_name_or_path) and path.suffix in ('.pt', '.onnx')
+        return path == Path(model_name_or_path) and path.suffix in (".pt", ".onnx")
 
     with patch.object(Path, "exists", new=mock_path_exists), patch.object(
         Path, "is_dir", new=mock_path_is_dir
