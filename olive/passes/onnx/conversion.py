@@ -229,6 +229,7 @@ class OnnxConversion(Pass):
                         input_names=io_config.input_names,
                         output_names=io_config.output_names,
                         dynamic_axes=io_config.dynamic_axes,
+                        dynamo=True,
                         fallback=True,
                     )
                 assert onnx_program is not None
