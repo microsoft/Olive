@@ -17,7 +17,6 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 if TYPE_CHECKING:
     from onnxruntime.transformers.onnx_model import OnnxModel
@@ -77,9 +76,8 @@ class OrtTransformersOptimization(Pass):
                 description="Optimization options that turn on/off some fusions.",
             ),
             "opt_level": PassConfigParam(
-                type_=Any,
-                default_value=None,
-                searchable_values=Categorical([0, 1, 2, 99]),
+                type_=int,
+                default_value=2,
                 description=(
                     "Graph optimization level of Onnx Runtime: "
                     "0 - disable all (default), 1 - basic, 2 - extended, 99 - all."
@@ -89,14 +87,6 @@ class OrtTransformersOptimization(Pass):
             "only_onnxruntime": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                searchable_values=Conditional(
-                    parents=("opt_level",),
-                    support={
-                        (2,): Categorical([False]),
-                        (99,): Categorical([False]),
-                    },
-                    default=Boolean(),
-                ),
                 description=(
                     "Whether only use onnxruntime to optimize model, and no python fusion."
                     " Disable some optimizers that might cause failure in symbolic shape inference or attention fusion,"

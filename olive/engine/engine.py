@@ -871,7 +871,7 @@ class Engine:
         # pass
         p: Pass = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
-        logger.info("Running pass %s:%s", pass_id, pass_name)
+        logger.info("Running pass %s:%s %s", pass_id, pass_name, pass_search_point)
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
         output_model_config = None
