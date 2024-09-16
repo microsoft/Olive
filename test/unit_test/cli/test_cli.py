@@ -103,7 +103,8 @@ def test_configure_qualcomm_sdk_command(mock_configure):
 
 @patch("olive.workflows.run")
 @patch("olive.cli.finetune.tempfile.TemporaryDirectory")
-def test_finetune_command(mock_tempdir, mock_run, tmp_path):
+@patch("olive.cli.finetune.save_model_config")
+def test_finetune_command(mock_save_model_config, mock_tempdir, mock_run, tmp_path):
     # some directories
     tmpdir = tmp_path / "tmpdir"
     tmpdir.mkdir()
@@ -171,7 +172,7 @@ def test_perf_tuning_command(mock_ort_infer_sess, mock_tempdir, mock_run, data_c
     # setup
     command_args = [
         "tune-session-params",
-        "--model",
+        "-m",
         "dummy_model",
         "--data_config_path",
         data_config_path,

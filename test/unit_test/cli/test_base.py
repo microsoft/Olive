@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-# --------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -219,7 +219,7 @@ def test_insert_input_model_pt_model_missing_loader(MockUserModuleLoader):
         model_script="model.py",
         script_dir="scripts",
     )
-    MockUserModuleLoader.return_value.func_exist.return_value = False
+    MockUserModuleLoader.return_value.has_function.return_value = False
 
     # execute and assert
     with pytest.raises(ValueError, match="_model_loader is required for PyTorch model in the script"):
