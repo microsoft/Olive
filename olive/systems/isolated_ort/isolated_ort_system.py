@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Un
 import numpy as np
 
 from olive.common.utils import load_weights, run_subprocess, save_weights
-from olive.evaluator.metric import get_latency_config_from_metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluatorMixin, _OliveEvaluator
 from olive.evaluator.registry import Registry
 from olive.hardware import Device
@@ -251,7 +250,7 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
     ) -> List[float]:
         """For given repeat_test_num, return a list of latencies(ms)."""
         inference_config = self._get_common_config(model, metric, device, execution_providers)
-        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
+        warmup_num, repeat_test_num, sleep_num = metric.get_latency_config()
         inference_config.update(
             {
                 "mode": "latency",

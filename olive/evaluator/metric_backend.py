@@ -3,109 +3,102 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, NamedTuple, Tuple, Type, Union
+from typing import TYPE_CHECKING, Dict, List, NamedTuple
 
-from olive.common.auto_config import AutoConfigClass, ConfigBase
-from olive.common.config_utils import ConfigParam
+from olive.common.utils import get_nested_dict_value
 from olive.evaluator.accuracy import AccuracyBase
 from olive.evaluator.metric_result import MetricResult, SubMetricResult
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import Metric, SubMetric
+    from olive.evaluator.metric import SubMetric
 
 
-class MetricBackend(AutoConfigClass):
-    registry: ClassVar[Dict[str, Type["MetricBackend"]]] = {}
-
-    def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
-        super().__init__(config)
-
-    @classmethod
-    def _default_config(cls) -> Dict[str, ConfigParam]:
-        return {}
+class MetricBackend:
+    def __init__(self, sub_types: List["SubMetric"]):
+        self.sub_types = sub_types
 
     @abstractmethod
-    def measure_sub_metric(
-        self, model_output: Union[Tuple, NamedTuple], targets: Any, sub_metric: "SubMetric"
-    ) -> SubMetricResult:
-        # model_output: (preds, logits)
+    def update(self, model_output: NamedTuple, targets):
         raise NotImplementedError
 
-    def measure(self, model_output, targets, metrics: "Metric") -> MetricResult:
-        metric_results_dict = {}
-        for sub_metric in metrics.sub_types:
-            metric_results_dict[sub_metric.name] = self.measure_sub_metric(model_output, targets, sub_metric)
-        return MetricResult.parse_obj(metric_results_dict)
+    @abstractmethod
+    def measure(self) -> MetricResult:
+        raise NotImplementedError
+
+    def parse_result(self, result: Dict[str, float]) -> MetricResult:
+        sub_type_map = {sub_type.name: sub_type for sub_type in self.sub_types}
+        return MetricResult(
+            {
+                metric_name: SubMetricResult(
+                    value=result[metric_name],
+                    priority=sub_type_map[metric_name].priority,
+                    higher_is_better=sub_type_map[metric_name].higher_is_better,
+                )
+                for metric_name in result
+            }
+        )
 
 
 class TorchMetrics(MetricBackend):
-    name: str = "torch_metrics"
+    def __init__(self, sub_types: List["SubMetric"]):
+        super().__init__(sub_types)
+        self.metrics = [
+            AccuracyBase.registry[sub_metric.name.value](sub_metric.metric_config) for sub_metric in sub_types
+        ]
 
-    def measure_sub_metric(self, model_output, targets, sub_metric: "SubMetric") -> SubMetricResult:
-        metric_cls = AccuracyBase.registry[sub_metric.name.value]
-        metric_obj = metric_cls(sub_metric.metric_config)
-        result = metric_obj.measure(model_output, targets)
-        return SubMetricResult(
-            value=result,
-            priority=sub_metric.priority,
-            higher_is_better=sub_metric.higher_is_better,
+    def update(self, model_output: NamedTuple, targets):
+        for metric in self.metrics:
+            metric.update(model_output, targets)
+
+    def measure(self) -> MetricResult:
+        return self.parse_result(
+            {sub_metric.name: metric.compute() for sub_metric, metric in zip(self.sub_types, self.metrics)}
         )
 
 
 class HuggingfaceMetrics(MetricBackend):
-    name: str = "huggingface_metrics"
-
-    def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
-        super().__init__(config)
+    def __init__(self, sub_types: List["SubMetric"]):
         try:
             import evaluate
         except ImportError:
             raise ImportError("Please install the huggingface/evaluate package to use huggingface metrics.") from None
-        self.evaluate_module = evaluate
 
-    @classmethod
-    def _default_config(cls) -> Dict[str, ConfigParam]:
-        return {
-            "load_params": ConfigParam(
-                type_=Dict[str, Any], default_value=None, description="The parameters to load the metric."
-            ),
-            "compute_params": ConfigParam(
-                type_=Dict[str, Any], default_value=None, description="The parameters to compute the metric."
-            ),
-            "result_key": ConfigParam(
-                type_=str,
-                default_value=None,
-                description=(
-                    "The key used to extract the metric result with given format."
-                    "For example, if the metric result is {'accuracy': {'value': 0.9}},"
-                    "then the result_key should be 'accuracy.value'."
-                ),
-            ),
-        }
+        super().__init__(sub_types)
+        # pylint: disable=not-a-mapping
+        self.metrics = [
+            evaluate.load(sub_metric.name, **{sub_metric.metric_config.load_params or {}}) for sub_metric in sub_types
+        ]
 
-    def measure_sub_metric(self, model_output, targets, sub_metric: "SubMetric") -> SubMetricResult:
-        load_params = sub_metric.metric_config.load_params or {}
-        evaluator = self.evaluate_module.load(sub_metric.name, **load_params)
-
-        compute_params = sub_metric.metric_config.compute_params or {}
-        result = evaluator.compute(predictions=model_output[0], references=targets, **compute_params)
-        if not result:
-            raise ValueError(
-                f"Cannot find the result for {sub_metric.name} in the metric result. Please check your parameters."
+    def update(self, model_output: NamedTuple, targets):
+        for sub_metric, metric in zip(self.sub_types, self.metrics):
+            metric.add_batch(
+                predictions=model_output.preds, references=targets, **(sub_metric.metric_config.compute_params or {})
             )
 
-        result_key = sub_metric.metric_config.result_key or None
+    def measure(self) -> MetricResult:
+        metric_results_dict = {}
+        for sub_metric, metric in zip(self.sub_types, self.metrics):
+            result = metric.compute()
+            if sub_metric.metric_config.result_key:
+                result = get_nested_dict_value(result, sub_metric.metric_config.result_key)
+            else:
+                result = result[sub_metric.name]
+            metric_results_dict[sub_metric.name] = result
 
-        if result_key:
-            result_key_list = result_key.split(".")
-            for k in result_key_list:
-                result = result.get(k, None)
-                if result is None:
-                    raise ValueError(f"Cannot find the result with key {k} of {result_key} in the metric result.")
-        else:
-            result = result[sub_metric.name]
-        return SubMetricResult(
-            value=result,
-            priority=sub_metric.priority,
-            higher_is_better=sub_metric.higher_is_better,
-        )
+        return self.parse_result(metric_results_dict)
+
+
+backend_map = {
+    "torch": TorchMetrics,
+    "huggingface": HuggingfaceMetrics,
+}
+
+
+def is_valid_backend(backend_type: str) -> bool:
+    return backend_type in backend_map
+
+
+def create_metric_backend(backend_type: str, sub_types: List["SubMetric"]) -> MetricBackend:
+    if backend_type not in backend_map:
+        raise ValueError(f"Unknown metric backend type: {backend_type}")
+    return backend_map[backend_type](sub_types)

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, create_config_class
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import Field, validator
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,6 @@ def get_user_config_class(metric_type: str):
     return create_config_class(f"{metric_type.title()}UserConfig", default_config, ConfigBase, validators)
 
 
-# TODO(jambayk): automate latency metric config also we standardize accuracy metric config
 class LatencyMetricConfig(ConfigBase):
     warmup_num: int = WARMUP_NUM
     repeat_test_num: int = REPEAT_TEST_NUM
@@ -57,6 +56,18 @@ class ThroughputMetricConfig(ConfigBase):
     warmup_num: int = WARMUP_NUM
     repeat_test_num: int = REPEAT_TEST_NUM
     sleep_num: int = SLEEP_NUM
+
+
+class HuggingfaceMetricConfig(ConfigBase):
+    load_params: Dict[str, Any] = Field(None, description="The parameters to load the metric.")
+    compute_params: Dict[str, Any] = Field(None, description="The parameters to compute the metric.")
+    result_key: str = Field(
+        None,
+        description=(
+            "The key used to extract the metric result with given format. For example, if the metric result is"
+            " {'accuracy': {'value': 0.9}}, then the result_key should be 'accuracy.value'."
+        ),
+    )
 
 
 class MetricGoal(ConfigBase):

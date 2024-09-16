@@ -3,14 +3,20 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.pydantic_v1 import validator
 from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
 from olive.evaluator.accuracy import AccuracyBase
-from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, ThroughputMetricConfig, get_user_config_class
+from olive.evaluator.metric_config import (
+    HuggingfaceMetricConfig,
+    LatencyMetricConfig,
+    MetricGoal,
+    ThroughputMetricConfig,
+    get_user_config_class,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +117,17 @@ class Metric(ConfigBase):
     def get_run_kwargs(self) -> Dict[str, Any]:
         return self.user_config.run_kwargs if (self.user_config and self.user_config.run_kwargs) else {}
 
+    def get_latency_config(self) -> Tuple[int, int, int]:
+        assert self.type == MetricType.LATENCY
+        warmup_num, repeat_test_num, sleep_num = None, None, None
+        for sub_type in self.sub_types:
+            if sub_type.metric_config:
+                warmup_num = sub_type.metric_config.warmup_num
+                repeat_test_num = sub_type.metric_config.repeat_test_num
+                sleep_num = sub_type.metric_config.sleep_num
+                break
+        return warmup_num, repeat_test_num, sleep_num
+
     def get_sub_type_info(self, info_name, no_priority_filter=True, callback=lambda x: x):
         sub_type_info = {}
         for sub_type in self.sub_types:
@@ -119,14 +136,20 @@ class Metric(ConfigBase):
             sub_type_info[sub_type.name] = callback(getattr(sub_type, info_name))
         return sub_type_info
 
+    def get_metric_backend(self):
+        from olive.evaluator.metric_backend import create_metric_backend
+
+        return create_metric_backend(self.backend, self.sub_types)
+
     @validator("backend", always=True, pre=True)
     def validate_backend(cls, v, values):
         if values["type"] == MetricType.CUSTOM:
             return None
-        from olive.evaluator.metric_backend import MetricBackend
+        from olive.evaluator.metric_backend import is_valid_backend
 
-        assert v in MetricBackend.registry, f"Backend {v} is not in {list(MetricBackend.registry.keys())}"
-        assert MetricBackend.registry[v]() is not None, f"Backend {v} is not available"
+        if not is_valid_backend(v):
+            raise ValueError(f"Invalid backend {v}")
+
         return v
 
     @validator("sub_types", always=True, pre=True, each_item=True)
@@ -167,13 +190,11 @@ class Metric(ConfigBase):
         # metric_config
         metric_config_cls = None
         if values["type"] == MetricType.ACCURACY:
-            v["higher_is_better"] = v.get("higher_is_better", True)
+            v["higher_is_better"] = v.get("higher_is_better", v["name"] != AccuracySubType.PERPLEXITY)
             if values["backend"] == "torch_metrics":
                 metric_config_cls = AccuracyBase.registry[v["name"]].get_config_class()
             elif values["backend"] == "huggingface_metrics":
-                from olive.evaluator.metric_backend import HuggingfaceMetrics
-
-                metric_config_cls = HuggingfaceMetrics.get_config_class()
+                metric_config_cls = HuggingfaceMetricConfig
         elif values["type"] == MetricType.LATENCY:
             v["higher_is_better"] = v.get("higher_is_better", False)
             metric_config_cls = LatencyMetricConfig
@@ -191,14 +212,3 @@ class Metric(ConfigBase):
 
         user_config_class = get_user_config_class(values["type"])
         return validate_config(v, user_config_class)
-
-
-def get_latency_config_from_metric(metric: Metric):
-    warmup_num, repeat_test_num, sleep_num = None, None, None
-    for sub_type in metric.sub_types:
-        if sub_type.metric_config:
-            warmup_num = sub_type.metric_config.warmup_num
-            repeat_test_num = sub_type.metric_config.repeat_test_num
-            sleep_num = sub_type.metric_config.sleep_num
-            break
-    return warmup_num, repeat_test_num, sleep_num

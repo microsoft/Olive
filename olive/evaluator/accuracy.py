@@ -3,9 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from abc import abstractmethod
 from inspect import isfunction, signature
-from typing import Any, Callable, ClassVar, Dict, Type, Union
+from typing import Any, ClassVar, Dict, Type, Union
 
 import torch
 import torchmetrics
@@ -19,32 +18,22 @@ logger = logging.getLogger(__name__)
 
 class AccuracyBase(AutoConfigClass):
     registry: ClassVar[Dict[str, Type["AccuracyBase"]]] = {}
-    metric_cls_map: ClassVar[Dict[str, Union[torchmetrics.Metric, Callable]]] = {
-        "accuracy_score": torchmetrics.Accuracy,
-        "f1_score": torchmetrics.F1Score,
-        "precision": torchmetrics.Precision,
-        "recall": torchmetrics.Recall,
-        "auroc": torchmetrics.AUROC,
-        "perplexity": torchmetrics.text.perplexity.Perplexity,
-    }
+    metric_module: ClassVar[torchmetrics.Metric] = None
 
-    def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
+    def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None):
         super().__init__(config)
-        self.resolve_kwargs()
 
-    def resolve_kwargs(self):
         config_dict = self.config.dict()
         kwargs = config_dict.pop("kwargs", {})
         config_dict.update(kwargs or {})
-        self.config_dict = config_dict
+        self.metric = self.metric_module(**config_dict)  # pylint: disable=not-callable
 
     @classmethod
     def _metric_config_from_torch_metrics(cls):
-        metric_module = cls.metric_cls_map[cls.name]
-        params = signature(metric_module).parameters
+        params = signature(cls.metric_module).parameters
         # if the metrics is calculated by torchmetrics.functional, we should filter the label data out
         ignore_idx = 0
-        if isfunction(metric_module):
+        if isfunction(cls.metric_module):
             ignore_idx = 2
             logger.debug("Will ignore the first two params of torchmetrics.functional.")
         metric_config = {}
@@ -60,6 +49,9 @@ class AccuracyBase(AutoConfigClass):
         if "task" in metric_config:
             metric_config["task"].default_value = "binary"
             metric_config["task"].required = False
+        if "ignore_index" in metric_config:
+            metric_config["ignore_index"].default_value = IGNORE_INDEX
+            metric_config["ignore_index"].required = False
         return metric_config
 
     @classmethod
@@ -74,86 +66,49 @@ class AccuracyBase(AutoConfigClass):
         target = torch.tensor(target, dtype=dtypes[1]) if not isinstance(target, torch.Tensor) else target.to(dtypes[1])
         return preds, target
 
-    @abstractmethod
-    def measure(self, model_output, target):
-        raise NotImplementedError
+    def update(self, model_output, target):
+        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
+        self.metric.update(preds_tensor, target_tensor)
+
+    def compute(self) -> float:
+        return self.metric.compute().item()
 
 
 class AccuracyScore(AccuracyBase):
     name: str = "accuracy_score"
-
-    def measure(self, model_output, target):
-        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
-        accuracy = torchmetrics.Accuracy(**self.config_dict)
-        result = accuracy(preds_tensor, target_tensor)
-        return result.item()
+    metric_module = torchmetrics.Accuracy
 
 
 class F1Score(AccuracyBase):
     name: str = "f1_score"
-
-    def measure(self, model_output, target):
-        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
-        f1 = torchmetrics.F1Score(**self.config_dict)
-        result = f1(preds_tensor, target_tensor)
-        return result.item()
+    metric_module = torchmetrics.F1Score
 
 
 class Precision(AccuracyBase):
     name: str = "precision"
-
-    def measure(self, model_output, target):
-        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
-        precision = torchmetrics.Precision(**self.config_dict)
-        result = precision(preds_tensor, target_tensor)
-        return result.item()
+    metric_module = torchmetrics.Precision
 
 
 class Recall(AccuracyBase):
     name: str = "recall"
-
-    def measure(self, model_output, target):
-        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
-        recall = torchmetrics.Recall(**self.config_dict)
-        result = recall(preds_tensor, target_tensor)
-        return result.item()
+    metric_module = torchmetrics.Recall
 
 
 class AUROC(AccuracyBase):
     name: str = "auroc"
+    metric_module = torchmetrics.AUROC
 
-    def measure(self, model_output, target):
+    def update(self, model_output, target):
         logits_tensor, target_tensor = self.prepare_tensors(model_output.logits, target, [torch.float, torch.int32])
-        if self.config_dict.get("task") == "binary" and len(logits_tensor.shape) > 1 and logits_tensor.shape[-1] == 2:
+        if self.config.task == "binary" and len(logits_tensor.shape) > 1 and logits_tensor.shape[-1] == 2:
             logits_tensor = torch.softmax(logits_tensor, dim=-1)[:, 1]
-        auroc = torchmetrics.AUROC(**self.config_dict)
-        target_tensor = target_tensor.flatten()
-        result = auroc(logits_tensor, target_tensor)
-        return result.item()
+        self.metric.update(logits_tensor, target_tensor.flatten())
 
 
 class Perplexity(AccuracyBase):
     name: str = "perplexity"
+    metric_module = torchmetrics.text.Perplexity
 
-    def measure(self, model_output, target):
-        # update ignore_index if not set
-        config = self.config_dict
-        if config["ignore_index"] is None:
-            config["ignore_index"] = IGNORE_INDEX
-
-        # create perplexity metric
-        perplexity = torchmetrics.text.perplexity.Perplexity(**config)
-
-        # loop through samples
-        # the logits are large matrix, so converting all to tensors at once is slow
-        num_samples = len(model_output.preds)
-        for i in range(num_samples):
-            logits, targets = self.prepare_tensors(model_output.preds[i], target[i], dtypes=[torch.float, torch.long])
-            logits = logits.unsqueeze(0)
-            targets = targets.unsqueeze(0)
-            # shift targets to the right by one, and drop the last token of logits
-            logits = logits[..., :-1, :]
-            targets = targets[..., 1:]
-            perplexity.update(logits, targets)
-        result = perplexity.compute()
-        return result.item()
+    def update(self, model_output, target):
+        logits, targets = self.prepare_tensors(model_output.preds, target, dtypes=[torch.float, torch.long])
+        self.metric.update(logits[..., :-1, :], targets[..., 1:])
