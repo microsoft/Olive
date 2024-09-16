@@ -181,20 +181,6 @@ def get_input_model_config(args) -> Union[str, Dict[str, str]]:
     return _get_hf_input_model(args, model_name_or_path)
 
 
-def get_pt_model_path(model_name_or_path) -> Union[str, Dict[str, str]]:
-    pattern = r"^azureml:(?P<model_name>[^:]+):(?P<version>[^:]+)$"
-    match = re.match(pattern, model_name_or_path)
-
-    if match:
-        return {
-            "type": "azureml_model",
-            "name": match.group("model_name"),
-            "version": match.group("version"),
-        }
-
-    return model_name_or_path
-
-
 def add_logging_options(sub_parser):
     log_group = sub_parser.add_argument_group("logging options")
     log_group.add_argument(
