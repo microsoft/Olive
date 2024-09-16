@@ -77,7 +77,7 @@ class OrtTransformersOptimization(Pass):
             ),
             "opt_level": PassConfigParam(
                 type_=int,
-                default_value=2,
+                default_value=None,
                 description=(
                     "Graph optimization level of Onnx Runtime: "
                     "0 - disable all (default), 1 - basic, 2 - extended, 99 - all."
