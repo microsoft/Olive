@@ -446,7 +446,7 @@ class Engine:
 
             if signal is not None:
                 results_path = flow_output_dir / "output_model_metrics.json"
-                with open(flow_output_dir / results_path, "w") as f:
+                with open(results_path, "w") as f:
                     json.dump(signal.to_json(), f, indent=4)
                 logger.info("Saved evaluation results of output model to %s", results_path)
 
