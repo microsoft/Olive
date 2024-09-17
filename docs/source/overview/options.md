@@ -357,10 +357,6 @@ will be used.
 
 - `clean_run_cache: [Boolean]` This decides whether to clean the run cache of the pass before running the pass. This is `false` by default.
 
-- `output_name: str` In no-search mode (i.e., `search_strategy` is `null`), if `output_name` is provided, the output model of the pass will be
-saved to the engine's `output_dir` with the prefix of `output_name`. For the final pass, if the engine's `output_name` is provided, it will override
-the `output_name` of the pass.
-
 Please refer to [Configuring Pass](../tutorials/configure_pass.rst) for more details on `type`, `disable_search` and `config`.
 
 Please also find the detailed options from following table for each pass:

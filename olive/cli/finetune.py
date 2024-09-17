@@ -2,13 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-# ruff: noqa: T201
-
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
-from pathlib import Path
 from typing import ClassVar, Dict
 
 from olive.cli.base import (
@@ -17,12 +13,11 @@ from olive.cli.base import (
     add_model_options,
     add_remote_options,
     get_input_model_config,
-    get_output_model_number,
     is_remote_run,
-    update_model_config,
+    save_output_model,
     update_remote_option,
 )
-from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir, unescaped_str
+from olive.common.utils import set_nested_dict_value, set_tempdir, unescaped_str
 
 
 class FineTuneCommand(BaseOliveCLICommand):
@@ -33,21 +28,12 @@ class FineTuneCommand(BaseOliveCLICommand):
         sub_parser = parser.add_parser(
             "finetune",
             help=(
-                "Fine-tune a model on a dataset using peft and optimize the model for ONNX Runtime with adapters as"
-                " inputs. Huggingface training arguments can be provided along with the defined options."
+                "Fine-tune a model on a dataset using peft. Huggingface training arguments can be provided along with"
+                " the defined options."
             ),
         )
 
         add_logging_options(sub_parser)
-
-        # TODO(jambayk): option to list/install required dependencies?
-        sub_parser.add_argument(
-            "--precision",
-            type=str,
-            default="float16",
-            choices=["float16", "float32"],
-            help="The precision of the optimized model and adapters.",
-        )
 
         # Model options
         add_model_options(sub_parser)
@@ -58,9 +44,6 @@ class FineTuneCommand(BaseOliveCLICommand):
             default="bfloat16",
             choices=["bfloat16", "float16", "float32"],
             help="The torch dtype to use for training.",
-        )
-        sub_parser.add_argument(
-            "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
         )
 
         # Dataset options
@@ -127,7 +110,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         )
 
         # directory options
-        sub_parser.add_argument("-o", "--output_path", type=str, default="optimized-model", help="Output path")
+        sub_parser.add_argument("-o", "--output_path", type=str, default="finetuned-adapter", help="Output path")
         sub_parser.add_argument(
             "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
         )
@@ -147,24 +130,12 @@ class FineTuneCommand(BaseOliveCLICommand):
         with tempfile.TemporaryDirectory() as tempdir:
             run_config = self.get_run_config(tempdir)
 
-            output = olive_run(run_config)
+            olive_run(run_config)
 
             if is_remote_run(self.args):
-                # TODO(jambayk): point user to datastore with outputs or download outputs
-                # both are not implemented yet
                 return
 
-            if get_output_model_number(output) > 0:
-                # need to improve the output structure of olive run
-                output_path = Path(self.args.output_path)
-                output_path.mkdir(parents=True, exist_ok=True)
-                source_path = Path(tempdir) / "-".join(run_config["passes"].keys()) / "gpu-cuda_model"
-                hardlink_copy_dir(source_path, output_path)
-
-                update_model_config(source_path.with_suffix(".json"), output_path)
-                print(f"Model and adapters saved to {output_path.resolve()}")
-            else:
-                print("Failed to run finetune. Please set the log_level to 1 for more detailed logs.")
+            save_output_model(run_config, self.args.output_path)
 
     def parse_training_args(self) -> Dict:
         if not self.unknown_args:
@@ -200,9 +171,6 @@ class FineTuneCommand(BaseOliveCLICommand):
             ((*finetune_key, "training_args"), self.parse_training_args()),
             ((*finetune_key, "lora_r"), self.args.lora_r),
             ((*finetune_key, "lora_alpha"), self.args.lora_alpha),
-            (("passes", "o", "float16"), self.args.precision == "float16"),
-            # make the mapping of precisions better
-            (("passes", "m", "precision"), "fp16" if self.args.precision == "float16" else "fp32"),
             (("clean_cache",), self.args.clean),
             ("output_dir", tempdir),
         ]
@@ -223,9 +191,6 @@ class FineTuneCommand(BaseOliveCLICommand):
             eval_data_config["load_dataset_config"]["split"] = self.args.eval_split
             config["data_configs"].append(eval_data_config)
             config["passes"]["f"]["eval_data_config"] = "eval_data"
-
-        if not self.args.use_ort_genai:
-            del config["passes"]["m"]
 
         update_remote_option(config, self.args, "finetune", tempdir)
         config["log_severity_level"] = self.args.log_level
@@ -250,31 +215,7 @@ TEMPLATE = {
             "pre_process_data_config": {},
         }
     ],
-    "passes": {
-        "f": {"train_data_config": "train_data"},
-        # TODO(jambayk): migrate to model builder once it supports lora adapters
-        # the models produced here are not fully optimized
-        "c": {
-            "type": "OnnxConversion",
-            "target_opset": 17,
-            "torch_dtype": "float32",
-            "save_metadata_for_token_generation": True,
-        },
-        "o": {
-            "type": "OrtTransformersOptimization",
-            "model_type": "gpt2",
-            "opt_level": 0,
-            "keep_io_types": False,
-        },
-        "e": {"type": "ExtractAdapters"},
-        "m": {"type": "ModelBuilder", "metadata_only": True},
-    },
+    "passes": {"f": {"train_data_config": "train_data"}},
     "host": "local_system",
     "target": "local_system",
-}
-
-AZUREML_SYSTEM_TEMPLATE = {
-    "type": "AzureML",
-    "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
-    "aml_docker_config": {"base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04"},
 }

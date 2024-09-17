@@ -63,6 +63,5 @@
     "host": "local_system",
     "target": "local_system",
     "cache_dir": "cache",
-    "output_dir": "models",
-    "output_name": "mistral_int4"
+    "output_dir": "models/mistral_int4"
 }

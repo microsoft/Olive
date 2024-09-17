@@ -2,14 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-# ruff: noqa: T201
-
-import shutil
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
-from pathlib import Path
 from typing import ClassVar, Dict
 
 from olive.cli.base import (
@@ -18,12 +13,11 @@ from olive.cli.base import (
     add_model_options,
     add_remote_options,
     get_input_model_config,
-    get_output_model_number,
     is_remote_run,
-    update_model_config,
+    save_output_model,
     update_remote_option,
 )
-from olive.common.utils import IntEnumBase, hardlink_copy_dir, set_nested_dict_value, set_tempdir
+from olive.common.utils import IntEnumBase, set_nested_dict_value, set_tempdir
 
 
 class ModelBuilderAccuracyLevel(IntEnumBase):
@@ -40,7 +34,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
             "capture-onnx-graph",
-            help=("Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model."),
+            help="Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model.",
         )
 
         add_logging_options(sub_parser)
@@ -166,28 +160,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         with tempfile.TemporaryDirectory() as tempdir:
             run_config = self.get_run_config(tempdir)
 
-            output = olive_run(run_config)
+            olive_run(run_config)
 
             if is_remote_run(self.args):
-                # TODO(jambayk): point user to datastore with outputs or download outputs
-                # both are not implemented yet
                 return
 
-            if get_output_model_number(output) > 0:
-                output_path = Path(self.args.output_path)
-                output_path.mkdir(parents=True, exist_ok=True)
-                pass_name = "m" if self.args.use_model_builder else "c"
-                device_name = "gpu-cuda_model" if self.args.device == "gpu" else "cpu-cpu_model"
-                source_path = Path(tempdir) / pass_name / device_name
-                if source_path.is_dir():
-                    hardlink_copy_dir(source_path, output_path)
-                else:
-                    shutil.move(str(source_path.with_suffix(".onnx")), output_path)
-
-                update_model_config(source_path.with_suffix(".json"), output_path)
-                print(f"ONNX Model is saved to {output_path.resolve()}")
-            else:
-                print("Failed to run capture-onnx-graph. Please set the log_level to 1 for more detailed logs.")
+            save_output_model(run_config, self.args.output_path)
 
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)

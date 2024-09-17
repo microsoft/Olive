@@ -1,3 +1,1 @@
-phi3_cpu*.json
-phi3_gpu*.json
-phi3_quarot.json
+phi3_run_*.json

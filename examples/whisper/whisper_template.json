@@ -84,13 +84,12 @@
             "target_opset": 17
         }
     },
-    "log_severity_level": 0,
+    "log_severity_level": "<place_holder>",
     "host": "local_system",
     "target": "local_system",
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,
     "clean_cache": false,
     "cache_dir": "cache",
-    "output_dir": "models",
-    "output_name": "<place_holder>"
+    "output_dir": "models/<place_holder>"
 }

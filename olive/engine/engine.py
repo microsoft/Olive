@@ -149,7 +149,6 @@ class Engine:
         host: "OliveSystem" = None,
         evaluator_config: "OliveEvaluatorConfig" = None,
         clean_run_cache: bool = False,
-        output_name: str = None,
     ):
         """Register a pass configuration so that it could be instantiated and executed later."""
         if name is not None:
@@ -171,16 +170,10 @@ class Engine:
             "host": host,
             "evaluator": evaluator_config,
             "clean_run_cache": clean_run_cache,
-            "output_name": output_name,
         }
 
     def register_pass(
-        self,
-        p: "Pass",
-        name: str = None,
-        host: "OliveSystem" = None,
-        evaluator_config: "OliveEvaluatorConfig" = None,
-        output_name: str = None,
+        self, p: "Pass", name: str = None, host: "OliveSystem" = None, evaluator_config: "OliveEvaluatorConfig" = None
     ):
         """Register a pass instance."""
         if name is not None:
@@ -197,17 +190,8 @@ class Engine:
 
         if self.no_search and len(p.search_space) > 0:
             raise ValueError(f"Search strategy is None but pass {name} has search space")
-        if output_name and not self.no_search:
-            # In no-search mode, if output_name is provided, the output model of the pass will be saved to
-            # engine's output_dir with the prefix of output_name.
-            logger.debug("output_name %s for pass %s will be ignored if search strategy is None", output_name, name)
 
-        self.passes[name] = {
-            "pass": p,
-            "host": host,
-            "evaluator": evaluator_config,
-            "output_name": output_name,
-        }
+        self.passes[name] = {"pass": p, "host": host, "evaluator": evaluator_config}
 
     def set_pass_flows(self, pass_flows: List[List[str]] = None):
         """Construct pass flows from a list of pass names.
@@ -227,7 +211,6 @@ class Engine:
         accelerator_specs: List["AcceleratorSpec"],
         packaging_config: Optional[Union["PackagingConfig", List["PackagingConfig"]]] = None,
         output_dir: str = None,
-        output_name: str = None,
         evaluate_input_model: bool = True,
         log_to_file: bool = False,
         log_severity_level: int = 1,
@@ -241,23 +224,39 @@ class Engine:
             packaging_config: packaging configuration, if packaging_config is provided, the output
                 model will be packaged into a zip file.
             output_dir: output directory for the output model
-            output_name: output name for the output model, if output_name is provided, the output
-                model will be saved to engine's output_dir with the prefix of output_name.
             evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.
             log_to_file: if save logs to a file.
             log_severity_level: severity level of the logger.
             cloud_cache_config: Cloud model cache configuration.
 
         Return:
-            if search strategy is None, all passes are run in the order they were registered.
-                1. Final model -> {output_dir}/{output_name}_{AcceleratorSpec}_model.onnx
-                2. JSON file -> {output_dir}/{output_name}_{AcceleratorSpec}_model.json
-                3. Evaluation results of the final model -> {output_dir}/{output_name}_{AcceleratorSpec}_metrics.json
+            Search mode:
+                1. One accelerator spec:
+                    output_dir/footprints.json: footprint of the run
+                    output_dir/pareto_frontier_footprints.json: pareto frontier footprints
+                    output_dir/run_history.txt: run history
+                    output_dir/input_model_metrics.json: evaluation results of the input model
 
-            Return footprint/zip(packaging_config) of the final model and evaluation results of the final model.
+                2. Multiple accelerator specs:
+                    output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec
 
-            if search strategy is not None, run the search strategy to find candidate models.
-            Return footprint/zip(packaging_config) of candidate models and evaluation results.
+            No search mode:
+                1. One accelerator spec
+                    output_dir/footprints.json: footprint of the run
+                    output_dir/run_history.txt: run history
+                    output_dir/input_model_metrics.json: evaluation results of the input model
+                    output_dir/output_footprints.json: footprint of the output models
+
+                    A. One pass flow:
+                        output_dir/output_model_metrics.json: evaluation results of the output model
+                        output_dir/output_model/model_config.json: output model configuration
+                        output_dir/output_model/...: output model files
+
+                    B. Multiple pass flows:
+                        output_dir/{pass_flow}/...: Same as A but for each pass flow
+
+                2. Multiple accelerator specs
+                    output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec
 
         """
         if not accelerator_specs:
@@ -266,18 +265,21 @@ class Engine:
         if not self._initialized:
             self.initialize(log_to_file, log_severity_level)
 
-        output_dir: Path = Path(output_dir) if output_dir else Path.cwd()
+        output_dir: Path = (Path(output_dir) if output_dir else Path.cwd()).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
 
         outputs = {}
-
+        output_subdirs = {}
         for accelerator_spec in accelerator_specs:
             logger.info("Running Olive on accelerator: %s", accelerator_spec)
+            output_subdirs[accelerator_spec] = accelerator_output_dir = (
+                output_dir / str(accelerator_spec) if len(accelerator_specs) > 1 else output_dir
+            )
+            accelerator_output_dir.mkdir(parents=True, exist_ok=True)
             with self._create_system(accelerator_spec):
                 run_result = self.run_accelerator(
                     input_model_config,
-                    output_dir,
-                    output_name,
+                    accelerator_output_dir,
                     evaluate_input_model,
                     accelerator_spec,
                     cloud_cache_config,
@@ -291,7 +293,7 @@ class Engine:
         for accelerator_spec in self.footprints:
             logger.info("Run history for %s:", accelerator_spec)
             run_history = self.footprints[accelerator_spec].summarize_run_history()
-            self.dump_run_history(run_history, output_dir / f"run_history_{accelerator_spec}.txt")
+            self.dump_run_history(run_history, output_subdirs[accelerator_spec] / "run_history.txt")
 
         if packaging_config and self.passes:
             # TODO(trajep): should we support packaging pytorch model?
@@ -304,7 +306,7 @@ class Engine:
                 self.azureml_client_config,
             )
         else:
-            logger.info("No packaging config provided, skip packaging artifacts")
+            logger.debug("No packaging config provided, skip packaging artifacts")
 
         return outputs
 
@@ -312,7 +314,6 @@ class Engine:
         self,
         input_model_config: ModelConfig,
         output_dir: Path,
-        output_name: str,
         evaluate_input_model: bool,
         accelerator_spec: "AcceleratorSpec",
         cloud_cache_config: "CloudCacheConfig",
@@ -322,7 +323,9 @@ class Engine:
         # hash the input model
         input_model_id = self._init_input_model(input_model_config)
         self.footprints[accelerator_spec].record(model_id=input_model_id)
-        prefix_output_name = Engine._get_prefix_output_name(output_name, accelerator_spec)
+
+        # create the output directory
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         try:
             if evaluate_input_model and not self.evaluator_config:
@@ -332,8 +335,7 @@ class Engine:
                     input_model_config, input_model_id, self.evaluator_config, accelerator_spec
                 )
                 logger.info("Input model evaluation results: %s", results)
-                result_name = f"{prefix_output_name}_input_model_metrics"
-                results_path = output_dir / f"{result_name}.json"
+                results_path = output_dir / "input_model_metrics.json"
                 with results_path.open("w") as f:
                     json.dump(results.to_json(), f, indent=4)
                 logger.info("Saved evaluation results of input model to %s", results_path)
@@ -344,12 +346,7 @@ class Engine:
             if self.no_search:
                 logger.debug("Running Olive in no-search mode ...")
                 output_footprint = self.run_no_search(
-                    input_model_config,
-                    input_model_id,
-                    accelerator_spec,
-                    output_dir,
-                    output_name,
-                    cloud_cache_config,
+                    input_model_config, input_model_id, accelerator_spec, output_dir, cloud_cache_config
                 )
             else:
                 logger.debug("Running Olive in search mode ...")
@@ -358,7 +355,6 @@ class Engine:
                     input_model_id,
                     accelerator_spec,
                     output_dir,
-                    output_name,
                     cloud_cache_config,
                 )
         except EXCEPTIONS_TO_RAISE:
@@ -367,7 +363,7 @@ class Engine:
             logger.warning("Failed to run Olive on %s.", accelerator_spec, exc_info=True)
             return None
 
-        output_fp_path = output_dir / f"{prefix_output_name}_footprints.json"
+        output_fp_path = output_dir / "footprints.json"
         logger.info("Save footprint to %s.", output_fp_path)
         self.footprints[accelerator_spec].to_file(output_fp_path)
         logger.debug("run_accelerator done")
@@ -389,13 +385,7 @@ class Engine:
             pass_cfg = config["config"]
             pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, config["disable_search"])
             p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"], host_device)
-            self.register_pass(
-                p,
-                name=name,
-                host=config["host"],
-                evaluator_config=config["evaluator"],
-                output_name=config["output_name"],
-            )
+            self.register_pass(p, name=name, host=config["host"], evaluator_config=config["evaluator"])
 
         # list of passes starting from the first pass with non-empty search space
         # These passes will be added to the search space
@@ -419,7 +409,6 @@ class Engine:
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
         output_dir: str = None,
-        output_name: str = None,
         cloud_cache_config: "CloudCacheConfig" = None,
     ):
         """Run all the registered Olive pass flows in no-search mode."""
@@ -428,7 +417,7 @@ class Engine:
                 pass_name = pass_item["name"]
                 raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
 
-        output_models = {}
+        output_model_ids = []
         for pass_flow in self.pass_flows:
             # search point is empty since there is no search
             passes_to_run = [(pass_id, {}) for pass_id in pass_flow]
@@ -450,59 +439,36 @@ class Engine:
                 )
                 continue
 
-            # names of the output models of the passes
-            pass_output_names = [self.passes[pass_id]["output_name"] for pass_id in pass_flow]
-            pass_output_names = [f"{name}_{accelerator_spec}" if name else None for name in pass_output_names]
+            # use output dir if there is only one pass flow
+            # otherwise, create a subdirectory for each pass flow
+            flow_output_dir = output_dir / "-".join(pass_flow) if len(self.pass_flows) > 1 else output_dir
+            flow_output_dir.mkdir(parents=True, exist_ok=True)
 
-            # output dir with pass flow
-            output_dir_with_pf = Path(output_dir) / "-".join(pass_flow)
-
-            if not pass_output_names[-1] or output_name:
-                # if the last pass does not have output name, use the prefix output name
-                pass_output_names[-1] = Engine._get_prefix_output_name(output_name, accelerator_spec)
-            final_output_name = pass_output_names[-1]
-
-            output_model_json = None
-            for pass_output_name, pass_output_model_id in zip(pass_output_names, model_ids):
-                if not pass_output_name:
-                    continue
-                output_model_json = self.cache.save_model(
-                    model_number=pass_output_model_id,
-                    output_dir=output_dir_with_pf,
-                    output_name=f"{pass_output_name}_model",
-                    overwrite=True,
-                )
-                # it is not supported to save compositemodel again
-                # so the output_model_json could be None
-                output_models[pass_output_model_id] = output_model_json
-
-            # save the evaluation results to output_dir
             if signal is not None:
-                results_path = output_dir_with_pf / f"{final_output_name}_metrics.json"
-                with results_path.open("w") as f:
+                results_path = flow_output_dir / "output_model_metrics.json"
+                with open(results_path, "w") as f:
                     json.dump(signal.to_json(), f, indent=4)
+                logger.info("Saved evaluation results of output model to %s", results_path)
 
-        output_model_ids = list(output_models.keys())
-        fp_outputs = self.footprints[accelerator_spec].create_footprints_by_model_ids(output_model_ids)
-        # update the output model config
-        for model_id, model_config in output_models.items():
-            if model_config:
-                fp_outputs.nodes[model_id].model_config = model_config
+            output_model_path = flow_output_dir / "output_model"
+            self.cache.save_model(model_number=model_ids[-1], output_dir=output_model_path, overwrite=True)
+            logger.info("Saved output model to %s", output_model_path)
 
-        return fp_outputs
+            output_model_ids.append(model_ids[-1])
+
+        output_footprints = self.footprints[accelerator_spec].create_footprints_by_model_ids(output_model_ids)
+        output_footprints.to_file(output_dir / "output_footprints.json")
+        return output_footprints
 
     def run_search(
         self,
         input_model_config: ModelConfig,
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
-        output_dir: str = None,
-        output_name: str = None,
+        output_dir: Path,
         cloud_cache_config: "CloudCacheConfig" = None,
     ):
         """Run all the registered Olive passes in search model where search strategy is not None."""
-        prefix_output_name = Engine._get_prefix_output_name(output_name, accelerator_spec)
-
         # get objective_dict
         evaluator_config = self.evaluator_for_pass(list(self.passes.keys())[-1])
 
@@ -555,20 +521,16 @@ class Engine:
             time_diff = time.time() - start_time
             self.search_strategy.check_exit_criteria(iter_num, time_diff, signal)
 
-        return self.create_pareto_frontier_footprints(
-            accelerator_spec, output_model_num, output_dir, prefix_output_name
-        )
+        return self.create_pareto_frontier_footprints(accelerator_spec, output_model_num, output_dir)
 
-    def create_pareto_frontier_footprints(self, accelerator_spec, output_model_num, output_dir, prefix_output_name):
+    def create_pareto_frontier_footprints(self, accelerator_spec, output_model_num, output_dir):
         pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier(output_model_num)
         if not pf_footprints:
             return None
-        pf_footprints.to_file(output_dir / f"{prefix_output_name}_pareto_frontier_footprints.json")
+        pf_footprints.to_file(output_dir / "pareto_frontier_footprints.json")
 
         if self.plot_pareto_frontier:
-            pf_footprints.plot_pareto_frontier_to_html(
-                save_path=output_dir / f"{prefix_output_name}_pareto_frontier_footprints_chart.html"
-            )
+            pf_footprints.plot_pareto_frontier_to_html(save_path=output_dir / "pareto_frontier_footprints_chart.html")
 
         return pf_footprints
 
@@ -1084,10 +1046,6 @@ class Engine:
             ),
         )
         return signal
-
-    @staticmethod
-    def _get_prefix_output_name(output_name: str, accelerator_spec: "AcceleratorSpec"):
-        return f"{output_name}_{accelerator_spec}" if output_name else str(accelerator_spec)
 
     @contextmanager
     def _create_system(self, accelerator_spec):

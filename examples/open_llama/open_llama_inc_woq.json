@@ -54,6 +54,5 @@
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
-    "output_name": "ollama",
     "output_dir": "models/open_llama_inc_woq"
 }

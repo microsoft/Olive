@@ -254,14 +254,13 @@ class TestEngine:
         assert composite_onnx_model_config.to_json() == actual_res.model_config
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run_no_search(self, mock_local_system_init, tmpdir):
+    def test_run_no_search(self, mock_local_system_init, tmp_path):
         # setup
         model_config = get_pytorch_model_config()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": tmpdir,
-            "clean_cache": True,
+            "cache_dir": tmp_path / "cache",
             "search_strategy": None,
             "clean_evaluation_cache": True,
             "evaluator": evaluator_config,
@@ -274,7 +273,14 @@ class TestEngine:
             }
             for sub_metric in metric.sub_types
         }
-        onnx_model_config = get_onnx_model_config()
+
+        model_path = tmp_path / "cache" / "default_workflow" / "models" / "dummy-model-id" / "model.onnx"
+        model_path.parent.mkdir(parents=True, exist_ok=True)
+        with model_path.open("w") as f:
+            f.write("dummy-onnx-model")
+        assert model_path.is_file()
+        onnx_model_config = get_onnx_model_config(model_path=model_path)
+
         mock_local_system = MagicMock()
         mock_local_system_init.return_value = mock_local_system
         mock_local_system.system_type = SystemType.Local
@@ -287,36 +293,33 @@ class TestEngine:
         engine.register(OnnxConversion, disable_search=True, clean_run_cache=True)
         engine.set_pass_flows()
         # output model to output_dir
-        output_dir = Path(tmpdir)
-        expected_output_dir = output_dir / "-".join(engine.pass_flows[0])
-
+        output_dir = tmp_path / "output_dir"
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        output_prefix = f"{accelerator_spec}"
-        expected_res = {"model": onnx_model_config.to_json(), "metrics": MetricResult.parse_obj(metric_result_dict)}
-        expected_res["model"]["config"]["model_path"] = str(
-            Path(expected_output_dir / f"{output_prefix}_model.onnx").resolve()
-        )
+        expected_metrics = MetricResult.parse_obj(metric_result_dict)
+        expected_saved_model_config = get_onnx_model_config(model_path=output_dir / "output_model" / "model.onnx")
 
         # execute
-        _actual_res = engine.run(
+        footprint = engine.run(
             model_config,
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
             cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
-        actual_res = next(iter(_actual_res[accelerator_spec].nodes.values()))
+        output_node = next(iter(footprint[accelerator_spec].nodes.values()))
 
-        assert expected_res["model"] == actual_res.model_config
-        assert expected_res["metrics"] == actual_res.metrics.value
-        assert Path(actual_res.model_config["config"]["model_path"]).is_file()
-        model_json_path = Path(expected_output_dir / f"{output_prefix}_model.json")
+        # assert
+        assert output_node.model_config == onnx_model_config
+        assert expected_metrics == output_node.metrics.value
+
+        model_json_path = output_dir / "output_model" / "model_config.json"
         assert model_json_path.is_file()
         with model_json_path.open() as f:
-            assert json.load(f) == actual_res.model_config
-        result_json_path = Path(expected_output_dir / f"{output_prefix}_metrics.json")
+            assert json.load(f) == expected_saved_model_config.to_json()
+
+        result_json_path = output_dir / "output_model_metrics.json"
         assert result_json_path.is_file()
         with result_json_path.open() as f:
-            assert json.load(f) == actual_res.metrics.value.__root__
+            assert json.load(f) == expected_metrics.__root__
 
     def test_pass_exception(self, caplog, tmpdir):
         # Need explicitly set the propagate to allow the message to be logged into caplog
@@ -401,18 +404,18 @@ class TestEngine:
         actual_res = next(iter(actual_res[accelerator_spec].nodes.values())).metrics.value
 
         assert expected_res == actual_res
-        result_json_path = Path(output_dir / f"{accelerator_spec}_input_model_metrics.json")
+        result_json_path = Path(output_dir / "input_model_metrics.json")
         assert result_json_path.is_file()
         assert MetricResult.parse_file(result_json_path) == actual_res
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run_no_pass(self, mock_local_system_init, tmpdir):
+    def test_run_no_pass(self, mock_local_system_init, tmp_path):
         # setup
         model_config = get_pytorch_model_config()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": tmpdir,
+            "cache_dir": tmp_path / "cache",
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
@@ -436,7 +439,7 @@ class TestEngine:
         engine = Engine(**options)
 
         # output model to output_dir
-        output_dir = Path(tmpdir)
+        output_dir = tmp_path / "output_dir"
         expected_res = MetricResult.parse_obj(metric_result_dict)
 
         # execute
@@ -451,7 +454,7 @@ class TestEngine:
         actual_res = actual_res[accelerator_spec]
 
         assert expected_res == actual_res
-        result_json_path = Path(output_dir / f"{accelerator_spec}_input_model_metrics.json")
+        result_json_path = output_dir / "input_model_metrics.json"
         assert result_json_path.is_file()
         assert MetricResult.parse_file(result_json_path) == actual_res
 

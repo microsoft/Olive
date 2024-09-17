@@ -8,7 +8,7 @@ then
     echo "Usage: prepare_phi3_vision_for_olive.sh <output_dir>"
     exit 1
 else
-    base_output_dir="$1"/phi3-vision-128k-instruct
+    base_output_dir="$1"
     pytorch_output_dir="$base_output_dir"/pytorch
 fi
 

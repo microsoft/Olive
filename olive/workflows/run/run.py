@@ -252,7 +252,6 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
                     host=host,
                     evaluator_config=pass_config.evaluator,
                     clean_run_cache=pass_config.clean_run_cache,
-                    output_name=pass_config.output_name,
                 )
             engine.set_pass_flows(pass_flows)
 
@@ -263,7 +262,6 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
                 accelerator_spec,
                 run_config.engine.packaging_config,
                 run_config.engine.output_dir,
-                run_config.engine.output_name,
                 run_config.engine.evaluate_input_model,
                 run_config.engine.log_to_file,
                 run_config.engine.log_severity_level,
