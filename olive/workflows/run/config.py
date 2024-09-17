@@ -65,19 +65,11 @@ class RunPassConfig(AbstractPassConfig):
             " related to this pass type will be cleaned."
         ),
     )
-    output_name: str = Field(
-        None,
-        description=(
-            "Prefix of the name of the output of this pass in the output directory. Only used when the workflow is run"
-            " in no-search mode. If not provided, only the output of the last pass will be saved."
-        ),
-    )
 
 
 class RunEngineConfig(EngineConfig):
     evaluate_input_model: bool = True
     output_dir: Union[Path, str] = None
-    output_name: str = None
     packaging_config: Union[PackagingConfig, List[PackagingConfig]] = None
     cloud_cache_config: Union[bool, CloudCacheConfig] = False
     log_severity_level: int = 1
