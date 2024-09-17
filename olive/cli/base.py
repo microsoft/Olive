@@ -67,8 +67,11 @@ def _get_pt_input_model(args, model_path):
     if not args.model_script:
         raise ValueError("model_script is not provided. Either model_name_or_path or model_script is required.")
 
-    print("Loading PyTorch model from:", model_path)
     user_module_loader = UserModuleLoader(args.model_script, args.script_dir)
+
+    if not model_path and not user_module_loader.has_function("_model_loader"):
+        raise ValueError("Either _model_loader or model_name_or_path is required for PyTorch model.")
+
     input_model_config = {
         "type": "PyTorchModel",
         "model_script": args.model_script,
@@ -77,14 +80,12 @@ def _get_pt_input_model(args, model_path):
     if args.script_dir:
         input_model_config["script_dir"] = args.script_dir
 
-    # model path has high priority than model loader
     if model_path:
+        print("Loading PyTorch model from:", model_path)
         input_model_config["model_path"] = model_path
-    else:
-        if not user_module_loader.has_function("_model_loader"):
-            raise ValueError(
-                "_model_loader is required for PyTorch model in the script if model_name_or_path is not provided."
-            )
+
+    if user_module_loader.has_function("_model_loader"):
+        print("Loading PyTorch model from function: _model_loader.")
         input_model_config["model_loader"] = "_model_loader"
 
     model_funcs = [
@@ -105,15 +106,15 @@ def get_input_model_config(args) -> Union[str, Dict[str, str]]:
     """Parse the model_name_or_path and return the model name or path.
 
     Check model_name_or_path formats in order:
-    1. Local PyTorch model with model loader
-    2. azureml://registries/<registry_name>/models/<model_name>/versions/<version> (only for HF model)
-    3. https://huggingface.co/<model_name> (only for HF model)
-    4. azureml:<model_name>:<version> (only for PyTorch model)
-    5. HF model name string
-    6. local file path
+    1. Local PyTorch model with model loader but no model path
+    2. azureml:<model_name>:<version> (only for PyTorch model)
+    3. Load PyTorch model with model_script
+    4. azureml://registries/<registry_name>/models/<model_name>/versions/<version> (only for HF model)
+    5. https://huggingface.co/<model_name> (only for HF model)
+    6. HF model name string
+    7. local file path
       a. local onnx model file path (either a user-provided model or a model produced by the Olive CLI)
-      b. local PyTorch model file path (either a user-provided model or a model produced by the Olive CLI)
-      c. local HF model file path (either a user-provided model or a model produced by the Olive CLI)
+      b. local HF model file path (either a user-provided model or a model produced by the Olive CLI)
     """
     model_name_or_path = args.model_name_or_path
 
@@ -121,6 +122,22 @@ def get_input_model_config(args) -> Union[str, Dict[str, str]]:
     if model_name_or_path is None:
         print("model_name_or_path is not provided. Using model_script to load the model.")
         return _get_pt_input_model(args, None)
+
+    # Check AzureML model
+    pattern = r"^azureml:(?P<model_name>[^:]+):(?P<version>[^:]+)$"
+    match = re.match(pattern, model_name_or_path)
+    if match:
+        return _get_pt_input_model(
+            args,
+            {
+                "type": "azureml_model",
+                "name": match.group("model_name"),
+                "version": match.group("version"),
+            },
+        )
+
+    if args.model_script:
+        return _get_pt_input_model(args, model_name_or_path)
 
     # Check AzureML Registry model
     pattern = (
@@ -144,19 +161,6 @@ def get_input_model_config(args) -> Union[str, Dict[str, str]]:
     if match:
         return _get_hf_input_model(args, match.group(1))
 
-    # Check AzureML model
-    pattern = r"^azureml:(?P<model_name>[^:]+):(?P<version>[^:]+)$"
-    match = re.match(pattern, model_name_or_path)
-    if match:
-        return _get_pt_input_model(
-            args,
-            {
-                "type": "azureml_model",
-                "name": match.group("model_name"),
-                "version": match.group("version"),
-            },
-        )
-
     model_path = Path(model_name_or_path)
 
     # Check HF model name string
@@ -170,12 +174,9 @@ def get_input_model_config(args) -> Union[str, Dict[str, str]]:
                 with open(file) as f:
                     return json.load(f)
 
-    # Check local pt file (user-provided model)
-    if model_path.is_file():
-        if model_path.suffix in (".pt", ".pth"):
-            return _get_pt_input_model(args, model_name_or_path)
-        if model_path.suffix == ".onnx":
-            return _get_onnx_input_model(model_name_or_path)
+    # Check local onnx file (user-provided model)
+    if model_path.is_file() and model_path.suffix == ".onnx":
+        return _get_onnx_input_model(model_name_or_path)
 
     # Check local HF model file (user-provided model)
     return _get_hf_input_model(args, model_name_or_path)

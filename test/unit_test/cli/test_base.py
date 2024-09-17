@@ -128,6 +128,21 @@ from olive.cli.base import get_input_model_config
                 "model_path": "model.pt",
             },
         ),
+        (
+            "model.pt",  # model_name_or_path
+            False,  # trust_remote_code
+            None,  # task
+            "model.py",  # model_script
+            None,  # script_dir
+            {"_model_loader": True, "_io_config": True, "_dummy_inputs": False},  # has_function results
+            {  # expected config
+                "type": "PyTorchModel",
+                "model_script": "model.py",
+                "model_loader": "_model_loader",
+                "io_config": "_io_config",
+                "model_path": "model.pt",
+            },
+        ),
         # Local onnx model test
         (
             "model.onnx",  # model_name_or_path
@@ -222,7 +237,7 @@ def test_insert_input_model_pt_model_missing_loader(MockUserModuleLoader):
     MockUserModuleLoader.return_value.has_function.return_value = False
 
     # execute and assert
-    with pytest.raises(ValueError, match="_model_loader is required for PyTorch model in the script"):
+    with pytest.raises(ValueError, match="Either _model_loader or model_name_or_path is required for PyTorch model."):
         get_input_model_config(args)
 
 
