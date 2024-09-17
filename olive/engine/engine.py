@@ -238,7 +238,7 @@ class Engine:
                     output_dir/input_model_metrics.json: evaluation results of the input model
 
                 2. Multiple accelerator specs:
-                    output_dir/{acclerator_spec}/**: Same as 1 but for each accelerator spec
+                    output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec
 
             No search mode:
                 1. One accelerator spec
@@ -253,10 +253,10 @@ class Engine:
                         output_dir/output_model/...: output model files
 
                     B. Multiple pass flows:
-                        output_dir/{pass_flow}/**: Same as A but for each pass flow
+                        output_dir/{pass_flow}/...: Same as A but for each pass flow
 
                 2. Multiple accelerator specs
-                    output_dir/{acclerator_spec}/**: Same as 1 but for each accelerator spec
+                    output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec
 
         """
         if not accelerator_specs:

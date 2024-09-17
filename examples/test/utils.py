@@ -15,7 +15,7 @@ from olive.common.utils import run_subprocess
 # pylint: disable=broad-exception-raised
 
 
-def check_output(footprints):
+def check_output(footprints, search_mode=False):
     """Check if the search output is valid."""
     assert_nodes(footprints)
     assert_metrics(footprints)
