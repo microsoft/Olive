@@ -201,30 +201,31 @@ class OnnxConversion(Pass):
                     f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
                     "Please upgrade your torch version to 2.5.0 or above."
                 )
-            elif legacy_dynamo_supported_version <= torch_version < dynamo_supported_version:
-                from torch._dynamo import config as dynamo_config
+            from torch._dynamo import config as dynamo_config
 
-                dynamo_config.capture_scalar_outputs = True
-                dummy_inputs = tuple(dummy_inputs.values()) if isinstance(dummy_inputs, dict) else dummy_inputs
+            dynamo_config.capture_scalar_outputs = True
+            if isinstance(dummy_inputs, dict):
+                dummy_kwargs = dummy_inputs
+                dummy_inputs = ()
+            else:
+                dummy_kwargs = {}
+                dummy_inputs = tuple(dummy_inputs)
 
+            if torch_version < dynamo_supported_version:
                 with peft_export_context_manager(pytorch_model) as model_to_export:
                     onnx_program = torch.onnx.dynamo_export(
                         model_to_export,
                         *dummy_inputs,
+                        **dummy_kwargs,
                         export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
                     )
                 onnx_model = onnx_program.model_proto
             else:
-                assert torch_version >= dynamo_supported_version
-                from torch._dynamo import config as dynamo_config
-
-                dynamo_config.capture_scalar_outputs = True
-                dummy_inputs = tuple(dummy_inputs.values()) if isinstance(dummy_inputs, dict) else dummy_inputs
-
                 with peft_export_context_manager(pytorch_model) as model_to_export:
                     onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg
                         model_to_export,
                         dummy_inputs,
+                        kwargs=dummy_kwargs,
                         opset_version=config["target_opset"],
                         input_names=io_config.input_names,
                         output_names=io_config.output_names,
