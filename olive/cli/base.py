@@ -103,7 +103,7 @@ def _get_pt_input_model(args, model_path):
 
 
 def get_input_model_config(args) -> Union[str, Dict[str, str]]:
-    """Parse the model_name_or_path and return the model name or path.
+    """Parse the model_name_or_path and return the input model config.
 
     Check model_name_or_path formats in order:
     1. Local PyTorch model with model loader but no model path
