@@ -139,24 +139,19 @@ def test_finetune_command(mock_tempdir, mock_run, tmp_path):
     assert {el.name for el in output_dir.iterdir()} == {dummy_output.name}
 
 
-@patch("olive.cli.perf_tuning.tempfile.TemporaryDirectory")
-def test_perf_tuning_command(mock_tempdir, tmp_path):
+def test_perf_tuning_command(tmp_path):
     from test.unit_test.utils import ONNX_MODEL_PATH
 
     # some directories
-    tmpdir = tmp_path / "tmpdir"
-    tmpdir.mkdir()
-
     output_dir = tmp_path / "output_dir"
 
     # setup
-    mock_tempdir.return_value = tmpdir.resolve()
     data_config = {
         "name": "test_data_config_for_tuning",
         "type": "DummyDataContainer",
         "load_dataset_config": {"input_shapes": [(1, 1)], "input_names": ["input"]},
     }
-    data_config_path = str(tmpdir / "data_config.json")
+    data_config_path = str(tmp_path / "data_config.json")
     with open(data_config_path, "w") as f:
         json.dump(data_config, f)
 
@@ -174,8 +169,11 @@ def test_perf_tuning_command(mock_tempdir, tmp_path):
     ]
 
     # execute
-    cli_main(command_args)
+    # run in subprocess to avoid affecting other tests
+    out = subprocess.run(["olive", *command_args], check=True, capture_output=True)
 
+    # assert
+    assert f"Inference session parameters are saved to {output_dir}" in out.stdout.decode("utf-8")
     with open(output_dir / "cpu-cpu.json") as f:
         infer_settings = json.load(f)
         assert infer_settings["execution_provider"] == ["CPUExecutionProvider"]
