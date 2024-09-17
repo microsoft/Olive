@@ -13,7 +13,6 @@ import onnxruntime as ort
 from prepare_whisper_configs import download_audio_test_data
 
 from olive.evaluator.olive_evaluator import OnnxEvaluator
-from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 
 sys.path.append(str(Path(__file__).parent / "code"))
@@ -78,15 +77,11 @@ def main(raw_args=None):
     # get device and ep
     device = config["systems"]["local_system"]["accelerators"][0]["device"]
     ep = config["systems"]["local_system"]["accelerators"][0]["execution_providers"][0]
-    accelerator_spec = AcceleratorSpec(accelerator_type=device, execution_provider=ep)
 
     # load output model json
-    output_model_json_path = Path(config["output_dir"])
-    output_model_json = {}
-    for model_json in output_model_json_path.glob(f"**/{config['output_name']}_{accelerator_spec}_model.json"):
-        with model_json.open() as f:
-            output_model_json = json.load(f)
-        break
+    output_model_json_path = Path(config["output_dir"]) / "output_model" / "model_config.json"
+    with output_model_json_path.open() as f:
+        output_model_json = json.load(f)
 
     # load output model onnx
     olive_model = ONNXModelHandler(**output_model_json["config"])
