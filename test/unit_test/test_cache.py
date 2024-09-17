@@ -88,20 +88,27 @@ class TestCache:
         "model_path",
         ["0_model_folder", "0_model.onnx"],
     )
-    def test_save_model(self, model_path, tmp_path):
+    @pytest.mark.parametrize(
+        "in_cache",
+        [True, False],
+    )
+    def test_save_model(self, model_path, tmp_path, in_cache):
         # setup
         cache_dir = tmp_path / "cache_dir"
         cache = OliveCache(cache_dir)
 
+        model_parent = cache.dirs.models if in_cache else tmp_path / "external"
+        model_parent.mkdir(parents=True, exist_ok=True)
+
         if model_path == "0_model_folder":
-            model_folder = cache.dirs.models / model_path
+            model_folder = model_parent / model_path
             model_folder.mkdir(parents=True, exist_ok=True)
             model_p = str(model_folder)
             # create a dummy .onnx file in the folder
             onnx_file = model_folder / "dummy.onnx"
             onnx_file.touch()
         else:
-            model_p = str(cache.dirs.models / model_path)
+            model_p = str(model_parent / model_path)
             Path(model_p).touch()
 
         # cache model to cache_dir
@@ -114,21 +121,23 @@ class TestCache:
         # output model to output_dir
         output_dir = cache_dir / "output"
         shutil.rmtree(output_dir, ignore_errors=True)
-        output_name = "test_model"
-        output_json = cache.save_model(model_id, output_dir, output_name, True)
+        output_json = cache.save_model(model_id, output_dir, True)
+
+        expected_output_path = (
+            output_dir / ("model" if model_path == "0_model_folder" else "model.onnx") if in_cache else Path(model_p)
+        )
+        expected_output_path = str(expected_output_path.resolve())
 
         # assert
-        output_model_path = (output_dir / f"{output_name}").with_suffix(Path(model_p).suffix).resolve()
-        output_model_path = str(output_model_path.resolve())
-        output_json_path = output_dir / f"{output_name}.json"
-        assert output_model_path == output_json["config"]["model_path"]
-        assert os.path.exists(output_model_path)
-        assert os.path.exists(output_json_path)
+        assert output_json["config"]["model_path"] == expected_output_path
+
+        output_json_path = output_dir / "model_config.json"
+        assert output_json_path.exists()
         with open(output_json_path) as f:
-            assert output_model_path == json.load(f)["config"]["model_path"]
+            assert expected_output_path == json.load(f)["config"]["model_path"]
 
     @patch("olive.resource_path.AzureMLModel.save_to_dir")
-    def test_download_resource(self, mock_save_to_dir, tmp_path):
+    def test_get_local_path_or_download(self, mock_save_to_dir, tmp_path):
         # setup
         cache_dir = tmp_path / "cache_dir"
         cache_dir2 = tmp_path / "cache_dir2"
@@ -151,18 +160,18 @@ class TestCache:
         # execute
         cache = OliveCache(cache_dir)
         # first time
-        cached_path = cache.download_resource(resource_path)
+        cached_path = cache.get_local_path_or_download(resource_path)
         assert cached_path.get_path() == "dummy_string_name"
         assert mock_save_to_dir.call_count == 1
 
         # second time
-        cached_path = cache.download_resource(resource_path)
+        cached_path = cache.get_local_path_or_download(resource_path)
         assert cached_path.get_path() == "dummy_string_name"
         # uses cached value so save_to_dir is not called again
         assert mock_save_to_dir.call_count == 1
 
         # change cache_dir
         cache2 = OliveCache(cache_dir2)
-        cached_path = cache2.download_resource(resource_path)
+        cached_path = cache2.get_local_path_or_download(resource_path)
         assert cached_path.get_path() == "dummy_string_name"
         assert mock_save_to_dir.call_count == 2
