@@ -104,7 +104,8 @@ def test_configure_qualcomm_sdk_command(mock_configure):
 @patch("olive.workflows.run")
 @patch("olive.cli.finetune.tempfile.TemporaryDirectory")
 @patch("olive.cli.finetune.update_model_config")
-def test_finetune_command(mock_update_model_config, mock_tempdir, mock_run, tmp_path):
+@patch("huggingface_hub.repo_exists")
+def test_finetune_command(mock_repo_exists, mock_update_model_config, mock_tempdir, mock_run, tmp_path):
     # some directories
     tmpdir = tmp_path / "tmpdir"
     tmpdir.mkdir()
@@ -113,6 +114,7 @@ def test_finetune_command(mock_update_model_config, mock_tempdir, mock_run, tmp_
 
     # setup
     mock_tempdir.return_value = tmpdir.resolve()
+    mock_repo_exists.return_value = True
     mock_run.return_value = {"output_dir": Footprint(nodes={"dummy_output": "dummy_output"})}
     workflow_output_dir = tmpdir / "f-c-o-e" / "gpu-cuda_model"
     workflow_output_dir.mkdir(parents=True)
@@ -144,8 +146,9 @@ def test_finetune_command(mock_update_model_config, mock_tempdir, mock_run, tmp_
 @patch("olive.cli.perf_tuning.olive_run")
 @patch("olive.cli.perf_tuning.tempfile.TemporaryDirectory")
 @patch("olive.common.ort_inference.get_ort_inference_session")
+@patch("huggingface_hub.repo_exists")
 @pytest.mark.parametrize("data_config_path", ["", "dummy_data_config_path.json"])
-def test_perf_tuning_command(mock_ort_infer_sess, mock_tempdir, mock_run, data_config_path, tmp_path):
+def test_perf_tuning_command(mock_repo_exists, mock_ort_infer_sess, mock_tempdir, mock_run, data_config_path, tmp_path):
     # some directories
     tmpdir = tmp_path / "tmpdir"
     tmpdir.mkdir()
@@ -163,6 +166,7 @@ def test_perf_tuning_command(mock_ort_infer_sess, mock_tempdir, mock_run, data_c
         with open(data_config_path, "w") as f:
             json.dump(data_config, f)
     mock_tempdir.return_value = tmpdir.resolve()
+    mock_repo_exists.return_value = True
     workflow_output_dir = tmpdir / "perf_tuning" / "gpu-cuda-model"
     workflow_output_dir.mkdir(parents=True)
     dummy_output = workflow_output_dir / "dummy_output"

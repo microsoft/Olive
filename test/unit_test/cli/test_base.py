@@ -241,6 +241,21 @@ def test_insert_input_model_pt_model_missing_loader(MockUserModuleLoader):
         get_input_model_config(args)
 
 
+def test_insert_input_model_invalid_hf_model_name():
+    # setup
+    args = SimpleNamespace(
+        model_name_or_path="invalid-name",
+        trust_remote_code=False,
+        task=None,
+        model_script=None,
+        script_dir=None,
+    )
+
+    # execute and assert
+    with pytest.raises(ValueError, match="invalid-name is not a valid Huggingface model name."):
+        get_input_model_config(args)
+
+
 def test_insert_input_model_cli_output_model():
     # setup
     model_path = str(Path(__file__).parent.resolve() / "output_model")

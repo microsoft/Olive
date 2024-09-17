@@ -165,6 +165,13 @@ def get_input_model_config(args) -> Union[str, Dict[str, str]]:
 
     # Check HF model name string
     if not model_path.exists():
+        try:
+            from huggingface_hub import repo_exists
+        except ImportError as e:
+            raise ImportError("Please install huggingface_hub to use the CLI for Huggingface model.") from e
+
+        if not repo_exists(model_name_or_path):
+            raise ValueError(f"{model_name_or_path} is not a valid Huggingface model name.")
         return _get_hf_input_model(args, model_name_or_path)
 
     # Check if local model is from Olive CLI
