@@ -248,7 +248,6 @@
 
         <span class="c1"># Priority: io_config &gt; hf onnx_config</span>
         <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_dummy_inputs_from_io_config</span><span class="p">(</span>
-            <span class="n">force_kv_cache</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;-with-past&quot;</span><span class="p">),</span>
             <span class="n">filter_hook</span><span class="o">=</span><span class="n">filter_hook</span><span class="p">,</span>
             <span class="n">filter_hook_kwargs</span><span class="o">=</span><span class="n">filter_hook_kwargs</span><span class="p">,</span>
         <span class="p">)</span>
