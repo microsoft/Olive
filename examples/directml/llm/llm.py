@@ -131,7 +131,7 @@ def optimize(
 
     script_dir = Path(__file__).resolve().parent
     shutil.rmtree(script_dir / "footprints", ignore_errors=True)
-    shutil.rmtree(script_dir / "cache", ignore_errors=True)
+    # shutil.rmtree(script_dir / "cache", ignore_errors=True)
 
     with Path.open(script_dir / "config_llm.json") as fin:
         olive_config = json.load(fin)
@@ -160,7 +160,6 @@ def optimize(
         "cuda": ["CUDAExecutionProvider"],
     }[device]
 
-    olive_config["output_name"] = model_name
     olive_config["passes"]["optimize"]["hidden_size"] = config.hidden_size
     olive_config["passes"]["optimize"]["num_heads"] = config.num_heads
     olive_config["passes"]["optimize"]["num_key_value_heads"] = config.num_key_value_heads
@@ -224,7 +223,7 @@ def optimize(
 
     olive_run(olive_config)
 
-    footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{model_name}_gpu-{device}_footprints.json"
+    footprints_file_path = Path(__file__).resolve().parent / "footprints" / "footprints.json"
     with footprints_file_path.open("r") as footprint_file:
         footprints = json.load(footprint_file)
 

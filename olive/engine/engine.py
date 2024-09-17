@@ -245,6 +245,7 @@ class Engine:
                     output_dir/footprints.json: footprint of the run
                     output_dir/run_history.txt: run history
                     output_dir/input_model_metrics.json: evaluation results of the input model
+                    output_dir/output_footprints.json: footprint of the output models
 
                     A. One pass flow:
                         output_dir/output_model_metrics.json: evaluation results of the output model
@@ -416,7 +417,7 @@ class Engine:
                 pass_name = pass_item["name"]
                 raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
 
-        all_model_ids = []
+        output_model_ids = []
         for pass_flow in self.pass_flows:
             # search point is empty since there is no search
             passes_to_run = [(pass_id, {}) for pass_id in pass_flow]
@@ -453,9 +454,11 @@ class Engine:
             self.cache.save_model(model_number=model_ids[-1], output_dir=output_model_path, overwrite=True)
             logger.info("Saved output model to %s", output_model_path)
 
-            all_model_ids.extend(model_ids)
+            output_model_ids.append(model_ids[-1])
 
-        return self.footprints[accelerator_spec].create_footprints_by_model_ids(all_model_ids)
+        output_footprints = self.footprints[accelerator_spec].create_footprints_by_model_ids(output_model_ids)
+        output_footprints.to_file(output_dir / "output_footprints.json")
+        return output_footprints
 
     def run_search(
         self,
