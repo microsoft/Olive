@@ -190,33 +190,51 @@ class OnnxConversion(Pass):
 
         onnx_model = None
         if config["use_dynamo_exporter"]:
-            torch_version = torch.__version__
-            if version.parse(torch_version) < version.parse("2.2.0"):
+            # Take the "release" version so that dev builds like 2.5.0dev1234 are treated as 2.5.0
+            torch_version = version.parse(torch.__version__).release
+            # The "legacy dynamo" is the torch.onnx_dynamo_export API
+            legacy_dynamo_supported_version = version.parse("2.2.0").release
+            # The new "dynamo" api is torch.onnx.export with dynamo=True
+            dynamo_supported_version = version.parse("2.5.0").release
+            if torch_version < legacy_dynamo_supported_version:
                 raise ImportError(
                     f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
-                    "Please upgrade your torch version to 2.2.0 or above."
+                    "Please upgrade your torch version to 2.5.0 or above."
                 )
             from torch._dynamo import config as dynamo_config
-            from torch.onnx import dynamo_export
 
             dynamo_config.capture_scalar_outputs = True
+            if isinstance(dummy_inputs, dict):
+                dummy_kwargs = dummy_inputs
+                dummy_inputs = ()
+            else:
+                dummy_kwargs = {}
+                dummy_inputs = tuple(dummy_inputs)
 
-            dummy_inputs = dummy_inputs.values() if isinstance(dummy_inputs, dict) else dummy_inputs
-            pytorch_model(*dummy_inputs)
-
-            with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
-                tmp_dir_path = Path(tmp_dir)
-                tmp_model_path = resolve_onnx_path(tmp_dir_path)
-
+            if torch_version < dynamo_supported_version:
                 with peft_export_context_manager(pytorch_model) as model_to_export:
-                    dynamo_export(
+                    onnx_program = torch.onnx.dynamo_export(
                         model_to_export,
                         *dummy_inputs,
+                        **dummy_kwargs,
                         export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
-                    ).save(tmp_model_path)
-                onnx.checker.check_model(tmp_model_path)
-                onnx.shape_inference.infer_shapes_path(tmp_model_path)
-                onnx_model = onnx.load(tmp_model_path)
+                    )
+                onnx_model = onnx_program.model_proto
+            else:
+                with peft_export_context_manager(pytorch_model) as model_to_export:
+                    onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg
+                        model_to_export,
+                        dummy_inputs,
+                        kwargs=dummy_kwargs,
+                        opset_version=config["target_opset"],
+                        input_names=io_config.input_names,
+                        output_names=io_config.output_names,
+                        dynamic_axes=io_config.dynamic_axes,
+                        dynamo=True,
+                        fallback=True,
+                    )
+                assert onnx_program is not None
+                onnx_model = onnx_program.model_proto
         else:
             # there might be multiple files created during export, so we need to track the dir
             # if there are other processes writing to the same dir, we might end up deleting files created by
