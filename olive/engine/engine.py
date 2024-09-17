@@ -248,7 +248,7 @@ class Engine:
 
                     A. One pass flow:
                         output_dir/output_model_metrics.json: evaluation results of the output model
-                        output_dir/output_model/model.json: output model configuration
+                        output_dir/output_model/model_config.json: output model configuration
                         output_dir/output_model/...: output model files
 
                     B. Multiple pass flows:
@@ -256,6 +256,7 @@ class Engine:
 
                 2. Multiple accelerator specs
                     output_dir/{acclerator_spec}/**: Same as 1 but for each accelerator spec
+
         """
         if not accelerator_specs:
             raise ValueError("No accelerator specified")

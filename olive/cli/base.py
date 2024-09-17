@@ -16,7 +16,8 @@ from typing import ClassVar, Dict, Optional, Union
 import yaml
 
 from olive.cli.constants import CONDA_CONFIG
-from olive.common.utils import hash_dict
+from olive.common.utils import hardlink_copy_dir, hash_dict, set_nested_dict_value
+from olive.resource_path import find_all_resources
 
 
 class BaseOliveCLICommand(ABC):
@@ -162,6 +163,39 @@ def update_remote_option(config, args, cli_action, tempdir):
             "hf_token": bool(args.keyvault_name),
         }
         config["workflow_host"] = "aml_system"
+
+
+def save_output_model(config: Dict, output_model_dir: Union[str, Path]):
+    run_output_path = Path(config["output_dir"]) / "output_model"
+    if not run_output_path.exists():
+        print("Command failed. Please set the log_level to 1 for more detailed logs.")
+        return
+
+    output_model_dir = Path(output_model_dir).resolve()
+
+    hardlink_copy_dir(run_output_path, output_model_dir)
+
+    # need to update the local path in the model_config.json
+    # should the path be relative or absolute? relative makes it easy to move the output
+    # around but the path needs to be updated when the model config is used
+    model_config_path = output_model_dir / "model_config.json"
+    with model_config_path.open("r") as f:
+        model_config = json.load(f)
+
+    all_resources = find_all_resources(model_config)
+    for resource_key, resource_path in all_resources.items():
+        resource_path_str = resource_path.get_path()
+        if resource_path_str.startswith(str(run_output_path)):
+            set_nested_dict_value(
+                model_config,
+                resource_key,
+                resource_path_str.replace(str(run_output_path), str(output_model_dir)),
+            )
+
+    with model_config_path.open("w") as f:
+        json.dump(model_config, f, indent=4)
+
+    print(f"Command succeeded. Output model saved to {output_model_dir}")
 
 
 # TODO(team): Remove this function once the output structure is refactored

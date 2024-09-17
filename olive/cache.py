@@ -163,16 +163,16 @@ class OliveCache:
         if resource_path is None:
             return None
 
-        if resource_path.is_local_resource_or_string_name():
-            return resource_path.get_path()
-        else:
-            return self.download_resource(resource_path).get_path()
+        return self.get_local_path_or_download(resource_path).get_path()
 
-    def download_resource(self, resource_path: ResourcePath):
-        """Return the path to a non-local resource.
+    def get_local_path_or_download(self, resource_path: ResourcePath):
+        """Return the path to a local instance of the resource path.
 
-        Non-local resources are stored in the non_local_resources subdirectory of the cache.
+        Non-local resources are downloaded and stored in the non_local_resources subdirectory of the cache.
         """
+        if resource_path.is_local_resource_or_string_name():
+            return resource_path
+
         # choose left 8 characters of hash as resource path hash to reduce the risk of length too long
         resource_path_hash = hash_dict(resource_path.to_json())[:8]
         resource_path_json = self.dirs.resources / f"{resource_path_hash}.json"
@@ -230,8 +230,8 @@ class OliveCache:
         self,
         model_number: str,
         output_dir: Union[str, Path] = None,
-        output_name: Union[str, Path] = None,
         overwrite: bool = False,
+        only_cache_files: bool = True,
     ) -> Optional[Dict]:
         """Save a model from the cache to a given path."""
         # This function should probably be outside of the cache module
@@ -241,7 +241,6 @@ class OliveCache:
         model_number = model_number.split("_")[0]
         output_dir = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_name = output_name if output_name else "model"
 
         model_jsons = list(self.dirs.models.glob(f"{model_number}_*.json"))
         assert len(model_jsons) == 1, f"No model found for {model_number}"
@@ -257,31 +256,37 @@ class OliveCache:
         model_config: ModelConfig = ModelConfig.from_json(model_json)
         resource_paths = model_config.get_resource_paths()
         for resource_name, resource_path in resource_paths.items():
-            if not resource_path or resource_path.is_string_name():
-                # Nothing to do if the path is empty or a string name
+            if (
+                not resource_path
+                or resource_path.is_string_name()
+                or (only_cache_files and not resource_path.is_local_resource())
+            ):
+                # Nothing to do if the path is empty or a string name or if we only want to cache local files
                 continue
-            # get cached resource path if not local or string name
-            if not resource_path.is_local_resource():
-                local_resource_path = self.download_resource(resource_path)
-            else:
-                local_resource_path = resource_path
-            # if there are multiple resource paths, we will save them to a subdirectory of output_dir/output_name
-            if len(resource_paths) > 1:
-                save_dir = (output_dir / output_name).with_suffix("")
-                save_name = resource_name.replace("_path", "")
-            else:
-                save_dir = output_dir
-                save_name = output_name
+
+            # get the path in the cache
+            local_resource_path = self.get_local_path_or_download(resource_path)
+
+            # check if path is from non-local resource cache
+            if only_cache_files and local_resource_path.get_path().startswith(str(self.dirs.resources)):
+                # get the original resource path from the cache
+                resource_path_json = Path(local_resource_path.get_path()).with_suffix(".json")
+                with resource_path_json.open("r") as f:
+                    model_json["config"][resource_name] = json.load(f)["source"]
+                    continue
 
             # save resource to output directory
-            model_json["config"][resource_name] = local_resource_path.save_to_dir(save_dir, save_name, overwrite)
+            model_json["config"][resource_name] = local_resource_path.save_to_dir(
+                output_dir, resource_name.replace("_path", ""), overwrite
+            )
 
-        # Copy "additional files" to the output folder
+        # Copy "additional files" to the model folder
+        # we only have additional files for onnx models so saving to "model" is safe
         model_attributes = model_json["config"].get("model_attributes") or {}
         additional_files = model_attributes.get("additional_files", [])
 
         for i, src_filepath in enumerate(additional_files):
-            dst_filepath = Path(output_dir) / output_name / Path(src_filepath).name
+            dst_filepath = output_dir / "model" / Path(src_filepath).name
             additional_files[i] = str(dst_filepath)
 
             if not dst_filepath.exists():
@@ -291,7 +296,7 @@ class OliveCache:
             model_json["config"]["model_attributes"]["additional_files"] = additional_files
 
         # save model json
-        with (output_dir / f"{output_name}.json").open("w") as f:
+        with (output_dir / "model_config.json").open("w") as f:
             json.dump(model_json, f, indent=4)
 
         return model_json
