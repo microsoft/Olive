@@ -5,6 +5,7 @@
 
 # ruff: noqa: T201
 
+import shutil
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
@@ -13,12 +14,13 @@ from typing import ClassVar, Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
-    add_hf_model_options,
     add_logging_options,
+    add_model_options,
     add_remote_options,
-    get_model_name_or_path,
+    get_input_model_config,
     get_output_model_number,
     is_remote_run,
+    update_model_config,
     update_remote_option,
 )
 from olive.common.utils import IntEnumBase, hardlink_copy_dir, set_nested_dict_value, set_tempdir
@@ -44,7 +46,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # model options
-        add_hf_model_options(sub_parser)
+        add_model_options(sub_parser)
 
         sub_parser.add_argument(
             "--device",
@@ -176,22 +178,24 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 output_path.mkdir(parents=True, exist_ok=True)
                 pass_name = "m" if self.args.use_model_builder else "c"
                 device_name = "gpu-cuda_model" if self.args.device == "gpu" else "cpu-cpu_model"
-                hardlink_copy_dir(Path(tempdir) / pass_name / device_name, output_path)
-                print("ONNX Model is saved to %s", output_path.resolve())
+                source_path = Path(tempdir) / pass_name / device_name
+                if source_path.is_dir():
+                    hardlink_copy_dir(source_path, output_path)
+                else:
+                    shutil.move(str(source_path.with_suffix(".onnx")), output_path)
+
+                update_model_config(source_path.with_suffix(".json"), output_path)
+                print(f"ONNX Model is saved to {output_path.resolve()}")
             else:
                 print("Failed to run capture-onnx-graph. Please set the log_level to 1 for more detailed logs.")
 
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
-
-        if self.args.task is not None:
-            config["input_model"]["task"] = self.args.task
+        config["input_model"] = get_input_model_config(self.args)
 
         to_replace = [
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
-            (("input_model", "model_path"), get_model_name_or_path(self.args.model_name_or_path)),
-            (("input_model", "load_kwargs", "trust_remote_code"), self.args.trust_remote_code),
             (("systems", "local_system", "accelerators", 0, "device"), self.args.device),
             (
                 ("systems", "local_system", "accelerators", 0, "execution_providers"),
@@ -236,7 +240,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
 
 TEMPLATE = {
-    "input_model": {"type": "HfModel", "load_kwargs": {}},
     "systems": {
         "local_system": {
             "type": "LocalSystem",

@@ -18,7 +18,9 @@ from olive.auto_optimizer.template_mapping import PERF_TUNING_TEMPLATE
 from olive.cli.base import (
     BaseOliveCLICommand,
     add_logging_options,
+    add_model_options,
     add_remote_options,
+    get_input_model_config,
     get_output_model_number,
     is_remote_run,
     update_remote_option,
@@ -44,12 +46,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # model options
-        model_group = sub_parser.add_argument_group("model options")
-        model_group.add_argument(
-            "--model",
-            required=True,
-            help="Onnx input model path.",
-        )
+        add_model_options(sub_parser)
 
         # dataset options
         dataset_group = sub_parser.add_argument_group(
@@ -114,11 +111,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
             "--ort_past_value_name",
             type=str,
             help="Past value name for the input data.",
-        )
-        hf_dataset_group.add_argument(
-            "--trust_remote_code",
-            action="store_true",
-            help="Whether to trust remote code in the input data.",
         )
         hf_dataset_group.add_argument(
             "--max_samples",
@@ -285,12 +277,14 @@ class PerfTuningCommand(BaseOliveCLICommand):
 
     def get_run_config(self, tempdir) -> Dict:
         template_config = PerfTuningCommand.perf_tuning_template()
+        template_config["input_model"] = get_input_model_config(self.args)
+        print(f"input_model: {template_config['input_model']}")
+
         perf_tuning_key = ("passes", "perf_tuning")
         system_device_key = ("systems", "local_system", "accelerators", 0, "device")
 
         data_configs = [self._get_data_config(template_config)]
         to_replace = [
-            (("input_model", "model_path"), self.args.model),
             (("data_configs"), data_configs),
             (perf_tuning_key, self._update_pass_config(template_config["passes"]["perf_tuning"])),
             (system_device_key, self.args.device),
@@ -336,6 +330,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
                     with rls_json_path.open() as f:
                         infer_settings = json.load(f)["config"]["inference_settings"]
                         json.dump(infer_settings, infer_setting_output_path.open("w"), indent=4)
-                print("Inference session parameters are saved to %s", output_path.resolve())
+                print(f"Inference session parameters are saved to {output_path.resolve()}")
             else:
                 print("Failed to run tune-session-params. Please set the log_level to 1 for more detailed logs.")

@@ -136,7 +136,7 @@ class ExportAdaptersCommand(BaseOliveCLICommand):
             )
 
         output_path = save_weights(transformed_weights, self.args.output_path, self.args.save_format)
-        print("Exported adapter weights to %s", output_path)
+        print(f"Exported adapter weights to {output_path}")
 
         return output_path
 
