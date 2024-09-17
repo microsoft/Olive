@@ -2,9 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-# ruff: noqa: T201
-
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
@@ -166,8 +163,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             olive_run(run_config)
 
             if is_remote_run(self.args):
-                # TODO(jambayk): point user to datastore with outputs or download outputs
-                # both are not implemented yet
                 return
 
             save_output_model(run_config, self.args.output_path)

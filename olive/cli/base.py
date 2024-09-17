@@ -2,9 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-# ruff: noqa: T201
-
 import json
 import re
 import subprocess
@@ -103,7 +100,7 @@ def add_remote_options(sub_parser):
     )
 
 
-def add_hf_model_options(sub_parser):
+def add_hf_model_options(sub_parser, adapter=False):
     model_group = sub_parser.add_argument_group("model options")
     model_group.add_argument(
         "-m",
@@ -115,6 +112,13 @@ def add_hf_model_options(sub_parser):
             " path as 'registry_name:model_name:version'."
         ),
     )
+    if adapter:
+        model_group.add_argument(
+            "--adapter_path",
+            type=str,
+            required=True,
+            help="Path to the adapters weights saved after peft fine-tuning. Can be a local folder or huggingface id.",
+        )
     model_group.add_argument("--trust_remote_code", action="store_true", help="Trust remote code when loading a model.")
     model_group.add_argument("-t", "--task", type=str, help="Task for which the model is used.")
 
@@ -165,6 +169,7 @@ def update_remote_option(config, args, cli_action, tempdir):
         config["workflow_host"] = "aml_system"
 
 
+# TODO(anyone): Consider using the footprint directly to save the model
 def save_output_model(config: Dict, output_model_dir: Union[str, Path]):
     run_output_path = Path(config["output_dir"]) / "output_model"
     if not run_output_path.exists():
@@ -196,8 +201,3 @@ def save_output_model(config: Dict, output_model_dir: Union[str, Path]):
         json.dump(model_config, f, indent=4)
 
     print(f"Command succeeded. Output model saved to {output_model_dir}")
-
-
-# TODO(team): Remove this function once the output structure is refactored
-def get_output_model_number(outputs: Dict) -> int:
-    return sum(len(f.nodes) for f in outputs.values())

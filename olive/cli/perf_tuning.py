@@ -2,9 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-# ruff: noqa: T201
-
 import json
 import tempfile
 from argparse import ArgumentParser
@@ -19,13 +16,11 @@ from olive.cli.base import (
     BaseOliveCLICommand,
     add_logging_options,
     add_remote_options,
-    get_output_model_number,
     is_remote_run,
     update_remote_option,
 )
 from olive.common.utils import set_nested_dict_value, set_tempdir
 from olive.data.config import DataConfig
-from olive.workflows import run as olive_run
 
 
 class PerfTuningCommand(BaseOliveCLICommand):
@@ -284,6 +279,8 @@ class PerfTuningCommand(BaseOliveCLICommand):
                 self.args.providers_list[idx] = f"{provider}ExecutionProvider"
 
     def get_run_config(self, tempdir) -> Dict:
+        self.refine_args()
+
         template_config = PerfTuningCommand.perf_tuning_template()
         perf_tuning_key = ("passes", "perf_tuning")
         system_device_key = ("systems", "local_system", "accelerators", 0, "device")
@@ -314,28 +311,26 @@ class PerfTuningCommand(BaseOliveCLICommand):
         return config
 
     def run(self):
-        self.refine_args()
+        from olive.workflows import run as olive_run
+
         set_tempdir(self.args.tempdir)
+
         with tempfile.TemporaryDirectory() as tempdir:
             run_config = self.get_run_config(tempdir)
             output = olive_run(run_config)
 
             if is_remote_run(self.args):
-                # TODO(jambayk): point user to datastore with outputs or download outputs
-                # both are not implemented yet
                 return
 
-            if get_output_model_number(output) > 0:
-                # need to improve the output structure of olive run
-                output_path = Path(self.args.output_path)
-                output_path.mkdir(parents=True, exist_ok=True)
-                for provider in self.args.providers_list:
-                    provider_key = provider.replace("ExecutionProvider", "").lower()
-                    infer_setting_output_path = output_path / f"{self.args.device}-{provider_key}.json"
-                    rls_json_path = Path(tempdir) / "perf_tuning" / f"{self.args.device}-{provider_key}_model.json"
-                    with rls_json_path.open() as f:
-                        infer_settings = json.load(f)["config"]["inference_settings"]
-                        json.dump(infer_settings, infer_setting_output_path.open("w"), indent=4)
-                print("Inference session parameters are saved to %s", output_path.resolve())
-            else:
-                print("Failed to run tune-session-params. Please set the log_level to 1 for more detailed logs.")
+            output_path = Path(self.args.output_path).resolve()
+            output_path.mkdir(parents=True, exist_ok=True)
+            for key, value in output.items():
+                if len(value.nodes) < 1:
+                    print(f"Tuning for {key} failed. Please set the log_level to 1 for more detailed logs.")
+                    continue
+
+                infer_setting_output_path = output_path / f"{key}.json"
+                infer_settings = value.get_model_inference_config(value.get_output_model_id())
+                with infer_setting_output_path.open("w") as f:
+                    json.dump(infer_settings, f, indent=4)
+            print(f"Inference session parameters are saved to {output_path}.")

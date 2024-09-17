@@ -316,7 +316,6 @@ class Engine:
         evaluate_input_model: bool,
         accelerator_spec: "AcceleratorSpec",
         cloud_cache_config: "CloudCacheConfig",
-        save_models: bool = True,
     ):
         # generate search space and initialize the passes for each hardware accelerator
         self.setup_passes(accelerator_spec)
@@ -346,12 +345,7 @@ class Engine:
             if self.no_search:
                 logger.debug("Running Olive in no-search mode ...")
                 output_footprint = self.run_no_search(
-                    input_model_config,
-                    input_model_id,
-                    accelerator_spec,
-                    output_dir,
-                    cloud_cache_config,
-                    save_models,
+                    input_model_config, input_model_id, accelerator_spec, output_dir, cloud_cache_config
                 )
             else:
                 logger.debug("Running Olive in search mode ...")
@@ -415,7 +409,6 @@ class Engine:
         accelerator_spec: "AcceleratorSpec",
         output_dir: str = None,
         cloud_cache_config: "CloudCacheConfig" = None,
-        save_models: bool = True,
     ):
         """Run all the registered Olive pass flows in no-search mode."""
         for pass_item in self.passes.values():
@@ -456,10 +449,9 @@ class Engine:
                     json.dump(signal.to_json(), f, indent=4)
                 logger.info("Saved evaluation results of output model to %s", results_path)
 
-            if save_models:
-                output_model_path = flow_output_dir / "output_model"
-                self.cache.save_model(model_number=model_ids[-1], output_dir=output_model_path, overwrite=True)
-                logger.info("Saved output model to %s", output_model_path)
+            output_model_path = flow_output_dir / "output_model"
+            self.cache.save_model(model_number=model_ids[-1], output_dir=output_model_path, overwrite=True)
+            logger.info("Saved output model to %s", output_model_path)
 
             all_model_ids.extend(model_ids)
 

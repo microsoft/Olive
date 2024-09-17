@@ -259,7 +259,7 @@ class OliveCache:
             if (
                 not resource_path
                 or resource_path.is_string_name()
-                or (only_cache_files and not resource_path.is_local_resource())
+                or (only_cache_files and not resource_path.get_path().startswith(str(self.cache_dir)))
             ):
                 # Nothing to do if the path is empty or a string name or if we only want to cache local files
                 continue

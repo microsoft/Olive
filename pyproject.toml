@@ -195,3 +195,4 @@ classmethod-decorators = ["classmethod", "olive.common.pydantic_v1.validator", "
 "test/**" = ["INP001"]
 "scripts/**" = ["INP001"]
 "examples/directml/llm/chat_app/**" = ["TID252", "UP006", "T201"]
+"olive/cli/**" = ["T201"]
