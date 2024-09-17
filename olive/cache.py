@@ -268,12 +268,21 @@ class OliveCache:
             local_resource_path = self.get_local_path_or_download(resource_path)
 
             # check if path is from non-local resource cache
-            if only_cache_files and local_resource_path.get_path().startswith(str(self.dirs.resources)):
+            local_resource_str = local_resource_path.get_path()
+            resource_dir_str = str(self.dirs.resources)
+            if only_cache_files and local_resource_str.startswith(resource_dir_str):
                 # get the original resource path from the cache
-                resource_path_json = Path(local_resource_path.get_path()).with_suffix(".json")
+                # resource_path could be "/cache/resources/1234/mlflow_model_folder"
+                # load the json file "/cache/resources/1234.json" to get the original resource path
+                resource_path_json = (
+                    self.dirs.resources / f"{Path(local_resource_str.replace(resource_dir_str, '')).parts[1]}.json"
+                )
                 with resource_path_json.open("r") as f:
-                    model_json["config"][resource_name] = json.load(f)["source"]
-                    continue
+                    resource_json = json.load(f)
+                    if create_resource_path(resource_json["dest"]) == local_resource_path:
+                        # make sure it is the full resource and not a member of the resource
+                        model_json["config"][resource_name] = resource_json["source"]
+                        continue
 
             # save resource to output directory
             model_json["config"][resource_name] = local_resource_path.save_to_dir(

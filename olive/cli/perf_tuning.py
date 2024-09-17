@@ -291,10 +291,11 @@ class PerfTuningCommand(BaseOliveCLICommand):
         data_configs = [self._get_data_config(template_config)]
         to_replace = [
             (("input_model", "model_path"), self.args.model),
-            (("data_configs"), data_configs),
+            ("data_configs", data_configs),
             (perf_tuning_key, self._update_pass_config(template_config["passes"]["perf_tuning"])),
             (system_device_key, self.args.device),
             ((*perf_tuning_key, "data_config"), data_configs[0].name),
+            ("output_dir", tempdir),
         ]
 
         if self.args.providers_list:
@@ -317,7 +318,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
         set_tempdir(self.args.tempdir)
         with tempfile.TemporaryDirectory() as tempdir:
             run_config = self.get_run_config(tempdir)
-            run_config["output_dir"] = tempdir
             output = olive_run(run_config)
 
             if is_remote_run(self.args):
