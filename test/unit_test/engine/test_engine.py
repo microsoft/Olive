@@ -311,12 +311,13 @@ class TestEngine:
         assert output_node.model_config == onnx_model_config
         assert expected_metrics == output_node.metrics.value
 
-        model_json_path = output_dir / "output_model" / "model_config.json"
+        output_model_dir = output_dir / "output_model"
+        model_json_path = output_model_dir / "model_config.json"
         assert model_json_path.is_file()
         with model_json_path.open() as f:
             assert json.load(f) == expected_saved_model_config.to_json()
 
-        result_json_path = output_dir / "output_model_metrics.json"
+        result_json_path = output_model_dir / "metrics.json"
         assert result_json_path.is_file()
         with result_json_path.open() as f:
             assert json.load(f) == expected_metrics.__root__
