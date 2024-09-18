@@ -72,7 +72,7 @@ If you have an Olive configuration file, you can also run the olive command for 
 olive run [--config CONFIGURATION_FILE]
 
 # Examples
-olive run --config phi3_mobile_int4.json
+olive run --config phi3_run_mobile_int4.json
 ```
 
 We also introduce QuaRot, a new Quantization scheme based on Rotations, which is able to quantize LLMs end-to-end.

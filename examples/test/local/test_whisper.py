@@ -24,7 +24,7 @@ def setup():
     # prepare configs
     from prepare_whisper_configs import main as prepare_whisper_configs
 
-    prepare_whisper_configs(["--package_model"])
+    prepare_whisper_configs(["--package_model", "--log_level", "0"])
 
     yield
     sys.path.remove(example_dir)

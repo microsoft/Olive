@@ -19,15 +19,9 @@
             "type": "SNPEConversion",
             "input_names": [ "data" ],
             "input_shapes": [ [ 1, 3, 224, 224 ] ],
-            "output_names": [ "vgg0_dense2_fwd" ],
-            "output_name": "vgg_snpe"
+            "output_names": [ "vgg0_dense2_fwd" ]
         },
-        "snpe_quantization": {
-            "type": "SNPEQuantization",
-            "enable_htp": true,
-            "data_config": "raw_data",
-            "output_name": "vgg_snpe_quantized"
-        }
+        "snpe_quantization": { "type": "SNPEQuantization", "enable_htp": true, "data_config": "raw_data" }
     },
     "log_severity_level": 0,
     "clean_cache": true,

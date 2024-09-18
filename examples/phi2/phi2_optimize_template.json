@@ -148,7 +148,6 @@
     "host": "local_system",
     "target": "local_system",
     "cache_dir": "cache",
-    "output_name": "phi2",
     "output_dir": "phi2",
     "clean_cache": false,
     "log_severity_level": 0,

@@ -11,8 +11,8 @@ from pathlib import Path
 
 import onnxruntime_genai as og
 
-from olive.common.utils import hardlink_copy_dir, unescaped_str
-from olive.hardware import AcceleratorSpec
+from olive.cli.base import save_output_model
+from olive.common.utils import unescaped_str
 from olive.workflows import run as olive_run
 
 # flake8: noqa: T201
@@ -164,20 +164,7 @@ def main(raw_args=None):
         if args.quarot:
             return
 
-        # need to improve the output structure of olive run
-        output_path.mkdir(parents=True, exist_ok=True)
-        accelerator = run_config["systems"]["local_system"]["accelerators"][0]
-        accelerator_str = str(
-            AcceleratorSpec(
-                accelerator_type=accelerator["device"], execution_provider=accelerator["execution_providers"][0]
-            )
-        )
-        hardlink_copy_dir(
-            Path(tempdir) / "-".join(run_config["passes"].keys()) / f"{accelerator_str}_model",
-            output_path,
-        )
-
-        print("\nOptimized model is generated in", args.output_dir)
+        save_output_model(run_config, output_path)
 
     if args.inference:
         if not args.chat_template:
@@ -193,7 +180,7 @@ def main(raw_args=None):
 
         max_length = 200 if not args.max_length else args.max_length
 
-        genai_run(prompts, str(output_path), max_length)
+        genai_run(prompts, str(output_path / "model"), max_length)
 
 
 def use_passes(template_json, *passes):
@@ -226,12 +213,14 @@ def generate_config(args):
     with open(json_file_template) as f:
         template_json = json.load(f)
 
+    config_prefix = "phi3_run_"
+
     if args.quarot:
         template_json = use_passes(template_json, "quarot")
         template_json["systems"]["local_system"]["accelerators"] = [
             {"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}
         ]
-        new_json_file = "phi3_quarot.json"
+        new_json_file = f"{config_prefix}quarot.json"
         with open(new_json_file, "w") as f:
             json.dump(template_json, f, indent=4)
 
@@ -277,7 +266,7 @@ def generate_config(args):
     # set cache dir
     template_json["cache_dir"] = args.cache_dir
 
-    new_json_file = f"phi3_{target.lower()}_{args.precision}.json"
+    new_json_file = f"{config_prefix}{target.lower()}_{args.precision}.json"
     with open(new_json_file, "w") as f:
         json.dump(template_json, f, indent=4)
 

@@ -42,9 +42,11 @@ def get_args(raw_args):
         default="int4",
         choices=["int4", "fp16"],
         help=(
-            "Precision of optimized model. "
-            "int4: run quantization on the model, which is able to run on CPU and CUDA."
-            "fp16: no quantization, only run on CUDA.",
+            (
+                "Precision of optimized model. "
+                "int4: run quantization on the model, which is able to run on CPU and CUDA."
+                "fp16: no quantization, only run on CUDA."
+            ),
         ),
     )
     parser.add_argument(
@@ -60,7 +62,7 @@ def get_args(raw_args):
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="cache/phi3-vision-128k-instruct",
+        default="models/phi3-vision-128k-instruct",
         required=False,
         help="Path to folder to store ONNX model and additional files (e.g. GenAI config, external data files, etc.)",
     )
@@ -126,7 +128,7 @@ def main(raw_args=None):
         generate(args.optimized_model_path)
         return
 
-    input_model_path = output_dir / "phi3-vision-128k-instruct" / "pytorch"
+    input_model_path = output_dir / "pytorch"
     if not is_model_ready(input_model_path):
         print(f"Model not found from {input_model_path}, preparing the model...")
         # prepare the input model
@@ -180,7 +182,7 @@ def main(raw_args=None):
     to_remove_folders = [
         Path(args.output_dir).resolve() / "vision",
         Path(args.output_dir).resolve() / "text",
-        Path(args.output_dir).resolve() / "text-embedding",
+        Path(args.output_dir).resolve() / "text_embedding",
     ]
     for folder in to_remove_folders:
         shutil.rmtree(folder, ignore_errors=True)

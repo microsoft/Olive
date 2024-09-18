@@ -11,6 +11,7 @@ from olive.cli.cloud_cache import CloudCacheCommand
 from olive.cli.configure_qualcomm_sdk import ConfigureQualcommSDKCommand
 from olive.cli.export_adapters import ExportAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
+from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.manage_aml_compute import ManageAMLComputeCommand
 from olive.cli.perf_tuning import PerfTuningCommand
 from olive.cli.run import WorkflowRunCommand
@@ -26,13 +27,16 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     commands_parser = parser.add_subparsers()
 
     # Register commands
-    CaptureOnnxGraphCommand.register_subcommand(commands_parser)
+    # TODO(jambayk): Consider adding a common tempdir option to all commands
+    # NOTE: The order of the commands is to organize the documentation better.
     WorkflowRunCommand.register_subcommand(commands_parser)
+    CaptureOnnxGraphCommand.register_subcommand(commands_parser)
     FineTuneCommand.register_subcommand(commands_parser)
+    GenerateAdapterCommand.register_subcommand(commands_parser)
     ExportAdaptersCommand.register_subcommand(commands_parser)
+    PerfTuningCommand.register_subcommand(commands_parser)
     ConfigureQualcommSDKCommand.register_subcommand(commands_parser)
     ManageAMLComputeCommand.register_subcommand(commands_parser)
-    PerfTuningCommand.register_subcommand(commands_parser)
     CloudCacheCommand.register_subcommand(commands_parser)
 
     return parser

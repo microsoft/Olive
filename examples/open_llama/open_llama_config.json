@@ -39,7 +39,6 @@
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
-    "output_name": "ollama",
     "host": "local_system",
     "target": "local_system",
     "output_dir": "models/open_llama"

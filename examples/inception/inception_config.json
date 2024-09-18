@@ -73,6 +73,5 @@
     "host": "local_system",
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
-    "output_dir": "outputs",
-    "output_name": "snpe_quantized"
+    "output_dir": "outputs"
 }

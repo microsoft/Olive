@@ -58,7 +58,6 @@
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
-    "output_name": "ollama",
     "target": "azure_arc",
     "host": "aml",
     "output_dir": "models/open_llama_arc"

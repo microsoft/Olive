@@ -182,9 +182,12 @@ class Footprint:
         with open(file_path) as f:
             return cls.from_json(f.read())
 
+    def get_output_model_id(self):
+        # TODO(anyone): Make this more robust by ensuring there is only one pass flow and one output model
+        return next(reversed(self.nodes.keys()))
+
     def get_output_model_path(self):
-        model_id = next(reversed(self.nodes.keys()))
-        return self.get_model_path(model_id)
+        return self.get_model_path(self.get_output_model_id())
 
     def get_model_config(self, model_id):
         model_config = self.nodes[model_id].model_config

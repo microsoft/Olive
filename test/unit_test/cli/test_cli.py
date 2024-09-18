@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.cli.launcher import main as cli_main
-from olive.engine.footprint import Footprint
 
 
 @pytest.mark.parametrize("console_script", [True, False])
@@ -103,9 +102,8 @@ def test_configure_qualcomm_sdk_command(mock_configure):
 
 @patch("olive.workflows.run")
 @patch("olive.cli.finetune.tempfile.TemporaryDirectory")
-@patch("olive.cli.finetune.update_model_config")
-@patch("huggingface_hub.repo_exists")
-def test_finetune_command(mock_repo_exists, mock_update_model_config, mock_tempdir, mock_run, tmp_path):
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_finetune_command(_, mock_tempdir, mock_run, tmp_path):
     # some directories
     tmpdir = tmp_path / "tmpdir"
     tmpdir.mkdir()
@@ -114,19 +112,18 @@ def test_finetune_command(mock_repo_exists, mock_update_model_config, mock_tempd
 
     # setup
     mock_tempdir.return_value = tmpdir.resolve()
-    mock_repo_exists.return_value = True
-    mock_run.return_value = {"output_dir": Footprint(nodes={"dummy_output": "dummy_output"})}
-    workflow_output_dir = tmpdir / "f-c-o-e" / "gpu-cuda_model"
+    workflow_output_dir = tmpdir / "output_model"
     workflow_output_dir.mkdir(parents=True)
-    dummy_output = workflow_output_dir / "dummy_output"
+    dummy_output = workflow_output_dir / "model_config.json"
     with open(dummy_output, "w") as f:
-        f.write("dummy_output")
+        json.dump({"dummy": "output"}, f)
 
     # setup
+    model_id = "dummy-model-id"
     command_args = [
         "finetune",
         "-m",
-        "dummy_model",
+        model_id,
         "-d",
         "dummy_dataset",
         "--text_field",
@@ -139,16 +136,56 @@ def test_finetune_command(mock_repo_exists, mock_update_model_config, mock_tempd
     cli_main(command_args)
 
     config = mock_run.call_args[0][0]
-    assert config["input_model"]["model_path"] == "dummy_model"
+    assert config["input_model"]["model_path"] == model_id
     assert {el.name for el in output_dir.iterdir()} == {dummy_output.name}
 
 
-@patch("olive.cli.perf_tuning.olive_run")
-@patch("olive.cli.perf_tuning.tempfile.TemporaryDirectory")
-@patch("olive.common.ort_inference.get_ort_inference_session")
-@patch("huggingface_hub.repo_exists")
-@pytest.mark.parametrize("data_config_path", ["", "dummy_data_config_path.json"])
-def test_perf_tuning_command(mock_repo_exists, mock_ort_infer_sess, mock_tempdir, mock_run, data_config_path, tmp_path):
+def test_perf_tuning_command(tmp_path):
+    from test.unit_test.utils import ONNX_MODEL_PATH
+
+    # some directories
+    output_dir = tmp_path / "output_dir"
+
+    # setup
+    data_config = {
+        "name": "test_data_config_for_tuning",
+        "type": "DummyDataContainer",
+        "load_dataset_config": {"input_shapes": [(1, 1)], "input_names": ["input"]},
+    }
+    data_config_path = str(tmp_path / "data_config.json")
+    with open(data_config_path, "w") as f:
+        json.dump(data_config, f)
+
+    # setup
+    command_args = [
+        "tune-session-params",
+        "-m",
+        str(ONNX_MODEL_PATH),
+        "--data_config_path",
+        data_config_path,
+        "--output_path",
+        str(output_dir),
+        "--providers_list",
+        "CPUExecutionProvider",
+    ]
+
+    # execute
+    # run in subprocess to avoid affecting other tests
+    out = subprocess.run(["olive", *command_args], check=True, capture_output=True)
+
+    # assert
+    assert f"Inference session parameters are saved to {output_dir}" in out.stdout.decode("utf-8")
+    with open(output_dir / "cpu-cpu.json") as f:
+        infer_settings = json.load(f)
+        assert infer_settings["execution_provider"] == ["CPUExecutionProvider"]
+        assert infer_settings.keys() >= {"provider_options", "session_options"}
+
+
+@patch("olive.workflows.run")
+@patch("olive.cli.capture_onnx.tempfile.TemporaryDirectory")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize("use_model_builder", [True, False])
+def test_capture_onnx_command(_, mock_tempdir, mock_run, use_model_builder, tmp_path):
     # some directories
     tmpdir = tmp_path / "tmpdir"
     tmpdir.mkdir()
@@ -156,54 +193,14 @@ def test_perf_tuning_command(mock_repo_exists, mock_ort_infer_sess, mock_tempdir
     output_dir = tmp_path / "output_dir"
 
     # setup
-    data_config = {
-        "name": "dummy_data",
-        "type": "TransformersTokenDummyDataContainer",
-        "load_dataset_config": {"model_name": "microsoft/phi-2"},
-    }
-    if data_config_path:
-        data_config_path = str(tmpdir / data_config_path)
-        with open(data_config_path, "w") as f:
-            json.dump(data_config, f)
     mock_tempdir.return_value = tmpdir.resolve()
-    mock_repo_exists.return_value = True
-    workflow_output_dir = tmpdir / "perf_tuning" / "gpu-cuda-model"
+    workflow_output_dir = tmpdir / "output_model"
     workflow_output_dir.mkdir(parents=True)
-    dummy_output = workflow_output_dir / "dummy_output"
+    dummy_output = workflow_output_dir / "model_config.json"
     with open(dummy_output, "w") as f:
-        f.write("dummy_output")
+        json.dump({"config": {"inference_settings": {"dummy-key": "dummy-value"}}}, f)
 
-    # setup
-    command_args = [
-        "tune-session-params",
-        "-m",
-        "dummy_model",
-        "--data_config_path",
-        data_config_path,
-        "--hf_model_name",
-        "Intel/bert-base-uncased-mrpc",
-        "--output_path",
-        str(output_dir),
-    ]
-
-    # execute
-    cli_main(command_args)
-
-    config = mock_run.call_args[0][0]
-    assert config["input_model"]["model_path"] == "dummy_model"
-    assert config["data_configs"][0].name == config["passes"]["perf_tuning"]["data_config"]
-
-
-@patch("olive.workflows.run")
-@patch("olive.cli.capture_onnx.tempfile.TemporaryDirectory")
-@pytest.mark.parametrize("use_model_builder", [True, False])
-def test_capture_onnx_command(mock_tempdir, mock_run, use_model_builder, tmp_path):
-    # setup
-    mock_tempdir.return_value = tmp_path.resolve()
-    output_dir = tmp_path / "output_dir"
-    model_id = "microsoft/phi-2"
-
-    # setup
+    model_id = "dummy-model-id"
     command_args = [
         "capture-onnx-graph",
         "-m",
@@ -221,11 +218,13 @@ def test_capture_onnx_command(mock_tempdir, mock_run, use_model_builder, tmp_pat
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_id
     assert "m" in config["passes"] if use_model_builder else "c" in config["passes"]
+    assert {el.name for el in output_dir.iterdir()} == {dummy_output.name}
 
 
 @pytest.mark.parametrize("test_set", [(None, "successfully"), (MagicMock(name="blob1"), "failed")])
 @patch("azure.storage.blob.ContainerClient")
-def test_cloud_cache_command(mock_container_client, test_set):
+@patch("olive.cli.cloud_cache.get_credentials", return_value="dummy-credentials")
+def test_cloud_cache_command(_, mock_container_client, test_set):
     # setup
     command_args = [
         "cloud-cache",
@@ -246,7 +245,9 @@ def test_cloud_cache_command(mock_container_client, test_set):
 
     # assert
     assert (test_set[1] in message for message in log.output), "Expected log message not found."
-    mock_container_client.assert_called_once()
+    mock_container_client.assert_called_once_with(
+        account_url="https://account.blob.core.windows.net", container_name="container", credential="dummy-credentials"
+    )
     mock_container_client().delete_blob.assert_called_once()
 
 

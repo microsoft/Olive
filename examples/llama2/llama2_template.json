@@ -118,6 +118,7 @@
         "gptq_quant_int4": { "type": "GptqQuantizer", "data_config": "wikitext2_train" }
     },
     "evaluator": "merged_evaluator",
+    "evaluate_input_model": false,
     "host": "local_system",
     "target": "local_system",
     "cache_dir": "cache",

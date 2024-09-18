@@ -259,7 +259,7 @@ class Pass(ABC):
             # like for perf-tuning pass
             output_model_additional_files.add(str(output_filepath))
 
-        output_model_attributes["additional_files"] = list(output_model_additional_files)
+        output_model_attributes["additional_files"] = sorted(output_model_additional_files)
         output_model.model_attributes = output_model_attributes
 
     def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:
