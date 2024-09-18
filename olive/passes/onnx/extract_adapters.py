@@ -52,7 +52,7 @@ class ExtractAdapters(Pass):
                 default_value=False,
                 description=(
                     "Pack adapter weights for the same module type into a single input tensor. Only used if make_inputs"
-                    " is True."
+                    " is True. Model attributes must contain lora_modules list."
                 ),
             ),
             "dynamic_lora_r": PassConfigParam(
@@ -86,17 +86,13 @@ class ExtractAdapters(Pass):
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        if "lora_modules" not in (model.model_attributes or {}):
-            raise ValueError("Model does not contain lora_modules model_attribute")
+        if "lora_modules" not in (model.model_attributes or {}) and config["pack_inputs"]:
+            raise ValueError("Model does not contain lora_modules model_attribute. Cannot pack inputs.")
 
         # create a dag from the model
         dag = OnnxDAG.from_model_path(model.model_path)
         # remove unnecessary identity nodes
         dag.remove_identity_nodes()
-
-        # get lora modules
-        lora_modules = model.model_attributes["lora_modules"]
-        lora_name_patterns = self._get_lora_name_patterns(lora_modules)
 
         # dictionary to store adapter weights
         weights = {}
@@ -110,7 +106,7 @@ class ExtractAdapters(Pass):
         for node_name in dag.get_node_names():
             op_type = dag.get_node_op_type(node_name)
             if op_type not in {"MatMul", "MatMulNBits"} or not any(
-                re.match(pattern, node_name) for pattern in lora_name_patterns
+                re.match(pattern, node_name) for pattern in self._get_lora_name_patterns()
             ):
                 # not a lora module
                 continue
@@ -206,7 +202,9 @@ class ExtractAdapters(Pass):
                     self._make_dynamic_optional(dag, weights, weight_name, config)
             else:
                 # what weights are packed together
-                packed_weights, packings = self.pack_weights(weights, lora_modules, float_modules, quant_modules)
+                packed_weights, packings = self.pack_weights(
+                    weights, model.model_attributes["lora_modules"], float_modules, quant_modules
+                )
 
                 # create inputs and split nodes for the packed weights
                 for weight_name, to_pack in packings.items():
@@ -311,11 +309,10 @@ class ExtractAdapters(Pass):
         return packed_weights, packings
 
     @staticmethod
-    def _get_lora_name_patterns(lora_modules: List[str]) -> List[str]:
+    def _get_lora_name_patterns() -> List[str]:
         """Get the node name patterns for lora modules."""
         return [
-            f".*[./]{key}[./]{name}[./]{matmul}$"
-            for key in lora_modules
+            f".*[./]{name}[./]{matmul}$"
             for name in ["default", "default_1", "lora_A", "lora_B"]
             for matmul in ["MatMul", "MatMul_Q4"]
         ]

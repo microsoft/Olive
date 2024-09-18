@@ -2,9 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-# ruff: noqa: T201
-
 import math
 from argparse import ArgumentParser
 from typing import TYPE_CHECKING, Tuple
@@ -136,7 +133,7 @@ class ExportAdaptersCommand(BaseOliveCLICommand):
             )
 
         output_path = save_weights(transformed_weights, self.args.output_path, self.args.save_format)
-        print("Exported adapter weights to %s", output_path)
+        print(f"Exported adapter weights to {output_path}")
 
         return output_path
 

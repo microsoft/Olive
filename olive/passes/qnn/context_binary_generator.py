@@ -27,9 +27,6 @@ class QNNContextBinaryGenerator(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        if platform.system() == OS.WINDOWS:
-            raise NotImplementedError("QNNContextBinaryGenerator is not supported on Windows.")
-
         return {
             "backend": PassConfigParam(
                 type_=str,
@@ -57,6 +54,9 @@ class QNNContextBinaryGenerator(Pass):
         config: Dict[str, Any],
         output_model_path: str,
     ) -> QNNModelHandler:
+        if platform.system() == OS.WINDOWS:
+            raise NotImplementedError("QNNContextBinaryGenerator is not supported on Windows.")
+
         main_cmd = "qnn-context-binary-generator"
         runner = QNNSDKRunner(use_dev_tools=True)
 

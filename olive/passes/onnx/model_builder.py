@@ -218,7 +218,7 @@ class ModelBuilder(Pass):
                 str(output_model_filepath.parent / "genai_config.json"),
             ]
         else:
-            model_attributes["additional_files"] = list(
+            model_attributes["additional_files"] = sorted(
                 set(additional_files)
                 # all files in the output directory except the model and model.data files
                 | {str(fp) for fp in output_model_filepath.parent.iterdir()}

@@ -87,6 +87,12 @@ def get_args(raw_args):
             " increase this value to 1e-5 or 1e-4. Default: 1e-6"
         ),
     )
+    parser.add_argument(
+        "--log_level",
+        type=int,
+        default=3,
+        help="Olive log level. Default: 3 (ERROR)",
+    )
     return parser.parse_args(raw_args)
 
 
@@ -112,6 +118,9 @@ def main(raw_args=None):
     with open("whisper_template.json") as f:
         template_json = json.load(f)
     model_name = args.model_name
+
+    # set log_level
+    template_json["log_severity_level"] = args.log_level
 
     # update model paths
     for model_component in template_json["input_model"]["model_components"]:
@@ -149,7 +158,7 @@ def main(raw_args=None):
         config = deepcopy(template_json)
 
         # set output name
-        config["output_name"] = f"whisper_{device}_{precision}"
+        config["output_dir"] = f"models/whisper_{device}_{precision}"
         # add packaging config
         if args.package_model:
             config["packaging_config"] = {"type": "Zipfile", "name": f"whisper_{device}_{precision}"}

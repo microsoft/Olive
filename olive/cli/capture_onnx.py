@@ -2,26 +2,22 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-# ruff: noqa: T201
-
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
-from pathlib import Path
 from typing import ClassVar, Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
-    add_hf_model_options,
     add_logging_options,
+    add_model_options,
     add_remote_options,
-    get_model_name_or_path,
-    get_output_model_number,
+    get_input_model_config,
     is_remote_run,
+    save_output_model,
     update_remote_option,
 )
-from olive.common.utils import IntEnumBase, hardlink_copy_dir, set_nested_dict_value, set_tempdir
+from olive.common.utils import IntEnumBase, set_nested_dict_value
 
 
 class ModelBuilderAccuracyLevel(IntEnumBase):
@@ -38,13 +34,15 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
             "capture-onnx-graph",
-            help=("Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model."),
+            help="Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model.",
         )
 
         add_logging_options(sub_parser)
 
         # model options
-        add_hf_model_options(sub_parser)
+        add_model_options(
+            sub_parser, enable_hf=True, enable_hf_adapter=True, enable_pt=True, default_output_path="onnx-model"
+        )
 
         sub_parser.add_argument(
             "--device",
@@ -59,21 +57,15 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             ),
         )
 
-        sub_parser.add_argument("-o", "--output_path", type=str, default="onnx-model", help="Output path")
-        sub_parser.add_argument(
-            "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
-        )
-
         # PyTorch Exporter options
         pte_group = sub_parser.add_argument_group("PyTorch Exporter options")
         pte_group.add_argument(
             "--use_dynamo_exporter",
-            type=bool,
-            default=False,
+            action="store_true",
             help="Whether to use dynamo_export API to export ONNX model.",
         )
         pte_group.add_argument(
-            "--use_ort_genai", type=bool, default=False, help="Use OnnxRuntie generate() API to run the model"
+            "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
         )
         pte_group.add_argument(
             "--past_key_value_name",
@@ -160,39 +152,23 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     def run(self):
         from olive.workflows import run as olive_run
 
-        set_tempdir(self.args.output_path)
-
-        with tempfile.TemporaryDirectory() as tempdir:
+        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
 
-            output = olive_run(run_config)
+            olive_run(run_config)
 
             if is_remote_run(self.args):
-                # TODO(jambayk): point user to datastore with outputs or download outputs
-                # both are not implemented yet
                 return
 
-            if get_output_model_number(output) > 0:
-                output_path = Path(self.args.output_path)
-                output_path.mkdir(parents=True, exist_ok=True)
-                pass_name = "m" if self.args.use_model_builder else "c"
-                device_name = "gpu-cuda_model" if self.args.device == "gpu" else "cpu-cpu_model"
-                hardlink_copy_dir(Path(tempdir) / pass_name / device_name, output_path)
-                print("ONNX Model is saved to %s", output_path.resolve())
-            else:
-                print("Failed to run capture-onnx-graph. Please set the log_level to 1 for more detailed logs.")
+            save_output_model(run_config, self.args.output_path)
 
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
 
-        if self.args.task is not None:
-            config["input_model"]["task"] = self.args.task
-
         to_replace = [
+            ("input_model", get_input_model_config(self.args)),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
-            (("input_model", "model_path"), get_model_name_or_path(self.args.model_name_or_path)),
-            (("input_model", "load_kwargs", "trust_remote_code"), self.args.trust_remote_code),
             (("systems", "local_system", "accelerators", 0, "device"), self.args.device),
             (
                 ("systems", "local_system", "accelerators", 0, "execution_providers"),
@@ -225,7 +201,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 ]
             )
             if self.args.use_dynamo_exporter:
-                to_replace.append(("passes", "c", "past_key_value_name"), self.args.past_key_value_name)
+                to_replace.append((("passes", "c", "past_key_value_name"), self.args.past_key_value_name))
 
         for keys, value in to_replace:
             if value is None:
@@ -237,7 +213,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
 
 TEMPLATE = {
-    "input_model": {"type": "HfModel", "load_kwargs": {}},
     "systems": {
         "local_system": {
             "type": "LocalSystem",

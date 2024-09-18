@@ -2,9 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-# ruff: noqa: T201
-
 import json
 import tempfile
 from argparse import ArgumentParser
@@ -18,14 +15,14 @@ from olive.auto_optimizer.template_mapping import PERF_TUNING_TEMPLATE
 from olive.cli.base import (
     BaseOliveCLICommand,
     add_logging_options,
+    add_model_options,
     add_remote_options,
-    get_output_model_number,
+    get_input_model_config,
     is_remote_run,
     update_remote_option,
 )
-from olive.common.utils import set_nested_dict_value, set_tempdir
+from olive.common.utils import set_nested_dict_value
 from olive.data.config import DataConfig
-from olive.workflows import run as olive_run
 
 
 class PerfTuningCommand(BaseOliveCLICommand):
@@ -44,12 +41,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # model options
-        model_group = sub_parser.add_argument_group("model options")
-        model_group.add_argument(
-            "--model",
-            required=True,
-            help="Onnx input model path.",
-        )
+        add_model_options(sub_parser, enable_onnx=True, default_output_path="tuned-inference-settings")
 
         # dataset options
         dataset_group = sub_parser.add_argument_group(
@@ -114,11 +106,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
             "--ort_past_value_name",
             type=str,
             help="Past value name for the input data.",
-        )
-        hf_dataset_group.add_argument(
-            "--trust_remote_code",
-            action="store_true",
-            help="Whether to trust remote code in the input data.",
         )
         hf_dataset_group.add_argument(
             "--max_samples",
@@ -200,16 +187,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
             help="Whether enable profiling for ONNX Runtime inference.",
         )
 
-        sub_parser.add_argument(
-            "--output_path",
-            type=str,
-            default="perf_tuning_output",
-            help="Path to save the tuned inference settings.",
-        )
-        sub_parser.add_argument(
-            "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
-        )
-
         # remote options
         add_remote_options(sub_parser)
 
@@ -284,17 +261,21 @@ class PerfTuningCommand(BaseOliveCLICommand):
                 self.args.providers_list[idx] = f"{provider}ExecutionProvider"
 
     def get_run_config(self, tempdir) -> Dict:
+        self.refine_args()
+
         template_config = PerfTuningCommand.perf_tuning_template()
+
         perf_tuning_key = ("passes", "perf_tuning")
         system_device_key = ("systems", "local_system", "accelerators", 0, "device")
 
         data_configs = [self._get_data_config(template_config)]
         to_replace = [
-            (("input_model", "model_path"), self.args.model),
-            (("data_configs"), data_configs),
+            ("input_model", get_input_model_config(self.args)),
+            ("data_configs", data_configs),
             (perf_tuning_key, self._update_pass_config(template_config["passes"]["perf_tuning"])),
             (system_device_key, self.args.device),
             ((*perf_tuning_key, "data_config"), data_configs[0].name),
+            ("output_dir", tempdir),
         ]
 
         if self.args.providers_list:
@@ -313,29 +294,25 @@ class PerfTuningCommand(BaseOliveCLICommand):
         return config
 
     def run(self):
-        self.refine_args()
-        set_tempdir(self.args.tempdir)
-        with tempfile.TemporaryDirectory() as tempdir:
+        from olive.workflows import run as olive_run
+
+        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
-            run_config["output_dir"] = tempdir
+
             output = olive_run(run_config)
 
             if is_remote_run(self.args):
-                # TODO(jambayk): point user to datastore with outputs or download outputs
-                # both are not implemented yet
                 return
 
-            if get_output_model_number(output) > 0:
-                # need to improve the output structure of olive run
-                output_path = Path(self.args.output_path)
-                output_path.mkdir(parents=True, exist_ok=True)
-                for provider in self.args.providers_list:
-                    provider_key = provider.replace("ExecutionProvider", "").lower()
-                    infer_setting_output_path = output_path / f"{self.args.device}-{provider_key}.json"
-                    rls_json_path = Path(tempdir) / "perf_tuning" / f"{self.args.device}-{provider_key}_model.json"
-                    with rls_json_path.open() as f:
-                        infer_settings = json.load(f)["config"]["inference_settings"]
-                        json.dump(infer_settings, infer_setting_output_path.open("w"), indent=4)
-                print("Inference session parameters are saved to %s", output_path.resolve())
-            else:
-                print("Failed to run tune-session-params. Please set the log_level to 1 for more detailed logs.")
+            output_path = Path(self.args.output_path).resolve()
+            output_path.mkdir(parents=True, exist_ok=True)
+            for key, value in output.items():
+                if len(value.nodes) < 1:
+                    print(f"Tuning for {key} failed. Please set the log_level to 1 for more detailed logs.")
+                    continue
+
+                infer_setting_output_path = output_path / f"{key}.json"
+                infer_settings = value.get_model_inference_config(value.get_output_model_id())
+                with infer_setting_output_path.open("w") as f:
+                    json.dump(infer_settings, f, indent=4)
+            print(f"Inference session parameters are saved to {output_path}.")
