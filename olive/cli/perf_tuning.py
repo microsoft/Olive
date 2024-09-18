@@ -21,7 +21,7 @@ from olive.cli.base import (
     is_remote_run,
     update_remote_option,
 )
-from olive.common.utils import set_nested_dict_value, set_tempdir
+from olive.common.utils import set_nested_dict_value
 from olive.data.config import DataConfig
 
 
@@ -41,7 +41,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # model options
-        add_model_options(sub_parser, enable_onnx=True)
+        add_model_options(sub_parser, enable_onnx=True, default_output_path="tuned-inference-settings")
 
         # dataset options
         dataset_group = sub_parser.add_argument_group(
@@ -187,16 +187,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
             help="Whether enable profiling for ONNX Runtime inference.",
         )
 
-        sub_parser.add_argument(
-            "--output_path",
-            type=str,
-            default="perf_tuning_output",
-            help="Path to save the tuned inference settings.",
-        )
-        sub_parser.add_argument(
-            "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
-        )
-
         # remote options
         add_remote_options(sub_parser)
 
@@ -307,10 +297,9 @@ class PerfTuningCommand(BaseOliveCLICommand):
     def run(self):
         from olive.workflows import run as olive_run
 
-        set_tempdir(self.args.tempdir)
-
-        with tempfile.TemporaryDirectory() as tempdir:
+        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
+
             output = olive_run(run_config)
 
             if is_remote_run(self.args):

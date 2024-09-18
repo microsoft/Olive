@@ -261,10 +261,12 @@ def add_model_options(
     enable_hf_adapter: bool = False,
     enable_pt: bool = False,
     enable_onnx: bool = False,
+    default_output_path: Optional[str] = None,
 ):
     """Add model options to the sub_parser.
 
     Use enable_hf, enable_hf_adapter, enable_pt, enable_onnx to enable the corresponding model options.
+    If default_output_path is None, it is required to provide the output_path.
     """
     assert any([enable_hf, enable_hf_adapter, enable_pt, enable_onnx]), "At least one model option should be enabled."
 
@@ -316,6 +318,26 @@ def add_model_options(
             type=str,
             help="The directory containing the model script file.",
         )
+
+    model_group.add_argument(
+        "-o",
+        "--output_path",
+        type=output_path_type,
+        required=default_output_path is None,
+        default=default_output_path,
+        help="Path to save the command output.",
+    )
+
+
+def output_path_type(path: str) -> str:
+    """Resolve the output path and mkdir if it doesn't exist."""
+    path = Path(path).resolve()
+
+    if path.exists():
+        assert path.is_dir(), f"{path} is not a directory."
+
+    path.mkdir(parents=True, exist_ok=True)
+    return str(path)
 
 
 def is_remote_run(args: Namespace) -> bool:

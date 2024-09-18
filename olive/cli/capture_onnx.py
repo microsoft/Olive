@@ -17,7 +17,7 @@ from olive.cli.base import (
     save_output_model,
     update_remote_option,
 )
-from olive.common.utils import IntEnumBase, set_nested_dict_value, set_tempdir
+from olive.common.utils import IntEnumBase, set_nested_dict_value
 
 
 class ModelBuilderAccuracyLevel(IntEnumBase):
@@ -40,7 +40,9 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # model options
-        add_model_options(sub_parser, enable_hf=True, enable_hf_adapter=True, enable_pt=True)
+        add_model_options(
+            sub_parser, enable_hf=True, enable_hf_adapter=True, enable_pt=True, default_output_path="onnx-model"
+        )
 
         sub_parser.add_argument(
             "--device",
@@ -53,11 +55,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 "If 'cpu' is selected, the execution_providers will be set to CPUExecutionProvider."
                 "For PyTorch Exporter, the device is used to cast the model to before capturing the ONNX graph."
             ),
-        )
-
-        sub_parser.add_argument("-o", "--output_path", type=str, default="onnx-model", help="Output path")
-        sub_parser.add_argument(
-            "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
         )
 
         # PyTorch Exporter options
@@ -155,9 +152,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     def run(self):
         from olive.workflows import run as olive_run
 
-        set_tempdir(self.args.output_path)
-
-        with tempfile.TemporaryDirectory() as tempdir:
+        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
 
             olive_run(run_config)

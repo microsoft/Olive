@@ -17,7 +17,7 @@ from olive.cli.base import (
     save_output_model,
     update_remote_option,
 )
-from olive.common.utils import set_nested_dict_value, set_tempdir
+from olive.common.utils import set_nested_dict_value
 
 
 class GenerateAdapterCommand(BaseOliveCLICommand):
@@ -40,18 +40,12 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
         )
 
         # Model options
-        add_model_options(sub_parser, enable_hf=True, enable_hf_adapter=True)
+        add_model_options(sub_parser, enable_hf=True, enable_hf_adapter=True, default_output_path="optimized-model")
 
         sub_parser.add_argument(
             "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
         )
 
-        # directory options
-        sub_parser.add_argument("-o", "--output_path", type=str, default="optimized-model", help="Output path")
-        sub_parser.add_argument(
-            "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
-        )
-        # TODO(jambayk): what about checkpoint_dir and resume from checkpoint support? clean checkpoint dir?
         sub_parser.add_argument("--clean", action="store_true", help="Run in a clean cache directory")
 
         # remote options
@@ -62,9 +56,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
     def run(self):
         from olive.workflows import run as olive_run
 
-        set_tempdir(self.args.tempdir)
-
-        with tempfile.TemporaryDirectory() as tempdir:
+        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
 
             olive_run(run_config)

@@ -27,6 +27,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     commands_parser = parser.add_subparsers()
 
     # Register commands
+    # TODO(jambayk): Consider adding a common tempdir option to all commands
     # NOTE: The order of the commands is to organize the documentation better.
     WorkflowRunCommand.register_subcommand(commands_parser)
     CaptureOnnxGraphCommand.register_subcommand(commands_parser)

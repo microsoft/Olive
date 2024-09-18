@@ -17,7 +17,7 @@ from olive.cli.base import (
     save_output_model,
     update_remote_option,
 )
-from olive.common.utils import set_nested_dict_value, set_tempdir, unescaped_str
+from olive.common.utils import set_nested_dict_value, unescaped_str
 
 
 class FineTuneCommand(BaseOliveCLICommand):
@@ -36,7 +36,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # Model options
-        add_model_options(sub_parser, enable_hf=True)
+        add_model_options(sub_parser, enable_hf=True, default_output_path="finetuned-adapter")
 
         sub_parser.add_argument(
             "--torch_dtype",
@@ -109,11 +109,6 @@ class FineTuneCommand(BaseOliveCLICommand):
             "--target_modules", type=str, help="The target modules for LoRA. If multiple, separate by comma."
         )
 
-        # directory options
-        sub_parser.add_argument("-o", "--output_path", type=str, default="finetuned-adapter", help="Output path")
-        sub_parser.add_argument(
-            "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
-        )
         # TODO(jambayk): what about checkpoint_dir and resume from checkpoint support? clean checkpoint dir?
         sub_parser.add_argument("--clean", action="store_true", help="Run in a clean cache directory")
 
@@ -125,9 +120,7 @@ class FineTuneCommand(BaseOliveCLICommand):
     def run(self):
         from olive.workflows import run as olive_run
 
-        set_tempdir(self.args.tempdir)
-
-        with tempfile.TemporaryDirectory() as tempdir:
+        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
 
             olive_run(run_config)
