@@ -248,12 +248,12 @@ class Engine:
                     output_dir/output_footprints.json: footprint of the output models
 
                     A. One pass flow:
-                        output_dir/output_model_metrics.json: evaluation results of the output model
+                        output_dir/output_model/metrics.json: evaluation results of the output model
                         output_dir/output_model/model_config.json: output model configuration
                         output_dir/output_model/...: output model files
 
                     B. Multiple pass flows:
-                        output_dir/{pass_flow}/...: Same as A but for each pass flow
+                        output_dir/output_model/{pass_flow}/...: Same as A but for each pass flow
 
                 2. Multiple accelerator specs
                     output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec
@@ -408,7 +408,7 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
-        output_dir: str = None,
+        output_dir: Path,
         cloud_cache_config: "CloudCacheConfig" = None,
     ):
         """Run all the registered Olive pass flows in no-search mode."""
@@ -416,6 +416,9 @@ class Engine:
             if len(pass_item["pass"].search_space) > 0:
                 pass_name = pass_item["name"]
                 raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
+
+        # output models will be saved in output_dir/output_model
+        output_model_dir = Path(output_dir) / "output_model"
 
         output_model_ids = []
         for pass_flow in self.pass_flows:
@@ -439,20 +442,19 @@ class Engine:
                 )
                 continue
 
-            # use output dir if there is only one pass flow
-            # otherwise, create a subdirectory for each pass flow
-            flow_output_dir = output_dir / "-".join(pass_flow) if len(self.pass_flows) > 1 else output_dir
+            # use output_model_dir if there is only one pass flow
+            # else output_model_dir/pass_flow
+            flow_output_dir = output_model_dir / "-".join(pass_flow) if len(self.pass_flows) > 1 else output_model_dir
             flow_output_dir.mkdir(parents=True, exist_ok=True)
 
             if signal is not None:
-                results_path = flow_output_dir / "output_model_metrics.json"
+                results_path = flow_output_dir / "metrics.json"
                 with open(results_path, "w") as f:
                     json.dump(signal.to_json(), f, indent=4)
                 logger.info("Saved evaluation results of output model to %s", results_path)
 
-            output_model_path = flow_output_dir / "output_model"
-            self.cache.save_model(model_number=model_ids[-1], output_dir=output_model_path, overwrite=True)
-            logger.info("Saved output model to %s", output_model_path)
+            self.cache.save_model(model_number=model_ids[-1], output_dir=flow_output_dir, overwrite=True)
+            logger.info("Saved output model to %s", flow_output_dir)
 
             output_model_ids.append(model_ids[-1])
 
@@ -523,7 +525,9 @@ class Engine:
 
         return self.create_pareto_frontier_footprints(accelerator_spec, output_model_num, output_dir)
 
-    def create_pareto_frontier_footprints(self, accelerator_spec, output_model_num, output_dir):
+    def create_pareto_frontier_footprints(
+        self, accelerator_spec: "AcceleratorSpec", output_model_num: int, output_dir: Path
+    ):
         pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier(output_model_num)
         if not pf_footprints:
             return None
@@ -534,7 +538,7 @@ class Engine:
 
         return pf_footprints
 
-    def dump_run_history(self, run_history, output_path: str = None):
+    def dump_run_history(self, run_history, output_path: Path):
         if not run_history:
             logger.info("No run history to dump!")
             return
