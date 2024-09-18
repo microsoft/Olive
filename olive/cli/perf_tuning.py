@@ -264,14 +264,13 @@ class PerfTuningCommand(BaseOliveCLICommand):
         self.refine_args()
 
         template_config = PerfTuningCommand.perf_tuning_template()
-        template_config["input_model"] = get_input_model_config(self.args)
-        print(f"input_model: {template_config['input_model']}")
 
         perf_tuning_key = ("passes", "perf_tuning")
         system_device_key = ("systems", "local_system", "accelerators", 0, "device")
 
         data_configs = [self._get_data_config(template_config)]
         to_replace = [
+            ("input_model", get_input_model_config(self.args)),
             ("data_configs", data_configs),
             (perf_tuning_key, self._update_pass_config(template_config["passes"]["perf_tuning"])),
             (system_device_key, self.args.device),
