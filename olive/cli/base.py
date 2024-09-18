@@ -66,10 +66,28 @@ def _get_onnx_input_model(model_path: str) -> Dict:
     Only supports local ONNX model file path.
     """
     print(f"Loading ONNX model from {model_path}")
-    return {
+    model_config = {
         "type": "OnnxModel",
         "model_path": model_path,
     }
+
+    # additional processing for the model folder
+    model_path = Path(model_path).resolve()
+    if model_path.is_dir():
+        onnx_files = list(model_path.glob("*.onnx"))
+        if len(onnx_files) > 1:
+            raise ValueError("Found multiple .onnx model files in the model folder. Please specify one.")
+        onnx_file_path = onnx_files[0]
+        model_config["onnx_file_name"] = onnx_file_path.name
+
+        # all files other than the .onnx file and .onnx.data file considered as additional files
+        additional_files = sorted(
+            set({str(fp) for fp in model_path.iterdir()} - {str(onnx_file_path), str(onnx_file_path) + ".data"})
+        )
+        if additional_files:
+            model_config["model_attributes"] = {"additional_files": additional_files}
+
+    return model_config
 
 
 def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> Dict:
@@ -203,8 +221,8 @@ def get_input_model_config(args: Namespace) -> Dict:
             raise ValueError(f"{model_name_or_path} is not a valid Huggingface model name.")
         return _get_hf_input_model(args, model_name_or_path)
 
-    # Check local onnx file (user-provided model)
-    if model_path.is_file() and model_path.suffix == ".onnx":
+    # Check local onnx file/folder (user-provided model)
+    if (model_path.is_file() and model_path.suffix == ".onnx") or any(model_path.glob("*.onnx")):
         return _get_onnx_input_model(model_name_or_path)
 
     # Check local HF model file (user-provided model)
@@ -283,11 +301,11 @@ def add_model_options(
         )
     if enable_pt:
         m_description += (
-            " PyTorchModel: Path to the PyTorch model file. Local file/folder or AzureML model"
+            " PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model"
             " (azureml:<model_name>:<version>).\n"
         )
     if enable_onnx:
-        m_description += " OnnxModel: Path to the ONNX model file. Local file.\n"
+        m_description += " OnnxModel: Path to the ONNX model. Local file/folder.\n"
 
     model_group.add_argument(
         "-m",

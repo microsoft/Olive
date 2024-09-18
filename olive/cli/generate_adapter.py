@@ -25,9 +25,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
 
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
-        sub_parser = parser.add_parser(
-            "generate-adapter", help="Convert and optimize the model for ONNX Runtime with adapters as inputs"
-        )
+        sub_parser = parser.add_parser("generate-adapter", help="Generate ONNX model with adapters as inputs")
 
         add_logging_options(sub_parser)
 
@@ -40,7 +38,9 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
         )
 
         # Model options
-        add_model_options(sub_parser, enable_hf=True, enable_hf_adapter=True, default_output_path="optimized-model")
+        add_model_options(
+            sub_parser, enable_hf=True, enable_hf_adapter=True, enable_onnx=True, default_output_path="optimized-model"
+        )
 
         sub_parser.add_argument(
             "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
@@ -78,8 +78,6 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             (("clean_cache",), self.args.clean),
             ("output_dir", tempdir),
         ]
-        if self.args.trust_remote_code:
-            to_replace.append((("input_model", "load_kwargs", "trust_remote_code"), True))
 
         config = deepcopy(TEMPLATE)
         for keys, value in to_replace:
@@ -94,8 +92,10 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
         config["log_severity_level"] = self.args.log_level
 
         input_model_config = ModelConfig.parse_obj(config["input_model"])
-        if input_model_config.config.get("adapter_path") is None:
+        if input_model_config.type == "hfmodel" and input_model_config.config.get("adapter_path") is None:
             raise ValueError("adapter_path is required for generate-adapter command")
+        if input_model_config.type == "onnxmodel":
+            del config["passes"]["c"], config["passes"]["o"]
 
         return config
 
