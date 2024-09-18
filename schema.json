@@ -708,10 +708,6 @@
             }
           ]
         },
-        "output_name": {
-          "title": "Output Name",
-          "type": "string"
-        },
         "packaging_config": {
           "title": "Packaging Config",
           "anyOf": [
@@ -811,11 +807,6 @@
           "description": "Whether to clean the run cache before running the pass. If set to True, the cache related to all runs related to this pass type will be cleaned.",
           "default": false,
           "type": "boolean"
-        },
-        "output_name": {
-          "title": "Output Name",
-          "description": "Prefix of the name of the output of this pass in the output directory. Only used when the workflow is run in no-search mode. If not provided, only the output of the last pass will be saved.",
-          "type": "string"
         }
       },
       "required": [
