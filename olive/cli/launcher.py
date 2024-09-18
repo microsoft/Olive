@@ -27,14 +27,14 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     commands_parser = parser.add_subparsers()
 
     # Register commands
-    CaptureOnnxGraphCommand.register_subcommand(commands_parser)
     WorkflowRunCommand.register_subcommand(commands_parser)
+    CaptureOnnxGraphCommand.register_subcommand(commands_parser)
     FineTuneCommand.register_subcommand(commands_parser)
     GenerateAdapterCommand.register_subcommand(commands_parser)
     ExportAdaptersCommand.register_subcommand(commands_parser)
+    PerfTuningCommand.register_subcommand(commands_parser)
     ConfigureQualcommSDKCommand.register_subcommand(commands_parser)
     ManageAMLComputeCommand.register_subcommand(commands_parser)
-    PerfTuningCommand.register_subcommand(commands_parser)
     CloudCacheCommand.register_subcommand(commands_parser)
 
     return parser

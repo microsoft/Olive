@@ -44,7 +44,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     args.task is optional.
     args.adapter_path might not be present.
     """
-    print(f"Loading HuggingFace model from: {model_path}")
+    print(f"Loading HuggingFace model from {model_path}")
     input_model = {
         "type": "HfModel",
         "model_path": model_path,
@@ -65,7 +65,7 @@ def _get_onnx_input_model(model_path: str) -> Dict:
 
     Only supports local ONNX model file path.
     """
-    print(f"Loading ONNX model from: {model_path}")
+    print(f"Loading ONNX model from {model_path}")
     return {
         "type": "OnnxModel",
         "model_path": model_path,
@@ -95,7 +95,7 @@ def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
         input_model_config["script_dir"] = args.script_dir
 
     if model_path:
-        print("Loading PyTorch model from:", model_path)
+        print("Loading PyTorch model from", model_path)
         input_model_config["model_path"] = model_path
 
     if user_module_loader.has_function("_model_loader"):
@@ -151,6 +151,7 @@ def get_input_model_config(args: Namespace) -> Dict:
             assert model_config["type"].lower() == "hfmodel", "Only HfModel supports adapter_path."
             model_config["config"]["adapter_path"] = adapter_path
 
+        print(f"Loaded previous command output of type {model_config['type']} from {model_name_or_path}")
         return model_config
 
     # Check AzureML model
