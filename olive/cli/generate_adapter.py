@@ -40,7 +40,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
         )
 
         # Model options
-        add_model_options(sub_parser, adapter=True)
+        add_model_options(sub_parser, enable_hf=True, enable_hf_adapter=True)
 
         sub_parser.add_argument(
             "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
@@ -75,6 +75,8 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             save_output_model(run_config, self.args.output_path)
 
     def get_run_config(self, tempdir: str) -> Dict:
+        from olive.model import ModelConfig
+
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
             (("input_model", "adapter_path"), self.args.adapter_path),
@@ -98,6 +100,10 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
 
         update_remote_option(config, self.args, "generate-adapter", tempdir)
         config["log_severity_level"] = self.args.log_level
+
+        input_model_config = ModelConfig.parse_obj(config["input_model"])
+        if input_model_config.config.get("adapter_path") is None:
+            raise ValueError("adapter_path is required for generate-adapter command")
 
         return config
 

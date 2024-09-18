@@ -40,7 +40,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # model options
-        add_model_options(sub_parser)
+        add_model_options(sub_parser, enable_hf=True, enable_hf_adapter=True, enable_pt=True)
 
         sub_parser.add_argument(
             "--device",
@@ -169,9 +169,9 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
-        config["input_model"] = get_input_model_config(self.args)
 
         to_replace = [
+            ("input_model", get_input_model_config(self.args)),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
             (("systems", "local_system", "accelerators", 0, "device"), self.args.device),

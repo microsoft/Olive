@@ -41,7 +41,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # model options
-        add_model_options(sub_parser)
+        add_model_options(sub_parser, enable_onnx=True)
 
         # dataset options
         dataset_group = sub_parser.add_argument_group(

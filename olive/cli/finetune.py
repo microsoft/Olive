@@ -36,7 +36,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # Model options
-        add_model_options(sub_parser)
+        add_model_options(sub_parser, enable_hf=True)
 
         sub_parser.add_argument(
             "--torch_dtype",
@@ -157,6 +157,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         preprocess_key = ("data_configs", 0, "pre_process_data_config")
         finetune_key = ("passes", "f")
         to_replace = [
+            ("input_model", get_input_model_config(self.args)),
             ((*load_key, "data_name"), self.args.data_name),
             ((*load_key, "split"), self.args.train_split),
             (
@@ -178,7 +179,6 @@ class FineTuneCommand(BaseOliveCLICommand):
             to_replace.append(((*finetune_key, "target_modules"), self.args.target_modules.split(",")))
 
         config = deepcopy(TEMPLATE)
-        config["input_model"] = get_input_model_config(self.args)
 
         for keys, value in to_replace:
             if value is None:
