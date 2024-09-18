@@ -9,13 +9,13 @@ from typing import ClassVar, Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
+    add_input_model_options,
     add_logging_options,
-    add_model_options,
     add_remote_options,
     get_input_model_config,
     is_remote_run,
     save_output_model,
-    update_remote_option,
+    update_remote_options,
 )
 from olive.common.utils import IntEnumBase, set_nested_dict_value
 
@@ -40,7 +40,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # model options
-        add_model_options(
+        add_input_model_options(
             sub_parser, enable_hf=True, enable_hf_adapter=True, enable_pt=True, default_output_path="onnx-model"
         )
 
@@ -207,7 +207,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             if value is None:
                 continue
             set_nested_dict_value(config, keys, value)
-        update_remote_option(config, self.args, "capture-onnx-graph", tempdir)
+        update_remote_options(config, self.args, "capture-onnx-graph", tempdir)
 
         return config
 

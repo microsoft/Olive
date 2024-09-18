@@ -14,12 +14,15 @@ import yaml
 from olive.auto_optimizer.template_mapping import PERF_TUNING_TEMPLATE
 from olive.cli.base import (
     BaseOliveCLICommand,
+    add_accelerator_options,
+    add_hf_dataset_options,
+    add_input_model_options,
     add_logging_options,
-    add_model_options,
     add_remote_options,
     get_input_model_config,
     is_remote_run,
-    update_remote_option,
+    update_accelerator_options,
+    update_remote_options,
 )
 from olive.common.utils import set_nested_dict_value
 from olive.data.config import DataConfig
@@ -41,93 +44,33 @@ class PerfTuningCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # model options
-        add_model_options(sub_parser, enable_onnx=True, default_output_path="tuned-inference-settings")
+        add_input_model_options(sub_parser, enable_onnx=True, default_output_path="tuned-inference-settings")
 
-        # dataset options
-        dataset_group = sub_parser.add_argument_group(
-            "dataset options, which mutually exclusive with huggingface dataset options"
+        # dataconfig options
+        dataconfig_group = sub_parser.add_argument_group(
+            "DataConfig options, which mutually exclusive with huggingface dataset options"
         )
-        dataset_group.add_argument(
+        dataconfig_group.add_argument(
             "--data_config_path",
             type=str,
             help="Path to the data config file. It allows to customize the data config(json/yaml) for the model.",
         )
 
-        hf_dataset_group = sub_parser.add_argument_group(
-            "huggingface dataset options, if dataset options are not provided, "
-            "user should provide the following options to modify the default data config. "
-            "Please refer to olive.data.container.TransformersTokenDummyDataContainer for more details."
-        )
+        # hf dataset group
+        hf_dataset_group = add_hf_dataset_options(sub_parser)
+
         hf_dataset_group.add_argument(
             "--predict_with_kv_cache",
             action="store_true",
             help="Whether to use key-value cache for perf_tuning",
         )
-        hf_dataset_group.add_argument(
-            "--hf_model_name",
-            help="Huggingface model name used to load model configs from huggingface.",
-        )
-        hf_dataset_group.add_argument(
-            "--batch_size",
-            type=int,
-            help="Batch size of the input data.",
-        )
-        hf_dataset_group.add_argument(
-            "--seq_len",
-            type=int,
-            help="Sequence length to use for the input data.",
-        )
-        hf_dataset_group.add_argument(
-            "--past_seq_len",
-            type=int,
-            help="Past sequence length to use for the input data.",
-        )
-        hf_dataset_group.add_argument(
-            "--max_seq_len",
-            type=int,
-            help="Max sequence length to use for the input data.",
-        )
-        hf_dataset_group.add_argument(
-            "--shared_kv",
-            action="store_true",
-            help="Whether to enable share kv cache in the input data.",
-        )
-        hf_dataset_group.add_argument(
-            "--generative",
-            action="store_true",
-            help="Whether to enable generative mode in the input data.",
-        )
-        hf_dataset_group.add_argument(
-            "--ort_past_key_name",
-            type=str,
-            help="Past key name for the input data.",
-        )
-        hf_dataset_group.add_argument(
-            "--ort_past_value_name",
-            type=str,
-            help="Past value name for the input data.",
-        )
-        hf_dataset_group.add_argument(
-            "--max_samples",
-            type=int,
-            help="Max samples to use for the input data.",
-        )
-        hf_dataset_group.add_argument(
-            "--fields_no_batch",
-            nargs="*",
-            help="List of fields that should not be batched.",
-        )
+
+        # accelerator options
+        add_accelerator_options(sub_parser)
 
         # pass options
         pass_group = sub_parser.add_argument_group("pass options")
 
-        pass_group.add_argument(
-            "--device",
-            type=str,
-            default="cpu",
-            choices=["gpu", "cpu"],
-            help="Device to use for the model.",
-        )
         pass_group.add_argument(
             "--cpu_cores",
             type=int,
@@ -143,15 +86,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
             "--enable_cuda_graph",
             action="store_true",
             help="Whether enable CUDA Graph for CUDA execution provider.",
-        )
-        pass_group.add_argument(
-            "--providers_list",
-            type=str,
-            nargs="*",
-            help=(
-                "List of execution providers to use for ONNX model. They are case sensitive. "
-                "If not provided, all available providers will be used."
-            ),
         )
         pass_group.add_argument(
             "--execution_mode_list", type=int, nargs="*", help="Parallelism list between operators."
@@ -254,42 +188,28 @@ class PerfTuningCommand(BaseOliveCLICommand):
             )
         return DataConfig.parse_file_or_obj(self.args.data_config_path)
 
-    def refine_args(self):
-        self.args.providers_list = self.args.providers_list or []
-        for idx, provider in enumerate(self.args.providers_list):
-            if not provider.endswith("ExecutionProvider"):
-                self.args.providers_list[idx] = f"{provider}ExecutionProvider"
-
     def get_run_config(self, tempdir) -> Dict:
-        self.refine_args()
-
         template_config = PerfTuningCommand.perf_tuning_template()
 
         perf_tuning_key = ("passes", "perf_tuning")
-        system_device_key = ("systems", "local_system", "accelerators", 0, "device")
 
         data_configs = [self._get_data_config(template_config)]
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
             ("data_configs", data_configs),
             (perf_tuning_key, self._update_pass_config(template_config["passes"]["perf_tuning"])),
-            (system_device_key, self.args.device),
             ((*perf_tuning_key, "data_config"), data_configs[0].name),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
         ]
 
-        if self.args.providers_list:
-            system_ep_key = ("systems", "local_system", "accelerators", 0, "execution_providers")
-            to_replace.append((system_ep_key, self.args.providers_list))
-
         config = deepcopy(template_config)
         for k, v in to_replace:
-            if v is None:
-                continue
-            set_nested_dict_value(config, k, v)
+            if v is not None:
+                set_nested_dict_value(config, k, v)
 
-        update_remote_option(config, self.args, "perf-tuning", tempdir)
+        update_accelerator_options(self.args, config)
+        update_remote_options(config, self.args, "perf-tuning", tempdir)
 
         return config
 

@@ -9,15 +9,17 @@ from typing import ClassVar, Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
+    add_dataset_options,
+    add_input_model_options,
     add_logging_options,
-    add_model_options,
     add_remote_options,
     get_input_model_config,
     is_remote_run,
     save_output_model,
-    update_remote_option,
+    update_dataset_options,
+    update_remote_options,
 )
-from olive.common.utils import set_nested_dict_value, unescaped_str
+from olive.common.utils import set_nested_dict_value
 
 
 class FineTuneCommand(BaseOliveCLICommand):
@@ -36,7 +38,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # Model options
-        add_model_options(sub_parser, enable_hf=True, default_output_path="finetuned-adapter")
+        add_input_model_options(sub_parser, enable_hf=True, default_output_path="finetuned-adapter")
 
         sub_parser.add_argument(
             "--torch_dtype",
@@ -47,42 +49,8 @@ class FineTuneCommand(BaseOliveCLICommand):
         )
 
         # Dataset options
-        dataset_group = sub_parser.add_argument_group("dataset options")
-        dataset_group.add_argument(
-            "-d",
-            "--data_name",
-            type=str,
-            required=True,
-            help="The dataset name.",
-        )
-        # TODO(jambayk): currently only supports single file or list of files, support mapping
-        dataset_group.add_argument(
-            "--data_files", type=str, help="The dataset files. If multiple files, separate by comma."
-        )
-        dataset_group.add_argument("--train_split", type=str, default="train", help="The split to use for training.")
-        dataset_group.add_argument(
-            "--eval_split",
-            default="",
-            help="The dataset split to evaluate on.",
-        )
-        text_group = dataset_group.add_mutually_exclusive_group(required=True)
-        text_group.add_argument(
-            "--text_field",
-            type=str,
-            help="The text field to use for fine-tuning.",
-        )
-        text_group.add_argument(
-            "--text_template",
-            # using special string type to allow for escaped characters like \n
-            type=unescaped_str,
-            help=r"Template to generate text field from. E.g. '### Question: {prompt} \n### Answer: {response}'",
-        )
-        dataset_group.add_argument(
-            "--max_seq_len",
-            type=int,
-            default=1024,
-            help="Maximum sequence length for the data.",
-        )
+        add_dataset_options(sub_parser)
+
         # LoRA options
         lora_group = sub_parser.add_argument_group("lora options")
         lora_group.add_argument(
@@ -146,20 +114,9 @@ class FineTuneCommand(BaseOliveCLICommand):
         return {k: v for k, v in vars(training_args).items() if k in arg_keys}
 
     def get_run_config(self, tempdir: str) -> Dict:
-        load_key = ("data_configs", 0, "load_dataset_config")
-        preprocess_key = ("data_configs", 0, "pre_process_data_config")
         finetune_key = ("passes", "f")
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
-            ((*load_key, "data_name"), self.args.data_name),
-            ((*load_key, "split"), self.args.train_split),
-            (
-                (*load_key, "data_files"),
-                self.args.data_files.split(",") if self.args.data_files else None,
-            ),
-            ((*preprocess_key, "text_cols"), self.args.text_field),
-            ((*preprocess_key, "text_template"), self.args.text_template),
-            ((*preprocess_key, "max_seq_len"), self.args.max_seq_len),
             ((*finetune_key, "type"), self.args.method),
             ((*finetune_key, "torch_dtype"), self.args.torch_dtype),
             ((*finetune_key, "training_args"), self.parse_training_args()),
@@ -173,11 +130,11 @@ class FineTuneCommand(BaseOliveCLICommand):
             to_replace.append(((*finetune_key, "target_modules"), self.args.target_modules.split(",")))
 
         config = deepcopy(TEMPLATE)
+        update_dataset_options(self.args, config)
 
         for keys, value in to_replace:
-            if value is None:
-                continue
-            set_nested_dict_value(config, keys, value)
+            if value is not None:
+                set_nested_dict_value(config, keys, value)
 
         if self.args.eval_split:
             eval_data_config = deepcopy(config["data_configs"][0])
@@ -186,7 +143,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             config["data_configs"].append(eval_data_config)
             config["passes"]["f"]["eval_data_config"] = "eval_data"
 
-        update_remote_option(config, self.args, "finetune", tempdir)
+        update_remote_options(config, self.args, "finetune", tempdir)
 
         return config
 
@@ -206,6 +163,8 @@ TEMPLATE = {
             "type": "HuggingfaceContainer",
             "load_dataset_config": {},
             "pre_process_data_config": {},
+            "dataloader_config": {},
+            "post_process_data_config": {},
         }
     ],
     "passes": {"f": {"train_data_config": "train_data"}},

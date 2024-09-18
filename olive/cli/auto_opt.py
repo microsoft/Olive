@@ -9,13 +9,13 @@ from typing import ClassVar, Dict, List
 
 from olive.cli.base import (
     BaseOliveCLICommand,
+    add_input_model_options,
     add_logging_options,
-    add_model_options,
     add_remote_options,
     get_input_model_config,
     is_remote_run,
     save_output_model,
-    update_remote_option,
+    update_remote_options,
 )
 from olive.common.utils import hardlink_copy_dir, set_nested_dict_value
 
@@ -73,7 +73,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
 
         # Model options
-        add_model_options(
+        add_input_model_options(
             sub_parser,
             enable_hf=True,
             enable_hf_adapter=True,
@@ -270,7 +270,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             del config["evaluator"]
             del config["search_strategy"]
 
-        update_remote_option(config, self.args, "auto-opt", tempdir)
+        update_remote_options(config, self.args, "auto-opt", tempdir)
 
         return config
 

@@ -14,7 +14,7 @@ import yaml
 
 from olive.cli.constants import CONDA_CONFIG
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import hardlink_copy_dir, hash_dict, set_nested_dict_value
+from olive.common.utils import hardlink_copy_dir, hash_dict, set_nested_dict_value, unescaped_str
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, find_all_resources
 
 
@@ -229,6 +229,10 @@ def get_input_model_config(args: Namespace) -> Dict:
     return _get_hf_input_model(args, model_name_or_path)
 
 
+def update_input_model_options(args, config):
+    config["input_model"] = get_input_model_config(args)
+
+
 def add_logging_options(sub_parser: ArgumentParser):
     """Add logging options to the sub_parser."""
     log_group = sub_parser.add_argument_group("logging options")
@@ -238,6 +242,7 @@ def add_logging_options(sub_parser: ArgumentParser):
         default=3,
         help="Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL",
     )
+    return log_group
 
 
 def add_remote_options(sub_parser: ArgumentParser):
@@ -272,8 +277,10 @@ def add_remote_options(sub_parser: ArgumentParser):
         help="The compute name to run the workflow on.",
     )
 
+    return remote_group
 
-def add_model_options(
+
+def add_input_model_options(
     sub_parser: ArgumentParser,
     enable_hf: bool = False,
     enable_hf_adapter: bool = False,
@@ -318,6 +325,7 @@ def add_model_options(
             "--trust_remote_code", action="store_true", help="Trust remote code when loading a model."
         )
         model_group.add_argument("-t", "--task", type=str, help="Task for which the model is used.")
+
     if enable_hf_adapter:
         assert enable_hf, "enable_hf must be True when enable_hf_adapter is True."
         model_group.add_argument(
@@ -345,6 +353,7 @@ def add_model_options(
         default=default_output_path,
         help="Path to save the command output.",
     )
+    return model_group
 
 
 def output_path_type(path: str) -> str:
@@ -363,7 +372,7 @@ def is_remote_run(args: Namespace) -> bool:
     return all([args.resource_group, args.workspace_name, args.aml_compute])
 
 
-def update_remote_option(config: Dict, args: Namespace, cli_action: str, tempdir: Union[str, Path]):
+def update_remote_options(config: Dict, args: Namespace, cli_action: str, tempdir: Union[str, Path]):
     """Update the config for remote run."""
     if args.resource_group or args.workspace_name or args.aml_compute:
         if not is_remote_run(args):
@@ -373,7 +382,7 @@ def update_remote_option(config: Dict, args: Namespace, cli_action: str, tempdir
 
         try:
             subscription_id = json.loads(subprocess.check_output("az account show", shell=True).decode("utf-8"))["id"]
-            print("Using Azure subscription ID: %s", subscription_id)
+            print(f"Using Azure subscription ID: {subscription_id}")
 
         except subprocess.CalledProcessError:
             print(
@@ -444,3 +453,220 @@ def save_output_model(config: Dict, output_model_dir: Union[str, Path]):
             json.dump(model_config, f, indent=4)
 
     print(f"Command succeeded. Output model saved to {output_model_dir}")
+
+
+def add_dataset_options(sub_parser, required=True, include_train=True, include_eval=True):
+    dataset_group = sub_parser.add_argument_group("dataset options")
+    dataset_group.add_argument(
+        "-d",
+        "--data_name",
+        type=str,
+        required=required,
+        help="The dataset name.",
+    )
+
+    if include_train:
+        dataset_group.add_argument("--train_subset", type=str, help="The subset to use for training.")
+        dataset_group.add_argument("--train_split", type=str, default="train", help="The split to use for training.")
+
+    if include_eval:
+        dataset_group.add_argument("--eval_subset", type=str, help="The subset to use for evaluation.")
+        dataset_group.add_argument("--eval_split", default="", help="The dataset split to evaluate on.")
+
+    if not (include_train and include_eval):
+        dataset_group.add_argument("--subset", type=str, help="The subset of the dataset to use.")
+        dataset_group.add_argument("--split", type=str, help="The dataset split to use.")
+
+    # TODO(jambayk): currently only supports single file or list of files, support mapping
+    dataset_group.add_argument(
+        "--data_files", type=str, help="The dataset files. If multiple files, separate by comma."
+    )
+
+    text_group = dataset_group.add_mutually_exclusive_group(required=False)
+    text_group.add_argument(
+        "--text_field",
+        type=str,
+        help="The text field to use for fine-tuning.",
+    )
+    text_group.add_argument(
+        "--text_template",
+        # using special string type to allow for escaped characters like \n
+        type=unescaped_str,
+        help=r"Template to generate text field from. E.g. '### Question: {prompt} \n### Answer: {response}'",
+    )
+    dataset_group.add_argument(
+        "--max_seq_len",
+        type=int,
+        default=1024,
+        help="Maximum sequence length for the data.",
+    )
+    dataset_group.add_argument(
+        "--add_special_tokens",
+        type=bool,
+        default=False,
+        help="Whether to add special tokens during preprocessing.",
+    )
+    dataset_group.add_argument(
+        "--max_samples",
+        type=int,
+        default=256,
+        help="Maximum samples to select from the dataset.",
+    )
+    dataset_group.add_argument(
+        "--batch_size",
+        type=int,
+        default=1,
+        help="Batch size.",
+    )
+
+    return dataset_group, text_group
+
+
+def update_dataset_options(args, config):
+    load_key = ("data_configs", 0, "load_dataset_config")
+    preprocess_key = ("data_configs", 0, "pre_process_data_config")
+    dataloader_key = ("data_configs", 0, "dataloader_config")
+    split = args.train_split if hasattr(args, "train_split") else args.split
+    subset = args.train_subset if hasattr(args, "train_subset") else args.subset
+
+    to_replace = [
+        ((*load_key, "data_name"), args.data_name),
+        ((*load_key, "split"), split),
+        ((*load_key, "subset"), subset),
+        (
+            (*load_key, "data_files"),
+            args.data_files.split(",") if args.data_files else None,
+        ),
+        ((*preprocess_key, "text_cols"), args.text_field),
+        ((*preprocess_key, "text_template"), args.text_template),
+        ((*preprocess_key, "max_seq_len"), args.max_seq_len),
+        ((*preprocess_key, "add_special_tokens"), args.add_special_tokens),
+        ((*preprocess_key, "max_samples"), args.max_samples),
+        ((*dataloader_key, "batch_size"), args.batch_size),
+    ]
+    for keys, value in to_replace:
+        if value is not None:
+            set_nested_dict_value(config, keys, value)
+
+
+def add_hf_dataset_options(sub_parser):
+    hf_dataset_group = sub_parser.add_argument_group(
+        "huggingface dataset options, if dataset options are not provided, "
+        "user should provide the following options to modify the default data config. "
+        "Please refer to olive.data.container.TransformersTokenDummyDataContainer for more details."
+    )
+    hf_dataset_group.add_argument(
+        "--hf_model_name",
+        help="Huggingface model name used to load model configs from huggingface.",
+    )
+    hf_dataset_group.add_argument(
+        "--batch_size",
+        type=int,
+        help="Batch size of the input data.",
+    )
+    hf_dataset_group.add_argument(
+        "--seq_len",
+        type=int,
+        help="Sequence length to use for the input data.",
+    )
+    hf_dataset_group.add_argument(
+        "--past_seq_len",
+        type=int,
+        help="Past sequence length to use for the input data.",
+    )
+    hf_dataset_group.add_argument(
+        "--max_seq_len",
+        type=int,
+        help="Max sequence length to use for the input data.",
+    )
+    hf_dataset_group.add_argument(
+        "--shared_kv",
+        action="store_true",
+        help="Whether to enable share kv cache in the input data.",
+    )
+    hf_dataset_group.add_argument(
+        "--generative",
+        action="store_true",
+        help="Whether to enable generative mode in the input data.",
+    )
+    hf_dataset_group.add_argument(
+        "--ort_past_key_name",
+        type=str,
+        help="Past key name for the input data.",
+    )
+    hf_dataset_group.add_argument(
+        "--ort_past_value_name",
+        type=str,
+        help="Past value name for the input data.",
+    )
+    # TODO(all): Argument conflicting with use of the same name in model options
+    # hf_dataset_group.add_argument(
+    #     "--trust_remote_code",
+    #     action="store_true",
+    #     help="Whether to trust remote code in the input data.",
+    # )
+    hf_dataset_group.add_argument(
+        "--max_samples",
+        type=int,
+        help="Max samples to use for the input data.",
+    )
+    hf_dataset_group.add_argument(
+        "--fields_no_batch",
+        nargs="*",
+        help="List of fields that should not be batched.",
+    )
+
+    return hf_dataset_group
+
+
+def add_accelerator_options(sub_parser):
+    accelerator_group = sub_parser.add_argument_group("accelerator group")
+
+    accelerator_group.add_argument(
+        "--device",
+        type=str,
+        default="cpu",
+        choices=["gpu", "cpu", "npu"],
+        help="Device to use for the model.",
+    )
+
+    accelerator_group.add_argument(
+        "--providers_list",
+        type=str,
+        nargs="*",
+        choices=[
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider",
+            "DmlExecutionProvider",
+            "JsExecutionProvider",
+            "MIGraphXExecutionProvider",
+            "OpenVINOExecutionProvider",
+            "OpenVINOExecutionProvider",
+            "QNNExecutionProviderROCMExecutionProvider",
+            "TensorrtExecutionProvider",
+        ],
+        help=(
+            "List of execution providers to use for ONNX model. They are case sensitive. "
+            "If not provided, all available providers will be used."
+        ),
+    )
+
+    return accelerator_group
+
+
+def update_accelerator_options(args, config):
+    to_replace = [
+        (("systems", "local_system", "accelerators", 0, "device"), args.device),
+    ]
+
+    args.providers_list = args.providers_list or []
+    for idx, provider in enumerate(args.providers_list):
+        if not provider.endswith("ExecutionProvider"):
+            args.providers_list[idx] = f"{provider}ExecutionProvider"
+
+    if args.providers_list:
+        to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), args.providers_list))
+
+    for k, v in to_replace:
+        if v is not None:
+            set_nested_dict_value(config, k, v)

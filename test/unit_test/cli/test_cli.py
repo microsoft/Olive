@@ -252,5 +252,50 @@ def test_cloud_cache_command(_, mock_container_client, test_set):
     mock_container_client().delete_blob.assert_called_once()
 
 
+@pytest.mark.parametrize("algorithm_names", [{"awq"}, {"awq", "gptq"}])
+@patch("olive.workflows.run")
+@patch("olive.cli.finetune.tempfile.TemporaryDirectory")
+@patch("huggingface_hub.repo_exists")
+def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_names, tmp_path):
+    # some directories
+    tmpdir = tmp_path / "tmpdir"
+    tmpdir.mkdir()
+
+    output_dir = tmp_path / "output_dir"
+
+    # setup
+    mock_repo_exists.return_value = True
+    mock_tempdir.return_value = tmpdir.resolve()
+    mock_run.return_value = {}
+
+    for algo_name in algorithm_names:
+        workflow_output_dir = tmpdir / "output_model" / algo_name
+        workflow_output_dir.mkdir(parents=True)
+        model_config_path = workflow_output_dir / "model_config.json"
+        with model_config_path.open("w") as f:
+            f.write("{}")
+
+    # setup
+    command_args = [
+        "quantize",
+        "-m",
+        "dummy_model",
+        "--algorithms",
+        *algorithm_names,
+        "-o",
+        str(output_dir),
+    ]
+
+    if "gptq" in algorithm_names:
+        command_args += ["-d", "dummy_dataset"]
+
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == "dummy_model"
+    assert {el.name for el in output_dir.iterdir()} == algorithm_names
+
+
 # TODO(anyone): Add tests for ManageAMLComputeCommand
 # Test for ExportAdaptersCommand is added as part of test/unit_test/passes/onnx/test_export_adapters.py
