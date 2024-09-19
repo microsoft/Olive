@@ -70,3 +70,18 @@ MODEL_TYPE_MAPPING = {
     "llama": "gpt2",
     "roberta": "bert",
 }
+
+MODEL_OUTSIDE_LAYER_MODULES = {
+    "phi3": ["model.embed_tokens", "embed_dropout", "model.norm"],
+}
+
+MODEL_INSIDE_LAYER_MODULES = {
+    "phi3": [
+        ["self_attn.qkv_proj"],
+        ["self_attn.o_proj"],
+        ["mlp.gate_up_proj"],
+        ["mlp.down_proj"],
+    ]
+}
+
+MODEL_LAYERS_BLOCK_NAME = {"phi3": "model.layers"}

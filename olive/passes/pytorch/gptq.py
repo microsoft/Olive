@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Union
 import torch
 
 from olive.common.config_utils import validate_config
+from olive.common.hf.mappings import MODEL_INSIDE_LAYER_MODULES, MODEL_LAYERS_BLOCK_NAME, MODEL_OUTSIDE_LAYER_MODULES
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, PyTorchModelHandler
@@ -41,9 +42,9 @@ class GptqQuantizer(Pass):
             ),
             "layers_block_name": PassConfigParam(
                 type_=str,
-                default_value="model.layers",
+                default_value=None,
                 description=(
-                    "Block name to quantize. Default value is model.layers. "
+                    "Block name to quantize. "
                     "For models can't be auto filled, you can refer this link to fill these parameters.\n"
                     "https://github.com/AutoGPTQ/AutoGPTQ/blob/896d8204bc89a7cfbda42bf3314e13cf4ce20b02/auto_gptq/modeling/llama.py#L19-L26"
                 ),
@@ -166,20 +167,24 @@ class GptqQuantizer(Pass):
         def get_onnx_quant_linear(*args, **kwargs):
             return QuantLinear
 
-        if hasattr(pytorch_model, "config") and pytorch_model.config.model_type in GPTQ_CAUSAL_LM_MODEL_MAP:
-            model_type = pytorch_model.config.model_type
-            model_class = GPTQ_CAUSAL_LM_MODEL_MAP[model_type]
-            quantized_model = model_class(pytorch_model, False, quantize_config)
-        else:
-            quantized_model = BaseGPTQForCausalLM(pytorch_model, False, quantize_config)
-            if not (config["layers_block_name"] and config["outside_layer_modules"] and config["inside_layer_modules"]):
-                raise ValueError(
-                    "Can't get layers_block_name to quantize automatically, "
-                    "please set layers_block_name, outside_layer_modules and inside_layer_modules in config."
-                )
-            quantized_model.layers_block_name = config["layers_block_name"]
-            quantized_model.outside_layer_modules = config["outside_layer_modules"]
-            quantized_model.inside_layer_modules = config["inside_layer_modules"]
+        model_type = pytorch_model.config.model_type if hasattr(pytorch_model, "config") else ""
+        model_class = GPTQ_CAUSAL_LM_MODEL_MAP.get(model_type, BaseGPTQForCausalLM)
+        quantized_model = model_class(pytorch_model, False, quantize_config)
+
+        fields_to_set = {
+            "outside_layer_modules": MODEL_OUTSIDE_LAYER_MODULES,
+            "inside_layer_modules": MODEL_INSIDE_LAYER_MODULES,
+            "layers_block_name": MODEL_LAYERS_BLOCK_NAME,
+        }
+
+        for key, value in fields_to_set.items():
+            if config[key]:
+                setattr(quantized_model, key, config[key])
+            elif model_type not in GPTQ_CAUSAL_LM_MODEL_MAP:
+                if model_type in value:
+                    setattr(quantized_model, key, value[model_type])
+                else:
+                    raise ValueError(f"Can't get {key} to quantize automatically, please provide it in config.")
 
         import auto_gptq
 
