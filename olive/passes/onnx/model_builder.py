@@ -31,6 +31,7 @@ class ModelBuilder(Pass):
     class Precision(StrEnumBase):
         FP32 = "fp32"
         FP16 = "fp16"
+        INT8 = "int8"
         INT4 = "int4"
 
     class AccuracyLevel(IntEnumBase):

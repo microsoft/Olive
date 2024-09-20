@@ -143,9 +143,9 @@ def test_transformer_optimization_invalid_model_type(tmp_path):
     p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
     output_folder = str(tmp_path / "onnx")
 
-    with pytest.raises(ValueError):  # noqa: PT011
-        # execute
-        p.run(input_model, output_folder)
+    output = p.run(input_model, output_folder)
+
+    assert output == input_model
 
 
 @patch("onnxruntime.transformers.optimizer.optimize_model")

@@ -44,6 +44,8 @@ class AutoOptimizerConfig(ConfigBase):
     # if fine_tune is True, we will not suggest the training related pass, like: QLora
     # fine_tune: bool = False
 
+    excluded_passes: Optional[List[str]] = None
+
     @validator("opt_level", pre=True)
     def check_opt_level(cls, v):
         if v != 0:
@@ -76,10 +78,7 @@ class AutoOptimizer(RegulatePassConfigMixin):
         # if user can tolerate accuracy drop, we can enable more optimization
         default_precisions = [Precision.FP32]
         if self.is_accuracy_drop_tolerance:
-            # ignore int4 for now as it is not supported very well in onnxruntime
-            # enable it only when user explicitly set it
-            # default_precisions = [Precision.FP32, Precision.FP16, Precision.INT8, Precision.INT4]
-            default_precisions = [Precision.FP32, Precision.FP16, Precision.INT8]
+            default_precisions = [Precision.FP32, Precision.FP16, Precision.INT8, Precision.INT4]
         self.auto_optimizer_config.precisions = self.auto_optimizer_config.precisions or default_precisions
 
     def suggest(self):
@@ -92,11 +91,11 @@ class AutoOptimizer(RegulatePassConfigMixin):
         return self._regulate(self._suggest_pass_flows())
 
     def _suggest_pass_flows(self):
-        pass_flows_by_precision = []
+        pass_flows = []
         if self.auto_optimizer_config.opt_level == 0:
-            pass_flows_by_precision = self._suggest_pass_flows_from_template()
+            pass_flows = self._suggest_pass_flows_from_template()
 
-        return pass_flows_by_precision
+        return pass_flows
 
     def _suggest_pass_flows_from_template(self):
         from olive.auto_optimizer.template_mapping import get_pass_flows_by_accelerator_ep_precision
@@ -110,6 +109,7 @@ class AutoOptimizer(RegulatePassConfigMixin):
                 self.accelerator_spec.accelerator_type.value,
                 self.accelerator_spec.execution_provider,
                 precision,
+                self.auto_optimizer_config.excluded_passes,
             )
         return pass_flows_by_precision
 
@@ -120,4 +120,6 @@ class AutoOptimizer(RegulatePassConfigMixin):
         pass_config, pass_flows = self.regulate_pass_flows_dict(pass_flows_by_precision)
 
         # step2: fill the data_config for the passes that need data_config
-        return self.regulate_data_config(pass_config, pass_flows)
+        pass_config, pass_flows = self.regulate_data_config(pass_config, pass_flows)
+
+        return pass_config, pass_flows

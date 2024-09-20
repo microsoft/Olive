@@ -105,6 +105,7 @@
     },
     "extra_dependencies": {
         "azureml": [ "azure-ai-ml>=1.11.1", "azure-keyvault-secrets", "azure-identity", "azureml-fsspec" ],
+        "auto-opt": [ "optimum" ],
         "docker": [ "docker" ],
         "cpu": [ "onnxruntime" ],
         "gpu": [ "onnxruntime-gpu" ],

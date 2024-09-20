@@ -5,6 +5,7 @@
 
 _variables:
   - &fp32 ["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"]
+  - &mp ["ModelBuilder", "OrtPerfTuning"]
   - &fp16 ["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"]
   - &mixed_fp16 [
       "OnnxConversion",
@@ -42,12 +43,15 @@ mapping:
   gpu_cuda_fp32:
     # skip OptimumConversion for now as it wil be merged into OnnxConversion
     - *fp32
+    - *mp
   gpu_cuda_fp16:
     - *fp16
     - *mixed_fp16
+    - *mp
   gpu_cuda_int4:
     # TODO(anyone): unify int4 quantization
     - *int4
+    - *mp
 
   # gpu, TensorrtExecutionProvider, precision: fp32, fp16
   gpu_tensorrt_fp32:
@@ -65,11 +69,14 @@ mapping:
   # cpu, CPUExecutionProvider, precision: fp32, fp16, int8, int4
   cpu_cpu_fp32:
     - *fp32
+    - *mp
   cpu_cpu_int8:
     - *int8
     - *inc_int8
+    - *mp
   cpu_cpu_int4:
     - *int4
+    - *mp
 
   # npu, VitisAIExecutionProvider, precision: fp32, int8
   npu_vitisai_fp32:

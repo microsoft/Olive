@@ -69,6 +69,7 @@ MODEL_TYPE_MAPPING = {
     "gpt-j": "gpt2",
     "llama": "gpt2",
     "roberta": "bert",
+    "phi3": "phi",
 }
 
 MODEL_OUTSIDE_LAYER_MODULES = {

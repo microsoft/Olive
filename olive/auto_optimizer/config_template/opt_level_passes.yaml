@@ -14,7 +14,7 @@
   # OnnxConversion -> OrtTransformersOptimization -> IncQuantization -> OrtPerfTuning
   # and etc.
 
-  - [OnnxConversion]
+  - [OnnxConversion, ModelBuilder]
   - [OrtTransformersOptimization]
-  - [OrtMixedPrecision, OnnxQuantization, IncQuantization, VitisAIQuantization, OnnxMatMul4Quantizer]
+  - [OnnxQuantization, IncQuantization, VitisAIQuantization, OnnxMatMul4Quantizer, OrtMixedPrecision]
   - [OrtPerfTuning]

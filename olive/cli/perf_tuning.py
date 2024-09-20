@@ -276,6 +276,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
             (system_device_key, self.args.device),
             ((*perf_tuning_key, "data_config"), data_configs[0].name),
             ("output_dir", tempdir),
+            ("log_severity_level", self.args.log_level),
         ]
 
         if self.args.providers_list:
@@ -289,7 +290,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
             set_nested_dict_value(config, k, v)
 
         update_remote_option(config, self.args, "perf-tuning", tempdir)
-        config["log_severity_level"] = self.args.log_level
 
         return config
 

@@ -15,7 +15,8 @@ from olive.cli.launcher import main as cli_main
 
 @pytest.mark.parametrize("console_script", [True, False])
 @pytest.mark.parametrize(
-    "command", ["run", "configure-qualcomm-sdk", "manage-aml-compute", "export-adapters", "tune-session-params"]
+    "command",
+    ["run", "configure-qualcomm-sdk", "manage-aml-compute", "export-adapters", "tune-session-params", "auto-opt"],
 )
 def test_valid_command(console_script, command):
     # setup
