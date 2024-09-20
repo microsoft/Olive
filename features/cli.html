@@ -80,6 +80,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#argparse-documentation">Argparse Documentation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#Sub-commands">Sub-commands</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#run">run</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#auto-opt">auto-opt</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#capture-onnx-graph">capture-onnx-graph</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#finetune">finetune</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#generate-adapter">generate-adapter</a></li>
@@ -264,6 +265,160 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
 </dl>
 </section>
 </section>
+<section id="auto-opt">
+<h4>auto-opt<a class="headerlink" href="#auto-opt" title="Permalink to this heading">¶</a></h4>
+<p>Automatically performance optimize input model</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">providers</span> <span class="p">[{</span><span class="n">CPU</span><span class="p">,</span><span class="n">CUDA</span><span class="p">,</span><span class="n">Tensorrt</span><span class="p">,</span><span class="n">Dml</span><span class="p">,</span><span class="n">VitisAI</span><span class="p">,</span><span class="n">Qnn</span><span class="p">}</span> <span class="p">[{</span><span class="n">CPU</span><span class="p">,</span><span class="n">CUDA</span><span class="p">,</span><span class="n">Tensorrt</span><span class="p">,</span><span class="n">Dml</span><span class="p">,</span><span class="n">VitisAI</span><span class="p">,</span><span class="n">Qnn</span><span class="p">}</span> <span class="o">...</span><span class="p">]]]</span>
+               <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">split</span> <span class="n">SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">subset</span> <span class="n">SUBSET</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">precisions</span> <span class="p">[{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">}</span> <span class="p">[{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">}</span> <span class="o">...</span><span class="p">]]]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">excluded_passes</span> <span class="p">[</span><span class="n">EXCLUDED_PASSES</span> <span class="p">[</span><span class="n">EXCLUDED_PASSES</span> <span class="o">...</span><span class="p">]]]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">num_samples</span> <span class="n">NUM_SAMPLES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">search_order</span> <span class="p">{</span><span class="n">joint</span><span class="p">,</span><span class="k">pass</span><span class="o">-</span><span class="n">by</span><span class="o">-</span><span class="k">pass</span><span class="p">}]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">search_algorithm</span> <span class="p">{</span><span class="n">exhaustive</span><span class="p">,</span><span class="n">tpe</span><span class="p">,</span><span class="n">random</span><span class="p">}]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
+               <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
+</pre></div>
+</div>
+<section id="logging-options">
+<h5>logging options<a class="headerlink" href="#logging-options" title="Permalink to this heading">¶</a></h5>
+<dl class="option-list">
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
+</dd>
+</dl>
+</section>
+<section id="model-options">
+<h5>Model options<a class="headerlink" href="#model-options" title="Permalink to this heading">¶</a></h5>
+<dl class="option-list">
+<dt><kbd>-m, --model_name_or_path</kbd></dt>
+<dd><dl class="simple">
+<dt>Path to the input model. Can the be output of a previous command or a standalone model. For standalone models, the following formats are supported:</dt><dd><p>HfModel: The name or path to the model. Local folder, huggingface id, or AzureML Registry model (azureml://registries/&lt;registry_name&gt;/models/&lt;model_name&gt;/versions/&lt;version&gt;).
+PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azureml:&lt;model_name&gt;:&lt;version&gt;).
+OnnxModel: Path to the ONNX model. Local file/folder.</p>
+</dd>
+</dl>
+</dd>
+<dt><kbd>--trust_remote_code</kbd></dt>
+<dd><p>Trust remote code when loading a model.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>-t, --task</kbd></dt>
+<dd><p>Task for which the model is used.</p>
+</dd>
+<dt><kbd>--adapter_path</kbd></dt>
+<dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
+</dd>
+<dt><kbd>--model_script</kbd></dt>
+<dd><p>The script file containing the model definition. Required for PyTorch model.</p>
+</dd>
+<dt><kbd>--script_dir</kbd></dt>
+<dd><p>The directory containing the model script file.</p>
+</dd>
+<dt><kbd>-o, --output_path</kbd></dt>
+<dd><p>Path to save the command output.</p>
+<p>Default: auto-opt-output</p>
+</dd>
+</dl>
+</section>
+<section id="system-options">
+<h5>system options<a class="headerlink" href="#system-options" title="Permalink to this heading">¶</a></h5>
+<dl class="option-list">
+<dt><kbd>--device</kbd></dt>
+<dd><p>Possible choices: cpu, gpu, npu</p>
+<p>Device to use for optimization, choose from cpu and gpu. If not specified, will deduce from the value of execution providers, CPU/VistisAi for cpu and CUDA/Tensorrt/Dml for gpu. If both device and execution providers are not specified, default to cpu device with CPUExecutionProvider.</p>
+</dd>
+<dt><kbd>--providers</kbd></dt>
+<dd><p>Possible choices: CPU, CUDA, Tensorrt, Dml, VitisAI, Qnn</p>
+<p>List of execution providers to use for optimization</p>
+</dd>
+</dl>
+</section>
+<section id="dataset-options,-required-for-some-optimization-passes-like-quantization,-and-evaluation-components">
+<h5>dataset options, required for some optimization passes like quantization, and evaluation components<a class="headerlink" href="#dataset-options,-required-for-some-optimization-passes-like-quantization,-and-evaluation-components" title="Permalink to this heading">¶</a></h5>
+<dl class="option-list">
+<dt><kbd>-d, --data_name</kbd></dt>
+<dd><p>The dataset name.</p>
+</dd>
+<dt><kbd>--split</kbd></dt>
+<dd><p>The dataset split to use for evaluation.</p>
+</dd>
+<dt><kbd>--subset</kbd></dt>
+<dd><p>The dataset subset to use for evaluation.</p>
+</dd>
+<dt><kbd>--input_cols</kbd></dt>
+<dd><p>The input columns to use for evaluation.</p>
+</dd>
+<dt><kbd>--batch_size</kbd></dt>
+<dd><p>Batch size for evaluation.</p>
+<p>Default: 1</p>
+</dd>
+</dl>
+</section>
+<section id="auto-optimizer-options">
+<h5>auto optimizer options<a class="headerlink" href="#auto-optimizer-options" title="Permalink to this heading">¶</a></h5>
+<dl class="option-list">
+<dt><kbd>--precisions</kbd></dt>
+<dd><p>Possible choices: fp16, fp32, int4, int8</p>
+<p>The output precision of the optimized model. If not specified, the default precision is fp32 for cpu and fp16 for gpu</p>
+</dd>
+<dt><kbd>--excluded_passes</kbd></dt>
+<dd><p>List of passes to disable for optimization, if not specified, auto-opt will disable ModelBuilder/OrtPerfTuning by default.</p>
+</dd>
+<dt><kbd>--use_model_builder</kbd></dt>
+<dd><p>Whether to use model builder pass for optimization, enable only when the model is supported by model builder</p>
+<p>Default: False</p>
+</dd>
+</dl>
+</section>
+<section id="search-strategy-options">
+<h5>search strategy options<a class="headerlink" href="#search-strategy-options" title="Permalink to this heading">¶</a></h5>
+<dl class="option-list">
+<dt><kbd>--num_samples</kbd></dt>
+<dd><p>Number of samples for search algorithm</p>
+<p>Default: 5</p>
+</dd>
+<dt><kbd>--seed</kbd></dt>
+<dd><p>Random seed for search algorithm</p>
+<p>Default: 0</p>
+</dd>
+<dt><kbd>--search_order</kbd></dt>
+<dd><p>Possible choices: joint, pass-by-pass</p>
+<p>Execution order for search strategy</p>
+<p>Default: “joint”</p>
+</dd>
+<dt><kbd>--search_algorithm</kbd></dt>
+<dd><p>Possible choices: exhaustive, tpe, random</p>
+<p>Search algorithm for search strategy</p>
+<p>Default: “tpe”</p>
+</dd>
+</dl>
+</section>
+<section id="remote-options">
+<h5>remote options<a class="headerlink" href="#remote-options" title="Permalink to this heading">¶</a></h5>
+<dl class="option-list">
+<dt><kbd>--resource_group</kbd></dt>
+<dd><p>Resource group for the AzureML workspace.</p>
+</dd>
+<dt><kbd>--workspace_name</kbd></dt>
+<dd><p>Workspace name for the AzureML workspace.</p>
+</dd>
+<dt><kbd>--keyvault_name</kbd></dt>
+<dd><p>The azureml keyvault name with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login</a> for more details.</p>
+</dd>
+<dt><kbd>--aml_compute</kbd></dt>
+<dd><p>The compute name to run the workflow on.</p>
+</dd>
+</dl>
+</section>
+</section>
 <section id="capture-onnx-graph">
 <h4>capture-onnx-graph<a class="headerlink" href="#capture-onnx-graph" title="Permalink to this heading">¶</a></h4>
 <p>Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model.</p>
@@ -299,8 +454,8 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
 </dd>
 </dl>
 </section>
-<section id="logging-options">
-<h5>logging options<a class="headerlink" href="#logging-options" title="Permalink to this heading">¶</a></h5>
+<section id="logging-options_repeat1">
+<h5>logging options<a class="headerlink" href="#logging-options_repeat1" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
@@ -308,8 +463,8 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
 </dd>
 </dl>
 </section>
-<section id="model-options">
-<h5>Model options<a class="headerlink" href="#model-options" title="Permalink to this heading">¶</a></h5>
+<section id="model-options_repeat1">
+<h5>Model options<a class="headerlink" href="#model-options_repeat1" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><dl class="simple">
@@ -396,8 +551,8 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 </dd>
 </dl>
 </section>
-<section id="remote-options">
-<h5>remote options<a class="headerlink" href="#remote-options" title="Permalink to this heading">¶</a></h5>
+<section id="remote-options_repeat1">
+<h5>remote options<a class="headerlink" href="#remote-options_repeat1" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>--resource_group</kbd></dt>
 <dd><p>Resource group for the AzureML workspace.</p>
@@ -445,8 +600,8 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 </dd>
 </dl>
 </section>
-<section id="logging-options_repeat1">
-<h5>logging options<a class="headerlink" href="#logging-options_repeat1" title="Permalink to this heading">¶</a></h5>
+<section id="logging-options_repeat2">
+<h5>logging options<a class="headerlink" href="#logging-options_repeat2" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
@@ -454,8 +609,8 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 </dd>
 </dl>
 </section>
-<section id="model-options_repeat1">
-<h5>Model options<a class="headerlink" href="#model-options_repeat1" title="Permalink to this heading">¶</a></h5>
+<section id="model-options_repeat2">
+<h5>Model options<a class="headerlink" href="#model-options_repeat2" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><dl class="simple">
@@ -526,8 +681,8 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 </dd>
 </dl>
 </section>
-<section id="remote-options_repeat1">
-<h5>remote options<a class="headerlink" href="#remote-options_repeat1" title="Permalink to this heading">¶</a></h5>
+<section id="remote-options_repeat2">
+<h5>remote options<a class="headerlink" href="#remote-options_repeat2" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>--resource_group</kbd></dt>
 <dd><p>Resource group for the AzureML workspace.</p>
@@ -576,8 +731,8 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 </dd>
 </dl>
 </section>
-<section id="logging-options_repeat2">
-<h5>logging options<a class="headerlink" href="#logging-options_repeat2" title="Permalink to this heading">¶</a></h5>
+<section id="logging-options_repeat3">
+<h5>logging options<a class="headerlink" href="#logging-options_repeat3" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
@@ -585,8 +740,8 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 </dd>
 </dl>
 </section>
-<section id="model-options_repeat2">
-<h5>Model options<a class="headerlink" href="#model-options_repeat2" title="Permalink to this heading">¶</a></h5>
+<section id="model-options_repeat3">
+<h5>Model options<a class="headerlink" href="#model-options_repeat3" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><dl class="simple">
@@ -611,8 +766,8 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 </dd>
 </dl>
 </section>
-<section id="remote-options_repeat2">
-<h5>remote options<a class="headerlink" href="#remote-options_repeat2" title="Permalink to this heading">¶</a></h5>
+<section id="remote-options_repeat3">
+<h5>remote options<a class="headerlink" href="#remote-options_repeat3" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>--resource_group</kbd></dt>
 <dd><p>Resource group for the AzureML workspace.</p>
@@ -717,8 +872,8 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
                           <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="logging-options_repeat3">
-<h5>logging options<a class="headerlink" href="#logging-options_repeat3" title="Permalink to this heading">¶</a></h5>
+<section id="logging-options_repeat4">
+<h5>logging options<a class="headerlink" href="#logging-options_repeat4" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
@@ -726,8 +881,8 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 </dd>
 </dl>
 </section>
-<section id="model-options_repeat3">
-<h5>Model options<a class="headerlink" href="#model-options_repeat3" title="Permalink to this heading">¶</a></h5>
+<section id="model-options_repeat4">
+<h5>Model options<a class="headerlink" href="#model-options_repeat4" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><dl class="simple">
@@ -844,8 +999,8 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 </dd>
 </dl>
 </section>
-<section id="remote-options_repeat3">
-<h5>remote options<a class="headerlink" href="#remote-options_repeat3" title="Permalink to this heading">¶</a></h5>
+<section id="remote-options_repeat4">
+<h5>remote options<a class="headerlink" href="#remote-options_repeat4" title="Permalink to this heading">¶</a></h5>
 <dl class="option-list">
 <dt><kbd>--resource_group</kbd></dt>
 <dd><p>Resource group for the AzureML workspace.</p>

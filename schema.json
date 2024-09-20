@@ -843,6 +843,13 @@
           "items": {
             "$ref": "#/definitions/Precision"
           }
+        },
+        "excluded_passes": {
+          "title": "Excluded Passes",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }
