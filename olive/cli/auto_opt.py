@@ -5,23 +5,19 @@
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
-from pathlib import Path
-from typing import ClassVar, Dict
+from typing import ClassVar, Dict, List
 
 from olive.cli.base import (
     BaseOliveCLICommand,
-    add_hf_model_options,
     add_logging_options,
+    add_model_options,
     add_remote_options,
-    get_model_name_or_path,
-    get_output_model_number,
+    get_input_model_config,
     is_remote_run,
+    save_output_model,
     update_remote_option,
 )
-from olive.common.utils import hardlink_copy_dir, set_nested_dict_value, set_tempdir
-
-# ruff: noqa: T201
-
+from olive.common.utils import hardlink_copy_dir, set_nested_dict_value
 
 EVALUATE_TEMPLATE = {
     "common_evaluator": {
@@ -71,20 +67,19 @@ class AutoOptCommand(BaseOliveCLICommand):
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
             "auto-opt",
-            help=("Automatically performance optimize input model"),
+            help="Automatically performance optimize input model",
         )
 
-        add_hf_model_options(sub_parser)
         add_logging_options(sub_parser)
 
-        # model options
-        model_attributes_group = sub_parser.add_argument_group("model attributes options")
-        model_attributes_group.add_argument(
-            "--model_framework",
-            type=str,
-            default="hf",
-            choices=["hf", "onnx", "pytorch"],
-            help="model type, choose from HfModel and ONNXModel",
+        # Model options
+        add_model_options(
+            sub_parser,
+            enable_hf=True,
+            enable_hf_adapter=True,
+            enable_pt=True,
+            enable_onnx=True,
+            default_output_path="auto-opt-output",
         )
 
         system_group = sub_parser.add_argument_group("system options")
@@ -191,19 +186,98 @@ class AutoOptCommand(BaseOliveCLICommand):
             help="Search algorithm for search strategy",
         )
 
-        # output options
-        output_group = sub_parser.add_argument_group("output options")
-        output_group.add_argument(
-            "--tempdir", default=None, type=str, help="Root directory for tempfile directories and files"
-        )
-        output_group.add_argument("-o", "--output_path", type=str, default="auto-opt-output", help="Output path")
         # remote options
         add_remote_options(sub_parser)
+
         sub_parser.set_defaults(func=AutoOptCommand)
 
-    def _get_data_config(self) -> Dict:
+    def run(self):
+        from olive.workflows import run as olive_run
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_config = self.get_run_config(tempdir)
+
+            olive_run(run_config)
+
+            if is_remote_run(self.args):
+                return
+
+            if run_config.get("search_strategy"):
+                # TODO(anyone): maybe save the best model instead of just the search results
+                hardlink_copy_dir(run_config["output_dir"], self.args.output_path)
+                print(f"Search results are saved to {self.args.output_path}")
+            else:
+                save_output_model(run_config, self.args.output_path)
+
+    def resolve_providers(self):
+        self.args.providers = self.args.providers or []
+        for idx, provider in enumerate(self.args.providers):
+            if not provider.endswith("ExecutionProvider"):
+                self.args.providers[idx] = f"{provider}ExecutionProvider"
+
+    def get_run_config(self, tempdir) -> Dict:
+        self.resolve_providers()
+        config = deepcopy(TEMPLATE)
+
+        to_replace = [
+            ("input_model", get_input_model_config(self.args)),
+            ("output_dir", tempdir),
+            ("log_severity_level", self.args.log_level),
+        ]
+
+        device = self.args.device
+        if not device:
+            device = (
+                "gpu"
+                if self.args.providers
+                and any(p[: -(len("ExecutionProvider"))] in ["CUDA", "Tensorrt", "Dml"] for p in self.args.providers)
+                else "cpu"
+            )
+        providers = self.args.providers or ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
+        to_replace.append(
+            (("systems", "local_system", "accelerators"), [{"device": device, "execution_providers": providers}])
+        )
+
+        excluded_passes = self.args.excluded_passes or ["ModelBuilder", "OrtPerfTuning"]
+        if self.args.use_model_builder:
+            excluded_passes.remove("ModelBuilder")
+            excluded_passes.append("OnnxConversion")
+
+        to_replace.extend(
+            [
+                ("auto_optimizer_config", {"precisions": self.args.precisions, "excluded_passes": excluded_passes}),
+                (
+                    "search_strategy",
+                    {
+                        "execution_order": self.args.search_order,
+                        "search_algorithm": self.args.search_algorithm,
+                        "num_samples": self.args.num_samples,
+                        "seed": self.args.seed,
+                    },
+                ),
+                ("data_configs", self._get_data_config()),
+            ]
+        )
+
+        for keys, value in to_replace:
+            if value is None:
+                continue
+            set_nested_dict_value(config, keys, value)
+
+        # no search strategy if no data_configs
+        if not config["data_configs"]:
+            del config["evaluators"]
+            del config["evaluator"]
+            del config["search_strategy"]
+
+        update_remote_option(config, self.args, "auto-opt", tempdir)
+
+        return config
+
+    def _get_data_config(self) -> List[Dict]:
         if not self.args.data_name:
             return []
+
         to_replace = [
             (("load_dataset_config", "data_name"), self.args.data_name),
             (("load_dataset_config", "split"), self.args.split),
@@ -222,81 +296,5 @@ class AutoOptCommand(BaseOliveCLICommand):
             if value is None:
                 continue
             set_nested_dict_value(data_config, keys, value)
+
         return [data_config]
-
-    def run(self):
-        from olive.workflows import run as olive_run
-
-        set_tempdir(self.args.output_path)
-        with tempfile.TemporaryDirectory() as tempdir:
-            run_config = self.get_run_config(tempdir)
-            output = olive_run(run_config)
-            if is_remote_run(self.args):
-                # TODO(jambayk): point user to datastore with outputs or download outputs
-                # both are not implemented yet
-                return
-            if get_output_model_number(output) > 0:
-                output_path = Path(self.args.output_path)
-                output_path.mkdir(parents=True, exist_ok=True)
-                for v in output.values():
-                    for model_id, model in v.nodes.items():
-                        output_model_name = Path(self.args.output_path) / model_id
-                        original_model_path = Path(model.model_config["config"]["model_path"]).parent
-                        hardlink_copy_dir(original_model_path, output_model_name)
-                print("Optimized ONNX Model is saved to ", Path(self.args.output_path).resolve())
-            else:
-                print("No optimized model is generated")
-
-    def resolve_providers(self):
-        self.args.providers = self.args.providers or []
-        for idx, provider in enumerate(self.args.providers):
-            if not provider.endswith("ExecutionProvider"):
-                self.args.providers[idx] = f"{provider}ExecutionProvider"
-
-    def get_run_config(self, tempdir) -> Dict:
-        self.resolve_providers()
-        config = deepcopy(TEMPLATE)
-
-        config["log_severity_level"] = self.args.log_level
-        config["input_model"]["model_path"] = get_model_name_or_path(self.args.model_name_or_path)
-        config["input_model"]["type"] = f"{self.args.model_framework}model"
-        if self.args.task:
-            config["input_model"]["task"] = self.args.task
-        config["cache_dir"] = Path(tempdir) / "cache"
-        config["output_dir"] = self.args.output_path
-
-        device = self.args.device
-        if not device:
-            device = (
-                "gpu"
-                if self.args.providers
-                and any(p[: -(len("ExecutionProvider"))] in ["CUDA", "Tensorrt", "Dml"] for p in self.args.providers)
-                else "cpu"
-            )
-        providers = self.args.providers or ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
-        config["systems"]["local_system"]["accelerators"] = [{"device": device, "execution_providers": providers}]
-
-        excluded_passes = self.args.excluded_passes or ["ModelBuilder", "OrtPerfTuning"]
-        if self.args.use_model_builder:
-            excluded_passes.remove("ModelBuilder")
-            excluded_passes.append("OnnxConversion")
-        config["auto_optimizer_config"] = {
-            "precisions": self.args.precisions,
-            "excluded_passes": excluded_passes,
-        }
-
-        config["search_strategy"] = {
-            # TODO(anyone): rename execution_order to search_order in search_strategy
-            "execution_order": self.args.search_order,
-            "search_algorithm": self.args.search_algorithm,
-            "num_samples": self.args.num_samples,
-            "seed": self.args.seed,
-        }
-
-        config["data_configs"] = self._get_data_config()
-        if not config["data_configs"]:
-            del config["evaluators"]
-            del config["evaluator"]
-            del config["search_strategy"]
-        update_remote_option(config, self.args, "auto-opt", tempdir)
-        return config

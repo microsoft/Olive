@@ -77,6 +77,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             (("passes", "m", "precision"), "fp16" if self.args.precision == "float16" else "fp32"),
             (("clean_cache",), self.args.clean),
             ("output_dir", tempdir),
+            ("log_severity_level", self.args.log_level),
         ]
 
         config = deepcopy(TEMPLATE)
@@ -89,7 +90,6 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             del config["passes"]["m"]
 
         update_remote_option(config, self.args, "generate-adapter", tempdir)
-        config["log_severity_level"] = self.args.log_level
 
         input_model_config = ModelConfig.parse_obj(config["input_model"])
         if input_model_config.type == "hfmodel" and input_model_config.config.get("adapter_path") is None:

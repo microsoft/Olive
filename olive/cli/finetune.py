@@ -167,6 +167,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             ((*finetune_key, "lora_alpha"), self.args.lora_alpha),
             (("clean_cache",), self.args.clean),
             ("output_dir", tempdir),
+            ("log_severity_level", self.args.log_level),
         ]
         if self.args.method == "lora" and self.args.target_modules:
             to_replace.append(((*finetune_key, "target_modules"), self.args.target_modules.split(",")))
@@ -186,7 +187,6 @@ class FineTuneCommand(BaseOliveCLICommand):
             config["passes"]["f"]["eval_data_config"] = "eval_data"
 
         update_remote_option(config, self.args, "finetune", tempdir)
-        config["log_severity_level"] = self.args.log_level
 
         return config
 
