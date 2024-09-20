@@ -194,7 +194,7 @@ class AutoOptCommand(BaseOliveCLICommand):
     def run(self):
         from olive.workflows import run as olive_run
 
-        with tempfile.TemporaryDirectory() as tempdir:
+        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
 
             olive_run(run_config)
