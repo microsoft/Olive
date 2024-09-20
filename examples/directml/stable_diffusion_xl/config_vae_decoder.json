@@ -40,7 +40,7 @@
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [ { "name": "avg" } ],
-                    "data_config": "vae_decoder_dataloader"
+                    "data_config": "latency_data_config"
                 }
             ]
         }
