@@ -9,13 +9,13 @@ from typing import ClassVar, Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
+    add_input_model_options,
     add_logging_options,
-    add_model_options,
     add_remote_options,
     get_input_model_config,
     is_remote_run,
     save_output_model,
-    update_remote_option,
+    update_remote_options,
 )
 from olive.common.utils import set_nested_dict_value
 
@@ -38,7 +38,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
         )
 
         # Model options
-        add_model_options(
+        add_input_model_options(
             sub_parser, enable_hf=True, enable_hf_adapter=True, enable_onnx=True, default_output_path="optimized-model"
         )
 
@@ -89,7 +89,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
         if not self.args.use_ort_genai:
             del config["passes"]["m"]
 
-        update_remote_option(config, self.args, "generate-adapter", tempdir)
+        update_remote_options(config, self.args, "generate-adapter", tempdir)
 
         input_model_config = ModelConfig.parse_obj(config["input_model"])
         if input_model_config.type == "hfmodel" and input_model_config.config.get("adapter_path") is None:
