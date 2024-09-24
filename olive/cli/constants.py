@@ -7,7 +7,7 @@ CONDA_CONFIG = {
     "channels": ["defaults"],
     "dependencies": [
         "python=3.10.14",
-        "pip=22.4",
+        "pip=24.2",
         {
             "pip": [
                 "accelerate",
