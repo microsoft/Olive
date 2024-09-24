@@ -671,6 +671,7 @@ def update_accelerator_options(args, config):
         if v is not None:
             set_nested_dict_value(config, k, v)
 
+
 def add_search_options(sub_parser: ArgumentParser):
     search_strategy_group = sub_parser.add_argument_group("search algorithm options")
     search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search algorithm")
@@ -685,7 +686,7 @@ def add_search_options(sub_parser: ArgumentParser):
             "Enable search to produce optimal model for the given evaluation criteria."
             "Optionally provide search algorithm from available choices."
             "Use exhastive search algorithm by default."
-            ),
+        ),
     )
 
 
