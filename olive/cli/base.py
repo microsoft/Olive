@@ -679,7 +679,7 @@ def add_search_options(sub_parser: ArgumentParser):
         type=str,
         default=None,
         const="exhaustive",
-        nargs='?',
+        nargs="?",
         choices=["exhaustive", "tpe", "random"],
         help=("Enable search to produce optimal model for the given evaluation criteria."
                 "Optionally provide search algorithm from available choices."

@@ -201,12 +201,12 @@ class AutoOptCommand(BaseOliveCLICommand):
         update_search_options(self.args, config)
         update_remote_options(config, self.args, "auto-opt", tempdir)
 
-        if self.args.enable_search == None:
+        if self.args.enable_search is None:
             del config["evaluators"]
             del config["evaluator"]
             del config["search_strategy"]
         elif not config["data_configs"]:
-            raise ValueError('Data is required when search is enabled')
+            raise ValueError("Dataset is required when search is enabled")
 
         return config
 
