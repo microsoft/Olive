@@ -2,4 +2,4 @@
 auto-gptq
 autoawq
 # only available on Linux currently
-bitsandbytes
+bitsandbytes==0.43.3

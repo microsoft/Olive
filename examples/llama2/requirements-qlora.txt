@@ -1,6 +1,6 @@
 -r requirements.txt
 accelerate
-bitsandbytes
+bitsandbytes==0.43.3
 onnxruntime_genai
 peft
 scikit-learn
