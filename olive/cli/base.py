@@ -681,11 +681,13 @@ def add_search_options(sub_parser: ArgumentParser):
         const="exhaustive",
         nargs="?",
         choices=["exhaustive", "tpe", "random"],
-        help=("Enable search to produce optimal model for the given evaluation criteria."
-                "Optionally provide search algorithm from available choices."
-                "Use exhastive search algorithm by default."
-                ),
+        help=(
+            "Enable search to produce optimal model for the given evaluation criteria."
+            "Optionally provide search algorithm from available choices."
+            "Use exhastive search algorithm by default."
+            ),
     )
+
 
 def update_search_options(args, config):
     to_replace = []
