@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import torch
 from packaging import version
 
-from olive.common.utils import get_attr
+from olive.common.utils import set_attr
 
 if TYPE_CHECKING:
     from peft.tuners.lora import Linear as LoraLinear
@@ -91,15 +91,11 @@ def peft_export_context_manager(model: torch.nn.Module):
         ):
             continue
 
-        parent_name = ".".join(name.split(".")[:-1])
-        parent_module = get_attr(model, parent_name)
-        target_name = name.split(".")[-1]
-
         scaled_linear = ScaledLoraLinear(module)
-        setattr(parent_module, target_name, scaled_linear)
-        original_linears.append((parent_module, target_name, module))
+        set_attr(model, name, scaled_linear)
+        original_linears.append((name, module))
     try:
         yield model
     finally:
-        for parent_module, target_name, linear in original_linears:
-            setattr(parent_module, target_name, linear)
+        for name, linear in original_linears:
+            set_attr(model, name, linear)

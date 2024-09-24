@@ -298,8 +298,9 @@ def add_input_model_options(
     model_group = sub_parser.add_argument_group("Model options")
 
     m_description = (
-        "Path to the input model. Can the be output of a previous command or a standalone model. For standalone models,"
-        " the following formats are supported:\n"
+        "Path to the input model. Can the be output of a previous command or a standalone model. If is the output of a"
+        " previous command, all other options in this group will be ignored. For standalone models, the following"
+        " formats are supported:\n"
     )
     if enable_hf:
         m_description += (
