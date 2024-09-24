@@ -20,7 +20,7 @@ class RegulatePassConfigMixin:
                         if p in pf:
                             pf.remove(p)
 
-        # special passes: ModelBuilder, OrtTransformerOptimization and OrtPerfTuning can
+        # special passes: ModelBuilder and OrtTransformerOptimization can
         # be used for both fp16 and fp32 we need assign different pass name for them
         # for example: gpu_cuda_fp16, we need rename OrtTransformerOptimization to OrtTransformerOptimization_cuda_fp16
         pass_config, pass_flows_dict = self._regulate_precision(None, pass_flows_dict)
@@ -82,9 +82,7 @@ class RegulatePassConfigMixin:
         trt_fp16 = customized_fp16 and not cuda_fp16
 
         trans_opt = "OrtTransformersOptimization"
-        perf_tuning = "OrtPerfTuning"
         trans_opt_fp16 = "OrtTransformerOptimization_cuda_fp16"
-        perf_tuning_fp16 = "OrtPerfTuning_trt_fp16"
         pass_flows_by_fp16 = pass_flows.get("fp16", [])
         for i, pf in enumerate(pass_flows_by_fp16):
             new_pf = deepcopy(pf)
@@ -103,20 +101,6 @@ class RegulatePassConfigMixin:
                                 }
                             }
                         )
-                    elif perf_tuning == p:
-                        new_pf[j] = perf_tuning_fp16 if trt_fp16 else p
-                        pass_config.update(
-                            {
-                                new_pf[j]: {
-                                    "type": perf_tuning,
-                                    "config": {
-                                        "trt_fp16_enable": trt_fp16,
-                                        "enable_cuda_graph": cuda_fp16,
-                                        "io_bind": True,
-                                    },
-                                }
-                            }
-                        )
             pass_flows_by_fp16[i] = new_pf
         if pass_flows_by_fp16:
             pass_flows["fp16"] = pass_flows_by_fp16
@@ -126,7 +110,7 @@ class RegulatePassConfigMixin:
         if not self.auto_optimizer_config or self.auto_optimizer_config.disable_auto_optimizer:
             return pass_config, pass_flows
 
-        passes_require_data_config = ["OrtPerfTuning", "IncQuantization", "OnnxQuantization"]
+        passes_require_data_config = ["IncQuantization", "OnnxQuantization"]
         if not self.data_configs:
             # remove the passes which require data_config
             for pass_flow in pass_flows:
