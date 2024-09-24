@@ -67,7 +67,7 @@ class AutoOptCommand(BaseOliveCLICommand):
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
             "auto-opt",
-            help="Automatically performance optimize input model",
+            help="Automatically optimize the performance of the input model.",
         )
 
         add_logging_options(sub_parser)
