@@ -164,7 +164,7 @@ jobs:
     windows: 'False'
     test_type: 'multiple_ep'
     onnxruntime: onnxruntime
-    python_version: '3.8'
+    python_version: '3.10'
 
 # Not run since all test cases are skipped for Windows
 # # Multiple EP Windows testing
