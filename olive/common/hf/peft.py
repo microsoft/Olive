@@ -4,17 +4,8 @@
 # --------------------------------------------------------------------------
 import importlib
 import logging
-from contextlib import contextmanager
-from copy import deepcopy
-from typing import TYPE_CHECKING
 
 import torch
-from packaging import version
-
-from olive.common.utils import set_attr
-
-if TYPE_CHECKING:
-    from peft.tuners.lora import Linear as LoraLinear
 
 logger = logging.getLogger(__name__)
 
@@ -28,74 +19,51 @@ def is_peft_model(model: torch.nn.Module) -> bool:
     return False
 
 
-class ScaledLoraLinear(torch.nn.Module):
-    """A wrapper for the LoraLinear layer that pre-multiplies the lora_B weights by the scaling factor."""
-
-    def __init__(self, original: "LoraLinear"):
-        super().__init__()
-        active_adapter = original.active_adapter[0]
-        self.base_layer = original.base_layer
-        # using a deepcopy so that the name of node in exported model says lora_A instead of default
-        # should be okay since lora linears are small
-        self.lora_A = deepcopy(original.lora_A[active_adapter])
-        # copy the weights and scale them by the scaling factor
-        # don't want to modify the original weights
-        self.lora_B = deepcopy(original.lora_B[active_adapter])
-        self.lora_B.weight.data *= original.scaling[active_adapter]
-
-    def forward(self, x, *args, **kwargs):
-        previous_dtype = x.dtype
-
-        result = self.base_layer(x, *args, **kwargs)
-        x - x.to(self.lora_A.weight.dtype)
-        result += self.lora_B(self.lora_A(x))
-
-        return result.to(previous_dtype)
-
-
-@contextmanager
-def peft_export_context_manager(model: torch.nn.Module):
-    """Context manager for handling PeftModel models.
+@torch.no_grad()
+def make_export_compatible_peft(model: torch.nn.Module, merge_weights: bool = False) -> torch.nn.Module:
+    """Make PeftModel torch.onnx.export compatible.
 
     If the model is a PeftModel:
         - Use the base model for exporting
-        - Replace all LoraLinear layers with ScaledLoraLinear layers so that the scaling factor is applied to
-          the weights beforehand and doesn't appear as a separate Mul node in the exported model.
+        - Rescale the lora_B weights with scaling factor, change scaling factor to 1 (int) so that it doesn't appear
+          in the exported model (only works for torchscript export)
     """
     if not is_peft_model(model):
-        yield model
-        return
+        return model
+
+    if merge_weights:
+        return model.merge_and_unload()
 
     # if pytorch_model is PeftModel, we need to get the base model
     # otherwise, the model forward has signature (*args, **kwargs) and torch.onnx.export ignores the dummy_inputs
     model = model.get_base_model()
 
-    from peft import __version__ as peft_version
+    from peft.tuners.lora import LoraLayer
 
-    if version.parse(peft_version) < version.parse("0.7.0"):
-        logger.warning(
-            "Model is a peft model but the peft version is not supported for exporting with fold_lora_scale!"
-            " Please use peft version 0.7.0 or higher."
-        )
-        yield model
-        return
-
-    from peft.tuners.lora import Linear as LoraLinear
-
-    original_linears = []
-    for name, module in model.named_modules():
+    for module in model.modules():
         if (
-            not isinstance(module, LoraLinear)
+            not isinstance(module, LoraLayer)
             or len(module.active_adapters) != 1
             or getattr(module, "use_dora", {}).get(module.active_adapters[0], False)
         ):
+            # these cases are complicated and not seen in normal use cases
             continue
 
-        scaled_linear = ScaledLoraLinear(module)
-        set_attr(model, name, scaled_linear)
-        original_linears.append((name, module))
-    try:
-        yield model
-    finally:
-        for name, linear in original_linears:
-            set_attr(model, name, linear)
+        active_adapter = module.active_adapters[0]
+
+        # linear or embedding
+        # conv will be supported in the future if needed
+        lora_B_dict = module.lora_B or module.lora_embedding_B  # noqa: N806
+        if active_adapter not in lora_B_dict:
+            continue
+        lora_B = lora_B_dict[active_adapter]  # noqa: N806
+        if not isinstance(lora_B, (torch.nn.Linear, torch.nn.Parameter)):
+            continue
+
+        # multiply the weights by the scaling factor
+        lora_B.weight.data.mul_(module.scaling[active_adapter])
+
+        # change the scaling factor to 1 so that it doesn't appear in the exported model
+        module.scaling[active_adapter] = 1
+
+    return model

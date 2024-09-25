@@ -73,6 +73,7 @@ def get_bnb_qlinear_cls(quantization_config):
     return None
 
 
+@torch.no_grad()
 def _replace_qlinear_modules(
     model: torch.nn.Module, mapping: Dict[str, Tuple[Callable, Callable]]
 ) -> Tuple[torch.nn.Module, bool]:
@@ -109,7 +110,6 @@ def _replace_qlinear_modules(
 # Dequantization functions
 
 
-@torch.no_grad()
 def dequantize_auto_gptq_qlinear(qlinear) -> torch.nn.Linear:
     from auto_gptq.nn_modules.qlinear.qlinear_marlin import unpack_4bit_to_32bit_signed
 
@@ -135,7 +135,6 @@ def dequantize_auto_gptq_qlinear(qlinear) -> torch.nn.Linear:
     return linear
 
 
-@torch.no_grad()
 def dequantize_auto_awq_qlinear(qlinear) -> torch.nn.Linear:
     from awq.utils.packing_utils import dequantize_gemm
 
@@ -156,7 +155,6 @@ def dequantize_auto_awq_qlinear(qlinear) -> torch.nn.Linear:
     return linear
 
 
-@torch.no_grad()
 def dequantize_bnb_qlinear(qlinear) -> torch.nn.Linear:
     from bitsandbytes.functional import dequantize_4bit
 
@@ -391,6 +389,6 @@ EXPORT_QLINEAR_MAPPING = {
 }
 
 
-def make_export_compatible(model: torch.nn.Module) -> torch.nn.Module:
+def make_export_compatible_quant(model: torch.nn.Module) -> torch.nn.Module:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions."""
     return _replace_qlinear_modules(model, EXPORT_QLINEAR_MAPPING)[0]

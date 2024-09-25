@@ -15,7 +15,6 @@ import torch
 from packaging import version
 
 from olive.common.config_utils import validate_config
-from olive.common.hf.peft import is_peft_model, peft_export_context_manager
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
 from olive.hardware import AcceleratorSpec
 from olive.model import (
@@ -169,20 +168,25 @@ class OnnxConversion(Pass):
         :param torch_dtype: the dtype to cast the model to before conversion
         :param tempdir: directory to use for temporary files
         """
+        from olive.common.hf.peft import make_export_compatible_peft
+        from olive.common.hf.quant import make_export_compatible_quant
+
         device = torch.device(device)
         use_gpu = device != torch.device("cpu")
         if use_gpu and torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        # put pytorch_model and dummy_inputs at the same device
         logger.debug("Converting model on device %s with dtype %s.", device, torch_dtype)
         pytorch_model.to(device)
+        dummy_inputs = tensor_data_to_device(dummy_inputs, device)
         if torch_dtype:
             pytorch_model = pytorch_model.to(torch_dtype)
 
-        dummy_inputs = tensor_data_to_device(dummy_inputs, device)
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
+
+        pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config["merge_adapter_weights"])
+        pytorch_model = make_export_compatible_quant(pytorch_model)
 
         # get input and output names, and dynamic axes
         assert io_config is not None, "Cannot get io_config for the model."
@@ -212,27 +216,25 @@ class OnnxConversion(Pass):
                 dummy_inputs = tuple(dummy_inputs)
 
             if torch_version < dynamo_supported_version:
-                with peft_export_context_manager(pytorch_model) as model_to_export:
-                    onnx_program = torch.onnx.dynamo_export(
-                        model_to_export,
-                        *dummy_inputs,
-                        **dummy_kwargs,
-                        export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
-                    )
+                onnx_program = torch.onnx.dynamo_export(
+                    pytorch_model,
+                    *dummy_inputs,
+                    **dummy_kwargs,
+                    export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
+                )
                 onnx_model = onnx_program.model_proto
             else:
-                with peft_export_context_manager(pytorch_model) as model_to_export:
-                    onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg
-                        model_to_export,
-                        dummy_inputs,
-                        kwargs=dummy_kwargs,
-                        opset_version=config["target_opset"],
-                        input_names=io_config.input_names,
-                        output_names=io_config.output_names,
-                        dynamic_axes=io_config.dynamic_axes,
-                        dynamo=True,
-                        fallback=True,
-                    )
+                onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
+                    pytorch_model,
+                    dummy_inputs,
+                    kwargs=dummy_kwargs,
+                    opset_version=config["target_opset"],
+                    input_names=io_config.input_names,
+                    output_names=io_config.output_names,
+                    dynamic_axes=io_config.dynamic_axes,
+                    dynamo=True,
+                    fallback=True,
+                )
                 assert onnx_program is not None
                 onnx_model = onnx_program.model_proto
         else:
@@ -243,17 +245,16 @@ class OnnxConversion(Pass):
                 tmp_dir_path = Path(tmp_dir)
                 tmp_model_path = resolve_onnx_path(tmp_dir_path)
 
-                with peft_export_context_manager(pytorch_model) as model_to_export:
-                    torch.onnx.export(
-                        model_to_export,
-                        dummy_inputs,
-                        tmp_model_path,
-                        export_params=True,
-                        opset_version=config["target_opset"],
-                        input_names=io_config.input_names,
-                        output_names=io_config.output_names,
-                        dynamic_axes=io_config.dynamic_axes,
-                    )
+                torch.onnx.export(
+                    pytorch_model,
+                    dummy_inputs,
+                    tmp_model_path,
+                    export_params=True,
+                    opset_version=config["target_opset"],
+                    input_names=io_config.input_names,
+                    output_names=io_config.output_names,
+                    dynamic_axes=io_config.dynamic_axes,
+                )
                 onnx_model = onnx.load(tmp_model_path)
                 # the model is loaded into memory, so it's safe to delete previously exported file(s)
 
@@ -296,6 +297,8 @@ class OnnxConversion(Pass):
                 - find quantized modules and add them to the model attributes
                 - the onnx model must be quantized using OnnxBnb4Quantization pass after conversion
         """
+        from olive.common.hf.peft import is_peft_model
+
         if not model.load_kwargs:
             return model
 
@@ -373,10 +376,9 @@ class OnnxConversion(Pass):
 
         # load the model
         pytorch_model = model.load_model()
-        if config["merge_adapter_weights"] and is_peft_model(pytorch_model):
-            logger.debug("Merging adapter weights into base model. This is specific to PeftModel.")
-            pytorch_model = pytorch_model.merge_and_unload()
         pytorch_model.eval()
+        # don't cache the loaded model since it might be modified here
+        model.model = None
 
         # get dummy inputs
         dummy_inputs = self._get_dummy_inputs(model, config)
@@ -389,7 +391,7 @@ class OnnxConversion(Pass):
         # save the model to the output path and return the model
         output_model_path = resolve_onnx_path(output_model_path)
         output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
-        output_model.model_attributes = model_attributes = deepcopy(model.model_attributes or {})
+        output_model.model_attributes = deepcopy(model.model_attributes or {})
         return output_model
 
     @staticmethod

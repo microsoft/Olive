@@ -21,6 +21,7 @@ from olive.passes.onnx.quantization import OnnxMatMul4Quantizer
 
 
 class LlamaCalibrationDataLoader(CalibrationDataReader):
+    # pylint: disable=W0223
     def __init__(self, dummy_input):
         super().__init__()
         self.count = 0
