@@ -604,7 +604,7 @@ def add_hf_dataset_options(sub_parser):
     return hf_dataset_group
 
 
-def add_accelerator_options(sub_parser):
+def add_accelerator_options(sub_parser, single_provider: bool = True):
     accelerator_group = sub_parser.add_argument_group()
 
     accelerator_group.add_argument(
@@ -615,26 +615,47 @@ def add_accelerator_options(sub_parser):
         help="Device to use for the model.",
     )
 
-    accelerator_group.add_argument(
-        "--providers_list",
-        type=str,
-        nargs="*",
-        choices=[
-            "CUDAExecutionProvider",
-            "CPUExecutionProvider",
-            "DmlExecutionProvider",
-            "JsExecutionProvider",
-            "MIGraphXExecutionProvider",
-            "OpenVINOExecutionProvider",
-            "OpenVINOExecutionProvider",
-            "QNNExecutionProviderROCMExecutionProvider",
-            "TensorrtExecutionProvider",
-        ],
-        help=(
-            "List of execution providers to use for ONNX model. They are case sensitive. "
-            "If not provided, all available providers will be used."
-        ),
-    )
+    if single_provider:
+        accelerator_group.add_argument(
+            "--provider",
+            type=str,
+            default="CPUExecutionProvider",
+            choices=[
+                "CUDAExecutionProvider",
+                "CPUExecutionProvider",
+                "DmlExecutionProvider",
+                "JsExecutionProvider",
+                "MIGraphXExecutionProvider",
+                "OpenVINOExecutionProvider",
+                "OpenVINOExecutionProvider",
+                "QNNExecutionProviderROCMExecutionProvider",
+                "TensorrtExecutionProvider",
+            ],
+            help=(
+                "Execution provider to use for ONNX model."
+            ),
+        )
+    else:
+        accelerator_group.add_argument(
+            "--providers_list",
+            type=str,
+            nargs="*",
+            choices=[
+                "CUDAExecutionProvider",
+                "CPUExecutionProvider",
+                "DmlExecutionProvider",
+                "JsExecutionProvider",
+                "MIGraphXExecutionProvider",
+                "OpenVINOExecutionProvider",
+                "OpenVINOExecutionProvider",
+                "QNNExecutionProviderROCMExecutionProvider",
+                "TensorrtExecutionProvider",
+            ],
+            help=(
+                "List of execution providers to use for ONNX model. They are case sensitive. "
+                "If not provided, all available providers will be used."
+            ),
+        )
 
     return accelerator_group
 
@@ -649,7 +670,9 @@ def update_accelerator_options(args, config):
         if not provider.endswith("ExecutionProvider"):
             args.providers_list[idx] = f"{provider}ExecutionProvider"
 
-    if args.providers_list:
+    if args.provider:
+        to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), [args.provider]))
+    elif args.providers_list:
         to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), args.providers_list))
 
     for k, v in to_replace:

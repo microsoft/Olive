@@ -88,9 +88,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         add_accelerator_options(sub_parser)
 
         # dataset options
-        dataset_group = sub_parser.add_argument_group(
-            "dataset options, required for some optimization passes like quantization, and evaluation components"
-        )
+        dataset_group = sub_parser.add_argument_group()
         dataset_group.add_argument(
             "-d",
             "--data_name",

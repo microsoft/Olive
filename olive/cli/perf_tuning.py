@@ -65,7 +65,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
         )
 
         # accelerator options
-        add_accelerator_options(sub_parser)
+        add_accelerator_options(sub_parser, single_provider = False)
 
         # pass options
         pass_group = sub_parser.add_argument_group("pass options")
