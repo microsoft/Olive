@@ -11,31 +11,26 @@ _variables:
       "OnnxConversion",
       "OrtTransformersOptimization",
       "OrtMixedPrecision",
-      "OrtPerfTuning",
     ]
   - &int8 [
       "OnnxConversion",
       "OrtTransformersOptimization",
       "OnnxQuantization",
-      "OrtPerfTuning",
     ]
   - &int4 [
       "OnnxConversion",
       "OrtTransformersOptimization",
       "OnnxMatMul4Quantizer",
-      "OrtPerfTuning",
     ]
   - &inc_int8 [
       "OnnxConversion",
       "OrtTransformersOptimization",
       "IncQuantization",
-      "OrtPerfTuning",
     ]
   - &vitisai_int8 [
       "OnnxConversion",
       "OrtTransformersOptimization",
       "VitisAIQuantization",
-      "OrtPerfTuning",
     ]
 
 mapping:
