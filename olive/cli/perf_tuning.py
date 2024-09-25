@@ -11,7 +11,6 @@ from typing import Dict
 
 import yaml
 
-from olive.auto_optimizer.template_mapping import PERF_TUNING_TEMPLATE
 from olive.cli.base import (
     BaseOliveCLICommand,
     add_accelerator_options,
@@ -126,11 +125,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
 
         sub_parser.set_defaults(func=PerfTuningCommand)
 
-    @staticmethod
-    def perf_tuning_template():
-        with PERF_TUNING_TEMPLATE.open() as f:
-            return yaml.safe_load(f)
-
     def _update_default_data_config_params(self, default_data_config) -> Dict:
         data_config = deepcopy(default_data_config)
         load_dataset_keys = (
@@ -189,7 +183,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
         return DataConfig.parse_file_or_obj(self.args.data_config_path)
 
     def get_run_config(self, tempdir) -> Dict:
-        template_config = PerfTuningCommand.perf_tuning_template()
+        template_config = deepcopy(TEMPLATE)
 
         perf_tuning_key = ("passes", "perf_tuning")
 
@@ -236,3 +230,31 @@ class PerfTuningCommand(BaseOliveCLICommand):
                 with infer_setting_output_path.open("w") as f:
                     json.dump(infer_settings, f, indent=4)
             print(f"Inference session parameters are saved to {output_path}.")
+
+TEMPLATE = {
+    "input_model": {"type": "ONNXModel"},
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+        }
+    },
+    "data_configs": [
+        {
+            "name": "perf_tuning_data",
+            "type": "TransformersTokenDummyDataContainer",
+            "load_dataset_config": {},
+            "pre_process_data_config": {},
+            "dataloader_config": {},
+            "post_process_data_config": {},
+        }
+    ],
+    "passes": {
+        "perf_tuning": {
+            "type": "OrtPerfTuning",
+            "data_config" : "perf_tuning_data"
+        },
+    },
+    "host": "local_system",
+    "target": "local_system",
+}
