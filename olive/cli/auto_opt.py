@@ -74,8 +74,6 @@ class AutoOptCommand(BaseOliveCLICommand):
             help="Automatically optimize the performance of the input model.",
         )
 
-        add_logging_options(sub_parser)
-
         # Model options
         add_input_model_options(
             sub_parser,
@@ -151,12 +149,12 @@ class AutoOptCommand(BaseOliveCLICommand):
             ),
         )
 
-        # remote options
-        add_remote_options(sub_parser)
-
         # search options
         add_search_options(sub_parser)
 
+        # remote options
+        add_remote_options(sub_parser)
+        add_logging_options(sub_parser)
         sub_parser.set_defaults(func=AutoOptCommand)
 
     def run(self):

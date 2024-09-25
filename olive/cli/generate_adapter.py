@@ -27,7 +27,10 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser("generate-adapter", help="Generate ONNX model with adapters as inputs")
 
-        add_logging_options(sub_parser)
+        # Model options
+        add_input_model_options(
+            sub_parser, enable_hf=True, enable_hf_adapter=True, enable_onnx=True, default_output_path="optimized-model"
+        )
 
         sub_parser.add_argument(
             "--precision",
@@ -37,20 +40,14 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             help="The precision of the optimized model and adapters.",
         )
 
-        # Model options
-        add_input_model_options(
-            sub_parser, enable_hf=True, enable_hf_adapter=True, enable_onnx=True, default_output_path="optimized-model"
-        )
-
         sub_parser.add_argument(
             "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
         )
 
         sub_parser.add_argument("--clean", action="store_true", help="Run in a clean cache directory")
 
-        # remote options
         add_remote_options(sub_parser)
-
+        add_logging_options(sub_parser)
         sub_parser.set_defaults(func=GenerateAdapterCommand)
 
     def run(self):

@@ -124,6 +124,10 @@ There are more than one way to supply input model to the Olive commands.
 
 3. Olive commands also accept a local PyTorch model as an input model. You can specify the model file path using the ``-m model.pt`` option, and the associated model script using the ``--model_script script.py`` option. For example, ``olive capture-onnx-graph -m model.pt --model_script script.py``.
 
+4. A model from AzureML registry can be directly used as an input model. For example ``-m azureml://registries/<registry_name>/models/<model_name>/versions/<version>``.
+
+5. An ONNX model available locally can also be used as an input for the Olive commands that accept ONNX model as an input. 
+
 Olive reserves several function names to provide specific inputs for the PyTorch model. These functions should be defined in your model script:
 
 - **Model Loader Function (`_model_loader`)**:

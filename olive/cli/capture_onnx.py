@@ -40,8 +40,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             ),
         )
 
-        add_logging_options(sub_parser)
-
         # model options
         add_input_model_options(
             sub_parser, enable_hf=True, enable_hf_adapter=True, enable_pt=True, default_output_path="onnx-model"
@@ -149,7 +147,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         # remote options
         add_remote_options(sub_parser)
-
+        add_logging_options(sub_parser)
         sub_parser.set_defaults(func=CaptureOnnxGraphCommand)
 
     def run(self):

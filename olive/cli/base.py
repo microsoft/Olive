@@ -235,7 +235,7 @@ def update_input_model_options(args, config):
 
 def add_logging_options(sub_parser: ArgumentParser):
     """Add logging options to the sub_parser."""
-    log_group = sub_parser.add_argument_group("logging options")
+    log_group = sub_parser.add_argument_group()
     log_group.add_argument(
         "--log_level",
         type=int,
@@ -247,7 +247,7 @@ def add_logging_options(sub_parser: ArgumentParser):
 
 def add_remote_options(sub_parser: ArgumentParser):
     """Add remote options to the sub_parser."""
-    remote_group = sub_parser.add_argument_group("remote options")
+    remote_group = sub_parser.add_argument_group()
     remote_group.add_argument(
         "--resource_group",
         type=str,
@@ -295,29 +295,15 @@ def add_input_model_options(
     """
     assert any([enable_hf, enable_hf_adapter, enable_pt, enable_onnx]), "At least one model option should be enabled."
 
-    model_group = sub_parser.add_argument_group("Model options")
-
-    m_description = (
-        "Path to the input model. Can the be output of a previous command or a standalone model. For standalone models,"
-        " the following formats are supported:\n"
-    )
-    if enable_hf:
-        m_description += (
-            " HfModel: The name or path to the model. Local folder, huggingface id, or AzureML Registry model"
-            " (azureml://registries/<registry_name>/models/<model_name>/versions/<version>).\n"
-        )
-    if enable_pt:
-        m_description += (
-            " PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model"
-            " (azureml:<model_name>:<version>).\n"
-        )
-    if enable_onnx:
-        m_description += " OnnxModel: Path to the ONNX model. Local file/folder.\n"
+    model_group = sub_parser.add_argument_group()
 
     model_group.add_argument(
         "-m",
         "--model_name_or_path",
         type=str,
+        help=(
+        "Path to the input model. See https://microsoft.github.io/Olive/features/cli.html#input-model for more information"
+        )
         help=m_description,
     )
     if enable_hf:
@@ -456,7 +442,7 @@ def save_output_model(config: Dict, output_model_dir: Union[str, Path]):
 
 
 def add_dataset_options(sub_parser, required=True, include_train=True, include_eval=True):
-    dataset_group = sub_parser.add_argument_group("dataset options")
+    dataset_group = sub_parser.add_argument_group()
     dataset_group.add_argument(
         "-d",
         "--data_name",
@@ -620,7 +606,7 @@ def add_hf_dataset_options(sub_parser):
 
 
 def add_accelerator_options(sub_parser):
-    accelerator_group = sub_parser.add_argument_group("accelerator group")
+    accelerator_group = sub_parser.add_argument_group()
 
     accelerator_group.add_argument(
         "--device",
@@ -673,8 +659,7 @@ def update_accelerator_options(args, config):
 
 
 def add_search_options(sub_parser: ArgumentParser):
-    search_strategy_group = sub_parser.add_argument_group("search algorithm options")
-    search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search algorithm")
+    search_strategy_group = sub_parser.add_argument_group()
     search_strategy_group.add_argument(
         "--enable_search",
         type=str,
@@ -688,6 +673,7 @@ def add_search_options(sub_parser: ArgumentParser):
             "Use exhastive search algorithm by default."
         ),
     )
+    search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search algorithm")
 
 
 def update_search_options(args, config):

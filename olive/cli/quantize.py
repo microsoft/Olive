@@ -60,9 +60,6 @@ class QuantizeCommand(BaseOliveCLICommand):
         # model options
         add_input_model_options(sub_parser, enable_hf=True, enable_pt=True, default_output_path="quantized-model")
 
-        # Logging options
-        add_logging_options(sub_parser)
-
         sub_parser.add_argument(
             "--algorithms",
             type=str,
@@ -72,12 +69,9 @@ class QuantizeCommand(BaseOliveCLICommand):
             help="List of quantization algorithms to run.",
         )
 
-        # dataset options
         add_dataset_options(sub_parser, required=False, include_train=False, include_eval=False)
-
-        # remote options
         add_remote_options(sub_parser)
-
+        add_logging_options(sub_parser)
         sub_parser.set_defaults(func=QuantizeCommand)
 
     def _get_run_config(self, tempdir: str) -> Dict[str, Any]:

@@ -41,7 +41,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
                 "--hf_model_name hf_model_name --device device_type to get the tuned session parameters."
             ),
         )
-        add_logging_options(sub_parser)
 
         # model options
         add_input_model_options(sub_parser, enable_onnx=True, default_output_path="tuned-inference-settings")
@@ -121,9 +120,8 @@ class PerfTuningCommand(BaseOliveCLICommand):
             help="Whether enable profiling for ONNX Runtime inference.",
         )
 
-        # remote options
         add_remote_options(sub_parser)
-
+        add_logging_options(sub_parser)
         sub_parser.set_defaults(func=PerfTuningCommand)
 
     @staticmethod
