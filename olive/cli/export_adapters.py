@@ -52,14 +52,6 @@ class ExportAdaptersCommand(BaseOliveCLICommand):
                 " quantization scales. Default is float32."
             ),
         )
-        sub_parser.add_argument(
-            "--pack_weights",
-            action="store_true",
-            help=(
-                "Whether to pack the weights. If True, the weights for each module type will be packed into a single"
-                " array."
-            ),
-        )
         # quantization options
         sub_parser.add_argument(
             "--quantize_int4",
@@ -124,13 +116,6 @@ class ExportAdaptersCommand(BaseOliveCLICommand):
                     # otherwise it's always 0 and not part of the node inputs
                     transformed_weights[new_name.replace(".weight", ".quant.zero_point")] = zero_point
                 quant_modules.add(new_name.replace(".weight", ".quant"))
-
-        if self.args.pack_weights:
-            from olive.passes.onnx.extract_adapters import ExtractAdapters
-
-            transformed_weights, _ = ExtractAdapters.pack_weights(
-                transformed_weights, lora_config.target_modules, float_modules, quant_modules
-            )
 
         output_path = save_weights(transformed_weights, self.args.output_path, self.args.save_format)
         print(f"Exported adapter weights to {output_path}")

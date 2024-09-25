@@ -55,26 +55,16 @@ def input_model_info_fixture(tmp_path_factory):
     peft_model = get_peft_model(pytorch_model, LoraConfig(init_lora_weights=False))
 
     # keep track of all lora modules
-    target_modules = peft_model.peft_config["default"].target_modules
-    # all_lora_modules = find_submodules(peft_model, LoraLayer, full_name=True)
     all_lora_modules = [
         m.replace("base_model.model.", "") for m in find_submodules(peft_model, LoraLayer, full_name=True) or []
     ]
     # names of float weights
     all_weights = [f"{m}.{lora_i}.weight" for m in all_lora_modules for lora_i in ["lora_A", "lora_B"]]
-    packed_weights = [
-        f"{module_type}.{lora_i}.weight.packed" for module_type in target_modules for lora_i in ["lora_A", "lora_B"]
-    ]
     # names of quantized weights
     all_quant_weights = [
         w.replace(".weight", suffix)
         for w in all_weights
         for suffix in [".quant.weight", ".quant.scale", ".quant.zero_point"]
-    ]
-    packed_quant_weights = [
-        w.replace(".weight.packed", suffix)
-        for w in packed_weights
-        for suffix in [".quant.weight.packed", ".quant.scale.packed", ".quant.zero_point.packed"]
     ]
 
     # dump adapters
@@ -107,20 +97,14 @@ def input_model_info_fixture(tmp_path_factory):
     olive_int4_onnx_model = matmul4_quantizer.run(olive_onnx_model, str(tmp_path / "int4-onnx"))
 
     return {
-        "float": {
-            "onnx_model": olive_onnx_model,
-            "all_weights": all_weights,
-            "packed_weights": packed_weights,
-        },
+        "float": {"onnx_model": olive_onnx_model, "all_weights": all_weights},
         # "qdq": {
         #     "onnx_model": olive_qdq_onnx_model,
-        #     "all_weights": all_quant_weights,
-        #     "packed_weights": packed_quant_weights,
+        #     "all_weights": all_quant_weights
         # },
         "int4": {
             "onnx_model": olive_int4_onnx_model,
             "all_weights": {name for name in all_quant_weights if "zero_point" not in name},
-            "packed_weights": {name for name in packed_quant_weights if "zero_point" not in name},
         },
         "adapter_path": adapters_path,
     }
@@ -156,13 +140,12 @@ def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type
 
 
 @pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
-@pytest.mark.parametrize("pack_inputs", [True, False])
-def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, model_type):
+def test_extract_adapters_as_inputs(tmp_path, input_model_info, model_type):
     if model_type == "qdq":
         pytest.skip("QDQ model test is disabled due to flaky quantization failure")
 
     # setup
-    p = create_pass_from_dict(ExtractAdapters, {"make_inputs": True, "pack_inputs": pack_inputs}, disable_search=True)
+    p = create_pass_from_dict(ExtractAdapters, {"make_inputs": True}, disable_search=True)
     output_folder = tmp_path / "extracted-adapters"
 
     # execute
@@ -172,10 +155,8 @@ def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, mod
     # assert
     assert Path(extracted_model.model_path).is_file()
     assert Path(extracted_model.constant_inputs_path).is_file()
+    expected_weights = set(input_model_info[model_type]["all_weights"])
     # all lora weights should be extracted as constant inputs
-    expected_weights = set(
-        input_model_info[model_type]["packed_weights"] if pack_inputs else input_model_info[model_type]["all_weights"]
-    )
     assert expected_weights == set(extracted_model.model_attributes["constant_inputs"])
     assert expected_weights == set(np.load(extracted_model.constant_inputs_path))
     # ensure all constant inputs are marked as such
@@ -183,8 +164,7 @@ def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, mod
 
 
 @pytest.mark.parametrize("quantize_int4", [1, 0])
-@pytest.mark.parametrize("pack_weights", [True, False])
-def test_export_adapters_command(tmp_path, input_model_info, quantize_int4, pack_weights):
+def test_export_adapters_command(tmp_path, input_model_info, quantize_int4):
     from olive.cli.launcher import main as cli_main
 
     # args
@@ -196,8 +176,6 @@ def test_export_adapters_command(tmp_path, input_model_info, quantize_int4, pack
         "--output_path",
         str(exported_adapters_path),
     ]
-    if pack_weights:
-        args.append("--pack_weights")
     if quantize_int4:
         args.append("--quantize_int4")
 
@@ -207,5 +185,4 @@ def test_export_adapters_command(tmp_path, input_model_info, quantize_int4, pack
     # assert
     assert Path(exported_adapters_path).is_file()
     weight_dtype = "int4" if quantize_int4 else "float"
-    weight_index = "packed_weights" if pack_weights else "all_weights"
-    assert set(input_model_info[weight_dtype][weight_index]) == set(np.load(exported_adapters_path))
+    assert set(input_model_info[weight_dtype]["all_weights"]) == set(np.load(exported_adapters_path))
