@@ -88,38 +88,36 @@ class AutoOptCommand(BaseOliveCLICommand):
         add_accelerator_options(sub_parser)
 
         # dataset options
-        dataset_group = sub_parser.add_argument_group()
-        dataset_group.add_argument(
+        sub_parser.add_argument(
             "-d",
             "--data_name",
             type=str,
             help="The dataset name.",
         )
-        dataset_group.add_argument(
+        sub_parser.add_argument(
             "--split",
             type=str,
             help="The dataset split to use for evaluation.",
         )
-        dataset_group.add_argument(
+        sub_parser.add_argument(
             "--subset",
             type=str,
             help="The dataset subset to use for evaluation.",
         )
-        dataset_group.add_argument(
+        sub_parser.add_argument(
             "--input_cols",
             type=str,
             nargs="*",
             help="The input columns to use for evaluation.",
         )
-        dataset_group.add_argument(
+        sub_parser.add_argument(
             "--batch_size",
             type=int,
             default=1,
             help="Batch size for evaluation.",
         )
 
-        auto_opt_config_group = sub_parser.add_argument_group("auto optimizer options")
-        auto_opt_config_group.add_argument(
+        sub_parser.add_argument(
             "--precision",
             type=str,
             choices=["fp16", "fp32", "int4", "int8"],
@@ -128,7 +126,7 @@ class AutoOptCommand(BaseOliveCLICommand):
                 "the default precision is fp32 for cpu and fp16 for gpu"
             ),
         )
-        auto_opt_config_group.add_argument(
+        sub_parser.add_argument(
             "--excluded_passes",
             type=str,
             nargs="*",
@@ -137,7 +135,7 @@ class AutoOptCommand(BaseOliveCLICommand):
                 "auto-opt will disable ModelBuilder/OrtPerfTuning by default."
             ),
         )
-        auto_opt_config_group.add_argument(
+        sub_parser.add_argument(
             "--use_model_builder",
             action="store_true",
             help=(

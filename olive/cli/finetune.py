@@ -50,7 +50,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         add_dataset_options(sub_parser)
 
         # LoRA options
-        lora_group = sub_parser.add_argument_group("lora options")
+        lora_group = sub_parser.add_argument_group("LoRA options")
         lora_group.add_argument(
             "--method",
             type=str,

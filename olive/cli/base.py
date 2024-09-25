@@ -235,19 +235,18 @@ def update_input_model_options(args, config):
 
 def add_logging_options(sub_parser: ArgumentParser):
     """Add logging options to the sub_parser."""
-    log_group = sub_parser.add_argument_group()
-    log_group.add_argument(
+    sub_parser.add_argument(
         "--log_level",
         type=int,
         default=3,
         help="Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL",
     )
-    return log_group
+    return sub_parser
 
 
 def add_remote_options(sub_parser: ArgumentParser):
     """Add remote options to the sub_parser."""
-    remote_group = sub_parser.add_argument_group()
+    remote_group = sub_parser
     remote_group.add_argument(
         "--resource_group",
         type=str,
@@ -295,7 +294,7 @@ def add_input_model_options(
     """
     assert any([enable_hf, enable_hf_adapter, enable_pt, enable_onnx]), "At least one model option should be enabled."
 
-    model_group = sub_parser.add_argument_group()
+    model_group = sub_parser
 
     model_group.add_argument(
         "-m",
@@ -442,7 +441,7 @@ def save_output_model(config: Dict, output_model_dir: Union[str, Path]):
 
 
 def add_dataset_options(sub_parser, required=True, include_train=True, include_eval=True):
-    dataset_group = sub_parser.add_argument_group()
+    dataset_group = sub_parser
     dataset_group.add_argument(
         "-d",
         "--data_name",
@@ -536,7 +535,7 @@ def update_dataset_options(args, config):
 
 
 def add_accelerator_options(sub_parser, single_provider: bool = True):
-    accelerator_group = sub_parser.add_argument_group()
+    accelerator_group = sub_parser
 
     accelerator_group.add_argument(
         "--device",
@@ -610,7 +609,7 @@ def update_accelerator_options(args, config):
 
 
 def add_search_options(sub_parser: ArgumentParser):
-    search_strategy_group = sub_parser.add_argument_group()
+    search_strategy_group = sub_parser
     search_strategy_group.add_argument(
         "--enable_search",
         type=str,
