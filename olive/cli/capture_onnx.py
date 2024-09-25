@@ -50,9 +50,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             type=str,
             default="cpu",
             choices=["cpu", "gpu"],
-            help=(
-                "The device used to run the model to capture the ONNX graph."
-            ),
+            help=("The device used to run the model to capture the ONNX graph."),
         )
 
         # PyTorch Exporter options
@@ -192,7 +190,10 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             del config["passes"]["m"]
             to_replace.extend(
                 [
-                    (("passes", "c", "device"), self.args.conversion_device if self.args.conversion_device == "cpu" else "cuda"),
+                    (
+                        ("passes", "c", "device"),
+                        self.args.conversion_device if self.args.conversion_device == "cpu" else "cuda",
+                    ),
                     (("passes", "c", "torch_dtype"), self.args.torch_dtype),
                     (("passes", "c", "target_opset"), self.args.target_opset),
                     (("passes", "c", "use_dynamo_exporter"), self.args.use_dynamo_exporter),

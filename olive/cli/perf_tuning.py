@@ -102,7 +102,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
         )
 
         add_dataset_options(sub_parser)
-        add_accelerator_options(sub_parser, single_provider = False)
+        add_accelerator_options(sub_parser, single_provider=False)
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
         sub_parser.set_defaults(func=PerfTuningCommand)

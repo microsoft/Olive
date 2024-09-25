@@ -1,6 +1,6 @@
 .. _command_line_tools:
 
-Olive provides command line tools that can be invoked using the ``olive`` command. 
+Olive provides command line tools that can be invoked using the ``olive`` command.
 
 Run
 ===
@@ -126,7 +126,7 @@ There are more than one way to supply input model to the Olive commands.
 
 4. A model from AzureML registry can be directly used as an input model. For example ``-m azureml://registries/<registry_name>/models/<model_name>/versions/<version>``.
 
-5. An ONNX model available locally can also be used as an input for the Olive commands that accept ONNX model as an input. 
+5. An ONNX model available locally can also be used as an input for the Olive commands that accept ONNX model as an input.
 
 Olive reserves several function names to provide specific inputs for the PyTorch model. These functions should be defined in your model script:
 

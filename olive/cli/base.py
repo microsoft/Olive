@@ -302,7 +302,7 @@ def add_input_model_options(
         "--model_name_or_path",
         type=str,
         help=(
-        "Path to the input model. See https://microsoft.github.io/Olive/features/cli.html#input-model for more information"
+            "Path to the input model. See https://microsoft.github.io/Olive/features/cli.html#input-model for more information"
         ),
     )
     if enable_hf:
@@ -533,6 +533,7 @@ def update_dataset_options(args, config):
         if value is not None:
             set_nested_dict_value(config, keys, value)
 
+
 def add_accelerator_options(sub_parser, single_provider: bool = True):
     accelerator_group = sub_parser.add_argument_group()
 
@@ -560,9 +561,7 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
                 "QNNExecutionProviderROCMExecutionProvider",
                 "TensorrtExecutionProvider",
             ],
-            help=(
-                "Execution provider to use for ONNX model."
-            ),
+            help=("Execution provider to use for ONNX model."),
         )
     else:
         accelerator_group.add_argument(

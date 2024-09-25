@@ -6,15 +6,12 @@ import math
 from argparse import ArgumentParser
 from typing import TYPE_CHECKING, Tuple
 
-from olive.cli.base import (
-    BaseOliveCLICommand,
-    add_logging_options,
-)
-
+from olive.cli.base import BaseOliveCLICommand, add_logging_options
 from olive.common.utils import WeightsFileFormat, save_weights
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
 
 class ExportAdaptersCommand(BaseOliveCLICommand):
     @staticmethod
