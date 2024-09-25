@@ -612,7 +612,7 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
         type=str,
         default="cpu",
         choices=["gpu", "cpu", "npu"],
-        help="Device to use for the model.",
+        help="Device used to run the model.",
     )
 
     if single_provider:

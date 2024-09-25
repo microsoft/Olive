@@ -46,15 +46,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         )
 
         sub_parser.add_argument(
-            "--device",
+            "--conversion_device",
             type=str,
             default="cpu",
             choices=["cpu", "gpu"],
             help=(
-                "The device to use to convert the model to ONNX."
-                "If 'gpu' is selected, the execution_providers will be set to CUDAExecutionProvider."
-                "If 'cpu' is selected, the execution_providers will be set to CPUExecutionProvider."
-                "For PyTorch Exporter, the device is used to cast the model to before capturing the ONNX graph."
+                "The device used to run the model to capture the ONNX graph."
             ),
         )
 
@@ -64,9 +61,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--use_dynamo_exporter",
             action="store_true",
             help="Whether to use dynamo_export API to export ONNX model.",
-        )
-        pte_group.add_argument(
-            "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
         )
         pte_group.add_argument(
             "--past_key_value_name",
@@ -145,6 +139,10 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             ),
         )
 
+        sub_parser.add_argument(
+            "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
+        )
+
         # remote options
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
@@ -170,10 +168,10 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             ("input_model", get_input_model_config(self.args)),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
-            (("systems", "local_system", "accelerators", 0, "device"), self.args.device),
+            (("systems", "local_system", "accelerators", 0, "device"), self.args.conversion_device),
             (
                 ("systems", "local_system", "accelerators", 0, "execution_providers"),
-                ["CPUExecutionProvider"] if self.args.device == "cpu" else ["CUDAExecutionProvider"],
+                ["CPUExecutionProvider"] if self.args.conversion_device == "cpu" else ["CUDAExecutionProvider"],
             ),
         ]
         if self.args.use_model_builder:
@@ -194,7 +192,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             del config["passes"]["m"]
             to_replace.extend(
                 [
-                    (("passes", "c", "device"), self.args.device if self.args.device == "cpu" else "cuda"),
+                    (("passes", "c", "device"), self.args.conversion_device if self.args.conversion_device == "cpu" else "cuda"),
                     (("passes", "c", "torch_dtype"), self.args.torch_dtype),
                     (("passes", "c", "target_opset"), self.args.target_opset),
                     (("passes", "c", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
