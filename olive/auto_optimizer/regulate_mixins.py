@@ -79,7 +79,6 @@ class RegulatePassConfigMixin:
 
         customized_fp16 = self._allow_precision("fp16")
         cuda_fp16 = customized_fp16 and is_cuda_ep
-        trt_fp16 = customized_fp16 and not cuda_fp16
 
         trans_opt = "OrtTransformersOptimization"
         trans_opt_fp16 = "OrtTransformerOptimization_cuda_fp16"
