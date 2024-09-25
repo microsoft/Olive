@@ -33,7 +33,7 @@ conda activate olive-env
 ```
 You can replace `olive-env` with any name you want and `python=3.8` with the version of python you want to use.
 
-Please refer to the [conda documentation](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) for more information on how to create and manage conda environments.
+Please refer to the [conda documentation](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) for more information on how to create and manage conda environments.
 
 ### Virtual env
 To create a new virtual environment and activate it, run the following command:

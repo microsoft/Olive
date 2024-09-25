@@ -212,7 +212,7 @@ def audio_classification_pre_process(
 
     # align labels with model configs
     model_config = get_model_config(model_name, trust_remote_code=trust_remote_code)
-    labels_to_filter = kwargs.get("labels_to_filter", None) or []
+    labels_to_filter = kwargs.get("labels_to_filter") or []
     dataset = dataset.filter(
         lambda x: x not in dataset.features["label"].str2int(labels_to_filter), input_columns=[label_col]
     )

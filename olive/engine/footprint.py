@@ -78,7 +78,7 @@ class Footprint:
         self.objective_dict = objective_dict
 
     def record(self, foot_print_node: FootprintNode = None, **kwargs):
-        _model_id = kwargs.get("model_id", None)
+        _model_id = kwargs.get("model_id")
         if foot_print_node is not None:
             _model_id = foot_print_node.model_id
             self.nodes[_model_id] = foot_print_node
