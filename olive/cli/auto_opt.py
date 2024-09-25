@@ -9,13 +9,17 @@ from typing import ClassVar, Dict, List
 
 from olive.cli.base import (
     BaseOliveCLICommand,
+    add_accelerator_options,
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_search_options,
     get_input_model_config,
     is_remote_run,
     save_output_model,
+    update_accelerator_options,
     update_remote_options,
+    update_search_options,
 )
 from olive.common.utils import hardlink_copy_dir, set_nested_dict_value
 
@@ -82,27 +86,8 @@ class AutoOptCommand(BaseOliveCLICommand):
             default_output_path="auto-opt-output",
         )
 
-        system_group = sub_parser.add_argument_group("system options")
-        system_group.add_argument(
-            "--device",
-            type=str,
-            default=None,
-            choices=["cpu", "gpu", "npu"],
-            # TODO(anyone): add more devices cpu_spr, vpu, intel_myriad
-            help=(
-                "Device to use for optimization, choose from cpu and gpu. If not specified,"
-                " will deduce from the value of execution providers, CPU/VistisAi for cpu and"
-                " CUDA/Tensorrt/Dml for gpu. If both device and execution providers are not specified,"
-                " default to cpu device with CPUExecutionProvider."
-            ),
-        )
-        system_group.add_argument(
-            "--providers",
-            type=str,
-            nargs="*",
-            choices=["CPU", "CUDA", "Tensorrt", "Dml", "VitisAI", "Qnn"],
-            help="List of execution providers to use for optimization",
-        )
+        # add accelerator options
+        add_accelerator_options(sub_parser)
 
         # dataset options
         dataset_group = sub_parser.add_argument_group(
@@ -166,28 +151,11 @@ class AutoOptCommand(BaseOliveCLICommand):
             ),
         )
 
-        search_strategy_group = sub_parser.add_argument_group("search strategy options")
-        search_strategy_group.add_argument(
-            "--num_samples", type=int, default=5, help="Number of samples for search algorithm"
-        )
-        search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search algorithm")
-        search_strategy_group.add_argument(
-            "--search_order",
-            type=str,
-            default="joint",
-            choices=["joint", "pass-by-pass"],
-            help="Execution order for search strategy",
-        )
-        search_strategy_group.add_argument(
-            "--search_algorithm",
-            type=str,
-            default="tpe",
-            choices=["exhaustive", "tpe", "random"],
-            help="Search algorithm for search strategy",
-        )
-
         # remote options
         add_remote_options(sub_parser)
+
+        # search options
+        add_search_options(sub_parser)
 
         sub_parser.set_defaults(func=AutoOptCommand)
 
@@ -209,68 +177,36 @@ class AutoOptCommand(BaseOliveCLICommand):
             else:
                 save_output_model(run_config, self.args.output_path)
 
-    def resolve_providers(self):
-        self.args.providers = self.args.providers or []
-        for idx, provider in enumerate(self.args.providers):
-            if not provider.endswith("ExecutionProvider"):
-                self.args.providers[idx] = f"{provider}ExecutionProvider"
-
     def get_run_config(self, tempdir) -> Dict:
-        self.resolve_providers()
         config = deepcopy(TEMPLATE)
-
-        to_replace = [
-            ("input_model", get_input_model_config(self.args)),
-            ("output_dir", tempdir),
-            ("log_severity_level", self.args.log_level),
-        ]
-
-        device = self.args.device
-        if not device:
-            device = (
-                "gpu"
-                if self.args.providers
-                and any(p[: -(len("ExecutionProvider"))] in ["CUDA", "Tensorrt", "Dml"] for p in self.args.providers)
-                else "cpu"
-            )
-        providers = self.args.providers or ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
-        to_replace.append(
-            (("systems", "local_system", "accelerators"), [{"device": device, "execution_providers": providers}])
-        )
 
         excluded_passes = self.args.excluded_passes or ["ModelBuilder", "OrtPerfTuning"]
         if self.args.use_model_builder:
             excluded_passes.remove("ModelBuilder")
             excluded_passes.append("OnnxConversion")
 
-        to_replace.extend(
-            [
-                ("auto_optimizer_config", {"precisions": self.args.precisions, "excluded_passes": excluded_passes}),
-                (
-                    "search_strategy",
-                    {
-                        "execution_order": self.args.search_order,
-                        "search_algorithm": self.args.search_algorithm,
-                        "num_samples": self.args.num_samples,
-                        "seed": self.args.seed,
-                    },
-                ),
-                ("data_configs", self._get_data_config()),
-            ]
-        )
-
+        to_replace = [
+            ("input_model", get_input_model_config(self.args)),
+            ("output_dir", tempdir),
+            ("log_severity_level", self.args.log_level),
+            ("data_configs", self._get_data_config()),
+            ("auto_optimizer_config", {"precisions": self.args.precisions, "excluded_passes": excluded_passes}),
+        ]
         for keys, value in to_replace:
             if value is None:
                 continue
             set_nested_dict_value(config, keys, value)
 
-        # no search strategy if no data_configs
-        if not config["data_configs"]:
+        update_accelerator_options(self.args, config)
+        update_search_options(self.args, config)
+        update_remote_options(config, self.args, "auto-opt", tempdir)
+
+        if self.args.enable_search is None:
             del config["evaluators"]
             del config["evaluator"]
             del config["search_strategy"]
-
-        update_remote_options(config, self.args, "auto-opt", tempdir)
+        elif not config["data_configs"]:
+            raise ValueError("Dataset is required when search is enabled")
 
         return config
 
