@@ -9,8 +9,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Dict
 
-import yaml
-
 from olive.cli.base import (
     BaseOliveCLICommand,
     add_accelerator_options,
@@ -231,6 +229,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
                     json.dump(infer_settings, f, indent=4)
             print(f"Inference session parameters are saved to {output_path}.")
 
+
 TEMPLATE = {
     "input_model": {"type": "ONNXModel"},
     "systems": {
@@ -250,10 +249,7 @@ TEMPLATE = {
         }
     ],
     "passes": {
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "data_config" : "perf_tuning_data"
-        },
+        "perf_tuning": {"type": "OrtPerfTuning", "data_config": "perf_tuning_data"},
     },
     "host": "local_system",
     "target": "local_system",
