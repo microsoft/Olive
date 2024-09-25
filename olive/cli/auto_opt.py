@@ -120,9 +120,8 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         auto_opt_config_group = sub_parser.add_argument_group("auto optimizer options")
         auto_opt_config_group.add_argument(
-            "--precisions",
+            "--precision",
             type=str,
-            nargs="*",
             choices=["fp16", "fp32", "int4", "int8"],
             help=(
                 "The output precision of the optimized model. If not specified, "
@@ -186,7 +185,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
             ("data_configs", self._get_data_config()),
-            ("auto_optimizer_config", {"precisions": self.args.precisions, "excluded_passes": excluded_passes}),
+            ("auto_optimizer_config", {"precisions": [self.args.precision], "excluded_passes": excluded_passes}),
         ]
         for keys, value in to_replace:
             if value is None:
