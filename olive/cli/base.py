@@ -302,7 +302,8 @@ def add_input_model_options(
         "--model_name_or_path",
         type=str,
         help=(
-            "Path to the input model. See https://microsoft.github.io/Olive/features/cli.html#input-model for more information"
+            "Path to the input model. "
+            "See https://microsoft.github.io/Olive/features/cli.html#input-model for more information"
         ),
     )
     if enable_hf:

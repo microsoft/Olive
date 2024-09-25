@@ -26,7 +26,6 @@ from olive.cli.base import (
     update_remote_options,
 )
 from olive.common.utils import set_nested_dict_value
-from olive.data.config import DataConfig
 
 
 class PerfTuningCommand(BaseOliveCLICommand):
