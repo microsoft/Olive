@@ -85,11 +85,11 @@
 <li class="toctree-l3"><a class="reference internal" href="#auto-optimization">Auto-Optimization</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#logging-options">logging options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#model-options">Model options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#system-options">system options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#accelerator-group">accelerator group</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#dataset-options,-required-for-some-optimization-passes-like-quantization,-and-evaluation-components">dataset options, required for some optimization passes like quantization, and evaluation components</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#auto-optimizer-options">auto optimizer options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#search-strategy-options">search strategy options</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#remote-options">remote options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#search-algorithm-options">search algorithm options</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#capture-onnx-graph">Capture Onnx Graph</a><ul>
@@ -320,20 +320,18 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">providers</span> <span class="p">[{</span><span class="n">CPU</span><span class="p">,</span><span class="n">CUDA</span><span class="p">,</span><span class="n">Tensorrt</span><span class="p">,</span><span class="n">Dml</span><span class="p">,</span><span class="n">VitisAI</span><span class="p">,</span><span class="n">Qnn</span><span class="p">}</span> <span class="p">[{</span><span class="n">CPU</span><span class="p">,</span><span class="n">CUDA</span><span class="p">,</span><span class="n">Tensorrt</span><span class="p">,</span><span class="n">Dml</span><span class="p">,</span><span class="n">VitisAI</span><span class="p">,</span><span class="n">Qnn</span><span class="p">}</span> <span class="o">...</span><span class="p">]]]</span>
+                      <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">providers_list</span> <span class="p">[{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}</span> <span class="p">[{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">split</span> <span class="n">SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">subset</span> <span class="n">SUBSET</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">precisions</span> <span class="p">[{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">}</span> <span class="p">[{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">}</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">excluded_passes</span> <span class="p">[</span><span class="n">EXCLUDED_PASSES</span> <span class="p">[</span><span class="n">EXCLUDED_PASSES</span> <span class="o">...</span><span class="p">]]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">num_samples</span> <span class="n">NUM_SAMPLES</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">search_order</span> <span class="p">{</span><span class="n">joint</span><span class="p">,</span><span class="k">pass</span><span class="o">-</span><span class="n">by</span><span class="o">-</span><span class="k">pass</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">search_algorithm</span> <span class="p">{</span><span class="n">exhaustive</span><span class="p">,</span><span class="n">tpe</span><span class="p">,</span><span class="n">random</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">enable_search</span> <span class="p">[{</span><span class="n">exhaustive</span><span class="p">,</span><span class="n">tpe</span><span class="p">,</span><span class="n">random</span><span class="p">}]]</span>
 </pre></div>
 </div>
 <section id="logging-options">
@@ -378,16 +376,17 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 </dd>
 </dl>
 </section>
-<section id="system-options">
-<h4>system options<a class="headerlink" href="#system-options" title="Permalink to this heading">¶</a></h4>
+<section id="accelerator-group">
+<h4>accelerator group<a class="headerlink" href="#accelerator-group" title="Permalink to this heading">¶</a></h4>
 <dl class="option-list">
 <dt><kbd>--device</kbd></dt>
-<dd><p>Possible choices: cpu, gpu, npu</p>
-<p>Device to use for optimization, choose from cpu and gpu. If not specified, will deduce from the value of execution providers, CPU/VistisAi for cpu and CUDA/Tensorrt/Dml for gpu. If both device and execution providers are not specified, default to cpu device with CPUExecutionProvider.</p>
+<dd><p>Possible choices: gpu, cpu, npu</p>
+<p>Device to use for the model.</p>
+<p>Default: “cpu”</p>
 </dd>
-<dt><kbd>--providers</kbd></dt>
-<dd><p>Possible choices: CPU, CUDA, Tensorrt, Dml, VitisAI, Qnn</p>
-<p>List of execution providers to use for optimization</p>
+<dt><kbd>--providers_list</kbd></dt>
+<dd><p>Possible choices: CUDAExecutionProvider, CPUExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, OpenVINOExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProviderROCMExecutionProvider, TensorrtExecutionProvider</p>
+<p>List of execution providers to use for ONNX model. They are case sensitive. If not provided, all available providers will be used.</p>
 </dd>
 </dl>
 </section>
@@ -428,29 +427,6 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 </dd>
 </dl>
 </section>
-<section id="search-strategy-options">
-<h4>search strategy options<a class="headerlink" href="#search-strategy-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--num_samples</kbd></dt>
-<dd><p>Number of samples for search algorithm</p>
-<p>Default: 5</p>
-</dd>
-<dt><kbd>--seed</kbd></dt>
-<dd><p>Random seed for search algorithm</p>
-<p>Default: 0</p>
-</dd>
-<dt><kbd>--search_order</kbd></dt>
-<dd><p>Possible choices: joint, pass-by-pass</p>
-<p>Execution order for search strategy</p>
-<p>Default: “joint”</p>
-</dd>
-<dt><kbd>--search_algorithm</kbd></dt>
-<dd><p>Possible choices: exhaustive, tpe, random</p>
-<p>Search algorithm for search strategy</p>
-<p>Default: “tpe”</p>
-</dd>
-</dl>
-</section>
 <section id="remote-options">
 <h4>remote options<a class="headerlink" href="#remote-options" title="Permalink to this heading">¶</a></h4>
 <dl class="option-list">
@@ -465,6 +441,19 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 </dd>
 <dt><kbd>--aml_compute</kbd></dt>
 <dd><p>The compute name to run the workflow on.</p>
+</dd>
+</dl>
+</section>
+<section id="search-algorithm-options">
+<h4>search algorithm options<a class="headerlink" href="#search-algorithm-options" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--seed</kbd></dt>
+<dd><p>Random seed for search algorithm</p>
+<p>Default: 0</p>
+</dd>
+<dt><kbd>--enable_search</kbd></dt>
+<dd><p>Possible choices: exhaustive, tpe, random</p>
+<p>Enable search to produce optimal model for the given evaluation criteria.Optionally provide search algorithm from available choices.Use exhastive search algorithm by default.</p>
 </dd>
 </dl>
 </section>
