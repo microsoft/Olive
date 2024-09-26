@@ -48,6 +48,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     input_model = {
         "type": "HfModel",
         "model_path": model_path,
+        "generative": not args.non_generative,
         "load_kwargs": {
             "trust_remote_code": args.trust_remote_code,
             "attn_implementation": "eager",
@@ -60,7 +61,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     return input_model
 
 
-def _get_onnx_input_model(model_path: str) -> Dict:
+def _get_onnx_input_model(args: Namespace, model_path: str) -> Dict:
     """Get the input model config for ONNX model.
 
     Only supports local ONNX model file path.
@@ -69,6 +70,7 @@ def _get_onnx_input_model(model_path: str) -> Dict:
     model_config = {
         "type": "OnnxModel",
         "model_path": model_path,
+        "generative": not args.non_generative,
     }
 
     # additional processing for the model folder
@@ -107,6 +109,7 @@ def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     input_model_config = {
         "type": "PyTorchModel",
         "model_script": args.model_script,
+        "generative": not args.non_generative,
     }
 
     if args.script_dir:
@@ -223,7 +226,7 @@ def get_input_model_config(args: Namespace) -> Dict:
 
     # Check local onnx file/folder (user-provided model)
     if (model_path.is_file() and model_path.suffix == ".onnx") or any(model_path.glob("*.onnx")):
-        return _get_onnx_input_model(model_name_or_path)
+        return _get_onnx_input_model(args, model_name_or_path)
 
     # Check local HF model file (user-provided model)
     return _get_hf_input_model(args, model_name_or_path)
@@ -305,6 +308,7 @@ def add_input_model_options(
             "See https://microsoft.github.io/Olive/features/cli.html#input-model for more information"
         ),
     )
+    model_group.add_argument("--non-generative", action="store_false", help="Is non-generative model?")
     if enable_hf:
         model_group.add_argument(
             "--trust_remote_code", action="store_true", help="Trust remote code when loading a model."
