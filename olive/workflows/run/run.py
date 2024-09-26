@@ -231,18 +231,19 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     # to remove engine level loop and pass the accelerator_specs to the engine directly.
     for accelerator_spec, (passes, pass_flows) in zip(acc_list, pass_list):
         engine.reset_passes()
-        if passes:
-            # First pass registers the necessary module implementation
-            for pass_config in passes.values():
-                if pass_config.type.lower() in Pass.registry:
-                    logger.debug("Pass %s already registered", pass_config.type)
-                    continue
-                # auto optimizer scenario
+        pass_flows_to_run = {p for ps in pass_flows for p in ps} if pass_flows else set(passes.keys())
+        # First pass registers the necessary module implementation
+        for pass_name in pass_flows_to_run:
+            pass_config = passes[pass_name]
+            if pass_config.type.lower() in Pass.registry:
+                logger.debug("Pass %s already registered", pass_config.type)
+            else:
                 logger.debug("Registering pass %s", pass_config.type)
                 package_config.import_pass_module(pass_config.type)
 
-            # Second pass, initializes the pass and registers it with the engine
-            for pass_name, pass_config in passes.items():
+        # Second pass, initializes the pass and registers it with the engine
+        for pass_name, pass_config in passes.items():
+            if pass_name in pass_flows_to_run:
                 host = pass_config.host.create_system() if pass_config.host is not None else None
                 engine.register(
                     Pass.registry[pass_config.type.lower()],

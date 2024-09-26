@@ -80,7 +80,7 @@ def huggingface_data_config_template(model_name, task, **kwargs) -> DataConfig:
                 }
     """
     for component_config_name in ["pre_process_data_config", "post_process_data_config"]:
-        component_config = kwargs.get(component_config_name, None) or {}
+        component_config = kwargs.get(component_config_name) or {}
         if isinstance(component_config, DataComponentConfig):
             component_config = component_config.dict()
         component_config["params"] = component_config.get("params") or {}

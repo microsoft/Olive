@@ -41,7 +41,7 @@ efficiently compose and tune integrated techniques for offering a ready-to-use E
 
 ## Installation
 We recommend installing Olive in a [virtual environment](https://docs.python.org/3/library/venv.html) or a
-[conda environment](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html). Olive is installed using
+[conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html). Olive is installed using
 pip.
 
 Create a virtual/conda environment with the desired version of Python and activate it.
