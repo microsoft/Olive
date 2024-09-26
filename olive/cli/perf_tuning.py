@@ -15,14 +15,12 @@ from olive.auto_optimizer.template_mapping import PERF_TUNING_TEMPLATE
 from olive.cli.base import (
     BaseOliveCLICommand,
     add_accelerator_options,
-    add_dataset_options,
     add_input_model_options,
     add_logging_options,
     add_remote_options,
     get_input_model_config,
     is_remote_run,
     update_accelerator_options,
-    update_dataset_options,
     update_remote_options,
 )
 from olive.common.utils import set_nested_dict_value
@@ -171,6 +169,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
                     json.dump(infer_settings, f, indent=4)
             print(f"Inference session parameters are saved to {output_path}.")
 
+
 TEMPLATE = {
     "input_model": {"type": "ONNXModel"},
     "systems": {
@@ -183,8 +182,12 @@ TEMPLATE = {
         {
             "name": "perf_tuning_data",
             "type": "dummydatacontainer",
-            "load_dataset_config": {"type": "dummy_dataset", "input_shapes": [(1, 1)], "input_names": ["input"], "max_samples": 32},
-
+            "load_dataset_config": {
+                "type": "dummy_dataset",
+                "input_shapes": [(1, 1)],
+                "input_names": ["input"],
+                "max_samples": 32,
+            },
         }
     ],
     "passes": {
