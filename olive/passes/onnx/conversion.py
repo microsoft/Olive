@@ -169,7 +169,7 @@ class OnnxConversion(Pass):
         :param tempdir: directory to use for temporary files
         """
         from olive.common.hf.peft import make_export_compatible_peft
-        from olive.common.hf.quant import make_export_compatible_quant
+        from olive.common.hf.quant import is_quantized_model, make_export_compatible_quant
 
         device = torch.device(device)
         use_gpu = device != torch.device("cpu")
@@ -180,7 +180,13 @@ class OnnxConversion(Pass):
         pytorch_model.to(device)
         dummy_inputs = tensor_data_to_device(dummy_inputs, device)
         if torch_dtype:
-            pytorch_model = pytorch_model.to(torch_dtype)
+            try:
+                pytorch_model = pytorch_model.to(torch_dtype)
+            except ValueError:
+                # some quantized models like gptq don't support casting the whole model
+                # Model is expected to be loaded in the correct dtype
+                if not is_quantized_model(pytorch_model):
+                    raise
 
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)

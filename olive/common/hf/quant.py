@@ -2,13 +2,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 import math
 from typing import Callable, Dict, Tuple
 
 import torch
 import transformers
 
-from olive.common.utils import set_attr
+from olive.common.utils import get_attr, set_attr
+
+logger = logging.getLogger(__name__)
 
 
 def get_quantization_info(model: torch.nn.Module):
@@ -75,7 +78,7 @@ def get_bnb_qlinear_cls(quantization_config):
 
 @torch.no_grad()
 def _replace_qlinear_modules(
-    model: torch.nn.Module, mapping: Dict[str, Tuple[Callable, Callable]]
+    model: torch.nn.Module, mapping: Dict[str, Tuple[Callable, Callable]], desc: str
 ) -> Tuple[torch.nn.Module, bool]:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions.
 
@@ -83,6 +86,7 @@ def _replace_qlinear_modules(
     :param mapping: the mapping from quantization method to
         - function to get qlinear class from quantization config
         - function to get new class to replace qlinear modules with
+    :param desc: description of the operation
     :return model: the modified model
     :return modified: whether the model was modified
     """
@@ -97,17 +101,21 @@ def _replace_qlinear_modules(
         return model, False
 
     # search and replace
-    modified = False
+    logger.debug(desc)
+    logger.debug("Quantization method: %s, QuantLinear class: %s", quantization_method, qlinear_class)
+    num_modified = 0
     for name, module in model.named_modules():
         if isinstance(module, qlinear_class):
             new_module = mapping[quantization_method][1](module)
             set_attr(model, name, new_module)
-            modified = True
+            # quantized lora layers have another reference to the qlinear module
+            parent = get_attr(model, ".".join(name.split(".")[:-1]))
+            if parent is not module and getattr(parent, "quant_linear_module", None) is module:
+                set_attr(parent, "quant_linear_module", new_module)
+            num_modified += 1
+    logger.debug("Modified %d modules", num_modified)
 
-    return model, modified
-
-
-# Dequantization functions
+    return model, num_modified > 0
 
 
 def dequantize_auto_gptq_qlinear(qlinear) -> torch.nn.Linear:
@@ -182,7 +190,7 @@ DEQUANTIZE_MAPPING = {
 
 def maybe_dequantize_model(model: torch.nn.Module) -> torch.nn.Module:
     """Dequantize the model if it was quantized using one of the supported methods."""
-    model, modified = _replace_qlinear_modules(model, DEQUANTIZE_MAPPING)
+    model, modified = _replace_qlinear_modules(model, DEQUANTIZE_MAPPING, "Dequantizing model")
 
     if modified:
         del model.quantization_method
@@ -191,9 +199,6 @@ def maybe_dequantize_model(model: torch.nn.Module) -> torch.nn.Module:
             del model.is_quantized
 
     return model
-
-
-# Torch export compatible
 
 
 # Should we also support QDQ export? Need different packing and symbolic for that
@@ -383,6 +388,7 @@ def make_auto_gptq_qlinear4bit(qlinear):
     return new_qlinear
 
 
+# TODO(jambayk): maybe support bitsandbytes too. Need to consider dtype compatibility
 EXPORT_QLINEAR_MAPPING = {
     "awq": (get_auto_awq_qlinear_cls, make_auto_awq_qlinear4bit),
     "gptq": (get_auto_gptq_qlinear_cls, make_auto_gptq_qlinear4bit),
@@ -391,4 +397,4 @@ EXPORT_QLINEAR_MAPPING = {
 
 def make_export_compatible_quant(model: torch.nn.Module) -> torch.nn.Module:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions."""
-    return _replace_qlinear_modules(model, EXPORT_QLINEAR_MAPPING)[0]
+    return _replace_qlinear_modules(model, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model")[0]
