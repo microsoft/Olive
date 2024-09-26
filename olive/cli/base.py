@@ -588,7 +588,7 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
     return accelerator_group
 
 
-def update_accelerator_options(args, config):
+def update_accelerator_options(args, config, single_provider: bool = True):
     to_replace = [
         (("systems", "local_system", "accelerators", 0, "device"), args.device),
     ]
@@ -598,9 +598,9 @@ def update_accelerator_options(args, config):
         if not provider.endswith("ExecutionProvider"):
             args.providers_list[idx] = f"{provider}ExecutionProvider"
 
-    if args.provider:
+    if single_provider:
         to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), [args.provider]))
-    elif args.providers_list:
+    else:
         to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), args.providers_list))
 
     for k, v in to_replace:

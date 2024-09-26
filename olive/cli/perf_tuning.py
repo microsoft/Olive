@@ -100,7 +100,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
             help="Whether to use key-value cache for ORT session parameter tuning",
         )
 
-        add_dataset_options(sub_parser)
+        #add_dataset_options(sub_parser)
         add_accelerator_options(sub_parser, single_provider=False)
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
@@ -176,8 +176,8 @@ class PerfTuningCommand(BaseOliveCLICommand):
             if v is not None:
                 set_nested_dict_value(config, k, v)
 
-        update_dataset_options(self.args, config)
-        update_accelerator_options(self.args, config)
+        #update_dataset_options(self.args, config)
+        update_accelerator_options(self.args, config, single_provider=False)
         update_remote_options(config, self.args, "perf-tuning", tempdir)
 
         return config
@@ -205,3 +205,25 @@ class PerfTuningCommand(BaseOliveCLICommand):
                 with infer_setting_output_path.open("w") as f:
                     json.dump(infer_settings, f, indent=4)
             print(f"Inference session parameters are saved to {output_path}.")
+
+TEMPLATE = {
+    "input_model": {"type": "ONNXModel"},
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+        }
+    },
+    "data_configs": [
+        {
+            "name": "test_data_config_for_tuning",
+            "type": "DummyDataContainer",
+            "load_dataset_config": {"input_shapes": [(1, 1)], "input_names": ["input"]},
+        }
+    ],
+    "passes": {
+        "perf_tuning": {"type": "OrtPerfTuning", "data_config": "perf_tuning_data"},
+    },
+    "host": "local_system",
+    "target": "local_system",
+}
