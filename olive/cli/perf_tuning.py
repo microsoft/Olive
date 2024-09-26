@@ -100,7 +100,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
             help="Whether to use key-value cache for ORT session parameter tuning",
         )
 
-        #add_dataset_options(sub_parser)
         add_accelerator_options(sub_parser, single_provider=False)
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
@@ -110,37 +109,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
     def perf_tuning_template():
         with PERF_TUNING_TEMPLATE.open() as f:
             return yaml.safe_load(f)
-
-    def _update_default_data_config_params(self, default_data_config) -> Dict:
-        data_config = deepcopy(default_data_config)
-        load_dataset_keys = (
-            "seq_len",
-            "past_seq_len",
-            "max_seq_len",
-            "shared_kv",
-            "generative",
-            "ort_past_key_name",
-            "ort_past_value_name",
-            "trust_remote_code",
-            "max_samples",
-        )
-        dataloader_keys = ("fields_no_batch", "batch_size")
-        args_dict = vars(self.args)
-        load_dataset_params = {k: args_dict[k] for k in load_dataset_keys if args_dict[k] is not None}
-        load_dataset_params["model_name"] = self.args.hf_model_name
-        dataloader_params = {k: args_dict[k] for k in dataloader_keys if args_dict[k] is not None}
-
-        data_config["load_dataset_config"] = load_dataset_params
-        data_config["dataloader_config"] = dataloader_params
-
-        # special field predict_with_kv_cache to choose the data container type
-        # from TransformersPromptDummyDataContainer and TransformersTokenDummyDataContainer
-        data_config["type"] = (
-            "TransformersTokenDummyDataContainer"
-            if self.args.predict_with_kv_cache
-            else "TransformersPromptDummyDataContainer"
-        )
-        return data_config
 
     def _update_pass_config(self, default_pass_config) -> Dict:
         pass_config = deepcopy(default_pass_config)
@@ -160,26 +128,23 @@ class PerfTuningCommand(BaseOliveCLICommand):
         return pass_config
 
     def get_run_config(self, tempdir) -> Dict:
-        template_config = PerfTuningCommand.perf_tuning_template()
+        config = deepcopy(TEMPLATE)
 
         perf_tuning_key = ("passes", "perf_tuning")
 
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
-            (perf_tuning_key, self._update_pass_config(template_config["passes"]["perf_tuning"])),
+            (perf_tuning_key, self._update_pass_config(config["passes"]["perf_tuning"])),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
         ]
 
-        config = deepcopy(template_config)
         for k, v in to_replace:
             if v is not None:
                 set_nested_dict_value(config, k, v)
 
-        #update_dataset_options(self.args, config)
         update_accelerator_options(self.args, config, single_provider=False)
         update_remote_options(config, self.args, "perf-tuning", tempdir)
-
         return config
 
     def run(self):
@@ -216,9 +181,10 @@ TEMPLATE = {
     },
     "data_configs": [
         {
-            "name": "test_data_config_for_tuning",
-            "type": "DummyDataContainer",
-            "load_dataset_config": {"input_shapes": [(1, 1)], "input_names": ["input"]},
+            "name": "perf_tuning_data",
+            "type": "dummydatacontainer",
+            "load_dataset_config": {"type": "dummy_dataset", "input_shapes": [(1, 1)], "input_names": ["input"], "max_samples": 32},
+
         }
     ],
     "passes": {
