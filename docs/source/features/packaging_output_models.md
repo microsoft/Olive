@@ -275,7 +275,7 @@ The model configuration file is a json file including the history of applied Pas
   "2_OnnxQuantization-1-1431c563dcfda9c9c3bf26c5d61ef58e": {
     //...
   },
-  "3_OrtPerfTuning-2-a843d77ae4964c04e145b83567fb5b05-cpu-cpu": {
+  "3_OrtSessionParamsTuning-2-a843d77ae4964c04e145b83567fb5b05-cpu-cpu": {
     //...
   }
 }

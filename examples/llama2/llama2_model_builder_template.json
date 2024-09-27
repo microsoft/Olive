@@ -22,7 +22,11 @@
             "metadata_only": true,
             "search": { "max_length": 2048, "min_length": 0 }
         },
-        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "transformer_token_dummy_data", "io_bind": true }
+        "session_params_tuning": {
+            "type": "OrtSessionParamsTuning",
+            "data_config": "transformer_token_dummy_data",
+            "io_bind": true
+        }
     },
     "packaging_config": [ { "type": "Zipfile", "name": "OutputModel" } ],
     "log_severity_level": 0,

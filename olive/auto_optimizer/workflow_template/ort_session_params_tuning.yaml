@@ -2,13 +2,13 @@ input_model:
   type: "ONNXModel"
   model_path: <<model_path>>
 data_configs:
-  - name: "perf_tuning_data"
+  - name: "session_params_tuning_data"
     type: "TransformersTokenDummyDataContainer"
 passes:
-  perf_tuning:
-    type: "OrtPerfTuning"
+  session_params_tuning:
+    type: "OrtSessionParamsTuning"
     # the name will be updated if user provides customized data_config
-    data_config: "perf_tuning_data"
+    data_config: "session_params_tuning_data"
 systems:
   local_system:
     type: "LocalSystem"

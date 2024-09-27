@@ -99,8 +99,8 @@
             "block_size": 16,
             "is_symmetric": true
         },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
+        "session_params_tuning": {
+            "type": "OrtSessionParamsTuning",
             "data_config": "transformer_prompt_dummy_data",
             "enable_profiling": false
         }

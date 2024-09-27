@@ -41,7 +41,7 @@ def main(raw_args=None):
     if args.metadata_only:
         template_json["pass_flows"] = [["conversion", "metadata"]]
     else:
-        template_json["pass_flows"] = [["builder", "perf_tuning"]]
+        template_json["pass_flows"] = [["builder", "session_params_tuning"]]
     template_json["output_dir"] = f"models/{model_name}"
 
     # dump config

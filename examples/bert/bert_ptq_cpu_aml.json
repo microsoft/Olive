@@ -44,7 +44,7 @@
             "only_onnxruntime": false
         },
         "quantization": { "type": "OnnxQuantization", "data_config": "glue_mrpc" },
-        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "glue_mrpc" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mrpc" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

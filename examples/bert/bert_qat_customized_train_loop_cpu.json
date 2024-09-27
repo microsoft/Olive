@@ -38,7 +38,7 @@
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "model_optimizer": { "type": "ONNXModelOptimizer" },
         "transformers_optimization": { "type": "OrtTransformersOptimization" },
-        "perf_tuning": { "type": "OrtPerfTuning" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

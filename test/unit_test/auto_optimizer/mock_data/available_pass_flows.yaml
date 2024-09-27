@@ -4,38 +4,38 @@
 # --------------------------------------------------------------------------
 
 _variables:
-  - &fp32 ["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"]
-  - &mp ["ModelBuilder", "OrtPerfTuning"]
-  - &fp16 ["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"]
+  - &fp32 ["OnnxConversion", "OrtTransformersOptimization", "OrtSessionParamsTuning"]
+  - &mp ["ModelBuilder", "OrtSessionParamsTuning"]
+  - &fp16 ["OnnxConversion", "OrtTransformersOptimization", "OrtSessionParamsTuning"]
   - &mixed_fp16 [
       "OnnxConversion",
       "OrtTransformersOptimization",
       "OrtMixedPrecision",
-      "OrtPerfTuning",
+      "OrtSessionParamsTuning",
     ]
   - &int8 [
       "OnnxConversion",
       "OrtTransformersOptimization",
       "OnnxQuantization",
-      "OrtPerfTuning",
+      "OrtSessionParamsTuning",
     ]
   - &int4 [
       "OnnxConversion",
       "OrtTransformersOptimization",
       "OnnxMatMul4Quantizer",
-      "OrtPerfTuning",
+      "OrtSessionParamsTuning",
     ]
   - &inc_int8 [
       "OnnxConversion",
       "OrtTransformersOptimization",
       "IncQuantization",
-      "OrtPerfTuning",
+      "OrtSessionParamsTuning",
     ]
   - &vitisai_int8 [
       "OnnxConversion",
       "OrtTransformersOptimization",
       "VitisAIQuantization",
-      "OrtPerfTuning",
+      "OrtSessionParamsTuning",
     ]
 
 mapping:

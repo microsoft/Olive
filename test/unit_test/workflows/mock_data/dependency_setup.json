@@ -5,7 +5,10 @@
         "io_config": { "input_names": [ "x" ], "input_shapes": [ [ 1, 2, 3 ] ], "output_names": [ "y" ] }
     },
     "systems": { "local_system": { "type": "LocalSystem", "accelerators": [ { "device": "gpu" } ] } },
-    "passes": { "onnx_conversion": { "type": "OnnxConversion" }, "perf_tuning": { "type": "OrtPerfTuning" } },
+    "passes": {
+        "onnx_conversion": { "type": "OnnxConversion" },
+        "session_params_tuning": { "type": "OrtSessionParamsTuning" }
+    },
     "host": "local_system",
     "target": "local_system"
 }

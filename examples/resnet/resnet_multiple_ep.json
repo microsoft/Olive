@@ -62,7 +62,7 @@
             "weight_type": "QUInt8",
             "activation_type": "QUInt8"
         },
-        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "cifar10_data_config" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "cifar10_data_config" }
     },
     "evaluator": "common_evaluator",
     "target": "python_system",

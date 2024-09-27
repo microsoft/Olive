@@ -70,7 +70,7 @@
             "calibrate_method": "MinMax",
             "quant_preprocess": true
         },
-        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "cifar10_data_config" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "cifar10_data_config" }
     },
     "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
     "host": "local_system",

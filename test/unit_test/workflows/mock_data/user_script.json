@@ -76,7 +76,10 @@
             ]
         }
     },
-    "passes": { "onnx_conversion": { "type": "OnnxConversion" }, "perf_tuning": { "type": "OrtPerfTuning" } },
+    "passes": {
+        "onnx_conversion": { "type": "OnnxConversion" },
+        "session_params_tuning": { "type": "OrtSessionParamsTuning" }
+    },
     "evaluator": "common_evaluator",
     "host": "azureml_system",
     "target": "azureml_system"

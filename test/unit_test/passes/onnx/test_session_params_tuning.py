@@ -17,7 +17,12 @@ from olive.evaluator.metric_result import flatten_metric_result
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, AcceleratorSpec, Device
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, OrtPerfTuning, PerfTuningRunner, generate_test_name
+from olive.passes.onnx.session_params_tuning import (
+    PERFTUNING_BASELINE,
+    OrtSessionParamsTuning,
+    PerfTuningRunner,
+    generate_test_name,
+)
 
 
 def _get_tuning_data_config(input_shapes, input_names=None):
@@ -42,17 +47,17 @@ def _get_tuning_data_config(input_shapes, input_names=None):
         {"data_config": _get_tuning_data_config([(1, 1)], ["input"])},
     ],
 )
-def test_ort_perf_tuning_pass(config, tmp_path):
+def test_ort_session_params_tuning_pass(config, tmp_path):
     # setup
     input_model = get_onnx_model()
-    p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True)
+    p = create_pass_from_dict(OrtSessionParamsTuning, config, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
     # execute
     p.run(input_model, output_folder)
 
 
-@patch("olive.passes.onnx.perf_tuning.OrtPerfTuning._run_for_config")
+@patch("olive.passes.onnx.session_params_tuning.OrtSessionParamsTuning._run_for_config")
 @pytest.mark.parametrize(
     "config",
     [
@@ -61,10 +66,10 @@ def test_ort_perf_tuning_pass(config, tmp_path):
         {"providers_list": ["CPUExecutionProvider", "CUDAExecutionProvider"], "device": "gpu"},
     ],
 )
-def test_ort_perf_tuning_with_customized_configs(mock_run, config):
+def test_ort_session_params_tuning_with_customized_configs(mock_run, config):
     # setup
     input_model = get_onnx_model()
-    p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True)
+    p = create_pass_from_dict(OrtSessionParamsTuning, config, disable_search=True)
 
     # execute
     p.run(input_model, None)
@@ -85,7 +90,9 @@ def test_ort_perf_tuning_with_customized_configs(mock_run, config):
 @pytest.mark.parametrize("return_baseline", [True, False])
 @patch.object(OnnxEvaluator, "evaluate")
 @patch("onnxruntime.get_available_providers")
-def test_perf_tuning_with_provider_options(get_available_providers_mock, evaluate_mock, caplog, return_baseline):
+def test_session_params_tuning_with_provider_options(
+    get_available_providers_mock, evaluate_mock, caplog, return_baseline
+):
     logger = logging.getLogger("olive")
     logger.propagate = True
     get_available_providers_mock.return_value = [
@@ -143,7 +150,9 @@ def test_perf_tuning_with_provider_options(get_available_providers_mock, evaluat
         "enable_cuda_graph": True,
     }
     input_model = get_onnx_model()
-    p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR)
+    p = create_pass_from_dict(
+        OrtSessionParamsTuning, config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
+    )
     result = p.run(input_model, None)
     assert "execution_provider" in result.inference_settings
     acutal_eps = result.inference_settings["execution_provider"]
@@ -164,7 +173,7 @@ def test_perf_tuning_with_provider_options(get_available_providers_mock, evaluat
 @pytest.mark.parametrize("force_evaluate", [True, False])
 @patch.object(OnnxEvaluator, "evaluate")
 @patch("onnxruntime.get_available_providers")
-def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_mock, caplog, force_evaluate):
+def test_session_params_tuning_with_force_evaluate(get_available_providers_mock, evaluate_mock, caplog, force_evaluate):
     logger = logging.getLogger("olive")
     logger.propagate = True
 
@@ -203,7 +212,9 @@ def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_
         "force_evaluate_other_eps": force_evaluate,
     }
     input_model = get_onnx_model()
-    p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR)
+    p = create_pass_from_dict(
+        OrtSessionParamsTuning, config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR
+    )
     result = p.run(input_model, None)
     assert "io_bind" in result.inference_settings
     if force_evaluate:
@@ -225,7 +236,7 @@ def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_
 
 
 @patch("olive.model.ONNXModelHandler.io_config", new_callable=PropertyMock)
-def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
+def test_ort_session_params_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
     mock_get_io_config.return_value = {
         "input_names": ["input"],
         "input_shapes": [["input_0", "input_1"]],
@@ -236,7 +247,7 @@ def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
     }
 
     input_model = get_onnx_model()
-    p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
+    p = create_pass_from_dict(OrtSessionParamsTuning, {}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
     with pytest.raises(TypeError) as e:
@@ -246,11 +257,11 @@ def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
 
 
 @patch.object(PerfTuningRunner, "threads_num_binary_search")
-def test_ort_perf_tuning_pass_with_import_error(threads_num_binary_search_mock, tmp_path):
+def test_ort_session_params_tuning_pass_with_import_error(threads_num_binary_search_mock, tmp_path):
     threads_num_binary_search_mock.side_effect = ModuleNotFoundError("test")
 
     input_model = get_onnx_model()
-    p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
+    p = create_pass_from_dict(OrtSessionParamsTuning, {}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
     with pytest.raises(ModuleNotFoundError) as e:
@@ -349,7 +360,7 @@ def test_rocm_tuning_enable(get_available_providers_mock, inference_session_mock
     # setup
     input_model = get_onnx_model()
     p = create_pass_from_dict(
-        OrtPerfTuning,
+        OrtSessionParamsTuning,
         config,
         disable_search=True,
         accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="ROCMExecutionProvider"),

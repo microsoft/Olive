@@ -16,7 +16,7 @@ PASS_CAPABILITY = "pass_capability.yaml"
 OPT_LEVEL_PASSES = "opt_level_passes.yaml"
 
 WORKFLOW_TEMPLATE_PATH = Path(__file__).resolve().parent / "workflow_template"
-PERF_TUNING_TEMPLATE = WORKFLOW_TEMPLATE_PATH / "ort_perf_tuning.yaml"
+SESSION_PARAMS_TUNING_TEMPLATE = WORKFLOW_TEMPLATE_PATH / "ort_session_params_tuning.yaml"
 
 
 def get_pass_capability():

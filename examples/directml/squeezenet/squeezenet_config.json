@@ -24,8 +24,8 @@
     "passes": {
         "torch_to_onnx": { "type": "OnnxConversion", "target_opset": 13 },
         "float16_conversion": { "type": "OnnxFloatToFloat16" },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
+        "session_params_tuning": {
+            "type": "OrtSessionParamsTuning",
             "device": "gpu",
             "execution_mode_list": [ "ORT_SEQUENTIAL" ],
             "providers_list": [ "DmlExecutionProvider" ]

@@ -368,7 +368,7 @@ Please also find the detailed options from following table for each pass:
 | [ModelBuilder](model_builder) | Convert a generative PyTorch model to ONNX model using [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module |
 | [OnnxModelOptimizer](onnx_model_optimizer) | Optimize ONNX model by fusing nodes. |
 | [OnnxTransformersOptimization](onnx_transformers_optimization) | Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time. It is based on onnxruntime.transformers.optimizer. |
-| [OrtPerfTuning](ort_perf_tuning) | Optimize ONNX Runtime inference settings. |
+| [OrtSessionParamsTuning](ort_session_params_tuning) | Optimize ONNX Runtime inference settings. |
 | [OnnxDynamicQuantization](onnx_dynamic_quantization) | ONNX Dynamic Quantization Pass. |
 | [OnnxStaticQuantization](onnx_static_quantization) | ONNX Static Quantization Pass. |
 | [OnnxQuantization](onnx_quantization) | Quantize ONNX model with onnxruntime where we can search for best parameters for static/dynamic quantization at same time. |

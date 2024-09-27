@@ -65,7 +65,7 @@
             "calibrate_method": "MinMax",
             "data_config": "glue_mrpc"
         },
-        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "glue_mrpc" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mrpc" }
     },
     "search_strategy": { "execution_order": "joint", "search_algorithm": "tpe", "num_samples": 3, "seed": 0 },
     "evaluator": "common_evaluator",

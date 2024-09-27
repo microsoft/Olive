@@ -74,7 +74,7 @@ OnnxMatMul4Quantizer:
   accelerator:
     - cpu
     - gpu
-OrtPerfTuning:
+OrtSessionParamsTuning:
   EP: null
   precision: null
   accelerator: null

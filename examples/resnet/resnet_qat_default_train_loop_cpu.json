@@ -70,7 +70,7 @@
             "qconfig_func": "create_qat_config"
         },
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
-        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "latency_data_config" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "latency_data_config" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

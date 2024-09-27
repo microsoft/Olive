@@ -147,7 +147,7 @@ class OrtTransformersOptimization(Pass):
             if accelerator_spec.execution_provider == "TensorrtExecutionProvider":
                 logger.info(
                     "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
-                    "optimization. Suggest to set 'trt_fp16_enable' as True in OrtPerfTuning."
+                    "optimization. Suggest to set 'trt_fp16_enable' as True in OrtSessionParamsTuning."
                 )
                 return False
             if accelerator_spec.execution_provider == "CPUExecutionProvider":

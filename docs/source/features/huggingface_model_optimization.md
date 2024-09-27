@@ -108,8 +108,8 @@ Example: datasets in `data_configs`:
 Pass config:
 
 ```json
-"perf_tuning": {
-    "type": "OrtPerfTuning",
+"session_params_tuning": {
+    "type": "OrtSessionParamsTuning",
     "data_config": "oasst1_train"
 }
 ```

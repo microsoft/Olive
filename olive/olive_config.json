@@ -45,8 +45,8 @@
             "extra_dependencies": [ "optimum" ]
         },
         "OrtMixedPrecision": { "module_path": "olive.passes.onnx.mixed_precision.OrtMixedPrecision" },
-        "OrtPerfTuning": {
-            "module_path": "olive.passes.onnx.perf_tuning.OrtPerfTuning",
+        "OrtSessionParamsTuning": {
+            "module_path": "olive.passes.onnx.session_params_tuning.OrtSessionParamsTuning",
             "module_dependencies": [ "psutil" ]
         },
         "OrtTransformersOptimization": {

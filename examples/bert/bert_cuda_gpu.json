@@ -49,9 +49,12 @@
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 14 },
         "transformers_optimization": { "type": "OrtTransformersOptimization", "float16": true },
-        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "glue_mrpc" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mrpc" }
     },
-    "pass_flows": [ [ "conversion", "transformers_optimization", "perf_tuning" ], [ "conversion", "perf_tuning" ] ],
+    "pass_flows": [
+        [ "conversion", "transformers_optimization", "session_params_tuning" ],
+        [ "conversion", "session_params_tuning" ]
+    ],
     "search_strategy": { "execution_order": "joint", "search_algorithm": "tpe", "num_samples": 3, "seed": 0 },
     "host": "local_system",
     "target": "local_system",

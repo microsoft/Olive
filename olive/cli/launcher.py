@@ -14,9 +14,9 @@ from olive.cli.export_adapters import ExportAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.manage_aml_compute import ManageAMLComputeCommand
-from olive.cli.perf_tuning import PerfTuningCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand
+from olive.cli.session_params_tuning import SessionParamsTuningCommand
 
 
 def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
@@ -38,7 +38,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     GenerateAdapterCommand.register_subcommand(commands_parser)
     ExportAdaptersCommand.register_subcommand(commands_parser)
     QuantizeCommand.register_subcommand(commands_parser)
-    PerfTuningCommand.register_subcommand(commands_parser)
+    SessionParamsTuningCommand.register_subcommand(commands_parser)
     ConfigureQualcommSDKCommand.register_subcommand(commands_parser)
     ManageAMLComputeCommand.register_subcommand(commands_parser)
     CloudCacheCommand.register_subcommand(commands_parser)
