@@ -297,6 +297,21 @@ def get_attr(module, attr, fail_on_not_found=False):
     return module
 
 
+def set_attr(module, attr, submodule, fail_on_not_found=False):
+    """Set attribute from module.
+
+    :param module: module to set
+    :param attr: attribute name, can be a string with dot notation.
+    :param submodule: submodule to set.
+    :param fail_on_not_found: if True, raise AttributeError if attribute is not found.
+    """
+    parent_name = ".".join(attr.split(".")[:-1])
+    parent_module = get_attr(module, parent_name, fail_on_not_found)
+    target_name = attr.split(".")[-1]
+
+    setattr(parent_module, target_name, submodule)
+
+
 def find_submodules(module, submodule_types, full_name=False):
     """Find all submodules of a given type in a module.
 

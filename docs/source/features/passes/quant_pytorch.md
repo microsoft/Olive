@@ -25,7 +25,7 @@ for an example implementation of `"wikitext2_train"`.
 ## AutoAWQ
 AutoAWQ is an easy-to-use package for 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16. AutoAWQ implements the Activation-aware Weight Quantization (AWQ) algorithm for quantizing LLMs. AutoAWQ was created and improved upon from the original work from MIT.
 
-Olive integrates [AutoAWQ](https://github.com/casper-hansen/AutoAWQ) for quantization and make it possible to convert the AWQ quantized torch model to onnx model. You can enable `pack_model_for_onnx_conversion` to pack the model for onnx conversion.
+Olive integrates [AutoAWQ](https://github.com/casper-hansen/AutoAWQ) for quantization and make it possible to convert the AWQ quantized torch model to onnx model.
 
 Please refer to [AutoAWQQuantizer](awq_quantizer) for more details about the pass and its config parameters.
 
@@ -33,8 +33,7 @@ Please refer to [AutoAWQQuantizer](awq_quantizer) for more details about the pas
 ```json
 {
     "type": "AutoAWQQuantizer",
-    "w_bit": 4,
-    "pack_model_for_onnx_conversion": true
+    "w_bit": 4
 }
 ```
 
