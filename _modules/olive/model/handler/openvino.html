@@ -198,7 +198,7 @@
             <span class="s2">&quot;weights&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">ov_weights</span><span class="o">.</span><span class="n">resolve</span><span class="p">()),</span>
         <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="kn">import</span> <span class="nn">openvino</span> <span class="k">as</span> <span class="nn">ov</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
