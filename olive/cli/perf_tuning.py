@@ -9,9 +9,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Dict
 
-import yaml
-
-from olive.auto_optimizer.template_mapping import PERF_TUNING_TEMPLATE
 from olive.cli.base import (
     BaseOliveCLICommand,
     add_accelerator_options,
@@ -102,11 +99,6 @@ class PerfTuningCommand(BaseOliveCLICommand):
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
         sub_parser.set_defaults(func=PerfTuningCommand)
-
-    @staticmethod
-    def perf_tuning_template():
-        with PERF_TUNING_TEMPLATE.open() as f:
-            return yaml.safe_load(f)
 
     def _update_pass_config(self, default_pass_config) -> Dict:
         pass_config = deepcopy(default_pass_config)
