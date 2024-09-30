@@ -323,14 +323,15 @@ class LoRABase(Pass):
         return model
 
     def create_and_load_new_model(
-        self, model_handler: HfModelHandler, config: ConfigBase, **kwargs
+        self, model_handler: HfModelHandler, config: ConfigBase, dequantize: bool = True, **kwargs
     ) -> Tuple[HfModelHandler, "PreTrainedModel"]:
         """Clone the input model handler and update the model load_kwargs.
 
         :param model_handler: The input model handler.
         :param config: The config for the pass run.
+        :param dequantize: Whether to dequantize the loaded model.
         :param kwargs: Additional arguments to update load_kwargs with.
-        :return: The new model handler and the new loaded pytorch model.
+        :return: The new model handler, the new loaded pytorch model
         """
         # don't want the original loaded model
         # also frees gpu memory if original model is on gpu
@@ -361,6 +362,11 @@ class LoRABase(Pass):
         new_model_handler.load_kwargs = HfLoadKwargs(**load_kwargs)
         pytorch_model = new_model_handler.load_model(cache_model=False)
         pytorch_model.config.torch_dtype = model_dtype
+
+        if dequantize:
+            from olive.common.hf.quant import maybe_dequantize_model
+
+            pytorch_model = maybe_dequantize_model(pytorch_model)
 
         return new_model_handler, pytorch_model
 
@@ -590,7 +596,7 @@ class LoRABase(Pass):
             load_kwargs = model.load_kwargs.dict()
             for k in cls.model_overwrites:
                 if load_kwargs.get(k) is not None:
-                    logger.warning(
+                    logger.debug(
                         "Input model has load_kwargs. %s. Ignoring. %s will overwrite it based on the pass config.",
                         k,
                         cls.__name__,
@@ -598,7 +604,8 @@ class LoRABase(Pass):
 
         if model.get_resource("adapter_path"):
             logger.warning(
-                "Input model has adapter_path. Ignoring. QLoRA will save the adapter weights to its own adapter_path."
+                "Input model has adapter_path. Ignoring. %s will save the adapter weights to its own adapter_path.",
+                cls.__name__,
             )
         model.set_resource("adapter_path", None)
         return model

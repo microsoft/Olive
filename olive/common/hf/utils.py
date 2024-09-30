@@ -72,7 +72,22 @@ def from_pretrained(cls, model_name_or_path: str, mlflow_dir: str, **kwargs):
 
 def get_model_config(model_name_or_path: str, **kwargs) -> "PretrainedConfig":
     """Get HF Config for the given model_name_or_path."""
-    return from_pretrained(AutoConfig, model_name_or_path, "config", **kwargs)
+    model_config = from_pretrained(AutoConfig, model_name_or_path, "config", **kwargs)
+
+    # add quantization config
+    quantization_config = kwargs.get("quantization_config", None)
+    if not quantization_config:
+        return model_config
+
+    if hasattr(model_config, "quantization_config") and model_config.quantization_config:
+        logger.warning(
+            "Model config already has quantization_config but new quantization_config is provided as load kwargs."
+            " Ignoring the new quantization_config. This quantization config might be different from the one used by"
+            " the model."
+        )
+    else:
+        model_config.quantization_config = quantization_config
+    return model_config
 
 
 def save_model_config(config: Union["PretrainedConfig", "GenerationConfig"], output_dir: str, **kwargs):

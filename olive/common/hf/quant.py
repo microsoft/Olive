@@ -150,7 +150,7 @@ def dequantize_auto_awq_qlinear(qlinear) -> torch.nn.Linear:
         qlinear.in_features,
         qlinear.out_features,
         bias=qlinear.bias is not None,
-        device=qlinear.weight.device,
+        device=qlinear.qweight.device,
         dtype=qlinear.scales.dtype,
     )
     linear.bias = qlinear.bias
@@ -191,6 +191,9 @@ DEQUANTIZE_MAPPING = {
 def maybe_dequantize_model(model: torch.nn.Module) -> torch.nn.Module:
     """Dequantize the model if it was quantized using one of the supported methods."""
     model, modified = _replace_qlinear_modules(model, DEQUANTIZE_MAPPING, "Dequantizing model")
+    # dequantized modules might not be in the same dtype as the original model
+    # for example, awq uses float16
+    model = model.to(model.dtype)
 
     if modified:
         del model.quantization_method
