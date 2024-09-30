@@ -22,7 +22,7 @@ In addition, Olive provides a separate command to produce LoRA adapter for ORTâ€
 ```shell
 $ olive export-adapters [-h] [--adapter_path ADAPTER_PATH] \
                       [--output_path OUTPUT_PATH] [--dtype {float32,float16}] \
-                      [--pack_weights] [--quantize_int4] \
+                      [--quantize_int4] \
                       [--int4_block_size {16,32,64,128,256}] \
                       [--int4_quantization_mode {symmetric,asymmetric}]
 ```

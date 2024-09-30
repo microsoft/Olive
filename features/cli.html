@@ -1038,8 +1038,7 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">export</span><span class="o">-</span><span class="n">adapters</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span>
                              <span class="p">[</span><span class="o">--</span><span class="n">save_format</span> <span class="p">{</span><span class="n">pt</span><span class="p">,</span><span class="n">numpy</span><span class="p">,</span><span class="n">safetensors</span><span class="p">}]</span>
                              <span class="o">--</span><span class="n">output_path</span> <span class="n">OUTPUT_PATH</span>
-                             <span class="p">[</span><span class="o">--</span><span class="n">dtype</span> <span class="p">{</span><span class="n">float32</span><span class="p">,</span><span class="n">float16</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">pack_weights</span><span class="p">]</span>
-                             <span class="p">[</span><span class="o">--</span><span class="n">quantize_int4</span><span class="p">]</span>
+                             <span class="p">[</span><span class="o">--</span><span class="n">dtype</span> <span class="p">{</span><span class="n">float32</span><span class="p">,</span><span class="n">float16</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">quantize_int4</span><span class="p">]</span>
                              <span class="p">[</span><span class="o">--</span><span class="n">int4_block_size</span> <span class="p">{</span><span class="mi">16</span><span class="p">,</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">128</span><span class="p">,</span><span class="mi">256</span><span class="p">}]</span>
                              <span class="p">[</span><span class="o">--</span><span class="n">int4_quantization_mode</span> <span class="p">{</span><span class="n">symmetric</span><span class="p">,</span><span class="n">asymmetric</span><span class="p">}]</span>
 </pre></div>
@@ -1062,10 +1061,6 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 <dd><p>Possible choices: float32, float16</p>
 <p>Data type to save float weights as. If quantize_int4 is True, this is the data type of the quantization scales. Default is float32.</p>
 <p>Default: “float32”</p>
-</dd>
-<dt><kbd>--pack_weights</kbd></dt>
-<dd><p>Whether to pack the weights. If True, the weights for each module type will be packed into a single array.</p>
-<p>Default: False</p>
 </dd>
 <dt><kbd>--quantize_int4</kbd></dt>
 <dd><p>Quantize the weights to int4 using blockwise quantization.</p>

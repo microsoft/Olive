@@ -151,7 +151,7 @@
 <p>In addition, Olive provides a separate command to produce LoRA adapter for ORT’s consumption from already finetuned PEFT model.</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>olive<span class="w"> </span>export-adapters<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--adapter_path<span class="w"> </span>ADAPTER_PATH<span class="o">]</span><span class="w"> </span><span class="se">\</span>
 <span class="w">                      </span><span class="o">[</span>--output_path<span class="w"> </span>OUTPUT_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dtype<span class="w"> </span><span class="o">{</span>float32,float16<span class="o">}]</span><span class="w"> </span><span class="se">\</span>
-<span class="w">                      </span><span class="o">[</span>--pack_weights<span class="o">]</span><span class="w"> </span><span class="o">[</span>--quantize_int4<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+<span class="w">                      </span><span class="o">[</span>--quantize_int4<span class="o">]</span><span class="w"> </span><span class="se">\</span>
 <span class="w">                      </span><span class="o">[</span>--int4_block_size<span class="w"> </span><span class="o">{</span><span class="m">16</span>,32,64,128,256<span class="o">}]</span><span class="w"> </span><span class="se">\</span>
 <span class="w">                      </span><span class="o">[</span>--int4_quantization_mode<span class="w"> </span><span class="o">{</span>symmetric,asymmetric<span class="o">}]</span>
 </pre></div>
