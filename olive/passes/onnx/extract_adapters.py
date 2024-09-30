@@ -6,7 +6,7 @@ import logging
 import re
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List
 
 import numpy as np
 import onnx
@@ -47,14 +47,6 @@ class ExtractAdapters(Pass):
                     " external data."
                 ),
             ),
-            "pack_inputs": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description=(
-                    "Pack adapter weights for the same module type into a single input tensor. Only used if make_inputs"
-                    " is True. Model attributes must contain lora_modules list."
-                ),
-            ),
             "dynamic_lora_r": PassConfigParam(
                 type_=bool,
                 default_value=True,
@@ -85,9 +77,6 @@ class ExtractAdapters(Pass):
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-
-        if "lora_modules" not in (model.model_attributes or {}) and config["pack_inputs"]:
-            raise ValueError("Model does not contain lora_modules model_attribute. Cannot pack inputs.")
 
         # create a dag from the model
         dag = OnnxDAG.from_model_path(model.model_path)
@@ -195,43 +184,10 @@ class ExtractAdapters(Pass):
                 logger.warning("Quantized modules are not supported with dynamic_lora_r or optional_inputs. Ignoring.")
                 logger.debug("Quantized modules: %s", quant_modules)
 
-            if not config["pack_inputs"]:
-                # create inputs for the weights
-                for weight_name in weights:
-                    dag.convert_initializer_to_input(weight_name)
-                    self._make_dynamic_optional(dag, weights, weight_name, config)
-            else:
-                # what weights are packed together
-                packed_weights, packings = self.pack_weights(
-                    weights, model.model_attributes["lora_modules"], float_modules, quant_modules
-                )
-
-                # create inputs and split nodes for the packed weights
-                for weight_name, to_pack in packings.items():
-                    # input proto
-                    input_proto = onnx.helper.make_tensor_value_info(
-                        name=weight_name,
-                        elem_type=onnx.helper.np_dtype_to_tensor_dtype(packed_weights[weight_name].dtype),
-                        shape=packed_weights[weight_name].shape,
-                    )
-                    # TODO(jambayk): check if graph_idx can be 0 even if they might be used in subgraphs
-                    dag.add_input(input_proto, 0)
-
-                    # split nodes
-                    split_node_proto = onnx.helper.make_node(
-                        "Split",
-                        inputs=[weight_name],
-                        outputs=to_pack,
-                        name=f"{weight_name}.split",
-                        axis=0,
-                    )
-                    dag.add_node(split_node_proto, 0, overwrite_input_initializers=True)
-
-                    # make the inputs dynamic and optional
-                    self._make_dynamic_optional(dag, packed_weights, weight_name, config)
-
-                # remove the original weights
-                weights = packed_weights
+            # create inputs for the weights
+            for weight_name in weights:
+                dag.convert_initializer_to_input(weight_name)
+                self._make_dynamic_optional(dag, weights, weight_name, config)
 
         # update the model with the changes
         dag.update()
@@ -259,54 +215,7 @@ class ExtractAdapters(Pass):
             output_model.model_attributes["external_initializers"] = weights_info
         else:
             output_model.model_attributes["constant_inputs"] = weights_info
-            if config["pack_inputs"]:
-                output_model.model_attributes["packed_inputs"] = packings
         return output_model
-
-    @staticmethod
-    def pack_weights(
-        weights: Dict[str, "NDArray"], module_types: List[str], float_modules: Set[str], quant_modules: Set[str]
-    ) -> Tuple[Dict[str, "NDArray"], Dict[str, List[str]]]:
-        """Pack the weights for a given module type into an array each for lora_A and lora_B.
-
-        Assumes the weights for the same module type are in the same format (float, QDQ, Nbits).
-        :param weights: dictionary of weights
-        :param module_types: list of module types
-        :param float_modules: set of float module names
-        :param quant_modules: set of quantized module names
-        :return: dictionary of packed weights and dictionary of packed weights and their corresponding weights
-        """
-
-        def get_sort_key(module_name: str):
-            # want the layers to be sorted by the number
-            return [int(part) if part.isdigit() else part for part in module_name.split(".")]
-
-        packings = {}
-        for module_type in module_types:
-            for lora_i in ["lora_A", "lora_B"]:
-                matching_float_modules = sorted(
-                    [name for name in float_modules if module_type in name and lora_i in name], key=get_sort_key
-                )
-                if matching_float_modules:
-                    weight_name = f"{module_type}.{lora_i}.weight.packed"
-                    packings[weight_name] = [f"{name}.weight" for name in matching_float_modules]
-
-                matching_quant_modules = sorted(
-                    [name for name in quant_modules if module_type in name and lora_i in name], key=get_sort_key
-                )
-                if matching_quant_modules:
-                    # zero point is optional so we need to check if it exists
-                    for suffix in [".weight", ".scale", ".zero_point"]:
-                        weight_name = f"{module_type}.{lora_i}.quant{suffix}.packed"
-                        to_pack = [name + suffix for name in matching_quant_modules if name + suffix in weights]
-                        if to_pack:
-                            packings[weight_name] = to_pack
-
-        packed_weights = {}
-        for weight_name, to_pack in packings.items():
-            packed_weights[weight_name] = np.concatenate([np.atleast_1d(weights[name]) for name in to_pack], axis=0)
-
-        return packed_weights, packings
 
     @staticmethod
     def _get_lora_name_patterns() -> List[str]:

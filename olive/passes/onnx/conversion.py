@@ -389,9 +389,7 @@ class OnnxConversion(Pass):
         # save the model to the output path and return the model
         output_model_path = resolve_onnx_path(output_model_path)
         output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
-        output_model.model_attributes = model_attributes = deepcopy(model.model_attributes or {})
-        if is_peft_model(pytorch_model):
-            model_attributes["lora_modules"] = list(pytorch_model.peft_config["default"].target_modules)
+        output_model.model_attributes = deepcopy(model.model_attributes or {})
         return output_model
 
     @staticmethod
