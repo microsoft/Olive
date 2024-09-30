@@ -9,13 +9,9 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Dict
 
-import yaml
-
-from olive.auto_optimizer.template_mapping import PERF_TUNING_TEMPLATE
 from olive.cli.base import (
     BaseOliveCLICommand,
     add_accelerator_options,
-    add_hf_dataset_options,
     add_input_model_options,
     add_logging_options,
     add_remote_options,
@@ -25,7 +21,6 @@ from olive.cli.base import (
     update_remote_options,
 )
 from olive.common.utils import set_nested_dict_value
-from olive.data.config import DataConfig
 
 
 class PerfTuningCommand(BaseOliveCLICommand):
@@ -41,64 +36,37 @@ class PerfTuningCommand(BaseOliveCLICommand):
                 "--hf_model_name hf_model_name --device device_type to get the tuned session parameters."
             ),
         )
-        add_logging_options(sub_parser)
 
-        # model options
         add_input_model_options(sub_parser, enable_onnx=True, default_output_path="tuned-inference-settings")
 
-        # dataconfig options
-        dataconfig_group = sub_parser.add_argument_group(
-            "DataConfig options, which mutually exclusive with huggingface dataset options"
-        )
-        dataconfig_group.add_argument(
-            "--data_config_path",
-            type=str,
-            help="Path to the data config file. It allows to customize the data config(json/yaml) for the model.",
-        )
-
-        # hf dataset group
-        hf_dataset_group = add_hf_dataset_options(sub_parser)
-
-        hf_dataset_group.add_argument(
-            "--predict_with_kv_cache",
-            action="store_true",
-            help="Whether to use key-value cache for perf_tuning",
-        )
-
-        # accelerator options
-        add_accelerator_options(sub_parser)
-
-        # pass options
-        pass_group = sub_parser.add_argument_group("pass options")
-
-        pass_group.add_argument(
+        sub_parser.add_argument(
             "--cpu_cores",
             type=int,
             default=None,
             help="CPU cores used for thread tuning.",
         )
-        pass_group.add_argument(
+        sub_parser.add_argument(
             "--io_bind",
             action="store_true",
             help="Whether enable IOBinding Search for ONNX Runtime inference.",
         )
-        pass_group.add_argument(
+        sub_parser.add_argument(
             "--enable_cuda_graph",
             action="store_true",
             help="Whether enable CUDA Graph for CUDA execution provider.",
         )
-        pass_group.add_argument(
+        sub_parser.add_argument(
             "--execution_mode_list", type=int, nargs="*", help="Parallelism list between operators."
         )
-        pass_group.add_argument("--opt_level_list", type=int, nargs="*", help="Optimization level list for ONNX Model.")
-        pass_group.add_argument("--trt_fp16_enable", action="store_true", help="Enable TensorRT FP16 mode.")
-        pass_group.add_argument(
+        sub_parser.add_argument("--opt_level_list", type=int, nargs="*", help="Optimization level list for ONNX Model.")
+        sub_parser.add_argument("--trt_fp16_enable", action="store_true", help="Enable TensorRT FP16 mode.")
+        sub_parser.add_argument(
             "--intra_thread_num_list", type=int, nargs="*", help="List of intra thread number for test."
         )
-        pass_group.add_argument(
+        sub_parser.add_argument(
             "--inter_thread_num_list", type=int, nargs="*", help="List of inter thread number for test."
         )
-        pass_group.add_argument(
+        sub_parser.add_argument(
             "--extra_session_config",
             type=json.loads,
             default=None,
@@ -107,7 +75,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
                 'E.g. --extra_session_config \'{"key1": "value1", "key2": "value2"}\''
             ),
         )
-        pass_group.add_argument(
+        sub_parser.add_argument(
             "--disable_force_evaluate_other_eps",
             action="store_true",
             help=(
@@ -115,52 +83,22 @@ class PerfTuningCommand(BaseOliveCLICommand):
                 " which are different with the associated execution provider."
             ),
         )
-        pass_group.add_argument(
+        sub_parser.add_argument(
             "--enable_profiling",
             action="store_true",
             help="Whether enable profiling for ONNX Runtime inference.",
         )
 
-        # remote options
+        sub_parser.add_argument(
+            "--predict_with_kv_cache",
+            action="store_true",
+            help="Whether to use key-value cache for ORT session parameter tuning",
+        )
+
+        add_accelerator_options(sub_parser, single_provider=False)
         add_remote_options(sub_parser)
-
+        add_logging_options(sub_parser)
         sub_parser.set_defaults(func=PerfTuningCommand)
-
-    @staticmethod
-    def perf_tuning_template():
-        with PERF_TUNING_TEMPLATE.open() as f:
-            return yaml.safe_load(f)
-
-    def _update_default_data_config_params(self, default_data_config) -> Dict:
-        data_config = deepcopy(default_data_config)
-        load_dataset_keys = (
-            "seq_len",
-            "past_seq_len",
-            "max_seq_len",
-            "shared_kv",
-            "generative",
-            "ort_past_key_name",
-            "ort_past_value_name",
-            "trust_remote_code",
-            "max_samples",
-        )
-        dataloader_keys = ("fields_no_batch", "batch_size")
-        args_dict = vars(self.args)
-        load_dataset_params = {k: args_dict[k] for k in load_dataset_keys if args_dict[k] is not None}
-        load_dataset_params["model_name"] = self.args.hf_model_name
-        dataloader_params = {k: args_dict[k] for k in dataloader_keys if args_dict[k] is not None}
-
-        data_config["load_dataset_config"] = load_dataset_params
-        data_config["dataloader_config"] = dataloader_params
-
-        # special field predict_with_kv_cache to choose the data container type
-        # from TransformersPromptDummyDataContainer and TransformersTokenDummyDataContainer
-        data_config["type"] = (
-            "TransformersTokenDummyDataContainer"
-            if self.args.predict_with_kv_cache
-            else "TransformersPromptDummyDataContainer"
-        )
-        return data_config
 
     def _update_pass_config(self, default_pass_config) -> Dict:
         pass_config = deepcopy(default_pass_config)
@@ -179,38 +117,24 @@ class PerfTuningCommand(BaseOliveCLICommand):
         pass_config.update({k: args_dict[k] for k in pass_config_keys if args_dict[k] is not None})
         return pass_config
 
-    def _get_data_config(self, template_config=None) -> Dict:
-        if not self.args.data_config_path:
-            if template_config is None:
-                raise ValueError("Template config is required when data config is not provided.")
-            return DataConfig.parse_file_or_obj(
-                self._update_default_data_config_params(template_config["data_configs"][0])
-            )
-        return DataConfig.parse_file_or_obj(self.args.data_config_path)
-
     def get_run_config(self, tempdir) -> Dict:
-        template_config = PerfTuningCommand.perf_tuning_template()
+        config = deepcopy(TEMPLATE)
 
         perf_tuning_key = ("passes", "perf_tuning")
 
-        data_configs = [self._get_data_config(template_config)]
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
-            ("data_configs", data_configs),
-            (perf_tuning_key, self._update_pass_config(template_config["passes"]["perf_tuning"])),
-            ((*perf_tuning_key, "data_config"), data_configs[0].name),
+            (perf_tuning_key, self._update_pass_config(config["passes"]["perf_tuning"])),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
         ]
 
-        config = deepcopy(template_config)
         for k, v in to_replace:
             if v is not None:
                 set_nested_dict_value(config, k, v)
 
-        update_accelerator_options(self.args, config)
+        update_accelerator_options(self.args, config, single_provider=False)
         update_remote_options(config, self.args, "perf-tuning", tempdir)
-
         return config
 
     def run(self):
@@ -236,3 +160,31 @@ class PerfTuningCommand(BaseOliveCLICommand):
                 with infer_setting_output_path.open("w") as f:
                     json.dump(infer_settings, f, indent=4)
             print(f"Inference session parameters are saved to {output_path}.")
+
+
+TEMPLATE = {
+    "input_model": {"type": "ONNXModel"},
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+        }
+    },
+    "data_configs": [
+        {
+            "name": "perf_tuning_data",
+            "type": "dummydatacontainer",
+            "load_dataset_config": {
+                "type": "dummy_dataset",
+                "input_shapes": [(1, 1)],
+                "input_names": ["input"],
+                "max_samples": 32,
+            },
+        }
+    ],
+    "passes": {
+        "perf_tuning": {"type": "OrtPerfTuning", "data_config": "perf_tuning_data"},
+    },
+    "host": "local_system",
+    "target": "local_system",
+}

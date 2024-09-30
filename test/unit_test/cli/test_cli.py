@@ -148,22 +148,10 @@ def test_perf_tuning_command(tmp_path):
     output_dir = tmp_path / "output_dir"
 
     # setup
-    data_config = {
-        "name": "test_data_config_for_tuning",
-        "type": "DummyDataContainer",
-        "load_dataset_config": {"input_shapes": [(1, 1)], "input_names": ["input"]},
-    }
-    data_config_path = str(tmp_path / "data_config.json")
-    with open(data_config_path, "w") as f:
-        json.dump(data_config, f)
-
-    # setup
     command_args = [
         "tune-session-params",
         "-m",
         str(ONNX_MODEL_PATH),
-        "--data_config_path",
-        data_config_path,
         "--output_path",
         str(output_dir),
         "--providers_list",

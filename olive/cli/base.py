@@ -235,19 +235,18 @@ def update_input_model_options(args, config):
 
 def add_logging_options(sub_parser: ArgumentParser):
     """Add logging options to the sub_parser."""
-    log_group = sub_parser.add_argument_group("logging options")
-    log_group.add_argument(
+    sub_parser.add_argument(
         "--log_level",
         type=int,
         default=3,
         help="Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL",
     )
-    return log_group
+    return sub_parser
 
 
 def add_remote_options(sub_parser: ArgumentParser):
     """Add remote options to the sub_parser."""
-    remote_group = sub_parser.add_argument_group("remote options")
+    remote_group = sub_parser
     remote_group.add_argument(
         "--resource_group",
         type=str,
@@ -295,30 +294,16 @@ def add_input_model_options(
     """
     assert any([enable_hf, enable_hf_adapter, enable_pt, enable_onnx]), "At least one model option should be enabled."
 
-    model_group = sub_parser.add_argument_group("Model options")
-
-    m_description = (
-        "Path to the input model. Can the be output of a previous command or a standalone model. For standalone models,"
-        " the following formats are supported:\n"
-    )
-    if enable_hf:
-        m_description += (
-            " HfModel: The name or path to the model. Local folder, huggingface id, or AzureML Registry model"
-            " (azureml://registries/<registry_name>/models/<model_name>/versions/<version>).\n"
-        )
-    if enable_pt:
-        m_description += (
-            " PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model"
-            " (azureml:<model_name>:<version>).\n"
-        )
-    if enable_onnx:
-        m_description += " OnnxModel: Path to the ONNX model. Local file/folder.\n"
+    model_group = sub_parser
 
     model_group.add_argument(
         "-m",
         "--model_name_or_path",
         type=str,
-        help=m_description,
+        help=(
+            "Path to the input model. "
+            "See https://microsoft.github.io/Olive/features/cli.html#input-model for more information"
+        ),
     )
     if enable_hf:
         model_group.add_argument(
@@ -456,7 +441,7 @@ def save_output_model(config: Dict, output_model_dir: Union[str, Path]):
 
 
 def add_dataset_options(sub_parser, required=True, include_train=True, include_eval=True):
-    dataset_group = sub_parser.add_argument_group("dataset options")
+    dataset_group = sub_parser
     dataset_group.add_argument(
         "-d",
         "--data_name",
@@ -549,112 +534,52 @@ def update_dataset_options(args, config):
             set_nested_dict_value(config, keys, value)
 
 
-def add_hf_dataset_options(sub_parser):
-    hf_dataset_group = sub_parser.add_argument_group(
-        "huggingface dataset options, if dataset options are not provided, "
-        "user should provide the following options to modify the default data config. "
-        "Please refer to olive.data.container.TransformersTokenDummyDataContainer for more details."
-    )
-    hf_dataset_group.add_argument(
-        "--hf_model_name",
-        help="Huggingface model name used to load model configs from huggingface.",
-    )
-    hf_dataset_group.add_argument(
-        "--batch_size",
-        type=int,
-        help="Batch size of the input data.",
-    )
-    hf_dataset_group.add_argument(
-        "--seq_len",
-        type=int,
-        help="Sequence length to use for the input data.",
-    )
-    hf_dataset_group.add_argument(
-        "--past_seq_len",
-        type=int,
-        help="Past sequence length to use for the input data.",
-    )
-    hf_dataset_group.add_argument(
-        "--max_seq_len",
-        type=int,
-        help="Max sequence length to use for the input data.",
-    )
-    hf_dataset_group.add_argument(
-        "--shared_kv",
-        action="store_true",
-        help="Whether to enable share kv cache in the input data.",
-    )
-    hf_dataset_group.add_argument(
-        "--generative",
-        action="store_true",
-        help="Whether to enable generative mode in the input data.",
-    )
-    hf_dataset_group.add_argument(
-        "--ort_past_key_name",
-        type=str,
-        help="Past key name for the input data.",
-    )
-    hf_dataset_group.add_argument(
-        "--ort_past_value_name",
-        type=str,
-        help="Past value name for the input data.",
-    )
-    # TODO(all): Argument conflicting with use of the same name in model options
-    # hf_dataset_group.add_argument(
-    #     "--trust_remote_code",
-    #     action="store_true",
-    #     help="Whether to trust remote code in the input data.",
-    # )
-    hf_dataset_group.add_argument(
-        "--max_samples",
-        type=int,
-        help="Max samples to use for the input data.",
-    )
-    hf_dataset_group.add_argument(
-        "--fields_no_batch",
-        nargs="*",
-        help="List of fields that should not be batched.",
-    )
-
-    return hf_dataset_group
-
-
-def add_accelerator_options(sub_parser):
-    accelerator_group = sub_parser.add_argument_group("accelerator group")
+def add_accelerator_options(sub_parser, single_provider: bool = True):
+    accelerator_group = sub_parser
 
     accelerator_group.add_argument(
         "--device",
         type=str,
         default="cpu",
         choices=["gpu", "cpu", "npu"],
-        help="Device to use for the model.",
+        help="Device used to run the model.",
     )
 
-    accelerator_group.add_argument(
-        "--providers_list",
-        type=str,
-        nargs="*",
-        choices=[
-            "CUDAExecutionProvider",
-            "CPUExecutionProvider",
-            "DmlExecutionProvider",
-            "JsExecutionProvider",
-            "MIGraphXExecutionProvider",
-            "OpenVINOExecutionProvider",
-            "OpenVINOExecutionProvider",
-            "QNNExecutionProviderROCMExecutionProvider",
-            "TensorrtExecutionProvider",
-        ],
-        help=(
-            "List of execution providers to use for ONNX model. They are case sensitive. "
-            "If not provided, all available providers will be used."
-        ),
-    )
+    execution_providers = [
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider",
+        "DmlExecutionProvider",
+        "JsExecutionProvider",
+        "MIGraphXExecutionProvider",
+        "OpenVINOExecutionProvider",
+        "QNNExecutionProviderROCMExecutionProvider",
+        "TensorrtExecutionProvider",
+    ]
+
+    if single_provider:
+        accelerator_group.add_argument(
+            "--provider",
+            type=str,
+            default="CPUExecutionProvider",
+            choices=execution_providers,
+            help="Execution provider to use for ONNX model.",
+        )
+    else:
+        accelerator_group.add_argument(
+            "--providers_list",
+            type=str,
+            nargs="*",
+            choices=execution_providers,
+            help=(
+                "List of execution providers to use for ONNX model. They are case sensitive. "
+                "If not provided, all available providers will be used."
+            ),
+        )
 
     return accelerator_group
 
 
-def update_accelerator_options(args, config):
+def update_accelerator_options(args, config, single_provider: bool = True):
     to_replace = [
         (("systems", "local_system", "accelerators", 0, "device"), args.device),
     ]
@@ -664,8 +589,8 @@ def update_accelerator_options(args, config):
         if not provider.endswith("ExecutionProvider"):
             args.providers_list[idx] = f"{provider}ExecutionProvider"
 
-    if args.providers_list:
-        to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), args.providers_list))
+    execution_providers = [args.provider] if single_provider else args.providers_list
+    to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), execution_providers))
 
     for k, v in to_replace:
         if v is not None:
@@ -673,8 +598,7 @@ def update_accelerator_options(args, config):
 
 
 def add_search_options(sub_parser: ArgumentParser):
-    search_strategy_group = sub_parser.add_argument_group("search algorithm options")
-    search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search algorithm")
+    search_strategy_group = sub_parser
     search_strategy_group.add_argument(
         "--enable_search",
         type=str,
@@ -688,6 +612,7 @@ def add_search_options(sub_parser: ArgumentParser):
             "Use exhastive search algorithm by default."
         ),
     )
+    search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search algorithm")
 
 
 def update_search_options(args, config):

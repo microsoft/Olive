@@ -74,8 +74,6 @@ class AutoOptCommand(BaseOliveCLICommand):
             help="Automatically optimize the performance of the input model.",
         )
 
-        add_logging_options(sub_parser)
-
         # Model options
         add_input_model_options(
             sub_parser,
@@ -90,50 +88,45 @@ class AutoOptCommand(BaseOliveCLICommand):
         add_accelerator_options(sub_parser)
 
         # dataset options
-        dataset_group = sub_parser.add_argument_group(
-            "dataset options, required for some optimization passes like quantization, and evaluation components"
-        )
-        dataset_group.add_argument(
+        sub_parser.add_argument(
             "-d",
             "--data_name",
             type=str,
             help="The dataset name.",
         )
-        dataset_group.add_argument(
+        sub_parser.add_argument(
             "--split",
             type=str,
             help="The dataset split to use for evaluation.",
         )
-        dataset_group.add_argument(
+        sub_parser.add_argument(
             "--subset",
             type=str,
             help="The dataset subset to use for evaluation.",
         )
-        dataset_group.add_argument(
+        sub_parser.add_argument(
             "--input_cols",
             type=str,
             nargs="*",
             help="The input columns to use for evaluation.",
         )
-        dataset_group.add_argument(
+        sub_parser.add_argument(
             "--batch_size",
             type=int,
             default=1,
             help="Batch size for evaluation.",
         )
 
-        auto_opt_config_group = sub_parser.add_argument_group("auto optimizer options")
-        auto_opt_config_group.add_argument(
-            "--precisions",
+        sub_parser.add_argument(
+            "--precision",
             type=str,
-            nargs="*",
             choices=["fp16", "fp32", "int4", "int8"],
             help=(
                 "The output precision of the optimized model. If not specified, "
                 "the default precision is fp32 for cpu and fp16 for gpu"
             ),
         )
-        auto_opt_config_group.add_argument(
+        sub_parser.add_argument(
             "--excluded_passes",
             type=str,
             nargs="*",
@@ -142,7 +135,7 @@ class AutoOptCommand(BaseOliveCLICommand):
                 "auto-opt will disable ModelBuilder/OrtPerfTuning by default."
             ),
         )
-        auto_opt_config_group.add_argument(
+        sub_parser.add_argument(
             "--use_model_builder",
             action="store_true",
             help=(
@@ -151,12 +144,12 @@ class AutoOptCommand(BaseOliveCLICommand):
             ),
         )
 
-        # remote options
-        add_remote_options(sub_parser)
-
         # search options
         add_search_options(sub_parser)
 
+        # remote options
+        add_remote_options(sub_parser)
+        add_logging_options(sub_parser)
         sub_parser.set_defaults(func=AutoOptCommand)
 
     def run(self):
@@ -190,7 +183,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
             ("data_configs", self._get_data_config()),
-            ("auto_optimizer_config", {"precisions": self.args.precisions, "excluded_passes": excluded_passes}),
+            ("auto_optimizer_config", {"precisions": [self.args.precision], "excluded_passes": excluded_passes}),
         ]
         for keys, value in to_replace:
             if value is None:
