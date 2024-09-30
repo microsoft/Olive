@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+from argparse import Namespace
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Union
@@ -13,12 +14,12 @@ import torch
 from olive.common.config_utils import validate_config
 from olive.common.hf.mappings import MODEL_INSIDE_LAYER_MODULES, MODEL_LAYERS_BLOCK_NAME, MODEL_OUTSIDE_LAYER_MODULES
 from olive.data.config import DataConfig
-from olive.hardware.accelerator import AcceleratorSpec, Device
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
-from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_hf, inherit_pytorch_from_pytorch
+from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_pytorch
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +31,6 @@ class GptqQuantizer(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
-            "nsamples": PassConfigParam(
-                type_=int,
-                default_value=128,
-                description="number of samples in calibration dataset to apply quantization. Default value is 128",
-            ),
             "bits": PassConfigParam(
                 type_=int,
                 default_value=4,
@@ -66,11 +62,6 @@ class GptqQuantizer(Pass):
                 type_=int,
                 default_value=128,
                 description="Block size for quantization. Default value is 128.",
-            ),
-            "seed": PassConfigParam(
-                type_=int,
-                default_value=0,
-                description="Random seed for sampling calibration dataset. Default value is 0.",
             ),
             "damp_percent": PassConfigParam(
                 type_=float,
@@ -104,35 +95,20 @@ class GptqQuantizer(Pass):
                     Data config for quantization. Default value is None.
                 """,
             ),
-            "pack_model_for_onnx_conversion": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description=(
-                    "Whether to pack the model for ONNX conversion. If True, the model will be saved as a PyTorch model"
-                    " with custom quantized layers. If False, the model will be saved in the same format as the input"
-                    " model."
-                ),
-            ),
         }
 
     @torch.no_grad()
     def _run_for_config(
         self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
-        # pylint: disable=protected-access
         from auto_gptq import BaseQuantizeConfig
         from auto_gptq.modeling import BaseGPTQForCausalLM
         from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
 
-        from olive.passes.pytorch.quant_utils import QuantLinear
-
         if not torch.cuda.is_available():
+            # Autogpq quantize_model currently only support cuda device. It accepts model on cpu but
+            # will move each block(layer) to cuda before quantization and move back to cpu when finished.
             raise ValueError("Please use GPU to run gptq quantization.")
-        elif self.host_device != Device.GPU:
-            logger.debug(
-                "GPTQ quantization requires GPU but the host device is %s, will ignore the host device",
-                self.host_device,
-            )
 
         dataset = None
         if config["data_config"]:
@@ -152,6 +128,8 @@ class GptqQuantizer(Pass):
             )
 
         pytorch_model = model.load_model()
+        # pytorch model will be updated so don't cache it in the model handler
+        model.model = None
         quantize_config = BaseQuantizeConfig(
             bits=config["bits"],
             group_size=config["group_size"],
@@ -164,19 +142,15 @@ class GptqQuantizer(Pass):
             model_file_base_name="model",
         )
 
-        def get_onnx_quant_linear(*args, **kwargs):
-            return QuantLinear
-
         model_type = pytorch_model.config.model_type if hasattr(pytorch_model, "config") else ""
         model_class = GPTQ_CAUSAL_LM_MODEL_MAP.get(model_type, BaseGPTQForCausalLM)
-        quantized_model = model_class(pytorch_model, False, quantize_config)
+        quantized_model: BaseGPTQForCausalLM = model_class(pytorch_model, False, quantize_config)
 
         fields_to_set = {
             "outside_layer_modules": MODEL_OUTSIDE_LAYER_MODULES,
             "inside_layer_modules": MODEL_INSIDE_LAYER_MODULES,
             "layers_block_name": MODEL_LAYERS_BLOCK_NAME,
         }
-
         for key, value in fields_to_set.items():
             if config[key]:
                 setattr(quantized_model, key, config[key])
@@ -186,30 +160,22 @@ class GptqQuantizer(Pass):
                 else:
                     raise ValueError(f"Can't get {key} to quantize automatically, please provide it in config.")
 
-        import auto_gptq
+        quantized_model.quantize(dataset)
 
-        original = auto_gptq.modeling._utils.dynamically_import_QuantLinear
-
-        quantizer = get_onnx_quant_linear if config["pack_model_for_onnx_conversion"] else original
-        try:
-            # Replace QuantLinear in autogptq with QuantLinear for quant linear layer packing
-            auto_gptq.modeling._utils.dynamically_import_QuantLinear = quantizer
-
-            # Autogpq quantize_model currently only support cuda device. It accepts model on cpu but
-            # will move each block(layer) to cuda before quantization and move back to cpu when finished.
-            quantized_model.quantize(dataset)
-        finally:
-            auto_gptq.modeling._utils.dynamically_import_QuantLinear = original
-
-        if config["pack_model_for_onnx_conversion"] or isinstance(model, PyTorchModelHandler):
-
-            quantized_model = quantized_model.model
+        # TODO(anyone): Is pytorch model support needed? auto-awq only works with transformers like models
+        if isinstance(model, PyTorchModelHandler):
+            pytorch_model = quantized_model.model
+            # add quantization related attributes to the model for downstream usage
+            pytorch_model.quantization_method = "gptq"
+            if hasattr(pytorch_model, "config"):
+                pytorch_model.config.quantization_config = Namespace(quantized_model.quantize_config.to_dict())
+            else:
+                pytorch_model.config = Namespace(
+                    quantization_config=Namespace(quantized_model.quantize_config.to_dict())
+                )
 
             output_model_path = normalize_path_suffix(output_model_path, "model.pt")
             torch.save(quantized_model, output_model_path)
-
-            if isinstance(model, HfModelHandler):
-                return inherit_pytorch_from_hf(model, output_model_path)
 
             return inherit_pytorch_from_pytorch(model, output_model_path)
 

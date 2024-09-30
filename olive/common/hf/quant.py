@@ -39,7 +39,7 @@ def get_auto_awq_qlinear_cls(quantization_config):
     return None
 
 
-# copied from https://github.com/huggingface/peft/blob/f4cf170a9c51d822f950cde0a0e1c87dc013403a/src/peft/utils/other.py#L579
+# copied from https://github.com/huggingface/peft/blob/v0.13.0/src/peft/utils/other.py#L579
 def get_auto_gptq_qlinear_cls(quantization_config):
     """Get the right AutoGPTQQuantLinear class based on the quantization config."""
     if transformers.utils.import_utils.is_auto_gptq_available():
