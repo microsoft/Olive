@@ -42,6 +42,13 @@ class QuantizeCommand(BaseOliveCLICommand):
             # Pytorch algorithms
             "awq": {"type": "AutoAWQQuantizer"},
             "gptq": {"type": "GptqQuantizer", "data_config": "default_data_config"},
+            "quarot": {
+                "type": "QuaRot",
+                "w_rtn": False,
+                "w_gptq": False,
+                "rotate": False,
+                "calibration_data_config": "default_data_config",
+            },
             # Onnx algorithms
             "bnb4": {"type": "OnnxBnb4Quantization"},
             "inc_dynamic": {"type": "IncDynamicQuantization"},
@@ -86,6 +93,17 @@ class QuantizeCommand(BaseOliveCLICommand):
             help="The output precision of the quantized model.",
         )
 
+        sub_parser.add_argument(
+            "--quarot_rotate", action="store_true", help="Apply QuaRot/Hadamard rotation to the model."
+        )
+        sub_parser.add_argument(
+            "--quarot_strategy",
+            type=str,
+            choices=["rtn", "gptq"],
+            default="rtn",
+            help="Strategy to use to quantize weights.",
+        )
+
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
         sub_parser.set_defaults(func=QuantizeCommand)
@@ -98,6 +116,9 @@ class QuantizeCommand(BaseOliveCLICommand):
         to_replace = [
             (("pass_flows"), [[name] for name in self.args.algorithms]),
             (("passes", "bnb4", "quant_type"), self.args.precision),
+            (("passes", "quarot", "rotate"), self.args.quarot_rotate),
+            (("passes", "quarot", "w_rtn"), self.args.quarot_strategy == "rtn"),
+            (("passes", "quarot", "w_gptq"), self.args.quarot_strategy == "gptq"),
             (("output_dir"), tempdir),
             ("log_severity_level", self.args.log_level),
         ]
@@ -110,8 +131,11 @@ class QuantizeCommand(BaseOliveCLICommand):
     def run(self):
         from olive.workflows import run as olive_run
 
-        if "gptq" in self.args.algorithms and not self.args.data_name:
+        if ("gptq" in self.args.algorithms) and (not self.args.data_name):
             raise ValueError("data_name is required to use gptq.")
+
+        if ("quarot" in self.args.algorithms) and (not self.args.data_name) and (self.args.quarot_strategy == "gptq"):
+            raise ValueError("data_name is required to quantize weights using gptq.")
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
