@@ -127,15 +127,6 @@ class AutoOptCommand(BaseOliveCLICommand):
             ),
         )
         sub_parser.add_argument(
-            "--excluded_passes",
-            type=str,
-            nargs="*",
-            help=(
-                "List of passes to disable for optimization, if not specified, "
-                "auto-opt will disable ModelBuilder/OrtPerfTuning by default."
-            ),
-        )
-        sub_parser.add_argument(
             "--use_model_builder",
             action="store_true",
             help=(
@@ -173,10 +164,11 @@ class AutoOptCommand(BaseOliveCLICommand):
     def get_run_config(self, tempdir) -> Dict:
         config = deepcopy(TEMPLATE)
 
-        excluded_passes = self.args.excluded_passes or ["ModelBuilder", "OrtPerfTuning"]
+        excluded_passes = ["OrtPerfTuning"]
         if self.args.use_model_builder:
-            excluded_passes.remove("ModelBuilder")
             excluded_passes.append("OnnxConversion")
+        else:
+            excluded_passes.append("ModelBuilder")
 
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
