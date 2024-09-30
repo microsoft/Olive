@@ -13,6 +13,7 @@ import torch
 
 from olive.common.config_utils import validate_config
 from olive.common.hf.mappings import MODEL_INSIDE_LAYER_MODULES, MODEL_LAYERS_BLOCK_NAME, MODEL_OUTSIDE_LAYER_MODULES
+from olive.common.utils import copy_dir
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
@@ -127,6 +128,24 @@ class GptqQuantizer(Pass):
                 "(e.g. [{ 'input_ids': [ 1, 100, 15, ... ],'attention_mask': [ 1, 1, 1, ... ]},...])"
             )
 
+        adapter_path = None
+        if isinstance(model, HfModelHandler) and model.adapter_path:
+            logger.info(
+                "Model has adapters but GPTQ does not support adapters. Quantizing without adapters. Adapters"
+                " will be copied as is."
+            )
+            adapter_path = Path(output_model_path) / "adapter"
+            adapter_path.mkdir(parents=True, exist_ok=True)
+            copy_dir(model.adapter_path, adapter_path)
+
+            output_model_path = str(Path(output_model_path) / "model")
+            # TODO(jambayk): should we update the base_model_name_or_path in the adapter_config json?
+
+            # create a new input model with the adapter path removed
+            model.model = None
+            model = deepcopy(model)
+            model.set_resource("adapter_path", None)
+
         pytorch_model = model.load_model()
         # pytorch model will be updated so don't cache it in the model handler
         model.model = None
@@ -198,4 +217,4 @@ class GptqQuantizer(Pass):
         # model is saved in safetensors format so need to enable safetensors load
         if new_load_kwargs.get("extra_args") and new_load_kwargs["extra_args"].get("use_safetensors") is False:
             new_load_kwargs["extra_args"]["use_safetensors"] = True
-        return inherit_hf_from_hf(model, output_model_path, load_kwargs=new_load_kwargs)
+        return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path, load_kwargs=new_load_kwargs)

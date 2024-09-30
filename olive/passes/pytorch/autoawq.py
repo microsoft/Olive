@@ -4,11 +4,12 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, Union
 
 import torch
 
-from olive.common.utils import StrEnumBase
+from olive.common.utils import StrEnumBase, copy_dir
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
@@ -126,6 +127,20 @@ class AutoAWQQuantizer(Pass):
                 }
             )
 
+        adapter_path = None
+        # copy over adapter path if it exists
+        if model.adapter_path:
+            logger.info(
+                "Model has adapters but AWQ does not support adapters. Quantizing without adapters. Adapters"
+                " will be copied as is."
+            )
+            adapter_path = Path(output_model_path) / "adapter"
+            adapter_path.mkdir(parents=True, exist_ok=True)
+            copy_dir(model.adapter_path, adapter_path)
+
+            output_model_path = str(Path(output_model_path) / "model")
+            # TODO(jambayk): should we update the base_model_name_or_path in the adapter_config json?
+
         # autoawq load the model with fp16 by default and they did not expose the interface to change it
         awq_model = AutoAWQForCausalLM.from_pretrained(
             model.model_name_or_path, **self._resolve_load_args(model.get_load_kwargs())
@@ -156,7 +171,7 @@ class AutoAWQQuantizer(Pass):
         # model is saved in safetensors format so need to enable safetensors load
         if new_load_kwargs.get("extra_args") and new_load_kwargs["extra_args"].get("use_safetensors") is False:
             new_load_kwargs["extra_args"]["use_safetensors"] = True
-        return inherit_hf_from_hf(model, output_model_path, load_kwargs=new_load_kwargs)
+        return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path, load_kwargs=new_load_kwargs)
 
     def _resolve_load_args(self, hf_loading_args):
         loading_args = {}
