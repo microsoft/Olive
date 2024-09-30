@@ -221,7 +221,6 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">excluded_passes</span> <span class="p">[</span><span class="n">EXCLUDED_PASSES</span> <span class="p">[</span><span class="n">EXCLUDED_PASSES</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">enable_search</span> <span class="p">[{</span><span class="n">exhaustive</span><span class="p">,</span><span class="n">tpe</span><span class="p">,</span><span class="n">random</span><span class="p">}]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
@@ -285,9 +284,6 @@
 <dt><kbd>--precision</kbd></dt>
 <dd><p>Possible choices: fp16, fp32, int4, int8</p>
 <p>The output precision of the optimized model. If not specified, the default precision is fp32 for cpu and fp16 for gpu</p>
-</dd>
-<dt><kbd>--excluded_passes</kbd></dt>
-<dd><p>List of passes to disable for optimization, if not specified, auto-opt will disable ModelBuilder/OrtPerfTuning by default.</p>
 </dd>
 <dt><kbd>--use_model_builder</kbd></dt>
 <dd><p>Whether to use model builder pass for optimization, enable only when the model is supported by model builder</p>
@@ -764,7 +760,6 @@
                              <span class="p">[</span><span class="o">--</span><span class="n">dtype</span> <span class="p">{</span><span class="n">float32</span><span class="p">,</span><span class="n">float16</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">quantize_int4</span><span class="p">]</span>
                              <span class="p">[</span><span class="o">--</span><span class="n">int4_block_size</span> <span class="p">{</span><span class="mi">16</span><span class="p">,</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">128</span><span class="p">,</span><span class="mi">256</span><span class="p">}]</span>
                              <span class="p">[</span><span class="o">--</span><span class="n">int4_quantization_mode</span> <span class="p">{</span><span class="n">symmetric</span><span class="p">,</span><span class="n">asymmetric</span><span class="p">}]</span>
-                             <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -789,10 +784,6 @@
 <dt><kbd>--quantize_int4</kbd></dt>
 <dd><p>Quantize the weights to int4 using blockwise quantization.</p>
 <p>Default: False</p>
-</dd>
-<dt><kbd>--log_level</kbd></dt>
-<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
 </dd>
 </dl>
 </section>
