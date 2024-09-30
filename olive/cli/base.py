@@ -545,40 +545,31 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
         help="Device used to run the model.",
     )
 
+    execution_providers = [
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider",
+        "DmlExecutionProvider",
+        "JsExecutionProvider",
+        "MIGraphXExecutionProvider",
+        "OpenVINOExecutionProvider",
+        "QNNExecutionProviderROCMExecutionProvider",
+        "TensorrtExecutionProvider",
+    ]
+
     if single_provider:
         accelerator_group.add_argument(
             "--provider",
             type=str,
             default="CPUExecutionProvider",
-            choices=[
-                "CUDAExecutionProvider",
-                "CPUExecutionProvider",
-                "DmlExecutionProvider",
-                "JsExecutionProvider",
-                "MIGraphXExecutionProvider",
-                "OpenVINOExecutionProvider",
-                "OpenVINOExecutionProvider",
-                "QNNExecutionProviderROCMExecutionProvider",
-                "TensorrtExecutionProvider",
-            ],
-            help=("Execution provider to use for ONNX model."),
+            choices=execution_providers,
+            help="Execution provider to use for ONNX model.",
         )
     else:
         accelerator_group.add_argument(
             "--providers_list",
             type=str,
             nargs="*",
-            choices=[
-                "CUDAExecutionProvider",
-                "CPUExecutionProvider",
-                "DmlExecutionProvider",
-                "JsExecutionProvider",
-                "MIGraphXExecutionProvider",
-                "OpenVINOExecutionProvider",
-                "OpenVINOExecutionProvider",
-                "QNNExecutionProviderROCMExecutionProvider",
-                "TensorrtExecutionProvider",
-            ],
+            choices=execution_providers,
             help=(
                 "List of execution providers to use for ONNX model. They are case sensitive. "
                 "If not provided, all available providers will be used."
@@ -598,10 +589,8 @@ def update_accelerator_options(args, config, single_provider: bool = True):
         if not provider.endswith("ExecutionProvider"):
             args.providers_list[idx] = f"{provider}ExecutionProvider"
 
-    if single_provider:
-        to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), [args.provider]))
-    else:
-        to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), args.providers_list))
+    execution_providers = [args.provider] if single_provider else args.providers_list
+    to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), execution_providers))
 
     for k, v in to_replace:
         if v is not None:
