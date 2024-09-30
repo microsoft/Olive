@@ -402,6 +402,11 @@ def _resolve_system(v, values, system_alias):
 
 
 def _resolve_data_config(v, values, data_config_alias):
+    if isinstance(data_config_alias, (dict, DataConfig)):
+        raise ValueError(
+            "Inline data configs are not supported. Define the config under 'data_configs' and use its name here."
+        )
+
     return _resolve_config_str(
         v,
         {"data_configs_dict": {dc.name: dc for dc in values.get("data_configs") or []}},
