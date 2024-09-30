@@ -106,7 +106,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
 
         return model_path_resource.parent
 
-    def load_model(self, rank: int = None) -> ModelProto:
+    def load_model(self, rank: int = None, cache_model: bool = True) -> ModelProto:
         return onnx.load(self.model_path)
 
     def prepare_session(
@@ -238,7 +238,7 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
     def ranked_model_path(self, rank: int) -> Union[Path, str]:
         return Path(self.model_path) / self.ranked_model_name(rank)
 
-    def load_model(self, rank: int = None) -> ONNXModelHandler:
+    def load_model(self, rank: int = None, cache_model: bool = True) -> ONNXModelHandler:
         return ONNXModelHandler(
             self.ranked_model_path(rank),
             inference_settings=self.inference_settings,

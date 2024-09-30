@@ -53,7 +53,7 @@ class OpenVINOModelHandler(OliveModelHandler):
             "weights": str(ov_weights.resolve()),
         }
 
-    def load_model(self, rank: int = None):
+    def load_model(self, rank: int = None, cache_model: bool = True):
         try:
             import openvino as ov
         except ImportError:

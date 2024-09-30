@@ -76,7 +76,7 @@ class CompositeModelHandler(OliveModelHandler):
     def get_model_components(self) -> List[Tuple[str, OliveModelHandler]]:
         return zip(self.model_component_names, self.model_components)
 
-    def load_model(self, rank: int = None):
+    def load_model(self, rank: int = None, cache_model: bool = True):
         raise NotImplementedError
 
     def prepare_session(

@@ -135,28 +135,28 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
     def model_script(self) -> str:
         return self.get_resource("model_script")
 
-    def load_model(self, rank: int = None) -> torch.nn.Module:
-        if self.model is not None:
-            return self.model
-
-        # Load user module at the beginning since we may need user defined models to load model
-        user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-
-        # Load special path or format model -> load model from hf config -> load normal path model
-        if self.model_loader is not None:
-            model = user_module_loader.call_object(self.model_loader, self.model_path)
-        elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
-            model = torch.jit.load(self.model_path)
-        elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
-            model = torch.load(self.model_path)
-        elif self.model_file_format == ModelFileFormat.PYTORCH_SLICE_GPT_MODEL:
-            model = self._load_slicegpt_model()
-        elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
-            raise ValueError("Please use customized model loader to load state dict of model.")
+    def load_model(self, rank: int = None, cache_model: bool = True) -> torch.nn.Module:
+        if self.model:
+            model = self.model
         else:
-            raise ValueError(f"Unsupported model file format: {self.model_file_format}")
+            # Load user module at the beginning since we may need user defined models to load model
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
 
-        self.model = model
+            # Load special path or format model -> load model from hf config -> load normal path model
+            if self.model_loader is not None:
+                model = user_module_loader.call_object(self.model_loader, self.model_path)
+            elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
+                model = torch.jit.load(self.model_path)
+            elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
+                model = torch.load(self.model_path)
+            elif self.model_file_format == ModelFileFormat.PYTORCH_SLICE_GPT_MODEL:
+                model = self._load_slicegpt_model()
+            elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
+                raise ValueError("Please use customized model loader to load state dict of model.")
+            else:
+                raise ValueError(f"Unsupported model file format: {self.model_file_format}")
+
+        self.model = model if cache_model else None
 
         return model
 

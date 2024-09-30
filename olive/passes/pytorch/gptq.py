@@ -146,9 +146,7 @@ class GptqQuantizer(Pass):
             model = deepcopy(model)
             model.set_resource("adapter_path", None)
 
-        pytorch_model = model.load_model()
-        # pytorch model will be updated so don't cache it in the model handler
-        model.model = None
+        pytorch_model = model.load_model(cache_model=False)
         quantize_config = BaseQuantizeConfig(
             bits=config["bits"],
             group_size=config["group_size"],

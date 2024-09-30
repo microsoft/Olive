@@ -26,7 +26,7 @@ class TensorFlowModelHandler(OliveModelHandler):
             model_attributes=model_attributes,
         )
 
-    def load_model(self, rank: int = None):
+    def load_model(self, rank: int = None, cache_model: bool = True):
         raise NotImplementedError
 
     def prepare_session(
