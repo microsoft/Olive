@@ -30,10 +30,16 @@ This document introduces Olive and provides some examples to get you started.
 
 .. toctree::
    :maxdepth: 1
-   :caption: FEATURES
+   :caption: OLIVE COMMANDS
 
 
    features/cli
+
+.. toctree::
+   :maxdepth: 1
+   :caption: FEATURES
+
+
    features/azureml_integration
    features/huggingface_model_optimization
    features/lora
