@@ -1,0 +1,131 @@
+site_name: "O(nnx)Live"
+extra_css:
+  - stylesheets/extra.css
+theme:
+  name: material
+  logo: images/ONNX_Runtime_logo.png #https://artwork.lfaidata.foundation/projects/onnx/icon/white/onnx-icon-white.png
+  features:
+    - content.code.copy
+    - navigation.tabs     # once there are multiple books, uncomment this
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.path
+    #- navigation.footer
+    - toc.integrate
+    - toc.follow
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotate
+  icon:
+    annotation: material/chevron-right-circle
+    admonition:
+      note: fontawesome/solid/note-sticky
+      abstract: fontawesome/solid/book
+      info: fontawesome/solid/circle-info
+      tip: fontawesome/solid/bullhorn
+      success: fontawesome/solid/check
+      question: fontawesome/solid/circle-question
+      warning: fontawesome/solid/triangle-exclamation
+      failure: fontawesome/solid/bomb
+      danger: fontawesome/solid/skull
+      bug: fontawesome/solid/robot
+      example: fontawesome/solid/flask
+      quote: fontawesome/solid/quote-left
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+      primary: blue grey
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue grey
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue grey
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+markdown_extensions:
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          #paths: [..]
+          load_external_modules: false
+          options:
+            show_source: true
+            docstring_style: google
+            annotations_path: source
+            allow_inspection: true
+            show_bases: true
+            find_stubs_package: false
+            inherited_members: false
+            show_inheritance_diagram: false
+            merge_init_into_class: false
+            show_if_no_docstring: false
+            show_signature_annotations: false
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started/getting-started.md
+  # - Tutorials:
+  #   - tutorials/index.md
+  #   - Optimize for Windows: tutorials/optimize-for-windows.md
+  #   - Optimize for Android: tutorials/optimize-for-android.md
+  #   - Optimize for Apple: tutorials/optimize-for-apple.md
+  - How-to...:
+    - how-to/index.md
+    #- Finetune: how-to/finetune.md
+    #- Quantization: how-to/quantization.md
+    - Configuring Workflows:
+      - Data: how-to/how-to-configure-data.md
+      #- Cloud Model Cache: how-to/
+      - Systems: how-to/systems.md
+      - Metrics: how-to/metrics-configuration.md
+      - Passes: how-to/pass-configuration.md
+      - Model Packaging: how-to/model-packaging.md
+    - Use Automatic Optimizer: how-to/auto-opt.md
+    - Integrations:
+      - Azure AI: how-to/azure-ai.md
+      - Hugging Face: how-to/hugging-face-integration.md
+    - Install Olive: how-to/installation.md
+  - Reference:
+    - api/index.md
+    - CLI: api/cli-reference.md
+    - Configurations: api/config-reference.md
+  - Extending Olive:
+    - extending/index.md
+    - Design: extending/design.md
+    - Adding a new optimization pass: extending/how_to_add_optimization_pass.md
+    - Custom scripts: extending/custom_scripts.md
