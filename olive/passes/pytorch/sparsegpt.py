@@ -120,13 +120,7 @@ class SparseGPT(Pass):
         logger.debug("Data loaded. Number of batches: %d", len(dataloader))
 
         # load model
-        pytorch_model = model.load_model()
-        # we will update the model inplace
-        # since the models are large, it is expensive to copy and maintain two copies
-        # set model.model to None so that the input model doesn't use this same model object when it is loaded
-        model.model = None
-        # alternative is to copy the model and use the copy
-        # pytorch_model = copy.deepcopy(model.model)
+        pytorch_model = model.load_model(cache_model=False)
         pytorch_model.eval()
         use_cache = pytorch_model.config.use_cache
         pytorch_model.config.use_cache = False

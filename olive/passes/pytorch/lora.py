@@ -348,7 +348,7 @@ class LoRABase(Pass):
         # overwrite load_kwargs with kwargs
         load_kwargs.update(kwargs)
         new_model_handler.load_kwargs = HfLoadKwargs(**load_kwargs)
-        pytorch_model = new_model_handler.load_model()
+        pytorch_model = new_model_handler.load_model(cache_model=False)
         pytorch_model.config.torch_dtype = model_dtype
 
         return new_model_handler, pytorch_model
@@ -549,7 +549,6 @@ class LoRABase(Pass):
         model.save_pretrained(adapter_path, save_embedding_layers=False)
 
         # remove loaded model
-        output_model.model = None
         del model
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -823,7 +822,6 @@ class LoftQ(QLoRABase):
         # only need the quantized module to find the quantized modules
         # delete quantized model to free memory
         del pytorch_model
-        new_model_handler.model = None
 
         # get the original base model
         _, pytorch_model = self.create_and_load_new_model(

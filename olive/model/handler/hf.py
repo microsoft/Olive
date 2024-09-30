@@ -69,20 +69,20 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         """Return the path to the peft adapter."""
         return self.get_resource("adapter_path")
 
-    def load_model(self, rank: int = None) -> torch.nn.Module:
+    def load_model(self, rank: int = None, cache_model: bool = True) -> torch.nn.Module:
         """Load the model from the model path."""
-        if self.model is not None:
-            return self.model
+        if self.model:
+            model = self.model
+        else:
+            model = load_model_from_task(self.task, self.model_path, **self.get_load_kwargs())
 
-        model = load_model_from_task(self.task, self.model_path, **self.get_load_kwargs())
+            # we only have peft adapters for now
+            if self.adapter_path:
+                from peft import PeftModel
 
-        # we only have peft adapters for now
-        if self.adapter_path:
-            from peft import PeftModel
+                model = PeftModel.from_pretrained(model, self.adapter_path)
 
-            model = PeftModel.from_pretrained(model, self.adapter_path)
-
-        self.model = model
+        self.model = model if cache_model else None
 
         return model
 
@@ -186,7 +186,7 @@ class DistributedHfModelHandler(OliveModelHandler):
     def ranked_model_path(self, rank: int) -> Union[Path, str]:
         return Path(self.model_path) / self.ranked_model_name(rank)
 
-    def load_model(self, rank: int = None) -> HfModelHandler:
+    def load_model(self, rank: int = None, cache_model: bool = True) -> HfModelHandler:
         return HfModelHandler(
             model_path=self.ranked_model_path(rank),
             task=self.task,
