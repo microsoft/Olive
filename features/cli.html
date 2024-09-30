@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Command Line Tools &mdash; Olive  documentation</title>
+  <title>Run &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
@@ -69,85 +69,51 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Command Line Tools</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#input-model">Input Model</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#olive-cli-procuded-model">Olive Cli Procuded Model</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#local-pytorch-model">Local PyTorch Model</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Run</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#available-functions">Available Functions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#example-usage">Example Usage</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#argparse-documentation">Argparse Documentation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#workflow-run">Workflow Run</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#auto-optimization">Auto-Optimization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#auto-optimization">Auto-Optimization</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#logging-options">logging options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#model-options">Model options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#accelerator-group">accelerator group</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#dataset-options,-required-for-some-optimization-passes-like-quantization,-and-evaluation-components">dataset options, required for some optimization passes like quantization, and evaluation components</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#auto-optimizer-options">auto optimizer options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#remote-options">remote options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#search-algorithm-options">search algorithm options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#capture-onnx-graph">Capture Onnx Graph</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pytorch-exporter-options">PyTorch Exporter options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#model-builder-options">Model Builder options</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#capture-onnx-graph">Capture Onnx Graph</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#logging-options">logging options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#model-options">Model options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#pytorch-exporter-options">PyTorch Exporter options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#model-builder-options">Model Builder options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#remote-options">remote options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#tune-onnxruntime-session-params-for-onnx-model">Tune OnnxRuntime Session Params for ONNX Model</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#tune-session-params-for-onnx-model">Tune Session Params for ONNX Model</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#logging-options">logging options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#model-options">Model options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#dataconfig-options,-which-mutually-exclusive-with-huggingface-dataset-options">DataConfig options, which mutually exclusive with huggingface dataset options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#huggingface-dataset-options,-if-dataset-options-are-not-provided,-user-should-provide-the-following-options-to-modify-the-default-data-config.-please-refer-to-olive.data.container.transformerstokendummydatacontainer-for-more-details.">huggingface dataset options, if dataset options are not provided, user should provide the following options to modify the default data config. Please refer to olive.data.container.TransformersTokenDummyDataContainer for more details.</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#accelerator-group">accelerator group</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#pass-options">pass options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#remote-options">remote options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#finetune">Finetune</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lora-options">LoRA options</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#finetune">Finetune</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#logging-options">logging options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#model-options">Model options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#dataset-options">dataset options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#lora-options">lora options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#remote-options">remote options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#generate-adapters">Generate Adapters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#generate-adapters">Generate Adapters</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#logging-options">logging options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#model-options">Model options</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#remote-options">remote options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#export-adapters">Export Adapters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#int4-quantization-options">int4 quantization options</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#export-adapters">Export Adapters</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#int4-quantization-options">int4 quantization options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#cloud-cache-operations">Cloud Cache Operations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#cloud-cache-operations">Cloud Cache Operations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#configure-qualcomm-sdk">Configure Qualcomm SDK</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#configure-qualcomm-sdk">Configure Qualcomm SDK</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#azureml-compute-resources-management">AzureML Compute resources management</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#azureml-compute-resources-management">AzureML Compute resources management</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="#input-model">Input Model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="azureml_integration.html">Azure ML integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="lora.html">LoRA Adapters</a></li>
@@ -202,7 +168,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Command Line Tools</li>
+      <li class="breadcrumb-item active">Run</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/features/cli.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -212,147 +178,63 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="command-line-tools">
-<span id="id1"></span><h1>Command Line Tools<a class="headerlink" href="#command-line-tools" title="Permalink to this heading">¶</a></h1>
-<p>Olive provides command line tools that can be invoked using the <code class="docutils literal notranslate"><span class="pre">olive</span></code> command. |
-The command line tools are used to perform various tasks such as running an Olive workflow, |
-managing AzureML compute, and more.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">olive</span></code> is not in your PATH, you can run the command line tools by replacing <code class="docutils literal notranslate"><span class="pre">olive</span></code> with <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">olive</span></code>.</p>
-<section id="input-model">
-<h2>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading">¶</a></h2>
-<section id="olive-cli-procuded-model">
-<h3>Olive Cli Procuded Model<a class="headerlink" href="#olive-cli-procuded-model" title="Permalink to this heading">¶</a></h3>
-<p>The Olive command-line tools support using a model produced by Olive CLI as an input model. You can specify the model file path using the <code class="docutils literal notranslate"><span class="pre">-m</span> <span class="pre">&lt;output_model&gt;</span></code> option, where <code class="docutils literal notranslate"><span class="pre">&lt;output_model&gt;</span></code> is the output folder defined by <code class="docutils literal notranslate"><span class="pre">-o</span> <span class="pre">&lt;output_model&gt;</span></code> in the previous cli command.</p>
-</section>
-<section id="local-pytorch-model">
-<h3>Local PyTorch Model<a class="headerlink" href="#local-pytorch-model" title="Permalink to this heading">¶</a></h3>
-<p>Olive command line tools accept a local PyTorch model as an input model. You can specify the model file path using the <code class="docutils literal notranslate"><span class="pre">-m</span> <span class="pre">model.pt</span></code> option, and the associated model script using the <code class="docutils literal notranslate"><span class="pre">--model_script</span> <span class="pre">script.py</span></code> option.</p>
-<p>Olive reserves several function names to provide specific inputs for the PyTorch model. These functions should be defined in your model script:</p>
-</section>
-</section>
-<section id="available-functions">
-<h2>Available Functions<a class="headerlink" href="#available-functions" title="Permalink to this heading">¶</a></h2>
-<p>Below are the functions that Olive expects in the model script and their purposes:</p>
-<ul>
-<li><p><strong>Model Loader Function (`_model_loader`)</strong>:
-Loads the PyTorch model. If the model file path is provided using the <cite>-m</cite> option, it takes higher priority than the model loader function.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_model_loader</span><span class="p">():</span>
-    <span class="o">...</span>
-    <span class="k">return</span> <span class="n">model</span>
-</pre></div>
-</div>
-</li>
-<li><p><strong>IO Config Function (`_io_config`)</strong>:
-Returns the IO configuration for the model. Either <cite>_io_config</cite> or <cite>_dummy_inputs</cite> is required for the <cite>capture-onnx-graph</cite> CLI command.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_io_config</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">):</span>
-    <span class="o">...</span>
-    <span class="k">return</span> <span class="n">io_config</span>
-</pre></div>
-</div>
-</li>
-<li><p><strong>Dummy Inputs Function (`_dummy_inputs`)</strong>:
-Provides dummy input tensors for the model. Either <cite>_io_config</cite> or <cite>_dummy_inputs</cite> is required for the <cite>capture-onnx-graph</cite> CLI command.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_dummy_inputs</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">):</span>
-    <span class="o">...</span>
-    <span class="k">return</span> <span class="n">dummy_inputs</span>
-</pre></div>
-</div>
-</li>
-<li><p><strong>Model Format Function (`_model_file_format`)</strong>:
-Specifies the format of the model. The default value is <cite>PyTorch.EntireModel</cite>. For more available options, refer to <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/constants.py#L23-L26">this</a>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_model_file_format</span><span class="p">():</span>
-    <span class="o">...</span>
-    <span class="k">return</span> <span class="n">model_file_format</span>
-</pre></div>
-</div>
-</li>
-</ul>
-</section>
-<section id="example-usage">
-<h2>Example Usage<a class="headerlink" href="#example-usage" title="Permalink to this heading">¶</a></h2>
-<p>To use the Olive CLI with a local PyTorch model:</p>
-<ol class="arabic">
-<li><p>Provide the model path and the script:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>olive<span class="w"> </span>capture-onnx-graph<span class="w"> </span>-m<span class="w"> </span>model.pt<span class="w"> </span>--model_script<span class="w"> </span>script.py
-</pre></div>
-</div>
-</li>
-<li><p>Ensure that the script contains the above functions to handle loading, input/output configuration, dummy inputs, and model format specification as needed.</p></li>
-</ol>
-</section>
-<section id="argparse-documentation">
-<h2>Argparse Documentation<a class="headerlink" href="#argparse-documentation" title="Permalink to this heading">¶</a></h2>
-<p>Below is the argparse documentation for the Olive command-line interface:</p>
-<section id="workflow-run">
-<h3>Workflow Run<a class="headerlink" href="#workflow-run" title="Permalink to this heading">¶</a></h3>
-<p>Run Olive workflow with config file</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">package</span><span class="o">-</span><span class="n">config</span> <span class="n">PACKAGE_CONFIG</span><span class="p">]</span> <span class="o">--</span><span class="n">run</span><span class="o">-</span><span class="n">config</span>
-                 <span class="n">RUN_CONFIG</span> <span class="p">[</span><span class="o">--</span><span class="n">setup</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">packages</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span>
+  <p id="command-line-tools">Olive provides command line tools that can be invoked using the <code class="docutils literal notranslate"><span class="pre">olive</span></code> command.</p>
+<section id="run">
+<h1>Run<a class="headerlink" href="#run" title="Permalink to this heading">¶</a></h1>
+<p>Run Olive workflow defined in the input .json configuration file.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">run</span><span class="o">-</span><span class="n">config</span> <span class="n">RUN_CONFIG</span> <span class="p">[</span><span class="o">--</span><span class="n">setup</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">packages</span><span class="p">]</span>
+                 <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">package</span><span class="o">-</span><span class="n">config</span> <span class="n">PACKAGE_CONFIG</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
-<h4>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h4>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
-<dt><kbd>--package-config</kbd></dt>
-<dd><p>For advanced users. Path to optional package (json) config file with location of individual pass module implementation and corresponding dependencies. Configuration might also include user owned/proprietary/private pass implementations.</p>
-</dd>
 <dt><kbd>--run-config, --config</kbd></dt>
 <dd><p>Path to json config file</p>
 </dd>
 <dt><kbd>--setup</kbd></dt>
-<dd><p>Whether run environment setup</p>
+<dd><p>Setup environment needed to run the workflow</p>
 <p>Default: False</p>
 </dd>
 <dt><kbd>--packages</kbd></dt>
-<dd><p>List required packages</p>
+<dd><p>List packages required to run the workflow</p>
 <p>Default: False</p>
 </dd>
 <dt><kbd>--tempdir</kbd></dt>
 <dd><p>Root directory for tempfile directories and files</p>
 </dd>
+<dt><kbd>--package-config</kbd></dt>
+<dd><p>For advanced users. Path to optional package (json) config file with location of individual pass module implementation and corresponding dependencies. Configuration might also include user owned/proprietary/private pass implementations.</p>
+</dd>
 </dl>
 </section>
 </section>
 <section id="auto-optimization">
-<h3>Auto-Optimization<a class="headerlink" href="#auto-optimization" title="Permalink to this heading">¶</a></h3>
-<p>Automatically optimize the performance of the input model.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+<h1>Auto-Optimization<a class="headerlink" href="#auto-optimization" title="Permalink to this heading">¶</a></h1>
+<p>Automatically optimize the input model for the given target and precision.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">providers_list</span> <span class="p">[{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}</span> <span class="p">[{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}</span> <span class="o">...</span><span class="p">]]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">split</span> <span class="n">SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">subset</span> <span class="n">SUBSET</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">precisions</span> <span class="p">[{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">}</span> <span class="p">[{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">}</span> <span class="o">...</span><span class="p">]]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">excluded_passes</span> <span class="p">[</span><span class="n">EXCLUDED_PASSES</span> <span class="p">[</span><span class="n">EXCLUDED_PASSES</span> <span class="o">...</span><span class="p">]]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">enable_search</span> <span class="p">[{</span><span class="n">exhaustive</span><span class="p">,</span><span class="n">tpe</span><span class="p">,</span><span class="n">random</span><span class="p">}]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">enable_search</span> <span class="p">[{</span><span class="n">exhaustive</span><span class="p">,</span><span class="n">tpe</span><span class="p">,</span><span class="n">random</span><span class="p">}]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="logging-options">
-<h4>logging options<a class="headerlink" href="#logging-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--log_level</kbd></dt>
-<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
-</dd>
-</dl>
-</section>
-<section id="model-options">
-<h4>Model options<a class="headerlink" href="#model-options" title="Permalink to this heading">¶</a></h4>
+<section id="named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
-<dd><dl class="simple">
-<dt>Path to the input model. Can the be output of a previous command or a standalone model. For standalone models, the following formats are supported:</dt><dd><p>HfModel: The name or path to the model. Local folder, huggingface id, or AzureML Registry model (azureml://registries/&lt;registry_name&gt;/models/&lt;model_name&gt;/versions/&lt;version&gt;).
-PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azureml:&lt;model_name&gt;:&lt;version&gt;).
-OnnxModel: Path to the ONNX model. Local file/folder.</p>
-</dd>
-</dl>
+<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a model.</p>
@@ -374,25 +256,16 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 <dd><p>Path to save the command output.</p>
 <p>Default: auto-opt-output</p>
 </dd>
-</dl>
-</section>
-<section id="accelerator-group">
-<h4>accelerator group<a class="headerlink" href="#accelerator-group" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
 <dt><kbd>--device</kbd></dt>
 <dd><p>Possible choices: gpu, cpu, npu</p>
-<p>Device to use for the model.</p>
+<p>Device used to run the model.</p>
 <p>Default: “cpu”</p>
 </dd>
-<dt><kbd>--providers_list</kbd></dt>
-<dd><p>Possible choices: CUDAExecutionProvider, CPUExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, OpenVINOExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProviderROCMExecutionProvider, TensorrtExecutionProvider</p>
-<p>List of execution providers to use for ONNX model. They are case sensitive. If not provided, all available providers will be used.</p>
+<dt><kbd>--provider</kbd></dt>
+<dd><p>Possible choices: CUDAExecutionProvider, CPUExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProviderROCMExecutionProvider, TensorrtExecutionProvider</p>
+<p>Execution provider to use for ONNX model.</p>
+<p>Default: “CPUExecutionProvider”</p>
 </dd>
-</dl>
-</section>
-<section id="dataset-options,-required-for-some-optimization-passes-like-quantization,-and-evaluation-components">
-<h4>dataset options, required for some optimization passes like quantization, and evaluation components<a class="headerlink" href="#dataset-options,-required-for-some-optimization-passes-like-quantization,-and-evaluation-components" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
 <dt><kbd>-d, --data_name</kbd></dt>
 <dd><p>The dataset name.</p>
 </dd>
@@ -409,12 +282,7 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 <dd><p>Batch size for evaluation.</p>
 <p>Default: 1</p>
 </dd>
-</dl>
-</section>
-<section id="auto-optimizer-options">
-<h4>auto optimizer options<a class="headerlink" href="#auto-optimizer-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--precisions</kbd></dt>
+<dt><kbd>--precision</kbd></dt>
 <dd><p>Possible choices: fp16, fp32, int4, int8</p>
 <p>The output precision of the optimized model. If not specified, the default precision is fp32 for cpu and fp16 for gpu</p>
 </dd>
@@ -425,11 +293,14 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 <dd><p>Whether to use model builder pass for optimization, enable only when the model is supported by model builder</p>
 <p>Default: False</p>
 </dd>
-</dl>
-</section>
-<section id="remote-options">
-<h4>remote options<a class="headerlink" href="#remote-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
+<dt><kbd>--enable_search</kbd></dt>
+<dd><p>Possible choices: exhaustive, tpe, random</p>
+<p>Enable search to produce optimal model for the given evaluation criteria.Optionally provide search algorithm from available choices.Use exhastive search algorithm by default.</p>
+</dd>
+<dt><kbd>--seed</kbd></dt>
+<dd><p>Random seed for search algorithm</p>
+<p>Default: 0</p>
+</dd>
 <dt><kbd>--resource_group</kbd></dt>
 <dd><p>Resource group for the AzureML workspace.</p>
 </dd>
@@ -442,32 +313,23 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 <dt><kbd>--aml_compute</kbd></dt>
 <dd><p>The compute name to run the workflow on.</p>
 </dd>
-</dl>
-</section>
-<section id="search-algorithm-options">
-<h4>search algorithm options<a class="headerlink" href="#search-algorithm-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--seed</kbd></dt>
-<dd><p>Random seed for search algorithm</p>
-<p>Default: 0</p>
-</dd>
-<dt><kbd>--enable_search</kbd></dt>
-<dd><p>Possible choices: exhaustive, tpe, random</p>
-<p>Enable search to produce optimal model for the given evaluation criteria.Optionally provide search algorithm from available choices.Use exhastive search algorithm by default.</p>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
 </dd>
 </dl>
 </section>
 </section>
 <section id="capture-onnx-graph">
-<h3>Capture Onnx Graph<a class="headerlink" href="#capture-onnx-graph" title="Permalink to this heading">¶</a></h3>
+<h1>Capture Onnx Graph<a class="headerlink" href="#capture-onnx-graph" title="Permalink to this heading">¶</a></h1>
 <p>Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model or PyTorch model.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_dynamo_exporter</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">conversion_device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">}]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">use_dynamo_exporter</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">past_key_value_name</span> <span class="n">PAST_KEY_VALUE_NAME</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="n">TORCH_DTYPE</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">target_opset</span> <span class="n">TARGET_OPSET</span><span class="p">]</span>
@@ -478,40 +340,19 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
                                 <span class="p">[</span><span class="o">--</span><span class="n">exclude_embeds</span> <span class="n">EXCLUDE_EMBEDS</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">exclude_lm_head</span> <span class="n">EXCLUDE_LM_HEAD</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">enable_cuda_graph</span> <span class="n">ENABLE_CUDA_GRAPH</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
-<h4>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--device</kbd></dt>
-<dd><p>Possible choices: cpu, gpu</p>
-<p>The device to use to convert the model to ONNX.If ‘gpu’ is selected, the execution_providers will be set to CUDAExecutionProvider.If ‘cpu’ is selected, the execution_providers will be set to CPUExecutionProvider.For PyTorch Exporter, the device is used to cast the model to before capturing the ONNX graph.</p>
-<p>Default: “cpu”</p>
-</dd>
-</dl>
-</section>
-<section id="logging-options">
-<h4>logging options<a class="headerlink" href="#logging-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--log_level</kbd></dt>
-<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
-</dd>
-</dl>
-</section>
-<section id="model-options">
-<h4>Model options<a class="headerlink" href="#model-options" title="Permalink to this heading">¶</a></h4>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
-<dd><dl class="simple">
-<dt>Path to the input model. Can the be output of a previous command or a standalone model. For standalone models, the following formats are supported:</dt><dd><p>HfModel: The name or path to the model. Local folder, huggingface id, or AzureML Registry model (azureml://registries/&lt;registry_name&gt;/models/&lt;model_name&gt;/versions/&lt;version&gt;).
-PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azureml:&lt;model_name&gt;:&lt;version&gt;).</p>
-</dd>
-</dl>
+<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a model.</p>
@@ -533,17 +374,38 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 <dd><p>Path to save the command output.</p>
 <p>Default: onnx-model</p>
 </dd>
-</dl>
-</section>
-<section id="pytorch-exporter-options">
-<h4>PyTorch Exporter options<a class="headerlink" href="#pytorch-exporter-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--use_dynamo_exporter</kbd></dt>
-<dd><p>Whether to use dynamo_export API to export ONNX model.</p>
-<p>Default: False</p>
+<dt><kbd>--conversion_device</kbd></dt>
+<dd><p>Possible choices: cpu, gpu</p>
+<p>The device used to run the model to capture the ONNX graph.</p>
+<p>Default: “cpu”</p>
 </dd>
 <dt><kbd>--use_ort_genai</kbd></dt>
 <dd><p>Use OnnxRuntie generate() API to run the model</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--resource_group</kbd></dt>
+<dd><p>Resource group for the AzureML workspace.</p>
+</dd>
+<dt><kbd>--workspace_name</kbd></dt>
+<dd><p>Workspace name for the AzureML workspace.</p>
+</dd>
+<dt><kbd>--keyvault_name</kbd></dt>
+<dd><p>The azureml keyvault name with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login</a> for more details.</p>
+</dd>
+<dt><kbd>--aml_compute</kbd></dt>
+<dd><p>The compute name to run the workflow on.</p>
+</dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
+</dd>
+</dl>
+</section>
+<section id="pytorch-exporter-options">
+<h2>PyTorch Exporter options<a class="headerlink" href="#pytorch-exporter-options" title="Permalink to this heading">¶</a></h2>
+<dl class="option-list">
+<dt><kbd>--use_dynamo_exporter</kbd></dt>
+<dd><p>Whether to use dynamo_export API to export ONNX model.</p>
 <p>Default: False</p>
 </dd>
 <dt><kbd>--past_key_value_name</kbd></dt>
@@ -560,7 +422,7 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 </dl>
 </section>
 <section id="model-builder-options">
-<h4>Model Builder options<a class="headerlink" href="#model-builder-options" title="Permalink to this heading">¶</a></h4>
+<h2>Model Builder options<a class="headerlink" href="#model-builder-options" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>--use_model_builder</kbd></dt>
 <dd><p>Whether to use Model Builder to capture ONNX model.</p>
@@ -591,42 +453,11 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 </dd>
 </dl>
 </section>
-<section id="remote-options">
-<h4>remote options<a class="headerlink" href="#remote-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--resource_group</kbd></dt>
-<dd><p>Resource group for the AzureML workspace.</p>
-</dd>
-<dt><kbd>--workspace_name</kbd></dt>
-<dd><p>Workspace name for the AzureML workspace.</p>
-</dd>
-<dt><kbd>--keyvault_name</kbd></dt>
-<dd><p>The azureml keyvault name with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login</a> for more details.</p>
-</dd>
-<dt><kbd>--aml_compute</kbd></dt>
-<dd><p>The compute name to run the workflow on.</p>
-</dd>
-</dl>
 </section>
-</section>
-<section id="tune-session-params-for-onnx-model">
-<h3>Tune Session Params for ONNX Model<a class="headerlink" href="#tune-session-params-for-onnx-model" title="Permalink to this heading">¶</a></h3>
-<p>Automatically tune the session parameters for a given onnx model. Currently, for onnx model converted from huggingface model and used for generative tasks, user can simply provide the –model onnx_model_path –hf_model_name hf_model_name –device device_type to get the tuned session parameters.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">tune</span><span class="o">-</span><span class="n">session</span><span class="o">-</span><span class="n">params</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">data_config_path</span> <span class="n">DATA_CONFIG_PATH</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">hf_model_name</span> <span class="n">HF_MODEL_NAME</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">seq_len</span> <span class="n">SEQ_LEN</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">past_seq_len</span> <span class="n">PAST_SEQ_LEN</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">max_seq_len</span> <span class="n">MAX_SEQ_LEN</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">shared_kv</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">generative</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">ort_past_key_name</span> <span class="n">ORT_PAST_KEY_NAME</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">ort_past_value_name</span> <span class="n">ORT_PAST_VALUE_NAME</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">max_samples</span> <span class="n">MAX_SAMPLES</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">fields_no_batch</span> <span class="p">[</span><span class="n">FIELDS_NO_BATCH</span> <span class="p">[</span><span class="n">FIELDS_NO_BATCH</span> <span class="o">...</span><span class="p">]]]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">predict_with_kv_cache</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">providers_list</span> <span class="p">[{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}</span> <span class="p">[{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}</span> <span class="o">...</span><span class="p">]]]</span>
+<section id="tune-onnxruntime-session-params-for-onnx-model">
+<h1>Tune OnnxRuntime Session Params for ONNX Model<a class="headerlink" href="#tune-onnxruntime-session-params-for-onnx-model" title="Permalink to this heading">¶</a></h1>
+<p>Automatically tune the OnnxRuntime session parameters for a given onnx model. Currently, for onnx model converted from huggingface model and used for generative tasks, user can simply provide the –model onnx_model_path –hf_model_name hf_model_name –device device_type to get the tuned session parameters.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">tune</span><span class="o">-</span><span class="n">session</span><span class="o">-</span><span class="n">params</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">cpu_cores</span> <span class="n">CPU_CORES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">io_bind</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">enable_cuda_graph</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">execution_mode_list</span> <span class="p">[</span><span class="n">EXECUTION_MODE_LIST</span> <span class="p">[</span><span class="n">EXECUTION_MODE_LIST</span> <span class="o">...</span><span class="p">]]]</span>
@@ -637,105 +468,26 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
                                  <span class="p">[</span><span class="o">--</span><span class="n">extra_session_config</span> <span class="n">EXTRA_SESSION_CONFIG</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">disable_force_evaluate_other_eps</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">enable_profiling</span><span class="p">]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">predict_with_kv_cache</span><span class="p">]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">providers_list</span> <span class="p">[{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}</span> <span class="p">[{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}</span> <span class="o">...</span><span class="p">]]]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="logging-options">
-<h4>logging options<a class="headerlink" href="#logging-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--log_level</kbd></dt>
-<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
-</dd>
-</dl>
-</section>
-<section id="model-options">
-<h4>Model options<a class="headerlink" href="#model-options" title="Permalink to this heading">¶</a></h4>
+<section id="named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
-<dd><dl class="simple">
-<dt>Path to the input model. Can the be output of a previous command or a standalone model. For standalone models, the following formats are supported:</dt><dd><p>OnnxModel: Path to the ONNX model. Local file/folder.</p>
-</dd>
-</dl>
+<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
 <p>Default: tuned-inference-settings</p>
 </dd>
-</dl>
-</section>
-<section id="dataconfig-options,-which-mutually-exclusive-with-huggingface-dataset-options">
-<h4>DataConfig options, which mutually exclusive with huggingface dataset options<a class="headerlink" href="#dataconfig-options,-which-mutually-exclusive-with-huggingface-dataset-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--data_config_path</kbd></dt>
-<dd><p>Path to the data config file. It allows to customize the data config(json/yaml) for the model.</p>
-</dd>
-</dl>
-</section>
-<section id="huggingface-dataset-options,-if-dataset-options-are-not-provided,-user-should-provide-the-following-options-to-modify-the-default-data-config.-please-refer-to-olive.data.container.transformerstokendummydatacontainer-for-more-details.">
-<h4>huggingface dataset options, if dataset options are not provided, user should provide the following options to modify the default data config. Please refer to olive.data.container.TransformersTokenDummyDataContainer for more details.<a class="headerlink" href="#huggingface-dataset-options,-if-dataset-options-are-not-provided,-user-should-provide-the-following-options-to-modify-the-default-data-config.-please-refer-to-olive.data.container.transformerstokendummydatacontainer-for-more-details." title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--hf_model_name</kbd></dt>
-<dd><p>Huggingface model name used to load model configs from huggingface.</p>
-</dd>
-<dt><kbd>--batch_size</kbd></dt>
-<dd><p>Batch size of the input data.</p>
-</dd>
-<dt><kbd>--seq_len</kbd></dt>
-<dd><p>Sequence length to use for the input data.</p>
-</dd>
-<dt><kbd>--past_seq_len</kbd></dt>
-<dd><p>Past sequence length to use for the input data.</p>
-</dd>
-<dt><kbd>--max_seq_len</kbd></dt>
-<dd><p>Max sequence length to use for the input data.</p>
-</dd>
-<dt><kbd>--shared_kv</kbd></dt>
-<dd><p>Whether to enable share kv cache in the input data.</p>
-<p>Default: False</p>
-</dd>
-<dt><kbd>--generative</kbd></dt>
-<dd><p>Whether to enable generative mode in the input data.</p>
-<p>Default: False</p>
-</dd>
-<dt><kbd>--ort_past_key_name</kbd></dt>
-<dd><p>Past key name for the input data.</p>
-</dd>
-<dt><kbd>--ort_past_value_name</kbd></dt>
-<dd><p>Past value name for the input data.</p>
-</dd>
-<dt><kbd>--max_samples</kbd></dt>
-<dd><p>Max samples to use for the input data.</p>
-</dd>
-<dt><kbd>--fields_no_batch</kbd></dt>
-<dd><p>List of fields that should not be batched.</p>
-</dd>
-<dt><kbd>--predict_with_kv_cache</kbd></dt>
-<dd><p>Whether to use key-value cache for perf_tuning</p>
-<p>Default: False</p>
-</dd>
-</dl>
-</section>
-<section id="accelerator-group">
-<h4>accelerator group<a class="headerlink" href="#accelerator-group" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--device</kbd></dt>
-<dd><p>Possible choices: gpu, cpu, npu</p>
-<p>Device to use for the model.</p>
-<p>Default: “cpu”</p>
-</dd>
-<dt><kbd>--providers_list</kbd></dt>
-<dd><p>Possible choices: CUDAExecutionProvider, CPUExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, OpenVINOExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProviderROCMExecutionProvider, TensorrtExecutionProvider</p>
-<p>List of execution providers to use for ONNX model. They are case sensitive. If not provided, all available providers will be used.</p>
-</dd>
-</dl>
-</section>
-<section id="pass-options">
-<h4>pass options<a class="headerlink" href="#pass-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
 <dt><kbd>--cpu_cores</kbd></dt>
 <dd><p>CPU cores used for thread tuning.</p>
 </dd>
@@ -774,11 +526,19 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 <dd><p>Whether enable profiling for ONNX Runtime inference.</p>
 <p>Default: False</p>
 </dd>
-</dl>
-</section>
-<section id="remote-options">
-<h4>remote options<a class="headerlink" href="#remote-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
+<dt><kbd>--predict_with_kv_cache</kbd></dt>
+<dd><p>Whether to use key-value cache for ORT session parameter tuning</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--device</kbd></dt>
+<dd><p>Possible choices: gpu, cpu, npu</p>
+<p>Device used to run the model.</p>
+<p>Default: “cpu”</p>
+</dd>
+<dt><kbd>--providers_list</kbd></dt>
+<dd><p>Possible choices: CUDAExecutionProvider, CPUExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProviderROCMExecutionProvider, TensorrtExecutionProvider</p>
+<p>List of execution providers to use for ONNX model. They are case sensitive. If not provided, all available providers will be used.</p>
+</dd>
 <dt><kbd>--resource_group</kbd></dt>
 <dd><p>Resource group for the AzureML workspace.</p>
 </dd>
@@ -791,14 +551,18 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 <dt><kbd>--aml_compute</kbd></dt>
 <dd><p>The compute name to run the workflow on.</p>
 </dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
+</dd>
 </dl>
 </section>
 </section>
 <section id="finetune">
-<h3>Finetune<a class="headerlink" href="#finetune" title="Permalink to this heading">¶</a></h3>
-<p>Fine-tune a model on a dataset using peft. Huggingface training arguments can be provided along with the defined options.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+<h1>Finetune<a class="headerlink" href="#finetune" title="Permalink to this heading">¶</a></h1>
+<p>Fine-tune a model on a dataset using HuggingFace peft. Huggingface training arguments can be provided along with the defined options.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="p">{</span><span class="n">bfloat16</span><span class="p">,</span><span class="n">float16</span><span class="p">,</span><span class="n">float32</span><span class="p">}]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">train_subset</span> <span class="n">TRAIN_SUBSET</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">train_split</span> <span class="n">TRAIN_SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">eval_subset</span> <span class="n">EVAL_SUBSET</span><span class="p">]</span>
@@ -813,40 +577,14 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
                       <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
-<h4>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--torch_dtype</kbd></dt>
-<dd><p>Possible choices: bfloat16, float16, float32</p>
-<p>The torch dtype to use for training.</p>
-<p>Default: “bfloat16”</p>
-</dd>
-<dt><kbd>--clean</kbd></dt>
-<dd><p>Run in a clean cache directory</p>
-<p>Default: False</p>
-</dd>
-</dl>
-</section>
-<section id="logging-options">
-<h4>logging options<a class="headerlink" href="#logging-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--log_level</kbd></dt>
-<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
-</dd>
-</dl>
-</section>
-<section id="model-options">
-<h4>Model options<a class="headerlink" href="#model-options" title="Permalink to this heading">¶</a></h4>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
-<dd><dl class="simple">
-<dt>Path to the input model. Can the be output of a previous command or a standalone model. For standalone models, the following formats are supported:</dt><dd><p>HfModel: The name or path to the model. Local folder, huggingface id, or AzureML Registry model (azureml://registries/&lt;registry_name&gt;/models/&lt;model_name&gt;/versions/&lt;version&gt;).</p>
-</dd>
-</dl>
+<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a model.</p>
@@ -859,11 +597,11 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 <dd><p>Path to save the command output.</p>
 <p>Default: finetuned-adapter</p>
 </dd>
-</dl>
-</section>
-<section id="dataset-options">
-<h4>dataset options<a class="headerlink" href="#dataset-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
+<dt><kbd>--torch_dtype</kbd></dt>
+<dd><p>Possible choices: bfloat16, float16, float32</p>
+<p>The torch dtype to use for training.</p>
+<p>Default: “bfloat16”</p>
+</dd>
 <dt><kbd>-d, --data_name</kbd></dt>
 <dd><p>The dataset name.</p>
 </dd>
@@ -906,10 +644,30 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 <dd><p>Batch size.</p>
 <p>Default: 1</p>
 </dd>
+<dt><kbd>--clean</kbd></dt>
+<dd><p>Run in a clean cache directory</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--resource_group</kbd></dt>
+<dd><p>Resource group for the AzureML workspace.</p>
+</dd>
+<dt><kbd>--workspace_name</kbd></dt>
+<dd><p>Workspace name for the AzureML workspace.</p>
+</dd>
+<dt><kbd>--keyvault_name</kbd></dt>
+<dd><p>The azureml keyvault name with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login</a> for more details.</p>
+</dd>
+<dt><kbd>--aml_compute</kbd></dt>
+<dd><p>The compute name to run the workflow on.</p>
+</dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
+</dd>
 </dl>
 </section>
 <section id="lora-options">
-<h4>lora options<a class="headerlink" href="#lora-options" title="Permalink to this heading">¶</a></h4>
+<h2>LoRA options<a class="headerlink" href="#lora-options" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>--method</kbd></dt>
 <dd><p>Possible choices: lora, qlora</p>
@@ -929,74 +687,27 @@ PyTorchModel: Path to the PyTorch model. Local file/folder or AzureML model (azu
 </dd>
 </dl>
 </section>
-<section id="remote-options">
-<h4>remote options<a class="headerlink" href="#remote-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--resource_group</kbd></dt>
-<dd><p>Resource group for the AzureML workspace.</p>
-</dd>
-<dt><kbd>--workspace_name</kbd></dt>
-<dd><p>Workspace name for the AzureML workspace.</p>
-</dd>
-<dt><kbd>--keyvault_name</kbd></dt>
-<dd><p>The azureml keyvault name with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login</a> for more details.</p>
-</dd>
-<dt><kbd>--aml_compute</kbd></dt>
-<dd><p>The compute name to run the workflow on.</p>
-</dd>
-</dl>
-</section>
 </section>
 <section id="generate-adapters">
-<h3>Generate Adapters<a class="headerlink" href="#generate-adapters" title="Permalink to this heading">¶</a></h3>
+<h1>Generate Adapters<a class="headerlink" href="#generate-adapters" title="Permalink to this heading">¶</a></h1>
 <p>Generate ONNX model with adapters as inputs.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">adapter</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">adapter</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span>
+                              <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+                              <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">float16</span><span class="p">,</span><span class="n">float32</span><span class="p">}]</span>
-                              <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
-                              <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
-                              <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">clean</span><span class="p">]</span>
+                              <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">clean</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
+                              <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
-<h4>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--precision</kbd></dt>
-<dd><p>Possible choices: float16, float32</p>
-<p>The precision of the optimized model and adapters.</p>
-<p>Default: “float16”</p>
-</dd>
-<dt><kbd>--use_ort_genai</kbd></dt>
-<dd><p>Use OnnxRuntie generate() API to run the model</p>
-<p>Default: False</p>
-</dd>
-<dt><kbd>--clean</kbd></dt>
-<dd><p>Run in a clean cache directory</p>
-<p>Default: False</p>
-</dd>
-</dl>
-</section>
-<section id="logging-options">
-<h4>logging options<a class="headerlink" href="#logging-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
-<dt><kbd>--log_level</kbd></dt>
-<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
-</dd>
-</dl>
-</section>
-<section id="model-options">
-<h4>Model options<a class="headerlink" href="#model-options" title="Permalink to this heading">¶</a></h4>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
-<dd><dl class="simple">
-<dt>Path to the input model. Can the be output of a previous command or a standalone model. For standalone models, the following formats are supported:</dt><dd><p>HfModel: The name or path to the model. Local folder, huggingface id, or AzureML Registry model (azureml://registries/&lt;registry_name&gt;/models/&lt;model_name&gt;/versions/&lt;version&gt;).
-OnnxModel: Path to the ONNX model. Local file/folder.</p>
-</dd>
-</dl>
+<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a model.</p>
@@ -1012,11 +723,19 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 <dd><p>Path to save the command output.</p>
 <p>Default: optimized-model</p>
 </dd>
-</dl>
-</section>
-<section id="remote-options">
-<h4>remote options<a class="headerlink" href="#remote-options" title="Permalink to this heading">¶</a></h4>
-<dl class="option-list">
+<dt><kbd>--precision</kbd></dt>
+<dd><p>Possible choices: float16, float32</p>
+<p>The precision of the optimized model and adapters.</p>
+<p>Default: “float16”</p>
+</dd>
+<dt><kbd>--use_ort_genai</kbd></dt>
+<dd><p>Use OnnxRuntie generate() API to run the model</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--clean</kbd></dt>
+<dd><p>Run in a clean cache directory</p>
+<p>Default: False</p>
+</dd>
 <dt><kbd>--resource_group</kbd></dt>
 <dd><p>Resource group for the AzureML workspace.</p>
 </dd>
@@ -1029,22 +748,27 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 <dt><kbd>--aml_compute</kbd></dt>
 <dd><p>The compute name to run the workflow on.</p>
 </dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
+</dd>
 </dl>
 </section>
 </section>
 <section id="export-adapters">
-<h3>Export Adapters<a class="headerlink" href="#export-adapters" title="Permalink to this heading">¶</a></h3>
-<p>Export lora adapter weights to a file that will be consumed by ONNX models generated by Olive ExtractedAdapters pass.</p>
+<h1>Export Adapters<a class="headerlink" href="#export-adapters" title="Permalink to this heading">¶</a></h1>
+<p>Export LoRA adapter weights to a file that will be consumed by ONNX models generated by Olive ExtractedAdapters pass.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">export</span><span class="o">-</span><span class="n">adapters</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span>
                              <span class="p">[</span><span class="o">--</span><span class="n">save_format</span> <span class="p">{</span><span class="n">pt</span><span class="p">,</span><span class="n">numpy</span><span class="p">,</span><span class="n">safetensors</span><span class="p">}]</span>
                              <span class="o">--</span><span class="n">output_path</span> <span class="n">OUTPUT_PATH</span>
                              <span class="p">[</span><span class="o">--</span><span class="n">dtype</span> <span class="p">{</span><span class="n">float32</span><span class="p">,</span><span class="n">float16</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">quantize_int4</span><span class="p">]</span>
                              <span class="p">[</span><span class="o">--</span><span class="n">int4_block_size</span> <span class="p">{</span><span class="mi">16</span><span class="p">,</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">128</span><span class="p">,</span><span class="mi">256</span><span class="p">}]</span>
                              <span class="p">[</span><span class="o">--</span><span class="n">int4_quantization_mode</span> <span class="p">{</span><span class="n">symmetric</span><span class="p">,</span><span class="n">asymmetric</span><span class="p">}]</span>
+                             <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
-<h4>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h4>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>--adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Can be a local folder or huggingface id.</p>
@@ -1066,10 +790,14 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 <dd><p>Quantize the weights to int4 using blockwise quantization.</p>
 <p>Default: False</p>
 </dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
+</dd>
 </dl>
 </section>
 <section id="int4-quantization-options">
-<h4>int4 quantization options<a class="headerlink" href="#int4-quantization-options" title="Permalink to this heading">¶</a></h4>
+<h2>int4 quantization options<a class="headerlink" href="#int4-quantization-options" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>--int4_block_size</kbd></dt>
 <dd><p>Possible choices: 16, 32, 64, 128, 256</p>
@@ -1085,14 +813,14 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 </section>
 </section>
 <section id="cloud-cache-operations">
-<h3>Cloud Cache Operations<a class="headerlink" href="#cloud-cache-operations" title="Permalink to this heading">¶</a></h3>
-<p>Cloud cache operations.</p>
+<h1>Cloud Cache Operations<a class="headerlink" href="#cloud-cache-operations" title="Permalink to this heading">¶</a></h1>
+<p>Delete Olive model cache stored in the cloud.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">cloud</span><span class="o">-</span><span class="n">cache</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">delete</span><span class="p">]</span> <span class="o">--</span><span class="n">account</span> <span class="n">ACCOUNT</span> <span class="o">--</span><span class="n">container</span>
                          <span class="n">CONTAINER</span> <span class="o">--</span><span class="n">model_hash</span> <span class="n">MODEL_HASH</span>
 </pre></div>
 </div>
 <section id="named-arguments">
-<h4>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h4>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>--delete</kbd></dt>
 <dd><p>Delete a model cache from the cloud cache.</p>
@@ -1111,14 +839,14 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 </section>
 </section>
 <section id="configure-qualcomm-sdk">
-<h3>Configure Qualcomm SDK<a class="headerlink" href="#configure-qualcomm-sdk" title="Permalink to this heading">¶</a></h3>
-<p>Configure Qualcomm SDK for Olive.</p>
+<h1>Configure Qualcomm SDK<a class="headerlink" href="#configure-qualcomm-sdk" title="Permalink to this heading">¶</a></h1>
+<p>Configure Qualcomm SDK.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">configure</span><span class="o">-</span><span class="n">qualcomm</span><span class="o">-</span><span class="n">sdk</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">py_version</span> <span class="p">{</span><span class="mf">3.6</span><span class="p">,</span><span class="mf">3.8</span><span class="p">}</span> <span class="o">--</span><span class="n">sdk</span>
                                     <span class="p">{</span><span class="n">snpe</span><span class="p">,</span><span class="n">qnn</span><span class="p">}</span>
 </pre></div>
 </div>
 <section id="named-arguments">
-<h4>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h4>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>--py_version</kbd></dt>
 <dd><p>Possible choices: 3.6, 3.8</p>
@@ -1132,7 +860,7 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 </section>
 </section>
 <section id="azureml-compute-resources-management">
-<h3>AzureML Compute resources management<a class="headerlink" href="#azureml-compute-resources-management" title="Permalink to this heading">¶</a></h3>
+<h1>AzureML Compute resources management<a class="headerlink" href="#azureml-compute-resources-management" title="Permalink to this heading">¶</a></h1>
 <p>Manage the AzureML Compute resources.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">manage</span><span class="o">-</span><span class="n">aml</span><span class="o">-</span><span class="n">compute</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">(</span><span class="o">--</span><span class="n">create</span> <span class="o">|</span> <span class="o">--</span><span class="n">delete</span><span class="p">)</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">subscription_id</span> <span class="n">SUBSCRIPTION_ID</span><span class="p">]</span>
@@ -1147,7 +875,7 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 </pre></div>
 </div>
 <section id="named-arguments">
-<h4>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h4>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
 <dl class="option-list">
 <dt><kbd>--create, -c</kbd></dt>
 <dd><p>Create new compute</p>
@@ -1193,7 +921,51 @@ OnnxModel: Path to the ONNX model. Local file/folder.</p>
 </dl>
 </section>
 </section>
-</section>
+<section id="input-model">
+<h1>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading">¶</a></h1>
+<p>There are more than one way to supply input model to the Olive commands.</p>
+<ol class="arabic simple">
+<li><p>HuggingFace model can be directly used as an input model. For example <code class="docutils literal notranslate"><span class="pre">-m</span> <span class="pre">microsoft/Phi-3-mini-4k-instruct</span></code>.</p></li>
+<li><p>A model produced by a Olive command can be directly used as an input model. You can specify the model file path using the <code class="docutils literal notranslate"><span class="pre">-m</span> <span class="pre">&lt;output_model&gt;</span></code> option, where <code class="docutils literal notranslate"><span class="pre">&lt;output_model&gt;</span></code> is the output folder defined by <code class="docutils literal notranslate"><span class="pre">-o</span> <span class="pre">&lt;output_model&gt;</span></code> in the previous Olive command.</p></li>
+<li><p>Olive commands also accept a local PyTorch model as an input model. You can specify the model file path using the <code class="docutils literal notranslate"><span class="pre">-m</span> <span class="pre">model.pt</span></code> option, and the associated model script using the <code class="docutils literal notranslate"><span class="pre">--model_script</span> <span class="pre">script.py</span></code> option. For example, <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">capture-onnx-graph</span> <span class="pre">-m</span> <span class="pre">model.pt</span> <span class="pre">--model_script</span> <span class="pre">script.py</span></code>.</p></li>
+<li><p>A model from AzureML registry can be directly used as an input model. For example <code class="docutils literal notranslate"><span class="pre">-m</span> <span class="pre">azureml://registries/&lt;registry_name&gt;/models/&lt;model_name&gt;/versions/&lt;version&gt;</span></code>.</p></li>
+<li><p>An ONNX model available locally can also be used as an input for the Olive commands that accept ONNX model as an input.</p></li>
+</ol>
+<p>Olive reserves several function names to provide specific inputs for the PyTorch model. These functions should be defined in your model script:</p>
+<ul>
+<li><p><strong>Model Loader Function (`_model_loader`)</strong>:
+Loads the PyTorch model. If the model file path is provided using the <cite>-m</cite> option, it takes higher priority than the model loader function.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_model_loader</span><span class="p">():</span>
+    <span class="o">...</span>
+    <span class="k">return</span> <span class="n">model</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>IO Config Function (`_io_config`)</strong>:
+Returns the IO configuration for the model. Either <cite>_io_config</cite> or <cite>_dummy_inputs</cite> is required for the <cite>capture-onnx-graph</cite> CLI command.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_io_config</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">):</span>
+    <span class="o">...</span>
+    <span class="k">return</span> <span class="n">io_config</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Dummy Inputs Function (`_dummy_inputs`)</strong>:
+Provides dummy input tensors for the model. Either <cite>_io_config</cite> or <cite>_dummy_inputs</cite> is required for the <cite>capture-onnx-graph</cite> CLI command.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_dummy_inputs</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">):</span>
+    <span class="o">...</span>
+    <span class="k">return</span> <span class="n">dummy_inputs</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Model Format Function (`_model_file_format`)</strong>:
+Specifies the format of the model. The default value is <cite>PyTorch.EntireModel</cite>. For more available options, refer to <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/constants.py#L23-L26">this</a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_model_file_format</span><span class="p">():</span>
+    <span class="o">...</span>
+    <span class="k">return</span> <span class="n">model_file_format</span>
+</pre></div>
+</div>
+</li>
+</ul>
 </section>
 
 
