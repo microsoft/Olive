@@ -66,7 +66,7 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin):
         return self.get_resource("model_path")
 
     @abstractmethod
-    def load_model(self, rank: int = None) -> object:
+    def load_model(self, rank: int = None, cache_model: bool = True) -> object:
         """Load model from disk, return in-memory model object.
 
         Derived class should implement its specific logic if needed.

@@ -151,7 +151,7 @@ class GptqQuantizer(Pass):
                 "(e.g. [{ 'input_ids': [ 1, 100, 15, ... ],'attention_mask': [ 1, 1, 1, ... ]},...])"
             )
 
-        pytorch_model = model.load_model()
+        pytorch_model = model.load_model(cache_model=False)
         quantize_config = BaseQuantizeConfig(
             bits=config["bits"],
             group_size=config["group_size"],

@@ -46,7 +46,7 @@ class SNPEModelHandler(OliveModelHandler):
         keys = {"input_names", "input_shapes", "output_names", "output_shapes"}
         return {k: v for k, v in self._io_config.items() if k in keys}
 
-    def load_model(self, rank: int = None):
+    def load_model(self, rank: int = None, cache_model: bool = True):
         raise NotImplementedError
 
     def prepare_session(
