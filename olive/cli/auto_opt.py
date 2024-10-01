@@ -120,6 +120,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--precision",
             type=str,
+            default="fp32",
             choices=["fp16", "fp32", "int4", "int8"],
             help=(
                 "The output precision of the optimized model. If not specified, "
