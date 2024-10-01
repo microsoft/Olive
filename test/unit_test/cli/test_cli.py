@@ -240,7 +240,7 @@ def test_cloud_cache_command(_, mock_container_client, test_set):
     mock_container_client().delete_blob.assert_called_once()
 
 
-@pytest.mark.parametrize("algorithm_names", [{"awq"}, {"awq", "gptq"}])
+@pytest.mark.parametrize("algorithm_names", [{"awq"}, {"awq", "gptq"}, {"bnb4"}, {"bnb4", "matmul4"}])
 @patch("olive.workflows.run")
 @patch("olive.cli.finetune.tempfile.TemporaryDirectory")
 @patch("huggingface_hub.repo_exists")

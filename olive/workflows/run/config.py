@@ -179,7 +179,7 @@ class RunConfig(NestedConfig):
             raise ValueError("Invalid input model")
 
         input_model_config = values["input_model"].dict()
-        if input_model_config["type"].lower() != "hfmodel":
+        if input_model_config["type"].lower() not in ["hfmodel", "onnxmodel"]:
             return v
 
         if isinstance(v, DataConfig):

@@ -39,12 +39,19 @@ class QuantizeCommand(BaseOliveCLICommand):
             }
         ],
         "passes": {
+            # Pytorch algorithms
             "awq": {"type": "AutoAWQQuantizer"},
-            "gptq": {
-                # Ref: https://github.com/AutoGPTQ/AutoGPTQ/pull/651/files
-                "type": "GptqQuantizer",
-                "data_config": "default_data_config",
-            },
+            "gptq": {"type": "GptqQuantizer", "data_config": "default_data_config"},
+            # Onnx algorithms
+            "bnb4": {"type": "OnnxBnb4Quantization"},
+            "inc_dynamic": {"type": "IncDynamicQuantization"},
+            "matmul4": {"type": "OnnxMatMul4Quantizer"},
+            "nvmo": {"type": "NVModelOptQuantization"},
+            "onnx_dynamic": {"type": "OnnxDynamicQuantization"},
+            # NOTE(all): Not supported yet!
+            # "onnx_static": {"type": "OnnxStaticQuantization", "data_config": "default_data_config"},
+            # "inc_static": {"type": "IncStaticQuantization", "data_config": "default_data_config"},
+            # "vitis": {"type": "VitisAIQuantization", "data_config": "default_data_config"},
         },
         "pass_flows": [],
         "output_dir": "models",
@@ -70,6 +77,15 @@ class QuantizeCommand(BaseOliveCLICommand):
         )
 
         add_dataset_options(sub_parser, required=False, include_train=False, include_eval=False)
+
+        sub_parser.add_argument(
+            "--precision",
+            type=str,
+            required=False,
+            choices=["fp4", "nf4"],
+            help="The output precision of the quantized model.",
+        )
+
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
         sub_parser.set_defaults(func=QuantizeCommand)
@@ -81,6 +97,7 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         to_replace = [
             (("pass_flows"), [[name] for name in self.args.algorithms]),
+            (("passes", "bnb4", "quant_type"), self.args.precision),
             (("output_dir"), tempdir),
             ("log_severity_level", self.args.log_level),
         ]
