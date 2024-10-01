@@ -22,6 +22,7 @@
             "extra_dependencies": [ "inc" ]
         },
         "InsertBeamSearch": { "module_path": "olive.passes.onnx.insert_beam_search.InsertBeamSearch" },
+        "MatMulNBitsToQDQ": { "module_path": "olive.passes.onnx.mnb_to_qdq.MatMulNBitsToQDQ" },
         "MixedPrecisionOverrides": {
             "module_path": "olive.passes.onnx.mixed_precision_overrides.MixedPrecisionOverrides"
         },

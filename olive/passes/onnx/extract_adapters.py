@@ -176,7 +176,7 @@ class ExtractAdapters(Pass):
 
         # remove old dequantize nodes
         for node_name in nodes_to_remove:
-            dag.remove_node(node_name, check_no_consumers=True)
+            dag.remove_node(node_name)
 
         if config["make_inputs"]:
             if quant_modules and (config["dynamic_lora_r"] or config["optional_inputs"]):
