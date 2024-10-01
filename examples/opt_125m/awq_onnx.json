@@ -7,7 +7,7 @@
         }
     },
     "passes": {
-        "4bit_awq_quantizer": { "type": "AutoAWQQuantizer", "pack_model_for_onnx_conversion": true },
+        "4bit_awq_quantizer": { "type": "AutoAWQQuantizer" },
         "conversion_merged": { "type": "OnnxConversion", "device": "cuda", "torch_dtype": "float32" },
         "transformers_optimization_fp16": {
             "type": "OrtTransformersOptimization",

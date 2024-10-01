@@ -4,18 +4,18 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, Union
 
 import torch
 
-from olive.common.utils import StrEnumBase
+from olive.common.utils import StrEnumBase, copy_dir
 from olive.data.config import DataConfig
-from olive.hardware.accelerator import AcceleratorSpec, Device
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
-from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
-from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_hf
+from olive.passes.pytorch.common import inherit_hf_from_hf
 
 logger = logging.getLogger(__name__)
 
@@ -105,15 +105,6 @@ class AutoAWQQuantizer(Pass):
                 default_value=None,
                 description="Data config for quantization. Default value is None.",
             ),
-            "pack_model_for_onnx_conversion": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description=(
-                    "Whether to pack the model for ONNX conversion. If True, the model will be saved as a PyTorch model"
-                    " with custom quantized linears. If False, the model will be saved as a HF model with quantized"
-                    " weights. Default value is False."
-                ),
-            ),
         }
 
     @torch.no_grad()
@@ -121,16 +112,9 @@ class AutoAWQQuantizer(Pass):
         self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> Union[HfModelHandler, PyTorchModelHandler]:
         from awq import AutoAWQForCausalLM
-        from awq.models import base as awq_model_base
-        from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer
 
         if not torch.cuda.is_available():
             raise ValueError("Please use GPU to run AWQ quantization.")
-        elif self.host_device != Device.GPU:
-            logger.debug(
-                "AWQ quantization requires GPU but the host device is %s, will ignore the host device",
-                self.host_device,
-            )
 
         data_kwargs = {}
         if config["data_config"]:
@@ -143,46 +127,40 @@ class AutoAWQQuantizer(Pass):
                 }
             )
 
-        # pack_model_for_onnx_conversion is a flag to switch between the two quantizers
-        # 1. PyAutoAWQQuantizer is a quantizer implemented by autoawq package which is used by default
-        #    for quantizing the model. But it does not work with ONNX conversion since there are some
-        #    operations that are not supported by ONNX. So, we have to pack the model for ONNX conversion
-        # 2. That is why we have another quantizer method self._pack_model_for_onnx_conversion(config) to
-        #    return OrtAutoAWQQuantizer which is used for ONNX conversion.
-        quantizer = (
-            self._pack_model_for_onnx_conversion(config)
-            if config["pack_model_for_onnx_conversion"]
-            else PyAutoAWQQuantizer
-        )
+        adapter_path = None
+        # copy over adapter path if it exists
+        if model.adapter_path:
+            logger.info(
+                "Model has adapters but AWQ does not support adapters. Quantizing without adapters. Adapters"
+                " will be copied as is."
+            )
+            adapter_path = Path(output_model_path) / "adapter"
+            adapter_path.mkdir(parents=True, exist_ok=True)
+            copy_dir(model.adapter_path, adapter_path)
+
+            output_model_path = str(Path(output_model_path) / "model")
+            # TODO(jambayk): should we update the base_model_name_or_path in the adapter_config json?
 
         # autoawq load the model with fp16 by default and they did not expose the interface to change it
         awq_model = AutoAWQForCausalLM.from_pretrained(
             model.model_name_or_path, **self._resolve_load_args(model.get_load_kwargs())
         )
         tokenizer = model.get_hf_tokenizer()
-        try:
-            awq_model_base.AwqQuantizer = quantizer
-            awq_model.quantize(
-                tokenizer,
-                quant_config={
-                    "zero_point": config["zero_point"],
-                    "q_group_size": config["q_group_size"],
-                    "w_bit": config["w_bit"],
-                    "version": config["version"],
-                    "modules_to_not_convert": config["modules_to_not_convert"],
-                },
-                duo_scaling=config["duo_scaling"],
-                export_compatible=config["export_compatible"],
-                **data_kwargs,
-            )
-        finally:
-            awq_model_base.AwqQuantizer = PyAutoAWQQuantizer
 
-        if config["pack_model_for_onnx_conversion"]:
-            output_model_path = normalize_path_suffix(output_model_path, "model.pt")
-            torch.save(awq_model.model, output_model_path)
-
-            return inherit_pytorch_from_hf(model, output_model_path)
+        # quantize the model
+        awq_model.quantize(
+            tokenizer,
+            quant_config={
+                "zero_point": config["zero_point"],
+                "q_group_size": config["q_group_size"],
+                "w_bit": config["w_bit"],
+                "version": config["version"],
+                "modules_to_not_convert": config["modules_to_not_convert"],
+            },
+            duo_scaling=config["duo_scaling"],
+            export_compatible=config["export_compatible"],
+            **data_kwargs,
+        )
 
         # save_quantized also saves the metadata, so we just save the tokenizer
         tokenizer.save_pretrained(output_model_path)
@@ -193,34 +171,7 @@ class AutoAWQQuantizer(Pass):
         # model is saved in safetensors format so need to enable safetensors load
         if new_load_kwargs.get("extra_args") and new_load_kwargs["extra_args"].get("use_safetensors") is False:
             new_load_kwargs["extra_args"]["use_safetensors"] = True
-        return inherit_hf_from_hf(model, output_model_path, load_kwargs=new_load_kwargs)
-
-    def _pack_model_for_onnx_conversion(self, config):
-        from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer
-        from awq.quantize.quantizer import clear_memory, get_best_device, set_op_by_name
-
-        from olive.passes.pytorch.quant_utils import QuantLinear
-
-        class OrtAutoAWQQuantizer(PyAutoAWQQuantizer):
-            def _apply_quant(self, module, named_linears: Dict[str, torch.nn.Linear]):
-                for name, old_linear_layer in named_linears.items():
-                    # NOTE: small regression in perplexity if linear layer uses .cpu().float()
-                    linear_layer = old_linear_layer.to(get_best_device()).half()
-                    linear_layer.weight.data, _, _ = self.pseudo_quantize_tensor(linear_layer.weight.data)
-                    q_linear = QuantLinear(
-                        bits=config["w_bit"],
-                        groupsize=config["q_group_size"],
-                        infeatures=linear_layer.in_features,
-                        outfeatures=linear_layer.out_features,
-                        bias=linear_layer.bias is not None,
-                        input_model_dtype=config["input_model_dtype"].get_torch_dtype(),
-                    )
-                    linear_layer.cpu()
-                    q_linear.to(next(module.parameters()).device)
-                    set_op_by_name(module, name, q_linear)
-                    clear_memory()
-
-        return OrtAutoAWQQuantizer
+        return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path, load_kwargs=new_load_kwargs)
 
     def _resolve_load_args(self, hf_loading_args):
         loading_args = {}

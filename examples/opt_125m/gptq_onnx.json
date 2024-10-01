@@ -15,11 +15,7 @@
         }
     ],
     "passes": {
-        "gptq_quant_int4": {
-            "type": "GptqQuantizer",
-            "data_config": "wikitext2_train",
-            "pack_model_for_onnx_conversion": true
-        },
+        "gptq_quant_int4": { "type": "GptqQuantizer", "data_config": "wikitext2_train" },
         "conversion_merged": { "type": "OnnxConversion", "device": "cuda", "torch_dtype": "float32" },
         "transformers_optimization_fp16": {
             "type": "OrtTransformersOptimization",
