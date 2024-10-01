@@ -187,14 +187,13 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <section id="autoawq">
 <h2>AutoAWQ<a class="headerlink" href="#autoawq" title="Permalink to this heading">¶</a></h2>
 <p>AutoAWQ is an easy-to-use package for 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16. AutoAWQ implements the Activation-aware Weight Quantization (AWQ) algorithm for quantizing LLMs. AutoAWQ was created and improved upon from the original work from MIT.</p>
-<p>Olive integrates <a class="reference external" href="https://github.com/casper-hansen/AutoAWQ">AutoAWQ</a> for quantization and make it possible to convert the AWQ quantized torch model to onnx model. You can enable <code class="docutils literal notranslate"><span class="pre">pack_model_for_onnx_conversion</span></code> to pack the model for onnx conversion.</p>
+<p>Olive integrates <a class="reference external" href="https://github.com/casper-hansen/AutoAWQ">AutoAWQ</a> for quantization and make it possible to convert the AWQ quantized torch model to onnx model.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#awq-quantizer"><span class="std std-ref">AutoAWQQuantizer</span></a> for more details about the pass and its config parameters.</p>
 <section id="id1">
 <h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AutoAWQQuantizer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;w_bit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;pack_model_for_onnx_conversion&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="nt">&quot;w_bit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
 <span class="p">}</span>
 </pre></div>
 </div>
