@@ -215,8 +215,9 @@
 <section id="auto-optimization">
 <h1>Auto-Optimization<a class="headerlink" href="#auto-optimization" title="Permalink to this heading">¶</a></h1>
 <p>Automatically optimize the input model for the given target and precision.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">non</span><span class="o">-</span><span class="n">generative</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}]</span>
@@ -237,6 +238,10 @@
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
+</dd>
+<dt><kbd>--non-generative</kbd></dt>
+<dd><p>Is non-generative model?</p>
+<p>Default: True</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a model.</p>
@@ -323,8 +328,8 @@
 <h1>Capture Onnx Graph<a class="headerlink" href="#capture-onnx-graph" title="Permalink to this heading">¶</a></h1>
 <p>Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model or PyTorch model.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">non</span><span class="o">-</span><span class="n">generative</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">conversion_device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">}]</span>
@@ -352,6 +357,10 @@
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
+</dd>
+<dt><kbd>--non-generative</kbd></dt>
+<dd><p>Is non-generative model?</p>
+<p>Default: True</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a model.</p>
@@ -456,7 +465,8 @@
 <section id="tune-onnxruntime-session-params-for-onnx-model">
 <h1>Tune OnnxRuntime Session Params for ONNX Model<a class="headerlink" href="#tune-onnxruntime-session-params-for-onnx-model" title="Permalink to this heading">¶</a></h1>
 <p>Automatically tune the OnnxRuntime session parameters for a given onnx model. Currently, for onnx model converted from huggingface model and used for generative tasks, user can simply provide the –model onnx_model_path –hf_model_name hf_model_name –device device_type to get the tuned session parameters.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">tune</span><span class="o">-</span><span class="n">session</span><span class="o">-</span><span class="n">params</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">tune</span><span class="o">-</span><span class="n">session</span><span class="o">-</span><span class="n">params</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">non</span><span class="o">-</span><span class="n">generative</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">cpu_cores</span> <span class="n">CPU_CORES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">io_bind</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">enable_cuda_graph</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">execution_mode_list</span> <span class="p">[</span><span class="n">EXECUTION_MODE_LIST</span> <span class="p">[</span><span class="n">EXECUTION_MODE_LIST</span> <span class="o">...</span><span class="p">]]]</span>
@@ -482,6 +492,10 @@
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
+</dd>
+<dt><kbd>--non-generative</kbd></dt>
+<dd><p>Is non-generative model?</p>
+<p>Default: True</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
@@ -560,8 +574,8 @@
 <section id="finetune">
 <h1>Finetune<a class="headerlink" href="#finetune" title="Permalink to this heading">¶</a></h1>
 <p>Fine-tune a model on a dataset using HuggingFace peft. Huggingface training arguments can be provided along with the defined options.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">non</span><span class="o">-</span><span class="n">generative</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="p">{</span><span class="n">bfloat16</span><span class="p">,</span><span class="n">float16</span><span class="p">,</span><span class="n">float32</span><span class="p">}]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">train_subset</span> <span class="n">TRAIN_SUBSET</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">train_split</span> <span class="n">TRAIN_SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">eval_subset</span> <span class="n">EVAL_SUBSET</span><span class="p">]</span>
@@ -584,6 +598,10 @@
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
+</dd>
+<dt><kbd>--non-generative</kbd></dt>
+<dd><p>Is non-generative model?</p>
+<p>Default: True</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a model.</p>
@@ -690,7 +708,7 @@
 <section id="generate-adapters">
 <h1>Generate Adapters<a class="headerlink" href="#generate-adapters" title="Permalink to this heading">¶</a></h1>
 <p>Generate ONNX model with adapters as inputs.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">adapter</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">adapter</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">non</span><span class="o">-</span><span class="n">generative</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">float16</span><span class="p">,</span><span class="n">float32</span><span class="p">}]</span>
@@ -707,6 +725,10 @@
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
+</dd>
+<dt><kbd>--non-generative</kbd></dt>
+<dd><p>Is non-generative model?</p>
+<p>Default: True</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a model.</p>
