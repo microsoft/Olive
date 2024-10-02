@@ -1,5 +1,9 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "microsoft/Phi-3-mini-4k-instruct" },
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "microsoft/Phi-3-mini-4k-instruct",
+        "load_kwargs": { "trust_remote_code": true }
+    },
     "systems": {
         "local_system": {
             "type": "LocalSystem",

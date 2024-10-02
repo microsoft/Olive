@@ -180,6 +180,12 @@ class QuaRot(Pass):
                 default_value=None,
                 description="Group size for groupwise value quantization.",
             ),
+            # Scale Quantization Arguments
+            "s_bits": PassConfigParam(
+                type_=int,
+                default_value=16,
+                description="Number of bits to quantize the values to.",
+            ),
         }
 
     @torch.no_grad()
@@ -252,7 +258,11 @@ class QuaRot(Pass):
         if config.w_rtn:
             logger.info("Quantizing weights to INT%d using RTN.", config.w_bits)
             rtn.quantize_model_rtn(
-                quarot_model, bits=config.w_bits, groupsize=config.w_groupsize, symmetric=not config.w_asym
+                quarot_model,
+                bits=config.w_bits,
+                bits_scales=config.s_bits,
+                groupsize=config.w_groupsize,
+                symmetric=not config.w_asym,
             )
         elif config.w_gptq:
             data_config = validate_config(config.calibration_data_config, DataConfig)
@@ -274,6 +284,7 @@ class QuaRot(Pass):
                 quarot_model_adapter,
                 train_loader,
                 bits=config.w_bits,
+                bits_scales=config.s_bits,
                 symmetric=not config.w_asym,
                 damping=config.gptq_damping,
                 groupsize=config.w_groupsize,
