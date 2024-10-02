@@ -588,12 +588,10 @@ def update_accelerator_options(args, config, single_provider: bool = True):
         (("systems", "local_system", "accelerators", 0, "device"), args.device),
     ]
 
-    args.providers_list = args.providers_list or []
-    for idx, provider in enumerate(args.providers_list):
-        if not provider.endswith("ExecutionProvider"):
-            args.providers_list[idx] = f"{provider}ExecutionProvider"
-
     execution_providers = [args.provider] if single_provider else args.providers_list
+    for idx, provider in enumerate(execution_providers):
+        if not provider.endswith("ExecutionProvider"):
+            execution_providers[idx] = f"{provider}ExecutionProvider"
     to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), execution_providers))
 
     for k, v in to_replace:
