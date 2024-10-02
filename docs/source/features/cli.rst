@@ -13,6 +13,17 @@ Run Olive workflow defined in the input .json configuration file.
     :prog: olive
     :path: run
 
+Finetune
+========
+
+Fine-tune a model on a dataset using HuggingFace peft. Huggingface training arguments can be provided along with the defined options.
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: finetune
+
 Auto-Optimization
 =================
 
@@ -24,6 +35,17 @@ Automatically optimize the input model for the given target and precision.
     :prog: olive
     :path: auto-opt
 
+Quantization
+============
+
+Quantize PyTorch or ONNX model using various Quantization algorithms.
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: quantize
+
 Capture Onnx Graph
 ==================
 
@@ -34,28 +56,6 @@ Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface 
     :func: get_cli_parser
     :prog: olive
     :path: capture-onnx-graph
-
-Tune OnnxRuntime Session Params for ONNX Model
-==============================================
-
-Automatically tune the OnnxRuntime session parameters for a given onnx model. Currently, for onnx model converted from huggingface model and used for generative tasks, user can simply provide the --model onnx_model_path --hf_model_name hf_model_name --device device_type to get the tuned session parameters.
-
-.. argparse::
-    :module: olive.cli.launcher
-    :func: get_cli_parser
-    :prog: olive
-    :path: tune-session-params
-
-Finetune
-========
-
-Fine-tune a model on a dataset using HuggingFace peft. Huggingface training arguments can be provided along with the defined options.
-
-.. argparse::
-    :module: olive.cli.launcher
-    :func: get_cli_parser
-    :prog: olive
-    :path: finetune
 
 Generate Adapters
 ==================
@@ -80,19 +80,19 @@ Export LoRA adapter weights to a file that will be consumed by ONNX models gener
     :prog: olive
     :path: export-adapters
 
-Cloud Cache Operations
-======================
+Tune OnnxRuntime Session Params
+===============================
 
-Delete Olive model cache stored in the cloud.
+Automatically tune the OnnxRuntime session parameters for a given onnx model. Currently, for onnx model converted from huggingface model and used for generative tasks, user can simply provide the --model onnx_model_path --hf_model_name hf_model_name --device device_type to get the tuned session parameters.
 
 .. argparse::
     :module: olive.cli.launcher
     :func: get_cli_parser
     :prog: olive
-    :path: cloud-cache
+    :path: tune-session-params
 
-Configure Qualcomm SDK
-======================
+Qualcomm SDK
+============
 
 Configure Qualcomm SDK.
 
@@ -102,8 +102,8 @@ Configure Qualcomm SDK.
     :prog: olive
     :path: configure-qualcomm-sdk
 
-AzureML Compute resources management
-====================================
+AzureML
+=======
 
 Manage the AzureML Compute resources.
 
@@ -113,8 +113,19 @@ Manage the AzureML Compute resources.
     :prog: olive
     :path: manage-aml-compute
 
-Input Model
+Cloud Cache
 ===========
+
+Delete Olive model cache stored in the cloud.
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: cloud-cache
+
+Providing Input Models
+======================
 
 There are more than one way to supply input model to the Olive commands.
 
