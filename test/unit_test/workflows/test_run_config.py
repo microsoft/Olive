@@ -212,7 +212,7 @@ class TestDataConfigValidation:
                     },
                 }
             ],
-            "passes": {"tuning": {"type": "OrtPerfTuning"}},
+            "passes": {"tuning": {"type": "OrtSessionParamsTuning"}},
             "engine": {"evaluate_input_model": False},
         }
 

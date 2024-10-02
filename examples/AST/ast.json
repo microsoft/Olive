@@ -55,7 +55,7 @@
         "conversion": { "type": "OnnxConversion" },
         "transformers_optimization": { "type": "OrtTransformersOptimization", "model_type": "vit" },
         "quantization": { "type": "OnnxQuantization", "data_config": "speech_commands_v0.02" },
-        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "speech_commands_v0.02" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "speech_commands_v0.02" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

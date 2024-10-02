@@ -48,7 +48,12 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 14 },
-        "perf_tuning": { "type": "OrtPerfTuning", "trt_fp16_enable": true, "io_bind": true, "data_config": "glue_mrpc" }
+        "session_params_tuning": {
+            "type": "OrtSessionParamsTuning",
+            "trt_fp16_enable": true,
+            "io_bind": true,
+            "data_config": "glue_mrpc"
+        }
     },
     "evaluator": "common_evaluator",
     "host": "local_system",

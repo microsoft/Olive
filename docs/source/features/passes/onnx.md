@@ -179,13 +179,13 @@ ONNX Runtime provides high performance across a range of hardware options throug
 environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
-`OrtPerfTuning` covers basic knobs that can be leveraged to find the best performance for your model and hardware.
+`OrtSessionParamsTuning` covers basic knobs that can be leveraged to find the best performance for your model and hardware.
 
 ### Example Configuration
 ```json
 {
-    "type": "OrtPerfTuning",
-    "data_config": "perf_tuning_data_config",
+    "type": "OrtSessionParamsTuning",
+    "data_config": "session_params_tuning_data_config",
     "batch_size": 1,
     "providers_list" : [
         [

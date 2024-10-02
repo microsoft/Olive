@@ -23,7 +23,7 @@ from olive.cli.base import (
 from olive.common.utils import set_nested_dict_value
 
 
-class PerfTuningCommand(BaseOliveCLICommand):
+class SessionParamsTuningCommand(BaseOliveCLICommand):
 
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
@@ -98,7 +98,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
         add_accelerator_options(sub_parser, single_provider=False)
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
-        sub_parser.set_defaults(func=PerfTuningCommand)
+        sub_parser.set_defaults(func=SessionParamsTuningCommand)
 
     def _update_pass_config(self, default_pass_config) -> Dict:
         pass_config = deepcopy(default_pass_config)
@@ -120,11 +120,11 @@ class PerfTuningCommand(BaseOliveCLICommand):
     def get_run_config(self, tempdir) -> Dict:
         config = deepcopy(TEMPLATE)
 
-        perf_tuning_key = ("passes", "perf_tuning")
+        session_params_tuning_key = ("passes", "session_params_tuning")
 
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
-            (perf_tuning_key, self._update_pass_config(config["passes"]["perf_tuning"])),
+            (session_params_tuning_key, self._update_pass_config(config["passes"]["session_params_tuning"])),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
         ]
@@ -134,7 +134,7 @@ class PerfTuningCommand(BaseOliveCLICommand):
                 set_nested_dict_value(config, k, v)
 
         update_accelerator_options(self.args, config, single_provider=False)
-        update_remote_options(config, self.args, "perf-tuning", tempdir)
+        update_remote_options(config, self.args, "session-params-tuning", tempdir)
         return config
 
     def run(self):
@@ -172,7 +172,7 @@ TEMPLATE = {
     },
     "data_configs": [
         {
-            "name": "perf_tuning_data",
+            "name": "session_params_tuning_data",
             "type": "dummydatacontainer",
             "load_dataset_config": {
                 "type": "dummy_dataset",
@@ -183,7 +183,7 @@ TEMPLATE = {
         }
     ],
     "passes": {
-        "perf_tuning": {"type": "OrtPerfTuning", "data_config": "perf_tuning_data"},
+        "session_params_tuning": {"type": "OrtSessionParamsTuning", "data_config": "session_params_tuning_data"},
     },
     "host": "local_system",
     "target": "local_system",

@@ -45,7 +45,7 @@
             "float16": false
         },
         "quantization": { "type": "OnnxQuantization", "data_config": "glue_mnli_matched" },
-        "perf_tuning": { "type": "OrtPerfTuning", "data_config": "glue_mnli_matched" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mnli_matched" }
     },
     "search_strategy": { "execution_order": "joint", "search_algorithm": "tpe", "num_samples": 3, "seed": 0 },
     "evaluator": "common_evaluator",

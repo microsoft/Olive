@@ -16,7 +16,7 @@ from olive.evaluator.metric_result import joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.perf_tuning import OrtPerfTuning
+from olive.passes.onnx.session_params_tuning import OrtSessionParamsTuning
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
@@ -226,7 +226,7 @@ class TestDockerSystem:
         )
         docker_system = DockerSystem(docker_config, is_dev=True)
 
-        p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
+        p = create_pass_from_dict(OrtSessionParamsTuning, {}, disable_search=True)
         output_folder = str(tmp_path / "onnx")
 
         def validate_file_or_folder(v, values, **kwargs):
@@ -275,7 +275,7 @@ class TestDockerSystem:
         from olive.systems.docker import utils as docker_utils
         from olive.systems.docker.runner import runner_entry as docker_runner_entry
 
-        p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
+        p = create_pass_from_dict(OrtSessionParamsTuning, {}, disable_search=True)
         pass_config = p.to_json(check_object=True)
         config = p.config_at_search_point({})
         pass_config["config"].update(p.serialize_config(config, check_object=True))
@@ -290,7 +290,7 @@ class TestDockerSystem:
             {},
         )
         docker_utils.create_config_file(tmp_path, data, container_root_path)
-        with patch.object(OrtPerfTuning, "run", return_value=onnx_model):
+        with patch.object(OrtSessionParamsTuning, "run", return_value=onnx_model):
             docker_runner_entry(str(tmp_path / "config.json"), str(tmp_path), "runner_res.json")
             assert (tmp_path / "runner_res.json").exists()
 

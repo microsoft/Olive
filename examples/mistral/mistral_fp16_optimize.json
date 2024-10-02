@@ -38,13 +38,13 @@
             "save_as_external_data": true,
             "all_tensors_to_one_file": true
         },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
+        "session_params_tuning": {
+            "type": "OrtSessionParamsTuning",
             "data_config": "transformer_token_dummy_data",
             "enable_profiling": false
         }
     },
-    "pass_flows": [ [ "convert", "optimize", "perf_tuning" ] ],
+    "pass_flows": [ [ "convert", "optimize", "session_params_tuning" ] ],
     "evaluate_input_model": false,
     "evaluator": "common_evaluator",
     "host": "local_system",

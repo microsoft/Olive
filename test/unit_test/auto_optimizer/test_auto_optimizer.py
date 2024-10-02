@@ -66,10 +66,10 @@ class TestAutoOptimizer:
 
         pass_config, _ = auto_optimizer.suggest()
         trans_opt_name = "OrtTransformerOptimization_cuda_fp16" if expected_cuda_fp16 else "OrtTransformersOptimization"
-        perf_opt_name = "OrtPerfTuning_trt_fp16" if expected_trt_fp16 else "OrtPerfTuning"
+        session_params_opt_name = "OrtSessionParamsTuning_trt_fp16" if expected_trt_fp16 else "OrtSessionParamsTuning"
         assert pass_config[trans_opt_name]["config"]["float16"] == expected_cuda_fp16
-        assert pass_config[perf_opt_name]["config"]["enable_cuda_graph"] == expected_cuda_fp16
-        assert pass_config[perf_opt_name]["config"]["trt_fp16_enable"] == expected_trt_fp16
+        assert pass_config[session_params_opt_name]["config"]["enable_cuda_graph"] == expected_cuda_fp16
+        assert pass_config[session_params_opt_name]["config"]["trt_fp16_enable"] == expected_trt_fp16
 
     @pytest.mark.parametrize(
         ("metrics_configs", "accelerator_spec", "auto_optimizer_config", "expected_pass_flows"),
@@ -79,14 +79,14 @@ class TestAutoOptimizer:
                 DEFAULT_CPU_ACCELERATOR,
                 None,
                 [
-                    ["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"],
-                    ["OnnxConversion", "OrtTransformersOptimization", "OnnxQuantization", "OrtPerfTuning"],
-                    ["OnnxConversion", "OrtTransformersOptimization", "IncQuantization", "OrtPerfTuning"],
-                    ["OnnxConversion", "OrtTransformersOptimization", "OnnxMatMul4Quantizer", "OrtPerfTuning"],
-                    ["ModelBuilder_fp32", "OrtPerfTuning"],
-                    ["ModelBuilder_int4", "OrtPerfTuning"],
-                    ["ModelBuilder_int8", "OrtPerfTuning"],
-                    ["ModelBuilder_fp16", "OrtPerfTuning"],
+                    ["OnnxConversion", "OrtTransformersOptimization", "OrtSessionParamsTuning"],
+                    ["OnnxConversion", "OrtTransformersOptimization", "OnnxQuantization", "OrtSessionParamsTuning"],
+                    ["OnnxConversion", "OrtTransformersOptimization", "IncQuantization", "OrtSessionParamsTuning"],
+                    ["OnnxConversion", "OrtTransformersOptimization", "OnnxMatMul4Quantizer", "OrtSessionParamsTuning"],
+                    ["ModelBuilder_fp32", "OrtSessionParamsTuning"],
+                    ["ModelBuilder_int4", "OrtSessionParamsTuning"],
+                    ["ModelBuilder_int8", "OrtSessionParamsTuning"],
+                    ["ModelBuilder_fp16", "OrtSessionParamsTuning"],
                 ],
             ),
             (
@@ -100,8 +100,8 @@ class TestAutoOptimizer:
                 DEFAULT_CPU_ACCELERATOR,
                 AutoOptimizerConfig(precisions=["fp32"]),
                 [
-                    ["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"],
-                    ["ModelBuilder_fp32", "OrtPerfTuning"],
+                    ["OnnxConversion", "OrtTransformersOptimization", "OrtSessionParamsTuning"],
+                    ["ModelBuilder_fp32", "OrtSessionParamsTuning"],
                 ],
             ),
             (
@@ -110,8 +110,8 @@ class TestAutoOptimizer:
                 DEFAULT_GPU_CUDA_ACCELERATOR,
                 AutoOptimizerConfig(precisions=["fp16"], excluded_passes=["ModelBuilder"]),
                 [
-                    ["OnnxConversion", "OrtTransformerOptimization_cuda_fp16", "OrtPerfTuning"],
-                    ["OnnxConversion", "OrtTransformersOptimization", "OrtMixedPrecision", "OrtPerfTuning"],
+                    ["OnnxConversion", "OrtTransformerOptimization_cuda_fp16", "OrtSessionParamsTuning"],
+                    ["OnnxConversion", "OrtTransformersOptimization", "OrtMixedPrecision", "OrtSessionParamsTuning"],
                 ],
             ),
         ],

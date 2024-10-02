@@ -191,7 +191,7 @@ def get_thread_affinity_nums(affinity_str):
     return len(affinities)
 
 
-class OrtPerfTuning(Pass):
+class OrtSessionParamsTuning(Pass):
     """Optimize ONNX Runtime inference settings."""
 
     run_on_target = True

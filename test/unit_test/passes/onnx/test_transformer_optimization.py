@@ -88,7 +88,7 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
         assert is_pruned
         assert (
             "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
-            "optimization. Suggest to set 'trt_fp16_enable' as True in OrtPerfTuning." in caplog.text
+            "optimization. Suggest to set 'trt_fp16_enable' as True in OrtSessionParamsTuning." in caplog.text
         )
 
     if not is_pruned:

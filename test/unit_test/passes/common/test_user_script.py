@@ -3,11 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.passes.onnx.perf_tuning import OrtPerfTuning
+from olive.passes.onnx.session_params_tuning import OrtSessionParamsTuning
 
 
 class TestUserScriptConfig:
     def test_no_config(self):
         config = {}
-        config = OrtPerfTuning.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, True)
+        config = OrtSessionParamsTuning.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, True)
         assert config

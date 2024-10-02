@@ -18,10 +18,10 @@ from olive.workflows import run as olive_run
 
 
 SUPPORTED_WORKFLOWS = {
-    "cpu_fp32": [["convert", "optimize_cpu", "perf_tuning"]],
-    "cpu_int4": [["convert", "optimize_cpu", "blockwise_quant_int4", "perf_tuning"]],
-    "cuda_fp16": [["convert", "optimize_cuda", "perf_tuning"]],
-    "cuda_int4": [["convert", "optimize_cuda", "blockwise_quant_int4", "perf_tuning"]],
+    "cpu_fp32": [["convert", "optimize_cpu", "session_params_tuning"]],
+    "cpu_int4": [["convert", "optimize_cpu", "blockwise_quant_int4", "session_params_tuning"]],
+    "cuda_fp16": [["convert", "optimize_cuda", "session_params_tuning"]],
+    "cuda_int4": [["convert", "optimize_cuda", "blockwise_quant_int4", "session_params_tuning"]],
     "slicegpt": [["slice"]],
     "web": [["builder", "io_float16_to_float32"]],
 }
@@ -202,8 +202,8 @@ def main(raw_args=None):
                 legacy_optimization_setting(template_json)
                 for pass_flow in template_json["pass_flows"]:
                     pass_flow[0] = "optimum_convert"
-                    if "perf_tuning" in pass_flow:
-                        pass_flow.remove("perf_tuning")
+                    if "session_params_tuning" in pass_flow:
+                        pass_flow.remove("session_params_tuning")
 
             if "cuda" in model_type:
                 update_accelerator(template_json, "gpu")
