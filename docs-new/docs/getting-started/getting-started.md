@@ -1,3 +1,8 @@
+---
+hide:
+- navigation
+---
+
 # Getting started
 
 ## :simple-pypi: Install with pip

@@ -68,7 +68,7 @@ Here is a simple example of Auto Optimizer configuration, the item which is not 
 Here the available pass flows for given accelerator, execution providers and precision:
 
 <figure markdown="span">
-  ![Image title](../images/auto_opt/pass_flows.png){ width="700" }
+  ![Image title](../../images/auto_opt/pass_flows.png){ width="700" }
   <figcaption>Automatic Optimization pass flows</figcaption>
 </figure>
 

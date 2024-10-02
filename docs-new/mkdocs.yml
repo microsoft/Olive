@@ -1,18 +1,19 @@
-site_name: "O(nnx)Live"
+site_name: OLIVE Documentation
 extra_css:
   - stylesheets/extra.css
 theme:
   name: material
-  logo: images/ONNX_Runtime_logo.png #https://artwork.lfaidata.foundation/projects/onnx/icon/white/onnx-icon-white.png
+  logo: images/OLive_logo.png #https://artwork.lfaidata.foundation/projects/onnx/icon/white/onnx-icon-white.png
   features:
     - content.code.copy
-    - navigation.tabs     # once there are multiple books, uncomment this
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
-    - navigation.expand
+    #- navigation.expand
     - navigation.indexes
     - navigation.path
     #- navigation.footer
-    - toc.integrate
+    #- toc.integrate
     - toc.follow
     - navigation.top
     - search.suggest
@@ -41,10 +42,12 @@ theme:
         icon: material/brightness-auto
         name: Switch to light mode
       primary: blue grey
+      accent: blue
 
     # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
+      accent: blue
       primary: blue grey
       toggle:
         icon: material/brightness-7
@@ -53,6 +56,7 @@ theme:
     # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      accent: blue
       primary: blue grey
       toggle:
         icon: material/brightness-4
@@ -71,6 +75,8 @@ markdown_extensions:
   - pymdownx.details
   - attr_list
   - md_in_html
+  - pymdownx.tasklist:
+      custom_checkbox: true
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
@@ -98,28 +104,45 @@ plugins:
 
 nav:
   - Home: index.md
+  - Overview: why-olive.md
   - Getting started: getting-started/getting-started.md
   # - Tutorials:
   #   - tutorials/index.md
   #   - Optimize for Windows: tutorials/optimize-for-windows.md
   #   - Optimize for Android: tutorials/optimize-for-android.md
   #   - Optimize for Apple: tutorials/optimize-for-apple.md
-  - How-to...:
+  - How-to:
     - how-to/index.md
-    #- Finetune: how-to/finetune.md
-    #- Quantization: how-to/quantization.md
-    - Configuring Workflows:
-      - Data: how-to/how-to-configure-data.md
-      #- Cloud Model Cache: how-to/
-      - Systems: how-to/systems.md
-      - Metrics: how-to/metrics-configuration.md
-      - Passes: how-to/pass-configuration.md
-      - Model Packaging: how-to/model-packaging.md
-    - Use Automatic Optimizer: how-to/auto-opt.md
-    - Integrations:
-      - Azure AI: how-to/azure-ai.md
-      - Hugging Face: how-to/hugging-face-integration.md
-    - Install Olive: how-to/installation.md
+    - Set-up:
+      - Install Olive: how-to/installation.md
+    - Use the CLI:
+      - Auto Optimization: how-to/cli/cli-auto-opt.md
+      - Finetune: how-to/cli/cli-finetune.md
+      - Quantize: how-to/cli/cli-quantize.md
+    - Configure Workflows:
+      - Data: how-to/configure-workflows/how-to-configure-data.md
+      - Systems: how-to/configure-workflows/systems.md
+      - Metrics: how-to/configure-workflows/metrics-configuration.md
+      - Passes:
+        - Overview: how-to/configure-workflows/pass-configuration.md
+        - Quantizations:
+          - PyTorch: how-to/configure-workflows/quantization-pytorch.md
+          - ONNX: how-to/configure-workflows/quantization-onnx.md
+        - Optimizations & Transformations:
+          - PyTorch: how-to/configure-workflows/model-opt-and-transform/pytorch.md
+          - ONNX: how-to/configure-workflows/model-opt-and-transform/onnx.md
+          - OpenVino: how-to/configure-workflows/model-opt-and-transform/openvino.md
+          - SNPE: how-to/configure-workflows/model-opt-and-transform/snpe.md
+          - QNN: how-to/configure-workflows/model-opt-and-transform/qnn.md
+        - Model conversions:
+          - Pytorch: how-to/configure-workflows/convert_pytorch.md
+          - ONNX: how-to/configure-workflows/convert_onnx.md
+      - Cloud Model Cache: how-to/configure-workflows/cloud-model-cache.md
+      - Model Packaging: how-to/configure-workflows/model-packaging.md
+      - Automatic Optimizer: how-to/configure-workflows/auto-opt.md
+      - Integrations:
+        - Azure AI: how-to/configure-workflows/azure-ai.md
+        - Hugging Face: how-to/configure-workflows/hugging-face-integration.md
   - Reference:
     - api/index.md
     - CLI: api/cli-reference.md

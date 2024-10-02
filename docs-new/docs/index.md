@@ -4,18 +4,24 @@ hide:
 - toc
 ---
 
-# O(nnx)Live: The AI Model Optimization Toolkit for ONNX Runtime
-
-Olive is a core component of the [ONNX ecosystem](https://onnxruntime.ai), which allows AI Engineers to compose workflows of cutting edge AI Model optimization tasks - such as quantization, compression, graph optimizations and finetuning - so that your models run with quality and performance on the ONNX Runtime. Olive is capable of **finding** the best optimized model within your defined quality and performance constraints for different hardware providers (Nvidia, AMD, Qualcomm, Intel) across NPU, CPU and GPU.
-
+# OLIVE: AI Model Optimization Toolkit for the ONNX Runtime
 
 <div class="grid cards" markdown>
+
+-   :material-head-question:{ .lg .middle } __Overview__
+
+    ---
+
+    Learn the benefits of using OLIVE to optimize your models.
+
+    [:octicons-arrow-right-24: Overview](why-olive.md)
+    
 
 -   :material-clock-fast:{ .lg .middle } __Get Started__
 
     ---
 
-    Install `olive-ai` with `pip` and get up and running with Olive in minutes.
+    Install `olive-ai` with `pip` and get up and running with OLIVE in minutes.
 
     [:octicons-arrow-right-24: Getting started](getting-started/getting-started.md)
     
@@ -32,7 +38,7 @@ Olive is a core component of the [ONNX ecosystem](https://onnxruntime.ai), which
 
     ---
 
-    Find more details on specific Olive capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!
+    Find more details on specific OLIVE capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!
 
     [:octicons-arrow-right-24: Features](how-to/index.md)
 
@@ -40,14 +46,14 @@ Olive is a core component of the [ONNX ecosystem](https://onnxruntime.ai), which
 
     ---
 
-    Get more details on specific Olive capabilities, such as running workflows on remote compute (for example, Azure AI), model packaging, conversions, and more!
+    Get more details on specific OLIVE capabilities, such as running workflows on remote compute (for example, Azure AI), model packaging, conversions, and more!
 
     [:octicons-arrow-right-24: APIs](api/index.md)
 
--   :octicons-diff-added-16:{ .lg .middle } __Extending Olive__
+-   :octicons-diff-added-16:{ .lg .middle } __Extending OLIVE__
 
     ---
 
-    Learn about the design of Olive and how to extend Olive with your own optimization methods.
+    Learn about the design of OLIVE and how to extend OLIVE with your own optimization methods.
 
     [:octicons-arrow-right-24: Extend Olive](extending/index.md)
