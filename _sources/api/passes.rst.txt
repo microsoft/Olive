@@ -27,19 +27,19 @@ OnnxModelOptimizer
 .. _ort_transformers_optimization:
 
 OrtTransformersOptimization
-----------------------------
+---------------------------
 .. autoconfigclass:: olive.passes.OrtTransformersOptimization
 
-.. _ort_perf_tuning:
+.. _ort_session_params_tuning:
 
-OrtPerfTuning
-----------------
-.. autoconfigclass:: olive.passes.OrtPerfTuning
+OrtSessionParamsTuning
+----------------------
+.. autoconfigclass:: olive.passes.OrtSessionParamsTuning
 
 .. _onnx_float_to_float16:
 
 OnnxFloatToFloat16
---------------------
+------------------
 .. autoconfigclass:: olive.passes.OnnxFloatToFloat16
 
 .. _onnx_io_float16_to_float32:
@@ -51,19 +51,19 @@ OnnxIOFloat16ToFloat32
 .. _ort_mixed_precision:
 
 OrtMixedPrecision
---------------------
+-----------------
 .. autoconfigclass:: olive.passes.OrtMixedPrecision
 
 .. _qnn_preprocess:
 
 QNNPreprocess
---------------
+-------------
 .. autoconfigclass:: olive.passes.QNNPreprocess
 
 .. _mixed_precision_overrides:
 
 MixedPrecisionOverrides
---------------------------
+-----------------------
 .. autoconfigclass:: olive.passes.MixedPrecisionOverrides
 
 .. _onnx_dynamic_quantization:
@@ -93,55 +93,55 @@ DynamicToFixedShape
 .. _inc_dynamic_quantization:
 
 IncDynamicQuantization
------------------------
+----------------------
 .. autoconfigclass:: olive.passes.IncDynamicQuantization
 
 .. _inc_static_quantization:
 
 IncStaticQuantization
-----------------------
+---------------------
 .. autoconfigclass:: olive.passes.IncStaticQuantization
 
 .. _inc_quantization:
 
 IncQuantization
-----------------
+---------------
 .. autoconfigclass:: olive.passes.IncQuantization
 
 .. _vitis_ai_quantization:
 
 VitisAIQuantization
---------------------
+-------------------
 .. autoconfigclass:: olive.passes.VitisAIQuantization
 
 .. _append_pre_post_processing:
 
 AppendPrePostProcessingOps
-----------------------------
+--------------------------
 .. autoconfigclass:: olive.passes.AppendPrePostProcessingOps
 
 .. _insert_beam_search:
 
 InsertBeamSearch
---------------------
+----------------
 .. autoconfigclass:: olive.passes.InsertBeamSearch
 
 .. _extract_adapters:
 
 ExtractAdapters
-----------------
+---------------
 .. autoconfigclass:: olive.passes.ExtractAdapters
 
 .. _lora:
 
 LoRA
------
+----
 .. autoconfigclass:: olive.passes.LoRA
 
 .. _qlora:
 
 QLoRA
-------
+-----
 .. autoconfigclass:: olive.passes.QLoRA
 
 .. _loftq:
@@ -196,7 +196,7 @@ SNPEtoONNXConversion
 .. _qnn_conversion:
 
 QNNConversion
---------------
+-------------
 .. autoconfigclass:: olive.passes.QNNConversion
 
 .. _qnn_model_lib_generator:
@@ -220,13 +220,13 @@ MergeAdapterWeights
 .. _sparsegpt:
 
 SparseGPT
---------------------
+---------
 .. autoconfigclass:: olive.passes.SparseGPT
 
 .. _slicegpt:
 
 SliceGPT
---------------------
+--------
 .. autoconfigclass:: olive.passes.SliceGPT
 
 .. _quarot:
@@ -238,35 +238,35 @@ QuaRot
 .. _gptq_quantizer:
 
 GptqQuantizer
---------------------
+-------------
 .. autoconfigclass:: olive.passes.GptqQuantizer
 
 .. _awq_quantizer:
 
 AutoAWQQuantizer
---------------------
+----------------
 .. autoconfigclass:: olive.passes.AutoAWQQuantizer
 
 .. _torch_trt_conversion:
 
 TorchTRTConversion
---------------------
+------------------
 .. autoconfigclass:: olive.passes.TorchTRTConversion
 
 .. _optimum_conversion:
 
 OptimumConversion
---------------------
+-----------------
 .. autoconfigclass:: olive.passes.OptimumConversion
 
 .. _optimum_merging:
 
 OptimumMerging
---------------------
+--------------
 .. autoconfigclass:: olive.passes.OptimumMerging
 
 .. model_builder:
 
 ModelBuilder
---------------------
+------------
 .. autoconfigclass:: olive.passes.ModelBuilder

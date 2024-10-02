@@ -222,7 +222,7 @@ Auto Optimizer is still under development actively, and we will keep improving i
 <p>In this example, Auto Optimizer will search for the best passes combination for different execution providers, e.g. CUDAExecutionProvider and TensorrtExecutionProvider.</p>
 <ul class="simple">
 <li><p>For CUDAExecutionProvider, it will try float16 in <code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code>.</p></li>
-<li><p>For TensorrtExecutionProvider, it will try trt_fp16 in <code class="docutils literal notranslate"><span class="pre">OrtPerfTuning</span></code>.</p></li>
+<li><p>For TensorrtExecutionProvider, it will try trt_fp16 in <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code>.</p></li>
 </ul>
 </div>
 <p>Here the available pass flows for given accelerator, execution providers and precision:</p>
@@ -381,14 +381,14 @@ Auto Optimizer is still under development actively, and we will keep improving i
 <span class="linenos"> 73</span><span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtTransformersOptimization&quot;</span><span class="p">,</span>
 <span class="linenos"> 74</span><span class="w">            </span><span class="nt">&quot;float16&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
 <span class="linenos"> 75</span><span class="w">        </span><span class="p">},</span>
-<span class="linenos"> 76</span><span class="w">        </span><span class="nt">&quot;cuda_perf_tuning&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="linenos"> 77</span><span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtPerfTuning&quot;</span><span class="p">,</span>
+<span class="linenos"> 76</span><span class="w">        </span><span class="nt">&quot;cuda_session_params_tuning&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos"> 77</span><span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtSessionParamsTuning&quot;</span><span class="p">,</span>
 <span class="linenos"> 78</span><span class="w">            </span><span class="nt">&quot;enable_cuda_graph&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="linenos"> 79</span><span class="w">            </span><span class="nt">&quot;io_bind&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="linenos"> 80</span><span class="w">            </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue&quot;</span>
 <span class="linenos"> 81</span><span class="w">        </span><span class="p">},</span>
-<span class="linenos"> 82</span><span class="w">        </span><span class="nt">&quot;trt_perf_tuning&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="linenos"> 83</span><span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtPerfTuning&quot;</span><span class="p">,</span>
+<span class="linenos"> 82</span><span class="w">        </span><span class="nt">&quot;trt_session_params_tuning&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos"> 83</span><span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtSessionParamsTuning&quot;</span><span class="p">,</span>
 <span class="linenos"> 84</span><span class="w">            </span><span class="nt">&quot;enable_cuda_graph&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <span class="linenos"> 85</span><span class="w">            </span><span class="nt">&quot;enable_trt_fp16&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="linenos"> 86</span><span class="w">            </span><span class="nt">&quot;io_bind&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
@@ -396,8 +396,8 @@ Auto Optimizer is still under development actively, and we will keep improving i
 <span class="linenos"> 88</span><span class="w">        </span><span class="p">}</span>
 <span class="linenos"> 89</span><span class="w">    </span><span class="p">},</span>
 <span class="linenos"> 90</span><span class="w">    </span><span class="nt">&quot;pass_flows&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="linenos"> 91</span><span class="w">        </span><span class="p">[</span><span class="s2">&quot;conversion&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;cuda_transformers_optimization&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;cuda_perf_tuning&quot;</span><span class="p">],</span>
-<span class="linenos"> 92</span><span class="w">        </span><span class="p">[</span><span class="s2">&quot;conversion&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;trt_transformers_optimization&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;trt_perf_tuning&quot;</span><span class="p">]</span>
+<span class="linenos"> 91</span><span class="w">        </span><span class="p">[</span><span class="s2">&quot;conversion&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;cuda_transformers_optimization&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;cuda_session_params_tuning&quot;</span><span class="p">],</span>
+<span class="linenos"> 92</span><span class="w">        </span><span class="p">[</span><span class="s2">&quot;conversion&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;trt_transformers_optimization&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;trt_session_params_tuning&quot;</span><span class="p">]</span>
 <span class="linenos"> 93</span><span class="w">    </span><span class="p">],</span>
 <span class="linenos"> 94</span><span class="w">    </span><span class="nt">&quot;search_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="linenos"> 95</span><span class="w">        </span><span class="nt">&quot;execution_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;joint&quot;</span><span class="p">,</span>
@@ -420,21 +420,21 @@ Auto Optimizer is still under development actively, and we will keep improving i
 <ol class="arabic simple">
 <li><dl class="simple">
 <dt>For CUDAExecutionProvider:</dt><dd><ul class="simple">
-<li><p>it would be better to disable <code class="docutils literal notranslate"><span class="pre">enable_trt_fp16</span></code> and enable <code class="docutils literal notranslate"><span class="pre">enable_cuda_graph</span></code> in <code class="docutils literal notranslate"><span class="pre">OrtPerfTuning</span></code> pass, and enable <code class="docutils literal notranslate"><span class="pre">float16</span></code> in <code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code> pass.</p></li>
+<li><p>it would be better to disable <code class="docutils literal notranslate"><span class="pre">enable_trt_fp16</span></code> and enable <code class="docutils literal notranslate"><span class="pre">enable_cuda_graph</span></code> in <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> pass, and enable <code class="docutils literal notranslate"><span class="pre">float16</span></code> in <code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code> pass.</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
 <dt>For TensorrtExecutionProvider:</dt><dd><ul class="simple">
-<li><p>it would be better to enable <code class="docutils literal notranslate"><span class="pre">enable_trt_fp16</span></code> and disable <code class="docutils literal notranslate"><span class="pre">enable_cuda_graph</span></code> in <code class="docutils literal notranslate"><span class="pre">OrtPerfTuning</span></code> pass, and disable <code class="docutils literal notranslate"><span class="pre">float16</span></code> in <code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code> pass.</p></li>
+<li><p>it would be better to enable <code class="docutils literal notranslate"><span class="pre">enable_trt_fp16</span></code> and disable <code class="docutils literal notranslate"><span class="pre">enable_cuda_graph</span></code> in <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> pass, and disable <code class="docutils literal notranslate"><span class="pre">float16</span></code> in <code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code> pass.</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
 <dt>At the same time, for both CUDAExecutionProvider and TensorrtExecutionProvider:</dt><dd><ul class="simple">
-<li><p>it would be better to enable <code class="docutils literal notranslate"><span class="pre">io_bind</span></code> in <code class="docutils literal notranslate"><span class="pre">OrtPerfTuning</span></code> pass.</p></li>
+<li><p>it would be better to enable <code class="docutils literal notranslate"><span class="pre">io_bind</span></code> in <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> pass.</p></li>
 </ul>
 </dd>
 </dl>
