@@ -1,0 +1,7 @@
+{
+    "subscription_id": "3905431d-c062-4c17-8fd9-c51f89f334c4",
+    "resource_group": "olive",
+    "workspace_name": "olive-aml-workspace",
+    "keyvault_name" : "olive-keyvault",
+    "compute": "v800"
+}

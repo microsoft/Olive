@@ -1,0 +1,66 @@
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "task": "text-classification",
+                "dataset": {
+                    "data_name": "glue",
+                    "subset": "mrpc",
+                    "split": "validation",
+                    "input_cols": [ "sentence1", "sentence2" ],
+                    "label_cols": [ "label" ],
+                    "batch_size": 1
+                }
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "backend": "huggingface_metrics",
+                    "sub_types": [
+                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.01 } },
+                        { "name": "f1" }
+                    ]
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 20 } },
+                        { "name": "max" },
+                        { "name": "min" }
+                    ]
+                }
+            ]
+        }
+    },
+    "systems": {
+        "docker_system": {
+            "type": "Docker",
+            "local_docker_config": {
+                "image_name": "olive-image",
+                "build_context_path": "docker",
+                "dockerfile": "Dockerfile"
+            },
+            "is_dev": true
+        }
+    },
+    "passes": { "conversion": { "type": "OnnxConversion", "config": { "target_opset": 13 } } },
+    "search_strategy": {
+        "execution_order": "joint",
+        "search_algorithm": "tpe",
+        "search_algorithm_config": { "num_samples": 3, "seed": 0 }
+    },
+    "log_severity_level": 0,
+    "target": "docker_system",
+    "evaluator": "common_evaluator",
+    "execution_providers": [ "CPUExecutionProvider" ],
+    "cache_dir": "cache",
+    "output_dir": "models/bert_docker"
+}

@@ -20,6 +20,11 @@ class CloudCacheCommand(BaseOliveCLICommand):
             help="Delete a model cache from the cloud cache.",
         )
         sub_parser.add_argument(
+            "--all",
+            action="store_true",
+            help="Delete all model cache from the cloud cache.",
+        )
+        sub_parser.add_argument(
             "--account",
             type=str,
             required=True,
@@ -34,7 +39,7 @@ class CloudCacheCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--model_hash",
             type=str,
-            required=True,
+            required=False,
             help="The model hash to remove from the cloud cache.",
         )
         sub_parser.set_defaults(func=CloudCacheCommand)
@@ -55,7 +60,23 @@ class CloudCacheCommand(BaseOliveCLICommand):
         )
 
         if self.args.delete:
-            self._delete_model_cache(client, self.args.model_hash)
+            if self.args.all:
+                self._delete_all_model_cache(client)
+            else:
+                if not self.args.model_hash:
+                    logger.error("Please provide a model hash to delete.")
+                    return
+                self._delete_model_cache(client, self.args.model_hash)     
+                
+    def _delete_all_model_cache(self, client):
+        for blob in client.list_blobs():
+            logger.info("Deleting %s", blob.name)
+            client.delete_blob(blob.name)
+
+        if any(client.list_blobs()):
+            logger.error("Deletion of all model cache failed. Please try again.")
+        else:
+            logger.info("All model cache removed from the cloud cache successfully.")
 
     def _delete_model_cache(self, client, model_hash):
         for blob in client.list_blobs(model_hash):
