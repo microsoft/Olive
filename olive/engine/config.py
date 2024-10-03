@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from pathlib import Path
 from typing import Union
 
 from olive.common.config_utils import ConfigBase
@@ -24,7 +23,4 @@ class EngineConfig(ConfigBase, extra=Extra.forbid):
     host: SystemConfig = None
     target: SystemConfig = None
     evaluator: OliveEvaluatorConfig = None
-    cache_dir: Union[Path, str] = ".olive-cache"
-    clean_cache: bool = False
-    clean_evaluation_cache: bool = False
     plot_pareto_frontier: bool = False

@@ -66,16 +66,28 @@ def get_args(raw_args):
         help="Path to the azureml config file. If provided, the config file will be used to create the client.",
     )
     parser.add_argument(
-        "--cloud_cache",
-        type=str,
-        required=False,
-        help="Whether to use cloud cache for optimization.",
-    )
-    parser.add_argument(
         "--qlora",
         action="store_true",
         required=False,
         help="Whether to use qlora for optimization. Only supported on gpu.",
+    )
+    parser.add_argument(
+        "--account_name",
+        type=str,
+        required=False,
+        help="Account name for the shared cache.",
+    )
+    parser.add_argument(
+        "--container_name",
+        type=str,
+        required=False,
+        help="Container name for the shared cache.",
+    )
+    parser.add_argument(
+        "--update_shared_cache",
+        action="store_true",
+        required=False,
+        help="Whether to update the shared cache.",
     )
     parser.add_argument("--tempdir", type=str, help="Root directory for tempfile directories and files", required=False)
 
@@ -117,13 +129,11 @@ def main(raw_args=None):
         }
         template_json["workflow_host"] = "aml_system"
 
-    if args.cloud_cache:
-        with open(args.cloud_cache) as f:
-            cloud_cache_config = json.load(f)
-        template_json["cloud_cache_config"] = {
-            "account_url": get_valid_config(cloud_cache_config, "account_url"),
-            "container_name": get_valid_config(cloud_cache_config, "container_name"),
-            "upload_to_cloud": get_valid_config(cloud_cache_config, "upload_to_cloud", True),
+    if args.account_name and args.container_name:
+        template_json["cache_config"] = {
+            "account_name": args.account_name,
+            "container_name": args.container_name,
+            "update_shared_cache": args.update_shared_cache,
         }
 
     # dump config

@@ -54,8 +54,6 @@ def download_model():
         tar_ref.extractall(stage_dir)  # lgtm
     original_model_path = stage_dir / mobilenet_name / f"{mobilenet_name}.onnx"
     model_path = models_dir / f"{mobilenet_name}.onnx"
-    if model_path.exists():
-        model_path.unlink()
     run_subprocess(
         f"python -m onnxruntime.tools.make_dynamic_shape_fixed {original_model_path} {model_path} --dim_param"
         " batch_size --dim_value 1"

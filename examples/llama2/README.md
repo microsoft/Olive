@@ -16,9 +16,9 @@ Sample use cases of Olive to optimize a [Llama2](https://huggingface.co/meta-lla
   - [Run the config to optimize the model](#run-the-config-to-optimize-the-model)
     - [Optimize using ONNX Runtime Tools](#optimize-using-onnx-runtime-tools)
     - [Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools](#fine-tune-on-a-code-generation-dataset-using-qlora-and-optimize-using-onnx-runtime-tools-1)
-    - [Running Workflows on the Cloud](#running-workflows-on-the-cloud)
-    - [Accelerating Workflows with Cloud Model Cache](#accelerating-workflows-with-cloud-model-cache)
-    - [Combining Remote Workflow and Cloud Model Cache](#combining-remote-workflow-and-cloud-model-cache)
+    - [Running Workflows on the cloud](#running-workflows-on-the-cloud)
+    - [Accelerating Workflows with shared cache](#accelerating-workflows-with-shared-cache)
+    - [Combining Remote Workflow and shared cache](#combining-remote-workflow-and-shared-cache)
 - [License](#license)
 
 ## Optimization Workflows
@@ -221,33 +221,24 @@ python llama2.py --qlora --remote_config remote_config.json
 
 Olive will submit the workflow to the compute resources in your Azure Machine Learning workspace and execute the workflow there. The output artifacts will be automatically exported to the Datastore. For more detailed information, please refer to [the official documentation](https://microsoft.github.io/Olive/features/run_workflow_remotely.html).
 
-### Accelerating Workflows with Cloud Model Cache
+### Accelerating Workflows with shared cache
 
-The cloud model cache is a system where Olive stores intermediate models in Azure Blob Storage. For more detailed information, please refer to [the documentation](https://microsoft.github.io/Olive/features/cloud_model_cache.html).
-
-You will need a `cloud_cache.json` configuration file to set up the cloud cache configuration:
-
-```json
-{
-    "account_url": "<account_url>",
-    "container_name": "<container_name>",
-}
-```
+The shared cache is a system where Olive stores intermediate models in Azure Blob Storage. For more detailed information, please refer to [the documentation](https://microsoft.github.io/Olive/features/shared_cache.html).
 
 You can run the following command:
 
 ```bash
-python llama2.py --qlora --cloud_cache cloud_cache.json
+python llama2.py --qlora --account_name <account_name> --container_name <container_name>
 ```
 
-Olive will apply cloud model cache for this workflow.
+Olive will apply shared model cache for this workflow.
 
-### Combining Remote Workflow and Cloud Model Cache
+### Combining Remote Workflow and Shared Cache
 
-To leverage both the remote workflow and Cloud Model Cache for faster workflow execution, simply run:
+To leverage both the remote workflow and shared cache for faster workflow execution, simply run:
 
 ```bash
-python llama2.py --qlora --remote_config remote_config.json --cloud_cache cloud_cache.json
+python llama2.py --qlora --remote_config remote_config.json --account_name <account_name> --container_name <container_name>
 ```
 
 This will submit the workflow to the Azure Machine Learning workspace and store intermediate models in Azure Blob Storage, significantly speeding up the process.

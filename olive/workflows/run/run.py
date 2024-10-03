@@ -156,7 +156,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     engine = run_config.engine.create_engine(run_config.azureml_client, workflow_id)
 
     olive_config = run_config.to_json()
-    engine.save_olive_config(olive_config)
+    engine.cache.cache_olive_config(olive_config)
 
     # run_config file will be uploaded to AML job
     is_azureml_system = (run_config.engine.host is not None and run_config.engine.host.type == SystemType.AzureML) or (
@@ -252,7 +252,6 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
                     name=pass_name,
                     host=host,
                     evaluator_config=pass_config.evaluator,
-                    clean_run_cache=pass_config.clean_run_cache,
                 )
             engine.set_pass_flows(pass_flows)
 
@@ -266,7 +265,6 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
                 run_config.engine.evaluate_input_model,
                 run_config.engine.log_to_file,
                 run_config.engine.log_severity_level,
-                run_config.engine.cloud_cache_config,
             )
         )
     return run_rls

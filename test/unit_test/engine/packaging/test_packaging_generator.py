@@ -14,7 +14,6 @@ import onnx
 import pytest
 
 from olive.engine import Engine
-from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.engine.footprint import Footprint, FootprintNode
 from olive.engine.packaging.packaging_config import (
     AzureMLDataPackagingConfig,
@@ -48,13 +47,15 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
     evaluator_config = OliveEvaluatorConfig(metrics=[metric])
     options = {
-        "cache_dir": tmp_path / "cache",
-        "clean_cache": True,
+        "cache_config": {
+            "cache_dir": tmp_path,
+            "clean_cache": True,
+            "clean_evaluation_cache": True,
+        },
         "search_strategy": {
             "execution_order": "joint",
             "search_algorithm": "random",
         },
-        "clean_evaluation_cache": True,
         "evaluator": evaluator_config,
     }
     engine = Engine(**options)
@@ -74,7 +75,6 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
         accelerator_specs=[DEFAULT_CPU_ACCELERATOR],
         packaging_config=packaging_config,
         output_dir=output_dir,
-        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
     )
 
     # assert
@@ -110,9 +110,11 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
 def test_generate_zipfile_artifacts_no_search(tmp_path):
     # setup
     options = {
-        "cache_dir": tmp_path / "cache",
-        "clean_cache": True,
-        "clean_evaluation_cache": True,
+        "cache_config": {
+            "cache_dir": tmp_path,
+            "clean_cache": True,
+            "clean_evaluation_cache": True,
+        },
     }
     engine = Engine(**options)
     engine.register(OnnxConversion)
@@ -132,7 +134,6 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
         packaging_config=packaging_config,
         output_dir=output_dir,
         evaluate_input_model=False,
-        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
     )
 
     # assert
@@ -152,9 +153,11 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
 def test_generate_zipfile_artifacts_mlflow(tmp_path):
     # setup
     options = {
-        "cache_dir": tmp_path / "cache",
-        "clean_cache": True,
-        "clean_evaluation_cache": True,
+        "cache_config": {
+            "cache_dir": tmp_path,
+            "clean_cache": True,
+            "clean_evaluation_cache": True,
+        },
     }
     engine = Engine(**options)
     engine.register(OnnxConversion)
@@ -175,7 +178,6 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
         packaging_config=packaging_config,
         output_dir=output_dir,
         evaluate_input_model=False,
-        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
     )
 
     # assert

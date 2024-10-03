@@ -14,7 +14,7 @@ import yaml
 
 from olive.cli.constants import CONDA_CONFIG
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import hardlink_copy_dir, hash_dict, set_nested_dict_value, unescaped_str
+from olive.common.utils import hardlink_copy_dir, hash_dict, is_hf_repo_exist, set_nested_dict_value, unescaped_str
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, find_all_resources
 
 
@@ -215,12 +215,7 @@ def get_input_model_config(args: Namespace) -> Dict:
 
     # Check HF model name string
     if not model_path.exists():
-        try:
-            from huggingface_hub import repo_exists
-        except ImportError as e:
-            raise ImportError("Please install huggingface_hub to use the CLI for Huggingface model.") from e
-
-        if not repo_exists(model_name_or_path):
+        if not is_hf_repo_exist(model_name_or_path):
             raise ValueError(f"{model_name_or_path} is not a valid Huggingface model name.")
         return _get_hf_input_model(args, model_name_or_path)
 
