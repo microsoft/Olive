@@ -15,9 +15,9 @@
 
 ~~* Add cli to export local python model to onnx model:~~ (officially support now!)
  
-~~  ```~~
-~~  python -m olive capture-onnx-graph --pt --io_config <io_config.json path> -m <model.pt path>~~
-~~  ```~~ 
+  ```
+  python -m olive capture-onnx-graph --pt --io_config <io_config.json path> -m <model.pt path>
+  ```
 
 That's it!
 
