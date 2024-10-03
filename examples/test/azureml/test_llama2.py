@@ -26,10 +26,10 @@ def setup():
 @pytest.mark.parametrize("execution_order", [None])
 @pytest.mark.parametrize("system", ["local_system"])
 @pytest.mark.parametrize(
-    "shared_cache_config", [False, {"account_name": account_name, "container_name": container_name}]
+    "cache_config", [None, {"account_name": account_name, "container_name": container_name}]
 )
 @pytest.mark.parametrize("olive_json", ["llama2_qlora.json"])
-def test_llama2(search_algorithm, execution_order, system, shared_cache_config, olive_json):
+def test_llama2(search_algorithm, execution_order, system, cache_config, olive_json):
     from olive.workflows import run as olive_run
 
     olive_config = patch_config(olive_json, search_algorithm, execution_order, system, is_gpu=False, hf_token=True)
@@ -41,7 +41,7 @@ def test_llama2(search_algorithm, execution_order, system, shared_cache_config, 
     olive_config["passes"]["f"]["training_args"]["per_device_eval_batch_size"] = 2
 
     # add shared cache config
-    olive_config["shared_cache_config"] = shared_cache_config
+    olive_config["cache_config"] = cache_config
 
     olive_config["systems"]["aml_system"] = get_gpu_compute(True)
     olive_config["systems"]["aml_system"]["datastores"] = container_name
