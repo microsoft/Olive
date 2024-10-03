@@ -355,7 +355,6 @@ of the pass contains following items:
 evaluator in `evaluators`. If it is a dictionary, it contains the evaluator information. If not specified, the evaluator of the engine
 will be used.
 
-- `clean_run_cache: [Boolean]` This decides whether to clean the run cache of the pass before running the pass. This is `false` by default.
 
 Please refer to [Configuring Pass](../tutorials/configure_pass.rst) for more details on `type`, `disable_search` and `config`.
 

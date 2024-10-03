@@ -17,10 +17,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from olive.common.utils import hash_dict
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.engine import Engine
-from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
@@ -38,6 +36,8 @@ from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 
 # Please note your test case could still "pass" even if it throws exception to fail.
 # Please check log message to make sure your test case passes.
+
+
 class TestEngine:
     def test_register(self, tmpdir):
         # setup
@@ -47,8 +47,10 @@ class TestEngine:
         evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
 
         options = {
-            "cache_dir": tmpdir,
-            "clean_cache": True,
+            "cache_config": {
+                "cache_dir": tmpdir,
+                "clean_cache": True,
+            },
             "search_strategy": {
                 "execution_order": "joint",
                 "search_algorithm": "random",
@@ -64,13 +66,14 @@ class TestEngine:
         assert engine.pass_config[name]["type"] == OnnxConversion
         assert engine.pass_config[name]["host"] == system
         assert engine.pass_config[name]["evaluator"] == evaluator_config
-        assert engine.pass_config[name]["clean_run_cache"] is False
 
     def test_register_no_search(self, tmpdir):
         # setup
         options = {
-            "cache_dir": tmpdir,
-            "clean_cache": True,
+            "cache_config": {
+                "cache_dir": tmpdir,
+                "clean_cache": True,
+            },
             "search_strategy": None,
         }
         engine = Engine(**options)
@@ -87,8 +90,10 @@ class TestEngine:
         model_config = get_onnx_model_config()
 
         options = {
-            "cache_dir": tmpdir,
-            "clean_cache": True,
+            "cache_config": {
+                "cache_dir": tmpdir,
+                "clean_cache": True,
+            },
             "search_strategy": None,
         }
         engine = Engine(**options)
@@ -96,24 +101,21 @@ class TestEngine:
         # execute
         engine.register(OnnxDynamicQuantization)
         with pytest.raises(ValueError) as exc_info:  # noqa: PT011
-            engine.run(
-                model_config, [DEFAULT_CPU_ACCELERATOR], cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False)
-            )
+            engine.run(model_config, [DEFAULT_CPU_ACCELERATOR])
 
         assert str(exc_info.value) == f"Search strategy is None but pass {name} has search space"
 
     def test_default_engine_run(self, tmpdir):
         # setup
         model_config = get_pytorch_model_config()
-        engine = Engine(cache_dir=tmpdir)
+        engine = Engine(cache_config={"cache_dir": tmpdir})
         assert engine.no_search, "Expect no_search to be True by default"
 
-        engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13}, clean_run_cache=True)
+        engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13})
         outputs = engine.run(
             model_config,
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=tmpdir,
-            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
 
         assert outputs
@@ -124,20 +126,22 @@ class TestEngine:
                 assert node.metrics is None, "Should not evaluate input/output model by default"
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run(self, mock_local_system, tmpdir):
+    def test_run(self, mock_local_system, tmp_path):
         # setup
         model_config = get_pytorch_model_config()
-        input_model_id = hash_dict(model_config.to_json())[:8]
+        input_model_id = model_config.get_model_id()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": tmpdir,
-            "clean_cache": True,
+            "cache_config": {
+                "cache_dir": tmp_path,
+                "clean_cache": True,
+                "clean_evaluation_cache": True,
+            },
             "search_strategy": {
                 "execution_order": "joint",
                 "search_algorithm": "random",
             },
-            "clean_evaluation_cache": True,
             "evaluator": evaluator_config,
         }
         metric_result_dict = {
@@ -161,14 +165,16 @@ class TestEngine:
         system_object.olive_managed_env = False
 
         engine = Engine(**options)
-        engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13}, clean_run_cache=True)
-        engine.register(OnnxConversion, name="converter_14", config={"target_opset": 14}, clean_run_cache=True)
-        engine.set_pass_flows([["converter_13"], ["converter_14"]])
-        p1, pass_config1 = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
-        p2, pass_config2 = get_onnxconversion_pass(ignore_pass_config=False, target_opset=14)
+        p1_name = "converter_13"
+        p2_name = "converter_14"
+        p1, p1_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
+        p2, p2_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=14)
+        engine.register(OnnxConversion, name=p1_name, config=p1_config)
+        engine.register(OnnxConversion, name=p2_name, config=p2_config)
+        engine.set_pass_flows([[p1_name], [p2_name]])
         model_ids = [
-            f"0_{p1.__class__.__name__}-{input_model_id}-{hash_dict(pass_config1)[:8]}",
-            f"1_{p2.__class__.__name__}-{input_model_id}-{hash_dict(pass_config2)[:8]}",
+            engine.cache.get_output_model_id(p1.__class__.__name__, p1_config, input_model_id, DEFAULT_CPU_ACCELERATOR),
+            engine.cache.get_output_model_id(p2.__class__.__name__, p2_config, input_model_id, DEFAULT_CPU_ACCELERATOR),
         ]
         expected_res = {
             model_id: {
@@ -184,18 +190,16 @@ class TestEngine:
         }
 
         # execute
-        output_dir = Path(tmpdir)
+        output_dir = Path(tmp_path)
         actual_res = engine.run(
             model_config,
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
-            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
-        accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        actual_res = actual_res[accelerator_spec]
+        actual_res = actual_res[DEFAULT_CPU_ACCELERATOR]
 
         # make sure the input model always be in engine.footprints
-        footprint = engine.footprints[accelerator_spec]
+        footprint = engine.footprints[DEFAULT_CPU_ACCELERATOR]
         assert input_model_id in footprint.nodes
         # make sure the input model always not in engine's pareto frontier
         assert input_model_id not in actual_res.nodes
@@ -219,7 +223,7 @@ class TestEngine:
 
         assert system_object.run_pass.call_count == 2
         assert system_object.evaluate_model.call_count == 3
-        system_object.evaluate_model.assert_called_with(onnx_model_config, evaluator_config, accelerator_spec)
+        system_object.evaluate_model.assert_called_with(onnx_model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
 
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_search_model_components(self, mock_local_system_init, tmpdir):
@@ -234,8 +238,8 @@ class TestEngine:
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.olive_managed_env = False
 
-        engine = Engine(cache_dir=tmpdir)
-        engine.register(OptimumConversion, disable_search=True, clean_run_cache=True)
+        engine = Engine(cache_config={"cache_dir": tmpdir})
+        engine.register(OptimumConversion, disable_search=True)
         engine.set_pass_flows()
         # output model to output_dir
         output_dir = Path(tmpdir)
@@ -246,7 +250,6 @@ class TestEngine:
             model_config,
             [accelerator_spec],
             output_dir=output_dir,
-            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
 
         # assert
@@ -260,9 +263,12 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": tmp_path / "cache",
+            "cache_config": {
+                "cache_dir": tmp_path,
+                "clean_cache": True,
+                "clean_evaluation_cache": True,
+            },
             "search_strategy": None,
-            "clean_evaluation_cache": True,
             "evaluator": evaluator_config,
         }
         metric_result_dict = {
@@ -274,7 +280,16 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
 
-        model_path = tmp_path / "cache" / "default_workflow" / "models" / "dummy-model-id" / "model.onnx"
+        engine = Engine(**options)
+        _, p_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
+        engine.register(OnnxConversion, config=p_config, disable_search=True)
+        engine.set_pass_flows()
+        accelerator_spec = DEFAULT_CPU_ACCELERATOR
+
+        output_model_id = engine.cache.get_output_model_id(
+            "OnnxConversion", p_config, model_config.get_model_id(), accelerator_spec
+        )
+        model_path = engine.cache.get_model_cache_path(output_model_id) / "model.onnx"
         model_path.parent.mkdir(parents=True, exist_ok=True)
         with model_path.open("w") as f:
             f.write("dummy-onnx-model")
@@ -289,12 +304,8 @@ class TestEngine:
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.olive_managed_env = False
 
-        engine = Engine(**options)
-        engine.register(OnnxConversion, disable_search=True, clean_run_cache=True)
-        engine.set_pass_flows()
         # output model to output_dir
         output_dir = tmp_path / "output_dir"
-        accelerator_spec = DEFAULT_CPU_ACCELERATOR
         expected_metrics = MetricResult.parse_obj(metric_result_dict)
         expected_saved_model_config = get_onnx_model_config(model_path=output_dir / "output_model" / "model.onnx")
 
@@ -303,7 +314,6 @@ class TestEngine:
             model_config,
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
-            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
         output_node = next(iter(footprint[accelerator_spec].nodes.values()))
 
@@ -332,8 +342,10 @@ class TestEngine:
             mock_run.side_effect = Exception("test")
             evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
             options = {
-                "cache_dir": tmpdir,
-                "clean_cache": True,
+                "cache_config": {
+                    "cache_dir": tmpdir,
+                    "clean_cache": True,
+                },
                 "search_strategy": {
                     "execution_order": "joint",
                     "search_algorithm": "random",
@@ -341,7 +353,7 @@ class TestEngine:
                 "evaluator": evaluator_config,
             }
             engine = Engine(**options)
-            engine.register(OnnxConversion, clean_run_cache=True)
+            engine.register(OnnxConversion)
 
             model_config = get_pytorch_model_config()
 
@@ -351,7 +363,6 @@ class TestEngine:
                 model_config,
                 [DEFAULT_CPU_ACCELERATOR],
                 output_dir=output_dir,
-                cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
             )
 
             # assert
@@ -364,10 +375,12 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": tmpdir,
-            "clean_cache": True,
+            "cache_config": {
+                "cache_dir": tmpdir,
+                "clean_cache": True,
+                "clean_evaluation_cache": True,
+            },
             "search_strategy": None,
-            "clean_evaluation_cache": True,
             "evaluator": evaluator_config,
         }
         metric_result_dict = {
@@ -387,7 +400,7 @@ class TestEngine:
         mock_local_system_init.return_value = mock_local_system
 
         engine = Engine(**options)
-        engine.register(OnnxConversion, clean_run_cache=True)
+        engine.register(OnnxConversion)
 
         # output model to output_dir
         output_dir = Path(tmpdir)
@@ -399,7 +412,6 @@ class TestEngine:
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
             evaluate_input_model=True,
-            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         actual_res = next(iter(actual_res[accelerator_spec].nodes.values())).metrics.value
@@ -416,10 +428,12 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": tmp_path / "cache",
-            "clean_cache": True,
+            "cache_config": {
+                "cache_dir": tmp_path,
+                "clean_cache": True,
+                "clean_evaluation_cache": True,
+            },
             "search_strategy": None,
-            "clean_evaluation_cache": True,
             "evaluator": evaluator_config,
         }
         metric_result_dict = {
@@ -440,7 +454,7 @@ class TestEngine:
         engine = Engine(**options)
 
         # output model to output_dir
-        output_dir = tmp_path / "output_dir"
+        output_dir = tmp_path
         expected_res = MetricResult.parse_obj(metric_result_dict)
 
         # execute
@@ -449,7 +463,6 @@ class TestEngine:
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
             evaluate_input_model=True,
-            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         actual_res = actual_res[accelerator_spec]
@@ -459,107 +472,6 @@ class TestEngine:
         assert result_json_path.is_file()
         assert MetricResult.parse_file(result_json_path) == actual_res
 
-    @patch.object(Path, "glob", return_value=[Path("cache") / "output" / "100_model.json"])
-    @patch.object(Path, "unlink")
-    def test_model_path_suffix(self, mock_unlink, mock_glob, tmpdir):
-        # setup
-        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
-        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        options = {
-            "cache_dir": tmpdir,
-            "clean_cache": True,
-            "search_strategy": None,
-            "clean_evaluation_cache": True,
-            "evaluator": evaluator_config,
-        }
-        engine = Engine(**options)
-        engine.register(OnnxConversion, clean_run_cache=True)
-
-        engine.initialize()
-
-        assert engine.cache.new_model_number == 101
-        assert mock_unlink.call_count == 1
-        assert mock_glob.call_count == 2
-
-    def test_model_path_suffix_with_exception(self, tmpdir):
-        # setup
-        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
-        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        options = {
-            "cache_dir": tmpdir,
-            "clean_cache": True,
-            "search_strategy": None,
-            "clean_evaluation_cache": True,
-            "evaluator": evaluator_config,
-        }
-        with patch.object(Path, "glob"):
-            Path.glob.return_value = [Path("cache") / "output" / "435d_0.json"]
-
-            with pytest.raises(ValueError) as exc_info:  # noqa: PT011
-                Engine(**options)
-            assert str(exc_info.value) == "invalid literal for int() with base 10: '435d'"
-
-    @patch("olive.systems.local.LocalSystem")
-    @patch("onnxruntime.get_available_providers")
-    def test_pass_cache_reuse(self, mock_get_available_providers, mock_local_system_init, caplog, tmpdir):
-        logger = logging.getLogger("olive")
-        logger.propagate = True
-
-        # setup
-        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
-        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        options = {
-            "cache_dir": tmpdir,
-            "clean_cache": True,
-            "search_strategy": {
-                "execution_order": "joint",
-                "search_algorithm": "random",
-            },
-            "clean_evaluation_cache": True,
-            "evaluator": evaluator_config,
-        }
-        mock_local_system = MagicMock()
-        mock_local_system.system_type = SystemType.Local
-        mock_local_system.get_supported_execution_providers.return_value = [
-            "CUDAExecutionProvider",
-            "CPUExecutionProvider",
-        ]
-        mock_get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        mock_local_system.run_pass.return_value = get_onnx_model_config()
-        mock_local_system.olive_managed_env = False
-        metric_result_dict = {
-            joint_metric_key(metric.name, sub_metric.name): {
-                "value": 0.998,
-                "priority": sub_metric.priority,
-                "higher_is_better": sub_metric.higher_is_better,
-            }
-            for sub_metric in metric.sub_types
-        }
-        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
-        mock_local_system_init.return_value = mock_local_system
-
-        engine = Engine(**options)
-        system_config = SystemConfig(
-            type=SystemType.Local,
-            config=LocalTargetUserConfig(
-                accelerators=[{"device": "GPU", "execution_providers": None}, {"device": "CPU"}],
-            ),
-        )
-        accelerator_specs = create_accelerators(system_config)
-        assert len(accelerator_specs) == 2
-        engine.register(OnnxConversion, clean_run_cache=True)
-
-        model_config = get_pytorch_model_config()
-        output_dir = Path(tmpdir)
-        _ = engine.run(
-            model_config,
-            accelerator_specs,
-            output_dir=output_dir,
-            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
-        )
-
-        mock_local_system.run_pass.assert_called_once()
-
     @patch("olive.systems.local.LocalSystem")
     @patch("onnxruntime.get_available_providers")
     def test_pass_cache(self, mock_get_available_providers, mock_local_system_init, tmpdir):
@@ -567,13 +479,15 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": tmpdir,
-            "clean_cache": True,
+            "cache_config": {
+                "cache_dir": tmpdir,
+                "clean_cache": True,
+                "clean_evaluation_cache": True,
+            },
             "search_strategy": {
                 "execution_order": "joint",
                 "search_algorithm": "random",
             },
-            "clean_evaluation_cache": True,
             "evaluator": evaluator_config,
         }
         mock_local_system = MagicMock()
@@ -604,7 +518,7 @@ class TestEngine:
             ),
         )
         accelerator_specs = create_accelerators(system_config)
-        engine.register(OnnxConversion, clean_run_cache=True)
+        engine.register(OnnxConversion)
 
         model_config = get_pytorch_model_config()
         output_dir = Path(tmpdir)
@@ -617,7 +531,6 @@ class TestEngine:
                 model_config,
                 accelerator_specs,
                 output_dir=output_dir,
-                cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
             )
             assert mock_local_system.run_pass.call_count == 2
 
@@ -631,8 +544,10 @@ class TestEngine:
             mock_run.side_effect = ValueError("test")
             evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
             options = {
-                "cache_dir": tmpdir,
-                "clean_cache": True,
+                "cache_config": {
+                    "cache_dir": tmpdir,
+                    "clean_cache": True,
+                },
                 "search_strategy": {
                     "execution_order": "joint",
                     "search_algorithm": "random",
@@ -640,7 +555,7 @@ class TestEngine:
                 "evaluator": evaluator_config,
             }
             engine = Engine(**options)
-            engine.register(OnnxConversion, clean_run_cache=True)
+            engine.register(OnnxConversion)
             model_config = get_pytorch_model_config()
             # execute
             output_dir = Path(tmpdir)
@@ -649,7 +564,6 @@ class TestEngine:
                     model_config,
                     [DEFAULT_CPU_ACCELERATOR],
                     output_dir=output_dir,
-                    cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
                 )
 
     @pytest.mark.parametrize("is_search", [True, False])
@@ -668,8 +582,10 @@ class TestEngine:
             metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
             evaluator_config = OliveEvaluatorConfig(metrics=[metric])
             options = {
-                "cache_dir": tmpdir,
-                "clean_cache": True,
+                "cache_config": {
+                    "cache_dir": tmpdir,
+                    "clean_cache": True,
+                },
                 "search_strategy": {
                     "execution_order": "joint",
                     "search_algorithm": "random",
@@ -696,13 +612,14 @@ class TestEngine:
                     onnx_model_config,
                     [DEFAULT_CPU_ACCELERATOR],
                     output_dir=output_dir,
-                    cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
                 )
                 assert not actual_res, "Expect empty dict when quantization fails"
         else:
             options = {
-                "cache_dir": tmpdir,
-                "clean_cache": True,
+                "cache_config": {
+                    "cache_dir": tmpdir,
+                    "clean_cache": True,
+                },
                 "search_strategy": None,
             }
             engine = Engine(**options)
@@ -714,6 +631,5 @@ class TestEngine:
                     [DEFAULT_CPU_ACCELERATOR],
                     output_dir=output_dir,
                     evaluate_input_model=False,
-                    cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
                 )
                 assert not actual_res[DEFAULT_CPU_ACCELERATOR].nodes, "Expect empty dict when quantization fails"

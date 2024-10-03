@@ -84,17 +84,17 @@ def hash_string(string):  # pragma: no cover
     return md5_hash.hexdigest()
 
 
-def hash_io_stream(f):  # pragma: no cover
+def hash_io_stream(f, block_size=4096):  # pragma: no cover
     md5_hash = hashlib.sha256()
     # Read and update hash in chunks of 4K
-    for byte_block in iter(lambda: f.read(4096), b""):
+    for byte_block in iter(lambda: f.read(block_size), b""):
         md5_hash.update(byte_block)
     return md5_hash.hexdigest()
 
 
-def hash_file(filename):  # pragma: no cover
+def hash_file(filename, block_size=4096):  # pragma: no cover
     with open(filename, "rb") as f:
-        return hash_io_stream(f)
+        return hash_io_stream(f, block_size)
 
 
 def hash_update_from_file(filename, hash_value):
@@ -483,6 +483,18 @@ def get_credentials(default_auth_params: Dict = None):
         credential = InteractiveBrowserCredential()
 
     return credential
+
+
+def is_hf_repo_exist(repo_name: str):
+    try:
+        from huggingface_hub import repo_exists
+    except ImportError:
+        logger.exception(
+            "huggingface_hub is not installed. Please install huggingface_hub to support Huggingface model."
+        )
+        raise
+
+    return repo_exists(repo_name)
 
 
 class WeightsFileFormat(StrEnumBase):

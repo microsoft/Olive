@@ -113,8 +113,8 @@ Manage the AzureML Compute resources.
     :prog: olive
     :path: manage-aml-compute
 
-Cloud Cache
-===========
+Shared Cache
+=============
 
 Delete Olive model cache stored in the cloud.
 
@@ -122,7 +122,7 @@ Delete Olive model cache stored in the cloud.
     :module: olive.cli.launcher
     :func: get_cli_parser
     :prog: olive
-    :path: cloud-cache
+    :path: shared-cache
 
 Providing Input Models
 ======================

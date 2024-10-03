@@ -212,11 +212,11 @@ def test_capture_onnx_command(_, mock_tempdir, mock_run, use_model_builder, tmp_
 
 @pytest.mark.parametrize("test_set", [(None, "successfully"), (MagicMock(name="blob1"), "failed")])
 @patch("azure.storage.blob.ContainerClient")
-@patch("olive.cli.cloud_cache.get_credentials", return_value="dummy-credentials")
-def test_cloud_cache_command(_, mock_container_client, test_set):
+@patch("olive.cli.shared_cache.get_credentials", return_value="dummy-credentials")
+def test_shared_cache_command(_, mock_container_client, test_set):
     # setup
     command_args = [
-        "cloud-cache",
+        "shared-cache",
         "--delete",
         "--account",
         "account",
@@ -229,7 +229,7 @@ def test_cloud_cache_command(_, mock_container_client, test_set):
     mock_container_client.return_value.list_blobs.side_effect = [[mock_blob], [test_set[0]]]
 
     # execute
-    with unittest.TestCase().assertLogs(logger="olive.cli.cloud_cache", level="INFO") as log:
+    with unittest.TestCase().assertLogs(logger="olive.cli.shared_cache", level="INFO") as log:
         cli_main(command_args)
 
     # assert

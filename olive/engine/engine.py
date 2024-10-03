@@ -11,11 +11,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
-from olive.cache import OliveCache
+from olive.cache import CacheConfig, OliveCache
 from olive.common.config_utils import validate_config
-from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
-from olive.common.utils import hash_dict
-from olive.engine.cloud_cache_helper import check_model_cache, is_valid_cloud_cache_model, update_input_model_config
+from olive.common.constants import DEFAULT_WORKFLOW_ID, LOCAL_INPUT_MODEL_ID
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS
 from olive.engine.footprint import Footprint, FootprintNodeMetric
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
@@ -32,7 +30,6 @@ from olive.systems.system_config import SystemConfig
 from olive.systems.utils import create_managed_system_with_cache
 
 if TYPE_CHECKING:
-    from olive.engine.cloud_cache_helper import CloudCacheConfig
     from olive.engine.packaging.packaging_config import PackagingConfig
     from olive.passes.olive_pass import Pass
     from olive.systems.olive_system import OliveSystem
@@ -53,9 +50,7 @@ class Engine:
         host: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
         target: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
         evaluator: Optional[Union[Dict[str, Any], "OliveEvaluatorConfig"]] = None,
-        cache_dir: str = DEFAULT_CACHE_DIR,
-        clean_cache: bool = False,
-        clean_evaluation_cache: bool = False,
+        cache_config: Optional[Union[Dict[str, Any], CacheConfig]] = None,
         plot_pareto_frontier: bool = False,
         *,
         azureml_client_config=None,
@@ -83,9 +78,8 @@ class Engine:
         # default evaluator
         self.evaluator_config = validate_config(evaluator, OliveEvaluatorConfig) if evaluator else None
 
-        self.cache = OliveCache(
-            str(Path(cache_dir) / workflow_id), clean_cache=clean_cache, clean_evaluation_cache=clean_evaluation_cache
-        )
+        self.cache_config = validate_config(cache_config, CacheConfig) if cache_config else CacheConfig()
+        self.cache: OliveCache = self.cache_config.create_cache(workflow_id)
 
         self.plot_pareto_frontier = plot_pareto_frontier
         self.azureml_client_config = azureml_client_config
@@ -93,14 +87,12 @@ class Engine:
         # dictionary of passes
         self.pass_config = OrderedDict()
 
-        # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
+        # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator}
         self.passes = OrderedDict()
         self.pass_flows = None
         self.pass_flows_search_spaces = None
 
         self.footprints = defaultdict(Footprint)
-
-        self.cloud_cache_helper = None
 
         self._initialized = False
 
@@ -113,15 +105,8 @@ class Engine:
         # might be used by other parts of olive to cache data
         self.cache.set_cache_env()
 
-        # clean pass run cache if requested
-        # removes all run cache for pass type and all children elements
-        for pass_config in self.pass_config.values():
-            clean_run_cache = pass_config["clean_run_cache"]
-            if clean_run_cache:
-                self.cache.clean_pass_run_cache(pass_config["type"].__name__)
-
         # prepare non-local resources if host/target is not AzureML
-        # TODO(anyone): Should the cloud cache care about this? If so, the cloud cache helper can
+        # TODO(anyone): Should the shared cache care about this? If so, the shared cache helper can
         # check for cached non-local resource paths and replace them with the original config
         # during hash calculation.
         if self.target_config.type != SystemType.AzureML:
@@ -148,7 +133,6 @@ class Engine:
         name: str = None,
         host: "OliveSystem" = None,
         evaluator_config: "OliveEvaluatorConfig" = None,
-        clean_run_cache: bool = False,
     ):
         """Register a pass configuration so that it could be instantiated and executed later."""
         if name is not None:
@@ -169,7 +153,6 @@ class Engine:
             "disable_search": disable_search,
             "host": host,
             "evaluator": evaluator_config,
-            "clean_run_cache": clean_run_cache,
         }
 
     def register_pass(
@@ -214,7 +197,6 @@ class Engine:
         evaluate_input_model: bool = True,
         log_to_file: bool = False,
         log_severity_level: int = 1,
-        cloud_cache_config: "CloudCacheConfig" = None,
     ):
         """Run all the registered Olive passes on the input model and produce one or more candidate models.
 
@@ -227,7 +209,6 @@ class Engine:
             evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.
             log_to_file: if save logs to a file.
             log_severity_level: severity level of the logger.
-            cloud_cache_config: Cloud model cache configuration.
 
         Return:
             Search mode:
@@ -282,7 +263,6 @@ class Engine:
                     accelerator_output_dir,
                     evaluate_input_model,
                     accelerator_spec,
-                    cloud_cache_config,
                 )
 
                 if run_result is None:
@@ -316,12 +296,15 @@ class Engine:
         output_dir: Path,
         evaluate_input_model: bool,
         accelerator_spec: "AcceleratorSpec",
-        cloud_cache_config: "CloudCacheConfig",
     ):
         # generate search space and initialize the passes for each hardware accelerator
         self.setup_passes(accelerator_spec)
         # hash the input model
-        input_model_id = self._init_input_model(input_model_config)
+        input_model_id = input_model_config.get_model_id()
+        if input_model_id == LOCAL_INPUT_MODEL_ID and self.cache.enable_shared_cache:
+            logger.warning("Input model has callable attributes, shared cache is disabled.")
+            self.cache.disable_shared_cache()
+
         self.footprints[accelerator_spec].record(model_id=input_model_id)
 
         # create the output directory
@@ -345,9 +328,7 @@ class Engine:
 
             if self.no_search:
                 logger.debug("Running Olive in no-search mode ...")
-                output_footprint = self.run_no_search(
-                    input_model_config, input_model_id, accelerator_spec, output_dir, cloud_cache_config
-                )
+                output_footprint = self.run_no_search(input_model_config, input_model_id, accelerator_spec, output_dir)
             else:
                 logger.debug("Running Olive in search mode ...")
                 output_footprint = self.run_search(
@@ -355,7 +336,6 @@ class Engine:
                     input_model_id,
                     accelerator_spec,
                     output_dir,
-                    cloud_cache_config,
                 )
         except EXCEPTIONS_TO_RAISE:
             raise
@@ -409,7 +389,6 @@ class Engine:
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
         output_dir: Path,
-        cloud_cache_config: "CloudCacheConfig" = None,
     ):
         """Run all the registered Olive pass flows in no-search mode."""
         for pass_item in self.passes.values():
@@ -432,7 +411,6 @@ class Engine:
                 input_model_config,
                 input_model_id,
                 accelerator_spec,
-                cloud_cache_config,
             )
 
             if should_prune:
@@ -453,7 +431,7 @@ class Engine:
                     json.dump(signal.to_json(), f, indent=4)
                 logger.info("Saved evaluation results of output model to %s", results_path)
 
-            self.cache.save_model(model_number=model_ids[-1], output_dir=flow_output_dir, overwrite=True)
+            self.cache.save_model(model_id=model_ids[-1], output_dir=flow_output_dir, overwrite=True)
             logger.info("Saved output model to %s", flow_output_dir)
 
             output_model_ids.append(model_ids[-1])
@@ -468,7 +446,6 @@ class Engine:
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
         output_dir: Path,
-        cloud_cache_config: "CloudCacheConfig" = None,
     ):
         """Run all the registered Olive passes in search model where search strategy is not None."""
         # get objective_dict
@@ -514,7 +491,6 @@ class Engine:
                 model_config,
                 model_id,
                 accelerator_spec,
-                cloud_cache_config,
             )
 
             # record feedback signal
@@ -662,29 +638,14 @@ class Engine:
             return self.evaluator_config
         return e
 
-    def _cache_model(self, model: Union[ModelConfig, str], model_id: str, check_object: bool = True):
-        """Cache the model in the cache directory."""
+    def _cache_model(self, model_id: str, model: Union[ModelConfig, str], check_object: bool = True):
         # TODO(trajep): move model/pass run/evaluation cache into footprints
-        if model == FAILED_CONFIG:
-            model_json = {}
-        else:
-            model_json = model.to_json(check_object=check_object)
-        model_json_path = self.cache.get_model_json_path(model_id)
-        try:
-            with model_json_path.open("w") as f:
-                json.dump(model_json, f, indent=4)
-            logger.debug("Cached model %s to %s", model_id, model_json_path)
-        except Exception:
-            logger.exception("Failed to cache model")
+        model_json = {} if model == FAILED_CONFIG else model.to_json(check_object=check_object)
+        self.cache.cache_model(model_id, model_json)
 
     def _load_model(self, model_id: str) -> Union[ModelConfig, str]:
-        """Load the model from the cache directory."""
-        model_json_path = self.cache.get_model_json_path(model_id)
-        try:
-            with model_json_path.open() as f:
-                model_json = json.load(f)
-        except Exception:
-            logger.exception("Failed to load model.")
+        model_json = self.cache.load_model(model_id)
+        if model_json is None:
             return None
 
         if model_json == {}:
@@ -692,64 +653,12 @@ class Engine:
 
         return ModelConfig.from_json(model_json)
 
-    def _init_input_model(self, input_model_config: ModelConfig):
-        """Initialize the input model."""
-        model_hash = hash_dict(input_model_config.to_json())[:8]
-
-        # cache the model
-        self._cache_model(input_model_config, model_hash, check_object=False)
-
-        return model_hash
-
-    def _cache_run(
-        self,
-        pass_name: int,
-        pass_config: dict,
-        input_model_id: str,
-        output_model_id: str,
-        accelerator_spec: "AcceleratorSpec",
-        run_start_time: float = 0,
-        run_end_time: float = 0,
-    ):
-        """Cache the run in the cache directory."""
-        run_json = {
-            "pass_name": pass_name,
-            "pass_config": pass_config,
-            "input_model_id": input_model_id,
-            "output_model_id": output_model_id,
-            "run_start_time": run_start_time,
-            "run_end_time": run_end_time,
-        }
-        input_model_number = input_model_id.split("_")[0]
-        run_json_path = self.cache.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
-        try:
-            with run_json_path.open("w") as f:
-                json.dump(run_json, f, indent=4)
-            logger.debug("Cached run for %s->%s into %s", input_model_id, output_model_id, run_json_path)
-        except Exception:
-            logger.exception("Failed to cache run")
-
-    def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: "AcceleratorSpec"):
-        """Load the run from the cache directory."""
-        input_model_number = input_model_id.split("_")[0]
-        run_json_path = self.cache.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
-        run_json = {}
-        if run_json_path.exists():
-            try:
-                with run_json_path.open() as f:
-                    run_json = json.load(f)
-            except Exception:
-                logger.exception("Failed to load run")
-                run_json = {}
-        return run_json
-
     def _run_passes(
         self,
         passes: List[Tuple[str, Dict[str, Any]]],
         model_config: ModelConfig,
         model_id: str,
         accelerator_spec: "AcceleratorSpec",
-        cloud_cache_config: "CloudCacheConfig",
     ):
         """Run all the passes in the order they were registered.
 
@@ -759,30 +668,14 @@ class Engine:
         # run all the passes in the step
         model_ids = []
         pass_id = None
-        output_model_hash = None
-
-        if cloud_cache_config.enable_cloud_cache:
-            if not cloud_cache_config.input_model_identifier and not is_valid_cloud_cache_model(model_config):
-                logger.warning(
-                    "Only HfModel with huggingface id as model_path "
-                    "or HfModel from Azure ML registry model and Azure ML curated model "
-                    "is supported by cloud cache. "
-                    "Setting enable_cloud_cache=False."
-                )
-                cloud_cache_config.enable_cloud_cache = False
-            else:
-                self.cloud_cache_helper = cloud_cache_config.create_cloud_cache_helper()
 
         for pass_id, pass_search_point in passes:
-            model_config, model_id, output_model_hash = self._run_pass(
+            model_config, model_id = self._run_pass(
                 pass_id,
                 pass_search_point,
                 model_config,
                 model_id,
                 accelerator_spec,
-                cloud_cache_config.enable_cloud_cache,
-                cloud_cache_config.upload_to_cloud,
-                output_model_hash,
             )
             if model_config in PRUNED_CONFIGS:
                 should_prune = True
@@ -790,21 +683,8 @@ class Engine:
                 break
             model_ids.append(model_id)
 
-        if (
-            cloud_cache_config.enable_cloud_cache
-            and model_config not in PRUNED_CONFIGS
-            and model_config.config.get("model_path") is None
-        ):
-            # download model files
-            logger.info("Cloud model cache is enabled. Download final model files ...")
-            cloud_model_path, cloud_adapter_path = self.cloud_cache_helper.get_path_from_cloud(output_model_hash)
-            self.cloud_cache_helper.update_model_config(
-                cloud_model_path,
-                cloud_adapter_path,
-                model_config,
-                output_model_hash,
-                self.cache.get_model_output_path(model_id),
-            )
+        if model_config not in PRUNED_CONFIGS and model_config.config.get("shared_cache", False):
+            model_config = self.cache.download_shared_cache_model(model_config, model_id)
 
         if not should_prune:
             # evaluate the model
@@ -829,20 +709,16 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
-        enable_cloud_cache: bool,
-        upload_to_cloud: bool,
-        input_model_hash: str = None,
     ):
         """Run a pass on the input model."""
         # pass
+        run_start_time = datetime.now().timestamp()
         p: Pass = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
         logger.info("Running pass %s:%s %s", pass_id, pass_name, pass_search_point)
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
         output_model_config = None
-        output_model_hash = None
-        pass_run_locally = True
 
         # check whether the config is valid
         if not p.validate_search_point(pass_search_point, accelerator_spec, with_fixed_value=True):
@@ -852,13 +728,13 @@ class Engine:
             # invalid configs are also not cached since the same config can be valid for other accelerator specs
             # a pass can be accelerator agnostic but still have accelerator specific invalid configs
             # this helps reusing cached models for different accelerator specs
-            return output_model_config, None, None
+            return output_model_config, None
 
         # load run from cache if it exists
         run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
-        run_cache = self._load_run(input_model_id, pass_name, pass_config, run_accel)
-        output_model_id = run_cache.get("output_model_id", None)
-        if output_model_id is not None:
+        output_model_id = self.cache.get_output_model_id(pass_name, pass_config, input_model_id, accelerator_spec)
+        run_cache = self.cache.load_run_from_model_id(output_model_id)
+        if run_cache:
             logger.debug("Loading model from cache ...")
             output_model_config = self._load_model(output_model_id)
             if output_model_config is not None:
@@ -871,84 +747,53 @@ class Engine:
                     parent_model_id=input_model_id,
                     from_pass=pass_name,
                     pass_run_config=pass_config,
-                    start_time=run_cache.get("run_start_time", 0),
-                    end_time=run_cache.get("run_end_time", 0),
+                    start_time=run_start_time,
+                    end_time=datetime.now().timestamp(),
                 )
                 logger.info("Loaded model from cache: %s", output_model_id)
-                return output_model_config, output_model_id, None
+                return output_model_config, output_model_id
 
-        # new model id
-        input_model_number = input_model_id.split("_")[0]
-        # Note: the final output model id need contains the accelerator information
-        # if the output model is accelerator dependent.
-        output_model_id_parts = [
-            f"{self.cache.get_new_model_number()}_{pass_name}",
-            input_model_number,
-            hash_dict(pass_config)[:8],
-        ]
+        output_model_path = str(self.cache.get_model_cache_path(output_model_id))
+        if input_model_config.config.get("shared_cache", False):
+            input_model_config = self.cache.download_shared_cache_model(input_model_config, input_model_id)
 
-        if not p.is_accelerator_agnostic(accelerator_spec):
-            output_model_id_parts.append(f"{accelerator_spec}")
+        host = self.host_for_pass(pass_id)
+        if host.system_type != SystemType.AzureML:
+            input_model_config = self.cache.prepare_resources_for_local(input_model_config)
 
-        output_model_id = "-".join(map(str, output_model_id_parts))
-        output_model_path = str(self.cache.get_model_output_path(output_model_id))
+        try:
+            if p.run_on_target:
+                if self.target.system_type == SystemType.IsolatedORT:
+                    logger.warning(
+                        "Cannot run pass %s on IsolatedORT target, will use the host to run the pass.", pass_id
+                    )
+                else:
+                    host = self.target
 
-        run_start_time = datetime.now().timestamp()
-
-        if enable_cloud_cache:
-            pass_hash_key = {"pass": pass_name, "config": pass_config}
-            output_model_hash = self.cloud_cache_helper.get_hash_key(
-                input_model_config, pass_hash_key, input_model_hash
-            )
-            output_model_config = check_model_cache(self.cloud_cache_helper, output_model_hash, Path(output_model_path))
-            pass_run_locally = output_model_config is None
-
-        # run pass
-        if pass_run_locally:
-            if enable_cloud_cache and input_model_config.config.get("model_path") is None:
-                update_input_model_config(
-                    self.cloud_cache_helper, input_model_config, input_model_hash, Path(output_model_path)
-                )
-
-            host = self.host_for_pass(pass_id)
-            if host.system_type != SystemType.AzureML:
-                input_model_config = self.cache.prepare_resources_for_local(input_model_config)
-
-            try:
-                if p.run_on_target:
-                    if self.target.system_type == SystemType.IsolatedORT:
-                        logger.warning(
-                            "Cannot run pass %s on IsolatedORT target, will use the host to run the pass.", pass_id
-                        )
-                    else:
-                        host = self.target
-
-                output_model_config = host.run_pass(p, input_model_config, output_model_path, pass_search_point)
-            except OlivePassError:
-                logger.exception("Pass run_pass failed")
-                output_model_config = FAILED_CONFIG
-            except EXCEPTIONS_TO_RAISE:
-                # Don't catch these errors since most of time, it is caused by the user errors and need not retry.
-                raise
-            except Exception:
-                output_model_config = FAILED_CONFIG
-                # TODO(jambayk): from the time being, we need to catch all exceptions to make the
-                #      search process robust. We need rethrow the exception only when
-                #      it is not pass specific. For example, for olive bugs and user errors
-                logger.exception("Pass run failed.")
-                if self.no_search:
-                    raise  # rethrow the exception if no search is performed
+            output_model_config = host.run_pass(p, input_model_config, output_model_path, pass_search_point)
+        except OlivePassError:
+            logger.exception("Pass run_pass failed")
+            output_model_config = FAILED_CONFIG
+        except EXCEPTIONS_TO_RAISE:
+            # Don't catch these errors since most of time, it is caused by the user errors and need not retry.
+            raise
+        except Exception:
+            output_model_config = FAILED_CONFIG
+            # TODO(jambayk): from the time being, we need to catch all exceptions to make the
+            #      search process robust. We need rethrow the exception only when
+            #      it is not pass specific. For example, for olive bugs and user errors
+            logger.exception("Pass run failed.")
+            if self.no_search:
+                raise  # rethrow the exception if no search is performed
 
         run_end_time = datetime.now().timestamp()
         logger.info("Pass %s:%s finished in %f seconds", pass_id, pass_name, run_end_time - run_start_time)
 
         # cache model
-        self._cache_model(output_model_config, output_model_id)
+        self._cache_model(output_model_id, output_model_config)
 
         # cache run
-        self._cache_run(
-            pass_name, pass_config, input_model_id, output_model_id, run_accel, run_start_time, run_end_time
-        )
+        self.cache.cache_run(pass_name, pass_config, input_model_id, output_model_id, run_accel)
 
         # footprint model and run
         self.footprints[accelerator_spec].record(
@@ -961,18 +806,7 @@ class Engine:
             end_time=run_end_time,
         )
 
-        if enable_cloud_cache and upload_to_cloud and pass_run_locally:
-            self.cloud_cache_helper.upload_model_to_cloud_cache(output_model_hash, output_model_config)
-
-        return output_model_config, output_model_id, output_model_hash
-
-    def save_olive_config(self, olive_config: dict):
-        """Save the olive config to the output directory."""
-        olive_config_path = self.cache.get_cache_dir() / "olive_config.json"
-        olive_config_path.parent.mkdir(parents=True, exist_ok=True)
-        with olive_config_path.open("w") as f:
-            json.dump(olive_config, f, indent=4)
-        logger.info("Saved Olive config to %s", olive_config_path)
+        return output_model_config, output_model_id
 
     def _cache_evaluation(self, model_id: str, signal: MetricResult):
         """Cache the evaluation in the cache directory."""
@@ -980,12 +814,7 @@ class Engine:
             "model_id": model_id,
             "signal": signal.dict(),
         }
-        evaluation_json_path = self.cache.get_evaluation_json_path(model_id)
-        try:
-            with evaluation_json_path.open("w") as f:
-                json.dump(evaluation_json, f, indent=4)
-        except Exception:
-            logger.exception("Failed to cache evaluation")
+        self.cache.cache_evaluation(model_id, evaluation_json)
 
     def _load_evaluation(self, model_id: str):
         """Load the evaluation from the cache directory."""

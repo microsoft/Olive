@@ -74,6 +74,7 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
     config = OrtTransformersOptimization.generate_search_space(accelerator_spec, config, disable_search=True)
     p = OrtTransformersOptimization(accelerator_spec, config, True)
     is_pruned = not p.validate_search_point(config, accelerator_spec)
+
     if accelerator_spec.execution_provider == "CPUExecutionProvider":
         if fp16 and use_gpu:
             assert is_pruned

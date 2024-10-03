@@ -161,14 +161,6 @@ class AzureMLSystem(OliveSystem):
         code_files = [cur_dir / script_name]
         self.copy_files(code_files, config_root)
 
-        if run_config.input_model.config.get("model_path"):
-            input_model_resource_path = create_resource_path(run_config.input_model.config["model_path"])
-            if (
-                input_model_resource_path.is_azureml_models()
-                and run_config.engine.cloud_cache_config.enable_cloud_cache
-            ):
-                run_config.engine.cloud_cache_config.input_model_identifier = input_model_resource_path.get_path()
-
         workflow_config = run_config.to_json(make_absolute=False)
         [
             workflow_config.pop(component, None)
@@ -178,7 +170,7 @@ class AzureMLSystem(OliveSystem):
         inputs, args = self.create_inputs_and_args(
             {WORKFLOW_CONFIG: workflow_config},
             tmp_dir,
-            ignore_keys=["cache_dir", "cloud_cache_config", "output_dir", "model_attributes"],
+            ignore_keys=["cache_dir", "output_dir", "model_attributes"],
         )
 
         outputs = {

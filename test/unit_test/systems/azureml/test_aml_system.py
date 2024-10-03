@@ -133,7 +133,7 @@ class TestAzureMLSystem:
         # setup
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
-        run_config = MagicMock(workflow_id="workflow_id")
+        run_config = MagicMock()
 
         # execute
         self.system.submit_workflow(run_config)

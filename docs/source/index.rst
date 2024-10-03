@@ -44,7 +44,7 @@ This document introduces Olive and provides some examples to get you started.
    features/huggingface_model_optimization
    features/lora
    features/packaging_output_models
-   features/cloud_model_cache
+   features/shared_cache
    features/run_workflow_remotely
    features/conversion
    features/quantization

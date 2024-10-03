@@ -8,7 +8,6 @@ from warnings import warn
 
 from olive.cli.auto_opt import AutoOptCommand
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand
-from olive.cli.cloud_cache import CloudCacheCommand
 from olive.cli.configure_qualcomm_sdk import ConfigureQualcommSDKCommand
 from olive.cli.export_adapters import ExportAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
@@ -17,6 +16,7 @@ from olive.cli.manage_aml_compute import ManageAMLComputeCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
+from olive.cli.shared_cache import SharedCacheCommand
 
 
 def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
@@ -41,7 +41,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     SessionParamsTuningCommand.register_subcommand(commands_parser)
     ConfigureQualcommSDKCommand.register_subcommand(commands_parser)
     ManageAMLComputeCommand.register_subcommand(commands_parser)
-    CloudCacheCommand.register_subcommand(commands_parser)
+    SharedCacheCommand.register_subcommand(commands_parser)
 
     return parser
 
