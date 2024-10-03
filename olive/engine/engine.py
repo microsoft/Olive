@@ -640,7 +640,9 @@ class Engine:
 
     def _init_input_model(self, input_model_config: ModelConfig):
         """Initialize the input model."""
+        logger.info("Initialize input model ...")
         model_id = input_model_config.get_model_id()
+        logger.info("Model ID: %s", model_id)
         self.cache.cache_model(model_id, input_model_config.to_json(), disable_shared_cache=True)
         return model_id
 

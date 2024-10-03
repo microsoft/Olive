@@ -48,19 +48,22 @@ class ModelConfig(NestedConfig):
                 return LOCAL_INPUT_MODEL_ID
 
         model_identifier = self.get_model_identifier()
+        logger.info(f"Model identifier: {model_identifier}")
         model_config = deepcopy(self)
         model_config.config.pop("model_path", None)
         model_config.config.pop("adapter_path", None)
         if model_config.config.get("model_attributes"):
             model_config.config["model_attributes"].pop("additional_files", None)
             model_config.config["model_attributes"].pop("_name_or_path", None)
-
+        logger.info(f"Model config: {model_config.dict()}")
         return hash_dict({"model_identifier": model_identifier, "model_config": model_config.dict()})[:8]
 
     def get_model_identifier(self):
         model_path = self.config.get("model_path")
+        logger.info(f"Model path: {model_path}")
         if model_path:
             model_path_resource_path = create_resource_path(model_path)
+            logger.info(f"Model path resource path: {model_path_resource_path}")
             if (
                 self.type == "hfmodel"
                 and model_path_resource_path.is_string_name()
@@ -82,6 +85,7 @@ class ModelConfig(NestedConfig):
 
         file_hashes = self._get_model_files_hash(self.config)
         sorted_file_hashes = sorted(file_hashes)
+        logger.info(f"File hashes: {sorted_file_hashes}")
         return hash_string("".join(sorted_file_hashes))
 
     def _get_model_files_hash(self, config: Dict):
@@ -90,7 +94,7 @@ class ModelConfig(NestedConfig):
 
         additional_files = config.get("model_attributes", {}).get("additional_files", [])
         local_resource_paths.extend(Path(f) for f in additional_files)
-
+        logger.info(f"Local resource paths: {local_resource_paths}")
         file_hashes = []
         for local_resource_path in local_resource_paths:
             file_hashes.extend(self._get_file_hash(local_resource_path))
