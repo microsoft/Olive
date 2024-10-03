@@ -332,7 +332,7 @@ def add_input_model_options(
             type=str,
             help="The directory containing the model script file.",
         )
-    model_group.add_argument("--is_generative_model", action="store_false", help="Is this a generative model?")
+    model_group.add_argument("--is_generative_model", type=bool, default=True, help="Is this a generative model?")
     model_group.add_argument(
         "-o",
         "--output_path",
