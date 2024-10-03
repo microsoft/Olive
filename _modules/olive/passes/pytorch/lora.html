@@ -237,6 +237,13 @@
             <span class="s2">&quot;The path to a folder with a valid checkpoint for the model. Supercedes any checkpoint found in output_dir.&quot;</span>
         <span class="p">),</span>
     <span class="p">)</span>
+    <span class="n">deepspeed</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Use [Deepspeed](https://github.com/microsoft/deepspeed). If True, will use default deepspeed config. Else,&quot;</span>
+            <span class="s2">&quot; it is a path to a deepspeed config file or a dict with deepspeed config.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
     <span class="n">extra_args</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
         <span class="kc">None</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
@@ -265,6 +272,10 @@
         <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;output_dir&quot;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;output_dir must be provided.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">args</span><span class="p">[</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">DEFAULT_DEEPSPEED_CONFIG</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">]</span>
         <span class="n">extra_args</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;extra_args&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_args</span><span class="p">)</span></div></div>
 
@@ -1017,6 +1028,44 @@
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">quantized_modules</span>
+
+
+<span class="n">DEFAULT_DEEPSPEED_CONFIG</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;zero_optimization&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="s2">&quot;allgather_partitions&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;allgather_bucket_size&quot;</span><span class="p">:</span> <span class="mf">5e8</span><span class="p">,</span>
+        <span class="s2">&quot;overlap_comm&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;reduce_scatter&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;reduce_bucket_size&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;contiguous_gradients&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;stage3_prefetch_bucket_size&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;stage3_param_persistence_threshold&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sub_group_size&quot;</span><span class="p">:</span> <span class="mf">1e9</span><span class="p">,</span>
+        <span class="s2">&quot;stage3_max_live_parameters&quot;</span><span class="p">:</span> <span class="mf">1e9</span><span class="p">,</span>
+        <span class="s2">&quot;stage3_max_reuse_distance&quot;</span><span class="p">:</span> <span class="mf">1e9</span><span class="p">,</span>
+        <span class="s2">&quot;stage3_gather_16bit_weights_on_model_save&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;offload_param&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;offload_optimizer&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;fp16&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;loss_scale&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;loss_scale_window&quot;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="s2">&quot;initial_scale_power&quot;</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>
+        <span class="s2">&quot;hysteresis&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="s2">&quot;min_loss_scale&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;bf16&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;train_micro_batch_size_per_gpu&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;train_batch_size&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;gradient_accumulation_steps&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;gradient_clipping&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+<span class="p">}</span>
 </pre></div>
 
            </div>

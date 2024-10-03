@@ -3809,6 +3809,12 @@
 </dd></dl>
 
 <dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.lora.HFTrainingArguments.deepspeed">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">deepspeed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Dict</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.passes.pytorch.lora.HFTrainingArguments.deepspeed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use [Deepspeed](<a class="reference external" href="https://github.com/microsoft/deepspeed">https://github.com/microsoft/deepspeed</a>). If True, will use default deepspeed config. Else, it is a path to a deepspeed config file or a dict with deepspeed config.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.passes.pytorch.lora.HFTrainingArguments.extra_args">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">extra_args</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.passes.pytorch.lora.HFTrainingArguments.extra_args" title="Permalink to this definition">¶</a></dt>
 <dd><p>Extra arguments to pass to the trainer. Values can be provided directly to this field as a dict or as keyword arguments to the config. See transformers.TrainingArguments for more details on the available arguments.</p>
