@@ -83,8 +83,8 @@ class CacheConfig(ConfigBase):
     def _get_shared_cache_match(cache_dir):
         cache_dirs = [cache_dir] if not isinstance(cache_dir, list) else cache_dir
         pattern = r"https://([^.]+)\.blob\.core\.windows\.net/([^/]+)"
-        for cache_dir in cache_dirs:
-            match = re.match(pattern, str(cache_dir))
+        for cache in cache_dirs:
+            match = re.match(pattern, str(cache))
 
             if match:
                 return match
@@ -322,8 +322,6 @@ class OliveCache:
             json.dump(data, f, indent=4)
 
             return local_resource_path
-
-        return local_resource_path
 
     def get_resource_cache_path(self):
         return self.dirs.resources
