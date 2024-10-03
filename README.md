@@ -13,11 +13,11 @@
   python -m olive cloud-cache --delete --all --account <account> --container <container>
   ```
 
-* Add cli to export local python model to onnx model:
+~~* Add cli to export local python model to onnx model:~~ (officially support now!)
  
-  ```
-  python -m olive capture-onnx-graph --pt --io_config <io_config.json path> -m <model.pt path>
-  ```
+~~  ```~~
+~~  python -m olive capture-onnx-graph --pt --io_config <io_config.json path> -m <model.pt path>~~
+~~  ```~~ 
 
 That's it!
 
