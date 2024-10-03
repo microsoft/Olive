@@ -300,7 +300,7 @@ class Engine:
         # generate search space and initialize the passes for each hardware accelerator
         self.setup_passes(accelerator_spec)
         # hash the input model
-        input_model_id = input_model_config.get_model_id()
+        input_model_id = self._init_input_model(input_model_config)
         if input_model_id == LOCAL_INPUT_MODEL_ID and self.cache.enable_shared_cache:
             logger.warning("Input model has callable attributes, shared cache is disabled.")
             self.cache.disable_shared_cache()
@@ -637,6 +637,12 @@ class Engine:
         if e is None:
             return self.evaluator_config
         return e
+
+    def _init_input_model(self, input_model_config: ModelConfig):
+        """Initialize the input model."""
+        model_id = input_model_config.get_model_id()
+        self.cache.cache_model(model_id, input_model_config.to_json(), disable_shared_cache=True)
+        return model_id
 
     def _cache_model(self, model_id: str, model: Union[ModelConfig, str], check_object: bool = True):
         # TODO(trajep): move model/pass run/evaluation cache into footprints

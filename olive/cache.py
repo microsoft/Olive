@@ -136,7 +136,7 @@ class OliveCache:
             cache_dir = Path(DEFAULT_CACHE_DIR).resolve() / DEFAULT_WORKFLOW_ID
         return cls(cache_config={"cache_dir": cache_dir})
 
-    def cache_model(self, model_id: str, model_json: Dict):
+    def cache_model(self, model_id: str, model_json: Dict, disable_shared_cache: bool = False):
         model_json_path = self.get_model_json_path(model_id)
         try:
             with model_json_path.open("w") as f:
@@ -146,7 +146,7 @@ class OliveCache:
         except Exception:
             logger.exception("Failed to cache model to local cache.")
 
-        if self.enable_shared_cache and self.update_shared_cache:
+        if not disable_shared_cache and self.enable_shared_cache and self.update_shared_cache:
             self.shared_cache.cache_model(model_id, model_json)
 
     def load_model(self, model_id: str) -> Optional[ModelConfig]:
