@@ -88,6 +88,13 @@ class HFTrainingArguments(NestedConfig):
             "The path to a folder with a valid checkpoint for the model. Supercedes any checkpoint found in output_dir."
         ),
     )
+    deepspeed: Union[bool, str, Dict] = Field(
+        None,
+        description=(
+            "Use [Deepspeed](https://github.com/microsoft/deepspeed). If True, will use default deepspeed config. Else,"
+            " it is a path to a deepspeed config file or a dict with deepspeed config."
+        ),
+    )
     extra_args: Dict[str, Any] = Field(
         None,
         description=(
@@ -116,6 +123,10 @@ class HFTrainingArguments(NestedConfig):
         args = self.dict()
         if not args["output_dir"]:
             raise ValueError("output_dir must be provided.")
+        if args["deepspeed"] is True:
+            args["deepspeed"] = deepcopy(DEFAULT_DEEPSPEED_CONFIG)
+        elif args["deepspeed"] is False:
+            del args["deepspeed"]
         extra_args = args.pop("extra_args")
         return transformers.TrainingArguments(**args, **extra_args)
 
@@ -868,3 +879,41 @@ class LoftQ(QLoRABase):
         )
 
         return new_model_handler, pytorch_model, tokenizer, quantized_modules
+
+
+DEFAULT_DEEPSPEED_CONFIG = {
+    "zero_optimization": {
+        "stage": 3,
+        "allgather_partitions": True,
+        "allgather_bucket_size": 5e8,
+        "overlap_comm": True,
+        "reduce_scatter": True,
+        "reduce_bucket_size": "auto",
+        "contiguous_gradients": True,
+        "stage3_prefetch_bucket_size": "auto",
+        "stage3_param_persistence_threshold": "auto",
+        "sub_group_size": 1e9,
+        "stage3_max_live_parameters": 1e9,
+        "stage3_max_reuse_distance": 1e9,
+        "stage3_gather_16bit_weights_on_model_save": "auto",
+        "offload_param": {
+            "device": "cpu",
+        },
+        "offload_optimizer": {
+            "device": "cpu",
+        },
+    },
+    "fp16": {
+        "enabled": "auto",
+        "loss_scale": 0,
+        "loss_scale_window": 1000,
+        "initial_scale_power": 16,
+        "hysteresis": 2,
+        "min_loss_scale": 1,
+    },
+    "bf16": {"enabled": "auto"},
+    "train_micro_batch_size_per_gpu": "auto",
+    "train_batch_size": "auto",
+    "gradient_accumulation_steps": "auto",
+    "gradient_clipping": "auto",
+}
