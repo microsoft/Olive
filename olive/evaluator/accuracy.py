@@ -5,7 +5,7 @@
 import logging
 from abc import abstractmethod
 from inspect import isfunction, signature
-from typing import Any, Callable, ClassVar, Dict, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Type, Union
 
 import torch
 
@@ -13,24 +13,31 @@ from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
 from olive.data.constants import IGNORE_INDEX
 
-try:
+if TYPE_CHECKING:
     import torchmetrics
-except ImportError as exc:
-    raise ImportError("Please install olive[evaluate] to use the Olive evaluation.") from exc
 
 logger = logging.getLogger(__name__)
 
 
 class AccuracyBase(AutoConfigClass):
     registry: ClassVar[Dict[str, Type["AccuracyBase"]]] = {}
-    metric_cls_map: ClassVar[Dict[str, Union[torchmetrics.Metric, Callable]]] = {
-        "accuracy_score": torchmetrics.Accuracy,
-        "f1_score": torchmetrics.F1Score,
-        "precision": torchmetrics.Precision,
-        "recall": torchmetrics.Recall,
-        "auroc": torchmetrics.AUROC,
-        "perplexity": torchmetrics.text.perplexity.Perplexity,
-    }
+
+    @classmethod
+    def metric_cls_map(cls) -> Dict[str, Union["torchmetrics.Metric", Callable]]:
+        """Return the mapping from metric names to torchmetrics classes."""
+        try:
+            import torchmetrics
+        except ImportError as exc:
+            raise ImportError("Please install olive[evaluate] to use the Olive evaluation.") from exc
+
+        return {
+            "accuracy_score": torchmetrics.Accuracy,
+            "f1_score": torchmetrics.F1Score,
+            "precision": torchmetrics.Precision,
+            "recall": torchmetrics.Recall,
+            "auroc": torchmetrics.AUROC,
+            "perplexity": torchmetrics.text.perplexity.Perplexity,
+        }
 
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)
@@ -44,7 +51,7 @@ class AccuracyBase(AutoConfigClass):
 
     @classmethod
     def _metric_config_from_torch_metrics(cls):
-        metric_module = cls.metric_cls_map[cls.name]
+        metric_module = cls.metric_cls_map()[cls.name]
         params = signature(metric_module).parameters
         # if the metrics is calculated by torchmetrics.functional, we should filter the label data out
         ignore_idx = 0
@@ -87,6 +94,8 @@ class AccuracyScore(AccuracyBase):
     name: str = "accuracy_score"
 
     def measure(self, model_output, target):
+        import torchmetrics
+
         preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
         accuracy = torchmetrics.Accuracy(**self.config_dict)
         result = accuracy(preds_tensor, target_tensor)
@@ -97,6 +106,8 @@ class F1Score(AccuracyBase):
     name: str = "f1_score"
 
     def measure(self, model_output, target):
+        import torchmetrics
+
         preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
         f1 = torchmetrics.F1Score(**self.config_dict)
         result = f1(preds_tensor, target_tensor)
@@ -107,6 +118,8 @@ class Precision(AccuracyBase):
     name: str = "precision"
 
     def measure(self, model_output, target):
+        import torchmetrics
+
         preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
         precision = torchmetrics.Precision(**self.config_dict)
         result = precision(preds_tensor, target_tensor)
@@ -117,6 +130,8 @@ class Recall(AccuracyBase):
     name: str = "recall"
 
     def measure(self, model_output, target):
+        import torchmetrics
+
         preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
         recall = torchmetrics.Recall(**self.config_dict)
         result = recall(preds_tensor, target_tensor)
@@ -127,6 +142,8 @@ class AUROC(AccuracyBase):
     name: str = "auroc"
 
     def measure(self, model_output, target):
+        import torchmetrics
+
         logits_tensor, target_tensor = self.prepare_tensors(model_output.logits, target, [torch.float, torch.int32])
         if self.config_dict.get("task") == "binary" and len(logits_tensor.shape) > 1 and logits_tensor.shape[-1] == 2:
             logits_tensor = torch.softmax(logits_tensor, dim=-1)[:, 1]
@@ -140,6 +157,8 @@ class Perplexity(AccuracyBase):
     name: str = "perplexity"
 
     def measure(self, model_output, target):
+        import torchmetrics
+
         # update ignore_index if not set
         config = self.config_dict
         if config["ignore_index"] is None:
