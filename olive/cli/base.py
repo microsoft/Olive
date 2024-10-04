@@ -48,7 +48,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     input_model = {
         "type": "HfModel",
         "model_path": model_path,
-        "generative": not args.non_generative,
+        "generative": args.is_generative_model,
         "load_kwargs": {
             "trust_remote_code": args.trust_remote_code,
             "attn_implementation": "eager",
@@ -70,7 +70,7 @@ def _get_onnx_input_model(args: Namespace, model_path: str) -> Dict:
     model_config = {
         "type": "OnnxModel",
         "model_path": model_path,
-        "generative": not args.non_generative,
+        "generative": args.is_generative_model,
     }
 
     # additional processing for the model folder
@@ -109,7 +109,7 @@ def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     input_model_config = {
         "type": "PyTorchModel",
         "model_script": args.model_script,
-        "generative": not args.non_generative,
+        "generative": args.is_generative_model,
     }
 
     if args.script_dir:
@@ -308,7 +308,6 @@ def add_input_model_options(
             "See https://microsoft.github.io/Olive/features/cli.html#input-model for more information"
         ),
     )
-    model_group.add_argument("--non-generative", action="store_false", help="Is non-generative model?")
     if enable_hf:
         model_group.add_argument(
             "--trust_remote_code", action="store_true", help="Trust remote code when loading a model."
@@ -333,7 +332,7 @@ def add_input_model_options(
             type=str,
             help="The directory containing the model script file.",
         )
-
+    model_group.add_argument("--is_generative_model", type=bool, default=True, help="Is this a generative model?")
     model_group.add_argument(
         "-o",
         "--output_path",

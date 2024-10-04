@@ -15,7 +15,7 @@ from olive.cli.base import get_input_model_config
     (
         "model_name_or_path",
         "trust_remote_code",
-        "non_generative",
+        "is_generative_model",
         "task",
         "model_script",
         "script_dir",
@@ -27,7 +27,7 @@ from olive.cli.base import get_input_model_config
         (
             None,  # model_name_or_path
             False,  # trust_remote_code
-            False,  # non_generative
+            True,  # is_generative_model
             None,  # task
             "model.py",  # model_script
             "scripts",  # script_dir
@@ -45,7 +45,7 @@ from olive.cli.base import get_input_model_config
         (
             "azureml://registries/my_registry/models/my_model/versions/1",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # non_generative
+            True,  # is_generative_model
             "task",  # task
             None,  # model_script
             None,  # script_dir
@@ -70,7 +70,7 @@ from olive.cli.base import get_input_model_config
         (
             "https://huggingface.co/my_model/my_model",  # model_name_or_path
             True,  # trust_remote_code
-            True,  # non_generative
+            False,  # is_generative_model
             "task",  # task
             None,  # model_script
             None,  # script_dir
@@ -90,7 +90,7 @@ from olive.cli.base import get_input_model_config
         (
             "azureml:my_model:1",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # non_generative
+            True,  # is_generative_model
             None,  # task
             "model.py",  # model_script
             "scripts",  # script_dir
@@ -108,7 +108,7 @@ from olive.cli.base import get_input_model_config
         (
             "hf_model",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # non_generative
+            True,  # is_generative_model
             "task",  # task
             None,  # model_script
             None,  # script_dir
@@ -128,7 +128,7 @@ from olive.cli.base import get_input_model_config
         (
             "model.pt",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # non_generative
+            True,  # is_generative_model
             None,  # task
             "model.py",  # model_script
             None,  # script_dir
@@ -144,7 +144,7 @@ from olive.cli.base import get_input_model_config
         (
             "model.pt",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # non_generative
+            True,  # is_generative_model
             None,  # task
             "model.py",  # model_script
             None,  # script_dir
@@ -162,7 +162,7 @@ from olive.cli.base import get_input_model_config
         (
             "model.onnx",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # non_generative
+            True,  # is_generative_model
             None,  # task
             None,  # model_script
             None,  # script_dir
@@ -177,7 +177,7 @@ from olive.cli.base import get_input_model_config
         (
             "hf",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # non_generative
+            True,  # is_generative_model
             "task",  # task
             None,  # model_script
             None,  # script_dir
@@ -200,7 +200,7 @@ def test_get_input_model_config(
     MockUserModuleLoader,
     model_name_or_path,
     trust_remote_code,
-    non_generative,
+    is_generative_model,
     task,
     model_script,
     script_dir,
@@ -212,7 +212,7 @@ def test_get_input_model_config(
     args = SimpleNamespace(
         model_name_or_path=model_name_or_path,
         trust_remote_code=trust_remote_code,
-        non_generative=non_generative,
+        is_generative_model=is_generative_model,
         task=task,
         model_script=model_script,
         script_dir=script_dir,
