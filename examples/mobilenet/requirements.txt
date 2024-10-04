@@ -1,4 +1,5 @@
 packaging
 pillow
 scipy
+torchmetrics
 torchvision

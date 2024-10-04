@@ -1,4 +1,5 @@
 onnxruntime
 pillow
 tabulate
+torchmetrics
 torchvision
