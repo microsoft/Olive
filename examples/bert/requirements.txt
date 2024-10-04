@@ -8,4 +8,5 @@ optimum
 scikit-learn
 scipy
 tabulate
+torchmetrics
 transformers

@@ -31,4 +31,5 @@ psutil
 pytorch_lightning
 sentencepiece
 tabulate
+torchmetrics>=1.0.0
 torchvision

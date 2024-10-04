@@ -8,11 +8,15 @@ from inspect import isfunction, signature
 from typing import Any, Callable, ClassVar, Dict, Type, Union
 
 import torch
-import torchmetrics
 
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
 from olive.data.constants import IGNORE_INDEX
+
+try:
+    import torchmetrics
+except ImportError as exc:
+    raise ImportError("Please install olive[evaluate] to use the Olive evaluation.") from exc
 
 logger = logging.getLogger(__name__)
 

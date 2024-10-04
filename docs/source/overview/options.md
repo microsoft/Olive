@@ -202,6 +202,9 @@ Please refer to [How To Configure System](../tutorials/configure_systems.rst) fo
 }
 ```
 ## Evaluators Information
+
+To use the evaluator, please install `olive[evaluate]`.
+
 `evaluators: [Dict]`
 
 This is a dictionary that contains the information of evaluators that are reference by the engine and passes. The key of the dictionary

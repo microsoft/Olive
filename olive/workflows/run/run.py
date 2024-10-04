@@ -72,6 +72,13 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
                     pass_config.type,
                 )
 
+    # add dependencies for evaluator
+    if run_config.evaluators:
+        local_packages.extend(extras.get("evaluate", []))
+        target = run_config.engine.target
+        if target and target.type == SystemType.AzureML:
+            remote_packages.extend(extras.get("evaluate", []))
+
     # add dependencies for engine
     host_type = None
     accelerators = []

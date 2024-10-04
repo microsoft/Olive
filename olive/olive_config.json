@@ -112,6 +112,7 @@
         "cpu": [ "onnxruntime" ],
         "directml": [ "onnxruntime-directml" ],
         "docker": [ "docker" ],
+        "evaluate": [ "torchmetrics>=1.0.0" ],
         "finetune": [ "onnxruntime-genai", "optimum", "accelerate>=0.30.0", "peft", "scipy" ],
         "flash-attn": [ "flash_attn" ],
         "gpu": [ "onnxruntime-gpu" ],
