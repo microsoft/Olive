@@ -10,7 +10,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Generator, List, Optional, Union
 
-from olive.auto_optimizer import AutoOptimizer
 from olive.common.utils import set_tempdir
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
@@ -209,6 +208,8 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     pass_list = []
     acc_list = []
     if auto_optimizer_enabled:
+        from olive.auto_optimizer import AutoOptimizer
+
         # For auto optimizer, Olive generates passes and pass_flows for each accelerator
         # that means, the passes and pass_flows might be different for each accelerator
         for acc_spec in accelerator_specs:

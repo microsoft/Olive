@@ -131,7 +131,7 @@ def test_run_packages():
     assert (requirements_file_path).exists()
     with (requirements_file_path).open() as f:
         file = f.read()
-        assert file == "pytorch-lightning\nonnxruntime"
+        assert file == "pytorch-lightning\torchmetrics>=1.0.0\nonnxruntime"
 
     # cleanup
     requirements_file_path.unlink()
