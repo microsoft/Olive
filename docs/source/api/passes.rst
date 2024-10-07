@@ -84,6 +84,18 @@ OnnxQuantization
 ----------------
 .. autoconfigclass:: olive.passes.OnnxQuantization
 
+.. _onnx_matmul4_quantizer:
+
+OnnxMatMul4Quantizer
+--------------------
+.. autoconfigclass:: olive.passes.OnnxMatMul4Quantizer
+
+.. _matmulnbits_to_qdq:
+
+MatMulNBitsToQDQ
+----------------
+.. autoconfigclass:: olive.passes.MatMulNBitsToQDQ
+
 .. _dynamic_to_fixed_shape:
 
 DynamicToFixedShape

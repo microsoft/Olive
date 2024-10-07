@@ -5,7 +5,7 @@
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Union
 
 import onnx
 from onnx import AttributeProto, GraphProto, NodeProto, TensorProto, ValueInfoProto
@@ -15,6 +15,7 @@ from olive.common.pydantic_v1 import Field
 from olive.common.utils import StrEnumBase
 
 if TYPE_CHECKING:
+    from numpy.typing import NDArray
     from onnx import ModelProto
 
 logger = logging.getLogger(__name__)
@@ -223,6 +224,21 @@ class OnnxDAG:
         """
         self._add_special_input(initializer, graph_idx, SpecialInput.INITIALIZER, keep_input)
 
+    def add_value_info(self, value_info: ValueInfoProto, graph_idx: int):
+        """Add a value info to the graph.
+
+        :param value_info: ValueInfoProto of the value info.
+        :param graph_idx: index of the graph in the model.
+        :param overwrite: whether to overwrite the existing value info if it exists with the same name.
+        """
+        name = value_info.name
+        if name not in self.ios:
+            self.ios[name] = OnnxIO(proto=[value_info], graph_idx=graph_idx)
+            return
+
+        assert not self.ios[name].proto, f"Value info for {name} already exists in the graph."
+        self.ios[name].proto.append(value_info)
+
     def _add_special_input(
         self,
         proto: Union[ValueInfoProto, TensorProto],
@@ -316,17 +332,15 @@ class OnnxDAG:
         """
         self._process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx, overwrite_input_initializers)
 
-    def remove_node(self, node_name: str, check_no_consumers: bool = False):
+    def remove_node(self, node_name: str):
         """Remove a node from the graph.
 
-        :param node_name: name of the node to remove.
-        :param check_no_consumers: whether to check if the node has consumers.
-            If True, it will raise an error if the node has consumers.
+        :param node_name: name of the node to remove. Node should not have consumers.
         """
         if node_name not in self.nodes:
             raise ValueError(f"Node {node_name} does not exist in the graph.")
 
-        if check_no_consumers and self.connections[node_name]:
+        if self.connections[node_name]:
             raise ValueError(f"Node {node_name} has consumers.")
 
         node = self.nodes.pop(node_name)
@@ -339,7 +353,7 @@ class OnnxDAG:
                 self.connections[parent].remove(node_name)
 
         for o in node.outputs:
-            self.ios[o].source = None
+            del self.ios[o]
 
         del self.connections[node_name]
 
@@ -383,12 +397,55 @@ class OnnxDAG:
         if num_updated < 1:
             raise ValueError(f"Input {old_input} does not exist in node {node_name} proto.")
 
+    def rename_node_output(self, node_name: str, old_output: str, new_output: str):
+        """Rename an output of a node.
+
+        :param node_name: name of the node.
+        :param old_output: name of the output to rename.
+        :param new_output: new name of the output.
+        """
+        assert new_output not in self.ios, f"Output {new_output} already exists in the graph."
+        node = self.nodes[node_name]
+        assert old_output in node.outputs, f"Output {old_output} does not exist in node {node_name}."
+
+        original_io = self.ios[old_output]
+        new_proto = []
+        for proto in original_io.proto:
+            value_info = ValueInfoProto()
+            value_info.CopyFrom(proto)
+            value_info.name = new_output
+            new_proto.append(value_info)
+
+        self.ios[new_output] = OnnxIO(graph_idx=original_io.graph_idx, proto=new_proto, source=original_io.source)
+
+        # update the node object and proto
+        node = self.nodes[node_name]
+        node.outputs[node.outputs.index(old_output)] = new_output
+        for i in range(len(node.outputs)):
+            if node.proto.output[i] == old_output:
+                node.proto.output[i] = new_output
+
+        # replace the input of consumers
+        for consumer in self.get_consumers(node_name):
+            self.replace_node_input(consumer, old_output, new_output)
+
+        # delete the old output
+        self.ios.pop(old_output)
+
     def get_node_names(self) -> List[str]:
         """Get the names of all nodes in the graph.
 
         :return: list of node names.
         """
         return list(self.nodes.keys())
+
+    def has_node(self, node_name: str) -> bool:
+        """Check if a node exists in the graph.
+
+        :param node_name: name of the node.
+        :return: True if the node exists.
+        """
+        return node_name in self.nodes
 
     def get_node(self, node_name: str) -> OnnxNode:
         """Get the node object.
@@ -422,6 +479,14 @@ class OnnxDAG:
         """
         return list(self.nodes[node_name].outputs)
 
+    def get_node_attributes(self, node_name: str) -> Dict[str, Any]:
+        """Get the attributes of a node.
+
+        :param node_name: name of the node.
+        :return: dictionary of attributes.
+        """
+        return {attr.name: onnx.helper.get_attribute_value(attr) for attr in self.nodes[node_name].proto.attribute}
+
     def get_io(self, io_name: str) -> OnnxIO:
         """Get the input/output object.
 
@@ -446,6 +511,23 @@ class OnnxDAG:
         """
         return SpecialInput.is_initializer(self.ios[io_name].source)
 
+    def get_graph_idx(self, name: str) -> int:
+        """Get the index of the graph containing the input/output or node."""
+        if name in self.ios:
+            return self.ios[name].graph_idx
+        if name in self.nodes:
+            return self.nodes[name].graph_idx
+        raise ValueError(f"{name} does not exist in the graph.")
+
+    def get_initializer_np_array(self, io_name: str) -> "NDArray":
+        """Get the numpy array of an initializer.
+
+        :param io_name: name of the initializer.
+        :return: numpy array of the initializer.
+        """
+        assert self.is_initializer(io_name)
+        return onnx.numpy_helper.to_array(self.get_io(io_name).proto[-1])
+
     def is_output(self, io_name: str) -> bool:
         """Check if an input/output is an output.
 
@@ -453,6 +535,15 @@ class OnnxDAG:
         :return: True if the input/output is an output.
         """
         return SpecialOutput.OUTPUT in self.ios[io_name].destination
+
+    def make_output(self, io_name: str):
+        """Make an input/output an output.
+
+        :param io_name: name of the input/output.
+        """
+        if self.is_output(io_name):
+            return
+        self.ios[io_name].destination.append(SpecialOutput.OUTPUT)
 
     def get_producer(self, io_name: str) -> str:
         """Get the producer of an input/output.
@@ -534,6 +625,7 @@ class OnnxDAG:
             inputs = []
             outputs = []
             initializers = []
+            value_infos = []
             for i, io in self.ios.items():
                 if io.graph_idx != idx:
                     # not in the current graph
@@ -543,10 +635,16 @@ class OnnxDAG:
                     outputs.append(io.proto[0])
                     continue
 
-                # inputs, initializers or intermediate connections
-                if len(self.get_consumers(i)) == 0:
+                if not io.destination:
                     # no consumers, so don't add it to the graph proto
                     continue
+
+                if not (self.is_input(i) or self.is_initializer(i)) and io.proto:
+                    # intermediate connections
+                    value_infos.append(io.proto[0])
+                    continue
+
+                # inputs, initializers
                 if self.is_input(i):
                     inputs.append(io.proto[0])
                 if self.is_initializer(i):
@@ -561,6 +659,8 @@ class OnnxDAG:
             graph.initializer.extend(initializers)
             graph.ClearField("output")
             graph.output.extend(outputs)
+            graph.ClearField("value_info")
+            graph.value_info.extend(value_infos)
 
     def remove_identity_nodes(self):
         """Remove identity nodes from the graph."""
@@ -579,7 +679,7 @@ class OnnxDAG:
             nodes_to_remove.add(node_name)
 
         for node_name in nodes_to_remove:
-            self.remove_node(node_name, check_no_consumers=True)
+            self.remove_node(node_name)
         logger.debug("Removed %d Identity nodes", len(nodes_to_remove))
 
     @classmethod

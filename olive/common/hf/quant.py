@@ -174,24 +174,27 @@ class QuantLinear4bit(torch.nn.Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
+
+        assert group_size >= 16, "group_size must >= 16"
+        assert math.log2(group_size).is_integer(), "group_size must be a power of 2"
         self.group_size = group_size
 
         # only support 4 bits for now
         bits = 4
+        n_blocks_per_col = math.ceil(in_features / self.group_size)
 
         self.register_buffer(
             "qweight",
             torch.zeros(
-                (out_features, in_features // self.group_size, self.group_size // (8 // bits)), dtype=torch.uint8
+                (out_features, n_blocks_per_col, math.ceil(self.group_size * bits / 8)),
+                dtype=torch.uint8,
             ),
         )
         self.register_buffer(
             "qzeros",
-            torch.zeros((math.ceil(in_features // self.group_size) * (out_features // 8 * bits)), dtype=torch.uint8),
+            torch.zeros(out_features * math.ceil(n_blocks_per_col * bits / 8), dtype=torch.uint8),
         )
-        self.register_buffer(
-            "scales", torch.zeros((math.ceil(in_features / self.group_size) * out_features), dtype=dtype)
-        )
+        self.register_buffer("scales", torch.zeros((out_features * n_blocks_per_col), dtype=dtype))
         if g_idx:
             self.register_buffer(
                 "g_idx", torch.tensor([i // self.group_size for i in range(in_features)], dtype=torch.int32)
