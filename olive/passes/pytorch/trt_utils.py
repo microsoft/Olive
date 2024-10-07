@@ -10,20 +10,25 @@ except ImportError:
 import io
 import logging
 from contextlib import redirect_stdout
+from typing import TYPE_CHECKING
 
 import tensorrt as trt
-import torch
 from torch_tensorrt.fx import InputTensorSpec, TRTInterpreter, TRTModule, compile  # pylint: disable=redefined-builtin
 from torch_tensorrt.fx.tracer.acc_tracer import acc_tracer
+
+if TYPE_CHECKING:
+    import torch
 
 
 class TRTLinearLayer(TRTModule):
     def forward(self, inputs):
         """Forward pass of the module. Casts input to fp16 and casts output back to original data type."""
+        import torch
+
         return super().forward(inputs.to(torch.float16)).to(inputs.dtype)
 
 
-def compile_trt_model(torch_module: torch.nn.Module, hidden_states: torch.Tensor, batch_size: int, seqlen: int):
+def compile_trt_model(torch_module: "torch.nn.Module", hidden_states: "torch.Tensor", batch_size: int, seqlen: int):
     """Compile a torch module to a TensorRT module.
 
     :param torch_module: The torch module to compile. Only torch.nn.Linear modules are supported currently.
@@ -31,6 +36,8 @@ def compile_trt_model(torch_module: torch.nn.Module, hidden_states: torch.Tensor
     :param batch_size: The batch size of the input tensor.
     :param seqlen: The maximum sequence length of the input tensor. seqlen dimension is treated as dynamic.
     """
+    import torch
+
     # disable logging from torch_tensorrt
     # torch_tensorrt logs are very verbose and produces multiple lines of log per module
     # this makes the log file very large and hard to read

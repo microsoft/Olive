@@ -16,7 +16,6 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Tuple, Union
 
-import torch
 import transformers
 from packaging import version
 
@@ -34,6 +33,7 @@ from olive.passes.olive_pass import PassConfigParam
 from olive.strategy.search_parameter import Categorical
 
 if TYPE_CHECKING:
+    import torch
     from datasets import Dataset
     from peft import PeftModel
     from transformers import PreTrainedModel, PreTrainedTokenizer
@@ -220,7 +220,7 @@ class LoRABase(Pass):
 
     # TODO(jambayk): consider introducing a data collator component for data container
     @staticmethod
-    def collate_batch(batch: List[Dict], tokenizer: "PreTrainedTokenizer") -> Dict[str, torch.Tensor]:
+    def collate_batch(batch: List[Dict], tokenizer: "PreTrainedTokenizer") -> Dict[str, "torch.Tensor"]:
         """Collate a batch of samples into a padded batch of tensors.
 
         Add padding to the input_ids, attention_mask and labels.
@@ -332,6 +332,8 @@ class LoRABase(Pass):
         :param kwargs: Additional arguments to update load_kwargs with.
         :return: The new model handler and the new loaded pytorch model.
         """
+        import torch
+
         # don't want the original loaded model
         # also frees gpu memory if original model is on gpu
         model_handler.model = None
@@ -486,6 +488,8 @@ class LoRABase(Pass):
         :param output_model_path: The path to save the output model to.
         :return: The output model handler.
         """
+        import torch
+
         if torch.cuda.is_available():
             allow_tf32 = torch.backends.cuda.matmul.allow_tf32
             torch.backends.cuda.matmul.allow_tf32 = config.allow_tf32
@@ -575,7 +579,7 @@ class LoRABase(Pass):
         return output_model
 
     @staticmethod
-    def get_torch_dtype(torch_dtype: str) -> torch.dtype:
+    def get_torch_dtype(torch_dtype: str) -> "torch.dtype":
         """Get the torch dtype from the string."""
         supported_dtypes = ("bfloat16", "float16", "float32")
         assert torch_dtype in supported_dtypes, f"torch_dtype must be one of {supported_dtypes} but got {torch_dtype}"
@@ -630,6 +634,8 @@ class LoRA(LoRABase):
         return config
 
     def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+        import torch
+
         # convert config to pass config class
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
