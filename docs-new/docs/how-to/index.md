@@ -21,7 +21,10 @@ hide:
 
 ## Working with the CLI
 
-The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx-graph-capture`, `auto-opt` that enable you to *easily* optimize models and experiment with different cutting-edge optimization strategies without the need to define workflows. For users new to Olive, we recommend that you start with the CLI.
+The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx-graph-capture`, `auto-opt` that enable you to *easily* optimize models and experiment with different cutting-edge optimization strategies without the need to define workflows.
+
+!!! tip
+    For users new to Olive, we recommend that you start with the CLI.
 
 <div class="grid cards" markdown>
 
@@ -39,7 +42,7 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 
     Learn how to use the `olive finetune` command to create (Q)LoRA adapters.
 
-    [:octicons-arrow-right-24: `olive finetune`](configure-workflows/metrics-configuration.md)
+    [:octicons-arrow-right-24: `olive finetune`](cli/cli-finetune.md)
 
 
 -   :fontawesome-solid-compress:{ .lg .middle } __Quantize__
@@ -48,7 +51,7 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 
     Learn how to use the `olive quantize` command to quantize your model with different precisions and techniques such as AWQ.
 
-    [:octicons-arrow-right-24: `olive quantize`](configure-workflows/metrics-configuration.md)
+    [:octicons-arrow-right-24: `olive quantize`](cli/cli-quantize.md)
 
 -   :octicons-workflow-24:{ .lg .middle } __Execute Olive Workflows__
 
@@ -56,7 +59,7 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 
     Learn how to use the `olive run` command to execute an Olive workflow.
 
-    [:octicons-arrow-right-24: `olive run`](configure-workflows/metrics-configuration.md)
+    [:octicons-arrow-right-24: `olive run`](cli/cli-run.md)
 
 </div>
 

@@ -5,6 +5,12 @@ hide:
 
 # Getting started
 
+## :simple-jupyter: Notebook available!
+
+This quickstart is available as a Jupyter Notebook, which you can download and run on your own computer. Alternatively, you can run the notebook using Google Colab (for free):
+
+[:simple-jupyter: Download Jupyter Notebook](https://github.com/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb){ .md-button } [:simple-googlecolab: Open in Google Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb){ .md-button }
+
 ## :simple-pypi: Install with pip
 
 We recommend installing Olive in a [virtual environment](https://docs.python.org/3/library/venv.html) or a
@@ -24,12 +30,11 @@ We recommend installing Olive in a [virtual environment](https://docs.python.org
 
     ```bash
     pip install olive-ai[gpu,auto-opt,finetune,capture-onnx-graph,bnb]
-    pip install transformers datasets onnxscript
     ```
 
 === "Windows DirectML"
 
-    If your machine is Windows, we recommend installing 
+    DirectML provides GPU acceleration on the Windows platform for common machine learning tasks across a broad range of supported hardware and drivers, including all DirectX 12-capable GPUs from vendors such as AMD, Intel, NVIDIA, and Qualcomm.
 
     ```bash
     pip install olive-ai[directml,auto-opt,finetune,capture-onnx-graph,bnb]
@@ -59,9 +64,10 @@ olive auto-opt \
     --trust_remote_code \ 
     --output_path optimized-model \ # (2)!
     --device cpu \ # (3)!
-    --providers CPUExecutionProvider \ # (4)!
-    --precisions int4 \ # (5)!
-    --log_level 1 # (6)!
+    --provider CPUExecutionProvider \ # (4)!
+    --precision int4 \ # (5)!
+    --use_model_builder True \ # (6)!
+    --log_level 1 # (7)!
 ```
 
 1. Can be either (a) the Hugging Face Repo ID for the model` {username}/{repo-name}` or (b) a path on local disk to the model or (c) an Azure AI Model registry ID.
@@ -69,7 +75,8 @@ olive auto-opt \
 3. The device type to model will execute on - CPU/NPU/GPU.
 4. The hardware provider - for example Nvidia CUDA (`CUDAExecutionProvider`), DirectML (`DmlExecutionProvider`), AMD (`MIGraphXExecutionProvider`, `ROCMExecutionProvider`), OpenVINO (`OpenVINOExecutionProvider`), Qualcomm (`QNNExecutionProvider`), TensorRT (`TensorrtExecutionProvider`).
 5. The precision of the optimized model (`fp16`, `fp32`, `int4`, `int8`).
-6. The logging level. 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL.
+6. Use Model Builder for graph capture
+7. The logging level. 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL.
 
 With the `auto-opt` command, you can change the input model to one that is available on Hugging Face - for example, to [HuggingFaceTB/SmolLM-360M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM-360M-Instruct) - or a model that resides on local disk. Olive, will go through the same process of *automatically* converting (to ONNX), optimizing the graph and quantizing the weights. The model can be optimized for different providers and devices - for example, you can choose DirectML (for Windows) as the provider and target either the NPU, GPU, or CPU device.
 
@@ -110,35 +117,35 @@ The ONNX Runtime (ORT) is a fast and light-weight package (available in many pro
 
     # Keep asking for input phrases
     while text != "exit":
-    if not text:
-        print("Error, input cannot be empty")
-        exit
+        if not text:
+            print("Error, input cannot be empty")
+            exit
 
-    # generate prompt (prompt template + input)
-    prompt = f'{chat_template.format(input=text)}'
+        # generate prompt (prompt template + input)
+        prompt = f'{chat_template.format(input=text)}'
 
-    # encode the prompt using the tokenizer
-    input_tokens = tokenizer.encode(prompt)
+        # encode the prompt using the tokenizer
+        input_tokens = tokenizer.encode(prompt)
 
-    params = og.GeneratorParams(model)
-    params.set_search_options(**search_options)
-    params.input_ids = input_tokens
-    generator = og.Generator(model, params)
+        params = og.GeneratorParams(model)
+        params.set_search_options(**search_options)
+        params.input_ids = input_tokens
+        generator = og.Generator(model, params)
 
-    print("Output: ", end='', flush=True)
-    # stream the output
-    try:
-        while not generator.is_done():
-        generator.compute_logits()
-        generator.generate_next_token()
+        print("Output: ", end='', flush=True)
+        # stream the output
+        try:
+            while not generator.is_done():
+                generator.compute_logits()
+                generator.generate_next_token()
 
-        new_token = generator.get_next_tokens()[0]
-        print(tokenizer_stream.decode(new_token), end='', flush=True)
-    except KeyboardInterrupt:
-        print("  --control+c pressed, aborting generation--")
+                new_token = generator.get_next_tokens()[0]
+                print(tokenizer_stream.decode(new_token), end='', flush=True)
+        except KeyboardInterrupt:
+            print("  --control+c pressed, aborting generation--")
 
-    print()
-    text = input("Input: ")
+        print()
+        text = input("Input: ")
     ```
 
     Run the code with:

@@ -41,14 +41,14 @@ theme:
       toggle:
         icon: material/brightness-auto
         name: Switch to light mode
-      primary: blue grey
-      accent: blue
+      primary: light blue
+      accent: light blue
 
     # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      accent: blue
-      primary: blue grey
+      accent: light blue
+      primary: light blue
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
@@ -56,8 +56,8 @@ theme:
     # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      accent: blue
-      primary: blue grey
+      accent: light blue
+      primary: light blue
       toggle:
         icon: material/brightness-4
         name: Switch to system preference
@@ -114,11 +114,12 @@ nav:
   - How-to:
     - how-to/index.md
     - Set-up:
-      - Install Olive: how-to/installation.md
+      - Install OLIVE: how-to/installation.md
     - Use the CLI:
       - Auto Optimization: how-to/cli/cli-auto-opt.md
       - Finetune: how-to/cli/cli-finetune.md
       - Quantize: how-to/cli/cli-quantize.md
+      - Run Workflow: how-to/cli/cli-run.md
     - Configure Workflows:
       - Data: how-to/configure-workflows/how-to-configure-data.md
       - Systems: how-to/configure-workflows/systems.md
