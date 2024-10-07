@@ -10,7 +10,7 @@ from olive.cli.auto_opt import AutoOptCommand
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand
 from olive.cli.cloud_cache import CloudCacheCommand
 from olive.cli.configure_qualcomm_sdk import ConfigureQualcommSDKCommand
-from olive.cli.export_adapters import ExportAdaptersCommand
+from olive.cli.convert_adapters import ConvertAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.manage_aml_compute import ManageAMLComputeCommand
@@ -36,7 +36,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     CaptureOnnxGraphCommand.register_subcommand(commands_parser)
     FineTuneCommand.register_subcommand(commands_parser)
     GenerateAdapterCommand.register_subcommand(commands_parser)
-    ExportAdaptersCommand.register_subcommand(commands_parser)
+    ConvertAdaptersCommand.register_subcommand(commands_parser)
     QuantizeCommand.register_subcommand(commands_parser)
     SessionParamsTuningCommand.register_subcommand(commands_parser)
     ConfigureQualcommSDKCommand.register_subcommand(commands_parser)

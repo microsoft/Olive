@@ -489,6 +489,7 @@ class WeightsFileFormat(StrEnumBase):
     PT = "pt"
     NUMPY = "numpy"
     SAFETENSORS = "safetensors"
+    ONNX_ADAPTER = "onnx_adapter"
 
 
 def save_weights(weights: Dict, path: str, file_format: WeightsFileFormat = WeightsFileFormat.NUMPY):
@@ -518,6 +519,17 @@ def save_weights(weights: Dict, path: str, file_format: WeightsFileFormat = Weig
         from safetensors.numpy import save_file
 
         save_file(weights, path)
+    elif file_format == WeightsFileFormat.ONNX_ADAPTER:
+        import onnxruntime as ort
+        from packaging import version
+
+        if version.parse(ort.__version__) < version.parse("1.20"):
+            raise ValueError("Saving ONNX adapter files is only supported in ONNX Runtime >= 1.20")
+
+        adapter_format = ort.AdapterFormat()
+        # TODO(jambayk): Add model and adapter version
+        adapter_format.set_parameters({k: ort.OrtValue.ortvalue_from_numpy(v) for k, v in weights.items()})
+        adapter_format.export_adapter(str(path))
 
     return path
 
@@ -542,6 +554,8 @@ def load_weights(path: Union[str, Path], file_format: Optional[WeightsFileFormat
         file_format = "numpy"
     elif path.suffix == ".safetensors":
         file_format = "safetensors"
+    elif path.suffix == ".onnx_adapter":
+        file_format = "onnx_adapter"
     else:
         raise ValueError(f"Unknown file format for {path}. Please provide file_format.")
 
@@ -570,6 +584,22 @@ def load_weights(path: Union[str, Path], file_format: Optional[WeightsFileFormat
         with safe_open(path, framework=framework, device="cpu") as f:
             for key in f.keys():  # noqa: SIM118
                 weights[key] = f.get_tensor(key)
+    elif file_format == WeightsFileFormat.ONNX_ADAPTER:
+        import numpy as np
+        import onnxruntime as ort
+        from packaging import version
+
+        if version.parse(ort.__version__) < version.parse("1.20"):
+            raise ValueError("Loading ONNX adapter files is only supported in ONNX Runtime >= 1.20")
+
+        adapter_format = ort.AdapterFormat.read_adapter(str(path))
+        # need to do np.copy since the .numpy is bound to the ort.OrtValue
+        # after returning the weights, adapter_format will be deleted so the numpy will be invalid
+        weights = {k: np.copy(v.numpy()) for k, v in adapter_format.get_parameters().items()}
+        if framework == "pt":
+            import torch
+
+            weights = {k: torch.from_numpy(v) for k, v in weights.items()}
 
     return weights
 

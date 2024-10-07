@@ -16,7 +16,7 @@ from olive.cli.launcher import main as cli_main
 @pytest.mark.parametrize("console_script", [True, False])
 @pytest.mark.parametrize(
     "command",
-    ["run", "configure-qualcomm-sdk", "manage-aml-compute", "export-adapters", "tune-session-params", "auto-opt"],
+    ["run", "configure-qualcomm-sdk", "manage-aml-compute", "convert-adapters", "tune-session-params", "auto-opt"],
 )
 def test_valid_command(console_script, command):
     # setup
@@ -286,4 +286,4 @@ def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_na
 
 
 # TODO(anyone): Add tests for ManageAMLComputeCommand
-# Test for ExportAdaptersCommand is added as part of test/unit_test/passes/onnx/test_export_adapters.py
+# Test for ConvertAdaptersCommand is added as part of test/unit_test/passes/onnx/test_extract_adapters.py
