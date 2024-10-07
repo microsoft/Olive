@@ -26,43 +26,6 @@ from olive.common.utils import set_nested_dict_value
 
 
 class QuantizeCommand(BaseOliveCLICommand):
-    _CONFIG_TEMPLATE = {
-        "input_model": {"type": "HfModel", "load_kwargs": {"attn_implementation": "eager"}},
-        "data_configs": [
-            {
-                "name": "default_data_config",
-                "type": "HuggingfaceContainer",
-                "load_dataset_config": {},
-                "pre_process_data_config": {},
-                "dataloader_config": {},
-                "post_process_data_config": {},
-            }
-        ],
-        "passes": {
-            # Pytorch algorithms
-            "awq": {"type": "AutoAWQQuantizer"},
-            "gptq": {"type": "GptqQuantizer", "data_config": "default_data_config"},
-            "quarot": {
-                "type": "QuaRot",
-                "w_rtn": False,
-                "w_gptq": False,
-                "rotate": False,
-                "calibration_data_config": "default_data_config",
-            },
-            # Onnx algorithms
-            "bnb4": {"type": "OnnxBnb4Quantization"},
-            "inc_dynamic": {"type": "IncDynamicQuantization"},
-            "matmul4": {"type": "OnnxMatMul4Quantizer"},
-            "nvmo": {"type": "NVModelOptQuantization"},
-            "onnx_dynamic": {"type": "OnnxDynamicQuantization"},
-            # NOTE(all): Not supported yet!
-            # "onnx_static": {"type": "OnnxStaticQuantization", "data_config": "default_data_config"},
-            # "inc_static": {"type": "IncStaticQuantization", "data_config": "default_data_config"},
-            # "vitis": {"type": "VitisAIQuantization", "data_config": "default_data_config"},
-        },
-        "pass_flows": [],
-        "output_dir": "models",
-    }
 
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
@@ -74,24 +37,20 @@ class QuantizeCommand(BaseOliveCLICommand):
         # model options
         add_input_model_options(sub_parser, enable_hf=True, enable_pt=True, default_output_path="quantized-model")
 
+        newline = "\n"
         sub_parser.add_argument(
             "--algorithms",
             type=str,
             nargs="*",
             required=True,
-            choices=sorted(QuantizeCommand._CONFIG_TEMPLATE["passes"].keys()),
-            help="List of quantization algorithms to run.",
+            choices=list(ALGORITHMS.keys()),
+            help=(
+                "List of quantization algorithms to"
+                f" run.{newline}{newline.join([f'{k}: {v[1]}' for k, v in ALGORITHMS.items()])}"
+            ),
         )
 
         add_dataset_options(sub_parser, required=False, include_train=False, include_eval=False)
-
-        sub_parser.add_argument(
-            "--precision",
-            type=str,
-            required=False,
-            choices=["fp4", "nf4"],
-            help="The output precision of the quantized model.",
-        )
 
         sub_parser.add_argument(
             "--quarot_rotate", action="store_true", help="Apply QuaRot/Hadamard rotation to the model."
@@ -101,7 +60,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             type=str,
             choices=["rtn", "gptq"],
             default="rtn",
-            help="Strategy to use to quantize weights.",
+            help="Strategy to use to quantize weights when using QuaRot.",
         )
 
         add_remote_options(sub_parser)
@@ -109,17 +68,16 @@ class QuantizeCommand(BaseOliveCLICommand):
         sub_parser.set_defaults(func=QuantizeCommand)
 
     def _get_run_config(self, tempdir: str) -> Dict[str, Any]:
-        config = deepcopy(QuantizeCommand._CONFIG_TEMPLATE)
+        config = deepcopy(TEMPLATE)
         update_input_model_options(self.args, config)
         update_dataset_options(self.args, config)
 
         to_replace = [
-            (("pass_flows"), [[name] for name in self.args.algorithms]),
-            (("passes", "bnb4", "quant_type"), self.args.precision),
+            ("pass_flows", [deepcopy(ALGORITHMS[algo][0]) for algo in self.args.algorithms]),
             (("passes", "quarot", "rotate"), self.args.quarot_rotate),
             (("passes", "quarot", "w_rtn"), self.args.quarot_strategy == "rtn"),
             (("passes", "quarot", "w_gptq"), self.args.quarot_strategy == "gptq"),
-            (("output_dir"), tempdir),
+            ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
         ]
         for k, v in to_replace:
@@ -145,3 +103,66 @@ class QuantizeCommand(BaseOliveCLICommand):
                 return
 
             save_output_model(run_config, self.args.output_path)
+
+
+TEMPLATE = {
+    "input_model": {"type": "HfModel", "load_kwargs": {"attn_implementation": "eager"}},
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+        }
+    },
+    "data_configs": [
+        {
+            "name": "default_data_config",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": {},
+            "pre_process_data_config": {},
+            "dataloader_config": {},
+            "post_process_data_config": {},
+        }
+    ],
+    "passes": {
+        # Pytorch algorithms
+        "awq": {"type": "AutoAWQQuantizer"},
+        "gptq": {"type": "GptqQuantizer", "data_config": "default_data_config"},
+        "quarot": {
+            "type": "QuaRot",
+            "w_rtn": False,
+            "w_gptq": False,
+            "rotate": False,
+            "calibration_data_config": "default_data_config",
+        },
+        # Onnx algorithms
+        "bnb4": {"type": "OnnxBnb4Quantization"},
+        "matmul4": {"type": "OnnxMatMul4Quantizer"},
+        "mnb_to_qdq": {"type": "MatMulNBitsToQDQ"},
+        "nvmo": {"type": "NVModelOptQuantization"},
+        "onnx_dynamic": {"type": "OnnxDynamicQuantization"},
+        "inc_dynamic": {"type": "IncDynamicQuantization"},
+        # NOTE(all): Not supported yet!
+        # "onnx_static": {"type": "OnnxStaticQuantization", "data_config": "default_data_config"},
+        # "inc_static": {"type": "IncStaticQuantization", "data_config": "default_data_config"},
+        # "vitis": {"type": "VitisAIQuantization", "data_config": "default_data_config"},
+    },
+    "pass_flows": [],
+    "output_dir": "models",
+    "host": "local_system",
+    "target": "local_system",
+}
+
+ALGORITHMS = {
+    "awq": (["awq"], "(HfModel) int4 WOQ with AWQ."),
+    "gptq": (["gptq"], "(HfModel) int4 WOQ with GPTQ."),
+    "quarot": (["quarot"], "(HfModel) QuaRot/Hadamard rotation + AWQ/RTN quantization."),
+    "bnb4": (["bnb4"], "(OnnxModel) nf4 WOQ using bitsandbytes."),
+    "int4_rtn": (["matmul4", "mnb_to_qdq"], "(OnnxModel) int4 WOQ with RTN using onnxruntime. DQ->MatMul is used."),
+    "int4_rtn_mnb": (
+        ["matmul4"],
+        "(OnnxModel) int4 WOQ with RTN using onnxruntime. MatMulNBits contrib is used instead of DQ->MatMul.",
+    ),
+    "nvmo": (["nvmo"], "(OnnxModel) int4 WOQ with RTN using Nvidia-ModelOpt. DQ->MatMul is used."),
+    "onnx_dynamic": (["onnx_dynamic"], "(OnnxModel) Dynamic quantization using onnxruntime."),
+    "inc_dynamic": (["inc_dynamic"], "(OnnxModel) Dynamic quantization using neural-compressor."),
+}
