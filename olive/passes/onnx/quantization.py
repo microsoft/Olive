@@ -303,7 +303,7 @@ class OnnxQuantization(Pass):
                 # ignore the parameter if quant_mode is dynamic
                 # if quant_mode is static, use the searchable_values in static_optional_config by expanding the parents
                 value.searchable_values = Conditional(
-                    parents=("quant_mode", *value.searchable_values.parents),
+                    parents=("quant_mode", *value.searchable_values.get_parents()),
                     support={
                         ("static", *key): value.searchable_values.support[key]
                         for key in value.searchable_values.support

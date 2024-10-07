@@ -18,8 +18,11 @@ class SearchParameter(ABC):
     def __init__(self, **kwargs):
         pass
 
+    def get_parents(self) -> Tuple[str]:
+        return ()
+
     @abstractmethod
-    def get_support(self) -> List[Any]:
+    def get_support(self, parent_values: Dict[str, Any] = None) -> Union[List[str], List[int], List[float], List[bool]]:
         """Get the support for the search parameter."""
         raise NotImplementedError
 
@@ -55,7 +58,7 @@ class Categorical(SearchParameter):
     def __init__(self, support: Union[List[str], List[int], List[float], List[bool]]):
         self.support = support
 
-    def get_support(self) -> Union[List[str], List[int], List[float], List[bool]]:
+    def get_support(self, parent_values: Dict[str, Any] = None) -> Union[List[str], List[int], List[float], List[bool]]:
         """Get the support for the search parameter."""
         return self.support
 
@@ -64,6 +67,33 @@ class Categorical(SearchParameter):
 
     def to_json(self):
         return {"olive_parameter_type": "SearchParameter", "type": "Categorical", "support": self.support}
+
+
+class CategoricalValue(Categorical):
+    """Search parameter that returns user-provided values of parameter as its own support values.
+
+    Examples
+    --------
+    >>> CategoricalValue(default=[1, 2, 3])
+
+    """
+
+    def __init__(self):
+        # pylint: disable=super-init-not-called
+        pass
+
+    def get_parents(self) -> Tuple[str]:
+        return ()
+
+    def get_support(self, parent_values: Dict[str, Any] = None) -> Union[List[str], List[int], List[float], List[bool]]:
+        """Get the support for the search parameter."""
+        raise RuntimeError("CategoricalValue should have been mapped to Categorial parameter.")
+
+    def __repr__(self):
+        return "CategoricalValue()"
+
+    def to_json(self):
+        return {"olive_parameter_type": "SearchParameter", "type": "CategoricalValue"}
 
 
 class Boolean(Categorical):
@@ -130,21 +160,19 @@ class Conditional(SearchParameter):
         self.support = support
         self.default = default or self.get_invalid_choice()
 
-    def get_support(self) -> List[Any]:
-        raise NotImplementedError("Use get_support_with_args instead")
+    def get_parents(self) -> Tuple[str]:
+        return self.parents
 
-    def get_support_with_args(
-        self, parent_values: Dict[str, Any]
-    ) -> Union[List[str], List[int], List[float], List[bool]]:
+    def get_support(self, parent_values: Dict[str, Any] = None) -> Union[List[str], List[int], List[float], List[bool]]:
         """Get the support for the search parameter for a given parent value."""
-        # pylint: disable=arguments-differ
-        assert parent_values.keys() == set(self.parents), "parent values keys do not match the parents"
+        assert parent_values is not None
+        assert set(self.parents).issubset(parent_values.keys()), "Not all parents included in parent values keys"
         parent_values = tuple(parent_values[parent] for parent in self.parents)
         return self.support.get(parent_values, self.default).get_support()
 
     def condition(self, parent_values: Dict[str, Any]) -> SearchParameter:
         """Fix the parent value and return a new search parameter."""
-        assert set(parent_values.keys()).issubset(set(self.parents)), "parent values keys not a subset of the parents"
+        assert set(self.parents).issubset(parent_values.keys()), "Not all parents includes in parent values keys"
 
         # if there is only one parent, return the support for the given parent value
         if len(self.parents) == 1:
@@ -238,9 +266,9 @@ class ConditionalDefault(Conditional):
         default = Categorical([default])
         super().__init__(parents, support, default)
 
-    def get_support_with_args(self, parent_values: Dict[str, Any]) -> Union[bool, int, float, str]:
+    def get_support(self, parent_values: Dict[str, Any] = None) -> Union[bool, int, float, str]:
         """Get the support for the search parameter for a given parent value."""
-        return super().get_support_with_args(parent_values)[0]
+        return super().get_support(parent_values)[0]
 
     def condition(self, parent_values: Dict[str, Any]) -> Union[bool, int, float, str, "ConditionalDefault"]:
         """Fix the parent value and return a new search parameter."""

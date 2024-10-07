@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from typing import Dict, List, Set, Tuple
 
-from olive.strategy.search_parameter import Conditional, SearchParameter
+from olive.strategy.search_parameter import SearchParameter
 
 
 class DirectedGraph:
@@ -65,8 +65,8 @@ def _search_space_graph(search_space: Dict[str, SearchParameter]) -> DirectedGra
     """Create a directed graph from the search space."""
     graph = DirectedGraph(list(search_space.keys()))
     for name, param in search_space.items():
-        if isinstance(param, Conditional):
-            for parent in param.parents:
+        if isinstance(param, SearchParameter):
+            for parent in param.get_parents():
                 graph.add_edge(parent, name)
     return graph
 

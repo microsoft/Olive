@@ -300,7 +300,7 @@ class IncQuantization(Pass):
                 # ignore the parameter quant_format if approach is dynamic, if approach is static,
                 # use the searchable_values in inc_static_optional_config by expanding the parents
                 value.searchable_values = Conditional(
-                    parents=("approach", *value.searchable_values.parents),
+                    parents=("approach", *value.searchable_values.get_parents()),
                     support={
                         ("static", *key): value.searchable_values.support[key]
                         for key in value.searchable_values.support
