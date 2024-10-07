@@ -42,9 +42,9 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--adapter_format",
             type=str,
-            default=WeightsFileFormat.NUMPY,
+            default=WeightsFileFormat.ONNX_ADAPTER,
             choices=[el.value for el in WeightsFileFormat],
-            help=f"Format to save the weights in. Default is {WeightsFileFormat.NUMPY}.",
+            help=f"Format to save the weights in. Default is {WeightsFileFormat.ONNX_ADAPTER}.",
         )
 
         sub_parser.add_argument(

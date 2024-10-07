@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import onnx
 from kv_cache_utils import DynamicCache, DynamicIOBoundCache, GQASharedCache, StaticCache, StaticIOBoundCache
-from onnxruntime import InferenceSession, OrtValue, SessionOptions
+from onnxruntime import InferenceSession, OrtValue, SessionOptions, set_default_logger_severity
 from transformers import PreTrainedTokenizer
 
 from olive.common.utils import StrEnumBase, load_weights
@@ -23,6 +23,10 @@ class AdapterMode(StrEnumBase):
 
     inputs = "inputs"
     initializers = "initializers"
+
+
+# ort logs warnings about default initializers
+set_default_logger_severity(3)
 
 
 class ORTGenerator:

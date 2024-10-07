@@ -119,7 +119,9 @@ def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type
         pytest.skip("QDQ model test is disabled due to flaky quantization failure")
 
     # setup
-    p = create_pass_from_dict(ExtractAdapters, {"make_inputs": False}, disable_search=True)
+    p = create_pass_from_dict(
+        ExtractAdapters, {"make_inputs": False, "save_format": WeightsFileFormat.NUMPY}, disable_search=True
+    )
     output_folder = tmp_path / "extracted-adapters"
 
     # execute
@@ -172,16 +174,22 @@ def test_extract_adapters_as_inputs(tmp_path, input_model_info, save_format, mod
 @pytest.mark.parametrize("quantize_int4", [1, 0])
 @pytest.mark.parametrize("adapter_format", [el.value for el in WeightsFileFormat])
 def test_convert_adapters_command(tmp_path, input_model_info, adapter_format, quantize_int4):
+    if adapter_format == WeightsFileFormat.ONNX_ADAPTER and version.parse(ort.__version__) < version.parse("1.20"):
+        pytest.skip("ONNX_ADAPTER format is only supported in onnxruntime 1.20+")
+
     from olive.cli.launcher import main as cli_main
 
     # args
-    exported_adapters_path = tmp_path / "exported-adapters.npz"
+    suffix = ".npz" if adapter_format == WeightsFileFormat.NUMPY else f".{adapter_format}"
+    exported_adapters_path = tmp_path / f"exported-adapters.{suffix}"
     args = [
         "convert-adapters",
         "--adapter_path",
         str(input_model_info["adapter_path"]),
         "--output_path",
         str(exported_adapters_path),
+        "--adapter_format",
+        str(adapter_format),
     ]
     if quantize_int4:
         args.append("--quantize_int4")
