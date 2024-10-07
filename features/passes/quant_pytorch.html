@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PyTorch &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -41,9 +39,6 @@
           <a href="../../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -168,16 +163,16 @@
            <div itemprop="articleBody">
              
   <section id="pytorch">
-<h1>PyTorch<a class="headerlink" href="#pytorch" title="Permalink to this heading">¶</a></h1>
+<h1>PyTorch<a class="headerlink" href="#pytorch" title="Permalink to this heading"></a></h1>
 <p>PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.</p>
 <section id="autogptq">
-<h2>AutoGPTQ<a class="headerlink" href="#autogptq" title="Permalink to this heading">¶</a></h2>
+<h2>AutoGPTQ<a class="headerlink" href="#autogptq" title="Permalink to this heading"></a></h2>
 <p>Olive also integrates <a class="reference external" href="https://github.com/AutoGPTQ/AutoGPTQ">AutoGPTQ</a> for quantization.</p>
 <p>AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, based on GPTQ algorithm (weight-only quantization). With GPTQ quantization, you can quantize your favorite language model to 8, 4, 3 or even 2 bits. This comes without a big drop of performance and with faster inference speed. This is supported by most GPU hardwares.</p>
 <p>Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#gptq-quantizer"><span class="std std-ref">GptqQuantizer</span></a> for more details about the pass and its config parameters.</p>
 <section id="example-configuration">
-<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GptqQuantizer&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wikitext2_train&quot;</span>
@@ -189,12 +184,12 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </section>
 </section>
 <section id="autoawq">
-<h2>AutoAWQ<a class="headerlink" href="#autoawq" title="Permalink to this heading">¶</a></h2>
+<h2>AutoAWQ<a class="headerlink" href="#autoawq" title="Permalink to this heading"></a></h2>
 <p>AutoAWQ is an easy-to-use package for 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16. AutoAWQ implements the Activation-aware Weight Quantization (AWQ) algorithm for quantizing LLMs. AutoAWQ was created and improved upon from the original work from MIT.</p>
 <p>Olive integrates <a class="reference external" href="https://github.com/casper-hansen/AutoAWQ">AutoAWQ</a> for quantization and make it possible to convert the AWQ quantized torch model to onnx model.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#awq-quantizer"><span class="std std-ref">AutoAWQQuantizer</span></a> for more details about the pass and its config parameters.</p>
 <section id="id1">
-<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AutoAWQQuantizer&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;w_bit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
@@ -204,11 +199,11 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </section>
 </section>
 <section id="quarot">
-<h2>QuaRot<a class="headerlink" href="#quarot" title="Permalink to this heading">¶</a></h2>
+<h2>QuaRot<a class="headerlink" href="#quarot" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">QuaRot</span></code> is a quantization technique that combines quantization and rotation to reduce the number of bits required to represent the weights of a model. It is based on the <a class="reference external" href="https://arxiv.org/abs/2305.14314">QuaRot paper</a>.</p>
 <p>This pass only supports HuggingFace transformer PyTorch models. Please refer to <a class="reference internal" href="../../api/passes.html#quarot"><span class="std std-ref">QuaRot</span></a> for more details on the types of transformers models supported.</p>
 <section id="id2">
-<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuaRot&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;w_rtn&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>

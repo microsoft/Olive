@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Run &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -41,9 +39,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -187,14 +182,14 @@
              
   <p id="command-line-tools">Olive provides command line tools that can be invoked using the <code class="docutils literal notranslate"><span class="pre">olive</span></code> command.</p>
 <section id="run">
-<h1>Run<a class="headerlink" href="#run" title="Permalink to this heading">¶</a></h1>
+<h1>Run<a class="headerlink" href="#run" title="Permalink to this heading"></a></h1>
 <p>Run Olive workflow defined in the input .json configuration file.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">run</span><span class="o">-</span><span class="n">config</span> <span class="n">RUN_CONFIG</span> <span class="p">[</span><span class="o">--</span><span class="n">setup</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">packages</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">package</span><span class="o">-</span><span class="n">config</span> <span class="n">PACKAGE_CONFIG</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>--run-config, --config</kbd></dt>
 <dd><p>Path to json config file</p>
@@ -217,7 +212,7 @@
 </section>
 </section>
 <section id="finetune">
-<h1>Finetune<a class="headerlink" href="#finetune" title="Permalink to this heading">¶</a></h1>
+<h1>Finetune<a class="headerlink" href="#finetune" title="Permalink to this heading"></a></h1>
 <p>Fine-tune a model on a dataset using HuggingFace peft. Huggingface training arguments can be provided along with the defined options.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">is_generative_model</span> <span class="n">IS_GENERATIVE_MODEL</span><span class="p">]</span>
@@ -240,7 +235,7 @@
 </pre></div>
 </div>
 <section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
@@ -330,7 +325,7 @@
 </dl>
 </section>
 <section id="lora-options">
-<h2>LoRA options<a class="headerlink" href="#lora-options" title="Permalink to this heading">¶</a></h2>
+<h2>LoRA options<a class="headerlink" href="#lora-options" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>--method</kbd></dt>
 <dd><p>Possible choices: lora, qlora</p>
@@ -352,7 +347,7 @@
 </section>
 </section>
 <section id="auto-optimization">
-<h1>Auto-Optimization<a class="headerlink" href="#auto-optimization" title="Permalink to this heading">¶</a></h1>
+<h1>Auto-Optimization<a class="headerlink" href="#auto-optimization" title="Permalink to this heading"></a></h1>
 <p>Automatically optimize the input model for the given target and precision.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
@@ -373,7 +368,7 @@
 </pre></div>
 </div>
 <section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
@@ -465,7 +460,7 @@
 </section>
 </section>
 <section id="quantization">
-<h1>Quantization<a class="headerlink" href="#quantization" title="Permalink to this heading">¶</a></h1>
+<h1>Quantization<a class="headerlink" href="#quantization" title="Permalink to this heading"></a></h1>
 <p>Quantize PyTorch or ONNX model using various Quantization algorithms.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">quantize</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span>
@@ -488,7 +483,7 @@
 </pre></div>
 </div>
 <section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
@@ -585,7 +580,7 @@
 </section>
 </section>
 <section id="capture-onnx-graph">
-<h1>Capture Onnx Graph<a class="headerlink" href="#capture-onnx-graph" title="Permalink to this heading">¶</a></h1>
+<h1>Capture Onnx Graph<a class="headerlink" href="#capture-onnx-graph" title="Permalink to this heading"></a></h1>
 <p>Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model or PyTorch model.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
@@ -615,7 +610,7 @@
 </pre></div>
 </div>
 <section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
@@ -672,7 +667,7 @@
 </dl>
 </section>
 <section id="pytorch-exporter-options">
-<h2>PyTorch Exporter options<a class="headerlink" href="#pytorch-exporter-options" title="Permalink to this heading">¶</a></h2>
+<h2>PyTorch Exporter options<a class="headerlink" href="#pytorch-exporter-options" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>--use_dynamo_exporter</kbd></dt>
 <dd><p>Whether to use dynamo_export API to export ONNX model.</p>
@@ -692,7 +687,7 @@
 </dl>
 </section>
 <section id="model-builder-options">
-<h2>Model Builder options<a class="headerlink" href="#model-builder-options" title="Permalink to this heading">¶</a></h2>
+<h2>Model Builder options<a class="headerlink" href="#model-builder-options" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>--use_model_builder</kbd></dt>
 <dd><p>Whether to use Model Builder to capture ONNX model.</p>
@@ -725,7 +720,7 @@
 </section>
 </section>
 <section id="generate-adapters">
-<h1>Generate Adapters<a class="headerlink" href="#generate-adapters" title="Permalink to this heading">¶</a></h1>
+<h1>Generate Adapters<a class="headerlink" href="#generate-adapters" title="Permalink to this heading"></a></h1>
 <p>Generate ONNX model with adapters as inputs.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">adapter</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
@@ -741,7 +736,7 @@
 </pre></div>
 </div>
 <section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
@@ -797,7 +792,7 @@
 </section>
 </section>
 <section id="export-adapters">
-<h1>Export Adapters<a class="headerlink" href="#export-adapters" title="Permalink to this heading">¶</a></h1>
+<h1>Export Adapters<a class="headerlink" href="#export-adapters" title="Permalink to this heading"></a></h1>
 <p>Export LoRA adapter weights to a file that will be consumed by ONNX models generated by Olive ExtractedAdapters pass.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">export</span><span class="o">-</span><span class="n">adapters</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span>
                              <span class="p">[</span><span class="o">--</span><span class="n">save_format</span> <span class="p">{</span><span class="n">pt</span><span class="p">,</span><span class="n">numpy</span><span class="p">,</span><span class="n">safetensors</span><span class="p">}]</span>
@@ -808,7 +803,7 @@
 </pre></div>
 </div>
 <section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>--adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Can be a local folder or huggingface id.</p>
@@ -833,7 +828,7 @@
 </dl>
 </section>
 <section id="int4-quantization-options">
-<h2>int4 quantization options<a class="headerlink" href="#int4-quantization-options" title="Permalink to this heading">¶</a></h2>
+<h2>int4 quantization options<a class="headerlink" href="#int4-quantization-options" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>--int4_block_size</kbd></dt>
 <dd><p>Possible choices: 16, 32, 64, 128, 256</p>
@@ -849,7 +844,7 @@
 </section>
 </section>
 <section id="tune-onnxruntime-session-params">
-<h1>Tune OnnxRuntime Session Params<a class="headerlink" href="#tune-onnxruntime-session-params" title="Permalink to this heading">¶</a></h1>
+<h1>Tune OnnxRuntime Session Params<a class="headerlink" href="#tune-onnxruntime-session-params" title="Permalink to this heading"></a></h1>
 <p>Automatically tune the OnnxRuntime session parameters for a given onnx model. Currently, for onnx model converted from huggingface model and used for generative tasks, user can simply provide the –model onnx_model_path –hf_model_name hf_model_name –device device_type to get the tuned session parameters.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">tune</span><span class="o">-</span><span class="n">session</span><span class="o">-</span><span class="n">params</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">is_generative_model</span> <span class="n">IS_GENERATIVE_MODEL</span><span class="p">]</span>
@@ -874,7 +869,7 @@
 </pre></div>
 </div>
 <section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/features/cli.html#input-model">https://microsoft.github.io/Olive/features/cli.html#input-model</a> for more information</p>
@@ -958,14 +953,14 @@
 </section>
 </section>
 <section id="qualcomm-sdk">
-<h1>Qualcomm SDK<a class="headerlink" href="#qualcomm-sdk" title="Permalink to this heading">¶</a></h1>
+<h1>Qualcomm SDK<a class="headerlink" href="#qualcomm-sdk" title="Permalink to this heading"></a></h1>
 <p>Configure Qualcomm SDK.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">configure</span><span class="o">-</span><span class="n">qualcomm</span><span class="o">-</span><span class="n">sdk</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">py_version</span> <span class="p">{</span><span class="mf">3.6</span><span class="p">,</span><span class="mf">3.8</span><span class="p">}</span> <span class="o">--</span><span class="n">sdk</span>
                                     <span class="p">{</span><span class="n">snpe</span><span class="p">,</span><span class="n">qnn</span><span class="p">}</span>
 </pre></div>
 </div>
 <section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>--py_version</kbd></dt>
 <dd><p>Possible choices: 3.6, 3.8</p>
@@ -979,7 +974,7 @@
 </section>
 </section>
 <section id="azureml">
-<h1>AzureML<a class="headerlink" href="#azureml" title="Permalink to this heading">¶</a></h1>
+<h1>AzureML<a class="headerlink" href="#azureml" title="Permalink to this heading"></a></h1>
 <p>Manage the AzureML Compute resources.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">manage</span><span class="o">-</span><span class="n">aml</span><span class="o">-</span><span class="n">compute</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">(</span><span class="o">--</span><span class="n">create</span> <span class="o">|</span> <span class="o">--</span><span class="n">delete</span><span class="p">)</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">subscription_id</span> <span class="n">SUBSCRIPTION_ID</span><span class="p">]</span>
@@ -994,7 +989,7 @@
 </pre></div>
 </div>
 <section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>--create, -c</kbd></dt>
 <dd><p>Create new compute</p>
@@ -1041,14 +1036,14 @@
 </section>
 </section>
 <section id="cloud-cache">
-<h1>Cloud Cache<a class="headerlink" href="#cloud-cache" title="Permalink to this heading">¶</a></h1>
+<h1>Cloud Cache<a class="headerlink" href="#cloud-cache" title="Permalink to this heading"></a></h1>
 <p>Delete Olive model cache stored in the cloud.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">cloud</span><span class="o">-</span><span class="n">cache</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">delete</span><span class="p">]</span> <span class="o">--</span><span class="n">account</span> <span class="n">ACCOUNT</span> <span class="o">--</span><span class="n">container</span>
                          <span class="n">CONTAINER</span> <span class="o">--</span><span class="n">model_hash</span> <span class="n">MODEL_HASH</span>
 </pre></div>
 </div>
 <section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h2>
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>--delete</kbd></dt>
 <dd><p>Delete a model cache from the cloud cache.</p>
@@ -1067,7 +1062,7 @@
 </section>
 </section>
 <section id="providing-input-models">
-<h1>Providing Input Models<a class="headerlink" href="#providing-input-models" title="Permalink to this heading">¶</a></h1>
+<h1>Providing Input Models<a class="headerlink" href="#providing-input-models" title="Permalink to this heading"></a></h1>
 <p>There are more than one way to supply input model to the Olive commands.</p>
 <ol class="arabic simple">
 <li><p>HuggingFace model can be directly used as an input model. For example <code class="docutils literal notranslate"><span class="pre">-m</span> <span class="pre">microsoft/Phi-3-mini-4k-instruct</span></code>.</p></li>

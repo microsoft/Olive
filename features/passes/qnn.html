@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>QNN &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -41,9 +39,6 @@
           <a href="../../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -176,19 +171,19 @@
            <div itemprop="articleBody">
              
   <section id="qnn">
-<h1>QNN<a class="headerlink" href="#qnn" title="Permalink to this heading">¶</a></h1>
+<h1>QNN<a class="headerlink" href="#qnn" title="Permalink to this heading"></a></h1>
 <p>Qualcomm AI Engine Direct is a Qualcomm Technologies Inc. software architecture for AI/ML use cases on Qualcomm chipsets and AI acceleration cores.</p>
 <p>Olive provides tools to convert models from different frameworks such as ONNX, TensorFlow, and PyTorch to QNN model formats and quantize them to 8 bit fixed point for running on NPU cores.
 Olive uses the development tools available in the <a class="reference external" href="https://developer.qualcomm.com/software/qualcomm-ai-engine-direct-sdk">Qualcomm AI Engine Direct SDK</a> (QNN SDK).</p>
 <section id="prerequisites">
-<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading">¶</a></h2>
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading"></a></h2>
 <section id="download-and-unzip-qnn-sdk">
-<h3>Download and unzip QNN SDK<a class="headerlink" href="#download-and-unzip-qnn-sdk" title="Permalink to this heading">¶</a></h3>
+<h3>Download and unzip QNN SDK<a class="headerlink" href="#download-and-unzip-qnn-sdk" title="Permalink to this heading"></a></h3>
 <p>Download the QNN SDK and unzip the file.</p>
 <p>Set the environment variable QNN_SDK_ROOT as <qnn-sdk-unzipped-path>.</p>
 </section>
 <section id="configure-olive-qnn">
-<h3>Configure Olive QNN<a class="headerlink" href="#configure-olive-qnn" title="Permalink to this heading">¶</a></h3>
+<h3>Configure Olive QNN<a class="headerlink" href="#configure-olive-qnn" title="Permalink to this heading"></a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>configure-qualcomm-sdk<span class="w"> </span>--py_version<span class="w"> </span><span class="m">3</span>.8<span class="w"> </span>--sdk<span class="w"> </span>qnn
 </pre></div>
 </div>
@@ -196,12 +191,12 @@ Olive uses the development tools available in the <a class="reference external" 
 </section>
 </section>
 <section id="model-conversion-quantization">
-<h2>Model Conversion/Quantization<a class="headerlink" href="#model-conversion-quantization" title="Permalink to this heading">¶</a></h2>
+<h2>Model Conversion/Quantization<a class="headerlink" href="#model-conversion-quantization" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">QNNConversion</span></code> converts ONNX, TensorFlow, or PyTorch models to QNN C++ model. Optionally, it can also quantize the model if a calibration dataset is provided using the <code class="docutils literal notranslate"><span class="pre">--input_list</span></code> in the extra_args parameter.</p>
 <p>The C++ model must be compiled into a model library for the desired target using the <code class="docutils literal notranslate"><span class="pre">QNNModelLibGenerator</span></code> pass for inference on the target device.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#qnn-conversion"><span class="std std-ref">QNNConversion</span></a> for more details about the pass and its config parameters.</p>
 <section id="example-configuration">
-<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading"></a></h3>
 <p><strong>Conversion</strong></p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNConversion&quot;</span>
@@ -218,11 +213,11 @@ Olive uses the development tools available in the <a class="reference external" 
 </section>
 </section>
 <section id="model-library-generation">
-<h2>Model Library Generation<a class="headerlink" href="#model-library-generation" title="Permalink to this heading">¶</a></h2>
+<h2>Model Library Generation<a class="headerlink" href="#model-library-generation" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">QNNModelLibGenerator</span></code> compiles the QNN C++ model into a model library for the desired target. The model library can be used for inference on the target device.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#qnn-model-lib-generator"><span class="std std-ref">QNNModelLibGenerator</span></a> for more details about the pass and its config parameters.</p>
 <section id="id1">
-<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNModelLibGenerator&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;lib_targets&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;x86_64-linux-clang&quot;</span>
@@ -232,12 +227,12 @@ Olive uses the development tools available in the <a class="reference external" 
 </section>
 </section>
 <section id="context-binary-generation">
-<h2>Context Binary Generation<a class="headerlink" href="#context-binary-generation" title="Permalink to this heading">¶</a></h2>
+<h2>Context Binary Generation<a class="headerlink" href="#context-binary-generation" title="Permalink to this heading"></a></h2>
 <p>A QNN Context provides execution environment for graphs and operations. Context content can be cached into a binary form which later can be used for faster context/graph loading.
 <code class="docutils literal notranslate"><span class="pre">QNNContextBinaryGenerator</span></code> generated the context binary from a compiled model library using a specific backend.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#qnn-context-binary-generator"><span class="std std-ref">QNNContextBinaryGenerator</span></a> for more details about the pass and its config parameters.</p>
 <section id="id2">
-<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNContextBinaryGenerator&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;backend&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;QNN_BACKEND.so&gt;&quot;</span>

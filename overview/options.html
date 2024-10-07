@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Olive Options &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -41,9 +39,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -185,7 +180,7 @@
            <div itemprop="articleBody">
              
   <section id="olive-options">
-<h1>Olive Options<a class="headerlink" href="#olive-options" title="Permalink to this heading">¶</a></h1>
+<h1>Olive Options<a class="headerlink" href="#olive-options" title="Permalink to this heading"></a></h1>
 <p>Olive enables users to easily compose and customize their own model optimization pipelines. Olive provides a set of passes that can be
 used to compose a pipeline. Olive receives input model, target hardware, performance requirements, and list of optimizations techniques
 to apply from user in the form of a json dictionary. In this document, we document the options user can set in this dictionary.</p>
@@ -211,15 +206,15 @@ to apply from user in the form of a json dictionary. In this document, we docume
 <li><p><a class="reference internal" href="#workflow-host"><span class="xref myst">Workflow Host</span></a> <code class="docutils literal notranslate"><span class="pre">workflow_host</span></code></p></li>
 </ul>
 <section id="workflow-id">
-<h2>Workflow ID<a class="headerlink" href="#workflow-id" title="Permalink to this heading">¶</a></h2>
+<h2>Workflow ID<a class="headerlink" href="#workflow-id" title="Permalink to this heading"></a></h2>
 <p>You can name the workflow run by specifying <code class="docutils literal notranslate"><span class="pre">workflow_id</span></code> section in your config file. Olive will save the cache under <code class="docutils literal notranslate"><span class="pre">&lt;cache_dir&gt;/&lt;workflow_id&gt;</span></code> folder, and automatically save the current running config in the cache folder.</p>
 </section>
 <section id="workflow-host">
-<h2>Workflow Host<a class="headerlink" href="#workflow-host" title="Permalink to this heading">¶</a></h2>
+<h2>Workflow Host<a class="headerlink" href="#workflow-host" title="Permalink to this heading"></a></h2>
 <p>Workflow host is where the Olive workflow will be run. The default value is <code class="docutils literal notranslate"><span class="pre">None</span></code>. If <code class="docutils literal notranslate"><span class="pre">None</span></code> set for workflow host, Olive will run workflow locally. It suppurts <code class="docutils literal notranslate"><span class="pre">AzureML</span></code> system for now.</p>
 </section>
 <section id="azure-ml-client">
-<h2>Azure ML Client<a class="headerlink" href="#azure-ml-client" title="Permalink to this heading">¶</a></h2>
+<h2>Azure ML Client<a class="headerlink" href="#azure-ml-client" title="Permalink to this heading"></a></h2>
 <p>If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:</p>
 <ul class="simple">
 <li><p>You have AzureML system for targets or hosts.</p></li>
@@ -251,11 +246,11 @@ The default value is 3. User can increase if there are network issues and the op
 <li><p><code class="docutils literal notranslate"><span class="pre">keyvault_name:</span> <span class="pre">[str]</span></code> The keyvault name to retrieve secrets.</p></li>
 </ul>
 <section id="example">
-<h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
+<h3>Example<a class="headerlink" href="#example" title="Permalink to this heading"></a></h3>
 <section id="azureml-client-with-aml-config-path">
-<h4><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> with <code class="docutils literal notranslate"><span class="pre">aml_config_path</span></code>:<a class="headerlink" href="#azureml-client-with-aml-config-path" title="Permalink to this heading">¶</a></h4>
+<h4><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> with <code class="docutils literal notranslate"><span class="pre">aml_config_path</span></code>:<a class="headerlink" href="#azureml-client-with-aml-config-path" title="Permalink to this heading"></a></h4>
 <section id="aml-config-json">
-<h5><code class="docutils literal notranslate"><span class="pre">aml_config.json</span></code>:<a class="headerlink" href="#aml-config-json" title="Permalink to this heading">¶</a></h5>
+<h5><code class="docutils literal notranslate"><span class="pre">aml_config.json</span></code>:<a class="headerlink" href="#aml-config-json" title="Permalink to this heading"></a></h5>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
@@ -265,7 +260,7 @@ The default value is 3. User can increase if there are network issues and the op
 </div>
 </section>
 <section id="azureml-client">
-<h5><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code>:<a class="headerlink" href="#azureml-client" title="Permalink to this heading">¶</a></h5>
+<h5><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code>:<a class="headerlink" href="#azureml-client" title="Permalink to this heading"></a></h5>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;aml_config_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aml_config.json&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;read_timeout&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">4000</span><span class="p">,</span>
@@ -277,7 +272,7 @@ The default value is 3. User can increase if there are network issues and the op
 </section>
 </section>
 <section id="azureml-client-with-azureml-config-fields">
-<h4><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> with azureml config fields:<a class="headerlink" href="#azureml-client-with-azureml-config-fields" title="Permalink to this heading">¶</a></h4>
+<h4><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> with azureml config fields:<a class="headerlink" href="#azureml-client-with-azureml-config-fields" title="Permalink to this heading"></a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
@@ -293,7 +288,7 @@ The default value is 3. User can increase if there are network issues and the op
 </section>
 </section>
 <section id="input-model-information">
-<h2>Input Model Information<a class="headerlink" href="#input-model-information" title="Permalink to this heading">¶</a></h2>
+<h2>Input Model Information<a class="headerlink" href="#input-model-information" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">input_model:</span> <span class="pre">[Dict]</span></code></p>
 <p>User should specify input model type and configuration using <code class="docutils literal notranslate"><span class="pre">input</span> <span class="pre">model</span></code> dictionary. It contains following items:</p>
 <ul class="simple">
@@ -383,7 +378,7 @@ The dynamic axis of the present key value cache. If it is null, Olive will infer
 </tbody>
 </table>
 <section id="id1">
-<h3>Example<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<h3>Example<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-2-7b-hf&quot;</span>
@@ -393,7 +388,7 @@ The dynamic axis of the present key value cache. If it is null, Olive will infer
 </section>
 </section>
 <section id="systems-information">
-<h2>Systems Information<a class="headerlink" href="#systems-information" title="Permalink to this heading">¶</a></h2>
+<h2>Systems Information<a class="headerlink" href="#systems-information" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">systems:</span> <span class="pre">[Dict]</span></code></p>
 <p>This is a dictionary that contains the information of systems that are reference by the engine, passes and evaluators. The key of the
 dictionary is the name of the system. The value of the dictionary is another dictionary that contains the information of the system. The
@@ -407,7 +402,7 @@ There are some built-in system alias which could also be used as type. For examp
 </ul>
 <p>Please refer to <a class="reference internal" href="../tutorials/configure_systems.html"><span class="std std-doc">How To Configure System</span></a> for the more information of the system config dictionary.</p>
 <section id="id2">
-<h3>Example<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<h3>Example<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;local_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LocalSystem&quot;</span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -424,7 +419,7 @@ There are some built-in system alias which could also be used as type. For examp
 </section>
 </section>
 <section id="evaluators-information">
-<h2>Evaluators Information<a class="headerlink" href="#evaluators-information" title="Permalink to this heading">¶</a></h2>
+<h2>Evaluators Information<a class="headerlink" href="#evaluators-information" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">evaluators:</span> <span class="pre">[Dict]</span></code></p>
 <p>This is a dictionary that contains the information of evaluators that are reference by the engine and passes. The key of the dictionary
 is the name of the evaluator. The value of the dictionary is another dictionary that contains the information of the evaluator. The
@@ -496,7 +491,7 @@ as keyword/positional parameters after the required positional parameters or thr
 </li>
 </ul>
 <section id="id3">
-<h3>Example<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<h3>Example<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_data_config&quot;</span><span class="p">,</span>
@@ -554,7 +549,7 @@ as keyword/positional parameters after the required positional parameters or thr
 </section>
 </section>
 <section id="passes-information">
-<h2>Passes Information<a class="headerlink" href="#passes-information" title="Permalink to this heading">¶</a></h2>
+<h2>Passes Information<a class="headerlink" href="#passes-information" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">passes:</span> <span class="pre">[Dict]</span></code></p>
 <p>This is a dictionary that contains the information of passes that are executed by the engine. The passes are executed
 in order of their definition in this dictionary if <code class="docutils literal notranslate"><span class="pre">pass_flows</span></code> is not specified. The key of the dictionary is the name
@@ -666,7 +661,7 @@ will be used.</p></li>
 </tbody>
 </table>
 <section id="id4">
-<h3>Example<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
+<h3>Example<a class="headerlink" href="#id4" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;onnx_conversion&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxConversion&quot;</span><span class="p">,</span>
@@ -683,12 +678,12 @@ will be used.</p></li>
 </section>
 </section>
 <section id="pass-flows-information">
-<h2>Pass Flows Information<a class="headerlink" href="#pass-flows-information" title="Permalink to this heading">¶</a></h2>
+<h2>Pass Flows Information<a class="headerlink" href="#pass-flows-information" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">pass_flows:</span> <span class="pre">List[List[str]]</span></code></p>
 <p>This is a list of list of pass names. Each list of pass names is a pass flow which will be executed in order.
 When <code class="docutils literal notranslate"><span class="pre">pass_flows</span></code> is not specified, the passes are executed in the order of the <code class="docutils literal notranslate"><span class="pre">passes</span></code> dictionary.</p>
 <section id="id5">
-<h3>Example<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<h3>Example<a class="headerlink" href="#id5" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;onnx_conversion&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxConversion&quot;</span><span class="p">,</span>
@@ -717,7 +712,7 @@ When <code class="docutils literal notranslate"><span class="pre">pass_flows</sp
 </section>
 </section>
 <section id="engine-information">
-<h2>Engine Information<a class="headerlink" href="#engine-information" title="Permalink to this heading">¶</a></h2>
+<h2>Engine Information<a class="headerlink" href="#engine-information" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">engine:</span> <span class="pre">[Dict]</span></code></p>
 <p>This is a dictionary that contains the information of the engine. Its fields can be provided directly to the parent dictionary. The information of the engine contains following items:</p>
 <ul>
@@ -789,7 +784,7 @@ under the current working directory.</p></li>
 </tbody>
 </table>
 <section id="id6">
-<h3>Example<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h3>
+<h3>Example<a class="headerlink" href="#id6" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;search_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;execution_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;joint&quot;</span><span class="p">,</span>

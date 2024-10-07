@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,24 +8,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>How To Configure Data &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/tabs.js?v=3030b3cb"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/tabs.js?v=3030b3cb"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -42,9 +40,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -158,7 +153,7 @@
            <div itemprop="articleBody">
              
   <section id="how-to-configure-data">
-<span id="id1"></span><h1>How To Configure Data<a class="headerlink" href="#how-to-configure-data" title="Permalink to this heading">¶</a></h1>
+<span id="id1"></span><h1>How To Configure Data<a class="headerlink" href="#how-to-configure-data" title="Permalink to this heading"></a></h1>
 <p>Olive Data config organizes the data loading, preprocessing, batching and post processing into a single json config and defines several <strong>popular templates</strong> to serve Olive optimization.</p>
 <p>The configuration of Olive data config is positioned under Olive run config with the field of <code class="docutils literal notranslate"><span class="pre">data_configs</span></code>, and the data config is defined as a list of data config items. Here is an example of data config: <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/open_llama/open_llama_sparsegpt_gpu.json#L11-L49">open_llama_sparsegpt_gpu</a> .</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;data_configs&quot;</span><span class="p">:</span> <span class="p">[</span>
@@ -188,7 +183,7 @@
 </div>
 <p>Before deep dive to the generic data config, let’s first take a look at the data config template.</p>
 <section id="supported-data-config-template">
-<h2>Supported Data Config Template<a class="headerlink" href="#supported-data-config-template" title="Permalink to this heading">¶</a></h2>
+<h2>Supported Data Config Template<a class="headerlink" href="#supported-data-config-template" title="Permalink to this heading"></a></h2>
 <p>The data config template is defined in <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/template.py">olive.data.template</a> module which is used to create data_config easily.</p>
 <p>Currently, we support the following data container which can be generated from <code class="docutils literal notranslate"><span class="pre">olive.data.template</span></code>:</p>
 <p>1. DummyDataContainer:
@@ -326,7 +321,7 @@ Convert the transformer dummy data config to the data container.</p>
 </div>
 </section>
 <section id="generic-data-config">
-<h2>Generic Data Config<a class="headerlink" href="#generic-data-config" title="Permalink to this heading">¶</a></h2>
+<h2>Generic Data Config<a class="headerlink" href="#generic-data-config" title="Permalink to this heading"></a></h2>
 <dl>
 <dt>If no data config template can meet the requirement, we can also define the <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/config.py#L35">data config</a> directly. The data config is defined as a dictionary which includes the following fields:</dt><dd><ol class="arabic">
 <li><p><code class="docutils literal notranslate"><span class="pre">name</span></code>: the name of the data config.</p></li>
@@ -342,7 +337,7 @@ Convert the transformer dummy data config to the data container.</p>
 </li>
 <li><dl>
 <dt><code class="docutils literal notranslate"><span class="pre">components</span></code>: the dictionary of four <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/constants.py#L12">components</a> which contain:</dt><dd><table class="docutils align-default" id="id2">
-<caption><span class="caption-text">Title</span><a class="headerlink" href="#id2" title="Permalink to this table">¶</a></caption>
+<caption><span class="caption-text">Title</span><a class="headerlink" href="#id2" title="Permalink to this table"></a></caption>
 <colgroup>
 <col style="width: 20.0%" />
 <col style="width: 80.0%" />
@@ -384,7 +379,7 @@ Convert the transformer dummy data config to the data container.</p>
 </dd>
 </dl>
 <section id="configs-with-built-in-component">
-<h3>Configs with built-in component:<a class="headerlink" href="#configs-with-built-in-component" title="Permalink to this heading">¶</a></h3>
+<h3>Configs with built-in component:<a class="headerlink" href="#configs-with-built-in-component" title="Permalink to this heading"></a></h3>
 <p>Then the complete config would be like:</p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-4-4-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-4-4-0" name="4-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-4-4-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-4-4-1" name="4-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-4-4-0" class="sphinx-tabs-panel" id="panel-4-4-0" name="4-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -459,7 +454,7 @@ Convert the transformer dummy data config to the data container.</p>
 </div></div>
 </section>
 <section id="configs-with-customized-component">
-<h3>Configs with customized component:<a class="headerlink" href="#configs-with-customized-component" title="Permalink to this heading">¶</a></h3>
+<h3>Configs with customized component:<a class="headerlink" href="#configs-with-customized-component" title="Permalink to this heading"></a></h3>
 <p>The above case shows to rewrite all the components in data config. But sometime, there is no need to rewrite all the components. For example, if we only want to customize the <code class="docutils literal notranslate"><span class="pre">load_dataset</span></code> component for <code class="docutils literal notranslate"><span class="pre">DataContainer</span></code>, we can just rewrite the <code class="docutils literal notranslate"><span class="pre">load_dataset</span></code> component in the data config and ignore the other default components.</p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-5-5-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-5-5-0" name="5-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-5-5-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-5-5-1" name="5-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-5-5-0" class="sphinx-tabs-panel" id="panel-5-5-0" name="5-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>

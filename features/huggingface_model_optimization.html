@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Huggingface Integration &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -41,9 +39,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -167,16 +162,16 @@
            <div itemprop="articleBody">
              
   <section id="huggingface-integration">
-<h1>Huggingface Integration<a class="headerlink" href="#huggingface-integration" title="Permalink to this heading">¶</a></h1>
+<h1>Huggingface Integration<a class="headerlink" href="#huggingface-integration" title="Permalink to this heading"></a></h1>
 <section id="introduction">
-<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading">¶</a></h2>
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading"></a></h2>
 <p>This document outlines the integrations between Olive and Huggingface. Discover how to use Huggingface resources within Olive.</p>
 </section>
 <section id="input-model">
-<h2>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading">¶</a></h2>
+<h2>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading"></a></h2>
 <p>Use the <code class="docutils literal notranslate"><span class="pre">HfModel</span></code> type if you want to optimize a Huggingface model, or evaluate a Huggingface model. The default <code class="docutils literal notranslate"><span class="pre">task</span></code> is <code class="docutils literal notranslate"><span class="pre">text-generation-with-past</span></code>.</p>
 <section id="huggingface-hub-model">
-<h3>Huggingface Hub model<a class="headerlink" href="#huggingface-hub-model" title="Permalink to this heading">¶</a></h3>
+<h3>Huggingface Hub model<a class="headerlink" href="#huggingface-hub-model" title="Permalink to this heading"></a></h3>
 <p>Olive can automatically retrieve models from Huggingface hub:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
@@ -186,7 +181,7 @@
 </div>
 </section>
 <section id="local-model">
-<h3>Local model<a class="headerlink" href="#local-model" title="Permalink to this heading">¶</a></h3>
+<h3>Local model<a class="headerlink" href="#local-model" title="Permalink to this heading"></a></h3>
 <p>If you have the Huggingface model prepared in local:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
@@ -197,7 +192,7 @@
 <p><strong>Note:</strong> You must also have the tokenizer and other necessary files in the same local directory.</p>
 </section>
 <section id="azure-ml-model">
-<h3>Azure ML model<a class="headerlink" href="#azure-ml-model" title="Permalink to this heading">¶</a></h3>
+<h3>Azure ML model<a class="headerlink" href="#azure-ml-model" title="Permalink to this heading"></a></h3>
 <p>Olive supports loading model from your Azure Machine Learning workspace. Find detailed configurations <a class="reference internal" href="azureml_integration.html"><span class="std std-doc">here</span></a>.</p>
 <p>Example: <a class="reference external" href="https://ml.azure.com/models/Llama-2-7b/version/13/catalog/registry/azureml-meta">Llama-2-7b</a> from Azure ML model catalog:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
@@ -213,7 +208,7 @@
 </div>
 </section>
 <section id="model-config-loading">
-<h3>Model config loading<a class="headerlink" href="#model-config-loading" title="Permalink to this heading">¶</a></h3>
+<h3>Model config loading<a class="headerlink" href="#model-config-loading" title="Permalink to this heading"></a></h3>
 <p>Olive can automatically retrieve model configurations from Huggingface hub:</p>
 <ul class="simple">
 <li><p>Olive retrieves model <a class="reference external" href="https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoConfig">configuration</a> from transformers for future usage.</p></li>
@@ -240,7 +235,7 @@
 </section>
 </section>
 <section id="huggingface-datasets">
-<h2>Huggingface datasets<a class="headerlink" href="#huggingface-datasets" title="Permalink to this heading">¶</a></h2>
+<h2>Huggingface datasets<a class="headerlink" href="#huggingface-datasets" title="Permalink to this heading"></a></h2>
 <p>Olive supports automatically downloading and applying <a class="reference external" href="https://huggingface.co/datasets">Huggingface datasets</a> to Passes and Evaluators.</p>
 <p>Datasets can be added to <code class="docutils literal notranslate"><span class="pre">data_configs</span></code> section in the configuration file with <code class="docutils literal notranslate"><span class="pre">&quot;type&quot;:</span> <span class="pre">&quot;HuggingfaceContainer&quot;</span></code>. More details about <code class="docutils literal notranslate"><span class="pre">data_configs</span></code> can be found <a class="reference internal" href="../tutorials/configure_data.html"><span class="std std-doc">here</span></a>.</p>
 <p>You can reference the dataset by its name in the Pass config</p>
@@ -270,7 +265,7 @@
 </div>
 </section>
 <section id="huggingface-metrics">
-<h2>Huggingface metrics<a class="headerlink" href="#huggingface-metrics" title="Permalink to this heading">¶</a></h2>
+<h2>Huggingface metrics<a class="headerlink" href="#huggingface-metrics" title="Permalink to this heading"></a></h2>
 <p>Huggingface metrics in Olive are supported by <a class="reference external" href="https://huggingface.co/docs/evaluate/index">Huggingface evaluate</a>. You can refer to <a class="reference external" href="https://huggingface.co/metrics">Huggingface metrics page</a> for a complete list of available metrics.</p>
 <p>Example metric config</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -288,14 +283,14 @@
 <p>Please refer to <a class="reference internal" href="../overview/options.html#metrics"><span class="std std-ref">metrics</span></a> for more details.</p>
 </section>
 <section id="huggingface-login">
-<h2>Huggingface login<a class="headerlink" href="#huggingface-login" title="Permalink to this heading">¶</a></h2>
+<h2>Huggingface login<a class="headerlink" href="#huggingface-login" title="Permalink to this heading"></a></h2>
 <p>For certain gated models or datasets, you need to log in to your Huggingface account to access them. If the Huggingface resources you are using require a token, please add <code class="docutils literal notranslate"><span class="pre">hf_token:</span> <span class="pre">true</span></code> to the Olive system configuration. Olive will then automatically manage the Huggingface login process, allowing you to access these gated resources.</p>
 <section id="local-system-docker-system-and-python-environment-system">
-<h3>Local system, docker system and Python environment system<a class="headerlink" href="#local-system-docker-system-and-python-environment-system" title="Permalink to this heading">¶</a></h3>
+<h3>Local system, docker system and Python environment system<a class="headerlink" href="#local-system-docker-system-and-python-environment-system" title="Permalink to this heading"></a></h3>
 <p>For local system, docker system and Python environment system, please run command <code class="docutils literal notranslate"><span class="pre">huggingface-cli</span> <span class="pre">login</span></code> in your terminal to login your Huggingface account. Find more details about login <a class="reference external" href="https://huggingface.co/docs/huggingface_hub/quick-start#login">here</a>.</p>
 </section>
 <section id="azureml-system">
-<h3>AzureML system<a class="headerlink" href="#azureml-system" title="Permalink to this heading">¶</a></h3>
+<h3>AzureML system<a class="headerlink" href="#azureml-system" title="Permalink to this heading"></a></h3>
 <p>Follow these steps to enable Huggingface login for AzureML system:</p>
 <ol class="arabic">
 <li><p>Get your Huggingface token string from Settings -&gt; <a class="reference external" href="https://huggingface.co/settings/tokens">Access Tokens</a>.</p></li>
@@ -326,7 +321,7 @@
 </section>
 </section>
 <section id="e2e-example">
-<h2>E2E example<a class="headerlink" href="#e2e-example" title="Permalink to this heading">¶</a></h2>
+<h2>E2E example<a class="headerlink" href="#e2e-example" title="Permalink to this heading"></a></h2>
 <p>For the complete example, please refer to <a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-ptq-on-cpu">Bert Optimization with PTQ on CPU</a>.</p>
 </section>
 </section>

@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Azure ML scripts &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -41,9 +39,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -158,12 +153,12 @@
            <div itemprop="articleBody">
              
   <section id="azure-ml-scripts">
-<h1>Azure ML scripts<a class="headerlink" href="#azure-ml-scripts" title="Permalink to this heading">¶</a></h1>
+<h1>Azure ML scripts<a class="headerlink" href="#azure-ml-scripts" title="Permalink to this heading"></a></h1>
 <p>Olive provides a couple of scripts to help you manage your Azure ML assets.</p>
 <section id="scripts-list">
-<h2>Scripts list<a class="headerlink" href="#scripts-list" title="Permalink to this heading">¶</a></h2>
+<h2>Scripts list<a class="headerlink" href="#scripts-list" title="Permalink to this heading"></a></h2>
 <section id="manage-compute-instance">
-<h3><code class="docutils literal notranslate"><span class="pre">manage_compute_instance</span></code><a class="headerlink" href="#manage-compute-instance" title="Permalink to this heading">¶</a></h3>
+<h3><code class="docutils literal notranslate"><span class="pre">manage_compute_instance</span></code><a class="headerlink" href="#manage-compute-instance" title="Permalink to this heading"></a></h3>
 <p>This Python script provides a command-line interface for managing compute resources in an Azure Machine Learning workspace.</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">--create</span></code> or <code class="docutils literal notranslate"><span class="pre">-c</span></code>: A flag indicating that a new compute resource should be created. This is mutually exclusive with <code class="docutils literal notranslate"><span class="pre">--delete</span></code> - only one of them can be specified at a time.</p></li>
@@ -188,7 +183,7 @@
 </pre></div>
 </div>
 <section id="usage">
-<h4>Usage<a class="headerlink" href="#usage" title="Permalink to this heading">¶</a></h4>
+<h4>Usage<a class="headerlink" href="#usage" title="Permalink to this heading"></a></h4>
 <p>You can use <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">manage-aml-compute</span></code> command line tool to create an AzureML compute instance from the command line like this:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>manage-aml-compute<span class="w"> </span>--create<span class="w"> </span>--subscription_id<span class="w"> </span>&lt;subscription_id&gt;<span class="w"> </span>--resource_group<span class="w"> </span>&lt;resource_group&gt;<span class="w"> </span>--workspace_name<span class="w"> </span>&lt;workspace_name&gt;<span class="w"> </span>--compute_name<span class="w"> </span>&lt;compute_name&gt;<span class="w"> </span>--vm_size<span class="w"> </span>&lt;vm_size&gt;<span class="w"> </span>--location<span class="w"> </span>&lt;location&gt;<span class="w"> </span>--min_nodes<span class="w"> </span>&lt;min_nodes&gt;<span class="w"> </span>--max_nodes<span class="w"> </span>&lt;max_nodes&gt;<span class="w"> </span>--idle_time_before_scale_down<span class="w"> </span>&lt;idle_time_before_scale_down&gt;
 </pre></div>

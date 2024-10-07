@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ONNX &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -41,9 +39,6 @@
           <a href="../../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -183,17 +178,17 @@
            <div itemprop="articleBody">
              
   <section id="onnx">
-<h1>ONNX<a class="headerlink" href="#onnx" title="Permalink to this heading">¶</a></h1>
+<h1>ONNX<a class="headerlink" href="#onnx" title="Permalink to this heading"></a></h1>
 <p><a class="reference external" href="https://onnx.ai/">ONNX</a> is an open graph format to represent machine learning models. <a class="reference external" href="https://onnxruntime.ai/docs/">ONNX Runtime</a> is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.</p>
 <p>Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.</p>
 <section id="model-optimizer">
-<h2>Model Optimizer<a class="headerlink" href="#model-optimizer" title="Permalink to this heading">¶</a></h2>
+<h2>Model Optimizer<a class="headerlink" href="#model-optimizer" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">OnnxModelOptimizer</span></code> optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
 reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.</p>
 <p>Also, inserts a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operation for cases where <code class="docutils literal notranslate"><span class="pre">ArgMax</span></code> input isn’t supported on the device. For example, on GPU inferencing, TensorProto.INT64 isn’t supported so a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operator inserted to cast the inputs to TensorProto.INT32.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#onnx-model-optimizer"><span class="std std-ref">OnnxModelOptimizer</span></a> for more details about the pass and its config parameters.</p>
 <section id="example-configuration">
-<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxModelOptimizer&quot;</span>
 <span class="p">}</span>
@@ -202,7 +197,7 @@ reduce the computational cost and improve the performance of the model. The opti
 </section>
 </section>
 <section id="ort-transformers-optimization">
-<h2>ORT Transformers Optimization<a class="headerlink" href="#ort-transformers-optimization" title="Permalink to this heading">¶</a></h2>
+<h2>ORT Transformers Optimization<a class="headerlink" href="#ort-transformers-optimization" title="Permalink to this heading"></a></h2>
 <p>While ONNX Runtime automatically applies most optimizations while loading transformer models, some of the latest optimizations that have not
 yet been integrated into ONNX Runtime.
 <code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code> provides an offline capability to optimize <a class="reference external" href="https://huggingface.co/docs/transformers/index">transformers</a> models
@@ -213,7 +208,7 @@ refer to the <a class="reference external" href="https://github.com/microsoft/on
 for more details on the optimizations done by this tool.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#ort-transformers-optimization"><span class="std std-ref">OrtTransformersOptimization</span></a> for more details about the pass and its config parameters.</p>
 <section id="id1">
-<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtTransformersOptimization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;model_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bert&quot;</span>
@@ -223,10 +218,10 @@ for more details on the optimizations done by this tool.</p>
 </section>
 </section>
 <section id="append-pre-post-processing-ops">
-<h2>Append Pre/Post Processing Ops<a class="headerlink" href="#append-pre-post-processing-ops" title="Permalink to this heading">¶</a></h2>
+<h2>Append Pre/Post Processing Ops<a class="headerlink" href="#append-pre-post-processing-ops" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">AppendPrePostProcessingOps</span></code> inserts pre and post processing ops into the ONNX graph.</p>
 <section id="id2">
-<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;superresolution&quot;</span><span class="p">,</span>
@@ -348,10 +343,10 @@ For example, for some ops like <code class="docutils literal notranslate"><span 
 </section>
 </section>
 <section id="insert-beam-search-op">
-<h2>Insert Beam Search Op<a class="headerlink" href="#insert-beam-search-op" title="Permalink to this heading">¶</a></h2>
+<h2>Insert Beam Search Op<a class="headerlink" href="#insert-beam-search-op" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">InsertBeamSearch</span></code> chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.</p>
 <section id="id3">
-<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InsertBeamSearch&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;no_repeat_ngram_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
@@ -361,14 +356,14 @@ For example, for some ops like <code class="docutils literal notranslate"><span 
 </section>
 </section>
 <section id="ort-performance-tuning">
-<h2>ORT Performance Tuning<a class="headerlink" href="#ort-performance-tuning" title="Permalink to this heading">¶</a></h2>
+<h2>ORT Performance Tuning<a class="headerlink" href="#ort-performance-tuning" title="Permalink to this heading"></a></h2>
 <p>ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
 environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
 <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
 <section id="id4">
-<h3>Example Configuration<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id4" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtSessionParamsTuning&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;session_params_tuning_data_config&quot;</span><span class="p">,</span>
@@ -395,14 +390,14 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </section>
 </section>
 <section id="extract-adapters">
-<h2>Extract Adapters<a class="headerlink" href="#extract-adapters" title="Permalink to this heading">¶</a></h2>
+<h2>Extract Adapters<a class="headerlink" href="#extract-adapters" title="Permalink to this heading"></a></h2>
 <p>LoRA, QLoRA and related techniques allow us to fine-tune a pre-trained model by adding a small number of trainable matrices called adapters. The same base model can be used for multiple tasks by adding different adapters for each task. To support using multiple adapters with the same optimized onnx model, the <code class="docutils literal notranslate"><span class="pre">ExtractAdapters</span></code> pass extracts the adapters weights from the model and saves them to a separate file. The model graph is then modified in one of the following ways:</p>
 <ul class="simple">
 <li><p>Adapters weights are set as external tensors pointing to a non-existent file. The onnx model is thus invalid by itself as it cannot be loaded. In order to create an inference session using this model, the adapter weights must be added to a sessions options object using <code class="docutils literal notranslate"><span class="pre">add_initializer</span></code> or <code class="docutils literal notranslate"><span class="pre">add_external_initializers</span></code>.</p></li>
 <li><p>Adapter weights are converted into model inputs. The onnx model is valid. During inference, the adapter weights must be provided as part of the inputs. We call them constant inputs here since these weights don’t change between runs when using the one set of adapters.</p></li>
 </ul>
 <section id="id5">
-<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading"></a></h3>
 <p>a. As external initializers</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExtractAdapters&quot;</span><span class="p">,</span>

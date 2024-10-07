@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>How to add new optimization Pass &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -41,9 +39,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -157,12 +152,12 @@
            <div itemprop="articleBody">
              
   <section id="how-to-add-new-optimization-pass">
-<h1>How to add new optimization Pass<a class="headerlink" href="#how-to-add-new-optimization-pass" title="Permalink to this heading">¶</a></h1>
+<h1>How to add new optimization Pass<a class="headerlink" href="#how-to-add-new-optimization-pass" title="Permalink to this heading"></a></h1>
 <p>Olive provides simple interface to introduce new model optimization techniques. Each optimization technique is
 represented as a Pass in Olive.</p>
 <p>To introduce a new Pass follow these 3 steps.</p>
 <section id="define-a-new-class">
-<h2>1. Define a new class<a class="headerlink" href="#define-a-new-class" title="Permalink to this heading">¶</a></h2>
+<h2>1. Define a new class<a class="headerlink" href="#define-a-new-class" title="Permalink to this heading"></a></h2>
 <p>Define a new class using Pass as the base class. For example</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
 
@@ -172,7 +167,7 @@ represented as a Pass in Olive.</p>
 </div>
 </section>
 <section id="define-configuration">
-<h2>2. Define configuration<a class="headerlink" href="#define-configuration" title="Permalink to this heading">¶</a></h2>
+<h2>2. Define configuration<a class="headerlink" href="#define-configuration" title="Permalink to this heading"></a></h2>
 <p>Next, define the options used to configure this new technique by defining static method <code class="docutils literal notranslate"><span class="pre">_default_config</span></code>. This method
 takes an <code class="docutils literal notranslate"><span class="pre">AcceleratorSpec</span></code> as input and returns <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">PassConfigParam]</span></code>.</p>
 <p><code class="docutils literal notranslate"><span class="pre">AcceleratorSpec</span></code> is a dataclass that holds the information about the accelerator. The dataclass has the following fields:</p>
@@ -202,7 +197,7 @@ Must be the same type as the parameter or a ConditionalDefault SearchParameter.<
 Must be a Categorical or Conditional SearchParameter.</p></li>
 </ul>
 <section id="example">
-<h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
+<h3>Example<a class="headerlink" href="#example" title="Permalink to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{</span>
@@ -247,7 +242,7 @@ Must be a Categorical or Conditional SearchParameter.</p></li>
 </section>
 </section>
 <section id="implement-the-run-function">
-<h2>3. Implement the run function<a class="headerlink" href="#implement-the-run-function" title="Permalink to this heading">¶</a></h2>
+<h2>3. Implement the run function<a class="headerlink" href="#implement-the-run-function" title="Permalink to this heading"></a></h2>
 <p>The final step is to implement the <code class="docutils literal notranslate"><span class="pre">_run_for_config</span></code> method to optimize the input model. Olive Engine will invoke the
 method while auto tuning the model. This method will also receive a search point (one set of configuration option from
 the search space created based on the options defined in <code class="docutils literal notranslate"><span class="pre">_default_config(cls,</span> <span class="pre">accelerator_spec:</span> <span class="pre">AcceleratorSpec)</span></code>) along

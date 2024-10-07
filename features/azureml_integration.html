@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Azure ML integration &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -41,9 +39,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -168,16 +163,16 @@
            <div itemprop="articleBody">
              
   <section id="azure-ml-integration">
-<h1>Azure ML integration<a class="headerlink" href="#azure-ml-integration" title="Permalink to this heading">¶</a></h1>
+<h1>Azure ML integration<a class="headerlink" href="#azure-ml-integration" title="Permalink to this heading"></a></h1>
 <p>This documents outlines the integrations between Olive and Azure Machine Learning. Discover how to use your Azure Machine Learning assets within Olive.</p>
 <section id="azure-machine-learning-client">
-<h2>Azure Machine Learning client<a class="headerlink" href="#azure-machine-learning-client" title="Permalink to this heading">¶</a></h2>
+<h2>Azure Machine Learning client<a class="headerlink" href="#azure-machine-learning-client" title="Permalink to this heading"></a></h2>
 <p>To use Azure Machine Learning assets in your workspace, please include your workspace information as the <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> in configuration JSON file. Please find more details <a class="reference internal" href="../overview/options.html#azure-ml-client"><span class="std std-ref">here</span></a></p>
 </section>
 <section id="olive-core">
-<h2>Olive Core<a class="headerlink" href="#olive-core" title="Permalink to this heading">¶</a></h2>
+<h2>Olive Core<a class="headerlink" href="#olive-core" title="Permalink to this heading"></a></h2>
 <section id="using-azureml-registered-model">
-<h3>Using AzureML registered model<a class="headerlink" href="#using-azureml-registered-model" title="Permalink to this heading">¶</a></h3>
+<h3>Using AzureML registered model<a class="headerlink" href="#using-azureml-registered-model" title="Permalink to this heading"></a></h3>
 <p>You can run Olive workflow with your AML workspace registered model. In the input model section, define the model config as:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_model&quot;</span><span class="p">,</span>
@@ -189,7 +184,7 @@
 <p>Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.</p>
 </section>
 <section id="using-azureml-curated-model">
-<h3>Using AzureML curated model<a class="headerlink" href="#using-azureml-curated-model" title="Permalink to this heading">¶</a></h3>
+<h3>Using AzureML curated model<a class="headerlink" href="#using-azureml-curated-model" title="Permalink to this heading"></a></h3>
 <p>You can run Olive workflow with AML registered model. In the input model section, define the model config as:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_registry_model&quot;</span><span class="p">,</span>
@@ -203,7 +198,7 @@
 <p>Note: you don’t need the <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> section for AzureML curated model.</p>
 </section>
 <section id="using-model-stored-in-azureml-datastore">
-<h3>Using model stored in AzureML datastore<a class="headerlink" href="#using-model-stored-in-azureml-datastore" title="Permalink to this heading">¶</a></h3>
+<h3>Using model stored in AzureML datastore<a class="headerlink" href="#using-model-stored-in-azureml-datastore" title="Permalink to this heading"></a></h3>
 <p>You can specify your model path from an AzureML datastore as:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
@@ -219,7 +214,7 @@
 </div>
 </section>
 <section id="using-a-model-from-an-azureml-job-output">
-<h3>Using a model from an AzureML job output<a class="headerlink" href="#using-a-model-from-an-azureml-job-output" title="Permalink to this heading">¶</a></h3>
+<h3>Using a model from an AzureML job output<a class="headerlink" href="#using-a-model-from-an-azureml-job-output" title="Permalink to this heading"></a></h3>
 <p>You can specify your model path from an AzureML job output as:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_job_output&quot;</span><span class="p">,</span>
@@ -236,7 +231,7 @@
 </div>
 </section>
 <section id="using-data-stored-in-azureml-datastore">
-<h3>Using data stored in AzureML datastore<a class="headerlink" href="#using-data-stored-in-azureml-datastore" title="Permalink to this heading">¶</a></h3>
+<h3>Using data stored in AzureML datastore<a class="headerlink" href="#using-data-stored-in-azureml-datastore" title="Permalink to this heading"></a></h3>
 <p>You can use data files or folders that are stored in your Azure ML datastore as:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
@@ -252,7 +247,7 @@
 </div>
 </section>
 <section id="using-azure-ml-compute-as-host-or-target">
-<h3>Using Azure ML compute as host or target<a class="headerlink" href="#using-azure-ml-compute-as-host-or-target" title="Permalink to this heading">¶</a></h3>
+<h3>Using Azure ML compute as host or target<a class="headerlink" href="#using-azure-ml-compute-as-host-or-target" title="Permalink to this heading"></a></h3>
 <p>You can specify your Azure ML Compute as an Olive System and use it as a host to run Pass, or a target to evaluate the model.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -275,24 +270,24 @@
 </div>
 </section>
 <section id="packaging-the-output-models-to-azureml-workspace">
-<h3>Packaging the output models to AzureML workspace<a class="headerlink" href="#packaging-the-output-models-to-azureml-workspace" title="Permalink to this heading">¶</a></h3>
+<h3>Packaging the output models to AzureML workspace<a class="headerlink" href="#packaging-the-output-models-to-azureml-workspace" title="Permalink to this heading"></a></h3>
 <section id="azure-ml-models">
-<h4>Azure ML Models<a class="headerlink" href="#azure-ml-models" title="Permalink to this heading">¶</a></h4>
+<h4>Azure ML Models<a class="headerlink" href="#azure-ml-models" title="Permalink to this heading"></a></h4>
 <p>AzureMLModels packaging will register the output models to your Azure Machine Learning workspace. Please find more details <a class="reference internal" href="packaging_output_models.html#azuremlmodels"><span class="std std-ref">here</span></a>.</p>
 </section>
 <section id="azure-ml-data">
-<h4>Azure ML Data<a class="headerlink" href="#azure-ml-data" title="Permalink to this heading">¶</a></h4>
+<h4>Azure ML Data<a class="headerlink" href="#azure-ml-data" title="Permalink to this heading"></a></h4>
 <p>AzureMLData packaging will upload the output models to your Azure Machine Learning workspace as Data assets. Please find more details <a class="reference internal" href="packaging_output_models.html#azuremldata"><span class="std std-ref">here</span></a>.</p>
 </section>
 </section>
 </section>
 <section id="connect-your-own-device-to-azure-ml-as-target-or-host-by-azure-arc">
-<h2>Connect your own device to Azure ML as target or host by Azure Arc<a class="headerlink" href="#connect-your-own-device-to-azure-ml-as-target-or-host-by-azure-arc" title="Permalink to this heading">¶</a></h2>
+<h2>Connect your own device to Azure ML as target or host by Azure Arc<a class="headerlink" href="#connect-your-own-device-to-azure-ml-as-target-or-host-by-azure-arc" title="Permalink to this heading"></a></h2>
 <p>If you have your own device, you have the option to link it to your Azure ML Workspace as a Compute via Azure Arc. This allows you to use it as a Target for evaluating your model.</p>
 <p>Please follow this instruction to setup your local device: <a class="reference internal" href="../tutorials/azure_arc.html"><span class="std std-doc">Self-hosted Kubernetes cluster</span></a></p>
 </section>
 <section id="azure-ml-helper-scripts">
-<h2>Azure ML Helper Scripts<a class="headerlink" href="#azure-ml-helper-scripts" title="Permalink to this heading">¶</a></h2>
+<h2>Azure ML Helper Scripts<a class="headerlink" href="#azure-ml-helper-scripts" title="Permalink to this heading"></a></h2>
 <p>Olive offers several scripts to assist you in managing your Azure ML assets.</p>
 <p>For details on the available scripts, refer to: <a class="reference internal" href="../tutorials/azureml_scripts.html"><span class="std std-doc">Azure ML scripts</span></a></p>
 </section>

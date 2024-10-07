@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PyTorch &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -41,9 +39,6 @@
           <a href="../../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -184,16 +179,16 @@
            <div itemprop="articleBody">
              
   <section id="pytorch">
-<h1>PyTorch<a class="headerlink" href="#pytorch" title="Permalink to this heading">¶</a></h1>
+<h1>PyTorch<a class="headerlink" href="#pytorch" title="Permalink to this heading"></a></h1>
 <p>PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.</p>
 <section id="lora">
-<h2>LoRA<a class="headerlink" href="#lora" title="Permalink to this heading">¶</a></h2>
+<h2>LoRA<a class="headerlink" href="#lora" title="Permalink to this heading"></a></h2>
 <p>Low-Rank Adaptation, or <code class="docutils literal notranslate"><span class="pre">LoRA</span></code>, is a fine-tuning approach which freezes the pre-trained model weights and injects trainable rank decomposition matrices (called adapters) into the layers of the model.
 It is based on the <a class="reference external" href="https://arxiv.org/abs/2106.09685">LoRA paper</a>.</p>
 <p>The output model is the input transformers model along with the fine-tuned LoRA adapters. The adapters can be loaded and/or merged into the original model using the <code class="docutils literal notranslate"><span class="pre">peft</span></code> library from Hugging Face.</p>
 <p>This pass only supports HfModels. Please refer to <a class="reference internal" href="../../api/passes.html#lora"><span class="std std-ref">LoRA</span></a> for more details about the pass and its config parameters.</p>
 <section id="example-configuration">
-<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LoRA&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;lora_alpha&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
@@ -209,7 +204,7 @@ It is based on the <a class="reference external" href="https://arxiv.org/abs/210
 </section>
 </section>
 <section id="qlora">
-<h2>QLoRA<a class="headerlink" href="#qlora" title="Permalink to this heading">¶</a></h2>
+<h2>QLoRA<a class="headerlink" href="#qlora" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">QLoRA</span></code> is an efficient finetuning approach that reduces memory usage by backpropagating gradients through a frozen, 4-bit quantized pretrained model into Low Rank Adapters (LoRA). It is based on
 the QLoRA <a class="reference external" href="https://arxiv.org/abs/2305.14314">paper</a> and <a class="reference external" href="https://github.com/artidoro/qlora/blob/main/qlora.py">code</a>. More information on LoRA can be found in the <a class="reference external" href="https://arxiv.org/abs/2106.09685">paper</a>.</p>
 <p>The output model is the input transformers model along with the quantization config and the fine-tuned LoRA adapters. The adapters can be loaded and/or merged into the original model using the
@@ -217,7 +212,7 @@ the QLoRA <a class="reference external" href="https://arxiv.org/abs/2305.14314">
 <p>This pass only supports HfModels. Please refer to <a class="reference internal" href="../../api/passes.html#qlora"><span class="std std-ref">QLoRA</span></a> for more details about the pass and its config parameters.</p>
 <p><strong>Note:</strong> QLoRA requires a GPU to run.</p>
 <section id="id1">
-<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QLoRA&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;compute_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span>
@@ -234,7 +229,7 @@ the QLoRA <a class="reference external" href="https://arxiv.org/abs/2305.14314">
 </section>
 </section>
 <section id="loftq">
-<h2>LoftQ<a class="headerlink" href="#loftq" title="Permalink to this heading">¶</a></h2>
+<h2>LoftQ<a class="headerlink" href="#loftq" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">LoftQ</span></code> is a quantization framework which simultaneously quantizes and finds a proper low-rank initialization for LoRA fine-tuning. It is based on the LoftQ <a class="reference external" href="https://arxiv.org/abs/2310.08659">paper</a>
 and <a class="reference external" href="https://github.com/yxli2123/LoftQ">code</a>. More information on LoRA can be found in the <a class="reference external" href="https://arxiv.org/abs/2106.09685">paper</a>.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">LoftQ</span></code> pass initializes the quantized LoRA model using the LoftQ initialization method and then fine-tunes the adapters. The output model has new quantization aware master weights and the fine-tuned LoRA adapters.</p>
@@ -254,14 +249,14 @@ and <a class="reference external" href="https://github.com/yxli2123/LoftQ">code<
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#lora-hf-training-arguments"><span class="std std-ref">LoftQ HFTrainingArguments</span></a> for more details on supported the <code class="docutils literal notranslate"><span class="pre">&quot;training_args&quot;</span></code> and their default values.</p>
 </section>
 <section id="quantization-aware-training">
-<h2>Quantization Aware Training<a class="headerlink" href="#quantization-aware-training" title="Permalink to this heading">¶</a></h2>
+<h2>Quantization Aware Training<a class="headerlink" href="#quantization-aware-training" title="Permalink to this heading"></a></h2>
 <p>The Quantization Aware Training (QAT) technique is used to improve the performance and efficiency of deep learning models by quantizing their
 weights and activations to lower bit-widths. The technique is applied during training, where the weights and activations are fake quantized
 to lower bit-widths using the specified QConfig.</p>
 <p>Olive provides <code class="docutils literal notranslate"><span class="pre">QuantizationAwareTraining</span></code> that performs QAT on a PyTorch model.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#quantization-aware-training"><span class="std std-ref">QuantizationAwareTraining</span></a> for more details about the pass and its config parameters.</p>
 <section id="id2">
-<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
 <p>Olive provides the 3 ways to run QAT training process:</p>
 <p>a. Run QAT training with customized training loop.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -298,10 +293,10 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </section>
 </section>
 <section id="mergeadapterweights">
-<h2>MergeAdapterWeights<a class="headerlink" href="#mergeadapterweights" title="Permalink to this heading">¶</a></h2>
+<h2>MergeAdapterWeights<a class="headerlink" href="#mergeadapterweights" title="Permalink to this heading"></a></h2>
 <p>Merge Lora weights into a complete model. After running the LoRA pass, the model will only have LoRA adapters. This pass merges the LoRA adapters into the original model and download the context(config/generation_config/tokenizer) of the model.</p>
 <section id="id3">
-<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MergeAdapterWeights&quot;</span>
 <span class="p">}</span>
@@ -310,7 +305,7 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </section>
 </section>
 <section id="sparsegpt">
-<h2>SparseGPT<a class="headerlink" href="#sparsegpt" title="Permalink to this heading">¶</a></h2>
+<h2>SparseGPT<a class="headerlink" href="#sparsegpt" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">SparseGPT</span></code> prunes GPT like models using a pruning method called <a class="reference external" href="https://arxiv.org/abs/2301.00774">SparseGPT</a>. This one-shot pruning method can perform unstructured
 sparsity up to 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
 as 2:4 and 4:8 patterns.</p>
@@ -318,7 +313,7 @@ as 2:4 and 4:8 patterns.</p>
 <p>This pass only supports HfModels. Please refer to <a class="reference internal" href="../../api/passes.html#sparsegpt"><span class="std std-ref">SparseGPT</span></a> for more details on the types of transformers models supported.</p>
 <p><strong>Note:</strong> TensorRT can accelerate inference on 2:4 sparse models as described in <a class="reference external" href="https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/">this blog</a>.</p>
 <section id="id4">
-<h3>Example Configuration<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id4" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SparseGPT&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;sparsity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span>
@@ -334,12 +329,12 @@ as 2:4 and 4:8 patterns.</p>
 </section>
 </section>
 <section id="slicegpt">
-<h2>SliceGPT<a class="headerlink" href="#slicegpt" title="Permalink to this heading">¶</a></h2>
+<h2>SliceGPT<a class="headerlink" href="#slicegpt" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">SliceGPT</span></code> is post-training sparsification scheme that makes transformer networks smaller by applying orthogonal transformations to each transformer layer that reduces the model size by slicing off the least-significant rows and columns of the weight matrices. This results in speedups and a reduced memory footprint.</p>
 <p>Please refer to the original <a class="reference external" href="https://arxiv.org/abs/2401.15024">paper</a> for more details on the algorithm and expected results for different models, sparsities and datasets.</p>
 <p>This pass only supports HuggingFace transformer PyTorch models. Please refer to <a class="reference internal" href="../../api/passes.html#slicegpt"><span class="std std-ref">SliceGPT</span></a> for more details on the types of transformers models supported.</p>
 <section id="id5">
-<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SliceGPT&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;sparsity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.4</span><span class="p">,</span>

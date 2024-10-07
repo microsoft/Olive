@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BERT optimization with PTQ on CPU &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -41,9 +39,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -162,7 +157,7 @@
            <div itemprop="articleBody">
              
   <section id="bert-optimization-with-ptq-on-cpu">
-<h1>BERT optimization with PTQ on CPU<a class="headerlink" href="#bert-optimization-with-ptq-on-cpu" title="Permalink to this heading">¶</a></h1>
+<h1>BERT optimization with PTQ on CPU<a class="headerlink" href="#bert-optimization-with-ptq-on-cpu" title="Permalink to this heading"></a></h1>
 <p>This is a sample use case of Olive to optimize a <a class="reference external" href="https://huggingface.co/Intel/bert-base-uncased-mrpc">Bert</a> model using onnx conversion, onnx transformers optimization,
 onnx quantization tuner and performance tuning.</p>
 <p>Performs optimization pipeline:</p>
@@ -170,10 +165,10 @@ onnx quantization tuner and performance tuning.</p>
 <li><p><em>PyTorch Model -&gt; Onnx Model -&gt; Transformers Optimized Onnx Model -&gt; Quantized Onnx Model -&gt;  ONNX Runtime performance tuning</em></p></li>
 </ul>
 <section id="prerequisites">
-<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading">¶</a></h2>
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading"></a></h2>
 <p>Please go to example repository <a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert">Quickstart Bert Example</a></p>
 <section id="pip-requirements">
-<h3>Pip requirements<a class="headerlink" href="#pip-requirements" title="Permalink to this heading">¶</a></h3>
+<h3>Pip requirements<a class="headerlink" href="#pip-requirements" title="Permalink to this heading"></a></h3>
 <p>Install the necessary python packages:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
 </pre></div>
@@ -181,7 +176,7 @@ onnx quantization tuner and performance tuning.</p>
 </section>
 </section>
 <section id="run-sample-using-config-the-optimization-techniques-to-run-are-specified-in-bert-ptq-cpu-json">
-<h2>Run sample using config. The optimization techniques to run are specified in bert_ptq_cpu.json<a class="headerlink" href="#run-sample-using-config-the-optimization-techniques-to-run-are-specified-in-bert-ptq-cpu-json" title="Permalink to this heading">¶</a></h2>
+<h2>Run sample using config. The optimization techniques to run are specified in bert_ptq_cpu.json<a class="headerlink" href="#run-sample-using-config-the-optimization-techniques-to-run-are-specified-in-bert-ptq-cpu-json" title="Permalink to this heading"></a></h2>
 <p>First, install required packages according to passes.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>bert_ptq_cpu.json<span class="w"> </span>--setup
 </pre></div>
@@ -197,7 +192,7 @@ onnx quantization tuner and performance tuning.</p>
 </div>
 </section>
 <section id="optimize-model-automatically-without-selecting-any-optimization-technique">
-<h2>Optimize model automatically without selecting any optimization technique.<a class="headerlink" href="#optimize-model-automatically-without-selecting-any-optimization-technique" title="Permalink to this heading">¶</a></h2>
+<h2>Optimize model automatically without selecting any optimization technique.<a class="headerlink" href="#optimize-model-automatically-without-selecting-any-optimization-technique" title="Permalink to this heading"></a></h2>
 <p>First, install required packages according to passes.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>bert_auto.json<span class="w"> </span>--setup
 </pre></div>

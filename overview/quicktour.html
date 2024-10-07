@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quick Tour &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -41,9 +39,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -157,7 +152,7 @@
            <div itemprop="articleBody">
              
   <section id="quick-tour">
-<h1>Quick Tour<a class="headerlink" href="#quick-tour" title="Permalink to this heading">¶</a></h1>
+<h1>Quick Tour<a class="headerlink" href="#quick-tour" title="Permalink to this heading"></a></h1>
 <p>Here is a quick guide on using Olive for model optimization. We will focus on accelerating a PyTorch model on the CPU. It is a simple three step process.</p>
 <ol class="arabic simple">
 <li><p><strong>Install Olive and necessary packages.</strong></p></li>
@@ -208,10 +203,10 @@ olive_run(&quot;my_model_acceleration_description.json&quot;)
 </div>
 </div>
 <section id="information-needed-to-accelerate-a-model">
-<h2>Information needed to accelerate a model<a class="headerlink" href="#information-needed-to-accelerate-a-model" title="Permalink to this heading">¶</a></h2>
+<h2>Information needed to accelerate a model<a class="headerlink" href="#information-needed-to-accelerate-a-model" title="Permalink to this heading"></a></h2>
 <p>Typically, you need to have input model information such as model type, input names and shapes, where the model is stored. You would also know your desired performance requirements in terms of Latency, Accuracy etc. Along with this information you need to provide Olive list of model transformations and optimizations you want to apply. Optionally you can also select target hardware and select additional Olive features. Now, let’s take a look at how you can include this information in the json configuration file you will use as an Olive input.</p>
 <section id="input-model">
-<h3>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading">¶</a></h3>
+<h3>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading"></a></h3>
 <p>Olive can accept ONNX, Torch, OpenVINO and SNPE models as of now. The config for each of these models is slightly different. You can find more information about each of these models in <a class="reference external" href="https://microsoft.github.io/Olive/api/models.html">Input Model configuration</a>.</p>
 <p>Let’s use a PyTorch resnet model as an example which you can describe in the json file as follows. You can use any PyTorch model.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
@@ -228,7 +223,7 @@ olive_run(&quot;my_model_acceleration_description.json&quot;)
 <p>It is possible to provide additional information such as dataset you want to use. You could also directly select HuggingFace model and task. See <a class="reference internal" href="options.html#input-model-information"><span class="std std-ref">Input Model configuration</span></a> for more information.</p>
 </section>
 <section id="passes-to-apply">
-<h3>Passes to apply<a class="headerlink" href="#passes-to-apply" title="Permalink to this heading">¶</a></h3>
+<h3>Passes to apply<a class="headerlink" href="#passes-to-apply" title="Permalink to this heading"></a></h3>
 <p>Olive can apply various transformations and optimizations, also known as passes, on the input model to produce the accelerated output model. See <a class="reference internal" href="options.html#passes-information"><span class="std std-ref">Passes</span></a> for the full list of passes supported by Olive.</p>
 <p>Let’s apply ONNX conversation and use dynamic quantization technique to quantize the model by specifying following in the json file.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -244,7 +239,7 @@ olive_run(&quot;my_model_acceleration_description.json&quot;)
 </div>
 </section>
 <section id="olive-engine">
-<h3>Olive Engine<a class="headerlink" href="#olive-engine" title="Permalink to this heading">¶</a></h3>
+<h3>Olive Engine<a class="headerlink" href="#olive-engine" title="Permalink to this heading"></a></h3>
 <p>Finally, you can select Olive features such as which performance metrics you want to use in this run, verbosity level etc.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>

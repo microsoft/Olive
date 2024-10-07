@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PyTorch &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -41,9 +39,6 @@
           <a href="../../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -160,16 +155,16 @@
            <div itemprop="articleBody">
              
   <section id="pytorch">
-<h1>PyTorch<a class="headerlink" href="#pytorch" title="Permalink to this heading">¶</a></h1>
+<h1>PyTorch<a class="headerlink" href="#pytorch" title="Permalink to this heading"></a></h1>
 <p>PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.</p>
 <section id="torchtrtconversion">
-<h2>TorchTRTConversion<a class="headerlink" href="#torchtrtconversion" title="Permalink to this heading">¶</a></h2>
+<h2>TorchTRTConversion<a class="headerlink" href="#torchtrtconversion" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TorchTRTConversion</span></code> converts the <code class="docutils literal notranslate"><span class="pre">torch.nn.Linear</span></code> modules in the transformer layers in a Hugging Face PyTorch model to <code class="docutils literal notranslate"><span class="pre">TRTModules</span></code> from <code class="docutils literal notranslate"><span class="pre">torch_tensorrt</span></code> with fp16 precision and sparse weights, if
 applicable. <code class="docutils literal notranslate"><span class="pre">torch_tensorrt</span></code> is an extension to <code class="docutils literal notranslate"><span class="pre">torch</span></code> where TensorRT compiled engines can be used like regular <code class="docutils literal notranslate"><span class="pre">torch.nn.Module</span></code>s. This pass can be used to accelerate inference on transformer models
 with sparse weights by taking advantage of the 2:4 structured sparsity pattern supported by TensorRT.</p>
 <p>This pass only supports HfModels. Please refer to <a class="reference internal" href="../../api/passes.html#torch-trt-conversion"><span class="std std-ref">TorchTRTConversion</span></a> for more details on the types of transformers models supported.</p>
 <section id="example-configuration">
-<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TorchTRTConversion&quot;</span>
 <span class="p">}</span>

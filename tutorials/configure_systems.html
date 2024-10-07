@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,24 +8,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>How To Configure System &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/tabs.js?v=3030b3cb"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/tabs.js?v=3030b3cb"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -42,9 +40,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -175,7 +170,7 @@
            <div itemprop="articleBody">
              
   <section id="how-to-configure-system">
-<span id="id1"></span><h1>How To Configure System<a class="headerlink" href="#how-to-configure-system" title="Permalink to this heading">¶</a></h1>
+<span id="id1"></span><h1>How To Configure System<a class="headerlink" href="#how-to-configure-system" title="Permalink to this heading"></a></h1>
 <p>A system is a environment concept (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model is evaluated on.</p>
 <p>There are two types of systems: <strong>host</strong> and <strong>target</strong>. A <strong>host</strong> is the environment where the Pass is run, and a <strong>target</strong> is the environment where the Model is evaluated.</p>
 <p>There are five systems: <strong>local system</strong>, <strong>Python environment system</strong>, <strong>Docker system</strong>, <strong>AzureML system</strong>, <strong>Isolated ORT system</strong>.</p>
@@ -187,7 +182,7 @@ The <code class="docutils literal notranslate"><span class="pre">device</span></
 </ul>
 <p>Most of time, the <strong>host</strong> and <strong>target</strong> are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.</p>
 <section id="accelerator-configuration">
-<h2>Accelerator Configuration<a class="headerlink" href="#accelerator-configuration" title="Permalink to this heading">¶</a></h2>
+<h2>Accelerator Configuration<a class="headerlink" href="#accelerator-configuration" title="Permalink to this heading"></a></h2>
 <p>For each <strong>host</strong> or <strong>target</strong>, it will represent list of accelerators that are supported by the system. Each accelerator is represented by a dictionary with the following attributes:</p>
 <div class="admonition-acceleratorconfig admonition">
 <p class="admonition-title">AcceleratorConfig</p>
@@ -199,7 +194,7 @@ The <code class="docutils literal notranslate"><span class="pre">device</span></
 <p>The <strong>host</strong> only use the <code class="docutils literal notranslate"><span class="pre">device</span></code> attribute to run the passes. Instead, the <strong>target</strong> uses both <code class="docutils literal notranslate"><span class="pre">device</span></code> and <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> attributes to run passes or evaluate models.</p>
 </section>
 <section id="local-system">
-<h2>Local System<a class="headerlink" href="#local-system" title="Permalink to this heading">¶</a></h2>
+<h2>Local System<a class="headerlink" href="#local-system" title="Permalink to this heading"></a></h2>
 <p>The local system represents the local machine where the Pass is run or the Model is evaluated and it only contains the accelerators attribute.</p>
 <div class="admonition-configuration admonition">
 <p class="admonition-title">Configuration</p>
@@ -253,7 +248,7 @@ The <code class="docutils literal notranslate"><span class="pre">device</span></
 <p>Please refer to <a class="reference internal" href="../api/systems.html#local-system-config"><span class="std std-ref">LocalTargetUserConfig</span></a> for more details on the config options.</p>
 </section>
 <section id="python-environment-system">
-<h2>Python Environment System<a class="headerlink" href="#python-environment-system" title="Permalink to this heading">¶</a></h2>
+<h2>Python Environment System<a class="headerlink" href="#python-environment-system" title="Permalink to this heading"></a></h2>
 <p>The python environment system represents the python virtual environment. It can be configured as a native system or a managed system. The python environment system is configured with the following attributes:</p>
 <div class="admonition-configuration admonition">
 <p class="admonition-title">Configuration</p>
@@ -267,7 +262,7 @@ The <code class="docutils literal notranslate"><span class="pre">device</span></
 </ul>
 </div>
 <section id="native-python-environment-system">
-<h3>Native Python Environment System<a class="headerlink" href="#native-python-environment-system" title="Permalink to this heading">¶</a></h3>
+<h3>Native Python Environment System<a class="headerlink" href="#native-python-environment-system" title="Permalink to this heading"></a></h3>
 <p>Here are the examples of configuring the general Python Environment System.</p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -312,7 +307,7 @@ The <code class="docutils literal notranslate"><span class="pre">device</span></
 </div>
 </section>
 <section id="managed-python-environment-system">
-<h3>Managed Python Environment System<a class="headerlink" href="#managed-python-environment-system" title="Permalink to this heading">¶</a></h3>
+<h3>Managed Python Environment System<a class="headerlink" href="#managed-python-environment-system" title="Permalink to this heading"></a></h3>
 <p>When <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>, Olive will manage the python environment by installing the required packages from the <code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code>. As the result, the <code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code> is required and must be provided.</p>
 <p>For managed python environment system, Olive only infer the onnxruntime from the following onnxruntime execution providers:</p>
 <ul class="simple">
@@ -346,7 +341,7 @@ for how to use managed python environment system to optimize the model against d
 </section>
 </section>
 <section id="docker-system">
-<h2>Docker System<a class="headerlink" href="#docker-system" title="Permalink to this heading">¶</a></h2>
+<h2>Docker System<a class="headerlink" href="#docker-system" title="Permalink to this heading"></a></h2>
 <p>The docker system represents the docker container where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The docker system is configured with the following attributes:</p>
 <div class="admonition-configuration admonition">
 <p class="admonition-title">Configuration</p>
@@ -374,7 +369,7 @@ for how to use managed python environment system to optimize the model against d
 </ul>
 </div>
 <section id="prerequisites">
-<h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading">¶</a></h3>
+<h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading"></a></h3>
 <ol class="arabic">
 <li><p>Docker Engine installed on the host machine.</p></li>
 <li><p>docker extra dependencies installed.</p>
@@ -391,7 +386,7 @@ for how to use managed python environment system to optimize the model against d
 </ol>
 </section>
 <section id="native-docker-system">
-<h3>Native Docker System<a class="headerlink" href="#native-docker-system" title="Permalink to this heading">¶</a></h3>
+<h3>Native Docker System<a class="headerlink" href="#native-docker-system" title="Permalink to this heading"></a></h3>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Docker&quot;</span><span class="p">,</span>
@@ -422,7 +417,7 @@ for how to use managed python environment system to optimize the model against d
 </div></div>
 </section>
 <section id="managed-docker-system">
-<h3>Managed Docker System<a class="headerlink" href="#managed-docker-system" title="Permalink to this heading">¶</a></h3>
+<h3>Managed Docker System<a class="headerlink" href="#managed-docker-system" title="Permalink to this heading"></a></h3>
 <p>When <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>, Olive will manage the docker environment by installing the required packages from the <code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code> in the docker container if provided.
 From the time being, Olive only supports the following base Dockerfiles based on input execution providers:</p>
 <ul class="simple">
@@ -451,7 +446,7 @@ From the time being, Olive only supports the following base Dockerfiles based on
 </section>
 </section>
 <section id="azureml-system">
-<h2>AzureML System<a class="headerlink" href="#azureml-system" title="Permalink to this heading">¶</a></h2>
+<h2>AzureML System<a class="headerlink" href="#azureml-system" title="Permalink to this heading"></a></h2>
 <p>The AzureML system represents the Azure Machine Learning workspace where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The AzureML system is configured with the following attributes:</p>
 <div class="admonition-configuration admonition">
 <p class="admonition-title">Configuration</p>
@@ -508,7 +503,7 @@ From the time being, Olive only supports the following base Dockerfiles based on
 </ul>
 </div>
 <section id="id2">
-<h3>Prerequisites<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<h3>Prerequisites<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
 <ol class="arabic">
 <li><p>azureml extra dependencies installed.</p>
 <blockquote>
@@ -527,7 +522,7 @@ From the time being, Olive only supports the following base Dockerfiles based on
 the workspace config json.</p>
 </section>
 <section id="native-azureml-system">
-<h3>Native AzureML System<a class="headerlink" href="#native-azureml-system" title="Permalink to this heading">¶</a></h3>
+<h3>Native AzureML System<a class="headerlink" href="#native-azureml-system" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -551,7 +546,7 @@ the workspace config json.</p>
 </pre></div>
 </div>
 <section id="azureml-readymade-systems">
-<h4>AzureML Readymade Systems<a class="headerlink" href="#azureml-readymade-systems" title="Permalink to this heading">¶</a></h4>
+<h4>AzureML Readymade Systems<a class="headerlink" href="#azureml-readymade-systems" title="Permalink to this heading"></a></h4>
 <p>There are some readymade systems available for AzureML. These systems are pre-configured with the necessary.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureNDV2System&quot;</span><span class="p">,</span>
@@ -576,7 +571,7 @@ In above example, the readymade system supports only GPU. Therefore, the final a
 </section>
 </section>
 <section id="managed-azureml-system">
-<h3>Managed AzureML System<a class="headerlink" href="#managed-azureml-system" title="Permalink to this heading">¶</a></h3>
+<h3>Managed AzureML System<a class="headerlink" href="#managed-azureml-system" title="Permalink to this heading"></a></h3>
 <p>When <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>, Olive will manage the AzureML environment by installing the required packages from the <code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code> in the AzureML environment if provided.</p>
 <p>From the time being, Olive only supports the following base Dockerfiles based on input execution providers:</p>
 <ul class="simple">
@@ -621,7 +616,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;cond
 </section>
 </section>
 <section id="isolated-ort-system">
-<h2>Isolated ORT System<a class="headerlink" href="#isolated-ort-system" title="Permalink to this heading">¶</a></h2>
+<h2>Isolated ORT System<a class="headerlink" href="#isolated-ort-system" title="Permalink to this heading"></a></h2>
 <p>The isolated ORT system represents the isolated ONNX Runtime environment in which the <code class="docutils literal notranslate"><span class="pre">olive-ai</span></code> is not installed. It can only be configured as a target system. The isolated ORT system is configured with the following attributes:</p>
 <div class="admonition-configuration admonition">
 <p class="admonition-title">Configuration</p>

@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>How To Set Model Path &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -41,9 +39,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -164,10 +159,10 @@
            <div itemprop="articleBody">
              
   <section id="how-to-set-model-path">
-<h1>How To Set Model Path<a class="headerlink" href="#how-to-set-model-path" title="Permalink to this heading">¶</a></h1>
+<h1>How To Set Model Path<a class="headerlink" href="#how-to-set-model-path" title="Permalink to this heading"></a></h1>
 <p>This document describes how to configure model paths in Olive for both local and remote model resources.</p>
 <section id="local-model-path">
-<h2>Local Model Path<a class="headerlink" href="#local-model-path" title="Permalink to this heading">¶</a></h2>
+<h2>Local Model Path<a class="headerlink" href="#local-model-path" title="Permalink to this heading"></a></h2>
 <p>If the model path is a local path or a string name (such as a model hub id), it can be directly specified as a string. Olive will automatically
 infer if it is a string name, local file or local directory.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -177,7 +172,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 <p>You can also specify the resource type explicitly.</p>
 <section id="local-file">
-<h3>Local File<a class="headerlink" href="#local-file" title="Permalink to this heading">¶</a></h3>
+<h3>Local File<a class="headerlink" href="#local-file" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
@@ -188,7 +183,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 </section>
 <section id="local-folder">
-<h3>Local Folder<a class="headerlink" href="#local-folder" title="Permalink to this heading">¶</a></h3>
+<h3>Local Folder<a class="headerlink" href="#local-folder" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;folder&quot;</span><span class="p">,</span>
@@ -199,7 +194,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 </section>
 <section id="string-name">
-<h3>String Name<a class="headerlink" href="#string-name" title="Permalink to this heading">¶</a></h3>
+<h3>String Name<a class="headerlink" href="#string-name" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string_name&quot;</span><span class="p">,</span>
@@ -211,10 +206,10 @@ infer if it is a string name, local file or local directory.</p>
 </section>
 </section>
 <section id="remote-model-path">
-<h2>Remote Model Path<a class="headerlink" href="#remote-model-path" title="Permalink to this heading">¶</a></h2>
+<h2>Remote Model Path<a class="headerlink" href="#remote-model-path" title="Permalink to this heading"></a></h2>
 <p>Olive supports remote model resources. Currently, it supports AzureML model, AzureML datastore and AzureML job output.</p>
 <section id="azureml-model">
-<h3>AzureML Model<a class="headerlink" href="#azureml-model" title="Permalink to this heading">¶</a></h3>
+<h3>AzureML Model<a class="headerlink" href="#azureml-model" title="Permalink to this heading"></a></h3>
 <p>Models registered in an Azure Machine Learning workspace.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -232,7 +227,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 </section>
 <section id="azureml-registry-model">
-<h3>AzureML Registry Model<a class="headerlink" href="#azureml-registry-model" title="Permalink to this heading">¶</a></h3>
+<h3>AzureML Registry Model<a class="headerlink" href="#azureml-registry-model" title="Permalink to this heading"></a></h3>
 <p>Models curated in an Azure Machine Learning or models in your own registry. Azure ML curated model doesn’t require an <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> config section, but you can still add this section for additional <code class="docutils literal notranslate"><span class="pre">mlclient</span></code> configuration.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -246,7 +241,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 </section>
 <section id="azureml-datastore">
-<h3>AzureML Datastore<a class="headerlink" href="#azureml-datastore" title="Permalink to this heading">¶</a></h3>
+<h3>AzureML Datastore<a class="headerlink" href="#azureml-datastore" title="Permalink to this heading"></a></h3>
 <p>Model files or folders stored in an Azure Machine Learning datastore.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -264,7 +259,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 </section>
 <section id="azureml-job-output">
-<h3>AzureML Job Output<a class="headerlink" href="#azureml-job-output" title="Permalink to this heading">¶</a></h3>
+<h3>AzureML Job Output<a class="headerlink" href="#azureml-job-output" title="Permalink to this heading"></a></h3>
 <p>Model files or folders generated by an Azure Machine Learning job and saved in the job output.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>

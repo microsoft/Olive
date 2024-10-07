@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Remote Workflow &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -41,9 +39,6 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -156,24 +151,24 @@
            <div itemprop="articleBody">
              
   <section id="remote-workflow">
-<h1>Remote Workflow<a class="headerlink" href="#remote-workflow" title="Permalink to this heading">¶</a></h1>
+<h1>Remote Workflow<a class="headerlink" href="#remote-workflow" title="Permalink to this heading"></a></h1>
 <section id="running-olive-workflow-remotely-on-azure-machine-learning-workspace-compute">
-<h2>Running Olive Workflow Remotely on Azure Machine Learning workspace compute<a class="headerlink" href="#running-olive-workflow-remotely-on-azure-machine-learning-workspace-compute" title="Permalink to this heading">¶</a></h2>
+<h2>Running Olive Workflow Remotely on Azure Machine Learning workspace compute<a class="headerlink" href="#running-olive-workflow-remotely-on-azure-machine-learning-workspace-compute" title="Permalink to this heading"></a></h2>
 <p>If your Olive workflow takes a long time to run or you need to step away or your local environment is not powerful enough to run the workflow then Olive provides the flexibility to run your workflow on a compute or cluster in your Azure Machine Learning workspace. This allows you to turn off your terminal session or shut down your local machine without interrupting the process.</p>
 </section>
 <section id="install-extra-dependencies">
-<h2>Install Extra Dependencies<a class="headerlink" href="#install-extra-dependencies" title="Permalink to this heading">¶</a></h2>
+<h2>Install Extra Dependencies<a class="headerlink" href="#install-extra-dependencies" title="Permalink to this heading"></a></h2>
 <p>You can install the necessary dependencies by running:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>azureml<span class="o">]</span>
 </pre></div>
 </div>
 </section>
 <section id="configure-an-azureml-system">
-<h2>Configure an AzureML system<a class="headerlink" href="#configure-an-azureml-system" title="Permalink to this heading">¶</a></h2>
+<h2>Configure an AzureML system<a class="headerlink" href="#configure-an-azureml-system" title="Permalink to this heading"></a></h2>
 <p>To run the workflow on AzureML system, the configuration is same as normal AzureML system configuration. Please find more details in <a class="reference internal" href="../tutorials/configure_systems.html"><span class="std std-doc">this instruction</span></a>.</p>
 </section>
 <section id="run-olive-workflow">
-<h2>Run Olive Workflow<a class="headerlink" href="#run-olive-workflow" title="Permalink to this heading">¶</a></h2>
+<h2>Run Olive Workflow<a class="headerlink" href="#run-olive-workflow" title="Permalink to this heading"></a></h2>
 <p>To run the Olive workflow, add a <code class="docutils literal notranslate"><span class="pre">workflow_host</span></code> configuation at the top level of the Olive config file:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;workflow_host&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aml_system&quot;</span>
 </pre></div>
@@ -185,7 +180,7 @@
 <p>Olive will submit this workflow to the Azure ML system compute. It is safe to close your terminal session or turn off your local machine. The workflow will continue running on the Azure ML workspace compute.</p>
 </section>
 <section id="workflow-outputs">
-<h2>Workflow outputs<a class="headerlink" href="#workflow-outputs" title="Permalink to this heading">¶</a></h2>
+<h2>Workflow outputs<a class="headerlink" href="#workflow-outputs" title="Permalink to this heading"></a></h2>
 <p>The artifacts of the workflow, including cache and outputs, will be automatically exported as Azure Machine Learning and stored to Azure Machine Learning datastore. The Data asset name will be <code class="docutils literal notranslate"><span class="pre">&lt;workflow_id&gt;</span></code>. The default datastore is <code class="docutils literal notranslate"><span class="pre">workspaceblobstore</span></code>. If you want to export to your own datastore, please add <code class="docutils literal notranslate"><span class="pre">datastores:</span> <span class="pre">&lt;your-datastore-name&gt;</span></code> in AzureML system config:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>

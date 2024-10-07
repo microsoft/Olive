@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en">
 <head>
@@ -6,23 +8,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ONNX &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
       <link rel="stylesheet" type="text/css" href="../../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../../_static/doctools.js?v=888ff710"></script>
-        <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -41,9 +39,6 @@
           <a href="../../index.html" class="icon icon-home">
             Olive
           </a>
-              <div class="version">
-                latest
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -177,16 +172,16 @@
            <div itemprop="articleBody">
              
   <section id="onnx">
-<h1>ONNX<a class="headerlink" href="#onnx" title="Permalink to this heading">¶</a></h1>
+<h1>ONNX<a class="headerlink" href="#onnx" title="Permalink to this heading"></a></h1>
 <p><a class="reference external" href="https://onnx.ai/">ONNX</a> is an open graph format to represent machine learning models. <a class="reference external" href="https://onnxruntime.ai/docs/">ONNX Runtime</a> is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.</p>
 <section id="model-conversion">
-<h2>Model Conversion<a class="headerlink" href="#model-conversion" title="Permalink to this heading">¶</a></h2>
+<h2>Model Conversion<a class="headerlink" href="#model-conversion" title="Permalink to this heading"></a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">OnnxConversion</span></code> pass converts PyTorch models to ONNX using
 <a class="reference external" href="https://pytorch.org/docs/stable/onnx.html">torch.onnx</a>.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#onnx-conversion"><span class="std std-ref">OnnxConversion</span></a> for more details about the pass and its config parameters.</p>
 <p>Besides, if you want to convert an existing ONNX model with another target opset, you can use <a class="reference internal" href="../../api/passes.html#onnx-op-version-conversion"><span class="std std-ref">OnnxOpVersionConversion</span></a> pass, similar configs with above case:</p>
 <section id="example-configuration">
-<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxConversion&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
@@ -202,7 +197,7 @@
 <p>Please refer to <a class="reference internal" href="#model_builder"><span class="xref myst">ModelBuilder</span></a> for more details about the pass and its config parameters.</p>
 </section>
 <section id="id1">
-<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ModelBuilder&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int4&quot;</span>
@@ -212,11 +207,11 @@
 </section>
 </section>
 <section id="float16-conversion">
-<h2>Float16 Conversion<a class="headerlink" href="#float16-conversion" title="Permalink to this heading">¶</a></h2>
+<h2>Float16 Conversion<a class="headerlink" href="#float16-conversion" title="Permalink to this heading"></a></h2>
 <p>Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The <code class="docutils literal notranslate"><span class="pre">OnnxFloatToFloat16</span></code> pass the <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/float16.py">float16 converter from onnxruntime</a> to convert the model to float16, which convert most nodes/operators to use Float16 instead of Float32.</p>
 <p>Conversion to Float16 is often exposed at multiple stages of optimization, including model conversion and transformer optimization. This stand-alone pass is best suited for models that are not transformer architectures, where fusions may rely on a specific data types in node patterns.</p>
 <section id="id2">
-<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
 <p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxFloatToFloat16&quot;</span>
@@ -235,10 +230,10 @@
 </section>
 </section>
 <section id="inputs-outputs-float16-to-float32-conversion">
-<h2>Inputs/Outputs Float16 to Float32 Conversion<a class="headerlink" href="#inputs-outputs-float16-to-float32-conversion" title="Permalink to this heading">¶</a></h2>
+<h2>Inputs/Outputs Float16 to Float32 Conversion<a class="headerlink" href="#inputs-outputs-float16-to-float32-conversion" title="Permalink to this heading"></a></h2>
 <p>Certain environments such as Onnxruntime WebGPU prefers Float32 logits. The <code class="docutils literal notranslate"><span class="pre">OnnxIOFloat16ToFloat32</span></code> pass converts the inputs and outputs to use Float32 instead of Float16.</p>
 <section id="id3">
-<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h3>
 <p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxIOFloat16ToFloat32&quot;</span>
@@ -248,12 +243,12 @@
 </section>
 </section>
 <section id="mixed-precision-conversion">
-<h2>Mixed Precision Conversion<a class="headerlink" href="#mixed-precision-conversion" title="Permalink to this heading">¶</a></h2>
+<h2>Mixed Precision Conversion<a class="headerlink" href="#mixed-precision-conversion" title="Permalink to this heading"></a></h2>
 <p>Converting model to mixed precision.</p>
 <p>If float16 conversion is giving poor results, you can convert most of the ops to float16 but leave some in float32. The <code class="docutils literal notranslate"><span class="pre">OrtMixedPrecision</span></code> pass finds a minimal set of ops to skip while retaining a certain level of accuracy.</p>
 <p>The default value for <code class="docutils literal notranslate"><span class="pre">op_block_list</span></code> is <code class="docutils literal notranslate"><span class="pre">[&quot;SimplifiedLayerNormalization&quot;,</span> <span class="pre">&quot;SkipSimplifiedLayerNormalization&quot;,</span> <span class="pre">&quot;Relu&quot;,</span> <span class="pre">&quot;Add&quot;]</span></code>.</p>
 <section id="id4">
-<h3>Example Configuration<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id4" title="Permalink to this heading"></a></h3>
 <p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtMixedPrecision&quot;</span>
@@ -276,12 +271,12 @@
 </section>
 </section>
 <section id="convert-dynamic-shape-to-fixed-shape">
-<h2>Convert dynamic shape to fixed shape<a class="headerlink" href="#convert-dynamic-shape-to-fixed-shape" title="Permalink to this heading">¶</a></h2>
+<h2>Convert dynamic shape to fixed shape<a class="headerlink" href="#convert-dynamic-shape-to-fixed-shape" title="Permalink to this heading"></a></h2>
 <p>In qnn, snpe and other mobile inference scenarios, the input shape of the model is often fixed. The <code class="docutils literal notranslate"><span class="pre">DynamicToFixedShape</span></code> pass converts the dynamic shape of the model to a fixed shape.</p>
 <p>For example, often models have a dynamic batch size so that training is more efficient. In mobile scenarios the batch generally has a size of 1. Making the batch size dimension ‘fixed’ by setting it to 1 may allow NNAPI and CoreML to run of the model.</p>
 <p>The helper can be used to update specific dimensions, or the entire input shape.</p>
 <section id="id5">
-<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading"></a></h3>
 <p>a. Making a symbolic dimension fixed</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DynamicToFixedShape&quot;</span><span class="p">,</span>
