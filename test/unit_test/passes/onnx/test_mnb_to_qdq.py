@@ -61,7 +61,12 @@ def create_mnb_model_fixture(request, tmp_path):
     reason="Int4 DQ is only supported in ORT >= 1.20",
 )
 @pytest.mark.parametrize("use_transpose_op", [True, False])
-def test_mnb_to_qdq(create_mnb_model, use_transpose_op, tmp_path):
+@pytest.mark.parametrize("execution_provider", ["CPUExecutionProvider", "CUDAExecutionProvider"])
+def test_mnb_to_qdq(create_mnb_model, execution_provider, use_transpose_op, tmp_path):
+    available_providers = onnxruntime.get_available_providers()
+    if execution_provider not in available_providers:
+        pytest.skip(f"{execution_provider} is not available on this system {available_providers}")
+
     mnb_path, in_dim = create_mnb_model
     input_model = ONNXModelHandler(mnb_path)
 
@@ -73,14 +78,20 @@ def test_mnb_to_qdq(create_mnb_model, use_transpose_op, tmp_path):
     qdq_model: ONNXModelHandler = p.run(input_model, output_folder)
 
     # validate
-    original_session = onnxruntime.InferenceSession(str(mnb_path))
-    qdq_session = onnxruntime.InferenceSession(str(qdq_model.model_path))
+    original_session = onnxruntime.InferenceSession(str(mnb_path), providers=[execution_provider])
+    original_session.disable_fallback()
+    qdq_session = onnxruntime.InferenceSession(str(qdq_model.model_path), providers=[execution_provider])
+    qdq_session.disable_fallback()
 
     input_data = {"input": np.random.randn(1, 1, in_dim).astype(np.float32)}
     original_output = original_session.run(None, input_data)[0]
     qdq_output = qdq_session.run(None, input_data)[0]
     assert original_output.shape == qdq_output.shape
     assert original_output.dtype == qdq_output.dtype
-    if use_transpose_op:
-        # Pre transposed DQ model does not match the expected output on x64
+    if execution_provider == "CPUExecutionProvider" and not use_transpose_op:
+        # Pre transposed DQ model does not match the expected output on x64 CPU
+        # check for assertion failure so we know when the test is fixed
+        with pytest.raises(AssertionError):
+            np.testing.assert_allclose(original_output, qdq_output, rtol=1e-3, atol=1e-3)
+    else:
         np.testing.assert_allclose(original_output, qdq_output, rtol=1e-3, atol=1e-3)

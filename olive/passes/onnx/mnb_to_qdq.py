@@ -31,11 +31,12 @@ class MatMulNBitsToQDQ(Pass):
             "use_transpose_op": PassConfigParam(
                 type_=bool,
                 # TODO(jambayk): decide whether to enable this by default or not
-                # False gives same output on arm Mac/Windows, but not on x64 Linux/Windows
-                default_value=True,
+                # CPU-EP: False gives same output on arm Mac/Windows, but not on x64 Linux/Windows
+                default_value=False,
                 description=(
                     "Whether to use a Transpose operator after the DequantizeLinear operator. If False, the weight"
-                    " initializer will be transposed instead."
+                    " initializer will be transposed instead. Default is False. True might be more efficient on some"
+                    " EPs such as DirectML."
                 ),
             ),
             **get_external_data_config(),
@@ -76,8 +77,9 @@ class MatMulNBitsToQDQ(Pass):
             block_size = node_attributes["block_size"]
             num_k_blocks = math.ceil(K / block_size)
 
-            # only deal with 4 bits for now
+            # only deal with 4 bits (int4) for now
             if node_attributes["bits"] != 4:
+                logger.debug("%s uses %d bits, only 4 bits is supported", node_name, node_attributes["bits"])
                 continue
 
             # we can only deal with trivial g_idx, dequantize linear does not support g_idx
