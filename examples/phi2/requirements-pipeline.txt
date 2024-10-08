@@ -8,4 +8,4 @@ peft
 scikit-learn
 torch>=2.2.0
 transformers>=4.36.2
-onnxruntime_genai
+onnxruntime-genai

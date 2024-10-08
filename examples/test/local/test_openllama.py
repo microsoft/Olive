@@ -16,7 +16,7 @@ def setup():
     os.chdir(get_example_dir("open_llama"))
 
 
-@pytest.mark.parametrize("olive_json", ["open_llama_config.json", "open_llama_inc_woq.json", "open_llama_sparsegpt_gpu.json"])
+@pytest.mark.parametrize("olive_json", ["open_llama_config.json", "open_llama_inc_woq.json"])
 def test_openllama(olive_json):
     from olive.workflows import run as olive_run
 

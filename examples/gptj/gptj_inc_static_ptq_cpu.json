@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "EleutherAI/gpt-j-6B" },
+    "input_model": { "type": "HfModel", "model_path": "EleutherAI/gpt-j-6B", "task": "text-generation" },
     "data_configs": [
         {
             "name": "latency_data_config",

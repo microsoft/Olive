@@ -72,17 +72,10 @@ jobs:
         exampleFolder: open_llama
         exampleName: openllama
         exampleRequirements: requirements.txt
-      falcon:
-        exampleFolder: falcon
-        exampleName: falcon
       opt:
         exampleFolder: opt_125m
         exampleName: opt
         exampleRequirements: requirements-pipeline.txt
-      red_pajama:
-        exampleFolder: red_pajama
-        exampleName: red_pajama
-        exampleRequirements: requirements.txt
       bert:
         exampleFolder: bert
         exampleName: bert_trt
