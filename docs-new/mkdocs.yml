@@ -62,8 +62,13 @@ theme:
         icon: material/brightness-4
         name: Switch to system preference
 markdown_extensions:
+  - tables
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+          - name: mermaid
+            class: mermaid
+            format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span

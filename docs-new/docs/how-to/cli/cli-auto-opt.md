@@ -33,3 +33,77 @@ olive auto-opt \
 6. The logging level. 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL.
 
 With the `auto-opt` command, you can change the input model to one that is available on Hugging Face - for example, to [HuggingFaceTB/SmolLM-360M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM-360M-Instruct) - or a model that resides on local disk. Olive, will go through the same process of *automatically* converting (to ONNX), optimizing the graph and quantizing the weights. The model can be optimized for different providers and devices - for example, you can choose DirectML (for Windows) as the provider and target either the NPU, GPU, or CPU device.
+
+### :simple-onnx: Inference model using ONNX Runtime
+
+The ONNX Runtime (ORT) is a fast and light-weight package (available in many programming languages) that runs cross-platform. ORT enables you to infuse your AI models into your applications so that inference is handled *on-device*. The following code creates a simple console-based chat interface that inferences your optimized model.
+
+=== "Python"
+
+    Copy-and-paste the code below into a new Python file called `app.py`:
+
+    ```python
+    import onnxruntime_genai as og
+    import numpy as np
+    import os
+
+    model_folder = "optimized-model/model"
+
+    # Load the base model and tokenizer
+    model = og.Model(model_folder)
+    tokenizer = og.Tokenizer(model)
+    tokenizer_stream = tokenizer.create_stream()
+
+    # Set the max length to something sensible by default,
+    # since otherwise it will be set to the entire context length
+    search_options = {}
+    search_options['max_length'] = 200
+    search_options['past_present_share_buffer'] = False
+
+    chat_template = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+    You are a helpful assistant<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+    {input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+    """ 
+
+    text = input("Input: ")
+
+    # Keep asking for input phrases
+    while text != "exit":
+        if not text:
+            print("Error, input cannot be empty")
+            exit
+
+        # generate prompt (prompt template + input)
+        prompt = f'{chat_template.format(input=text)}'
+
+        # encode the prompt using the tokenizer
+        input_tokens = tokenizer.encode(prompt)
+
+        params = og.GeneratorParams(model)
+        params.set_search_options(**search_options)
+        params.input_ids = input_tokens
+        generator = og.Generator(model, params)
+
+        print("Output: ", end='', flush=True)
+        # stream the output
+        try:
+            while not generator.is_done():
+                generator.compute_logits()
+                generator.generate_next_token()
+
+                new_token = generator.get_next_tokens()[0]
+                print(tokenizer_stream.decode(new_token), end='', flush=True)
+        except KeyboardInterrupt:
+            print("  --control+c pressed, aborting generation--")
+
+        print()
+        text = input("Input: ")
+    ```
+
+    Run the code with:
+
+    ```bash
+    python app.py
+    ```
