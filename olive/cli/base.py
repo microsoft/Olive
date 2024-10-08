@@ -532,6 +532,32 @@ def update_dataset_options(args, config):
             set_nested_dict_value(config, keys, value)
 
 
+def add_shared_cache_options(sub_parser):
+    shared_cache_group = sub_parser
+    shared_cache_group.add_argument(
+        "--account_name",
+        type=str,
+        help="Azure storage account name for shared cache.",
+    )
+    shared_cache_group.add_argument(
+        "--container_name",
+        type=str,
+        help="Azure storage container name for shared cache.",
+    )
+    return shared_cache_group
+
+
+def update_shared_cache_options(args, config):
+    to_replace = [
+        (("cache_config", "account_name"), args.account_name),
+        (("cache_config", "container_name"), args.container_name),
+    ]
+
+    for k, v in to_replace:
+        if v is not None:
+            set_nested_dict_value(config, k, v)
+
+
 def add_accelerator_options(sub_parser, single_provider: bool = True):
     accelerator_group = sub_parser
 

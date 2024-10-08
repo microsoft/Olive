@@ -17,10 +17,12 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_shared_cache_options,
     is_remote_run,
     save_output_model,
     update_dataset_options,
     update_input_model_options,
+    update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
 
@@ -106,12 +108,14 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
+        add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=QuantizeCommand)
 
     def _get_run_config(self, tempdir: str) -> Dict[str, Any]:
         config = deepcopy(QuantizeCommand._CONFIG_TEMPLATE)
         update_input_model_options(self.args, config)
         update_dataset_options(self.args, config)
+        update_shared_cache_options(config, self.args)
 
         to_replace = [
             (("pass_flows"), [[name] for name in self.args.algorithms]),

@@ -15,10 +15,12 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_shared_cache_options,
     get_input_model_config,
     is_remote_run,
     update_accelerator_options,
     update_remote_options,
+    update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
 
@@ -98,6 +100,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         add_accelerator_options(sub_parser, single_provider=False)
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
+        add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=SessionParamsTuningCommand)
 
     def _update_pass_config(self, default_pass_config) -> Dict:
@@ -135,6 +138,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
 
         update_accelerator_options(self.args, config, single_provider=False)
         update_remote_options(config, self.args, "session-params-tuning", tempdir)
+        update_shared_cache_options(config, self.args)
         return config
 
     def run(self):

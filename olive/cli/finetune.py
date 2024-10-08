@@ -13,11 +13,13 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_shared_cache_options,
     get_input_model_config,
     is_remote_run,
     save_output_model,
     update_dataset_options,
     update_remote_options,
+    update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
 
@@ -80,6 +82,7 @@ class FineTuneCommand(BaseOliveCLICommand):
 
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
+        add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=FineTuneCommand)
 
     def run(self):
@@ -141,6 +144,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             config["passes"]["f"]["eval_data_config"] = "eval_data"
 
         update_remote_options(config, self.args, "finetune", tempdir)
+        update_shared_cache_options(config, self.args)
 
         return config
 
