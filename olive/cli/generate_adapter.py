@@ -17,7 +17,7 @@ from olive.cli.base import (
     save_output_model,
     update_remote_options,
 )
-from olive.common.utils import set_nested_dict_value
+from olive.common.utils import WeightsFileFormat, set_nested_dict_value
 
 
 class GenerateAdapterCommand(BaseOliveCLICommand):
@@ -38,6 +38,13 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             default="float16",
             choices=["float16", "float32"],
             help="The precision of the optimized model and adapters.",
+        )
+        sub_parser.add_argument(
+            "--adapter_format",
+            type=str,
+            default=WeightsFileFormat.ONNX_ADAPTER,
+            choices=[el.value for el in WeightsFileFormat],
+            help=f"Format to save the weights in. Default is {WeightsFileFormat.ONNX_ADAPTER}.",
         )
 
         sub_parser.add_argument(
@@ -70,6 +77,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             ("input_model", get_input_model_config(self.args)),
             (("input_model", "adapter_path"), self.args.adapter_path),
             (("passes", "o", "float16"), self.args.precision == "float16"),
+            (("passes", "e", "save_format"), self.args.adapter_format),
             # make the mapping of precisions better
             (("passes", "m", "precision"), "fp16" if self.args.precision == "float16" else "fp32"),
             (("clean_cache",), self.args.clean),

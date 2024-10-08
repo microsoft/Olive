@@ -6,13 +6,15 @@ from pathlib import Path
 
 import numpy as np
 import onnx
+import onnxruntime as ort
 import pytest
 from onnxruntime.quantization.calibrate import CalibrationDataReader
+from packaging import version
 from peft import LoraConfig, get_peft_model
 from peft.tuners.lora import LoraLayer
 from transformers import AutoModelForCausalLM
 
-from olive.common.utils import find_submodules
+from olive.common.utils import WeightsFileFormat, find_submodules, load_weights
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
@@ -117,7 +119,9 @@ def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type
         pytest.skip("QDQ model test is disabled due to flaky quantization failure")
 
     # setup
-    p = create_pass_from_dict(ExtractAdapters, {"make_inputs": False}, disable_search=True)
+    p = create_pass_from_dict(
+        ExtractAdapters, {"make_inputs": False, "save_format": WeightsFileFormat.NUMPY}, disable_search=True
+    )
     output_folder = tmp_path / "extracted-adapters"
 
     # execute
@@ -141,12 +145,15 @@ def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type
 
 
 @pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
-def test_extract_adapters_as_inputs(tmp_path, input_model_info, model_type):
+@pytest.mark.parametrize("save_format", [el.value for el in WeightsFileFormat])
+def test_extract_adapters_as_inputs(tmp_path, input_model_info, save_format, model_type):
     if model_type == "qdq":
         pytest.skip("QDQ model test is disabled due to flaky quantization failure")
+    if save_format == WeightsFileFormat.ONNX_ADAPTER and version.parse(ort.__version__) < version.parse("1.20"):
+        pytest.skip("ONNX_ADAPTER format is only supported in onnxruntime 1.20+")
 
     # setup
-    p = create_pass_from_dict(ExtractAdapters, {"make_inputs": True}, disable_search=True)
+    p = create_pass_from_dict(ExtractAdapters, {"save_format": save_format}, disable_search=True)
     output_folder = tmp_path / "extracted-adapters"
 
     # execute
@@ -159,23 +166,30 @@ def test_extract_adapters_as_inputs(tmp_path, input_model_info, model_type):
     expected_weights = set(input_model_info[model_type]["all_weights"])
     # all lora weights should be extracted as constant inputs
     assert expected_weights == set(extracted_model.model_attributes["constant_inputs"])
-    assert expected_weights == set(np.load(extracted_model.constant_inputs_path))
+    assert expected_weights == set(load_weights(extracted_model.constant_inputs_path))
     # ensure all constant inputs are marked as such
     assert all(i in io_config["input_names"] for i in expected_weights)
 
 
 @pytest.mark.parametrize("quantize_int4", [1, 0])
-def test_export_adapters_command(tmp_path, input_model_info, quantize_int4):
+@pytest.mark.parametrize("adapter_format", [el.value for el in WeightsFileFormat])
+def test_convert_adapters_command(tmp_path, input_model_info, adapter_format, quantize_int4):
+    if adapter_format == WeightsFileFormat.ONNX_ADAPTER and version.parse(ort.__version__) < version.parse("1.20"):
+        pytest.skip("ONNX_ADAPTER format is only supported in onnxruntime 1.20+")
+
     from olive.cli.launcher import main as cli_main
 
     # args
-    exported_adapters_path = tmp_path / "exported-adapters.npz"
+    suffix = ".npz" if adapter_format == WeightsFileFormat.NUMPY else f".{adapter_format}"
+    exported_adapters_path = tmp_path / f"exported-adapters.{suffix}"
     args = [
-        "export-adapters",
+        "convert-adapters",
         "--adapter_path",
         str(input_model_info["adapter_path"]),
         "--output_path",
         str(exported_adapters_path),
+        "--adapter_format",
+        str(adapter_format),
     ]
     if quantize_int4:
         args.append("--quantize_int4")
@@ -186,4 +200,4 @@ def test_export_adapters_command(tmp_path, input_model_info, quantize_int4):
     # assert
     assert Path(exported_adapters_path).is_file()
     weight_dtype = "int4" if quantize_int4 else "float"
-    assert set(input_model_info[weight_dtype]["all_weights"]) == set(np.load(exported_adapters_path))
+    assert set(input_model_info[weight_dtype]["all_weights"]) == set(load_weights(exported_adapters_path))

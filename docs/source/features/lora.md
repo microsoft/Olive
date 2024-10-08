@@ -20,7 +20,7 @@ The output of the above commands will be LoRA adapter file as well as optimized 
 In addition, Olive provides a separate command to produce LoRA adapter for ORT’s consumption from already finetuned PEFT model.
 
 ```shell
-$ olive export-adapters [-h] [--adapter_path ADAPTER_PATH] \
+$ olive convert-adapters [-h] [--adapter_path ADAPTER_PATH] \
                       [--output_path OUTPUT_PATH] [--dtype {float32,float16}] \
                       [--quantize_int4] \
                       [--int4_block_size {16,32,64,128,256}] \
