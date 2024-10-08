@@ -532,7 +532,7 @@ def update_dataset_options(args, config):
             set_nested_dict_value(config, keys, value)
 
 
-def add_shared_cache_options(sub_parser):
+def add_shared_cache_options(sub_parser: ArgumentParser):
     shared_cache_group = sub_parser
     shared_cache_group.add_argument(
         "--account_name",
@@ -544,10 +544,9 @@ def add_shared_cache_options(sub_parser):
         type=str,
         help="Azure storage container name for shared cache.",
     )
-    return shared_cache_group
 
 
-def update_shared_cache_options(args, config):
+def update_shared_cache_options(config, args):
     config["cache_config"] = {
         "account_name": args.account_name,
         "container_name": args.container_name,
