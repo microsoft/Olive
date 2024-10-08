@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, validate_config
 from olive.common.constants import ACCOUNT_URL_TEMPLATE, DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.pydantic_v1 import root_validator, validator
-from olive.common.utils import get_credentials, hash_dict, is_hf_repo_exist, set_nested_dict_value
+from olive.common.utils import get_credentials, hash_dict, hf_repo_exists, set_nested_dict_value
 from olive.model.config.model_config import ModelConfig
 from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
 
@@ -484,10 +484,10 @@ class SharedCache:
             if model_json["config"].get("model_attributes"):
                 model_json_copy["config"]["model_attributes"].pop("additional_files", None)
 
-            if model_json["type"].lower() == "hfmodel" and is_hf_repo_exist(model_path):
-                model_json_copy["config"]["model_path"] = model_path
-            else:
+            if model_json["type"].lower() == "hfmodel" and Path(model_path).exists():
                 model_json_copy["config"]["model_path"] = Path(model_path).name
+            else:
+                model_json_copy["config"]["model_path"] = model_path
 
             if model_json["type"].lower() == "hfmodel" and model_json["config"].get("adapter_path"):
                 adapter_path = Path(model_json["config"]["adapter_path"])
@@ -594,7 +594,7 @@ class SharedCache:
             additional_files_blob_list, additional_files_directory_prefix, output_model_path, "additional_files"
         )
 
-        if model_config.type.lower() == "hfmodel" and is_hf_repo_exist(shared_model_path):
+        if model_config.type.lower() == "hfmodel" and hf_repo_exists(shared_model_path):
             model_config.config["model_path"] = shared_model_path
         else:
             model_config.config["model_path"] = str(output_model_path / shared_model_path)

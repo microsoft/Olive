@@ -485,7 +485,7 @@ def get_credentials(default_auth_params: Dict = None):
     return credential
 
 
-def is_hf_repo_exist(repo_name: str):
+def hf_repo_exists(repo_name: str):
     try:
         from huggingface_hub import repo_exists
     except ImportError:
