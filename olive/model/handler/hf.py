@@ -21,7 +21,7 @@ from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 if TYPE_CHECKING:
     import torch
-    
+
 logger = logging.getLogger(__name__)
 
 
