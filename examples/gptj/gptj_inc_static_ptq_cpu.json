@@ -6,6 +6,12 @@
             "user_script": "user_script.py",
             "load_dataset_config": { "type": "simple_dataset" },
             "dataloader_config": { "type": "gptj_dataloader", "batch_size": 1 }
+        },
+        {
+            "name": "gptj_onnx_dataloader",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "simple_dataset" },
+            "dataloader_config": { "type": "gptj_onnx_dataloader", "batch_size": 1 }
         }
     ],
     "evaluators": {

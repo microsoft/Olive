@@ -1,0 +1,11 @@
+accelerate
+bitsandbytes
+einops
+git+https://github.com/microsoft/TransformerCompression.git
+onnx>=1.15.0
+onnxscript>=0.1.0.dev20240126
+peft
+scikit-learn
+torch>=2.2.0
+transformers>=4.36.2
+onnxruntime_genai

@@ -1,0 +1,89 @@
+variables:
+  runCodesignValidationInjection: false
+  skipComponentGovernanceDetection: true
+
+jobs:
+# Linux examples test
+- template: job_templates/olive-example-template.yaml
+  parameters:
+    name: Linux_CI
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    onnxruntime: onnxruntime
+    examples:
+      bert:
+        exampleFolder: bert
+        exampleName: bert
+        exampleRequirements: requirements-pipeline.txt
+      deberta:
+        exampleFolder: deberta
+        exampleName: deberta
+      ast:
+        exampleFolder: ast
+        exampleName: ast
+      gptj:
+        exampleFolder: gptj
+        exampleName: gptj
+      phi2:
+        exampleFolder: phi2
+        exampleName: phi2
+        exampleRequirements: requirements-pipeline.txt
+
+
+# Windows examples test
+- template: job_templates/olive-example-template.yaml
+  parameters:
+    name: Windows_CI
+    pool: $(OLIVE_POOL_WIN2019)
+    onnxruntime: onnxruntime
+    examples:
+      bert:
+        exampleFolder: bert
+        exampleName: bert
+        exampleRequirements: requirements-pipeline.txt
+      deberta:
+        exampleFolder: deberta
+        exampleName: deberta
+      ast:
+        exampleFolder: ast
+        exampleName: ast
+      gptj:
+        exampleFolder: gptj
+        exampleName: gptj
+      phi2:
+        exampleFolder: phi2
+        exampleName: phi2
+        exampleRequirements: requirements-pipeline.txt
+
+# Linux GPU examples testing.
+- template: job_templates/olive-example-template.yaml
+  parameters:
+    name: Linux_GPU_CI
+    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    onnxruntime: onnxruntime-gpu
+    examples:
+      llama2:
+        exampleFolder: llama2
+        exampleName: llama2
+        exampleRequirements: requirements-pipeline.txt
+      mistral:
+        exampleFolder: mistral
+        exampleName: mistral
+      open_llama:
+        exampleFolder: open_llama
+        exampleName: openllama
+        exampleRequirements: requirements.txt
+      falcon:
+        exampleFolder: falcon
+        exampleName: falcon
+      opt:
+        exampleFolder: opt_125m
+        exampleName: opt
+        exampleRequirements: requirements-pipeline.txt
+      red_pajama:
+        exampleFolder: red_pajama
+        exampleName: red_pajama
+        exampleRequirements: requirements.txt
+      bert:
+        exampleFolder: bert
+        exampleName: bert_trt
+        exampleRequirements: requirements-pipeline.txt

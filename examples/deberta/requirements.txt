@@ -1,1 +1,4 @@
 datasets
+azure-ai-ml
+azure-identity
+optimum

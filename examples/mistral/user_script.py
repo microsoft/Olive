@@ -5,7 +5,6 @@
 import random
 from typing import List, Tuple
 
-import numpy as np
 import torch
 from datasets import load_dataset
 from transformers import AutoConfig, LlamaTokenizer
@@ -20,15 +19,7 @@ config = AutoConfig.from_pretrained(model_id)
 
 @Registry.register_dataloader()
 def mistralai_calib_dataloader(data_dir, batch_size, *args, **kwargs):
-    model_path = kwargs.pop("model_path")
-    return PileDataloader(model_path, batch_size=batch_size)
-
-
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    dataloader = PileDataloader(model_id, batch_size=batch_size, seq_len=32, past_seq_len=32, sub_folder="train")
-    for data, label in dataloader:
-        d = {name: to_numpy(inp_data) for name, inp_data in data.items()}
-        yield d, label
+    return PileDataloader(batch_size=batch_size)
 
 
 def tokenize_function(examples):
@@ -37,7 +28,7 @@ def tokenize_function(examples):
 
 
 class PileDataloader:
-    def __init__(self, model_path, batch_size=1, seq_len=32, past_seq_len=32, sub_folder="train"):
+    def __init__(self, batch_size=1, seq_len=32, past_seq_len=32, sub_folder="train"):
         random.seed(0)
         self.batch_size = batch_size
         self.seq_len = seq_len
@@ -117,18 +108,3 @@ def flatten_past_kv_inputs(past_key_values: List[Tuple[torch.Tensor, torch.Tenso
         past_kv[f"past_key_values.{i}.key"] = past_k
         past_kv[f"past_key_values.{i}.value"] = past_v
     return past_kv
-
-
-def to_numpy(data):
-    """Convert to numpy ndarrays."""
-    if not isinstance(data, np.ndarray):
-        if isinstance(data, torch.Tensor):
-            if data.dtype is torch.bfloat16:  # pragma: no cover
-                return data.detach().cpu().to(torch.float32).numpy()
-            if data.dtype is torch.chalf:  # pragma: no cover
-                return data.detach().cpu().to(torch.cfloat).numpy()
-            return data.detach().cpu().numpy()
-        else:
-            return np.array(data)
-    else:
-        return data

@@ -1,0 +1,4 @@
+auto-gptq
+autoawq
+optimum
+transformers

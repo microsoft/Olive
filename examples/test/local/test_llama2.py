@@ -30,10 +30,11 @@ def test_llama2(search_algorithm, execution_order, system, olive_json):
     olive_config = patch_config(olive_json, search_algorithm, execution_order, system)
 
     # reduce qlora steps for faster test
-    olive_config["passes"]["f"]["training_args"]["max_steps"] = 5
-    olive_config["passes"]["f"]["training_args"]["logging_steps"] = 5
-    olive_config["passes"]["f"]["training_args"]["per_device_train_batch_size"] = 2
-    olive_config["passes"]["f"]["training_args"]["per_device_eval_batch_size"] = 2
+    if "f" in olive_config["passes"]:
+        olive_config["passes"]["f"]["training_args"]["max_steps"] = 5
+        olive_config["passes"]["f"]["training_args"]["logging_steps"] = 5
+        olive_config["passes"]["f"]["training_args"]["per_device_train_batch_size"] = 2
+        olive_config["passes"]["f"]["training_args"]["per_device_eval_batch_size"] = 2
 
     footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     assert_nodes(footprint)

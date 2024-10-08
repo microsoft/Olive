@@ -1,0 +1,14 @@
+azure-ai-ml
+azure-identity
+datasets<3.0.0
+docker>=7.1.0
+evaluate
+neural-compressor
+optimum
+scikit-learn
+scipy
+tabulate
+transformers
+nvidia-modelopt~=0.11.0
+onnx-graphsurgeon
+pytorch_lightning

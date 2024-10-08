@@ -5,4 +5,5 @@ neural-compressor==2.6
 onnxruntime
 optimum
 sentencepiece
+torch-tensorrt
 transformers

@@ -10,7 +10,6 @@ from torch.nn.functional import pad
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
-from olive.constants import Framework
 from olive.data.registry import Registry
 
 ort.set_default_logger_severity(3)
@@ -95,10 +94,4 @@ def gptj_onnx_dataloader(dataset, batch_size, **kwargs):
 
 @Registry.register_dataloader()
 def gptj_dataloader(dataset, batch_size, **kwargs):
-    model_framework = kwargs.pop("model_framework")
-    dataloader = None
-    if model_framework == Framework.ONNX:
-        dataloader = gptj_onnx_dataloader(dataset, batch_size)
-    elif model_framework == Framework.PYTORCH:
-        dataloader = gptj_pt_dataloader(dataset, batch_size)
-    return dataloader
+    return gptj_pt_dataloader(dataset, batch_size)

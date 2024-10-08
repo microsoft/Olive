@@ -88,7 +88,7 @@ If you only want cpu or cuda model, you can modify the config file by remove the
 ]
 ```
 
-or you can use `ph2.py` to generate optimized models separately by running the following commands:
+or you can use `phi2.py` to generate optimized models separately by running the following commands:
 ```bash
 python phi2.py --model_type cpu_int4 --genai_optimization
 python phi2.py --model_type cuda_int4 --genai_optimization
