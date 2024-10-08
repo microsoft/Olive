@@ -10,7 +10,6 @@
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
-      <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
       <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
       <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
 
@@ -70,7 +69,7 @@
 <li class="toctree-l1"><a class="reference internal" href="cli.html#quantization">Quantization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html#capture-onnx-graph">Capture Onnx Graph</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html#generate-adapters">Generate Adapters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cli.html#export-adapters">Export Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html#convert-adapters">Convert Adapters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html#azureml">AzureML</a></li>
@@ -158,7 +157,7 @@
 </div>
 <p>The output of the above commands will be LoRA adapter file as well as optimized ONNX Model.</p>
 <p>In addition, Olive provides a separate command to produce LoRA adapter for ORT’s consumption from already finetuned PEFT model.</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>olive<span class="w"> </span>export-adapters<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--adapter_path<span class="w"> </span>ADAPTER_PATH<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>olive<span class="w"> </span>convert-adapters<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--adapter_path<span class="w"> </span>ADAPTER_PATH<span class="o">]</span><span class="w"> </span><span class="se">\</span>
 <span class="w">                      </span><span class="o">[</span>--output_path<span class="w"> </span>OUTPUT_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dtype<span class="w"> </span><span class="o">{</span>float32,float16<span class="o">}]</span><span class="w"> </span><span class="se">\</span>
 <span class="w">                      </span><span class="o">[</span>--quantize_int4<span class="o">]</span><span class="w"> </span><span class="se">\</span>
 <span class="w">                      </span><span class="o">[</span>--int4_block_size<span class="w"> </span><span class="o">{</span><span class="m">16</span>,32,64,128,256<span class="o">}]</span><span class="w"> </span><span class="se">\</span>
