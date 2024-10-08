@@ -548,14 +548,10 @@ def add_shared_cache_options(sub_parser):
 
 
 def update_shared_cache_options(args, config):
-    to_replace = [
-        (("cache_config", "account_name"), args.account_name),
-        (("cache_config", "container_name"), args.container_name),
-    ]
-
-    for k, v in to_replace:
-        if v is not None:
-            set_nested_dict_value(config, k, v)
+    config["cache_config"] = {
+        "account_name": args.account_name,
+        "container_name": args.container_name,
+    }
 
 
 def add_accelerator_options(sub_parser, single_provider: bool = True):
