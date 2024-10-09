@@ -118,92 +118,6 @@ def _replace_qlinear_modules(
     return model, num_modified > 0
 
 
-def dequantize_auto_gptq_qlinear(qlinear) -> torch.nn.Linear:
-    from auto_gptq.nn_modules.qlinear.qlinear_marlin import unpack_4bit_to_32bit_signed
-
-    linear = torch.nn.Linear(
-        qlinear.infeatures,
-        qlinear.outfeatures,
-        bias=qlinear.bias is not None,
-        device=qlinear.qweight.device,
-        dtype=qlinear.scales.dtype,
-    )
-    linear.bias = qlinear.bias
-
-    # shapes are infeatures x outfeatures, dtypes is int8
-    iweight, izeros = unpack_4bit_to_32bit_signed(qlinear.qweight, qlinear.qzeros)
-    # index using g_idx to get the correct scales and zeros
-    # should we use repeat_interleave is g_idx is trivial?
-    scales = qlinear.scales[qlinear.g_idx]
-    scales_zeros = (izeros * qlinear.scales)[qlinear.g_idx]
-    # dequantize, linear.weight is outfeatures x infeatures
-    dequantized_weight = (iweight * scales - scales_zeros).t()
-    linear.weight.copy_(dequantized_weight.contiguous())
-
-    return linear
-
-
-def dequantize_auto_awq_qlinear(qlinear) -> torch.nn.Linear:
-    from awq.utils.packing_utils import dequantize_gemm
-
-    linear = torch.nn.Linear(
-        qlinear.in_features,
-        qlinear.out_features,
-        bias=qlinear.bias is not None,
-        device=qlinear.qweight.device,
-        dtype=qlinear.scales.dtype,
-    )
-    linear.bias = qlinear.bias
-
-    dequantized_weight = dequantize_gemm(
-        qlinear.qweight, qlinear.qzeros, qlinear.scales, qlinear.w_bit, qlinear.group_size
-    ).t()
-    linear.weight.data.copy_(dequantized_weight.contiguous())
-
-    return linear
-
-
-def dequantize_bnb_qlinear(qlinear) -> torch.nn.Linear:
-    from bitsandbytes.functional import dequantize_4bit
-
-    linear = torch.nn.Linear(
-        qlinear.in_features,
-        qlinear.out_features,
-        bias=qlinear.bias is not None,
-        device=qlinear.weight.device,
-        dtype=qlinear.quant_state.dtype,
-    )
-    linear.bias = qlinear.bias
-
-    dequantized_weight = dequantize_4bit(qlinear.weight, qlinear.quant_state).t()
-    linear.weight.data.copy_(dequantized_weight.contiguous())
-
-    return linear
-
-
-DEQUANTIZE_MAPPING = {
-    "awq": (get_auto_awq_qlinear_cls, dequantize_auto_awq_qlinear),
-    "bitsandbytes": (get_bnb_qlinear_cls, dequantize_bnb_qlinear),
-    "gptq": (get_auto_gptq_qlinear_cls, dequantize_auto_gptq_qlinear),
-}
-
-
-def maybe_dequantize_model(model: torch.nn.Module) -> torch.nn.Module:
-    """Dequantize the model if it was quantized using one of the supported methods."""
-    model, modified = _replace_qlinear_modules(model, DEQUANTIZE_MAPPING, "Dequantizing model")
-    # dequantized modules might not be in the same dtype as the original model
-    # for example, awq uses float16
-    model = model.to(model.dtype)
-
-    if modified:
-        del model.quantization_method
-        del model.config.quantization_config
-        if hasattr(model, "is_quantized"):
-            del model.is_quantized
-
-    return model
-
-
 # Should we also support QDQ export? Need different packing and symbolic for that
 class QuantLinearTorchFunction(torch.autograd.Function):
     """Used to export the quantized linear layer to onnx using the contrib operator MatMulNBits."""
@@ -403,4 +317,10 @@ EXPORT_QLINEAR_MAPPING = {
 
 def make_export_compatible_quant(model: torch.nn.Module) -> torch.nn.Module:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions."""
-    return _replace_qlinear_modules(model, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model")[0]
+    model, modified = _replace_qlinear_modules(
+        model, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model"
+    )
+    if modified:
+        # set quantization method to None, gptq doesn't allow dtype casting
+        model.quantization_method = None
+    return model

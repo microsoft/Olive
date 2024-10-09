@@ -14,7 +14,7 @@ from abc import abstractmethod
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import transformers
@@ -133,10 +133,6 @@ class HFTrainingArguments(NestedConfig):
 
 class LoRABase(Pass):
     """Base class for LoRA and QLoRA fine-tuning passes."""
-
-    # these are the attributes of the model (from hf model config) that will be overwritten by the pass
-    # values from the input model will be ignored and new values will be set based on the pass config
-    model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map")
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -322,16 +318,18 @@ class LoRABase(Pass):
 
         return model
 
-    def create_and_load_new_model(
-        self, model_handler: HfModelHandler, config: ConfigBase, **kwargs
-    ) -> Tuple[HfModelHandler, "PreTrainedModel"]:
-        """Clone the input model handler and update the model load_kwargs.
+    def load_base_pytorch_model(self, model_handler: HfModelHandler, config: ConfigBase, **kwargs) -> "PreTrainedModel":
+        """Load a base PyTorch model for fine-tuning.
 
         :param model_handler: The input model handler.
         :param config: The config for the pass run.
         :param kwargs: Additional arguments to update load_kwargs with.
-        :return: The new model handler, the new loaded pytorch model
+        :return: The new loaded pytorch model
         """
+        # model cannot have it's own adapter
+        if model_handler.adapter_path:
+            raise ValueError("Model already has an adapter. Please provide a model without an adapter.")
+
         # don't want the original loaded model
         # also frees gpu memory if original model is on gpu
         model_handler.model = None
@@ -340,7 +338,7 @@ class LoRABase(Pass):
 
         # create copy of the input model, will modify this model
         # also resets adapter_path
-        new_model_handler = self.input_model_check(deepcopy(model_handler))
+        new_model_handler = deepcopy(model_handler)
 
         torch_dtype = self.get_torch_dtype(config.torch_dtype)
         # will use mixed precision since full fp16 is unstable
@@ -359,10 +357,8 @@ class LoRABase(Pass):
         # overwrite load_kwargs with kwargs
         load_kwargs.update(kwargs)
         new_model_handler.load_kwargs = HfLoadKwargs(**load_kwargs)
-        pytorch_model = new_model_handler.load_model(cache_model=False)
-        pytorch_model.config.torch_dtype = model_dtype
 
-        return new_model_handler, pytorch_model
+        return new_model_handler.load_model(cache_model=False)
 
     def init_lora_adapters(
         self,
@@ -560,12 +556,6 @@ class LoRABase(Pass):
         del model
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        # remove the device map since we don't want "auto" device map
-        output_model.load_kwargs.device_map = None
-        # remove model_overwrites from model_attributes
-        if output_model.model_attributes:
-            for k in self.model_overwrites:
-                output_model.model_attributes.pop(k, None)
 
         # set adapter_path
         output_model.set_resource("adapter_path", adapter_path)
@@ -577,29 +567,6 @@ class LoRABase(Pass):
         supported_dtypes = ("bfloat16", "float16", "float32")
         assert torch_dtype in supported_dtypes, f"torch_dtype must be one of {supported_dtypes} but got {torch_dtype}"
         return resolve_torch_dtype(torch_dtype)
-
-    @classmethod
-    def input_model_check(cls, model: HfModelHandler) -> HfModelHandler:
-        """Validate the input model and reset load_kwargs and adapter_path."""
-        # load model, reset load_kwargs and adapter_path
-        load_kwargs = {}
-        if model.load_kwargs:
-            load_kwargs = model.load_kwargs.dict()
-            for k in cls.model_overwrites:
-                if load_kwargs.get(k) is not None:
-                    logger.debug(
-                        "Input model has load_kwargs. %s. Ignoring. %s will overwrite it based on the pass config.",
-                        k,
-                        cls.__name__,
-                    )
-
-        if model.get_resource("adapter_path"):
-            logger.warning(
-                "Input model has adapter_path. Ignoring. %s will save the adapter weights to its own adapter_path.",
-                cls.__name__,
-            )
-        model.set_resource("adapter_path", None)
-        return model
 
     @staticmethod
     def count_trainable_parameters(model) -> str:
@@ -639,24 +606,26 @@ class LoRA(LoRABase):
         config.training_args = config.training_args or HFTrainingArguments()
 
         # get new model
-        new_model_handler, pytorch_model = self.create_and_load_new_model(model, config)
-
-        # tokenizer
-        tokenizer = new_model_handler.get_hf_tokenizer()
+        pytorch_model = self.load_base_pytorch_model(model, config)
+        # NOTE: quantized model support
+        # awq: requires awq cuda extension or triton for backward pass, scale must be fp16
+        # gptq: there is no custom backend. works fine when using naive dequantize + matmul
+        # no issue with single precision. mix precision depends on autocast as there is no input cast
+        # gradient might not be correct when using cuda/exllama deqauntize kernels
+        # we load in fp32/bf16 so cuda kernels are disabled by default. Might need extra work to
+        # disable exllama (gptq pass disables it)
 
         # add lora modules
-        pytorch_model = self.enable_lora(
-            pytorch_model, new_model_handler.task, config, target_modules=config.target_modules
-        )
+        pytorch_model = self.enable_lora(pytorch_model, model.task, config, target_modules=config.target_modules)
 
         # train and return new model
-        return self.train_and_save_new_model(pytorch_model, tokenizer, config, new_model_handler, output_model_path)
+        return self.train_and_save_new_model(
+            pytorch_model, model.get_hf_tokenizer(), config, deepcopy(model), output_model_path
+        )
 
 
 class QLoRABase(LoRABase):
     """Base class for QLoRA and LoftQ fine-tuning passes."""
-
-    model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map", "quantization_method", "quantization_config")
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -668,7 +637,15 @@ class QLoRABase(LoRABase):
                     "Computation data type for the quantized modules. If not provided, will use the same dtype as"
                     " torch_dtype"
                 ),
-            )
+            ),
+            "save_quant_config": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=(
+                    "Whether to save the output model with the bitsandbytes quantization config. If False, the base"
+                    " model will be in the original precision. If True, the base model will be quantized on load."
+                ),
+            ),
         }
         config.update(super()._default_config(accelerator_spec))
         return config
@@ -684,24 +661,37 @@ class QLoRABase(LoRABase):
         # use default training args if not provided
         config.training_args = config.training_args or HFTrainingArguments()
 
+        # model cannot be quantized
+        model_config = model.get_hf_model_config()
+        if hasattr(model_config, "quantization_config"):
+            raise ValueError("Model is already quantized. Please provide a non-quantized model or use LoRA pass.")
+
         # get models and tokenizer
-        new_model_handler, pytorch_model, tokenizer, quantized_modules = self.get_model_tokenizer(
+        new_model_handler, pytorch_model, bnb_quant_config, quantized_modules = self.get_quant_model(
             model, config, output_model_path
         )
+        if config.save_quant_config:
+            load_kwargs = new_model_handler.load_kwargs.dict() if new_model_handler.load_kwargs else {}
+            load_kwargs.update(bnb_quant_config)
+            new_model_handler.load_kwargs = HfLoadKwargs(**load_kwargs)
+            new_model_handler.model_attributes["quantized_modules"] = quantized_modules
 
-        # train and get new model
-        output_model = self.train_and_save_new_model(
-            pytorch_model, tokenizer, config, new_model_handler, output_model_path
+        # train and return new model
+        return self.train_and_save_new_model(
+            pytorch_model, new_model_handler.get_hf_tokenizer(), config, new_model_handler, output_model_path
         )
-        # add quantized_modules attributes
-        output_model.model_attributes["quantized_modules"] = quantized_modules
-        return output_model
 
     @abstractmethod
-    def get_model_tokenizer(
+    def get_quant_model(
         self, model: HfModelHandler, config: ConfigBase, output_model_path: str
-    ) -> Tuple[HfModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
-        """Get the model handler, LoRA model and tokenizer for fine-tuning."""
+    ) -> Tuple[HfModelHandler, "PreTrainedModel", Dict, List[str]]:
+        """Get the model handler, LoRA model for QLoRA fine-tuning.
+
+        :param model: The input model handler.
+        :param config: The config for the pass run.
+        :param output_model_path: The path to save the output model to.
+        :return: The new model handler, LoRA model, quantization config and list of quantized modules.
+        """
         raise NotImplementedError
 
 
@@ -729,15 +719,15 @@ class QLoRA(QLoRABase):
         config.update(super()._default_config(accelerator_spec))
         return config
 
-    def get_model_tokenizer(
+    def get_quant_model(
         self, model: HfModelHandler, config: ConfigBase, output_model_path: str
-    ) -> Tuple[HfModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
-        """Get the model handler, LoRA model and tokenizer for QLoRA fine-tuning.
+    ) -> Tuple[HfModelHandler, "PreTrainedModel", Dict, List[str]]:
+        """Get the model handler, LoRA model for QLoRA fine-tuning.
 
         :param model: The input model handler.
         :param config: The config for the pass run.
         :param output_model_path: The path to save the output model to.
-        :return: The new model handler, LoRA model, tokenizer and list of quantized modules.
+        :return: The new model handler, LoRA model, quantization config and list of quantized modules.
         """
         import bitsandbytes as bnb
 
@@ -751,23 +741,16 @@ class QLoRA(QLoRABase):
                 "bnb_4bit_quant_type": config.quant_type,
             },
         }
-        new_model_handler, pytorch_model = self.create_and_load_new_model(model, config, **bnb_quant_config)
+        pytorch_model = self.load_base_pytorch_model(model, config, **bnb_quant_config)
 
-        # find the quantized modules
-        # this doesn't pick up the embedding layer and projection layer since those are not quantized
-        # this is good since we don't want to touch those, LoRA might not work with input output embedding layers
+        # find the quantized modules, only linears
         quantized_modules = find_submodules(pytorch_model, bnb.nn.Linear4bit)
         logger.debug("Quantized modules: %s", quantized_modules)
 
-        # tokenizer
-        tokenizer = new_model_handler.get_hf_tokenizer()
-
         # enable lora fine-tuning with new lora modules
-        pytorch_model = self.enable_lora(
-            pytorch_model, new_model_handler.task, config, target_modules=quantized_modules
-        )
+        pytorch_model = self.enable_lora(pytorch_model, model.task, config, target_modules=quantized_modules)
 
-        return new_model_handler, pytorch_model, tokenizer, quantized_modules
+        return deepcopy(model), pytorch_model, bnb_quant_config, quantized_modules
 
 
 class LoftQ(QLoRABase):
@@ -797,56 +780,34 @@ class LoftQ(QLoRABase):
         if version.parse(peft_version) < version.parse("0.7.0"):
             raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
 
-    def get_model_tokenizer(
+    def get_quant_model(
         self, model: HfModelHandler, config: ConfigBase, output_model_path: str
-    ) -> Tuple[HfModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
-        """Get the model handler, LoRA model and tokenizer for LoftQ fine-tuning.
+    ) -> Tuple[HfModelHandler, "PreTrainedModel", Dict, List[str]]:
+        """Get the model handler, LoRA model for QLoRA fine-tuning.
 
         :param model: The input model handler.
         :param config: The config for the pass run.
         :param output_model_path: The path to save the output model to.
-        :return: The new model handler, LoRA model, tokenizer and list of quantized modules.
+        :return: The new model handler, LoRA model, quantization config and list of quantized modules.
         """
-        import bitsandbytes as bnb
-
-        # get new quantized model
-        bnb_quant_config = {
-            "quantization_method": "bitsandbytes",
-            "quantization_config": {
-                "load_in_4bit": True,
-                "bnb_4bit_compute_dtype": self.get_torch_dtype(config.compute_dtype or config.torch_dtype),
-                "bnb_4bit_use_double_quant": False,
-                "bnb_4bit_quant_type": "nf4",
-            },
-        }
-        new_model_handler, pytorch_model = self.create_and_load_new_model(model, config, **bnb_quant_config)
-
-        # find the quantized modules
-        quantized_modules = find_submodules(pytorch_model, bnb.nn.Linear4bit)
-        logger.debug("Quantized modules: %s", quantized_modules)
-
-        # only need the quantized module to find the quantized modules
-        # delete quantized model to free memory
-        del pytorch_model
-
         # get the original base model
-        _, pytorch_model = self.create_and_load_new_model(
-            model, config, device_map="auto", quantization_method=None, quantization_config=None
-        )
+        pytorch_model = self.load_base_pytorch_model(model, config)
+        # find all modules that will be quantized, all linears except the lm_head
+        quantized_modules = [
+            module for module in find_submodules(pytorch_model, torch.nn.Linear) if module != "lm_head"
+        ]
+
         # get loftq initialized lora model
         logger.debug("Initializing LoRA with LoftQ")
-        pytorch_model = self.init_lora_adapters(
-            pytorch_model, new_model_handler.task, config, quantized_modules, use_loftq=True
-        )
-        # change adapter config since we don't want to apply loftq again
-        pytorch_model.peft_config["default"].base_model_name_or_path = "../model"
-        pytorch_model.peft_config["default"].init_lora_weights = True
+        pytorch_model = self.init_lora_adapters(pytorch_model, model.task, config, quantized_modules, use_loftq=True)
 
         output_model_path = Path(output_model_path)
 
         # save the loftq initialized adapter weights
         loftq_init_adapter_path = output_model_path / "loftq_init_adapter"
         loftq_init_adapter_path.mkdir(parents=True, exist_ok=True)
+        # change adapter config since we don't want to apply loftq again
+        pytorch_model.peft_config["default"].init_lora_weights = True
         pytorch_model.save_pretrained(loftq_init_adapter_path)
 
         # unload adapter and get the base model with new weights
@@ -858,22 +819,31 @@ class LoftQ(QLoRABase):
         model.save_metadata(new_master_weights_path)
         pytorch_model.save_pretrained(new_master_weights_path)
 
+        del pytorch_model
+
+        # create new model handler
+        new_model_handler = deepcopy(model)
         # update the model path in new model handler
         new_model_handler.set_resource("model_path", new_master_weights_path)
 
-        # load the quantized model with new master weights
-        pytorch_model: PreTrainedModel = new_model_handler.load_model()
-        pytorch_model.config.torch_dtype = pytorch_model.dtype
-
-        # tokenizer
-        tokenizer = new_model_handler.get_hf_tokenizer()
+        # get the quantized base model
+        bnb_quant_config = {
+            "quantization_method": "bitsandbytes",
+            "quantization_config": {
+                "load_in_4bit": True,
+                "bnb_4bit_compute_dtype": self.get_torch_dtype(config.compute_dtype or config.torch_dtype),
+                "bnb_4bit_use_double_quant": False,
+                "bnb_4bit_quant_type": "nf4",
+            },
+        }
+        pytorch_model = self.load_base_pytorch_model(new_model_handler, config, **bnb_quant_config)
 
         # enable lora fine-tuning with the loftq initialized adapter weights
         pytorch_model = self.enable_lora(
             pytorch_model, new_model_handler.task, config, adapter_path=loftq_init_adapter_path
         )
 
-        return new_model_handler, pytorch_model, tokenizer, quantized_modules
+        return new_model_handler, pytorch_model, bnb_quant_config, quantized_modules
 
 
 DEFAULT_DEEPSPEED_CONFIG = {

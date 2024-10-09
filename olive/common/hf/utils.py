@@ -75,7 +75,7 @@ def get_model_config(model_name_or_path: str, **kwargs) -> "PretrainedConfig":
     model_config = from_pretrained(AutoConfig, model_name_or_path, "config", **kwargs)
 
     # add quantization config
-    quantization_config = kwargs.get("quantization_config", None)
+    quantization_config = kwargs.get("quantization_config")
     if not quantization_config:
         return model_config
 
