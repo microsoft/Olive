@@ -68,7 +68,7 @@ class CacheConfig(ConfigBase):
             if len(v) > 2:
                 raise ValueError("Only two cache directories are supported.")
             if len(v) == 2:
-                shared_cache_count = sum([is_shared_cache_dir(s) for s in v])
+                shared_cache_count = sum(is_shared_cache_dir(s) for s in v)
                 if shared_cache_count > 1:
                     raise ValueError("Only one shared cache directory is supported.")
                 if shared_cache_count == 0:
