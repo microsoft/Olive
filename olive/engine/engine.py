@@ -732,7 +732,7 @@ class Engine:
 
         # load run from cache if it exists
         run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
-        output_model_id = self.cache.get_output_model_id(pass_name, pass_config, input_model_id, accelerator_spec)
+        output_model_id = self.cache.get_output_model_id(pass_name, pass_config, input_model_id, run_accel)
         run_cache = self.cache.load_run_from_model_id(output_model_id)
         if run_cache:
             logger.debug("Loading model from cache ...")

@@ -25,6 +25,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+SHARED_CACHE_PATTERN = r"https://([^.]+)\.blob\.core\.windows\.net/([^/]+)"
+
+
+def is_shared_cache_dir(s) -> bool:
+    return bool(re.match(SHARED_CACHE_PATTERN, str(s)))
+
 
 @dataclass
 class CacheSubDirs:
@@ -46,7 +52,7 @@ class CacheSubDirs:
 
 
 class CacheConfig(ConfigBase):
-    cache_dir: Union[str, Path, List[str]] = DEFAULT_CACHE_DIR
+    cache_dir: Union[str, List[str]] = DEFAULT_CACHE_DIR
     clean_cache: bool = False
     clean_evaluation_cache: bool = False
     account_name: str = None
@@ -54,21 +60,45 @@ class CacheConfig(ConfigBase):
     enable_shared_cache: bool = False
     update_shared_cache: bool = True
 
-    @validator("account_name", pre=True)
+    @validator("cache_dir", pre=True, always=True)
+    def validate_cache_dir(cls, v):
+        if not v:
+            return [DEFAULT_CACHE_DIR]
+        if isinstance(v, list):
+            if len(v) > 2:
+                raise ValueError("Only two cache directories are supported.")
+            if len(v) == 2:
+                shared_cache_count = sum([is_shared_cache_dir(s) for s in v])
+                if shared_cache_count > 1:
+                    raise ValueError("Only one shared cache directory is supported.")
+                if shared_cache_count == 0:
+                    logger.warning("More than one cache directory is provided. Using the first one %s.", v[0])
+                    return [v[0]]
+                return v
+            if len(v) == 1:
+                if is_shared_cache_dir(v[0]):
+                    v.append(DEFAULT_CACHE_DIR)
+                return v
+        v = str(v)
+        if is_shared_cache_dir(v):
+            return [DEFAULT_CACHE_DIR, v]
+        return [v]
+
+    @validator("account_name")
     def validate_account_name(cls, v, values):
         if v:
             return v
         match = cls._get_shared_cache_match(values.get("cache_dir"))
         return match.group(1) if match else None
 
-    @validator("container_name", pre=True)
+    @validator("container_name")
     def validate_container_name(cls, v, values):
         if v:
             return v
         match = cls._get_shared_cache_match(values.get("cache_dir"))
         return match.group(2) if match else None
 
-    @root_validator(pre=True)
+    @root_validator()
     def validate_enable_shared_cache(cls, values):
         if values.get("account_name") and values.get("container_name"):
             values["enable_shared_cache"] = True
@@ -81,24 +111,29 @@ class CacheConfig(ConfigBase):
 
     @staticmethod
     def _get_shared_cache_match(cache_dir):
-        cache_dirs = [cache_dir] if not isinstance(cache_dir, list) else cache_dir
-        pattern = r"https://([^.]+)\.blob\.core\.windows\.net/([^/]+)"
-        for cache in cache_dirs:
-            match = re.match(pattern, str(cache))
+        for cache in cache_dir:
+            match = re.match(SHARED_CACHE_PATTERN, str(cache))
 
             if match:
                 return match
         return None
 
+    def get_local_cache_dir(self):
+        for cache_dir in self.cache_dir:
+            if not is_shared_cache_dir(cache_dir):
+                return cache_dir
+        return DEFAULT_CACHE_DIR
+
     def create_cache(self, workflow_id: str = DEFAULT_WORKFLOW_ID) -> "OliveCache":
-        self.cache_dir = Path(self.cache_dir) / workflow_id
+        local_cache_dir = Path(self.get_local_cache_dir()) / workflow_id
+        self.cache_dir = [str(local_cache_dir)]
         return OliveCache(self)
 
 
 class OliveCache:
     def __init__(self, cache_config: Union[CacheConfig, Dict]):
         cache_config = validate_config(cache_config, CacheConfig)
-        cache_dir = Path(cache_config.cache_dir).resolve()
+        cache_dir = Path(cache_config.get_local_cache_dir()).resolve()
         logger.info("Using cache directory: %s", cache_dir)
         self.dirs = CacheSubDirs.from_cache_dir(cache_dir)
 
