@@ -68,9 +68,9 @@ class RegulatePassConfigMixin:
             "DmlExecutionProvider",
             "TensorrtExecutionProvider",
         ]
-        if not is_gpu or not self.is_accuracy_drop_tolerance:
+        if not is_gpu:
             return pass_config, pass_flows
-
+git
         is_cuda_ep = self.accelerator_spec.execution_provider != "TensorrtExecutionProvider"
         is_trt_ep = self.accelerator_spec.execution_provider == "TensorrtExecutionProvider"
         assert (
@@ -120,6 +120,16 @@ class RegulatePassConfigMixin:
             pass_flows_by_fp16[i] = new_pf
         if pass_flows_by_fp16:
             pass_flows["fp16"] = pass_flows_by_fp16
+
+        for flow_list in pass_flows.values():
+            for p in flow_list:
+                if trans_opt in p:
+                    if trans_opt not in pass_config:
+                        pass_config[trans_opt] = {"type": trans_opt, "config": {}}
+                    if "config" not in pass_config[trans_opt]:
+                        pass_config[trans_opt]["config"] = {}
+                    pass_config[trans_opt]["config"]["use_gpu"] = True
+
         return pass_config, pass_flows
 
     def regulate_data_config(self, pass_config, pass_flows):
