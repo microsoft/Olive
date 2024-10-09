@@ -24,6 +24,9 @@ jobs:
       gptj:
         exampleFolder: gptj
         exampleName: gptj
+      mistral:
+        exampleFolder: mistral
+        exampleName: mistral_int4
       phi2:
         exampleFolder: phi2
         exampleName: phi2
@@ -51,6 +54,9 @@ jobs:
       gptj:
         exampleFolder: gptj
         exampleName: gptj
+      mistral:
+        exampleFolder: mistral
+        exampleName: mistral_int4
       phi2:
         exampleFolder: phi2
         exampleName: phi2
@@ -69,7 +75,7 @@ jobs:
         exampleRequirements: requirements-pipeline.txt
       mistral:
         exampleFolder: mistral
-        exampleName: mistral
+        exampleName: mistral_fp16
       open_llama:
         exampleFolder: open_llama
         exampleName: openllama

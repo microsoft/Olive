@@ -4,31 +4,23 @@
 # --------------------------------------------------------------------------
 import json
 import os
-import subprocess
-import sys
 
 import pytest
 
-from ..utils import assert_nodes, get_example_dir
+from ..utils import check_output, get_example_dir
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    os.chdir(get_example_dir("phi2"))
+    os.chdir(get_example_dir("mistral"))
 
-
-def test_phi2_genai():
+@pytest.mark.parametrize("olive_json", ["mistral_int4.json"])
+def test_mistral(olive_json):
     from olive.workflows import run as olive_run
 
-    with open("phi2_genai.json") as f:
+    with open(olive_json) as f:
         olive_config = json.load(f)
 
     footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
-    assert_nodes(footprint)
-
-
-def test_phi2():
-    out = subprocess.run([sys.executable, "phi2.py", "--model_type", "cpu_int4"], check=True, capture_output=True)
-
-    
+    check_output(footprint)
