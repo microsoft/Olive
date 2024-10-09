@@ -68,7 +68,7 @@ class RegulatePassConfigMixin:
             "DmlExecutionProvider",
             "TensorrtExecutionProvider",
         ]
-        if not is_gpu or not self.is_accuracy_drop_tolerance:
+        if not is_gpu:
             return pass_config, pass_flows
 
         is_cuda_ep = self.accelerator_spec.execution_provider != "TensorrtExecutionProvider"
