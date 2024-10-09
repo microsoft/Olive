@@ -70,7 +70,7 @@ class RegulatePassConfigMixin:
         ]
         if not is_gpu:
             return pass_config, pass_flows
-git
+
         is_cuda_ep = self.accelerator_spec.execution_provider != "TensorrtExecutionProvider"
         is_trt_ep = self.accelerator_spec.execution_provider == "TensorrtExecutionProvider"
         assert (
