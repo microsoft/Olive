@@ -12,3 +12,5 @@ transformers
 nvidia-modelopt~=0.11.0
 onnx-graphsurgeon
 pytorch_lightning
+accelerate 
+tensorrt

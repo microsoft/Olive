@@ -9,6 +9,7 @@ jobs:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     onnxruntime: onnxruntime
+    python_version: '3.10'
     examples:
       bert:
         exampleFolder: bert
@@ -35,6 +36,7 @@ jobs:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     onnxruntime: onnxruntime
+    python_version: '3.10'
     examples:
       bert:
         exampleFolder: bert
@@ -71,7 +73,7 @@ jobs:
       open_llama:
         exampleFolder: open_llama
         exampleName: openllama
-        exampleRequirements: requirements.txt
+        exampleRequirements: requirements-pipeline.txt
       opt:
         exampleFolder: opt_125m
         exampleName: opt

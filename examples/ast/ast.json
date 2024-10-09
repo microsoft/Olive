@@ -3,6 +3,7 @@
         "type": "HfModel",
         "model_path": "MIT/ast-finetuned-speech-commands-v2",
         "task": "audio-classification",
+        "load_kwargs": { "trust_remote_code": true },
         "io_config": {
             "input_names": [ "input_values" ],
             "output_names": [ "logits" ],
