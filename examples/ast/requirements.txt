@@ -1,3 +1,4 @@
 evaluate
 scikit-learn
 soundfile
+librosa
