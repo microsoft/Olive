@@ -323,13 +323,12 @@ class LoRABase(Pass):
         return model
 
     def create_and_load_new_model(
-        self, model_handler: HfModelHandler, config: ConfigBase, dequantize: bool = True, **kwargs
+        self, model_handler: HfModelHandler, config: ConfigBase, **kwargs
     ) -> Tuple[HfModelHandler, "PreTrainedModel"]:
         """Clone the input model handler and update the model load_kwargs.
 
         :param model_handler: The input model handler.
         :param config: The config for the pass run.
-        :param dequantize: Whether to dequantize the loaded model.
         :param kwargs: Additional arguments to update load_kwargs with.
         :return: The new model handler, the new loaded pytorch model
         """
@@ -362,11 +361,6 @@ class LoRABase(Pass):
         new_model_handler.load_kwargs = HfLoadKwargs(**load_kwargs)
         pytorch_model = new_model_handler.load_model(cache_model=False)
         pytorch_model.config.torch_dtype = model_dtype
-
-        if dequantize:
-            from olive.common.hf.quant import maybe_dequantize_model
-
-            pytorch_model = maybe_dequantize_model(pytorch_model)
 
         return new_model_handler, pytorch_model
 
@@ -435,7 +429,6 @@ class LoRABase(Pass):
         :return: The LoRA model.
         """
         from peft import PeftModel
-        from peft.tuners.lora import LoraLayer
 
         logger.debug("Enabling LoRA fine-tuning")
         if config.training_args.gradient_checkpointing and not model.supports_gradient_checkpointing:
@@ -465,12 +458,10 @@ class LoRABase(Pass):
         logger.debug(
             "The number of trainable parameters in the LoRA model: %s", self.count_trainable_parameters(lora_model)
         )
-
-        # cast lora modules to model's dtype, should be same as torch_dtype
-        for module in lora_model.modules():
-            if isinstance(module, LoraLayer):
-                module.to(lora_model.dtype)
-
+        # no need to cast lora modules to model's dtype, we dont do peft.prepare_model_for_kbit_training so the modules
+        # are already in the same dtype as the model
+        # casting to dtype is risky since for awq quant linear, it also casts the scales to dtype and but the qlinear
+        # expects scales to be in half
         return lora_model
 
     def train_and_save_new_model(
@@ -649,9 +640,6 @@ class LoRA(LoRABase):
 
         # get new model
         new_model_handler, pytorch_model = self.create_and_load_new_model(model, config)
-        if torch.cuda.is_available() and pytorch_model.model.device.type == "cpu":
-            # put the model on GPU since model was loaded on CPU with device_map=None
-            pytorch_model.to("cuda")
 
         # tokenizer
         tokenizer = new_model_handler.get_hf_tokenizer()
