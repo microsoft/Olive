@@ -2,4 +2,5 @@ evaluate
 scikit-learn
 soundfile
 librosa
-optimum 
+optimum
+psutil 
