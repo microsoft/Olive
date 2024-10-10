@@ -70,7 +70,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#azureml">AzureML</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#cloud-cache">Cloud Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#shared-cache">Shared Cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#providing-input-models">Providing Input Models</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
@@ -79,7 +79,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/huggingface_model_optimization.html">Huggingface Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/lora.html">LoRA Adapters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../features/cloud_model_cache.html">Cloud Model Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/shared_cache.html">Shared Cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/run_workflow_remotely.html">Remote Workflow</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/conversion.html">Model Conversions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../features/quantization.html">Model Quantizations</a></li>
@@ -303,14 +303,6 @@
         <span class="n">code_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">cur_dir</span> <span class="o">/</span> <span class="n">script_name</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">copy_files</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">config_root</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">run_config</span><span class="o">.</span><span class="n">input_model</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">):</span>
-            <span class="n">input_model_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">run_config</span><span class="o">.</span><span class="n">input_model</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">])</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="n">input_model_resource_path</span><span class="o">.</span><span class="n">is_azureml_models</span><span class="p">()</span>
-                <span class="ow">and</span> <span class="n">run_config</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">cloud_cache_config</span><span class="o">.</span><span class="n">enable_cloud_cache</span>
-            <span class="p">):</span>
-                <span class="n">run_config</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">cloud_cache_config</span><span class="o">.</span><span class="n">input_model_identifier</span> <span class="o">=</span> <span class="n">input_model_resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">()</span>
-
         <span class="n">workflow_config</span> <span class="o">=</span> <span class="n">run_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">make_absolute</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="p">[</span>
             <span class="n">workflow_config</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -320,7 +312,7 @@
         <span class="n">inputs</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_inputs_and_args</span><span class="p">(</span>
             <span class="p">{</span><span class="n">WORKFLOW_CONFIG</span><span class="p">:</span> <span class="n">workflow_config</span><span class="p">},</span>
             <span class="n">tmp_dir</span><span class="p">,</span>
-            <span class="n">ignore_keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;cache_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;cloud_cache_config&quot;</span><span class="p">,</span> <span class="s2">&quot;output_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;model_attributes&quot;</span><span class="p">],</span>
+            <span class="n">ignore_keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;cache_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;output_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;model_attributes&quot;</span><span class="p">],</span>
         <span class="p">)</span>
 
         <span class="n">outputs</span> <span class="o">=</span> <span class="p">{</span>

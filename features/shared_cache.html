@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cloud Model Cache &mdash; Olive  documentation</title>
+  <title>Shared Cache &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
@@ -73,7 +73,7 @@
 <li class="toctree-l1"><a class="reference internal" href="cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html#azureml">AzureML</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cli.html#cloud-cache">Cloud Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html#shared-cache">Shared Cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html#providing-input-models">Providing Input Models</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
@@ -82,15 +82,16 @@
 <li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="lora.html">LoRA Adapters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Cloud Model Cache</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#what-is-cloud-model-cache">What is Cloud Model Cache</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#how-to-use-cloud-model-cache">How to use Cloud Model Cache</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#install-extra-dependencies">Install Extra Dependencies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#azure-blob-storage">Azure Blob Storage</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#cloud-cache-configuration">Cloud Cache Configuration</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Shared Cache</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#setup-and-usage">Setup and Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#install-dependencies">Install Dependencies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#configure-azure-blob-storage">Configure Azure Blob Storage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#configure-the-shared-cache">Configure the Shared Cache</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#alternative-configuration">Alternative Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#important-notes">Important Notes</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="run_workflow_remotely.html">Remote Workflow</a></li>
@@ -142,9 +143,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Cloud Model Cache</li>
+      <li class="breadcrumb-item active">Shared Cache</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/features/cloud_model_cache.md.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/features/shared_cache.md.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -152,64 +153,88 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="cloud-model-cache">
-<h1>Cloud Model Cache<a class="headerlink" href="#cloud-model-cache" title="Permalink to this heading"></a></h1>
-<section id="what-is-cloud-model-cache">
-<h2>What is Cloud Model Cache<a class="headerlink" href="#what-is-cloud-model-cache" title="Permalink to this heading"></a></h2>
-<p>The Cloud Model Cache is a system where Olive stores intermediate models in Azure Blob Storage. Whenever a Pass is executed, Olive checks if the same input model has been processed before and if the corresponding output model is available in Azure Blob Storage. If the output model is found, Olive directly uses it for the next step. With this feature, you can easily share output models with others.</p>
-<p>This feature currently only supports native Huggingface models as input.</p>
+  <section id="shared-cache">
+<h1>Shared Cache<a class="headerlink" href="#shared-cache" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
+<p>The Shared Cache allows Olive to store intermediate models in Azure Blob Storage. When a pass is executed, Olive checks if the same pass with the same input model has been processed before. If a matching output model is found in the shared cache, Olive reuses it for the next step. With this feature, you can easily share output models with others.</p>
 </section>
-<section id="how-to-use-cloud-model-cache">
-<h2>How to use Cloud Model Cache<a class="headerlink" href="#how-to-use-cloud-model-cache" title="Permalink to this heading"></a></h2>
-<section id="install-extra-dependencies">
-<h3>Install Extra Dependencies<a class="headerlink" href="#install-extra-dependencies" title="Permalink to this heading"></a></h3>
-<p>You can install the necessary dependencies by running:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>azureml<span class="o">]</span>
+<section id="setup-and-usage">
+<h2>Setup and Usage<a class="headerlink" href="#setup-and-usage" title="Permalink to this heading"></a></h2>
+<section id="install-dependencies">
+<h3>Install Dependencies<a class="headerlink" href="#install-dependencies" title="Permalink to this heading"></a></h3>
+<p>Install the required dependencies for enabling shared cache support:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>shared-cache<span class="o">]</span>
 </pre></div>
 </div>
 </section>
-<section id="azure-blob-storage">
-<h3>Azure Blob Storage<a class="headerlink" href="#azure-blob-storage" title="Permalink to this heading"></a></h3>
-<p>Olive uses Azure Blob Storage for the Cloud Model Cache, so you’ll need a prepared container for this feature. Learn more about Azure Blob Storage <a class="reference external" href="https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-introduction">here</a>.</p>
-<p>Once your container is ready, locate the account URL and container name on your storage account page. The account URL typically looks like <code class="docutils literal notranslate"><span class="pre">https://&lt;account_url&gt;.blob.core.windows.net</span></code>.</p>
-<p>Please make sure you have logged in Azure with command:</p>
+<section id="configure-azure-blob-storage">
+<h3>Configure Azure Blob Storage<a class="headerlink" href="#configure-azure-blob-storage" title="Permalink to this heading"></a></h3>
+<p>Olive uses Azure Blob Storage for the shared cache. You need to set up an Azure Blob Storage container for this feature. Learn more about <a class="reference external" href="https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-introduction">Azure Blob Storage</a>.</p>
+<p>Once your container is ready, locate the account name and container name on your storage account page. The account URL typically looks like <code class="docutils literal notranslate"><span class="pre">https://&lt;account_name&gt;.blob.core.windows.net</span></code>.</p>
+<p>Make sure you are logged in to Azure by running:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>az<span class="w"> </span>login
 </pre></div>
 </div>
 </section>
-<section id="cloud-cache-configuration">
-<h3>Cloud Cache Configuration<a class="headerlink" href="#cloud-cache-configuration" title="Permalink to this heading"></a></h3>
-<p>Add <code class="docutils literal notranslate"><span class="pre">cloud_cache_config</span></code> to the configuration:</p>
+<section id="configure-the-shared-cache">
+<h3>Configure the Shared Cache<a class="headerlink" href="#configure-the-shared-cache" title="Permalink to this heading"></a></h3>
+<p>To enable the shared cache, add the Azure Blob Storage account URL with container name to the cache_dir field in your configuration file:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="w">    </span><span class="nt">&quot;cache_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://&lt;account_name&gt;.blob.core.windows.net/&lt;container_name&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If you want to custom local cache directory also, you can provide multiple <code class="docutils literal notranslate"><span class="pre">cache_dir</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="w">    </span><span class="nt">&quot;cache_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">      </span><span class="s2">&quot;local_cache&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="s2">&quot;https://myaccountname.blob.core.windows.net/mycontainername&quot;</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>When you set up the shared cache this way, <code class="docutils literal notranslate"><span class="pre">update_shared_cache</span></code> will default to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+</section>
+<section id="alternative-configuration">
+<h3>Alternative Configuration<a class="headerlink" href="#alternative-configuration" title="Permalink to this heading"></a></h3>
+<p>You can also configure the shared cache using the <code class="docutils literal notranslate"><span class="pre">cache_config</span></code>:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">cloud_cache_config</span></code>:</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">cache_config</span></code>:</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">enable_cloud_cache</span> <span class="pre">[bool]</span></code>: Whether to enable cloud cache. Default by <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">account_url</span> <span class="pre">[str]</span></code>: The account url from the Azure Storage account.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">account_name</span> <span class="pre">[str]</span></code>: The account name from the Azure Storage account.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">container_name</span> <span class="pre">[str]</span></code>: The container name to store model cache.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">upload_to_cloud</span> <span class="pre">[bool]</span></code>: Whether to upload output model to the cloud cache for this workflow run. Default by <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">update_shared_cache</span> <span class="pre">[bool]</span></code>: If True, Olive will upload output models to the shared cache. Defaults to True.</p></li>
 </ul>
 </li>
 </ul>
 <p>Here is an example configuration:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="c1">//...</span>
-<span class="w">    </span><span class="nt">&quot;cloud_cache_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;account_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://&lt;account_url&gt;.blob.core.windows.net&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;container_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;olivecachemodel&quot;</span>
+<span class="w">    </span><span class="nt">&quot;cache_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;account_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;account-name&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;container_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;container-name&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;update_shared_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="c1">//...</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>With this configuration, Olive will check if a cached model exists in your blob container. If you only want to download cached models from the blob without uploading the output models, set <code class="docutils literal notranslate"><span class="pre">upload_to_cloud</span></code> to <code class="docutils literal notranslate"><span class="pre">false</span></code> in the <code class="docutils literal notranslate"><span class="pre">cloud_cache_config</span></code>.</p>
+<p>With this configuration, Olive will check if a cached model exists in your blob container. If you only want to download cached models from the blob without uploading the output models, set <code class="docutils literal notranslate"><span class="pre">update_shared_cache</span></code> to <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p>
 </section>
 </section>
-<section id="notes">
-<h2>Notes<a class="headerlink" href="#notes" title="Permalink to this heading"></a></h2>
+<section id="important-notes">
+<h2>Important Notes<a class="headerlink" href="#important-notes" title="Permalink to this heading"></a></h2>
 <ul class="simple">
-<li><p>If the output model is found in the cloud cache and evaluation is needed, Olive will download the output model from the cloud cache.</p></li>
-<li><p>If the output model is found in the cloud cache and no evaluation is needed, Olive will check for cached models for the next Pass instead of immediately downloading the current cached model. If a cached model for the next Pass is found, Olive will skip downloading the intermediate model and proceed directly to the next Pass. This process will continue until the final Pass is completed or no cached model is found.</p></li>
-<li><p>When this feature is enabled, the workflow running time may be affected, potentially making it faster or slower. Since Olive will download output models, factors that can influence this include the size of the output model, your internet speed, the number of Passes, and how many intermediate models are cached in the cloud cache.</p></li>
+<li><p>The Shared Cache feature does not support models with Callable attributes, such as <code class="docutils literal notranslate"><span class="pre">model_loader</span></code>, <code class="docutils literal notranslate"><span class="pre">io_config</span></code>, or <code class="docutils literal notranslate"><span class="pre">dummy_inputs_func</span></code>, if any of these is a Callable, shared cache will be disabled.</p></li>
+<li><p>If the output model is found in the shared cache and evaluation is needed, Olive will download the output model from the shared cache.</p></li>
+<li><p>If no evaluation is required, Olive skips downloading intermediate models if cached models are found for the next pass.</p></li>
+<li><p>If the output model is found in the shared cache and no evaluation is needed, Olive will check for cached models for the next Pass instead of immediately downloading the current cached model. If a cached model for the next Pass is found, Olive will skip downloading the intermediate model and proceed directly to the next Pass. This process will continue until the final Pass is completed or no cached model is found.</p></li>
+<li><p>When this feature is enabled, the workflow running time may be affected, potentially making it faster or slower. Since Olive will download output models, factors that can influence this include the size of the output model, internet speed, the number of Passes, and how many intermediate models are cached in the shared cache.</p></li>
 </ul>
 </section>
 </section>

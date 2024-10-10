@@ -609,33 +609,52 @@
         }
       }
     },
-    "CloudCacheConfig": {
-      "title": "CloudCacheConfig",
+    "CacheConfig": {
+      "title": "CacheConfig",
       "type": "object",
       "properties": {
-        "enable_cloud_cache": {
-          "title": "Enable Cloud Cache",
-          "default": true,
+        "cache_dir": {
+          "title": "Cache Dir",
+          "default": ".olive-cache",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "clean_cache": {
+          "title": "Clean Cache",
+          "default": false,
           "type": "boolean"
         },
-        "account_url": {
-          "title": "Account Url",
-          "default": "https://olivepublicmodels.blob.core.windows.net",
+        "clean_evaluation_cache": {
+          "title": "Clean Evaluation Cache",
+          "default": false,
+          "type": "boolean"
+        },
+        "account_name": {
+          "title": "Account Name",
           "type": "string"
         },
         "container_name": {
           "title": "Container Name",
-          "default": "olivecachemodels",
           "type": "string"
         },
-        "upload_to_cloud": {
-          "title": "Upload To Cloud",
-          "default": true,
+        "enable_shared_cache": {
+          "title": "Enable Shared Cache",
+          "default": false,
           "type": "boolean"
         },
-        "input_model_identifier": {
-          "title": "Input Model Identifier",
-          "type": "string"
+        "update_shared_cache": {
+          "title": "Update Shared Cache",
+          "default": true,
+          "type": "boolean"
         }
       }
     },
@@ -662,29 +681,6 @@
         },
         "evaluator": {
           "$ref": "#/definitions/OliveEvaluatorConfig"
-        },
-        "cache_dir": {
-          "title": "Cache Dir",
-          "default": ".olive-cache",
-          "anyOf": [
-            {
-              "type": "string",
-              "format": "path"
-            },
-            {
-              "type": "string"
-            }
-          ]
-        },
-        "clean_cache": {
-          "title": "Clean Cache",
-          "default": false,
-          "type": "boolean"
-        },
-        "clean_evaluation_cache": {
-          "title": "Clean Evaluation Cache",
-          "default": false,
-          "type": "boolean"
         },
         "plot_pareto_frontier": {
           "title": "Plot Pareto Frontier",
@@ -722,17 +718,50 @@
             }
           ]
         },
-        "cloud_cache_config": {
-          "title": "Cloud Cache Config",
-          "default": false,
+        "cache_config": {
+          "title": "Cache Config",
           "anyOf": [
             {
-              "type": "boolean"
+              "$ref": "#/definitions/CacheConfig"
             },
             {
-              "$ref": "#/definitions/CloudCacheConfig"
+              "type": "object"
             }
           ]
+        },
+        "cache_dir": {
+          "title": "Cache Dir",
+          "default": ".olive-cache",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string",
+              "format": "path"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "clean_cache": {
+          "title": "Clean Cache",
+          "default": false,
+          "type": "boolean"
+        },
+        "clean_evaluation_cache": {
+          "title": "Clean Evaluation Cache",
+          "default": false,
+          "type": "boolean"
+        },
+        "enable_shared_cache": {
+          "title": "Enable Shared Cache",
+          "default": false,
+          "type": "boolean"
         },
         "log_severity_level": {
           "title": "Log Severity Level",
@@ -801,12 +830,6 @@
               "type": "string"
             }
           ]
-        },
-        "clean_run_cache": {
-          "title": "Clean Run Cache",
-          "description": "Whether to clean the run cache before running the pass. If set to True, the cache related to all runs related to this pass type will be cleaned.",
-          "default": false,
-          "type": "boolean"
         }
       },
       "required": [

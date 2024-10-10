@@ -107,7 +107,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="#cloud-cache">Cloud Cache</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="#shared-cache">Shared Cache</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
 </ul>
 </li>
@@ -119,7 +119,7 @@
 <li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="lora.html">LoRA Adapters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cloud_model_cache.html">Cloud Model Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="shared_cache.html">Shared Cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="run_workflow_remotely.html">Remote Workflow</a></li>
 <li class="toctree-l1"><a class="reference internal" href="conversion.html">Model Conversions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quantization.html">Model Quantizations</a></li>
@@ -231,6 +231,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -321,6 +323,12 @@
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
 </dd>
+<dt><kbd>--account_name</kbd></dt>
+<dd><p>Azure storage account name for shared cache.</p>
+</dd>
+<dt><kbd>--container_name</kbd></dt>
+<dd><p>Azure storage container name for shared cache.</p>
+</dd>
 </dl>
 </section>
 <section id="lora-options">
@@ -364,6 +372,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -455,6 +465,12 @@
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
 </dd>
+<dt><kbd>--account_name</kbd></dt>
+<dd><p>Azure storage account name for shared cache.</p>
+</dd>
+<dt><kbd>--container_name</kbd></dt>
+<dd><p>Azure storage container name for shared cache.</p>
+</dd>
 </dl>
 </section>
 </section>
@@ -478,6 +494,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -579,6 +597,12 @@ inc_dynamic: (OnnxModel) Dynamic quantization using neural-compressor.</p>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
 </dd>
+<dt><kbd>--account_name</kbd></dt>
+<dd><p>Azure storage account name for shared cache.</p>
+</dd>
+<dt><kbd>--container_name</kbd></dt>
+<dd><p>Azure storage container name for shared cache.</p>
+</dd>
 </dl>
 </section>
 </section>
@@ -610,6 +634,8 @@ inc_dynamic: (OnnxModel) Dynamic quantization using neural-compressor.</p>
                                 <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -666,6 +692,12 @@ inc_dynamic: (OnnxModel) Dynamic quantization using neural-compressor.</p>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
+</dd>
+<dt><kbd>--account_name</kbd></dt>
+<dd><p>Azure storage account name for shared cache.</p>
+</dd>
+<dt><kbd>--container_name</kbd></dt>
+<dd><p>Azure storage container name for shared cache.</p>
 </dd>
 </dl>
 </section>
@@ -737,6 +769,8 @@ inc_dynamic: (OnnxModel) Dynamic quantization using neural-compressor.</p>
                               <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                              <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                              <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -796,6 +830,12 @@ inc_dynamic: (OnnxModel) Dynamic quantization using neural-compressor.</p>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
+</dd>
+<dt><kbd>--account_name</kbd></dt>
+<dd><p>Azure storage account name for shared cache.</p>
+</dd>
+<dt><kbd>--container_name</kbd></dt>
+<dd><p>Azure storage container name for shared cache.</p>
 </dd>
 </dl>
 </section>
@@ -875,6 +915,8 @@ inc_dynamic: (OnnxModel) Dynamic quantization using neural-compressor.</p>
                                  <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -957,6 +999,12 @@ inc_dynamic: (OnnxModel) Dynamic quantization using neural-compressor.</p>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
+</dd>
+<dt><kbd>--account_name</kbd></dt>
+<dd><p>Azure storage account name for shared cache.</p>
+</dd>
+<dt><kbd>--container_name</kbd></dt>
+<dd><p>Azure storage container name for shared cache.</p>
 </dd>
 </dl>
 </section>
@@ -1044,28 +1092,28 @@ inc_dynamic: (OnnxModel) Dynamic quantization using neural-compressor.</p>
 </dl>
 </section>
 </section>
-<section id="cloud-cache">
-<h1>Cloud Cache<a class="headerlink" href="#cloud-cache" title="Permalink to this heading"></a></h1>
+<section id="shared-cache">
+<h1>Shared Cache<a class="headerlink" href="#shared-cache" title="Permalink to this heading"></a></h1>
 <p>Delete Olive model cache stored in the cloud.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">cloud</span><span class="o">-</span><span class="n">cache</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">delete</span><span class="p">]</span> <span class="o">--</span><span class="n">account</span> <span class="n">ACCOUNT</span> <span class="o">--</span><span class="n">container</span>
-                         <span class="n">CONTAINER</span> <span class="o">--</span><span class="n">model_hash</span> <span class="n">MODEL_HASH</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">shared</span><span class="o">-</span><span class="n">cache</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">delete</span><span class="p">]</span> <span class="o">--</span><span class="n">account</span> <span class="n">ACCOUNT</span> <span class="o">--</span><span class="n">container</span>
+                          <span class="n">CONTAINER</span> <span class="o">--</span><span class="n">model_hash</span> <span class="n">MODEL_HASH</span>
 </pre></div>
 </div>
 <section id="named-arguments">
 <h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
 <dt><kbd>--delete</kbd></dt>
-<dd><p>Delete a model cache from the cloud cache.</p>
+<dd><p>Delete a model cache from the shared cache.</p>
 <p>Default: False</p>
 </dd>
 <dt><kbd>--account</kbd></dt>
-<dd><p>The account name for the cloud cache.</p>
+<dd><p>The account name for the shared cache.</p>
 </dd>
 <dt><kbd>--container</kbd></dt>
-<dd><p>The container name for the cloud cache.</p>
+<dd><p>The container name for the shared cache.</p>
 </dd>
 <dt><kbd>--model_hash</kbd></dt>
-<dd><p>The model hash to remove from the cloud cache.</p>
+<dd><p>The model hash to remove from the shared cache.</p>
 </dd>
 </dl>
 </section>
