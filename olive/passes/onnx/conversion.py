@@ -169,7 +169,7 @@ class OnnxConversion(Pass):
         :param tempdir: directory to use for temporary files
         """
         from olive.common.hf.peft import make_export_compatible_peft
-        from olive.common.hf.quant import is_quantized_model, make_export_compatible_quant
+        from olive.common.hf.quant import make_export_compatible_quant
 
         device = torch.device(device)
         use_gpu = device != torch.device("cpu")
@@ -179,20 +179,14 @@ class OnnxConversion(Pass):
         logger.debug("Converting model on device %s with dtype %s.", device, torch_dtype)
         pytorch_model.to(device)
         dummy_inputs = tensor_data_to_device(dummy_inputs, device)
-        if torch_dtype:
-            try:
-                pytorch_model = pytorch_model.to(torch_dtype)
-            except ValueError:
-                # some quantized models like gptq don't support casting the whole model
-                # Model is expected to be loaded in the correct dtype
-                if not is_quantized_model(pytorch_model):
-                    raise
 
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
-
         pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config["merge_adapter_weights"])
         pytorch_model = make_export_compatible_quant(pytorch_model)
+        # cast to dtype, want all modules including lora layers and quant linears in the same dtype
+        if torch_dtype:
+            pytorch_model = pytorch_model.to(torch_dtype)
 
         # get input and output names, and dynamic axes
         assert io_config is not None, "Cannot get io_config for the model."

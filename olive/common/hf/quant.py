@@ -317,4 +317,10 @@ EXPORT_QLINEAR_MAPPING = {
 
 def make_export_compatible_quant(model: torch.nn.Module) -> torch.nn.Module:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions."""
-    return _replace_qlinear_modules(model, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model")[0]
+    model, modified = _replace_qlinear_modules(
+        model, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model"
+    )
+    if modified:
+        # set quantization method to None, gptq doesn't allow dtype casting
+        model.quantization_method = None
+    return model
