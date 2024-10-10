@@ -173,8 +173,8 @@ class TestEngine:
         engine.register(OnnxConversion, name=p2_name, config=p2_config)
         engine.set_pass_flows([[p1_name], [p2_name]])
         model_ids = [
-            engine.cache.get_output_model_id(p1.__class__.__name__, p1_config, input_model_id, DEFAULT_CPU_ACCELERATOR),
-            engine.cache.get_output_model_id(p2.__class__.__name__, p2_config, input_model_id, DEFAULT_CPU_ACCELERATOR),
+            engine.cache.get_output_model_id(p1.__class__.__name__, p1_config, input_model_id),
+            engine.cache.get_output_model_id(p2.__class__.__name__, p2_config, input_model_id),
         ]
         expected_res = {
             model_id: {
