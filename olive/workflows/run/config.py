@@ -3,13 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Dict, List, Union
 
 from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.cache import CacheConfig
 from olive.common.config_utils import NestedConfig, convert_configs_to_dicts, validate_config
-from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_HF_TASK, DEFAULT_WORKFLOW_ID
+from olive.common.constants import DEFAULT_HF_TASK, DEFAULT_WORKFLOW_ID
 from olive.common.pydantic_v1 import Field, root_validator, validator
 from olive.common.utils import set_nested_dict_value
 from olive.data.config import DataComponentConfig, DataConfig
@@ -61,14 +61,12 @@ class RunPassConfig(AbstractPassConfig):
 
 
 class RunEngineConfig(EngineConfig):
+    _nested_field_name = "cache_config"
+
     evaluate_input_model: bool = True
     output_dir: Union[Path, str] = None
     packaging_config: Union[PackagingConfig, List[PackagingConfig]] = None
-    cache_config: Union[CacheConfig, Dict[str, Any]] = None
-    cache_dir: Union[str, Path, List[str]] = DEFAULT_CACHE_DIR
-    clean_cache: bool = False
-    clean_evaluation_cache: bool = False
-    enable_shared_cache: bool = False
+    cache_config: CacheConfig = None
     log_severity_level: int = 1
     ort_log_severity_level: int = 3
     ort_py_log_severity_level: int = 3
@@ -76,17 +74,11 @@ class RunEngineConfig(EngineConfig):
 
     def create_engine(self, azureml_client_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
-        if self.cache_config:
-            cache_config = validate_config(self.cache_config, CacheConfig)
-        else:
-            cache_config = CacheConfig(
-                cache_dir=self.cache_dir,
-                clean_cache=self.clean_cache,
-                clean_evaluation_cache=self.clean_evaluation_cache,
-                enable_shared_cache=self.enable_shared_cache,
-            )
         return Engine(
-            **config, cache_config=cache_config, azureml_client_config=azureml_client_config, workflow_id=workflow_id
+            **config,
+            cache_config=self.cache_config,
+            azureml_client_config=azureml_client_config,
+            workflow_id=workflow_id,
         )
 
 
