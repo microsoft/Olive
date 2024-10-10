@@ -6,7 +6,7 @@ from copy import deepcopy
 from random import Random
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-from olive.strategy.search_parameter import Categorical, Conditional, SearchParameter, SpecialParamValue
+from olive.strategy.search_parameter import SearchParameter, SpecialParamValue
 from olive.strategy.utils import order_search_parameters
 
 
@@ -46,12 +46,8 @@ class SearchSpace:
         # sample from search space
         for space_name, param_name in self._iter_order:
             param = self._search_space[space_name][param_name]
-            options = []
-            if isinstance(param, Conditional):
-                parent_vals = {parent: search_point[space_name][parent] for parent in param.parents}
-                options = param.get_support_with_args(parent_vals)
-            elif isinstance(param, Categorical):
-                options = param.get_support()
+            parent_vals = {parent: search_point[space_name][parent] for parent in param.get_parents()}
+            options = param.get_support(parent_vals) or []
             search_point[space_name][param_name] = self.rng.choice(options)
             if search_point[space_name][param_name] == SpecialParamValue.INVALID:
                 return self.random_sample()
@@ -67,15 +63,8 @@ class SearchSpace:
 
         space_name, param_name = full_iter_order[index]
         param = self._search_space[space_name][param_name]
-
-        if isinstance(param, Conditional):
-            parent_vals = {parent: search_point[space_name][parent] for parent in param.parents}
-            options = param.get_support_with_args(parent_vals)
-        elif isinstance(param, Categorical):
-            options = param.get_support()
-        else:
-            return
-
+        parent_vals = {parent: search_point[space_name][parent] for parent in param.get_parents()}
+        options = param.get_support(parent_vals) or []
         for option in options:
             if option == SpecialParamValue.INVALID:
                 continue
