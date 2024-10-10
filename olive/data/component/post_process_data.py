@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import torch
 import transformers
 
 from olive.data.registry import Registry
@@ -37,6 +36,8 @@ def text_classification_post_process(output_data, **kwargs):
         object: Post-processed data.
 
     """
+    import torch
+
     if isinstance(output_data, transformers.modeling_outputs.SequenceClassifierOutput):
         _, preds = torch.max(output_data.logits, dim=1)
     else:
@@ -57,6 +58,8 @@ def ner_post_process(output_data, **kwargs):
         object: Post-processed data.
 
     """
+    import torch
+
     if isinstance(output_data, transformers.modeling_outputs.TokenClassifierOutput):
         logits = output_data.logits
     else:

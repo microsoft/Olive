@@ -4,9 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
-
-import torch
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.constants import DEFAULT_HF_TASK
@@ -20,6 +18,9 @@ from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import HfMixin, MLFlowTransformersMixin
 from olive.model.handler.pytorch import PyTorchModelHandlerBase
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+
+if TYPE_CHECKING:
+    import torch
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         """Return the path to the peft adapter."""
         return self.get_resource("adapter_path")
 
-    def load_model(self, rank: int = None, cache_model: bool = True) -> torch.nn.Module:
+    def load_model(self, rank: int = None, cache_model: bool = True) -> "torch.nn.Module":
         """Load the model from the model path."""
         if self.model:
             model = self.model
@@ -202,7 +203,7 @@ class DistributedHfModelHandler(OliveModelHandler):
         device: Device = Device.GPU,  # pylint: disable=signature-differs
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = 0,
-    ) -> torch.nn.Module:
+    ) -> "torch.nn.Module":
         return self.load_model(rank).load_model(rank).eval()
 
     def run_session(

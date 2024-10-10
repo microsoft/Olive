@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
 
 from olive.platform_sdk.qualcomm.utils import input_list as input_list_utils
 
@@ -250,6 +249,8 @@ class FileListCommonDataLoader(FileListDataLoader):
         :param batch_size: number of inputs per chunked input list file for batch processing. If None, all inputs are in
             a single input list file. This is not the same as the batch size of the common dataloader.
         """
+        import torch
+
         # create temporary directory for processed data
         temp_data_dir = tempfile.TemporaryDirectory("olive_tmp_")  # pylint: disable=consider-using-with
 

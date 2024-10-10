@@ -11,8 +11,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import torch
-from torch.utils.data import Dataset
 
 from olive.common.utils import load_weights, run_subprocess, save_weights
 from olive.evaluator.metric import get_latency_config_from_metric
@@ -25,6 +23,8 @@ from olive.systems.system_config import IsolatedORTTargetUserConfig
 from olive.systems.utils import create_new_environ, run_available_providers_runner
 
 if TYPE_CHECKING:
+    from torch.utils.data import Dataset
+
     from olive.evaluator.metric import Metric
     from olive.evaluator.metric_result import MetricResult
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
@@ -143,11 +143,13 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         self,
         model: "ONNXModelHandler",
         metric: "Metric",
-        dataloader: Dataset,
+        dataloader: "Dataset",
         post_func: Callable = None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
+        import torch
+
         inference_config = self._get_common_config(model, metric, device, execution_providers)
         inference_config["mode"] = "inference"
 
@@ -230,7 +232,7 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         self,
         model: "ONNXModelHandler",
         metric: "Metric",
-        dataloader: Dataset,
+        dataloader: "Dataset",
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
@@ -242,7 +244,7 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         self,
         model: "ONNXModelHandler",
         metric: "Metric",
-        dataloader: Dataset,
+        dataloader: "Dataset",
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,

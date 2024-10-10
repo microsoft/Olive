@@ -7,7 +7,6 @@ from pathlib import Path
 from random import Random
 from typing import Callable, Dict, List, Union
 
-import torch
 import transformers
 
 from olive.common.config_utils import ConfigBase, validate_config, validate_object
@@ -164,6 +163,7 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
     The input dataset is expected to have one or more text columns.
     Depending on the strategy, the sequences are either joined together or processed individually.
     """
+    import torch
     from datasets import Dataset as HFDataset
 
     args = validate_config(all_kwargs, TextGenParams, warn_unused_keys=True)

@@ -5,14 +5,14 @@
 
 from typing import List, Union
 
-from torch.utils.data import DataLoader, default_collate
-
 from olive.data.registry import Registry
 
 
 @Registry.register_dataloader()
 @Registry.register_default_dataloader()
 def default_dataloader(dataset, batch_size=1, **kwargs):
+    from torch.utils.data import DataLoader
+
     return DataLoader(dataset, batch_size=batch_size, **kwargs)
 
 
@@ -20,6 +20,8 @@ def default_dataloader(dataset, batch_size=1, **kwargs):
 def dataloader_with_ignored_batch_fields(
     dataset, batch_size: int = 1, fields_no_batch: Union[str, List] = "step", **kwargs
 ):
+    from torch.utils.data import DataLoader, default_collate
+
     ignore_fields = [fields_no_batch] if isinstance(fields_no_batch, str) else fields_no_batch
 
     def ignore_batch_collate_fn(batch):
@@ -37,6 +39,8 @@ def dataloader_with_ignored_batch_fields(
 
 @Registry.register_dataloader()
 def no_auto_batch_dataloader(dataset, **kwargs):
+    from torch.utils.data import DataLoader
+
     # torch dataloader will automatically batch if batch_size is not None
     # this dataloader will not batch. Assumes that the dataset already returns a batch
     kwargs.pop("batch_size", None)

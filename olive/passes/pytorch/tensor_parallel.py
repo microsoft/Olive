@@ -9,9 +9,7 @@ import logging
 import multiprocessing
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Callable, Dict
-
-import torch
+from typing import TYPE_CHECKING, Any, Callable, Dict
 
 from olive.common.config_utils import ParamCategory
 from olive.common.pydantic_v1 import validator
@@ -20,6 +18,9 @@ from olive.model import DistributedHfModelHandler, HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pytorch.common import inherit_distributed_hf_from_hf
+
+if TYPE_CHECKING:
+    import torch
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +39,11 @@ class TensorParallel:
         raise NotImplementedError
 
     @abstractmethod
-    def split_weights(self, model: torch.nn.Module):
+    def split_weights(self, model: "torch.nn.Module"):
         raise NotImplementedError
 
     @abstractmethod
-    def load_rank_weights(self, model: torch.nn.Module):
+    def load_rank_weights(self, model: "torch.nn.Module"):
         raise NotImplementedError
 
 
@@ -146,6 +147,8 @@ class PyTorchTensorParallel(Pass):
     def _run_for_config(
         self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> DistributedHfModelHandler:
+        import torch
+
         world_size = int(config["world_size"])
         output_model_path = Path(output_model_path)
         output_model_path.mkdir(parents=True, exist_ok=True)

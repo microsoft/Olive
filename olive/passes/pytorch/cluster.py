@@ -7,7 +7,6 @@ import os
 from abc import ABC, abstractmethod
 from typing import Dict
 
-import torch
 from pytorch_lightning.plugins.environments import ClusterEnvironment
 
 logger = logging.getLogger(__name__)
@@ -32,6 +31,8 @@ class BaseClusterEnvironment(ClusterEnvironment, ABC):
         self._overrides: Dict = {}
 
     def init_process_group(self) -> None:
+        import torch
+
         if not self._is_initialized:
             overrides = self._environment_variable_overrides(self.master_port)
             self._override_environment_variables(overrides)
@@ -190,6 +191,8 @@ def create_cluster():
 
 
 def get_rank() -> int:
+    import torch
+
     if not torch.cuda.is_available():
         return 0
     if not torch.distributed.is_initialized():
@@ -203,5 +206,7 @@ def is_master_proc():
 
 
 def barrier():
+    import torch
+
     if torch.cuda.is_available() and torch.distributed.is_initialized():
         torch.distributed.barrier()
