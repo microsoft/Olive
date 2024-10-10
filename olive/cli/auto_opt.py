@@ -14,12 +14,14 @@ from olive.cli.base import (
     add_logging_options,
     add_remote_options,
     add_search_options,
+    add_shared_cache_options,
     get_input_model_config,
     is_remote_run,
     save_output_model,
     update_accelerator_options,
     update_remote_options,
     update_search_options,
+    update_shared_cache_options,
 )
 from olive.common.utils import hardlink_copy_dir, set_nested_dict_value
 
@@ -142,6 +144,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         # remote options
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
+        add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=AutoOptCommand)
 
     def run(self):
@@ -186,6 +189,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         update_accelerator_options(self.args, config)
         update_search_options(self.args, config)
         update_remote_options(config, self.args, "auto-opt", tempdir)
+        update_shared_cache_options(config, self.args)
 
         if self.args.enable_search is None:
             del config["evaluators"]

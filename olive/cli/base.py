@@ -14,7 +14,7 @@ import yaml
 
 from olive.cli.constants import CONDA_CONFIG
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import hardlink_copy_dir, hash_dict, set_nested_dict_value, unescaped_str
+from olive.common.utils import hardlink_copy_dir, hash_dict, hf_repo_exists, set_nested_dict_value, unescaped_str
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, find_all_resources
 
 
@@ -215,12 +215,7 @@ def get_input_model_config(args: Namespace) -> Dict:
 
     # Check HF model name string
     if not model_path.exists():
-        try:
-            from huggingface_hub import repo_exists
-        except ImportError as e:
-            raise ImportError("Please install huggingface_hub to use the CLI for Huggingface model.") from e
-
-        if not repo_exists(model_name_or_path):
+        if not hf_repo_exists(model_name_or_path):
             raise ValueError(f"{model_name_or_path} is not a valid Huggingface model name.")
         return _get_hf_input_model(args, model_name_or_path)
 
@@ -535,6 +530,27 @@ def update_dataset_options(args, config):
     for keys, value in to_replace:
         if value is not None:
             set_nested_dict_value(config, keys, value)
+
+
+def add_shared_cache_options(sub_parser: ArgumentParser):
+    shared_cache_group = sub_parser
+    shared_cache_group.add_argument(
+        "--account_name",
+        type=str,
+        help="Azure storage account name for shared cache.",
+    )
+    shared_cache_group.add_argument(
+        "--container_name",
+        type=str,
+        help="Azure storage container name for shared cache.",
+    )
+
+
+def update_shared_cache_options(config, args):
+    config["cache_config"] = {
+        "account_name": args.account_name,
+        "container_name": args.container_name,
+    }
 
 
 def add_accelerator_options(sub_parser, single_provider: bool = True):

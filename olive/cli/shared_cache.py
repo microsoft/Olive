@@ -10,41 +10,41 @@ from olive.common.utils import get_credentials
 logger = logging.getLogger(__name__)
 
 
-class CloudCacheCommand(BaseOliveCLICommand):
+class SharedCacheCommand(BaseOliveCLICommand):
     @staticmethod
     def register_subcommand(parser):
-        sub_parser = parser.add_parser("cloud-cache", help="Cloud cache model operations")
+        sub_parser = parser.add_parser("shared-cache", help="Shared cache model operations")
         sub_parser.add_argument(
             "--delete",
             action="store_true",
-            help="Delete a model cache from the cloud cache.",
+            help="Delete a model cache from the shared cache.",
         )
         sub_parser.add_argument(
             "--account",
             type=str,
             required=True,
-            help="The account name for the cloud cache.",
+            help="The account name for the shared cache.",
         )
         sub_parser.add_argument(
             "--container",
             type=str,
             required=True,
-            help="The container name for the cloud cache.",
+            help="The container name for the shared cache.",
         )
         sub_parser.add_argument(
             "--model_hash",
             type=str,
             required=True,
-            help="The model hash to remove from the cloud cache.",
+            help="The model hash to remove from the shared cache.",
         )
-        sub_parser.set_defaults(func=CloudCacheCommand)
+        sub_parser.set_defaults(func=SharedCacheCommand)
 
     def run(self):
         try:
             from azure.storage.blob import ContainerClient
         except ImportError as exc:
             raise ImportError(
-                "Please install azure-storage-blob and azure-identity to use the cloud model cache feature."
+                "Please install azure-storage-blob and azure-identity to use the shared model cache feature."
             ) from exc
 
         account_url = f"https://{self.args.account}.blob.core.windows.net"
@@ -65,4 +65,4 @@ class CloudCacheCommand(BaseOliveCLICommand):
         if any(client.list_blobs(model_hash)):
             logger.error("Deletion of the model cache with hash %s failed. Please try again.", model_hash)
         else:
-            logger.info("Model cache with hash %s removed from the cloud cache successfully.", model_hash)
+            logger.info("Model cache with hash %s removed from the shared cache successfully.", model_hash)

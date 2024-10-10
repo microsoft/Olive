@@ -10,7 +10,6 @@ from torchvision.transforms import ToTensor
 
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.engine import Engine
-from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.passes.onnx.session_params_tuning import OrtSessionParamsTuning
@@ -87,7 +86,9 @@ def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_
     cache = tmp_path / "cache"
     cache.mkdir()
     config = {
-        "cache_dir": cache,
+        "cache_config": {
+            "cache_dir": cache,
+        },
         "target": system_config,
         "host": system_config if not only_target else None,
         "evaluator": evaluator_config,
@@ -100,7 +101,6 @@ def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_
         accelerator_specs,
         output_dir=output_dir,
         evaluate_input_model=True,
-        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
     )
 
     results = [next(iter(output[accelerator].nodes.values())) for accelerator in accelerator_specs]
