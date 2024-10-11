@@ -1,0 +1,67 @@
+trigger: none
+
+pr: none
+
+schedules:
+- cron: '0 0 * * 1'
+  displayName: Weekly build
+  branches:
+    include:
+    - main
+
+variables:
+  runCodesignValidationInjection: false
+  skipComponentGovernanceDetection: true
+
+jobs:
+# Linux examples test
+- template: job_templates/olive-example-template.yaml
+  parameters:
+    name: Linux_CI
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    onnxruntime: onnxruntime
+    python_version: '3.10'
+    examples:
+      deberta:
+        exampleFolder: deberta
+        exampleName: deberta
+      ast:
+        exampleFolder: ast
+        exampleName: ast
+      super_resolution:
+        exampleFolder: super_resolution
+        exampleName: super_resolution
+
+
+# Windows examples test
+- template: job_templates/olive-example-template.yaml
+  parameters:
+    name: Windows_CI
+    pool: $(OLIVE_POOL_WIN2019)
+    onnxruntime: onnxruntime
+    python_version: '3.10'
+    examples:
+      deberta:
+        exampleFolder: deberta
+        exampleName: deberta
+      ast:
+        exampleFolder: ast
+        exampleName: ast
+      super_resolution:
+        exampleFolder: super_resolution
+        exampleName: super_resolution
+
+# Linux GPU examples testing.
+- template: job_templates/olive-example-template.yaml
+  parameters:
+    name: Linux_GPU_CI
+    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    onnxruntime: onnxruntime-gpu
+    examples:
+      mistral:
+        exampleFolder: mistral
+        exampleName: mistral_fp16
+      phi2:
+        exampleFolder: phi2
+        exampleName: phi2
+        exampleRequirements: requirements-pipeline.txt

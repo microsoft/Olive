@@ -5,7 +5,7 @@
             "type": "azureml_registry_model",
             "registry_name": "azureml",
             "name": "microsoft-deberta-base-mnli",
-            "version": "9"
+            "version": "15"
         },
         "task": "text-classification"
     },
@@ -35,7 +35,7 @@
         }
     },
     "passes": {
-        "conversion": { "type": "OnnxConversion", "target_opset": 13 },
+        "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
             "disable_search": true,
@@ -45,7 +45,7 @@
             "float16": false
         },
         "quantization": { "type": "OnnxQuantization", "data_config": "glue_mnli_matched" },
-        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mnli_matched" }
+        "perf_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mnli_matched" }
     },
     "search_strategy": { "execution_order": "joint", "search_algorithm": "tpe", "num_samples": 3, "seed": 0 },
     "evaluator": "common_evaluator",
