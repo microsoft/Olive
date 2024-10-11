@@ -15,6 +15,7 @@ def setup():
     """Setups any state specific to the execution of the given module."""
     os.chdir(get_example_dir("mistral"))
 
+
 @pytest.mark.parametrize("olive_json", ["mistral_fp16.json"])
 def test_mistral(olive_json):
     from olive.workflows import run as olive_run
