@@ -4,9 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
-import torch
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.user_module_loader import UserModuleLoader
@@ -17,6 +15,9 @@ from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import DummyInputsMixin, PytorchKvCacheMixin
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create_resource_path
+
+if TYPE_CHECKING:
+    import torch
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +136,9 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
     def model_script(self) -> str:
         return self.get_resource("model_script")
 
-    def load_model(self, rank: int = None, cache_model: bool = True) -> torch.nn.Module:
+    def load_model(self, rank: int = None, cache_model: bool = True) -> "torch.nn.Module":
+        import torch
+
         if self.model:
             model = self.model
         else:
