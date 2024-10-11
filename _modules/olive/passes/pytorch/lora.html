@@ -158,7 +158,6 @@
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">transformers</span>
 <span class="kn">from</span> <span class="nn">packaging</span> <span class="kn">import</span> <span class="n">version</span>
 
@@ -176,6 +175,7 @@
 <span class="kn">from</span> <span class="nn">olive.strategy.search_parameter</span> <span class="kn">import</span> <span class="n">Categorical</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">torch</span>
     <span class="kn">from</span> <span class="nn">datasets</span> <span class="kn">import</span> <span class="n">Dataset</span>
     <span class="kn">from</span> <span class="nn">peft</span> <span class="kn">import</span> <span class="n">PeftModel</span>
     <span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">PreTrainedModel</span><span class="p">,</span> <span class="n">PreTrainedTokenizer</span>
@@ -362,7 +362,7 @@
 
     <span class="c1"># TODO(jambayk): consider introducing a data collator component for data container</span>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">collate_batch</span><span class="p">(</span><span class="n">batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">tokenizer</span><span class="p">:</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">collate_batch</span><span class="p">(</span><span class="n">batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">tokenizer</span><span class="p">:</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">&quot;torch.Tensor&quot;</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Collate a batch of samples into a padded batch of tensors.</span>
 
 <span class="sd">        Add padding to the input_ids, attention_mask and labels.</span>
@@ -474,6 +474,8 @@
 <span class="sd">        :param kwargs: Additional arguments to update load_kwargs with.</span>
 <span class="sd">        :return: The new model handler and the new loaded pytorch model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span> <span class="nn">torch</span>
+
         <span class="c1"># don&#39;t want the original loaded model</span>
         <span class="c1"># also frees gpu memory if original model is on gpu</span>
         <span class="n">model_handler</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
@@ -628,6 +630,8 @@
 <span class="sd">        :param output_model_path: The path to save the output model to.</span>
 <span class="sd">        :return: The output model handler.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span> <span class="nn">torch</span>
+
         <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
             <span class="n">allow_tf32</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">matmul</span><span class="o">.</span><span class="n">allow_tf32</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">matmul</span><span class="o">.</span><span class="n">allow_tf32</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">allow_tf32</span>
@@ -717,7 +721,7 @@
         <span class="k">return</span> <span class="n">output_model</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_torch_dtype</span><span class="p">(</span><span class="n">torch_dtype</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_torch_dtype</span><span class="p">(</span><span class="n">torch_dtype</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;torch.dtype&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the torch dtype from the string.&quot;&quot;&quot;</span>
         <span class="n">supported_dtypes</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span> <span class="s2">&quot;float16&quot;</span><span class="p">,</span> <span class="s2">&quot;float32&quot;</span><span class="p">)</span>
         <span class="k">assert</span> <span class="n">torch_dtype</span> <span class="ow">in</span> <span class="n">supported_dtypes</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;torch_dtype must be one of </span><span class="si">{</span><span class="n">supported_dtypes</span><span class="si">}</span><span class="s2"> but got </span><span class="si">{</span><span class="n">torch_dtype</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -772,6 +776,8 @@
         <span class="k">return</span> <span class="n">config</span>
 
     <span class="k">def</span> <span class="nf">_run_for_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">torch</span>
+
         <span class="c1"># convert config to pass config class</span>
         <span class="c1"># this will validate the config and convert to the correct types</span>
         <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_class</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">)</span>
