@@ -1,6 +1,6 @@
 evaluate
-scikit-learn
-soundfile
 librosa
 optimum
-psutil 
+psutil
+scikit-learn
+soundfile
