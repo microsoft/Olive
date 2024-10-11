@@ -40,6 +40,7 @@ class ResourceType(CaseInsensitiveEnum):
 LOCAL_RESOURCE_TYPES = (ResourceType.LocalFile, ResourceType.LocalFolder)
 AZUREML_RESOURCE_TYPES = (
     ResourceType.AzureMLModel,
+    ResourceType.AzureMLRegistryModel,
     ResourceType.AzureMLDatastore,
     ResourceType.AzureMLJobOutput,
 )
