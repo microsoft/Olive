@@ -156,7 +156,7 @@
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">transformers</span>
 <span class="kn">from</span> <span class="nn">packaging</span> <span class="kn">import</span> <span class="n">version</span>
@@ -275,10 +275,6 @@
 
 <span class="k">class</span> <span class="nc">LoRABase</span><span class="p">(</span><span class="n">Pass</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for LoRA and QLoRA fine-tuning passes.&quot;&quot;&quot;</span>
-
-    <span class="c1"># these are the attributes of the model (from hf model config) that will be overwritten by the pass</span>
-    <span class="c1"># values from the input model will be ignored and new values will be set based on the pass config</span>
-    <span class="n">model_overwrites</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;torch_dtype&quot;</span><span class="p">,</span> <span class="s2">&quot;device_map&quot;</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
@@ -464,17 +460,19 @@
 
         <span class="k">return</span> <span class="n">model</span>
 
-    <span class="k">def</span> <span class="nf">create_and_load_new_model</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model_handler</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clone the input model handler and update the model load_kwargs.</span>
+    <span class="k">def</span> <span class="nf">load_base_pytorch_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_handler</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a base PyTorch model for fine-tuning.</span>
 
 <span class="sd">        :param model_handler: The input model handler.</span>
 <span class="sd">        :param config: The config for the pass run.</span>
 <span class="sd">        :param kwargs: Additional arguments to update load_kwargs with.</span>
-<span class="sd">        :return: The new model handler and the new loaded pytorch model.</span>
+<span class="sd">        :return: The new loaded pytorch model</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">import</span> <span class="nn">torch</span>
+
+        <span class="c1"># model cannot have it&#39;s own adapter</span>
+        <span class="k">if</span> <span class="n">model_handler</span><span class="o">.</span><span class="n">adapter_path</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Model already has an adapter. Please provide a model without an adapter.&quot;</span><span class="p">)</span>
 
         <span class="c1"># don&#39;t want the original loaded model</span>
         <span class="c1"># also frees gpu memory if original model is on gpu</span>
@@ -484,7 +482,7 @@
 
         <span class="c1"># create copy of the input model, will modify this model</span>
         <span class="c1"># also resets adapter_path</span>
-        <span class="n">new_model_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_model_check</span><span class="p">(</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">model_handler</span><span class="p">))</span>
+        <span class="n">new_model_handler</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">model_handler</span><span class="p">)</span>
 
         <span class="n">torch_dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_torch_dtype</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span><span class="p">)</span>
         <span class="c1"># will use mixed precision since full fp16 is unstable</span>
@@ -503,10 +501,8 @@
         <span class="c1"># overwrite load_kwargs with kwargs</span>
         <span class="n">load_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span> <span class="o">=</span> <span class="n">HfLoadKwargs</span><span class="p">(</span><span class="o">**</span><span class="n">load_kwargs</span><span class="p">)</span>
-        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">cache_model</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="n">pytorch_model</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span> <span class="o">=</span> <span class="n">model_dtype</span>
 
-        <span class="k">return</span> <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span>
+        <span class="k">return</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">cache_model</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">init_lora_adapters</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -573,7 +569,6 @@
 <span class="sd">        :return: The LoRA model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span> <span class="nn">peft</span> <span class="kn">import</span> <span class="n">PeftModel</span>
-        <span class="kn">from</span> <span class="nn">peft.tuners.lora</span> <span class="kn">import</span> <span class="n">LoraLayer</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Enabling LoRA fine-tuning&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">gradient_checkpointing</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">model</span><span class="o">.</span><span class="n">supports_gradient_checkpointing</span><span class="p">:</span>
@@ -603,12 +598,10 @@
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
             <span class="s2">&quot;The number of trainable parameters in the LoRA model: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">count_trainable_parameters</span><span class="p">(</span><span class="n">lora_model</span><span class="p">)</span>
         <span class="p">)</span>
-
-        <span class="c1"># cast lora modules to model&#39;s dtype, should be same as torch_dtype</span>
-        <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">lora_model</span><span class="o">.</span><span class="n">modules</span><span class="p">():</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">LoraLayer</span><span class="p">):</span>
-                <span class="n">module</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">lora_model</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-
+        <span class="c1"># no need to cast lora modules to model&#39;s dtype, we dont do peft.prepare_model_for_kbit_training so the modules</span>
+        <span class="c1"># are already in the same dtype as the model</span>
+        <span class="c1"># casting to dtype is risky since for awq quant linear, it also casts the scales to dtype and but the qlinear</span>
+        <span class="c1"># expects scales to be in half</span>
         <span class="k">return</span> <span class="n">lora_model</span>
 
     <span class="k">def</span> <span class="nf">train_and_save_new_model</span><span class="p">(</span>
@@ -709,12 +702,6 @@
         <span class="k">del</span> <span class="n">model</span>
         <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>
-        <span class="c1"># remove the device map since we don&#39;t want &quot;auto&quot; device map</span>
-        <span class="n">output_model</span><span class="o">.</span><span class="n">load_kwargs</span><span class="o">.</span><span class="n">device_map</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="c1"># remove model_overwrites from model_attributes</span>
-        <span class="k">if</span> <span class="n">output_model</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_overwrites</span><span class="p">:</span>
-                <span class="n">output_model</span><span class="o">.</span><span class="n">model_attributes</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
         <span class="c1"># set adapter_path</span>
         <span class="n">output_model</span><span class="o">.</span><span class="n">set_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">,</span> <span class="n">adapter_path</span><span class="p">)</span>
@@ -726,28 +713,6 @@
         <span class="n">supported_dtypes</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span> <span class="s2">&quot;float16&quot;</span><span class="p">,</span> <span class="s2">&quot;float32&quot;</span><span class="p">)</span>
         <span class="k">assert</span> <span class="n">torch_dtype</span> <span class="ow">in</span> <span class="n">supported_dtypes</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;torch_dtype must be one of </span><span class="si">{</span><span class="n">supported_dtypes</span><span class="si">}</span><span class="s2"> but got </span><span class="si">{</span><span class="n">torch_dtype</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">return</span> <span class="n">resolve_torch_dtype</span><span class="p">(</span><span class="n">torch_dtype</span><span class="p">)</span>
-
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">input_model_check</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the input model and reset load_kwargs and adapter_path.&quot;&quot;&quot;</span>
-        <span class="c1"># load model, reset load_kwargs and adapter_path</span>
-        <span class="n">load_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">load_kwargs</span><span class="p">:</span>
-            <span class="n">load_kwargs</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">load_kwargs</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">model_overwrites</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">load_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="s2">&quot;Input model has load_kwargs. </span><span class="si">%s</span><span class="s2">. Ignoring. </span><span class="si">%s</span><span class="s2"> will overwrite it based on the pass config.&quot;</span><span class="p">,</span>
-                        <span class="n">k</span><span class="p">,</span>
-                        <span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
-                    <span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">):</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;Input model has adapter_path. Ignoring. QLoRA will save the adapter weights to its own adapter_path.&quot;</span>
-            <span class="p">)</span>
-        <span class="n">model</span><span class="o">.</span><span class="n">set_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">model</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">count_trainable_parameters</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -776,8 +741,6 @@
         <span class="k">return</span> <span class="n">config</span>
 
     <span class="k">def</span> <span class="nf">_run_for_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
-        <span class="kn">import</span> <span class="nn">torch</span>
-
         <span class="c1"># convert config to pass config class</span>
         <span class="c1"># this will validate the config and convert to the correct types</span>
         <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_class</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">)</span>
@@ -789,27 +752,26 @@
         <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="ow">or</span> <span class="n">HFTrainingArguments</span><span class="p">()</span>
 
         <span class="c1"># get new model</span>
-        <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_and_load_new_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="ow">and</span> <span class="n">pytorch_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cpu&quot;</span><span class="p">:</span>
-            <span class="c1"># put the model on GPU since model was loaded on CPU with device_map=None</span>
-            <span class="n">pytorch_model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span>
-
-        <span class="c1"># tokenizer</span>
-        <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">get_hf_tokenizer</span><span class="p">()</span>
+        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_base_pytorch_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+        <span class="c1"># NOTE: quantized model support</span>
+        <span class="c1"># awq: requires awq cuda extension or triton for backward pass, scale must be fp16</span>
+        <span class="c1"># gptq: there is no custom backend. works fine when using naive dequantize + matmul</span>
+        <span class="c1"># no issue with single precision. mix precision depends on autocast as there is no input cast</span>
+        <span class="c1"># gradient might not be correct when using cuda/exllama deqauntize kernels</span>
+        <span class="c1"># we load in fp32/bf16 so cuda kernels are disabled by default. Might need extra work to</span>
+        <span class="c1"># disable exllama (gptq pass disables it)</span>
 
         <span class="c1"># add lora modules</span>
-        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span>
-            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">target_modules</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">target_modules</span>
-        <span class="p">)</span>
+        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">target_modules</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">target_modules</span><span class="p">)</span>
 
         <span class="c1"># train and return new model</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_and_save_new_model</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_and_save_new_model</span><span class="p">(</span>
+            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">get_hf_tokenizer</span><span class="p">(),</span> <span class="n">config</span><span class="p">,</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">model</span><span class="p">),</span> <span class="n">output_model_path</span>
+        <span class="p">)</span>
 
 
 <span class="k">class</span> <span class="nc">QLoRABase</span><span class="p">(</span><span class="n">LoRABase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for QLoRA and LoftQ fine-tuning passes.&quot;&quot;&quot;</span>
-
-    <span class="n">model_overwrites</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;torch_dtype&quot;</span><span class="p">,</span> <span class="s2">&quot;device_map&quot;</span><span class="p">,</span> <span class="s2">&quot;quantization_method&quot;</span><span class="p">,</span> <span class="s2">&quot;quantization_config&quot;</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
@@ -821,7 +783,15 @@
                     <span class="s2">&quot;Computation data type for the quantized modules. If not provided, will use the same dtype as&quot;</span>
                     <span class="s2">&quot; torch_dtype&quot;</span>
                 <span class="p">),</span>
-            <span class="p">)</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;save_quant_config&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Whether to save the output model with the bitsandbytes quantization config. If False, the base&quot;</span>
+                    <span class="s2">&quot; model will be in the original precision. If True, the base model will be quantized on load.&quot;</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
         <span class="p">}</span>
         <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">config</span>
@@ -837,24 +807,37 @@
         <span class="c1"># use default training args if not provided</span>
         <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="ow">or</span> <span class="n">HFTrainingArguments</span><span class="p">()</span>
 
+        <span class="c1"># model cannot be quantized</span>
+        <span class="n">model_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_hf_model_config</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="s2">&quot;quantization_config&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Model is already quantized. Please provide a non-quantized model or use LoRA pass.&quot;</span><span class="p">)</span>
+
         <span class="c1"># get models and tokenizer</span>
-        <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">quantized_modules</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_model_tokenizer</span><span class="p">(</span>
+        <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">bnb_quant_config</span><span class="p">,</span> <span class="n">quantized_modules</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_quant_model</span><span class="p">(</span>
             <span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">output_model_path</span>
         <span class="p">)</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">save_quant_config</span><span class="p">:</span>
+            <span class="n">load_kwargs</span> <span class="o">=</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">if</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span> <span class="k">else</span> <span class="p">{}</span>
+            <span class="n">load_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">bnb_quant_config</span><span class="p">)</span>
+            <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span> <span class="o">=</span> <span class="n">HfLoadKwargs</span><span class="p">(</span><span class="o">**</span><span class="n">load_kwargs</span><span class="p">)</span>
+            <span class="n">new_model_handler</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">[</span><span class="s2">&quot;quantized_modules&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">quantized_modules</span>
 
-        <span class="c1"># train and get new model</span>
-        <span class="n">output_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_and_save_new_model</span><span class="p">(</span>
-            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">output_model_path</span>
+        <span class="c1"># train and return new model</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_and_save_new_model</span><span class="p">(</span>
+            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">get_hf_tokenizer</span><span class="p">(),</span> <span class="n">config</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">output_model_path</span>
         <span class="p">)</span>
-        <span class="c1"># add quantized_modules attributes</span>
-        <span class="n">output_model</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">[</span><span class="s2">&quot;quantized_modules&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">quantized_modules</span>
-        <span class="k">return</span> <span class="n">output_model</span>
 
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">get_model_tokenizer</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">get_quant_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model and tokenizer for fine-tuning.&quot;&quot;&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model for QLoRA fine-tuning.</span>
+
+<span class="sd">        :param model: The input model handler.</span>
+<span class="sd">        :param config: The config for the pass run.</span>
+<span class="sd">        :param output_model_path: The path to save the output model to.</span>
+<span class="sd">        :return: The new model handler, LoRA model, quantization config and list of quantized modules.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
 
@@ -882,15 +865,15 @@
         <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">config</span>
 
-    <span class="k">def</span> <span class="nf">get_model_tokenizer</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">get_quant_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model and tokenizer for QLoRA fine-tuning.</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model for QLoRA fine-tuning.</span>
 
 <span class="sd">        :param model: The input model handler.</span>
 <span class="sd">        :param config: The config for the pass run.</span>
 <span class="sd">        :param output_model_path: The path to save the output model to.</span>
-<span class="sd">        :return: The new model handler, LoRA model, tokenizer and list of quantized modules.</span>
+<span class="sd">        :return: The new model handler, LoRA model, quantization config and list of quantized modules.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">import</span> <span class="nn">bitsandbytes</span> <span class="k">as</span> <span class="nn">bnb</span>
 
@@ -904,23 +887,16 @@
                 <span class="s2">&quot;bnb_4bit_quant_type&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">quant_type</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">}</span>
-        <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_and_load_new_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="o">**</span><span class="n">bnb_quant_config</span><span class="p">)</span>
+        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_base_pytorch_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="o">**</span><span class="n">bnb_quant_config</span><span class="p">)</span>
 
-        <span class="c1"># find the quantized modules</span>
-        <span class="c1"># this doesn&#39;t pick up the embedding layer and projection layer since those are not quantized</span>
-        <span class="c1"># this is good since we don&#39;t want to touch those, LoRA might not work with input output embedding layers</span>
+        <span class="c1"># find the quantized modules, only linears</span>
         <span class="n">quantized_modules</span> <span class="o">=</span> <span class="n">find_submodules</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">bnb</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear4bit</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Quantized modules: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">quantized_modules</span><span class="p">)</span>
 
-        <span class="c1"># tokenizer</span>
-        <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">get_hf_tokenizer</span><span class="p">()</span>
-
         <span class="c1"># enable lora fine-tuning with new lora modules</span>
-        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span>
-            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">target_modules</span><span class="o">=</span><span class="n">quantized_modules</span>
-        <span class="p">)</span>
+        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">target_modules</span><span class="o">=</span><span class="n">quantized_modules</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">quantized_modules</span>
+        <span class="k">return</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">model</span><span class="p">),</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">bnb_quant_config</span><span class="p">,</span> <span class="n">quantized_modules</span>
 
 
 <span class="k">class</span> <span class="nc">LoftQ</span><span class="p">(</span><span class="n">QLoRABase</span><span class="p">):</span>
@@ -950,56 +926,36 @@
         <span class="k">if</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">peft_version</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;0.7.0&quot;</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Please install peft &gt;= 0.7.0 to use </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> pass.&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">get_model_tokenizer</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">get_quant_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model and tokenizer for LoftQ fine-tuning.</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model for QLoRA fine-tuning.</span>
 
 <span class="sd">        :param model: The input model handler.</span>
 <span class="sd">        :param config: The config for the pass run.</span>
 <span class="sd">        :param output_model_path: The path to save the output model to.</span>
-<span class="sd">        :return: The new model handler, LoRA model, tokenizer and list of quantized modules.</span>
+<span class="sd">        :return: The new model handler, LoRA model, quantization config and list of quantized modules.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">import</span> <span class="nn">bitsandbytes</span> <span class="k">as</span> <span class="nn">bnb</span>
-
-        <span class="c1"># get new quantized model</span>
-        <span class="n">bnb_quant_config</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;quantization_method&quot;</span><span class="p">:</span> <span class="s2">&quot;bitsandbytes&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;quantization_config&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s2">&quot;load_in_4bit&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-                <span class="s2">&quot;bnb_4bit_compute_dtype&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_torch_dtype</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">compute_dtype</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span><span class="p">),</span>
-                <span class="s2">&quot;bnb_4bit_use_double_quant&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
-                <span class="s2">&quot;bnb_4bit_quant_type&quot;</span><span class="p">:</span> <span class="s2">&quot;nf4&quot;</span><span class="p">,</span>
-            <span class="p">},</span>
-        <span class="p">}</span>
-        <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_and_load_new_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="o">**</span><span class="n">bnb_quant_config</span><span class="p">)</span>
-
-        <span class="c1"># find the quantized modules</span>
-        <span class="n">quantized_modules</span> <span class="o">=</span> <span class="n">find_submodules</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">bnb</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear4bit</span><span class="p">)</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Quantized modules: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">quantized_modules</span><span class="p">)</span>
-
-        <span class="c1"># only need the quantized module to find the quantized modules</span>
-        <span class="c1"># delete quantized model to free memory</span>
-        <span class="k">del</span> <span class="n">pytorch_model</span>
+        <span class="kn">import</span> <span class="nn">torch</span>
 
         <span class="c1"># get the original base model</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_and_load_new_model</span><span class="p">(</span>
-            <span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">device_map</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">quantization_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quantization_config</span><span class="o">=</span><span class="kc">None</span>
-        <span class="p">)</span>
+        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_base_pytorch_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+        <span class="c1"># find all modules that will be quantized, all linears except the lm_head</span>
+        <span class="n">quantized_modules</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">module</span> <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">find_submodules</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">)</span> <span class="k">if</span> <span class="n">module</span> <span class="o">!=</span> <span class="s2">&quot;lm_head&quot;</span>
+        <span class="p">]</span>
+
         <span class="c1"># get loftq initialized lora model</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Initializing LoRA with LoftQ&quot;</span><span class="p">)</span>
-        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_lora_adapters</span><span class="p">(</span>
-            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">quantized_modules</span><span class="p">,</span> <span class="n">use_loftq</span><span class="o">=</span><span class="kc">True</span>
-        <span class="p">)</span>
-        <span class="c1"># change adapter config since we don&#39;t want to apply loftq again</span>
-        <span class="n">pytorch_model</span><span class="o">.</span><span class="n">peft_config</span><span class="p">[</span><span class="s2">&quot;default&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">base_model_name_or_path</span> <span class="o">=</span> <span class="s2">&quot;../model&quot;</span>
-        <span class="n">pytorch_model</span><span class="o">.</span><span class="n">peft_config</span><span class="p">[</span><span class="s2">&quot;default&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">init_lora_weights</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_lora_adapters</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">quantized_modules</span><span class="p">,</span> <span class="n">use_loftq</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="n">output_model_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">)</span>
 
         <span class="c1"># save the loftq initialized adapter weights</span>
         <span class="n">loftq_init_adapter_path</span> <span class="o">=</span> <span class="n">output_model_path</span> <span class="o">/</span> <span class="s2">&quot;loftq_init_adapter&quot;</span>
         <span class="n">loftq_init_adapter_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># change adapter config since we don&#39;t want to apply loftq again</span>
+        <span class="n">pytorch_model</span><span class="o">.</span><span class="n">peft_config</span><span class="p">[</span><span class="s2">&quot;default&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">init_lora_weights</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="n">pytorch_model</span><span class="o">.</span><span class="n">save_pretrained</span><span class="p">(</span><span class="n">loftq_init_adapter_path</span><span class="p">)</span>
 
         <span class="c1"># unload adapter and get the base model with new weights</span>
@@ -1011,22 +967,31 @@
         <span class="n">model</span><span class="o">.</span><span class="n">save_metadata</span><span class="p">(</span><span class="n">new_master_weights_path</span><span class="p">)</span>
         <span class="n">pytorch_model</span><span class="o">.</span><span class="n">save_pretrained</span><span class="p">(</span><span class="n">new_master_weights_path</span><span class="p">)</span>
 
+        <span class="k">del</span> <span class="n">pytorch_model</span>
+
+        <span class="c1"># create new model handler</span>
+        <span class="n">new_model_handler</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
         <span class="c1"># update the model path in new model handler</span>
         <span class="n">new_model_handler</span><span class="o">.</span><span class="n">set_resource</span><span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">,</span> <span class="n">new_master_weights_path</span><span class="p">)</span>
 
-        <span class="c1"># load the quantized model with new master weights</span>
-        <span class="n">pytorch_model</span><span class="p">:</span> <span class="n">PreTrainedModel</span> <span class="o">=</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span>
-        <span class="n">pytorch_model</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span> <span class="o">=</span> <span class="n">pytorch_model</span><span class="o">.</span><span class="n">dtype</span>
-
-        <span class="c1"># tokenizer</span>
-        <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">get_hf_tokenizer</span><span class="p">()</span>
+        <span class="c1"># get the quantized base model</span>
+        <span class="n">bnb_quant_config</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;quantization_method&quot;</span><span class="p">:</span> <span class="s2">&quot;bitsandbytes&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;quantization_config&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;load_in_4bit&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="s2">&quot;bnb_4bit_compute_dtype&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_torch_dtype</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">compute_dtype</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span><span class="p">),</span>
+                <span class="s2">&quot;bnb_4bit_use_double_quant&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s2">&quot;bnb_4bit_quant_type&quot;</span><span class="p">:</span> <span class="s2">&quot;nf4&quot;</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_base_pytorch_model</span><span class="p">(</span><span class="n">new_model_handler</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="o">**</span><span class="n">bnb_quant_config</span><span class="p">)</span>
 
         <span class="c1"># enable lora fine-tuning with the loftq initialized adapter weights</span>
         <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span>
             <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">adapter_path</span><span class="o">=</span><span class="n">loftq_init_adapter_path</span>
         <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">quantized_modules</span>
+        <span class="k">return</span> <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">bnb_quant_config</span><span class="p">,</span> <span class="n">quantized_modules</span>
 
 
 <span class="n">DEFAULT_DEEPSPEED_CONFIG</span> <span class="o">=</span> <span class="p">{</span>
