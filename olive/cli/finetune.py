@@ -128,6 +128,9 @@ class FineTuneCommand(BaseOliveCLICommand):
         ]
         if self.args.method == "lora" and self.args.target_modules:
             to_replace.append(((*finetune_key, "target_modules"), self.args.target_modules.split(",")))
+        if self.args.method == "qlora":
+            # bnb quant config is not needed, we only want the adapter
+            to_replace.append(((*finetune_key, "save_quant_config"), False))
 
         config = deepcopy(TEMPLATE)
         update_dataset_options(self.args, config)
