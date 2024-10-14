@@ -16,7 +16,7 @@ from olive.cli.launcher import main as cli_main
 @pytest.mark.parametrize("console_script", [True, False])
 @pytest.mark.parametrize(
     "command",
-    ["run", "configure-qualcomm-sdk", "manage-aml-compute", "export-adapters", "tune-session-params", "auto-opt"],
+    ["run", "configure-qualcomm-sdk", "manage-aml-compute", "convert-adapters", "tune-session-params", "auto-opt"],
 )
 def test_valid_command(console_script, command):
     # setup
@@ -212,11 +212,11 @@ def test_capture_onnx_command(_, mock_tempdir, mock_run, use_model_builder, tmp_
 
 @pytest.mark.parametrize("test_set", [(None, "successfully"), (MagicMock(name="blob1"), "failed")])
 @patch("azure.storage.blob.ContainerClient")
-@patch("olive.cli.cloud_cache.get_credentials", return_value="dummy-credentials")
-def test_cloud_cache_command(_, mock_container_client, test_set):
+@patch("olive.cli.shared_cache.get_credentials", return_value="dummy-credentials")
+def test_shared_cache_command(_, mock_container_client, test_set):
     # setup
     command_args = [
-        "cloud-cache",
+        "shared-cache",
         "--delete",
         "--account",
         "account",
@@ -229,7 +229,7 @@ def test_cloud_cache_command(_, mock_container_client, test_set):
     mock_container_client.return_value.list_blobs.side_effect = [[mock_blob], [test_set[0]]]
 
     # execute
-    with unittest.TestCase().assertLogs(logger="olive.cli.cloud_cache", level="INFO") as log:
+    with unittest.TestCase().assertLogs(logger="olive.cli.shared_cache", level="INFO") as log:
         cli_main(command_args)
 
     # assert
@@ -286,4 +286,4 @@ def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_na
 
 
 # TODO(anyone): Add tests for ManageAMLComputeCommand
-# Test for ExportAdaptersCommand is added as part of test/unit_test/passes/onnx/test_export_adapters.py
+# Test for ConvertAdaptersCommand is added as part of test/unit_test/passes/onnx/test_extract_adapters.py

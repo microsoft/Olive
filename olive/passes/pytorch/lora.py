@@ -16,7 +16,6 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-import torch
 import transformers
 from packaging import version
 
@@ -34,6 +33,7 @@ from olive.passes.olive_pass import PassConfigParam
 from olive.strategy.search_parameter import Categorical
 
 if TYPE_CHECKING:
+    import torch
     from datasets import Dataset
     from peft import PeftModel
     from transformers import PreTrainedModel, PreTrainedTokenizer
@@ -216,7 +216,7 @@ class LoRABase(Pass):
 
     # TODO(jambayk): consider introducing a data collator component for data container
     @staticmethod
-    def collate_batch(batch: List[Dict], tokenizer: "PreTrainedTokenizer") -> Dict[str, torch.Tensor]:
+    def collate_batch(batch: List[Dict], tokenizer: "PreTrainedTokenizer") -> Dict[str, "torch.Tensor"]:
         """Collate a batch of samples into a padded batch of tensors.
 
         Add padding to the input_ids, attention_mask and labels.
@@ -326,6 +326,8 @@ class LoRABase(Pass):
         :param kwargs: Additional arguments to update load_kwargs with.
         :return: The new loaded pytorch model
         """
+        import torch
+
         # model cannot have it's own adapter
         if model_handler.adapter_path:
             raise ValueError("Model already has an adapter. Please provide a model without an adapter.")
@@ -479,6 +481,8 @@ class LoRABase(Pass):
         :param output_model_path: The path to save the output model to.
         :return: The output model handler.
         """
+        import torch
+
         if torch.cuda.is_available():
             allow_tf32 = torch.backends.cuda.matmul.allow_tf32
             torch.backends.cuda.matmul.allow_tf32 = config.allow_tf32
@@ -562,7 +566,7 @@ class LoRABase(Pass):
         return output_model
 
     @staticmethod
-    def get_torch_dtype(torch_dtype: str) -> torch.dtype:
+    def get_torch_dtype(torch_dtype: str) -> "torch.dtype":
         """Get the torch dtype from the string."""
         supported_dtypes = ("bfloat16", "float16", "float32")
         assert torch_dtype in supported_dtypes, f"torch_dtype must be one of {supported_dtypes} but got {torch_dtype}"
@@ -790,6 +794,8 @@ class LoftQ(QLoRABase):
         :param output_model_path: The path to save the output model to.
         :return: The new model handler, LoRA model, quantization config and list of quantized modules.
         """
+        import torch
+
         # get the original base model
         pytorch_model = self.load_base_pytorch_model(model, config)
         # find all modules that will be quantized, all linears except the lm_head

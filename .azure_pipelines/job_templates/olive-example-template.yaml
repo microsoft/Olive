@@ -46,7 +46,7 @@ jobs:
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
         MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
-        PIPELINE_TEST_ACCOUNT_URL: $(pipeline-test-account-url)
+        PIPELINE_TEST_ACCOUNT_NAME: $(pipeline-test-account-name)
         PIPELINE_TEST_CONTAINER_NAME: $(pipeline-test-container-name)
         KEYVAULT_NAME: $(keyvault-name)
         HF_TOKEN: $(hf_token)

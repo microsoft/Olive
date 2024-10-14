@@ -106,9 +106,10 @@ The engine delegates the search to the search strategy. It only executes passes 
 
 ### cache
 The engine maintains a cache directory with three sub-directories:
-- `model`: stores model files and their corresponding json configs (framework, model path, and other information). Each model created during execution is given a unique model id. The input model is identified by the hash of its model file contents.
-- `run`: stores the id of the output model (present in the model cache) for each run of a pass. The cache is indexed by `{pass type}_{hash of pass config}_{input model id}`.
-- `evaluation`: stores the evaluation results for models. The cache is indexed by the model id.
+- `runs`: stores run json, model files and their corresponding json configs (framework, model path, and other information). Each model created during execution is given a unique model id. The input model is identified by the hash of its model file contents.
+- `evaluations`: stores the evaluation results for models. The cache is indexed by the model id.
+- `resources`: remote resources will be loaded to this folder.
+- `mlflow`: stores mlflow model files.
 
 ## Search
 Olive workflows support search parameters which are optimized using search algorithms.

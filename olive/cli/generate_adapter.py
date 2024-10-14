@@ -12,12 +12,14 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_shared_cache_options,
     get_input_model_config,
     is_remote_run,
     save_output_model,
     update_remote_options,
+    update_shared_cache_options,
 )
-from olive.common.utils import set_nested_dict_value
+from olive.common.utils import WeightsFileFormat, set_nested_dict_value
 
 
 class GenerateAdapterCommand(BaseOliveCLICommand):
@@ -39,6 +41,13 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             choices=["float16", "float32"],
             help="The precision of the optimized model and adapters.",
         )
+        sub_parser.add_argument(
+            "--adapter_format",
+            type=str,
+            default=WeightsFileFormat.ONNX_ADAPTER,
+            choices=[el.value for el in WeightsFileFormat],
+            help=f"Format to save the weights in. Default is {WeightsFileFormat.ONNX_ADAPTER}.",
+        )
 
         sub_parser.add_argument(
             "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
@@ -48,6 +57,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
 
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
+        add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=GenerateAdapterCommand)
 
     def run(self):
@@ -70,6 +80,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             ("input_model", get_input_model_config(self.args)),
             (("input_model", "adapter_path"), self.args.adapter_path),
             (("passes", "o", "float16"), self.args.precision == "float16"),
+            (("passes", "e", "save_format"), self.args.adapter_format),
             # make the mapping of precisions better
             (("passes", "m", "precision"), "fp16" if self.args.precision == "float16" else "fp32"),
             (("clean_cache",), self.args.clean),
@@ -87,6 +98,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             del config["passes"]["m"]
 
         update_remote_options(config, self.args, "generate-adapter", tempdir)
+        update_shared_cache_options(config, self.args)
 
         input_model_config = ModelConfig.parse_obj(config["input_model"])
         if input_model_config.type == "hfmodel" and input_model_config.config.get("adapter_path") is None:

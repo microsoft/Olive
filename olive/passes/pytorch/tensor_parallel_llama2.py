@@ -7,14 +7,15 @@
 
 import logging
 import math
-from typing import Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
-import torch
-import torch.nn.functional as F
 from packaging import version
 
 from olive.passes.pytorch.tensor_parallel import TensorParallel
 from olive.passes.pytorch.tensor_parallel_layers import TensorParallelColumnLinear, TensorParallelRowLinear
+
+if TYPE_CHECKING:
+    import torch
 
 # pylint: disable=not-callable
 
@@ -112,13 +113,15 @@ def tp_llama_apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim=1)
 
 def tp_llama_attention_forward(
     self,
-    hidden_states: torch.Tensor,
-    attention_mask: Optional[torch.Tensor] = None,
-    position_ids: Optional[torch.LongTensor] = None,
-    past_key_value: Optional[Tuple[torch.Tensor]] = None,
+    hidden_states: "torch.Tensor",
+    attention_mask: Optional["torch.Tensor"] = None,
+    position_ids: Optional["torch.LongTensor"] = None,
+    past_key_value: Optional[Tuple["torch.Tensor"]] = None,
     output_attentions: bool = False,
     use_cache: bool = False,
-) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+) -> Tuple["torch.Tensor", Optional["torch.Tensor"], Optional[Tuple["torch.Tensor"]]]:
+    import torch
+    import torch.nn.functional as F
     from transformers.models.llama.modeling_llama import repeat_kv
 
     bsz, q_len, _ = hidden_states.size()
@@ -233,13 +236,14 @@ def tp_llama_attention_forward(
 # Adapted from LlamaSdpaAttention.forward
 def tp_llama_sdpa_attention_forward(
     self,
-    hidden_states: torch.Tensor,
-    attention_mask: Optional[torch.Tensor] = None,
-    position_ids: Optional[torch.LongTensor] = None,
+    hidden_states: "torch.Tensor",
+    attention_mask: Optional["torch.Tensor"] = None,
+    position_ids: Optional["torch.LongTensor"] = None,
     past_key_value: Optional["Cache"] = None,  # noqa: F821
     output_attentions: bool = False,
     use_cache: bool = False,
-) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+) -> Tuple["torch.Tensor", Optional["torch.Tensor"], Optional[Tuple["torch.Tensor"]]]:
+    import torch
     from transformers.models.llama.modeling_llama import repeat_kv
 
     if output_attentions:
@@ -315,6 +319,7 @@ def tp_llama_attention_parallel_split(self, world_size):
 
 
 def replace_llama2_tensor_parallel_layers():
+    import torch
     from transformers import __version__ as tf_version
 
     if version.parse(tf_version) >= version.parse("4.38"):
@@ -349,6 +354,7 @@ def replace_llama2_tensor_parallel_layers():
 
 
 def restore_llama2_tensor_parallel_layers(originals: Dict[str, Any]):
+    import torch
     from transformers.models import llama
 
     llama.modeling_llama.LlamaMLP.__init__ = originals["mlp_init"]
@@ -374,7 +380,7 @@ class LlamaPyTorchTensorParallel(TensorParallel):
     def restore_layers(self):
         restore_llama2_tensor_parallel_layers(self.originals)
 
-    def split_weights(self, model: torch.nn.Module):
+    def split_weights(self, model: "torch.nn.Module"):
         from transformers.models.llama.modeling_llama import LlamaAttention
 
         def _split_weights(m):
@@ -386,7 +392,7 @@ class LlamaPyTorchTensorParallel(TensorParallel):
 
         _split_weights(model)
 
-    def load_rank_weights(self, model: torch.nn.Module):
+    def load_rank_weights(self, model: "torch.nn.Module"):
         def _load_rank_weights(m):
             if isinstance(m, (TensorParallelColumnLinear, TensorParallelRowLinear)):
                 m.load_rank_weights(self.rank, self.world_size)

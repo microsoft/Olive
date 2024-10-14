@@ -12,10 +12,12 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_shared_cache_options,
     get_input_model_config,
     is_remote_run,
     save_output_model,
     update_remote_options,
+    update_shared_cache_options,
 )
 from olive.common.utils import IntEnumBase, set_nested_dict_value
 
@@ -144,6 +146,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         # remote options
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
+        add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=CaptureOnnxGraphCommand)
 
     def run(self):
@@ -208,6 +211,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 continue
             set_nested_dict_value(config, keys, value)
         update_remote_options(config, self.args, "capture-onnx-graph", tempdir)
+        update_shared_cache_options(config, self.args)
 
         return config
 

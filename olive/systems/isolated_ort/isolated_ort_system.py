@@ -11,10 +11,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import torch
-from torch.utils.data import Dataset
 
-from olive.common.utils import run_subprocess
+from olive.common.utils import load_weights, run_subprocess, save_weights
 from olive.evaluator.metric import get_latency_config_from_metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluatorMixin, _OliveEvaluator
 from olive.evaluator.registry import Registry
@@ -25,6 +23,8 @@ from olive.systems.system_config import IsolatedORTTargetUserConfig
 from olive.systems.utils import create_new_environ, run_available_providers_runner
 
 if TYPE_CHECKING:
+    from torch.utils.data import Dataset
+
     from olive.evaluator.metric import Metric
     from olive.evaluator.metric_result import MetricResult
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
@@ -143,11 +143,13 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         self,
         model: "ONNXModelHandler",
         metric: "Metric",
-        dataloader: Dataset,
+        dataloader: "Dataset",
         post_func: Callable = None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
+        import torch
+
         inference_config = self._get_common_config(model, metric, device, execution_providers)
         inference_config["mode"] = "inference"
 
@@ -175,6 +177,16 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                 targets.append(labels.cpu())
                 num_batches += 1
 
+            # external initializers or inputs can be any format, so we need to convert them to numpy
+            external_inits_inputs = {}
+            for name in ["external_initializers_path", "constant_inputs_path"]:
+                external_path = getattr(model, name)
+                if not external_path:
+                    continue
+
+                new_path = temp_dir_path / external_path.name
+                external_inits_inputs[name] = save_weights(load_weights(external_path), new_path, "numpy")
+
             inference_config["num_batches"] = num_batches
             # save inference config
             config_path = temp_dir_path / "config.json"
@@ -188,8 +200,7 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                 model_path=model.model_path,
                 input_dir=input_dir,
                 output_dir=output_dir,
-                external_initializers_path=model.external_initializers_path,
-                constant_inputs_path=model.constant_inputs_path,
+                **external_inits_inputs,
             )
 
             # load and process output
@@ -221,7 +232,7 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         self,
         model: "ONNXModelHandler",
         metric: "Metric",
-        dataloader: Dataset,
+        dataloader: "Dataset",
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
@@ -233,7 +244,7 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         self,
         model: "ONNXModelHandler",
         metric: "Metric",
-        dataloader: Dataset,
+        dataloader: "Dataset",
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,

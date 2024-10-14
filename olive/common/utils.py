@@ -84,17 +84,17 @@ def hash_string(string):  # pragma: no cover
     return md5_hash.hexdigest()
 
 
-def hash_io_stream(f):  # pragma: no cover
+def hash_io_stream(f, block_size=4096):  # pragma: no cover
     md5_hash = hashlib.sha256()
     # Read and update hash in chunks of 4K
-    for byte_block in iter(lambda: f.read(4096), b""):
+    for byte_block in iter(lambda: f.read(block_size), b""):
         md5_hash.update(byte_block)
     return md5_hash.hexdigest()
 
 
-def hash_file(filename):  # pragma: no cover
+def hash_file(filename, block_size=4096):  # pragma: no cover
     with open(filename, "rb") as f:
-        return hash_io_stream(f)
+        return hash_io_stream(f, block_size)
 
 
 def hash_update_from_file(filename, hash_value):
@@ -485,10 +485,23 @@ def get_credentials(default_auth_params: Dict = None):
     return credential
 
 
+def hf_repo_exists(repo_name: str):
+    try:
+        from huggingface_hub import repo_exists
+    except ImportError:
+        logger.exception(
+            "huggingface_hub is not installed. Please install huggingface_hub to support Huggingface model."
+        )
+        raise
+
+    return repo_exists(repo_name)
+
+
 class WeightsFileFormat(StrEnumBase):
     PT = "pt"
     NUMPY = "numpy"
     SAFETENSORS = "safetensors"
+    ONNX_ADAPTER = "onnx_adapter"
 
 
 def save_weights(weights: Dict, path: str, file_format: WeightsFileFormat = WeightsFileFormat.NUMPY):
@@ -518,6 +531,17 @@ def save_weights(weights: Dict, path: str, file_format: WeightsFileFormat = Weig
         from safetensors.numpy import save_file
 
         save_file(weights, path)
+    elif file_format == WeightsFileFormat.ONNX_ADAPTER:
+        import onnxruntime as ort
+        from packaging import version
+
+        if version.parse(ort.__version__) < version.parse("1.20"):
+            raise ValueError("Saving ONNX adapter files is only supported in ONNX Runtime >= 1.20")
+
+        adapter_format = ort.AdapterFormat()
+        # TODO(jambayk): Add model and adapter version
+        adapter_format.set_parameters({k: ort.OrtValue.ortvalue_from_numpy(v) for k, v in weights.items()})
+        adapter_format.export_adapter(str(path))
 
     return path
 
@@ -542,6 +566,8 @@ def load_weights(path: Union[str, Path], file_format: Optional[WeightsFileFormat
         file_format = "numpy"
     elif path.suffix == ".safetensors":
         file_format = "safetensors"
+    elif path.suffix == ".onnx_adapter":
+        file_format = "onnx_adapter"
     else:
         raise ValueError(f"Unknown file format for {path}. Please provide file_format.")
 
@@ -570,6 +596,22 @@ def load_weights(path: Union[str, Path], file_format: Optional[WeightsFileFormat
         with safe_open(path, framework=framework, device="cpu") as f:
             for key in f.keys():  # noqa: SIM118
                 weights[key] = f.get_tensor(key)
+    elif file_format == WeightsFileFormat.ONNX_ADAPTER:
+        import numpy as np
+        import onnxruntime as ort
+        from packaging import version
+
+        if version.parse(ort.__version__) < version.parse("1.20"):
+            raise ValueError("Loading ONNX adapter files is only supported in ONNX Runtime >= 1.20")
+
+        adapter_format = ort.AdapterFormat.read_adapter(str(path))
+        # need to do np.copy since the .numpy is bound to the ort.OrtValue
+        # after returning the weights, adapter_format will be deleted so the numpy will be invalid
+        weights = {k: np.copy(v.numpy()) for k, v in adapter_format.get_parameters().items()}
+        if framework == "pt":
+            import torch
+
+            weights = {k: torch.from_numpy(v) for k, v in weights.items()}
 
     return weights
 

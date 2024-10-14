@@ -73,11 +73,9 @@ class AutoOptimizer(RegulatePassConfigMixin):
         # 1. input model config
         self.model_config = deepcopy(self.input_model_config)
 
-        # 2. evaluator config
-        self.is_accuracy_drop_tolerance = self.evaluator_config and self.evaluator_config.is_accuracy_drop_tolerance
         # if user can tolerate accuracy drop, we can enable more optimization
         default_precisions = [Precision.FP32]
-        if self.is_accuracy_drop_tolerance:
+        if self.evaluator_config and self.evaluator_config.is_accuracy_drop_tolerance:
             default_precisions = [Precision.FP32, Precision.FP16, Precision.INT8, Precision.INT4]
         self.auto_optimizer_config.precisions = self.auto_optimizer_config.precisions or default_precisions
 
