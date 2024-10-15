@@ -136,7 +136,7 @@ class GptqQuantizer(Pass):
             )
             adapter_path = Path(output_model_path) / "adapter"
             adapter_path.mkdir(parents=True, exist_ok=True)
-            copy_dir(model.adapter_path, adapter_path)
+            copy_dir(model.adapter_path, adapter_path, dirs_exist_ok=True)
 
             output_model_path = str(Path(output_model_path) / "model")
             # TODO(jambayk): should we update the base_model_name_or_path in the adapter_config json?
