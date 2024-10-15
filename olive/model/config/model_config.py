@@ -87,7 +87,7 @@ class ModelConfig(NestedConfig):
         keys = ["model_path", "adapter_path", "model_script", "script_dir"]
         local_resource_paths = [Path(config[key]) for key in keys if config.get(key)]
 
-        additional_files = config.get("model_attributes", {}).get("additional_files", [])
+        additional_files = (config.get("model_attributes") or {}).get("additional_files") or []
         local_resource_paths.extend(Path(f) for f in additional_files)
         file_hashes = []
         for local_resource_path in local_resource_paths:
