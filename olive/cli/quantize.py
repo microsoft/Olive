@@ -39,32 +39,36 @@ class QuantizeCommand(BaseOliveCLICommand):
         # model options
         add_input_model_options(sub_parser, enable_hf=True, enable_pt=True, default_output_path="quantized-model")
 
-        newline = "\n"
         sub_parser.add_argument(
-            "--algorithms",
+            "--algorithm",
             type=str,
-            nargs="*",
             required=True,
-            choices=list(ALGORITHMS.keys()),
-            help=(
-                "List of quantization algorithms to"
-                f" run.{newline}{newline.join([f'{k}: {v[1]}' for k, v in ALGORITHMS.items()])}"
-            ),
+            choices=sorted(ALGORITHMS.keys()),
+            help="List of quantization algorithms to run.",
         )
-
-        add_dataset_options(sub_parser, required=False, include_train=False, include_eval=False)
-
+        sub_parser.add_argument(
+            "--precision",
+            type=str,
+            default="int4",
+            choices=["int4", "int8", "int16", "uint4", "uint8", "uint16", "fp4", "fp8", "fp16", "nf4"],
+            help="The precision of the quantized model.",
+        )
+        sub_parser.add_argument(
+            "--enable-qdq-encoding",
+            action="store_true",
+            help="Use QDQ encoding in ONNX model for the quantized nodes.",
+        )
+        sub_parser.add_argument(
+            "--implementation",
+            type=str,
+            choices=sorted(TEMPLATE["passes"].keys()),
+            help="Use specific implementation of quantization algorithms to run.",
+        )
         sub_parser.add_argument(
             "--quarot_rotate", action="store_true", help="Apply QuaRot/Hadamard rotation to the model."
         )
-        sub_parser.add_argument(
-            "--quarot_strategy",
-            type=str,
-            choices=["rtn", "gptq"],
-            default="rtn",
-            help="Strategy to use to quantize weights when using QuaRot.",
-        )
 
+        add_dataset_options(sub_parser, required=False, include_train=False, include_eval=False)
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
         add_shared_cache_options(sub_parser)
@@ -76,11 +80,60 @@ class QuantizeCommand(BaseOliveCLICommand):
         update_dataset_options(self.args, config)
         update_shared_cache_options(config, self.args)
 
+        is_hf_model = config["input_model"]["type"].lower() == "hfmodel"
+        if is_hf_model and self.args.algorithm not in ["awq", "gptq", "rtn"]:
+            raise ValueError("Selected algorithm is not supported for HuggingFace models.")
+
+        defaults_key = "hf_model_defaults" if is_hf_model else "onnx_model_defaults"
+
+        if not self.args.implementation:
+            self.args.implementation = ALGORITHMS[self.args.algorithm][defaults_key]["implementation"]
+        if not self.args.precision:
+            self.args.precision = ALGORITHMS[self.args.algorithm][defaults_key]["precision"]
+
+        if self.args.algorithm in ["gptq", "rtn"] and self.args.implementation == "quarot":
+            self.args.precision = "int16"
+        elif self.args.algorithm == "rtn" and self.args.precision == "nf4":
+            self.args.implementation = "bnb4"
+
+        if self.args.enable_qdq_encoding and self.args.implementation != "matmul4":
+            raise ValueError("QDQ encoding is supported only by matmul4 implementation.")
+
+        if not self.args.implementation or not self.args.precision:
+            raise ValueError(
+                f"Could not select a valid implementation for algorithm={self.args.algorithm} "
+                f"and precision={self.args.precision} combination."
+            )
+
+        supported_precisions = IMPLEMENTATIONS[self.args.implementation]["supported_precisions"]
+        if supported_precisions and self.args.precision not in supported_precisions:
+            raise ValueError(
+                f"{IMPLEMENTATIONS[self.args.implementation]['name']} quantizer "
+                f"implementation supports only [{', '.join(supported_precisions)}] precisions."
+            )
+
+        precision = IMPLEMENTATIONS[self.args.implementation]["precision_mapping"].get(
+            self.args.precision, self.args.precision
+        )
+        if self.args.enable_qdq_encoding and self.args.implementation == "matmul4":
+            self.args.implementation = [self.args.implementation, "mnb_to_qdq"]
+        else:
+            self.args.implementation = [self.args.implementation]
+
         to_replace = [
-            ("pass_flows", [deepcopy(ALGORITHMS[algo][0]) for algo in self.args.algorithms]),
+            ("pass_flows", [self.args.implementation]),
+            (("passes", "awq", "w_bit"), precision),
+            (("passes", "gptq", "bits"), precision),
+            (("passes", "bnb4", "quant_type"), precision),
+            (("passes", "quarot", "w_bits"), precision),
             (("passes", "quarot", "rotate"), self.args.quarot_rotate),
-            (("passes", "quarot", "w_rtn"), self.args.quarot_strategy == "rtn"),
-            (("passes", "quarot", "w_gptq"), self.args.quarot_strategy == "gptq"),
+            (("passes", "quarot", "w_rtn"), self.args.algorithm == "rtn"),
+            (("passes", "quarot", "w_gptq"), self.args.algorithm == "gptq"),
+            (("passes", "nvmo", "precision"), precision),
+            (("passes", "nvmo", "algorithm"), self.args.algorithm.upper()),
+            (("passes", "onnx_dynamic", "weight_type"), precision),
+            (("passes", "inc_dynamic", "algorithm"), self.args.algorithm.upper()),
+            (("passes", "inc_dynamic", "bits"), precision),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
         ]
@@ -93,10 +146,10 @@ class QuantizeCommand(BaseOliveCLICommand):
     def run(self):
         from olive.workflows import run as olive_run
 
-        if ("gptq" in self.args.algorithms) and (not self.args.data_name):
+        if ("gptq" in self.args.algorithm) and (not self.args.data_name):
             raise ValueError("data_name is required to use gptq.")
 
-        if ("quarot" in self.args.algorithms) and (not self.args.data_name) and (self.args.quarot_strategy == "gptq"):
+        if ("quarot" in self.args.algorithm) and (not self.args.data_name) and (self.args.quarot_strategy == "gptq"):
             raise ValueError("data_name is required to quantize weights using gptq.")
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
@@ -129,22 +182,23 @@ TEMPLATE = {
     ],
     "passes": {
         # Pytorch algorithms
-        "awq": {"type": "AutoAWQQuantizer"},
-        "gptq": {"type": "GptqQuantizer", "data_config": "default_data_config"},
+        "awq": {"type": "AutoAWQQuantizer", "w_bit": 4},
+        "gptq": {"type": "GptqQuantizer", "bits": 4, "data_config": "default_data_config"},
         "quarot": {
             "type": "QuaRot",
+            "w_bits": 16,
             "w_rtn": False,
             "w_gptq": False,
             "rotate": False,
             "calibration_data_config": "default_data_config",
         },
         # Onnx algorithms
-        "bnb4": {"type": "OnnxBnb4Quantization"},
-        "matmul4": {"type": "OnnxMatMul4Quantizer"},
+        "bnb4": {"type": "OnnxBnb4Quantization", "quant_type": "nf4"},
+        "matmul4": {"type": "OnnxMatMul4Quantizer", "accuracy_level": 4},
         "mnb_to_qdq": {"type": "MatMulNBitsToQDQ"},
-        "nvmo": {"type": "NVModelOptQuantization"},
-        "onnx_dynamic": {"type": "OnnxDynamicQuantization"},
-        "inc_dynamic": {"type": "IncDynamicQuantization"},
+        "nvmo": {"type": "NVModelOptQuantization", "precision": "int4", "algorithm": "RTN"},
+        "onnx_dynamic": {"type": "OnnxDynamicQuantization", "weight_type": "QInt8"},
+        "inc_dynamic": {"type": "IncDynamicQuantization", "quant_level": "auto", "algorithm": "RTN"},
         # NOTE(all): Not supported yet!
         # "onnx_static": {"type": "OnnxStaticQuantization", "data_config": "default_data_config"},
         # "inc_static": {"type": "IncStaticQuantization", "data_config": "default_data_config"},
@@ -157,16 +211,119 @@ TEMPLATE = {
 }
 
 ALGORITHMS = {
-    "awq": (["awq"], "(HfModel) int4 WOQ with AWQ."),
-    "gptq": (["gptq"], "(HfModel) int4 WOQ with GPTQ."),
-    "quarot": (["quarot"], "(HfModel) QuaRot/Hadamard rotation + AWQ/RTN quantization."),
-    "bnb4": (["bnb4"], "(OnnxModel) nf4 WOQ using bitsandbytes."),
-    "int4_rtn": (["matmul4", "mnb_to_qdq"], "(OnnxModel) int4 WOQ with RTN using onnxruntime. DQ->MatMul is used."),
-    "int4_rtn_mnb": (
-        ["matmul4"],
-        "(OnnxModel) int4 WOQ with RTN using onnxruntime. MatMulNBits contrib is used instead of DQ->MatMul.",
-    ),
-    "nvmo": (["nvmo"], "(OnnxModel) int4 WOQ with RTN using Nvidia-ModelOpt. DQ->MatMul is used."),
-    "onnx_dynamic": (["onnx_dynamic"], "(OnnxModel) Dynamic quantization using onnxruntime."),
-    "inc_dynamic": (["inc_dynamic"], "(OnnxModel) Dynamic quantization using neural-compressor."),
+    "awq": {
+        "implementations": ["awq", "inc_static", "inc_dynamic"],
+        "hf_model_defaults": {"implementation": "awq", "precision": "int4"},
+        "onnx_model_defaults": {"implementation": "nvmo", "precision": "int4"},
+        "description": "(HfModel, OnnxModel) WOQ with AWQ.",
+    },
+    "gptq": {
+        "implementations": ["gptq", "quarot", "matmul4", "inc_static", "inc_dynamic"],
+        "hf_model_defaults": {"implementation": "gptq", "precision": "int4"},
+        "onnx_model_defaults": {"implementation": "matmul4", "precision": "int4"},
+        "description": "(HfModel, OnnxModel) WOQ with GPTQ.",
+    },
+    "rtn": {
+        "implementations": ["quarot", "bnb4", "matmul4", "nvmo"],
+        "hf_model_defaults": {"implementation": "quarot", "precision": "int16"},
+        "onnx_model_defaults": {"implementation": "onnx_static", "precision": "int8"},
+        "description": "(HfModel, OnnxModel) WOQ with RTN.",
+    },
+    "hqq": {
+        "implementations": ["matmul4"],
+        "hf_model_defaults": {"implementation": None, "precision": None},
+        "onnx_model_defaults": {"implementation": "matmul4", "precision": "int4"},
+        "description": "(OnnxModel) HQQ quantization using onnxruntime.",
+    },
+    "static": {
+        "implementations": ["onnx_static", "inc_static"],
+        "hf_model_defaults": {"implementation": None, "precision": None},
+        "onnx_model_defaults": {"implementation": "onnx_static", "precision": "int8"},
+        "description": "(OnnxModel) Static quantization using onnxruntime.",
+    },
+    "dynamic": {
+        "implementations": ["onnx_dynamic", "inc_dynamic"],
+        "hf_model_defaults": {"implementation": None, "precision": None},
+        "onnx_model_defaults": {"implementation": "onnx_dynamic", "precision": "int8"},
+        "description": "(OnnxModel) Dynamic quantization using onnxruntime.",
+    },
+}
+
+IMPLEMENTATIONS = {
+    "awq": {
+        "name": "WOQ with AWQ",
+        "supported_precisions": [],
+        "precision_mapping": {
+            "int4": 4,
+            "int8": 8,
+            "int16": 16,
+            "uint4": 4,
+            "uint8": 8,
+            "uint16": 16,
+        },
+    },
+    "gptq": {
+        "name": "WOQ with GPTQ",
+        "supported_precisions": [],
+        "precision_mapping": {
+            "int4": 4,
+            "int8": 8,
+            "int16": 16,
+            "uint4": 4,
+            "uint8": 8,
+            "uint16": 16,
+        },
+    },
+    "quarot": {
+        "name": "QuaRot/Hadamard rotation",
+        "supported_precisions": [],
+        "precision_mapping": {
+            "int4": 4,
+            "int8": 8,
+            "int16": 16,
+            "uint4": 4,
+            "uint8": 8,
+            "uint16": 16,
+        },
+    },
+    "bnb4": {
+        "name": "Bits-n-Bytes",
+        "supported_precisions": ["fp4", "nf4"],
+        "precision_mapping": {},
+    },
+    "matmul4": {
+        "name": "WOQ with MatMulNBits",
+        "supported_precisions": ["int4"],
+        "precision_mapping": {},
+    },
+    "nvmo": {
+        "name": "nVidia ModelOpt",
+        "supported_precisions": ["int4", "int8", "fp8"],
+        "precision_mapping": {},
+    },
+    "onnx_static": {
+        "name": "Onnxruntime static",
+        "supported_precisions": ["int8", "uint8", "int16", "uint16"],
+        "precision_mapping": {
+            "int8": "QInt8",
+            "uint8": "QUInt8",
+            "uint16": "QUInt16",
+            "int16": "QInt16",
+        },
+    },
+    "onnx_dynamic": {
+        "name": "Onnxruntime dynamic",
+        "supported_precisions": ["int8", "uint8"],
+        "precision_mapping": {"int8": "QInt8", "uint8": "QUInt8"},
+    },
+    "inc_static": {
+        "name": "Intel® Neural Compressor static",
+        "supported_precisions": ["int4"],
+        "precision_mapping": {},
+    },
+    "inc_dynamic": {
+        "name": "Intel® Neural Compressor static",
+        "supported_precisions": ["int4"],
+        "precision_mapping": {},
+    },
 }

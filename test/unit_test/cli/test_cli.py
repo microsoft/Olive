@@ -240,11 +240,11 @@ def test_shared_cache_command(_, mock_container_client, test_set):
     mock_container_client().delete_blob.assert_called_once()
 
 
-@pytest.mark.parametrize("algorithm_names", [{"awq"}, {"awq", "gptq"}, {"bnb4"}, {"bnb4", "int4_rtn"}])
+@pytest.mark.parametrize("algorithm_name", ["awq", "gptq", "rtn"])
 @patch("olive.workflows.run")
 @patch("olive.cli.finetune.tempfile.TemporaryDirectory")
 @patch("huggingface_hub.repo_exists")
-def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_names, tmp_path):
+def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_name, tmp_path):
     # some directories
     tmpdir = tmp_path / "tmpdir"
     tmpdir.mkdir()
@@ -256,25 +256,24 @@ def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_na
     mock_tempdir.return_value = tmpdir.resolve()
     mock_run.return_value = {}
 
-    for algo_name in algorithm_names:
-        workflow_output_dir = tmpdir / "output_model" / algo_name
-        workflow_output_dir.mkdir(parents=True)
-        model_config_path = workflow_output_dir / "model_config.json"
-        with model_config_path.open("w") as f:
-            f.write("{}")
+    workflow_output_dir = tmpdir / "output_model" / algorithm_name
+    workflow_output_dir.mkdir(parents=True)
+    model_config_path = workflow_output_dir / "model_config.json"
+    with model_config_path.open("w") as f:
+        f.write("{}")
 
     # setup
     command_args = [
         "quantize",
         "-m",
         "dummy_model",
-        "--algorithms",
-        *algorithm_names,
+        "--algorithm",
+        algorithm_name,
         "-o",
         str(output_dir),
     ]
 
-    if "gptq" in algorithm_names:
+    if algorithm_name == "gptq":
         command_args += ["-d", "dummy_dataset"]
 
     # execute
@@ -282,7 +281,7 @@ def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_na
 
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == "dummy_model"
-    assert {el.name for el in output_dir.iterdir()} == algorithm_names
+    assert {el.name for el in output_dir.iterdir()} == {algorithm_name}
 
 
 # TODO(anyone): Add tests for ManageAMLComputeCommand
