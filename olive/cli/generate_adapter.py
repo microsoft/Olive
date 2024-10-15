@@ -27,7 +27,9 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
 
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
-        sub_parser = parser.add_parser("generate-adapter", help="Generate ONNX model with adapters as inputs")
+        sub_parser = parser.add_parser(
+            "generate-adapter", help="Generate ONNX model with adapters as inputs. Only accepts ONNX models."
+        )
 
         # Model options
         add_input_model_options(sub_parser, enable_onnx=True, default_output_path="optimized-model")

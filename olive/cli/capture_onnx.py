@@ -175,7 +175,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             ("input_model", get_input_model_config(self.args)),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
-            ("systems", "local_system", "accelerators", 0, "device", "gpu" if is_fp16 else "cpu"),
+            (("systems", "local_system", "accelerators", 0, "device"), "gpu" if is_fp16 else "cpu"),
             (
                 ("systems", "local_system", "accelerators", 0, "execution_providers"),
                 [("CUDAExecutionProvider" if is_fp16 else "CPUExecutionProvider")],

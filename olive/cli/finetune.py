@@ -152,8 +152,7 @@ TEMPLATE = {
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            # will just use cuda ep now, only genai metadata is not agnostic to ep
-            # revisit once model builder supports lora adapters
+            # just a place holder, ep and device are not relevant for pytorch only workflow
             "accelerators": [{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}],
         }
     },
