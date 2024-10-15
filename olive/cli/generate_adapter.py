@@ -27,20 +27,13 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
 
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
-        sub_parser = parser.add_parser("generate-adapter", help="Generate ONNX model with adapters as inputs")
+        sub_parser = parser.add_parser(
+            "generate-adapter", help="Generate ONNX model with adapters as inputs. Only accepts ONNX models."
+        )
 
         # Model options
-        add_input_model_options(
-            sub_parser, enable_hf=True, enable_hf_adapter=True, enable_onnx=True, default_output_path="optimized-model"
-        )
+        add_input_model_options(sub_parser, enable_onnx=True, default_output_path="optimized-model")
 
-        sub_parser.add_argument(
-            "--precision",
-            type=str,
-            default="float16",
-            choices=["float16", "float32"],
-            help="The precision of the optimized model and adapters.",
-        )
         sub_parser.add_argument(
             "--adapter_format",
             type=str,
@@ -48,12 +41,6 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             choices=[el.value for el in WeightsFileFormat],
             help=f"Format to save the weights in. Default is {WeightsFileFormat.ONNX_ADAPTER}.",
         )
-
-        sub_parser.add_argument(
-            "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
-        )
-
-        sub_parser.add_argument("--clean", action="store_true", help="Run in a clean cache directory")
 
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
@@ -74,16 +61,9 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             save_output_model(run_config, self.args.output_path)
 
     def get_run_config(self, tempdir: str) -> Dict:
-        from olive.model import ModelConfig
-
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
-            (("input_model", "adapter_path"), self.args.adapter_path),
-            (("passes", "o", "float16"), self.args.precision == "float16"),
             (("passes", "e", "save_format"), self.args.adapter_format),
-            # make the mapping of precisions better
-            (("passes", "m", "precision"), "fp16" if self.args.precision == "float16" else "fp32"),
-            (("clean_cache",), self.args.clean),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
         ]
@@ -94,49 +74,20 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
                 continue
             set_nested_dict_value(config, keys, value)
 
-        if not self.args.use_ort_genai:
-            del config["passes"]["m"]
-
         update_remote_options(config, self.args, "generate-adapter", tempdir)
         update_shared_cache_options(config, self.args)
-
-        input_model_config = ModelConfig.parse_obj(config["input_model"])
-        if input_model_config.type == "hfmodel" and input_model_config.config.get("adapter_path") is None:
-            raise ValueError("adapter_path is required for generate-adapter command")
-        if input_model_config.type == "onnxmodel":
-            del config["passes"]["c"], config["passes"]["o"]
-
         return config
 
 
 TEMPLATE = {
-    "input_model": {"type": "HfModel", "load_kwargs": {"attn_implementation": "eager"}},
+    "input_model": None,
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            # will just use cuda ep now, only genai metadata is not agnostic to ep
-            # revisit once model builder supports lora adapters
-            "accelerators": [{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}],
+            "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
         }
     },
-    "passes": {
-        # TODO(jambayk): migrate to model builder once it supports lora adapters
-        # the models produced here are not fully optimized
-        "c": {
-            "type": "OnnxConversion",
-            "target_opset": 17,
-            "torch_dtype": "float32",
-            "save_metadata_for_token_generation": True,
-        },
-        "o": {
-            "type": "OrtTransformersOptimization",
-            "model_type": "gpt2",
-            "opt_level": 0,
-            "keep_io_types": False,
-        },
-        "e": {"type": "ExtractAdapters"},
-        "m": {"type": "ModelBuilder", "metadata_only": True},
-    },
+    "passes": {"e": {"type": "ExtractAdapters"}},
     "host": "local_system",
     "target": "local_system",
 }

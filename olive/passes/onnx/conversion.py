@@ -138,7 +138,11 @@ class OnnxConversion(Pass):
         # get the dtype to use for conversion
         torch_dtype = resolve_torch_dtype(config["torch_dtype"]) if config["torch_dtype"] else None
         if torch_dtype == torch.float16 and device == "cpu":
-            raise ValueError("Conversion to float16 is not supported for CPU.")
+            logger.debug(
+                "Converting model to float16 on CPU. This might fail for some models. If the conversion fails or model"
+                " is incorrect, try converting the model on GPU or convert in float32 and use"
+                " OrtTransformerOptimization/OnnxFloatToFloat16 pass after this pass."
+            )
 
         if isinstance(model, DistributedHfModelHandler):
             if not config["device"]:
@@ -316,15 +320,6 @@ class OnnxConversion(Pass):
             )
             new_load_kwargs["torch_dtype"] = torch_dtype
             model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
-        elif model_dtype == torch.float16 and device == "cpu":
-            logger.warning(
-                "Loading model on CPU, but the load kwargs specify dtype float16 which is not supported  for"
-                " conversion on CPU. The dtype is changed to float32. If float16 model is desired, please specify"
-                " device as 'cuda' or use OrtTransformerOptimization/OnnxFloatToFloat16 pass after conversion to"
-                " convert the model to float16."
-            )
-            new_load_kwargs["torch_dtype"] = torch.float32
-            model_attributes["torch_dtype"] = "float32"
 
         if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config["load_in_4bit"]:
             logger.debug(

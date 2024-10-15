@@ -77,9 +77,6 @@ class FineTuneCommand(BaseOliveCLICommand):
             "--target_modules", type=str, help="The target modules for LoRA. If multiple, separate by comma."
         )
 
-        # TODO(jambayk): what about checkpoint_dir and resume from checkpoint support? clean checkpoint dir?
-        sub_parser.add_argument("--clean", action="store_true", help="Run in a clean cache directory")
-
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
         add_shared_cache_options(sub_parser)
@@ -122,7 +119,6 @@ class FineTuneCommand(BaseOliveCLICommand):
             ((*finetune_key, "training_args"), self.parse_training_args()),
             ((*finetune_key, "lora_r"), self.args.lora_r),
             ((*finetune_key, "lora_alpha"), self.args.lora_alpha),
-            (("clean_cache",), self.args.clean),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
         ]
@@ -156,8 +152,7 @@ TEMPLATE = {
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            # will just use cuda ep now, only genai metadata is not agnostic to ep
-            # revisit once model builder supports lora adapters
+            # just a place holder, ep and device are not relevant for pytorch only workflow
             "accelerators": [{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}],
         }
     },
