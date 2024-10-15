@@ -37,8 +37,10 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         sub_parser = parser.add_parser(
             "capture-onnx-graph",
             help=(
-                "Capture ONNX graph using PyTorch Exporter or Model Builder "
-                "from the Huggingface model or PyTorch model.",
+                (
+                    "Capture ONNX graph using PyTorch Exporter or Model Builder "
+                    "from the Huggingface model or PyTorch model."
+                ),
             ),
         )
 
@@ -52,7 +54,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             type=str,
             default="cpu",
             choices=["cpu", "gpu"],
-            help=("The device used to run the model to capture the ONNX graph."),
+            help="The device used to run the model to capture the ONNX graph.",
         )
 
         # PyTorch Exporter options
@@ -165,14 +167,18 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
 
+        # whether model is in fp16 (currently not supported by CPU EP)
+        is_fp16 = (not self.args.use_model_builder and self.args.torch_dtype == "float16") or (
+            self.args.use_model_builder and self.args.precision == "fp16"
+        )
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
-            (("systems", "local_system", "accelerators", 0, "device"), self.args.conversion_device),
+            ("systems", "local_system", "accelerators", 0, "device", "gpu" if is_fp16 else "cpu"),
             (
                 ("systems", "local_system", "accelerators", 0, "execution_providers"),
-                ["CPUExecutionProvider"] if self.args.conversion_device == "cpu" else ["CUDAExecutionProvider"],
+                [("CUDAExecutionProvider" if is_fp16 else "CPUExecutionProvider")],
             ),
         ]
         if self.args.use_model_builder:
@@ -190,7 +196,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             if self.args.int4_accuracy_level is not None:
                 to_replace.append((("passes", "m", "int4_accuracy_level"), self.args.int4_accuracy_level))
         else:
-            del config["passes"]["m"]
             to_replace.extend(
                 [
                     (
@@ -205,6 +210,15 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             )
             if self.args.use_dynamo_exporter:
                 to_replace.append((("passes", "c", "past_key_value_name"), self.args.past_key_value_name))
+            if not self.args.use_ort_genai:
+                del config["passes"]["m"]
+            else:
+                to_replace.extend(
+                    [
+                        (("passes", "m", "precision"), "fp16" if is_fp16 else "fp32"),
+                        (("passes", "m", "metadata_only"), True),
+                    ]
+                )
 
         for keys, value in to_replace:
             if value is None:
@@ -220,6 +234,7 @@ TEMPLATE = {
     "systems": {
         "local_system": {
             "type": "LocalSystem",
+            # might need an ep option to set for model builder, it is sensitive to ep
             "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
         }
     },
