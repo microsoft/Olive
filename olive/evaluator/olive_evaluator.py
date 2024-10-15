@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import collections
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -295,9 +294,7 @@ class _OliveEvaluator(OliveEvaluator):
             return MetricResult.parse_obj(metric_res)
         else:
             metric_backend = eval_func(metric.sub_types)
-            self._infer_and_compute(
-                model, , metric, dataloader, post_func, device, execution_providers
-            )
+            self._infer_and_update(model, metric_backend, metric, dataloader, post_func, device, execution_providers)
             return metric_backend.measure()
 
     def evaluate(
@@ -434,10 +431,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         io_config = model.io_config
         run_kwargs = metric.get_run_kwargs()
 
-        preds = []
-        targets = []
-        logits = []
-        logits_dict = collections.defaultdict(list)
         output_names = io_config["output_names"]
         is_single_tensor_output = len(output_names) == 1
         for input_data, labels in dataloader:
@@ -454,27 +447,12 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             if is_single_tensor_output:
                 logits = result
             else:
-                logits = results.get()
-            # metric_backend.update(OliveModelOutput(preds=outputs.cpu(), )
-            # keep as numpy or torch arrays
-            preds.append(outputs.cpu())
-            targets.append(labels.cpu())
-            if is_single_tensor_output:
-                logits.append(result.cpu())
-            else:
-                for k in output_names:
-                    logits_dict[k].append(result[k].cpu())
-        preds = torch.cat(preds, dim=0)
-        targets = torch.cat(targets, dim=0)
-        if is_single_tensor_output:
-            logits = torch.cat(logits, dim=0)
-        else:
-            logits = {k: torch.cat(logits[k], dim=0) for k in output_names}
+                logits = result.get("logits", None)
+            metric_backend.update(OliveModelOutput(preds=outputs, logits=logits), labels)
 
         tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
             dump_tuning_result(session.session, tuning_result_file)
-        return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_onnx_accuracy(
         self,
