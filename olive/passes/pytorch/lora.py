@@ -20,6 +20,7 @@ import transformers
 from packaging import version
 
 from olive.common.config_utils import ConfigBase, NestedConfig
+from olive.common.hf.mappings import MODELS_TO_LORA_TARGET_MODULES_MAPPING
 from olive.common.hf.utils import get_peft_task_type_from_task
 from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import find_submodules, resolve_torch_dtype
@@ -599,6 +600,8 @@ class LoRA(LoRABase):
         return config
 
     def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+        from peft.utils import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
+
         # convert config to pass config class
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
@@ -608,6 +611,16 @@ class LoRA(LoRABase):
 
         # use default training args if not provided
         config.training_args = config.training_args or HFTrainingArguments()
+
+        # check if peft or olive has target modules for the model
+        model_type = model.get_hf_model_type()
+        if not config.target_modules and model_type not in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING:
+            if model_type in MODELS_TO_LORA_TARGET_MODULES_MAPPING:
+                config.target_modules = MODELS_TO_LORA_TARGET_MODULES_MAPPING[model_type]
+            else:
+                raise ValueError(
+                    f"Model type {model_type} is not recognized by peft or olive. Please provide 'target_modules'."
+                )
 
         # get new model
         pytorch_model = self.load_base_pytorch_model(model, config)
