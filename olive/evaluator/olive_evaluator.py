@@ -91,7 +91,7 @@ class OliveEvaluator(ABC):
             # we cannot generate dummy data for the onnx model if this model has dynamic input shapes
             # TODO(trajep): try to get static input shapes from onnx model.
             # If so, we can move the dataloader for latency measurement.
-            logger.debug(
+            logger.error(
                 "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will"
                 " cause an error when creating dummy data for tuning."
             )
