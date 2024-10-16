@@ -255,6 +255,10 @@ class MatMulNBitsToQDQ(Pass):
 
             num_modified += 1
 
+        if num_modified == 0:
+            logger.info("No MatMulNBits nodes found. Returning the original model.")
+            return model
+
         dag.update()
         logger.debug("Modified %d MatMulNBits nodes", num_modified)
         # this might not work for all models but will just update the opset version to 21

@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
+from test.unit_test.utils import get_onnx_model
 
 import numpy as np
 import onnx
@@ -17,6 +18,7 @@ from transformers import AutoModelForCausalLM
 from olive.common.utils import WeightsFileFormat, find_submodules, load_weights
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.onnx.common import model_has_adapters
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
 from olive.passes.onnx.quantization import OnnxMatMul4Quantizer
@@ -111,6 +113,14 @@ def input_model_info_fixture(tmp_path_factory):
         },
         "adapter_path": adapters_path,
     }
+
+
+@pytest.mark.parametrize("model_type", [None, "float", "int4"])
+def test_model_has_adapters(tmp_path, input_model_info, model_type):
+    if model_type is None:
+        assert not model_has_adapters(get_onnx_model().model_path)
+    else:
+        assert model_has_adapters(input_model_info[model_type]["onnx_model"].model_path)
 
 
 @pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])

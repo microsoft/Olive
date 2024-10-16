@@ -21,7 +21,12 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
+from olive.passes.onnx.common import (
+    get_external_data_config,
+    model_has_adapters,
+    model_proto_to_file,
+    model_proto_to_olive_model,
+)
 from olive.passes.pass_config import PassConfigParam
 from olive.resource_path import LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
@@ -346,6 +351,10 @@ class OnnxQuantization(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
+        if model_has_adapters(model.model_path):
+            logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")
+            return model
+
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
         from onnxruntime.quantization.calibrate import CalibrationMethod
@@ -706,6 +715,14 @@ class OnnxMatMul4Quantizer(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
+        if model_has_adapters(model.model_path) and config["algorithm"] not in {None, "DEFAULT"}:
+            logger.info(
+                "Model has adapters which should only be quantized with algorithm=None or DEFAULT. Got %s. Returning"
+                " the model without quantization.",
+                config["algorithm"],
+            )
+            return model
+
         from onnxruntime import __version__ as OrtVersion
 
         if version.parse(OrtVersion) < version.parse("1.16.2"):

@@ -22,7 +22,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, model_has_adapters, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
@@ -450,6 +450,10 @@ class IncQuantization(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
+        if model_has_adapters(model.model_path):
+            logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")
+            return model
+
         if "LOGLEVEL" not in os.environ:
             # set the log level for neural-compressor
             os.environ["LOGLEVEL"] = logging.getLevelName(logger.getEffectiveLevel())

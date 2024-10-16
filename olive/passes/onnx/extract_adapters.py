@@ -6,7 +6,7 @@ import logging
 import re
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict
 
 import numpy as np
 import onnx
@@ -16,7 +16,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, get_lora_name_patterns, model_proto_to_olive_model
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import PassConfigParam
 
@@ -91,11 +91,11 @@ class ExtractAdapters(Pass):
 
         # nodes to remove at the end
         nodes_to_remove = set()
-
+        lora_name_patterns = get_lora_name_patterns()
         for node_name in dag.get_node_names():
             op_type = dag.get_node_op_type(node_name)
             if op_type not in {"MatMul", "MatMulNBits"} or not any(
-                re.match(pattern, node_name) for pattern in self._get_lora_name_patterns()
+                re.match(pattern, node_name) for pattern in lora_name_patterns
             ):
                 # not a lora module
                 continue
@@ -174,6 +174,10 @@ class ExtractAdapters(Pass):
                 # add the module to the quant modules
                 quant_modules.add(new_weight_name.replace(".weight", ".quant"))
 
+        if not weights:
+            logger.info("No lora modules found in the model. Returning the original model.")
+            return model
+
         # remove old dequantize nodes
         for node_name in nodes_to_remove:
             dag.remove_node(node_name)
@@ -216,15 +220,6 @@ class ExtractAdapters(Pass):
         else:
             output_model.model_attributes["constant_inputs"] = weights_info
         return output_model
-
-    @staticmethod
-    def _get_lora_name_patterns() -> List[str]:
-        """Get the node name patterns for lora modules."""
-        return [
-            f".*[./]{name}[./]{matmul}$"
-            for name in ["default", "default_1", "lora_A", "lora_B"]
-            for matmul in ["MatMul", "MatMul_Q4"]
-        ]
 
     @staticmethod
     def _create_new_weight_name(old_name: str) -> str:

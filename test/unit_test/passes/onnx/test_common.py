@@ -25,7 +25,7 @@ from olive.passes.onnx.common import model_proto_to_olive_model
         },
     ],
 )
-def test_onnx_conversion_pass(external_data_config, tmp_path):
+def test_model_proto_to_olive_model(external_data_config, tmp_path):
     model_proto = onnx.load(ONNX_MODEL_PATH)
     olive_model = model_proto_to_olive_model(model_proto, tmp_path / "test.onnx", external_data_config)
     assert olive_model, "Failed to save ONNX proto to Olive model"
