@@ -191,7 +191,7 @@ def get_lora_name_patterns() -> List[str]:
     """Get the node name patterns for lora modules."""
     return [
         f".*[./]{name}[./]{matmul}$"
-        for name in ["default", "default_1", "lora_A", "lora_B"]
+        for name in ["default_0", "default_0_1", "default", "default_1", "lora_A", "lora_B"]
         for matmul in ["MatMul", "MatMul_Q4"]
     ]
 

@@ -207,7 +207,7 @@ class ExtractAdapters(Pass):
             external_initializers_file_name=weights_path.name if not config["make_inputs"] else None,
             constant_inputs_file_name=weights_path.name if config["make_inputs"] else None,
         )
-        output_model.model_attributes = deepcopy(model.model_attributes)
+        output_model.model_attributes = deepcopy(model.model_attributes) or {}
         # add adapter weights to the model attributes
         output_model.model_attributes["additional_files"] = additional_files = output_model.model_attributes.get(
             "additional_files", []
@@ -233,6 +233,8 @@ class ExtractAdapters(Pass):
             weight_name.replace("/", ".")
             .replace("default.", "lora_A.")
             .replace("default_1.", "lora_B.")
+            .replace("default_0.", "lora_A.")
+            .replace("default_0_1.", "lora_B.")
             .replace(matmul_name, "weight")
         )
 
