@@ -40,7 +40,6 @@ class ResourceType(CaseInsensitiveEnum):
 LOCAL_RESOURCE_TYPES = (ResourceType.LocalFile, ResourceType.LocalFolder)
 AZUREML_RESOURCE_TYPES = (
     ResourceType.AzureMLModel,
-    ResourceType.AzureMLRegistryModel,
     ResourceType.AzureMLDatastore,
     ResourceType.AzureMLJobOutput,
 )
@@ -73,7 +72,7 @@ class ResourcePath(AutoConfigClass):
 
     def is_azureml_resource(self) -> bool:
         """Return True if the resource is an AzureML resource."""
-        return self.type in AZUREML_RESOURCE_TYPES
+        return self.type in AZUREML_RESOURCE_TYPES or self.type == ResourceType.AzureMLRegistryModel
 
     def is_azureml_models(self) -> bool:
         """Return True if the resource is an AzureML model."""

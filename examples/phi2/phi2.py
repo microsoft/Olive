@@ -120,6 +120,7 @@ def get_args(raw_args):
 
 def get_output_model_path(footprints):
     # only one model output in phi2 optimization
+    model_path = None
     for footprint in footprints.values():
         for model_id in footprint.nodes:
             model_path = Path(footprint.get_model_path(model_id)) / "model.onnx"

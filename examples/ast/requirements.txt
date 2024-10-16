@@ -1,0 +1,6 @@
+evaluate
+librosa
+optimum
+psutil
+scikit-learn
+soundfile

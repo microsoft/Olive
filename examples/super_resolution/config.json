@@ -10,8 +10,6 @@
             "output_names": [ "output" ]
         }
     },
-    "systems": { "local_system": { "type": "LocalSystem" } },
-    "evaluators": {  },
     "passes": {
         "exporter": { "type": "OnnxConversion", "target_opset": 15 },
         "prepost": {
@@ -21,8 +19,6 @@
         }
     },
     "log_severity_level": 0,
-    "host": "local_system",
-    "target": "local_system",
     "clean_cache": true,
     "cache_dir": "cache",
     "output_dir": "models"

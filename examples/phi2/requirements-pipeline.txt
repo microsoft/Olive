@@ -1,0 +1,8 @@
+accelerate
+einops
+onnx>=1.15.0
+onnxruntime-genai
+onnxscript>=0.1.0.dev20240126
+scikit-learn
+torch>=2.2.0
+transformers>=4.36.2
