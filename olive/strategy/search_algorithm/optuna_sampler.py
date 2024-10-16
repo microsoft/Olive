@@ -10,7 +10,7 @@ import optuna
 from olive.common.config_utils import ConfigParam
 from olive.common.utils import hash_dict
 from olive.strategy.search_algorithm.search_algorithm import SearchAlgorithm
-from olive.strategy.search_parameter import Categorical, Conditional, SpecialParamValue
+from olive.strategy.search_parameter import Conditional, SpecialParamValue
 
 if TYPE_CHECKING:
     from olive.evaluator.metric_result import MetricResult
@@ -77,17 +77,15 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
         for space_name, param_name, param in self._search_space.iter_params():
             if space_name not in search_point:
                 search_point[space_name] = {}
-            suggestion_name = f"{space_name}___{param_name}"
-            if isinstance(param, Categorical):
-                search_point[space_name][param_name] = trial.suggest_categorical(suggestion_name, param.get_support())
-            elif isinstance(param, Conditional):
-                parent_vals = {parent: search_point[space_name][parent] for parent in param.parents}
-                options = param.get_support_with_args(parent_vals)
+
+            parent_vals = {parent: search_point[space_name][parent] for parent in param.get_parents()}
+            options = param.get_support(parent_vals)
+            if isinstance(param, Conditional):
                 parent_vals_name = "_".join([f"{v}" for _, v in parent_vals.items()])
                 suggestion_name = f"{space_name}___{param_name}___{parent_vals_name}"
-                search_point[space_name][param_name] = trial.suggest_categorical(suggestion_name, options)
             else:
-                raise ValueError(f"Unsupported parameter type: {type(param)}")
+                suggestion_name = f"{space_name}___{param_name}"
+            search_point[space_name][param_name] = trial.suggest_categorical(suggestion_name, options)
             invalid_trial = invalid_trial or (search_point[space_name][param_name] == SpecialParamValue.INVALID)
         return trial, search_point, invalid_trial
 
