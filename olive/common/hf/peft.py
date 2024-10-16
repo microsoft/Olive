@@ -28,17 +28,18 @@ def make_export_compatible_peft(model: torch.nn.Module, merge_weights: bool = Fa
         - Rescale the lora_B weights with scaling factor, change scaling factor to 1 (int) so that it doesn't appear
           in the exported model (only works for torchscript export)
     """
-    if not is_peft_model(model):
-        return model
-
-    if merge_weights:
-        return model.merge_and_unload()
-
     # if pytorch_model is PeftModel, we need to get the base model
     # otherwise, the model forward has signature (*args, **kwargs) and torch.onnx.export ignores the dummy_inputs
-    model = model.get_base_model()
+    if is_peft_model(model):
+        if merge_weights:
+            return model.merge_and_unload()
+        model = model.get_base_model()
 
-    from peft.tuners.lora import LoraLayer
+    try:
+        from peft.tuners.lora import LoraLayer
+    except ImportError:
+        logger.debug("Peft is not installed. Skipping PeftModel compatibility.")
+        return model
 
     for module in model.modules():
         if (
