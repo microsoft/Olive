@@ -1,0 +1,337 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>olive.hardware.accelerator &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/width.css?v=b55249da" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/header.css?v=5dcc4e7b" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Olive
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">OLIVE COMMANDS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html">Run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#finetune">Finetune</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#auto-optimization">Auto-Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#quantization">Quantization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#capture-onnx-graph">Capture Onnx Graph</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#generate-adapters">Generate Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#convert-adapters">Convert Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#azureml">AzureML</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#shared-cache">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#providing-input-models">Providing Input Models</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/huggingface_model_optimization.html">Huggingface Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/lora.html">LoRA Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/shared_cache.html">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/run_workflow_remotely.html">Remote Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/conversion.html">Model Conversions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/quantization.html">Model Quantizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../extending_olive/custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">olive.hardware.accelerator</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for olive.hardware.accelerator</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -------------------------------------------------------------------------</span>
+<span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1"># Licensed under the MIT License.</span>
+<span class="c1"># --------------------------------------------------------------------------</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">StrEnumBase</span>
+<span class="kn">from</span> <span class="nn">olive.hardware.constants</span> <span class="kn">import</span> <span class="n">DEVICE_TO_EXECUTION_PROVIDERS</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Device"><a class="viewcode-back" href="../../../api/systems.html#olive.hardware.accelerator.Device">[docs]</a><span class="k">class</span> <span class="nc">Device</span><span class="p">(</span><span class="n">StrEnumBase</span><span class="p">):</span>
+    <span class="n">CPU</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span>
+    <span class="n">CPU_SPR</span> <span class="o">=</span> <span class="s2">&quot;cpu_spr&quot;</span>
+    <span class="n">GPU</span> <span class="o">=</span> <span class="s2">&quot;gpu&quot;</span>
+    <span class="n">NPU</span> <span class="o">=</span> <span class="s2">&quot;npu&quot;</span>
+    <span class="n">VPU</span> <span class="o">=</span> <span class="s2">&quot;vpu&quot;</span>
+    <span class="n">INTEL_MYRIAD</span> <span class="o">=</span> <span class="s2">&quot;intel_myriad&quot;</span></div>
+
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">eq</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">AcceleratorSpec</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Accelerator specification is the concept of a hardware device that be used to optimize or evaluate a model.&quot;&quot;&quot;</span>
+
+    <span class="n">accelerator_type</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Device</span><span class="p">]</span>
+    <span class="n">execution_provider</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">vender</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">num_cores</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_provider</span><span class="p">:</span>
+            <span class="c1"># remove the suffix &quot;ExecutionProvider&quot;, len(&quot;ExecutionProvider&quot;) = 17</span>
+            <span class="n">ep</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_provider</span><span class="p">[:</span><span class="o">-</span><span class="mi">17</span><span class="p">]</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accelerator_type</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">ep</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accelerator_type</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">json_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;accelerator_type&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accelerator_type</span><span class="p">)}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_provider</span><span class="p">:</span>
+            <span class="n">json_data</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_provider</span>
+
+        <span class="k">return</span> <span class="n">json_data</span>
+
+
+<span class="n">DEFAULT_CPU_ACCELERATOR</span> <span class="o">=</span> <span class="n">AcceleratorSpec</span><span class="p">(</span><span class="n">accelerator_type</span><span class="o">=</span><span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span> <span class="n">execution_provider</span><span class="o">=</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">)</span>
+<span class="n">DEFAULT_GPU_CUDA_ACCELERATOR</span> <span class="o">=</span> <span class="n">AcceleratorSpec</span><span class="p">(</span><span class="n">accelerator_type</span><span class="o">=</span><span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">,</span> <span class="n">execution_provider</span><span class="o">=</span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">)</span>
+<span class="n">DEFAULT_GPU_TRT_ACCELERATOR</span> <span class="o">=</span> <span class="n">AcceleratorSpec</span><span class="p">(</span>
+    <span class="n">accelerator_type</span><span class="o">=</span><span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">,</span> <span class="n">execution_provider</span><span class="o">=</span><span class="s2">&quot;TensorrtExecutionProvider&quot;</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">AcceleratorLookup</span><span class="p">:</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_managed_supported_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="o">*</span><span class="n">DEVICE_TO_EXECUTION_PROVIDERS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_execution_providers_for_device</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="kn">import</span> <span class="nn">onnxruntime</span>
+
+        <span class="k">return</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device_by_available_providers</span><span class="p">(</span>
+            <span class="n">device</span><span class="p">,</span> <span class="n">onnxruntime</span><span class="o">.</span><span class="n">get_available_providers</span><span class="p">()</span>
+        <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_execution_providers_for_device_by_available_providers</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">):</span>
+        <span class="n">eps_per_device</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_managed_supported_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers</span><span class="p">(</span><span class="n">eps_per_device</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">):</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">filter_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eps</span> <span class="ow">or</span> <span class="n">available_providers</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">filter_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_providers</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">execution_providers</span>
+
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">available_providers</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="n">ep</span> <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span> <span class="k">if</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">execution_providers</span><span class="p">]</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">infer_devices_from_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Infer the device from the execution provider name.</span>
+
+<span class="sd">        If all the execution provider is uniquely mapped to a device, return the device list.</span>
+<span class="sd">        Otherwise, return None.</span>
+<span class="sd">        Please note that the CPUExecutionProvider is skipped for device infer. And only other ORT EPs are considered.</span>
+<span class="sd">        For example:</span>
+<span class="sd">            execution_provider = [&quot;CPUExecutionProvider&quot;, &quot;CUDAExecutionProvider&quot;]</span>
+<span class="sd">            return [&quot;gpu&quot;]</span>
+<span class="sd">            execution_provider = [&quot;CUDAExecutionProvider&quot;, &quot;TensorrtExecutionProvider&quot;]</span>
+<span class="sd">            return [&quot;gpu&quot;]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_providers</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">ep_to_devices</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">execution_providers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">ep</span> <span class="o">==</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">:</span>
+                <span class="c1"># cannot infer device for CPUExecutionProvider since all ORT EP supports CPU</span>
+                <span class="k">continue</span>
+
+            <span class="n">inferered_devices</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">device</span><span class="p">,</span> <span class="n">eps</span> <span class="ow">in</span> <span class="n">DEVICE_TO_EXECUTION_PROVIDERS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">eps</span><span class="p">:</span>
+                    <span class="n">inferered_devices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">inferered_devices</span><span class="p">:</span>
+                <span class="n">ep_to_devices</span><span class="p">[</span><span class="n">ep</span><span class="p">]</span> <span class="o">=</span> <span class="n">inferered_devices</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ep_to_devices</span><span class="p">[</span><span class="n">ep</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">mapped_devices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ep</span><span class="p">,</span> <span class="n">inferred_device</span> <span class="ow">in</span> <span class="n">ep_to_devices</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">inferred_device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Execution provider </span><span class="si">%s</span><span class="s2"> is not able to be mapped to any device. &quot;</span>
+                    <span class="s2">&quot;Olive cannot infer the device which may cause unexpected behavior. &quot;</span>
+                    <span class="s2">&quot;Please specify the accelerator in the accelerator configs&quot;</span><span class="p">,</span>
+                    <span class="n">ep</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">inferred_device</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Execution provider </span><span class="si">%s</span><span class="s2"> is mapped to multiple devices </span><span class="si">%s</span><span class="s2">. &quot;</span>
+                    <span class="s2">&quot;Olive cannot infer the device which may cause unexpected behavior. &quot;</span>
+                    <span class="s2">&quot;Please specify the accelerator in the accelerator configs&quot;</span><span class="p">,</span>
+                    <span class="n">ep</span><span class="p">,</span>
+                    <span class="n">inferred_device</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">inferred_device</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mapped_devices</span><span class="p">:</span>
+                    <span class="n">mapped_devices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inferred_device</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">mapped_devices</span> <span class="k">if</span> <span class="n">mapped_devices</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">infer_single_device_from_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_providers</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">execution_providers</span> <span class="o">==</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]:</span>
+            <span class="n">inferred_devices</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">inferred_devices</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">infer_devices_from_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">inferred_devices</span><span class="p">,</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot infer the devices from the execution providers </span><span class="si">{</span><span class="n">execution_providers</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="s2">&quot; Please specify the device in the accelerator configs.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">inferred_devices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot infer the devices from the execution providers </span><span class="si">{</span><span class="n">execution_providers</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Multiple devices are inferred: </span><span class="si">{</span><span class="n">inferred_devices</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="s2">&quot; Please specify the device in the accelerator configs.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">inferred_devices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

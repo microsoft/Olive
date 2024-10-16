@@ -1,0 +1,288 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>olive.systems.system_alias &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/width.css?v=b55249da" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/header.css?v=5dcc4e7b" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Olive
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">OLIVE COMMANDS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html">Run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#finetune">Finetune</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#auto-optimization">Auto-Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#quantization">Quantization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#capture-onnx-graph">Capture Onnx Graph</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#generate-adapters">Generate Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#convert-adapters">Convert Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#azureml">AzureML</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#shared-cache">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#providing-input-models">Providing Input Models</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/huggingface_model_optimization.html">Huggingface Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/lora.html">LoRA Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/shared_cache.html">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/run_workflow_remotely.html">Remote Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/conversion.html">Model Conversions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/quantization.html">Model Quantizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../extending_olive/custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">olive.systems.system_alias</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for olive.systems.system_alias</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -------------------------------------------------------------------------</span>
+<span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1"># Licensed under the MIT License.</span>
+<span class="c1"># --------------------------------------------------------------------------</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">ClassVar</span>
+
+<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
+
+
+<span class="k">class</span> <span class="nc">AzureMLSystemAlias</span><span class="p">:</span>
+    <span class="n">system_type</span> <span class="o">=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span>
+    <span class="n">accelerators</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;GPU&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="AzureND12SSystem"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_alias.AzureND12SSystem">[docs]</a><span class="k">class</span> <span class="nc">AzureND12SSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+    <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND12S&quot;</span>
+    <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">12</span>
+    <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">2</span></div>
+    <span class="c1"># TODO(myguo): add other attributes when needed from</span>
+    <span class="c1"># https://learn.microsoft.com/en-us/azure/virtual-machines/nd-series</span>
+
+
+<div class="viewcode-block" id="AzureND24RSSystem"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_alias.AzureND24RSSystem">[docs]</a><span class="k">class</span> <span class="nc">AzureND24RSSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+    <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND24RS&quot;</span>
+    <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">24</span>
+    <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">4</span></div>
+
+
+<div class="viewcode-block" id="AzureND24SSystem"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_alias.AzureND24SSystem">[docs]</a><span class="k">class</span> <span class="nc">AzureND24SSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+    <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND24S&quot;</span>
+    <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">24</span>
+    <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">4</span></div>
+
+
+<div class="viewcode-block" id="AzureNDV2System"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_alias.AzureNDV2System">[docs]</a><span class="k">class</span> <span class="nc">AzureNDV2System</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+    <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND40RS_V2&quot;</span>
+    <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">40</span>
+    <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">8</span></div>
+    <span class="c1"># add other attributes when needed from https://learn.microsoft.com/en-us/azure/virtual-machines/ndv2-series</span>
+
+
+<div class="viewcode-block" id="AzureND6SSystem"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_alias.AzureND6SSystem">[docs]</a><span class="k">class</span> <span class="nc">AzureND6SSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+    <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND6S&quot;</span>
+    <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">6</span>
+    <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">1</span></div>
+    <span class="c1"># add other attributes when needed from https://learn.microsoft.com/en-us/azure/virtual-machines/nd-series</span>
+
+
+<div class="viewcode-block" id="AzureND96A100System"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_alias.AzureND96A100System">[docs]</a><span class="k">class</span> <span class="nc">AzureND96A100System</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+    <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND96AMSR_A100_V4&quot;</span>
+    <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">96</span>
+    <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">8</span></div>
+    <span class="c1"># add other attributes when needed from https://learn.microsoft.com/en-us/azure/virtual-machines/ndm-a100-v4-series</span>
+
+
+<div class="viewcode-block" id="AzureND96ASystem"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_alias.AzureND96ASystem">[docs]</a><span class="k">class</span> <span class="nc">AzureND96ASystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+    <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND96ASR_V4&quot;</span>
+    <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">96</span>
+    <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">8</span></div>
+    <span class="c1"># add other attributes when needed from https://learn.microsoft.com/en-us/azure/virtual-machines/nda100-v4-series</span>
+
+
+<span class="c1"># TODO(myguo): add the following alias system</span>
+<span class="c1"># STANDARD_DS2_V2</span>
+<span class="c1"># STANDARD_DS3_V2</span>
+<span class="c1"># STANDARD_NC12</span>
+<span class="c1"># STANDARD_NC12S_V2</span>
+<span class="c1"># STANDARD_NC12S_V3</span>
+<span class="c1"># STANDARD_NC16AS_T4_V3</span>
+<span class="c1"># STANDARD_NC24</span>
+<span class="c1"># STANDARD_NC24ADS_A100_V4</span>
+<span class="c1"># STANDARD_NC24R</span>
+<span class="c1"># STANDARD_NC24RS_V2</span>
+<span class="c1"># STANDARD_NC24RS_V3</span>
+<span class="c1"># STANDARD_NC24S_V2</span>
+<span class="c1"># STANDARD_NC24S_V3</span>
+<span class="c1"># STANDARD_NC48ADS_A100_V4</span>
+<span class="c1"># STANDARD_NC4AS_T4_V3</span>
+<span class="c1"># STANDARD_NC6</span>
+<span class="c1"># STANDARD_NC64AS_T4_V3</span>
+<span class="c1"># STANDARD_NC6S_V2</span>
+<span class="c1"># STANDARD_NC6S_V3</span>
+<span class="c1"># STANDARD_NC8AS_T4_V3</span>
+<span class="c1"># STANDARD_NC96ADS_A100_V4</span>
+<span class="c1"># STANDARD_NV12</span>
+<span class="c1"># STANDARD_NV12ADS_A10_V5</span>
+<span class="c1"># STANDARD_NV12S_V3</span>
+<span class="c1"># STANDARD_NV16AS_V4</span>
+<span class="c1"># STANDARD_NV18ADS_A10_V5</span>
+<span class="c1"># STANDARD_NV24</span>
+<span class="c1"># STANDARD_NV24S_V3</span>
+<span class="c1"># STANDARD_NV32AS_V4</span>
+<span class="c1"># STANDARD_NV36ADMS_A10_V5</span>
+<span class="c1"># STANDARD_NV36ADS_A10_V5</span>
+<span class="c1"># STANDARD_NV48S_V3</span>
+<span class="c1"># STANDARD_NV4AS_V4</span>
+<span class="c1"># STANDARD_NV6</span>
+<span class="c1"># STANDARD_NV6ADS_A10_V5</span>
+<span class="c1"># STANDARD_NV72ADS_A10_V5</span>
+<span class="c1"># STANDARD_NV8AS_V4</span>
+
+
+<span class="c1"># Please add surface readymade system alias from https://learn.microsoft.com/en-us/surface/surface-system-sku-reference</span>
+<span class="k">class</span> <span class="nc">SurfaceSystemAlias</span><span class="p">:</span>
+    <span class="n">system_type</span> <span class="o">=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span>
+    <span class="n">accelerators</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;GPU&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="SurfaceProSystem1796"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_alias.SurfaceProSystem1796">[docs]</a><span class="k">class</span> <span class="nc">SurfaceProSystem1796</span><span class="p">(</span><span class="n">SurfaceSystemAlias</span><span class="p">):</span>
+    <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;Surface_Pro_1796&quot;</span></div>
+    <span class="c1"># we could add the num_cpus and num_gpus if we don&#39;t want query locally and</span>
+    <span class="c1"># could find the appropriated spec definition.</span>
+
+
+<div class="viewcode-block" id="SurfaceProSystem1807"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_alias.SurfaceProSystem1807">[docs]</a><span class="k">class</span> <span class="nc">SurfaceProSystem1807</span><span class="p">(</span><span class="n">SurfaceSystemAlias</span><span class="p">):</span>
+    <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;Surface_Pro_1807&quot;</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

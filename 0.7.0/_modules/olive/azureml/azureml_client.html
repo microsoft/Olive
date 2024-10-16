@@ -1,0 +1,304 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>olive.azureml.azureml_client &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/width.css?v=b55249da" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/header.css?v=5dcc4e7b" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Olive
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">OLIVE COMMANDS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html">Run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#finetune">Finetune</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#auto-optimization">Auto-Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#quantization">Quantization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#capture-onnx-graph">Capture Onnx Graph</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#generate-adapters">Generate Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#convert-adapters">Convert Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#azureml">AzureML</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#shared-cache">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html#providing-input-models">Providing Input Models</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/huggingface_model_optimization.html">Huggingface Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/lora.html">LoRA Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/shared_cache.html">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/run_workflow_remotely.html">Remote Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/conversion.html">Model Conversions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/quantization.html">Model Quantizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../extending_olive/custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">olive.azureml.azureml_client</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for olive.azureml.azureml_client</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -------------------------------------------------------------------------</span>
+<span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1"># Licensed under the MIT License.</span>
+<span class="c1"># --------------------------------------------------------------------------</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span>
+<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
+<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">get_credentials</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="AzureMLClientConfig"><a class="viewcode-back" href="../../../api/resource_path.html#olive.azureml.azureml_client.AzureMLClientConfig">[docs]</a><span class="k">class</span> <span class="nc">AzureMLClientConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for AzureMLClient.</span>
+
+<span class="sd">    This class is used to create an MLClient instance for AzureML operations.</span>
+<span class="sd">    Some fields like `read_timeout`, `max_operation_retries`, `operation_retry_interval` are used to control the</span>
+<span class="sd">    behavior of azureml operations like resource creation or download.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">subscription_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Azure subscription id. Required if aml_config_path is not provided.&quot;</span>
+    <span class="p">)</span>
+    <span class="n">resource_group</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Azure resource group. Required if aml_config_path is not provided.&quot;</span><span class="p">)</span>
+    <span class="n">workspace_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Azure workspace name. Required if aml_config_path is not provided.&quot;</span><span class="p">)</span>
+    <span class="n">aml_config_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Path to AzureML config file. If provided, other fields are ignored.&quot;</span>
+    <span class="p">)</span>
+    <span class="c1"># read timeout in seconds for HTTP requests, user can increase if they find the default value too small.</span>
+    <span class="c1"># The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to</span>
+    <span class="c1"># sometimes hang for a long time between retries of job stream and download steps.</span>
+    <span class="n">read_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">60</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Read timeout in seconds for HTTP requests.&quot;</span><span class="p">)</span>
+    <span class="n">max_operation_retries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="mi">3</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Max number of retries for AzureML operations like resource creation or download.&quot;</span>
+    <span class="p">)</span>
+    <span class="n">operation_retry_interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="mi">5</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Initial interval in seconds between retries for AzureML operations like resource creation or download. The&quot;</span>
+            <span class="s2">&quot; interval doubles after each retry.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="c1"># as the DefaultAzureCredential is used by default, we need to provide the default auth config for it.</span>
+    <span class="c1"># but DefaultAzureCredential accept kwargs as parameters, it is hard to validate the config.</span>
+    <span class="c1"># so we just provide a dict here and let the user to provide the correct config following the doc.</span>
+    <span class="n">default_auth_params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Default auth config for AzureML client. Please refer to&quot;</span>
+            <span class="s2">&quot; https://learn.microsoft.com/en-us/python/api/azure-identity/&quot;</span>
+            <span class="s2">&quot;azure.identity.defaultazurecredential?view=azure-python#parameters&quot;</span>
+            <span class="s2">&quot; for more details.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">keyvault_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Name of the keyvault to use. If provided, the keyvault will be used to retrieve secrets.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;aml_config_path&quot;</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_aml_config_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;aml_config_path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> does not exist&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;aml_config_path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> is not a file&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+<div class="viewcode-block" id="AzureMLClientConfig.get_workspace_config"><a class="viewcode-back" href="../../../api/resource_path.html#olive.azureml.azureml_client.AzureMLClientConfig.get_workspace_config">[docs]</a>    <span class="k">def</span> <span class="nf">get_workspace_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the workspace config as a dict.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span><span class="p">:</span>
+            <span class="c1"># If aml_config_path is provided, load the config from the file.</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># If aml_config_path is not provided, return the config from the class.</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">&quot;subscription_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">subscription_id</span><span class="p">,</span>
+                <span class="s2">&quot;resource_group&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_group</span><span class="p">,</span>
+                <span class="s2">&quot;workspace_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">workspace_name</span><span class="p">,</span>
+            <span class="p">}</span></div>
+
+<div class="viewcode-block" id="AzureMLClientConfig.create_client"><a class="viewcode-back" href="../../../api/resource_path.html#olive.azureml.azureml_client.AzureMLClientConfig.create_client">[docs]</a>    <span class="k">def</span> <span class="nf">create_client</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create an MLClient instance.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">MLClient</span>
+
+        <span class="n">set_azure_logging_if_noset</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subscription_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;subscription_id must be provided if aml_config_path is not provided&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_group</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;resource_group must be provided if aml_config_path is not provided&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">workspace_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;workspace_name must be provided if aml_config_path is not provided&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">MLClient</span><span class="p">(</span>
+                <span class="n">credential</span><span class="o">=</span><span class="n">get_credentials</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_auth_params</span><span class="p">),</span>
+                <span class="n">subscription_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subscription_id</span><span class="p">,</span>
+                <span class="n">resource_group_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">resource_group</span><span class="p">,</span>
+                <span class="n">workspace_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">workspace_name</span><span class="p">,</span>
+                <span class="n">read_timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">read_timeout</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">MLClient</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span>
+                <span class="n">credential</span><span class="o">=</span><span class="n">get_credentials</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_auth_params</span><span class="p">),</span>
+                <span class="n">path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span><span class="p">,</span>
+                <span class="n">read_timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">read_timeout</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AzureMLClientConfig.create_registry_client"><a class="viewcode-back" href="../../../api/resource_path.html#olive.azureml.azureml_client.AzureMLClientConfig.create_registry_client">[docs]</a>    <span class="k">def</span> <span class="nf">create_registry_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">registry_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create an MLClient instance.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">MLClient</span>
+
+        <span class="n">set_azure_logging_if_noset</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">MLClient</span><span class="p">(</span><span class="n">credential</span><span class="o">=</span><span class="n">get_credentials</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_auth_params</span><span class="p">),</span> <span class="n">registry_name</span><span class="o">=</span><span class="n">registry_name</span><span class="p">)</span></div></div>
+
+
+<span class="k">def</span> <span class="nf">set_azure_logging_if_noset</span><span class="p">():</span>
+    <span class="c1"># set logger level to error to avoid too many logs from azure sdk</span>
+    <span class="n">azure_ml_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;azure.ai.ml&quot;</span><span class="p">)</span>
+    <span class="c1"># only set the level if it is not set, to avoid changing the level set by the user</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">azure_ml_logger</span><span class="o">.</span><span class="n">level</span><span class="p">:</span>
+        <span class="n">azure_ml_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+    <span class="n">azure_identity_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;azure.identity&quot;</span><span class="p">)</span>
+    <span class="c1"># only set the level if it is not set, to avoid changing the level set by the user</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">azure_identity_logger</span><span class="o">.</span><span class="n">level</span><span class="p">:</span>
+        <span class="n">azure_identity_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

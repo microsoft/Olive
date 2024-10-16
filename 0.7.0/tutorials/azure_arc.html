@@ -1,0 +1,242 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Self-hosted Kubernetes cluster &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Azure ML scripts" href="azureml_scripts.html" />
+    <link rel="prev" title="Advanced User Tour" href="advanced_users.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Olive
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">OLIVE COMMANDS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html">Run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#finetune">Finetune</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#auto-optimization">Auto-Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#quantization">Quantization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#capture-onnx-graph">Capture Onnx Graph</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#generate-adapters">Generate Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#convert-adapters">Convert Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#azureml">AzureML</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#shared-cache">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#providing-input-models">Providing Input Models</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/lora.html">LoRA Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/shared_cache.html">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/run_workflow_remotely.html">Remote Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/conversion.html">Model Conversions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/quantization.html">Model Quantizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Self-hosted Kubernetes cluster</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#create-kubernetes-cluster">Create Kubernetes cluster</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#add-local-kubernetes-cluster-to-azure-arc">Add local Kubernetes cluster to Azure Arc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#add-aml-extension-to-cluster">Add AML extension to cluster</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#link-azure-arc-kubernetes-cluster-to-azure-machine-learning">Link Azure Arc Kubernetes cluster to Azure Machine Learning</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Self-hosted Kubernetes cluster</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/azure_arc.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="self-hosted-kubernetes-cluster">
+<h1>Self-hosted Kubernetes cluster<a class="headerlink" href="#self-hosted-kubernetes-cluster" title="Permalink to this heading"></a></h1>
+<p>In this document, you will learn how to create a local Kubernetes cluster, deploy it to Azure Arc, and link it to your Azure machine learning workspace computes.</p>
+<section id="create-kubernetes-cluster">
+<h2>Create Kubernetes cluster<a class="headerlink" href="#create-kubernetes-cluster" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Please make sure Docker is installed: <a class="reference external" href="https://docs.docker.com/engine/install/">Docker Engine installation overview | Docker Documentation</a></p></li>
+<li><p>Create local Kubernetes cluster. We will use <a class="reference external" href="https://kind.sigs.k8s.io/">kind: kind (k8s.io)</a> to create the cluster in this tutorials:</p>
+<ul>
+<li><p>Run command <code class="docutils literal notranslate"><span class="pre">kind</span> <span class="pre">create</span> <span class="pre">cluster</span></code></p></li>
+<li><p>Please note that this command will create Kubernetes cluster config file in default path: <code class="docutils literal notranslate"><span class="pre">“$HOME/.kube/config”</span></code>. You can specify other kubeconfig files by setting the KUBECONFIG environment variable or by setting the <code class="docutils literal notranslate"><span class="pre">--kubeconfig</span></code> flag.</p></li>
+<li><p>Kubernetes config documentation link: <a class="reference external" href="https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/">Organizing Cluster Access Using kubeconfig Files | Kubernetes</a></p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="add-local-kubernetes-cluster-to-azure-arc">
+<h2>Add local Kubernetes cluster to Azure Arc<a class="headerlink" href="#add-local-kubernetes-cluster-to-azure-arc" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Lunch Azure Arc page at <a class="reference external" href="https://ms.portal.azure.com/#view/Microsoft_Azure_HybridCompute/AzureArcCenterBlade/~/overview">Microsoft Azure Arc</a></p></li>
+<li><p>Select <code class="docutils literal notranslate"><span class="pre">Add</span> <span class="pre">your</span> <span class="pre">infrastructure</span> <span class="pre">for</span> <span class="pre">free</span></code>:</p></li>
+</ul>
+<a class="reference internal image-reference" href="../_images/add-infra.png"><img alt="olive-design" class="align-center" src="../_images/add-infra.png" style="width: 500px;" /></a>
+<ul class="simple">
+<li><p>Select <code class="docutils literal notranslate"><span class="pre">Kubernetes</span> <span class="pre">clusters</span></code>:</p></li>
+</ul>
+<a class="reference internal image-reference" href="../_images/add-kub.png"><img alt="olive-design" class="align-center" src="../_images/add-kub.png" style="width: 500px;" /></a>
+<ul class="simple">
+<li><p>Fill out cluster details:</p></li>
+</ul>
+<a class="reference internal image-reference" href="../_images/add-kub-detail.png"><img alt="olive-design" class="align-center" src="../_images/add-kub-detail.png" style="width: 500px;" /></a>
+<ul class="simple">
+<li><p>Download and run the script on local machine</p></li>
+</ul>
+<a class="reference internal image-reference" href="../_images/add-kub-to-arc.png"><img alt="olive-design" class="align-center" src="../_images/add-kub-to-arc.png" style="width: 500px;" /></a>
+<p>It may take several minutes to link the cluster to Azure Arc. Then you should be able to see cluster verification passes in the last step.</p>
+</section>
+<section id="add-aml-extension-to-cluster">
+<h2>Add AML extension to cluster<a class="headerlink" href="#add-aml-extension-to-cluster" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Please follow the instructions to add AML extension to your Azure Arc Kubernetes: <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-deploy-kubernetes-extension?view=azureml-api-2&amp;amp;tabs=portal">Deploy AzureML extension on Kubernetes cluster - Azure Machine Learning | Microsoft Learn</a></p></li>
+</ul>
+</section>
+<section id="link-azure-arc-kubernetes-cluster-to-azure-machine-learning">
+<h2>Link Azure Arc Kubernetes cluster to Azure Machine Learning<a class="headerlink" href="#link-azure-arc-kubernetes-cluster-to-azure-machine-learning" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>In your Azure Machine Learning Workspace, select <code class="docutils literal notranslate"><span class="pre">Compute</span></code> – <code class="docutils literal notranslate"><span class="pre">Attached</span> <span class="pre">computes</span></code> – <code class="docutils literal notranslate"><span class="pre">New</span></code> – <code class="docutils literal notranslate"><span class="pre">Kubernetes</span></code></p></li>
+</ul>
+<a class="reference internal image-reference" href="../_images/new-compute.png"><img alt="olive-design" class="align-center" src="../_images/new-compute.png" style="width: 500px;" /></a>
+<ul class="simple">
+<li><p>Select cluster that you created before - Attach:</p></li>
+</ul>
+<a class="reference internal image-reference" href="../_images/attach-kub.png"><img alt="olive-design" class="align-center" src="../_images/attach-kub.png" style="width: 500px;" /></a>
+<ul class="simple">
+<li><p>You should be able to use attached computes for your machine learning jobs here:</p></li>
+</ul>
+<a class="reference internal image-reference" href="../_images/attach-suc.png"><img alt="olive-design" class="align-center" src="../_images/attach-suc.png" style="width: 500px;" /></a>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="advanced_users.html" class="btn btn-neutral float-left" title="Advanced User Tour" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="azureml_scripts.html" class="btn btn-neutral float-right" title="Azure ML scripts" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

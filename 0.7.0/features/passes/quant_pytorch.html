@@ -1,0 +1,252 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PyTorch &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/width.css?v=b55249da" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="ONNX" href="quant_onnx.html" />
+    <link rel="prev" title="Model Quantizations" href="../quantization.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Olive
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">OLIVE COMMANDS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">Run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html#finetune">Finetune</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html#auto-optimization">Auto-Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html#quantization">Quantization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html#capture-onnx-graph">Capture Onnx Graph</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html#generate-adapters">Generate Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html#convert-adapters">Convert Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html#azureml">AzureML</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html#shared-cache">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html#providing-input-models">Providing Input Models</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../huggingface_model_optimization.html">Huggingface Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../lora.html">LoRA Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../shared_cache.html">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../run_workflow_remotely.html">Remote Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../conversion.html">Model Conversions</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../quantization.html">Model Quantizations</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">PyTorch</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#autogptq">AutoGPTQ</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#example-configuration">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#autoawq">AutoAWQ</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#quarot">QuaRot</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id2">Example Configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="quant_onnx.html">ONNX</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../quantization.html">Model Quantizations</a></li>
+      <li class="breadcrumb-item active">PyTorch</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/features/passes/quant_pytorch.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="pytorch">
+<h1>PyTorch<a class="headerlink" href="#pytorch" title="Permalink to this heading"></a></h1>
+<p>PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.</p>
+<section id="autogptq">
+<h2>AutoGPTQ<a class="headerlink" href="#autogptq" title="Permalink to this heading"></a></h2>
+<p>Olive also integrates <a class="reference external" href="https://github.com/AutoGPTQ/AutoGPTQ">AutoGPTQ</a> for quantization.</p>
+<p>AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, based on GPTQ algorithm (weight-only quantization). With GPTQ quantization, you can quantize your favorite language model to 8, 4, 3 or even 2 bits. This comes without a big drop of performance and with faster inference speed. This is supported by most GPU hardwares.</p>
+<p>Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#gptq-quantizer"><span class="std std-ref">GptqQuantizer</span></a> for more details about the pass and its config parameters.</p>
+<section id="example-configuration">
+<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading"></a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GptqQuantizer&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wikitext2_train&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/llama2/llama2_template.json">this file</a>
+for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;wikitext2_train&quot;</span></code>.</p>
+</section>
+</section>
+<section id="autoawq">
+<h2>AutoAWQ<a class="headerlink" href="#autoawq" title="Permalink to this heading"></a></h2>
+<p>AutoAWQ is an easy-to-use package for 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16. AutoAWQ implements the Activation-aware Weight Quantization (AWQ) algorithm for quantizing LLMs. AutoAWQ was created and improved upon from the original work from MIT.</p>
+<p>Olive integrates <a class="reference external" href="https://github.com/casper-hansen/AutoAWQ">AutoAWQ</a> for quantization and make it possible to convert the AWQ quantized torch model to onnx model.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#awq-quantizer"><span class="std std-ref">AutoAWQQuantizer</span></a> for more details about the pass and its config parameters.</p>
+<section id="id1">
+<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AutoAWQQuantizer&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;w_bit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="quarot">
+<h2>QuaRot<a class="headerlink" href="#quarot" title="Permalink to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">QuaRot</span></code> is a quantization technique that combines quantization and rotation to reduce the number of bits required to represent the weights of a model. It is based on the <a class="reference external" href="https://arxiv.org/abs/2305.14314">QuaRot paper</a>.</p>
+<p>This pass only supports HuggingFace transformer PyTorch models. Please refer to <a class="reference internal" href="../../api/passes.html#quarot"><span class="std std-ref">QuaRot</span></a> for more details on the types of transformers models supported.</p>
+<section id="id2">
+<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuaRot&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;w_rtn&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;rotate&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;w_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;a_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;k_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;v_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../quantization.html" class="btn btn-neutral float-left" title="Model Quantizations" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="quant_onnx.html" class="btn btn-neutral float-right" title="ONNX" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
