@@ -16,7 +16,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, get_lora_name_patterns, model_proto_to_olive_model
+from olive.passes.onnx.common import LORA_NAME_PATTERNS, get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import PassConfigParam
 
@@ -91,11 +91,10 @@ class ExtractAdapters(Pass):
 
         # nodes to remove at the end
         nodes_to_remove = set()
-        lora_name_patterns = get_lora_name_patterns()
         for node_name in dag.get_node_names():
             op_type = dag.get_node_op_type(node_name)
             if op_type not in {"MatMul", "MatMulNBits"} or not any(
-                re.match(pattern, node_name) for pattern in lora_name_patterns
+                re.match(pattern, node_name) for pattern in LORA_NAME_PATTERNS
             ):
                 # not a lora module
                 continue
