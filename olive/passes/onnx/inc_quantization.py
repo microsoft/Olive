@@ -84,7 +84,7 @@ _inc_quantization_config = {
     "reduce_range": PassConfigParam(
         type_=bool,
         default_value=False,
-        searchable_values=Boolean(),
+        search_defaults=Boolean(),
         description="""
             Whether use 7 bit to quantization.
         """,
@@ -159,7 +159,7 @@ _inc_static_optional_config = {
     "quant_format": PassConfigParam(
         type_=str,
         default_value="QOperator",
-        searchable_values=Categorical(["QOperator", "QDQ"]),
+        search_defaults=Categorical(["QOperator", "QDQ"]),
         description="""
             Quantization format. Support 'QDQ' and 'QOperator'.
         """,
@@ -232,7 +232,7 @@ _inc_woq_optional_config = {
     "scheme": PassConfigParam(
         type_=str,
         default_value="asym",
-        searchable_values=Categorical(["asym", "sym"]),
+        search_defaults=Categorical(["asym", "sym"]),
         description="""
             Symmetrize or asymmetric calibration data for weights.
         """,
@@ -240,7 +240,7 @@ _inc_woq_optional_config = {
     "algorithm": PassConfigParam(
         type_=str,
         default_value="RTN",
-        searchable_values=Categorical(["RTN", "GPTQ"]),
+        search_defaults=Categorical(["RTN", "GPTQ"]),
         description="""
             Algorithm of weight only quantization. Support 'RTN' and 'GPTQ'.
         """,
@@ -264,7 +264,7 @@ class IncQuantization(Pass):
             "approach": PassConfigParam(
                 type_=str,
                 default_value="static",
-                searchable_values=Categorical(["dynamic", "static", "weight_only"]),
+                search_defaults=Categorical(["dynamic", "static", "weight_only"]),
                 description="""
                 Intel® Neural Compressor Quantization mode. 'dynamic' for dynamic quantization,
                 'static' for static quantization, "weight_only" for 4-bits weight-only quantization.
@@ -288,22 +288,21 @@ class IncQuantization(Pass):
         inc_static_optional_config = deepcopy(_inc_static_optional_config)
         for value in inc_static_optional_config.values():
             # default value of quant_format is conditional on approach
-            if isinstance(value.searchable_values, Categorical):
+            if isinstance(value.search_defaults, Categorical):
                 # ignore the parameter quant_format if approach is dynamic, if approach is static,
-                # use the searchable_values in inc_static_optional_config by making it conditional
-                value.searchable_values = Conditional(
+                # use the search_defaults in inc_static_optional_config by making it conditional
+                value.search_defaults = Conditional(
                     parents=("approach",),
-                    support={("static",): value.searchable_values},
+                    support={("static",): value.search_defaults},
                     default=Categorical(["default"]),
                 )
-            elif isinstance(value.searchable_values, Conditional):
+            elif isinstance(value.search_defaults, Conditional):
                 # ignore the parameter quant_format if approach is dynamic, if approach is static,
-                # use the searchable_values in inc_static_optional_config by expanding the parents
-                value.searchable_values = Conditional(
-                    parents=("approach", *value.searchable_values.parents),
+                # use the search_defaults in inc_static_optional_config by expanding the parents
+                value.search_defaults = Conditional(
+                    parents=("approach", *value.search_defaults.parents),
                     support={
-                        ("static", *key): value.searchable_values.support[key]
-                        for key in value.searchable_values.support
+                        ("static", *key): value.search_defaults.support[key] for key in value.search_defaults.support
                     },
                     default=Categorical(["default"]),
                 )
