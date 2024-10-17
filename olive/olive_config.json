@@ -113,7 +113,7 @@
         "directml": [ "onnxruntime-directml" ],
         "docker": [ "docker" ],
         "shared-cache": [ "azure-identity", "azure-storage-blob" ],
-        "finetune": [ "onnxruntime-genai", "optimum", "accelerate>=0.30.0", "peft", "scipy" ],
+        "finetune": [ "onnxruntime-genai", "optimum", "accelerate>=0.30.0", "peft", "scipy", "bitsandbytes" ],
         "flash-attn": [ "flash_attn" ],
         "gpu": [ "onnxruntime-gpu" ],
         "inc": [ "neural-compressor" ],
