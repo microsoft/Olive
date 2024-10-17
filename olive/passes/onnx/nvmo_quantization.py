@@ -49,13 +49,13 @@ class NVModelOptQuantization(Pass):
             "precision": PassConfigParam(
                 type_=NVModelOptQuantization.Precision,
                 default_value="int4",
-                searchable_values=Categorical(["fp8", "int8", "int4"]),
+                search_defaults=Categorical(["fp8", "int8", "int4"]),
                 description="NVModelOpt Quantization mode.",
             ),
             "algorithm": PassConfigParam(
                 type_=NVModelOptQuantization.Algorithm,
                 default_value="RTN",
-                searchable_values=Categorical(["RTN", "AWQ"]),
+                search_defaults=Categorical(["RTN", "AWQ"]),
                 description="Algorithm of weight only quantization. Support 'RTN' and 'AWQ'.",
             ),
             **deepcopy(_dataloader_config),

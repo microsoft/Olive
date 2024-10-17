@@ -64,8 +64,8 @@ class AutoConfigDirective(Directive):
                 lines += ["", "   **required:** True"]
             else:
                 lines += ["", f"   **default_value:** {param.default_value}"]
-                if hasattr(param, "searchable_values"):
-                    lines += ["", f"   **searchable_values:** {param.searchable_values}"]
+                if hasattr(param, "search_defaults"):
+                    lines += ["", f"   **search_defaults:** {param.search_defaults}"]
 
         return lines
 
