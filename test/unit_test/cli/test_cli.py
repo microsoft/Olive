@@ -66,6 +66,20 @@ def test_legacy_call(deprecated_module):
     )
 
 
+def test_unknown_args():
+    # setup
+    command_args = ["olive", "run", "--config", "config.json", "--unknown-arg", "-u"]
+
+    # execute and assert
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+        subprocess.run(command_args, check=True, capture_output=True)
+
+    error_message = exc_info.value.stderr.decode("utf-8")
+    assert "Unknown arguments:" in error_message
+    assert "--unknown-arg" in error_message
+    assert "-u" in error_message
+
+
 @pytest.mark.parametrize("packages", [True, False])
 @pytest.mark.parametrize("setup", [True, False])
 @pytest.mark.parametrize("tempdir", [None, "tempdir"])

@@ -5,7 +5,7 @@
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
-from typing import ClassVar, Dict
+from typing import Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -30,8 +30,6 @@ class ModelBuilderAccuracyLevel(IntEnumBase):
 
 
 class CaptureOnnxGraphCommand(BaseOliveCLICommand):
-    allow_unknown_args: ClassVar[bool] = True
-
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(

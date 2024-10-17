@@ -312,6 +312,7 @@ def add_input_model_options(
     if enable_hf_adapter:
         assert enable_hf, "enable_hf must be True when enable_hf_adapter is True."
         model_group.add_argument(
+            "-a",
             "--adapter_path",
             type=str,
             help="Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.",

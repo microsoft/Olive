@@ -5,7 +5,7 @@
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
-from typing import ClassVar, Dict
+from typing import Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -23,8 +23,6 @@ from olive.common.utils import WeightsFileFormat, set_nested_dict_value
 
 
 class GenerateAdapterCommand(BaseOliveCLICommand):
-    allow_unknown_args: ClassVar[bool] = True
-
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
