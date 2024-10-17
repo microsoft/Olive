@@ -37,10 +37,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         sub_parser = parser.add_parser(
             "capture-onnx-graph",
             help=(
-                (
-                    "Capture ONNX graph using PyTorch Exporter or Model Builder "
-                    "from the Huggingface model or PyTorch model."
-                ),
+                "Capture ONNX graph using PyTorch Exporter or Model Builder "
+                "from the Huggingface model or PyTorch model."
             ),
         )
 
