@@ -138,13 +138,10 @@ class AutoOptCommand(BaseOliveCLICommand):
             ),
         )
 
-        # search options
         add_search_options(sub_parser)
-
-        # remote options
         add_remote_options(sub_parser)
-        add_logging_options(sub_parser)
         add_shared_cache_options(sub_parser)
+        add_logging_options(sub_parser)
         sub_parser.set_defaults(func=AutoOptCommand)
 
     def run(self):

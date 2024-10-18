@@ -249,13 +249,13 @@ def add_remote_options(sub_parser: ArgumentParser):
         "--resource_group",
         type=str,
         required=False,
-        help="Resource group for the AzureML workspace.",
+        help="Resource group for the AzureML workspace to run the workflow remotely.",
     )
     remote_group.add_argument(
         "--workspace_name",
         type=str,
         required=False,
-        help="Workspace name for the AzureML workspace.",
+        help="Workspace name for the AzureML workspace to run the workflow remotely.",
     )
     remote_group.add_argument(
         "--keyvault_name",
@@ -300,14 +300,15 @@ def add_input_model_options(
         type=str,
         help=(
             "Path to the input model. "
-            "See https://microsoft.github.io/Olive/features/cli.html#input-model for more information"
+            "See https://microsoft.github.io/Olive/features/cli.html#providing-input-models "
+            "for more informsation."
         ),
     )
     if enable_hf:
+        model_group.add_argument("-t", "--task", type=str, help="Task for which the huggingface model is used.")
         model_group.add_argument(
-            "--trust_remote_code", action="store_true", help="Trust remote code when loading a model."
+            "--trust_remote_code", action="store_true", help="Trust remote code when loading a huggingface model."
         )
-        model_group.add_argument("-t", "--task", type=str, help="Task for which the model is used.")
 
     if enable_hf_adapter:
         assert enable_hf, "enable_hf must be True when enable_hf_adapter is True."
@@ -320,12 +321,16 @@ def add_input_model_options(
         model_group.add_argument(
             "--model_script",
             type=str,
-            help="The script file containing the model definition. Required for PyTorch model.",
+            help="The script file containing the model definition. Required for the local PyTorch model.",
         )
         model_group.add_argument(
             "--script_dir",
             type=str,
-            help="The directory containing the model script file.",
+            help=(
+                "The directory containing the local PyTorch model script file."
+                "See https://microsoft.github.io/Olive/features/cli.html#model-script-file-information "
+                "for more informsation."
+            ),
         )
     model_group.add_argument("--is_generative_model", type=bool, default=True, help="Is this a generative model?")
     model_group.add_argument(
@@ -561,7 +566,7 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
         type=str,
         default="cpu",
         choices=["gpu", "cpu", "npu"],
-        help="Device used to run the model.",
+        help="Target device to run the model.",
     )
 
     execution_providers = [
@@ -624,8 +629,8 @@ def add_search_options(sub_parser: ArgumentParser):
         nargs="?",
         choices=["exhaustive", "tpe", "random"],
         help=(
-            "Enable search to produce optimal model for the given evaluation criteria."
-            "Optionally provide search algorithm from available choices."
+            "Enable search to produce optimal model for the given criteria. "
+            "Optionally provide search algorithm from available choices. "
             "Use exhastive search algorithm by default."
         ),
     )
