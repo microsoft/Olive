@@ -139,7 +139,11 @@ There are more than one way to supply input model to the Olive commands.
 
 5. An ONNX model available locally can also be used as an input for the Olive commands that accept ONNX model as an input.
 
-Olive reserves several function names to provide specific inputs for the PyTorch model. These functions should be defined in your model script:
+Model Script File Information
+=============================
+
+Olive commands support custom PyTorch model as an input. Olive requires users to define specific functions to load and process the custom PyTorch model.
+These functions should be defined in your model script you provide.
 
 - **Model Loader Function (`_model_loader`)**:
   Loads the PyTorch model. If the model file path is provided using the `-m` option, it takes higher priority than the model loader function.

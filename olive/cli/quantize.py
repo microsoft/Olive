@@ -54,15 +54,15 @@ class QuantizeCommand(BaseOliveCLICommand):
             help="The precision of the quantized model.",
         )
         sub_parser.add_argument(
-            "--enable-qdq-encoding",
-            action="store_true",
-            help="Use QDQ encoding in ONNX model for the quantized nodes.",
-        )
-        sub_parser.add_argument(
             "--implementation",
             type=str,
             choices=sorted(TEMPLATE["passes"].keys()),
-            help="Use specific implementation of quantization algorithms to run.",
+            help="The specific implementation of quantization algorithms to use.",
+        )
+        sub_parser.add_argument(
+            "--enable-qdq-encoding",
+            action="store_true",
+            help="Use QDQ encoding in ONNX model for the quantized nodes.",
         )
         sub_parser.add_argument(
             "--quarot_rotate", action="store_true", help="Apply QuaRot/Hadamard rotation to the model."
@@ -70,8 +70,8 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         add_dataset_options(sub_parser, required=False, include_train=False, include_eval=False)
         add_remote_options(sub_parser)
-        add_logging_options(sub_parser)
         add_shared_cache_options(sub_parser)
+        add_logging_options(sub_parser)
         sub_parser.set_defaults(func=QuantizeCommand)
 
     def _get_run_config(self, tempdir: str) -> Dict[str, Any]:
