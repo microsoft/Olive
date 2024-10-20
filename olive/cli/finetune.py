@@ -40,17 +40,6 @@ class FineTuneCommand(BaseOliveCLICommand):
         # Model options
         add_input_model_options(sub_parser, enable_hf=True, default_output_path="finetuned-adapter")
 
-        sub_parser.add_argument(
-            "--torch_dtype",
-            type=str,
-            default="bfloat16",
-            choices=["bfloat16", "float16", "float32"],
-            help="The torch dtype to use for training.",
-        )
-
-        # Dataset options
-        add_dataset_options(sub_parser)
-
         # LoRA options
         lora_group = sub_parser.add_argument_group("LoRA options")
         lora_group.add_argument(
@@ -77,9 +66,18 @@ class FineTuneCommand(BaseOliveCLICommand):
             "--target_modules", type=str, help="The target modules for LoRA. If multiple, separate by comma."
         )
 
+        sub_parser.add_argument(
+            "--torch_dtype",
+            type=str,
+            default="bfloat16",
+            choices=["bfloat16", "float16", "float32"],
+            help="The torch dtype to use for training.",
+        )
+
+        add_dataset_options(sub_parser)
         add_remote_options(sub_parser)
-        add_logging_options(sub_parser)
         add_shared_cache_options(sub_parser)
+        add_logging_options(sub_parser)
         sub_parser.set_defaults(func=FineTuneCommand)
 
     def run(self):
