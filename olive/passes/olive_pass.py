@@ -7,10 +7,10 @@ import logging
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Type, Union, get_args
 
 from olive.common.config_utils import NestedConfig, ParamCategory, validate_config, validate_lowercase
-from olive.common.pydantic_v1 import Field, validator
+from olive.common.pydantic_v1 import BaseModel, Field, ValidationError, create_model, validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
@@ -120,11 +120,49 @@ class Pass(ABC):
 
         # Get the config class with default value or default search value
         config_class, default_config = cls.get_config_class(accelerator_spec, disable_search)
+
+        if not disable_search:
+            # Replace user-provided values with Categorical if user intended to search
+            config = cls.identify_search_values(config, default_config)
+
         # Generate the search space by using both default value and default search value and user provided config
         config = validate_config(config, config_class)
 
         config = cls._resolve_config(config, default_config)
         return cls._init_fixed_and_search_params(config, default_config)
+
+    @classmethod
+    def identify_search_values(
+        cls,
+        config: Dict[str, Any],
+        default_config: Dict[str, PassConfigParam],
+    ):
+        """Conditionally, replace user provided search values with Categorical."""
+        for name, param in default_config.items():
+            if param.search_defaults and name in config:
+                value = config[name]
+
+                # If the user provided a non-empty list, validate if "type of
+                # each elements" in the list is the same as the "param's expected type".
+                # If successful, treat it as a searchable value i.e. turn it into a Categorical.
+                if isinstance(value, list) and len(value) > 0:
+                    dummy_values_config = {name: (List[param.type_], None)}
+                    dummy_values_model = create_model(
+                        f"SearchableParamConfig_{name}_values", **dummy_values_config, __base__=BaseModel
+                    )
+
+                    try:
+                        validate_config({name: value}, dummy_values_model)
+                        config[name] = Categorical(value)
+                        continue
+                    except ValidationError:
+                        # Expected in certain cases and intentionally ignored!!
+                        pass
+
+                # If not, leave the value alone so that the default validation
+                # would report an appropriate error.
+
+        return config
 
     @classmethod
     def get_config_class(cls, accelerator_spec: AcceleratorSpec, disable_search: Optional[bool] = False):
@@ -297,7 +335,7 @@ class Pass(ABC):
                 "param3": PassConfigParam(
                     type_=int,
                     default_value=1,
-                    searchable_values=Categorical([1, 2, 3]),
+                    search_defaults=Categorical([1, 2, 3]),
                     description="param3 description",
                 ),
                 # optional parameter with `category` set to `object`
@@ -314,11 +352,11 @@ class Pass(ABC):
                     default_value=ConditionalDefault(parents="param2", support={(1,): 2, (2,): 3}, default=4),
                     description="param5 description",
                 ),
-                # optional parameter with searchable_values that depends on other parameter values
+                # optional parameter with search_defaults that depends on other parameter values
                 "param6": PassConfigParam(
                     type_=int,
                     default_value=1,
-                    searchable_values=Conditional(
+                    search_defaults=Conditional(
                         parents=("param2", "param3"),
                         # invalid if (param2, param3) not in [(1, 1), (1, 2)]
                         support={
@@ -341,7 +379,7 @@ class Pass(ABC):
             if value == PassParamDefault.DEFAULT_VALUE:
                 config[key] = default_config[key].default_value
             elif value == PassParamDefault.SEARCHABLE_VALUES:
-                v = default_config[key].searchable_values
+                v = default_config[key].search_defaults
                 if v is None:
                     logger.warning("Parameter %s does not have searchable values. Using default value instead.", key)
                     v = default_config[key].default_value
