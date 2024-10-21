@@ -19,6 +19,7 @@ from olive.passes.pass_config import PassConfigBase, PassConfigParam, PassParamD
 from olive.resource_path import ResourcePath
 from olive.strategy.search_parameter import (
     Categorical,
+    CategoricalValue,
     Conditional,
     ConditionalDefault,
     SearchParameter,
@@ -338,7 +339,15 @@ class Pass(ABC):
     def _resolve_defaults(cls, config: Dict[str, Any], default_config: Dict[str, PassConfigParam]) -> Dict[str, Any]:
         """Resolve default values."""
         for key, value in config.items():
-            if value == PassParamDefault.DEFAULT_VALUE:
+            if isinstance(default_config[key].searchable_values, CategoricalValue):
+                # Replace CategoricalValue with Categorical parameter
+                v = value
+                if v is None or isinstance(v, CategoricalValue):
+                    v = default_config[key].default_value
+                if not isinstance(v, list):
+                    v = [v]
+                config[key] = Categorical(v)
+            elif value == PassParamDefault.DEFAULT_VALUE:
                 config[key] = default_config[key].default_value
             elif value == PassParamDefault.SEARCHABLE_VALUES:
                 v = default_config[key].searchable_values
@@ -406,7 +415,7 @@ class Pass(ABC):
         """Resolve a search parameter."""
         if isinstance(param, Conditional):
             # if value is conditional and one/more parents are fixed, use the condition to get new value
-            parent_values = {parent: fixed_params[parent] for parent in param.parents if parent in fixed_params}
+            parent_values = {parent: fixed_params[parent] for parent in param.get_parents() if parent in fixed_params}
             if len(parent_values) > 0:
                 param = param.condition(parent_values)
             if isinstance(param, ConditionalDefault):
