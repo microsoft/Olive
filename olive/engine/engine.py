@@ -15,7 +15,7 @@ from olive.cache import CacheConfig, OliveCache
 from olive.common.config_utils import validate_config
 from olive.common.constants import DEFAULT_WORKFLOW_ID, LOCAL_INPUT_MODEL_ID
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS
-from olive.engine.footprint import Footprint, FootprintNodeMetric
+from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric, get_best_candidate_node
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
@@ -229,12 +229,12 @@ class Engine:
                     output_dir/output_footprints.json: footprint of the output models
 
                     A. One pass flow:
-                        output_dir/output_model/metrics.json: evaluation results of the output model
-                        output_dir/output_model/model_config.json: output model configuration
-                        output_dir/output_model/...: output model files
+                        output_dir/metrics.json: evaluation results of the output model
+                        output_dir/model_config.json: output model configuration
+                        output_dir/...: output model files
 
                     B. Multiple pass flows:
-                        output_dir/output_model/{pass_flow}/...: Same as A but for each pass flow
+                        output_dir/{pass_flow}/...: Same as A but for each pass flow
 
                 2. Multiple accelerator specs
                     output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec
@@ -287,6 +287,14 @@ class Engine:
             )
         else:
             logger.debug("No packaging config provided, skip packaging artifacts")
+
+        # TODO(team): refactor output structure
+        # Do not change condition order. For no search, values of outputs are MetricResult
+        # Consolidate the output structure for search and no search mode
+        if outputs and self.passes and not next(iter(outputs.values())).check_empty_nodes():
+            best_node: FootprintNode = get_best_candidate_node(outputs, self.footprints)
+            self.cache.save_model(model_id=best_node.model_id, output_dir=output_dir, overwrite=True)
+            logger.info("Saved output model to %s", outputs)
 
         return outputs
 
@@ -396,8 +404,7 @@ class Engine:
                 pass_name = pass_item["name"]
                 raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
 
-        # output models will be saved in output_dir/output_model
-        output_model_dir = Path(output_dir) / "output_model"
+        output_model_dir = Path(output_dir)
 
         output_model_ids = []
         for pass_flow in self.pass_flows:
@@ -430,9 +437,6 @@ class Engine:
                 with open(results_path, "w") as f:
                     json.dump(signal.to_json(), f, indent=4)
                 logger.info("Saved evaluation results of output model to %s", results_path)
-
-            self.cache.save_model(model_id=model_ids[-1], output_dir=flow_output_dir, overwrite=True)
-            logger.info("Saved output model to %s", flow_output_dir)
 
             output_model_ids.append(model_ids[-1])
 
