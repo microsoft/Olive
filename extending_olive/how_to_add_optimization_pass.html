@@ -193,7 +193,7 @@ name of the object in the user script. The type must include <code class="docuti
 <li><p><code class="docutils literal notranslate"><span class="pre">description</span></code> : description of the parameter</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">default_value</span></code>: default value for the parameter. This value is used as the default if <code class="docutils literal notranslate"><span class="pre">disable_search=False</span></code> or there are no searchable values.
 Must be the same type as the parameter or a ConditionalDefault SearchParameter.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">searchable_values</span></code>: default searchable values for the parameter. This value is used as the default if <code class="docutils literal notranslate"><span class="pre">disable_search=True</span></code>.
+<li><p><code class="docutils literal notranslate"><span class="pre">search_defaults</span></code>: default search values for the parameter. This value is used as the default if <code class="docutils literal notranslate"><span class="pre">disable_search=True</span></code>.
 Must be a Categorical or Conditional SearchParameter.</p></li>
 </ul>
 <section id="example">
@@ -207,7 +207,7 @@ Must be a Categorical or Conditional SearchParameter.</p></li>
             <span class="s2">&quot;param2&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param2 description&quot;</span><span class="p">),</span>
             <span class="c1"># optional parameter with default value and searchable values</span>
             <span class="s2">&quot;param3&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">searchable_values</span><span class="o">=</span><span class="n">Categorical</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]),</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param3 description&quot;</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">search_defaults</span><span class="o">=</span><span class="n">Categorical</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]),</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param3 description&quot;</span>
             <span class="p">),</span>
             <span class="c1"># optional parameter with `category` set to `object`</span>
             <span class="c1"># the value of this parameter can be a string or a function that takes a string and returns the object,</span>
@@ -221,11 +221,11 @@ Must be a Categorical or Conditional SearchParameter.</p></li>
                 <span class="n">default_value</span><span class="o">=</span><span class="n">ConditionalDefault</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="s2">&quot;param2&quot;</span><span class="p">,</span> <span class="n">support</span><span class="o">=</span><span class="p">{(</span><span class="mi">1</span><span class="p">,):</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,):</span> <span class="mi">3</span><span class="p">},</span> <span class="n">default</span><span class="o">=</span><span class="mi">4</span><span class="p">),</span>
                 <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param5 description&quot;</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="c1"># optional parameter with searchable_values that depends on other parameter values</span>
+            <span class="c1"># optional parameter with search_defaults that depends on other parameter values</span>
             <span class="s2">&quot;param6&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
                 <span class="n">default_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-                <span class="n">searchable_values</span><span class="o">=</span><span class="n">Conditional</span><span class="p">(</span>
+                <span class="n">search_defaults</span><span class="o">=</span><span class="n">Conditional</span><span class="p">(</span>
                     <span class="n">parents</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;param2&quot;</span><span class="p">,</span> <span class="s2">&quot;param3&quot;</span><span class="p">),</span>
                     <span class="c1"># invalid if (param2, param3) not in [(1, 1), (1, 2)]</span>
                     <span class="n">support</span><span class="o">=</span><span class="p">{</span>

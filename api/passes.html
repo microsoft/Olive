@@ -210,7 +210,7 @@
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -219,7 +219,7 @@
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -228,7 +228,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -237,7 +237,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -246,7 +246,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -255,7 +255,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -264,7 +264,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -273,7 +273,7 @@
 <dd><p>The version of the default (ai.onnx) opset to target.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 14</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -282,7 +282,7 @@
 <dd><p>Whether to use dynamo_export API to export ONNX model.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -291,7 +291,7 @@
 <dd><p>The arguments name to point to past key values. For model loaded from huggingface, it is ‘past_key_values’. Basically, it is used only when <cite>use_dynamo_exporter</cite> is True.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> past_key_values</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -300,7 +300,7 @@
 <dd><p>The device to use for conversion, e.g., ‘cuda’ or ‘cpu’. If not specified, will use ‘cpu’ for PyTorch model and ‘cuda’ for DistributedHfModel.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -309,7 +309,7 @@
 <dd><p>The dtype to cast the model to before conversion, e.g., ‘float32’ or ‘float16’. If not specified, will use the model as is.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -318,7 +318,7 @@
 <dd><p>Number of parallel jobs. Defaulted to number of CPUs. Set it to 0 to disable.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -327,7 +327,7 @@
 <dd><p>Whether to merge adapter weights before conversion. After merging, the model structure is consistent with base model. That is useful if you cannot run conversion for some fine-tuned models with adapter weights</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -336,7 +336,7 @@
 <dd><p>Whether to save metadata for token generation or not. Includes config.json, generation_config.json, and tokenizer related files.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -350,7 +350,7 @@
 <dd><p>The version of the default (ai.onnx) opset to target. Default: latest opset version.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 22</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -359,7 +359,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -368,7 +368,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -377,7 +377,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -386,7 +386,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -395,7 +395,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -410,7 +410,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -419,7 +419,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -428,7 +428,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -437,7 +437,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -446,7 +446,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -464,7 +464,7 @@
 <dd><p>Transformer based model type, including bert (exported by PyTorch), gpt2 (exported by PyTorch), bert_tf (BERT exported by tf2onnx), bert_keras (BERT exported by keras2onnx), and unet/vae/clip (stable diffusion).</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -473,7 +473,7 @@
 <dd><p>Number of attention heads.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 0</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -482,7 +482,7 @@
 <dd><p>Number of key/value attention heads.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 0</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -491,7 +491,7 @@
 <dd><p>Number of hidden nodes.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 0</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -500,7 +500,7 @@
 <dd><p>Optimization options that turn on/off some fusions.</p>
 <p><strong>type:</strong> Dict[str, Any] | onnxruntime.transformers.fusion_options.FusionOptions</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -509,7 +509,7 @@
 <dd><p>Graph optimization level of Onnx Runtime: 0 - disable all (default), 1 - basic, 2 - extended, 99 - all.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -518,7 +518,7 @@
 <dd><p>Flag for GPU inference.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -527,7 +527,7 @@
 <dd><p>Whether only use onnxruntime to optimize model, and no python fusion. Disable some optimizers that might cause failure in symbolic shape inference or attention fusion, when opt_level &gt; 1.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -536,7 +536,7 @@
 <dd><p>Whether half-precision float will be used.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -545,7 +545,7 @@
 <dd><p>Keep input and output tensors in their original data type. Only used when float16 is True.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -554,7 +554,7 @@
 <dd><p>Operators that are forced to run in float32. Only used when float16 is True.</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -563,7 +563,7 @@
 <dd><p>Nodes that are forced to run in float32. Only used when float16 is True.</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -572,7 +572,7 @@
 <dd><p>Force the conversion of the inputs of some operators to float16, even if ‘convert_float_to_float16` tool prefers it to keep them in float32.</p>
 <p><strong>type:</strong> Dict[str, List[int]]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -581,7 +581,7 @@
 <dd><p>Replace MultiHeadAttention with GroupQueryAttention. True is only supported when float16 is True.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -590,7 +590,7 @@
 <dd><p>Whether int32 tensors will be used as input.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -599,7 +599,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -608,7 +608,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -617,7 +617,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -626,7 +626,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -635,7 +635,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -650,7 +650,7 @@
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -659,7 +659,7 @@
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -668,7 +668,7 @@
 <dd><p>Data config to load data for computing latency.</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -677,7 +677,7 @@
 <dd><p>Device selected for tuning process.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> cpu</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -686,7 +686,7 @@
 <dd><p>CPU cores used for thread tuning.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -695,7 +695,7 @@
 <dd><p>Whether enable IOBinding Search for ONNX Runtime inference.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -704,7 +704,7 @@
 <dd><p>Whether enable CUDA Graph for CUDA execution provider.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -713,7 +713,7 @@
 <dd><p>Execution providers framework list to execute the ONNX models.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> [‘CPUExecutionProvider’]</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -722,7 +722,7 @@
 <dd><p>Parallelism list between operators.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -731,7 +731,7 @@
 <dd><p>Optimization level list for ONNX model.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -740,7 +740,7 @@
 <dd><p>Whether enable FP16 mode for TensorRT execution provider.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -749,7 +749,7 @@
 <dd><p>List of intra thread number for test.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> [None]</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -758,7 +758,7 @@
 <dd><p>List of inter thread number for test.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> [None]</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -767,7 +767,7 @@
 <dd><p>Extra customized session options during tuning process.</p>
 <p><strong>type:</strong> Dict[str, Any]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -776,7 +776,7 @@
 <dd><p>Whether force to evaluate all execution providers which are different with the associated execution provider.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -785,7 +785,7 @@
 <dd><p>Whether enable profiling for ONNX Runtime inference.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -802,7 +802,7 @@
 <dd><p>Constant values will be clipped against this value</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 1e-07</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -811,7 +811,7 @@
 <dd><p>Constant values will be clipped against this value</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 10000.0</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -820,7 +820,7 @@
 <dd><p>Whether model inputs/outputs should be left as float32</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -829,7 +829,7 @@
 <dd><p>Use symbolic shape inference instead of onnx shape inference. Defaults to True.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -838,7 +838,7 @@
 <dd><p>List of op types to leave as float32</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -847,7 +847,7 @@
 <dd><p>List of node names to leave as float32</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -856,7 +856,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -865,7 +865,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -874,7 +874,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -883,7 +883,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -892,7 +892,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -907,7 +907,7 @@
 <dd><p>Only convert inputs/outputs whose name matches this pattern. By defaultlooking for logits names</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> logits</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -916,7 +916,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -925,7 +925,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -934,7 +934,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -943,7 +943,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -952,7 +952,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -967,7 +967,7 @@
 <dd><p>List of op types to leave as float32</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> [‘SimplifiedLayerNormalization’, ‘SkipSimplifiedLayerNormalization’, ‘Relu’, ‘Add’]</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -976,7 +976,7 @@
 <dd><p>Absolute tolerance for checking float16 conversion</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 1e-06</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -985,7 +985,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -994,7 +994,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1003,7 +1003,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1012,7 +1012,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1021,7 +1021,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -1036,7 +1036,7 @@
 <dd><p>Whether to fuse ReduceMean sequence into a single LayerNormalization node.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1059,7 +1059,7 @@
                 transformation to cancel out.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1081,7 +1081,7 @@
             to cancel out.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1090,7 +1090,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1099,7 +1099,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1108,7 +1108,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1117,7 +1117,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1126,7 +1126,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -1160,7 +1160,7 @@
 <dd><p>List of element wise binary ops, if not provided defaults to [‘Add’, ‘Sub’, ‘Mul’, ‘Div’]</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1169,7 +1169,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1178,7 +1178,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1187,7 +1187,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1196,7 +1196,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1205,7 +1205,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -1220,7 +1220,7 @@
 <dd><p>dynamic quantization mode</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> dynamic</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1232,7 +1232,7 @@
             ‘QUInt8’ for unsigned 8-bit integer.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> QInt8</p>
-<p><strong>searchable_values:</strong> Categorical([‘QInt8’, ‘QUInt8’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘QInt8’, ‘QUInt8’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1242,7 +1242,7 @@
             List of operator types to quantize. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1252,7 +1252,7 @@
             If True, append operator types which firstly appear in the model to op_types_to_quantize.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1262,7 +1262,7 @@
             List of node names to quantize. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1272,7 +1272,7 @@
             List of node names to exclude from quantization. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1284,7 +1284,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization">https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization</a></p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1297,7 +1297,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization">https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization</a></p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1308,7 +1308,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#pre-processing">https://onnxruntime.ai/docs/performance/quantization.html#pre-processing</a></p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1316,7 +1316,7 @@
 <span class="sig-name descname"><span class="pre">extra.Sigmoid.nnapi</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-extra.Sigmoid.nnapi" title="Permalink to this definition"></a></dt>
 <dd><p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1325,7 +1325,7 @@
 <dd><p>symmetrize calibration data for activations</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1334,7 +1334,7 @@
 <dd><p>symmetrize calibration data for weights</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1343,7 +1343,7 @@
 <dd><p>If enabled, subgraph will be quantized. Dynamic mode currently is supported.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1355,7 +1355,7 @@
             quantized output. Also the True behavior could be disabled per node using the nodes_to_exclude.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1364,7 +1364,7 @@
 <dd><p>If enabled, only MatMul with const B will be quantized.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> ConditionalDefault(parents: (‘quant_mode’,), support: {(‘dynamic’,): True, (‘static’,): False}, default: OLIVE_INVALID_PARAM_VALUE)</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1378,7 +1378,7 @@
             value.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1387,7 +1387,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1396,7 +1396,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1405,7 +1405,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1414,7 +1414,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1423,7 +1423,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -1438,7 +1438,7 @@
 <dd><p>static quantization mode</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> static</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1450,7 +1450,7 @@
             ‘QUInt8’ for unsigned 8-bit integer.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> QInt8</p>
-<p><strong>searchable_values:</strong> Categorical([‘QInt8’, ‘QUInt8’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘QInt8’, ‘QUInt8’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1460,7 +1460,7 @@
             List of operator types to quantize. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1470,7 +1470,7 @@
             If True, append operator types which firstly appear in the model to op_types_to_quantize.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1480,7 +1480,7 @@
             List of node names to quantize. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1490,7 +1490,7 @@
             List of node names to exclude from quantization. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1502,7 +1502,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization">https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization</a></p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1515,7 +1515,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization">https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization</a></p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1526,7 +1526,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#pre-processing">https://onnxruntime.ai/docs/performance/quantization.html#pre-processing</a></p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1536,7 +1536,7 @@
             Data config for calibration, required if quant_mode is ‘static’</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1548,7 +1548,7 @@
             Percentile is not supported for onnxruntime==1.16.0, please avoid to set/search it.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> MinMax</p>
-<p><strong>searchable_values:</strong> Categorical([‘MinMax’, ‘Entropy’, ‘Percentile’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘MinMax’, ‘Entropy’, ‘Percentile’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1559,7 +1559,7 @@
             QDQ format quantize the model by inserting QuantizeLinear/DeQuantizeLinear on the tensor.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> QDQ</p>
-<p><strong>searchable_values:</strong> Categorical([‘QOperator’, ‘QDQ’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘QOperator’, ‘QDQ’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1570,7 +1570,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html">https://onnxruntime.ai/docs/performance/quantization.html</a> for more details on data type selection</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> QInt8</p>
-<p><strong>searchable_values:</strong> Conditional(parents: (‘quant_format’, ‘weight_type’), support: {(‘QDQ’, ‘QInt8’): Categorical([‘QInt8’]), (‘QDQ’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘QOperator’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘QOperator’, ‘QInt8’): Categorical([&lt;SpecialParamValue.INVALID: ‘OLIVE_INVALID_PARAM_VALUE’&gt;])}, default: Categorical([&lt;SpecialParamValue.INVALID: ‘OLIVE_INVALID_PARAM_VALUE’&gt;]))</p>
+<p><strong>search_defaults:</strong> Conditional(parents: (‘quant_format’, ‘weight_type’), support: {(‘QDQ’, ‘QInt8’): Categorical([‘QInt8’]), (‘QDQ’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘QOperator’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘QOperator’, ‘QInt8’): Categorical([&lt;SpecialParamValue.INVALID: ‘OLIVE_INVALID_PARAM_VALUE’&gt;])}, default: Categorical([&lt;SpecialParamValue.INVALID: ‘OLIVE_INVALID_PARAM_VALUE’&gt;]))</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1581,7 +1581,7 @@
             Should be set to True if model is targeted for QNN EP.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1627,7 +1627,7 @@
             To be noted that the options might be updated in the further version of onnxruntime.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1635,7 +1635,7 @@
 <span class="sig-name descname"><span class="pre">extra.Sigmoid.nnapi</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-61" title="Permalink to this definition"></a></dt>
 <dd><p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1644,7 +1644,7 @@
 <dd><p>symmetrize calibration data for activations</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1653,7 +1653,7 @@
 <dd><p>symmetrize calibration data for weights</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1662,7 +1662,7 @@
 <dd><p>If enabled, subgraph will be quantized. Dynamic mode currently is supported.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1674,7 +1674,7 @@
             quantized output. Also the True behavior could be disabled per node using the nodes_to_exclude.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1683,7 +1683,7 @@
 <dd><p>If enabled, only MatMul with const B will be quantized.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> ConditionalDefault(parents: (‘quant_mode’,), support: {(‘dynamic’,): True, (‘static’,): False}, default: OLIVE_INVALID_PARAM_VALUE)</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1697,7 +1697,7 @@
             value.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1706,7 +1706,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1715,7 +1715,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1724,7 +1724,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1733,7 +1733,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1742,7 +1742,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -1759,7 +1759,7 @@
                     ‘static’ for static quantization.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> static</p>
-<p><strong>searchable_values:</strong> Categorical([‘dynamic’, ‘static’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘dynamic’, ‘static’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1771,7 +1771,7 @@
             ‘QUInt8’ for unsigned 8-bit integer.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> QInt8</p>
-<p><strong>searchable_values:</strong> Categorical([‘QInt8’, ‘QUInt8’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘QInt8’, ‘QUInt8’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1781,7 +1781,7 @@
             List of operator types to quantize. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1791,7 +1791,7 @@
             If True, append operator types which firstly appear in the model to op_types_to_quantize.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1801,7 +1801,7 @@
             List of node names to quantize. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1811,7 +1811,7 @@
             List of node names to exclude from quantization. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1823,7 +1823,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization">https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization</a></p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1836,7 +1836,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization">https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization</a></p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1847,7 +1847,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#pre-processing">https://onnxruntime.ai/docs/performance/quantization.html#pre-processing</a></p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1857,7 +1857,7 @@
             Data config for calibration, required if quant_mode is ‘static’</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1869,7 +1869,7 @@
             Percentile is not supported for onnxruntime==1.16.0, please avoid to set/search it.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> ConditionalDefault(parents: (‘quant_mode’,), support: {(‘static’,): ‘MinMax’, (‘dynamic’,): &lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;}, default: OLIVE_INVALID_PARAM_VALUE)</p>
-<p><strong>searchable_values:</strong> Conditional(parents: (‘quant_mode’,), support: {(‘static’,): Categorical([‘MinMax’, ‘Entropy’, ‘Percentile’])}, default: Categorical([&lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;]))</p>
+<p><strong>search_defaults:</strong> Conditional(parents: (‘quant_mode’,), support: {(‘static’,): Categorical([‘MinMax’, ‘Entropy’, ‘Percentile’])}, default: Categorical([&lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;]))</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1880,7 +1880,7 @@
             QDQ format quantize the model by inserting QuantizeLinear/DeQuantizeLinear on the tensor.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> ConditionalDefault(parents: (‘quant_mode’,), support: {(‘static’,): ‘QDQ’, (‘dynamic’,): &lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;}, default: OLIVE_INVALID_PARAM_VALUE)</p>
-<p><strong>searchable_values:</strong> Conditional(parents: (‘quant_mode’,), support: {(‘static’,): Categorical([‘QOperator’, ‘QDQ’])}, default: Categorical([&lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;]))</p>
+<p><strong>search_defaults:</strong> Conditional(parents: (‘quant_mode’,), support: {(‘static’,): Categorical([‘QOperator’, ‘QDQ’])}, default: Categorical([&lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;]))</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1891,7 +1891,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html">https://onnxruntime.ai/docs/performance/quantization.html</a> for more details on data type selection</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> ConditionalDefault(parents: (‘quant_mode’,), support: {(‘static’,): ‘QInt8’, (‘dynamic’,): &lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;}, default: OLIVE_INVALID_PARAM_VALUE)</p>
-<p><strong>searchable_values:</strong> Conditional(parents: (‘quant_mode’, ‘quant_format’, ‘weight_type’), support: {(‘static’, ‘QDQ’, ‘QInt8’): Categorical([‘QInt8’]), (‘static’, ‘QDQ’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘static’, ‘QOperator’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘static’, ‘QOperator’, ‘QInt8’): Categorical([&lt;SpecialParamValue.INVALID: ‘OLIVE_INVALID_PARAM_VALUE’&gt;])}, default: Categorical([&lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;]))</p>
+<p><strong>search_defaults:</strong> Conditional(parents: (‘quant_mode’, ‘quant_format’, ‘weight_type’), support: {(‘static’, ‘QDQ’, ‘QInt8’): Categorical([‘QInt8’]), (‘static’, ‘QDQ’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘static’, ‘QOperator’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘static’, ‘QOperator’, ‘QInt8’): Categorical([&lt;SpecialParamValue.INVALID: ‘OLIVE_INVALID_PARAM_VALUE’&gt;])}, default: Categorical([&lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;]))</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1902,7 +1902,7 @@
             Should be set to True if model is targeted for QNN EP.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> ConditionalDefault(parents: (‘quant_mode’,), support: {(‘static’,): False, (‘dynamic’,): &lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;}, default: OLIVE_INVALID_PARAM_VALUE)</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1948,7 +1948,7 @@
             To be noted that the options might be updated in the further version of onnxruntime.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> ConditionalDefault(parents: (‘quant_mode’,), support: {(‘static’,): None, (‘dynamic’,): &lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;}, default: OLIVE_INVALID_PARAM_VALUE)</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1956,7 +1956,7 @@
 <span class="sig-name descname"><span class="pre">extra.Sigmoid.nnapi</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-88" title="Permalink to this definition"></a></dt>
 <dd><p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1965,7 +1965,7 @@
 <dd><p>symmetrize calibration data for activations</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1974,7 +1974,7 @@
 <dd><p>symmetrize calibration data for weights</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1983,7 +1983,7 @@
 <dd><p>If enabled, subgraph will be quantized. Dynamic mode currently is supported.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1995,7 +1995,7 @@
             quantized output. Also the True behavior could be disabled per node using the nodes_to_exclude.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2004,7 +2004,7 @@
 <dd><p>If enabled, only MatMul with const B will be quantized.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> ConditionalDefault(parents: (‘quant_mode’,), support: {(‘dynamic’,): True, (‘static’,): False}, default: OLIVE_INVALID_PARAM_VALUE)</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2018,7 +2018,7 @@
             value.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2027,7 +2027,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2036,7 +2036,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2045,7 +2045,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2054,7 +2054,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2063,7 +2063,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -2077,7 +2077,7 @@
 <dd><p>Block size for quantization. Default value is 32.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 32</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2086,7 +2086,7 @@
 <dd><p>Symmetric quantization. Default value is True.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2095,7 +2095,7 @@
 <dd><p>List of node names to exclude from quantization.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2104,7 +2104,7 @@
 <dd><p>Available from onnxruntime&gt;=1.17.0 The minimum accuracy level of input A, can be: 0(unset), 1(fp32), 2(fp16), 3(bf16), or 4(int8) (default unset when 0 or None). It is used to control how input A is quantized or downcast internally while doing computation, for example: 0 means input A will not be quantized or downcast while doing computation. 4 means input A can be quantized with the same block_size to int8 internally from type T1. Refer to the MatMulNBits contrib op’s ‘accuracy_level’ attribute for details (<a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits">https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits</a>).</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2113,7 +2113,7 @@
 <dd><p>If ‘None’, the Matmul node with fp32 const weight will be quantize to int4.1. ‘RTN’ and ‘GPTQ’ are available from onnxruntime&gt;=1.17.0 - For 4b quantize a model with RTN or GPTQ algorithm. Please refer to <a class="reference external" href="https://github.com/intel/neural-compressor/blob/master/docs/source/quantization_weight_only.md">https://github.com/intel/neural-compressor/blob/master/docs/source/quantization_weight_only.md</a> for more details on weight only quantization using Intel® Neural Compressor. 2. ‘DEFAULT’, ‘HQQ’ are available from onnxruntime&gt;=1.18.0 - <cite>DEFAULT</cite> takes the same effect as <cite>None</cite>- For HQQ, please refer to onnxruntime for more details: <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L102C1-L126C25">https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L102C1-L126C25</a></p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2154,7 +2154,7 @@
                     <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L63C1-L99C37">https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L63C1-L99C37</a></p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2163,7 +2163,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2172,7 +2172,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2181,7 +2181,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2190,7 +2190,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2199,7 +2199,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2209,7 +2209,7 @@
             Data config for calibration, required if quant_mode is ‘static’</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -2223,7 +2223,7 @@
 <dd><p>Whether to use a Transpose operator after the DequantizeLinear operator. If False, the weight initializer will be transposed instead. Default is False. True might be more efficient on some EPs such as DirectML.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2232,7 +2232,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2241,7 +2241,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2250,7 +2250,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2259,7 +2259,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2268,7 +2268,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -2283,7 +2283,7 @@
 <dd><p>Symbolic parameter name. Provide dim_value if specified.</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2292,7 +2292,7 @@
 <dd><p>Value to replace dim_param with in the model. Must be &gt; 0.</p>
 <p><strong>type:</strong> List[int]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2301,7 +2301,7 @@
 <dd><p>Model input name to replace shape of. Provide input_shape if specified.</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2310,7 +2310,7 @@
 <dd><p>Shape to use for input_shape. Provide comma separated list for the shape. All values must be &gt; 0. e.g. [1,3,256,256]</p>
 <p><strong>type:</strong> List[List[int]]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2319,7 +2319,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2328,7 +2328,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2337,7 +2337,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2346,7 +2346,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2355,7 +2355,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -2370,7 +2370,7 @@
 <dd><p>dynamic quantization mode</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> dynamic</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2380,7 +2380,7 @@
             Intel® Neural Compressor quantization device. Support ‘cpu’ and ‘gpu’.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> cpu</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2390,7 +2390,7 @@
             Backend for model execution. Support ‘default’, ‘onnxrt_trt_ep’, ‘onnxrt_cuda_ep’</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> default</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2403,7 +2403,7 @@
             If users set domain as auto, automatic detection for domain will be executed.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> auto</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2414,7 +2414,7 @@
             “./nc_workspace/{}/”.format(datetime.datetime.now().strftime(“%Y-%m-%d_%H-%M-%S”))</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2437,7 +2437,7 @@
                 ‘dedicated_qdq_pair’: whether dedicate QDQ pair, only valid for onnxrt_trt_ep</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2447,7 +2447,7 @@
             Whether use 7 bit to quantization.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2464,7 +2464,7 @@
             for more details</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> auto</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2477,7 +2477,7 @@
             If you want to disable bf16 data type, you can specify excluded_precisions = [‘bf16’].</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> []</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2488,7 +2488,7 @@
             timeout, max_trials and objective.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {‘strategy’: ‘basic’, ‘strategy_kwargs’: None, ‘timeout’: 0, ‘max_trials’: 5, ‘objective’: ‘performance’}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2499,7 +2499,7 @@
             accuracy aware tuning.</p>
 <p><strong>type:</strong> olive.evaluator.metric.Metric | None</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2509,7 +2509,7 @@
             INC weight only quantization config.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2519,7 +2519,7 @@
             INC weight only quantization config.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2528,7 +2528,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2537,7 +2537,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2546,7 +2546,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2555,7 +2555,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2564,7 +2564,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -2579,7 +2579,7 @@
 <dd><p>static quantization mode</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> static</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2589,7 +2589,7 @@
             Intel® Neural Compressor quantization device. Support ‘cpu’ and ‘gpu’.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> cpu</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2599,7 +2599,7 @@
             Backend for model execution. Support ‘default’, ‘onnxrt_trt_ep’, ‘onnxrt_cuda_ep’</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> default</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2612,7 +2612,7 @@
             If users set domain as auto, automatic detection for domain will be executed.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> auto</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2623,7 +2623,7 @@
             “./nc_workspace/{}/”.format(datetime.datetime.now().strftime(“%Y-%m-%d_%H-%M-%S”))</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2646,7 +2646,7 @@
                 ‘dedicated_qdq_pair’: whether dedicate QDQ pair, only valid for onnxrt_trt_ep</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2656,7 +2656,7 @@
             Whether use 7 bit to quantization.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2673,7 +2673,7 @@
             for more details</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> auto</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2686,7 +2686,7 @@
             If you want to disable bf16 data type, you can specify excluded_precisions = [‘bf16’].</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> []</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2697,7 +2697,7 @@
             timeout, max_trials and objective.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {‘strategy’: ‘basic’, ‘strategy_kwargs’: None, ‘timeout’: 0, ‘max_trials’: 5, ‘objective’: ‘performance’}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2708,7 +2708,7 @@
             accuracy aware tuning.</p>
 <p><strong>type:</strong> olive.evaluator.metric.Metric | None</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2718,7 +2718,7 @@
             INC weight only quantization config.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {‘bits’: 4, ‘group_size’: 4, ‘scheme’: ‘asym’, ‘algorithm’: ‘RTN’}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2728,7 +2728,7 @@
             INC weight only quantization config.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2747,7 +2747,7 @@
             Quantization format. Support ‘QDQ’ and ‘QOperator’.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> QOperator</p>
-<p><strong>searchable_values:</strong> Categorical([‘QOperator’, ‘QDQ’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘QOperator’, ‘QDQ’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2757,7 +2757,7 @@
             Number of calibration sample.</p>
 <p><strong>type:</strong> list | int</p>
 <p><strong>default_value:</strong> [100]</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2766,7 +2766,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2775,7 +2775,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2784,7 +2784,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2793,7 +2793,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2802,7 +2802,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -2819,7 +2819,7 @@
                 ‘static’ for static quantization, “weight_only” for 4-bits weight-only quantization.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> static</p>
-<p><strong>searchable_values:</strong> Categorical([‘dynamic’, ‘static’, ‘weight_only’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘dynamic’, ‘static’, ‘weight_only’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2829,7 +2829,7 @@
             Intel® Neural Compressor quantization device. Support ‘cpu’ and ‘gpu’.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> cpu</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2839,7 +2839,7 @@
             Backend for model execution. Support ‘default’, ‘onnxrt_trt_ep’, ‘onnxrt_cuda_ep’</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> default</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2852,7 +2852,7 @@
             If users set domain as auto, automatic detection for domain will be executed.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> auto</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2863,7 +2863,7 @@
             “./nc_workspace/{}/”.format(datetime.datetime.now().strftime(“%Y-%m-%d_%H-%M-%S”))</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2886,7 +2886,7 @@
                 ‘dedicated_qdq_pair’: whether dedicate QDQ pair, only valid for onnxrt_trt_ep</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2896,7 +2896,7 @@
             Whether use 7 bit to quantization.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2913,7 +2913,7 @@
             for more details</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> auto</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2926,7 +2926,7 @@
             If you want to disable bf16 data type, you can specify excluded_precisions = [‘bf16’].</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> []</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2937,7 +2937,7 @@
             timeout, max_trials and objective.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {‘strategy’: ‘basic’, ‘strategy_kwargs’: None, ‘timeout’: 0, ‘max_trials’: 5, ‘objective’: ‘performance’}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2948,7 +2948,7 @@
             accuracy aware tuning.</p>
 <p><strong>type:</strong> olive.evaluator.metric.Metric | None</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2958,7 +2958,7 @@
             INC weight only quantization config.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {‘bits’: 4, ‘group_size’: 4, ‘scheme’: ‘asym’, ‘algorithm’: ‘RTN’}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2968,7 +2968,7 @@
             INC weight only quantization config.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2987,7 +2987,7 @@
             Quantization format. Support ‘QDQ’ and ‘QOperator’.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> QOperator</p>
-<p><strong>searchable_values:</strong> Conditional(parents: (‘approach’,), support: {(‘static’,): Categorical([‘QOperator’, ‘QDQ’])}, default: Categorical([‘default’]))</p>
+<p><strong>search_defaults:</strong> Conditional(parents: (‘approach’,), support: {(‘static’,): Categorical([‘QOperator’, ‘QDQ’])}, default: Categorical([‘default’]))</p>
 </dd></dl>
 
 <dl class="std option">
@@ -2997,7 +2997,7 @@
             Number of calibration sample.</p>
 <p><strong>type:</strong> list | int</p>
 <p><strong>default_value:</strong> [100]</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3006,7 +3006,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3015,7 +3015,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3024,7 +3024,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3033,7 +3033,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3042,7 +3042,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -3061,7 +3061,7 @@
                     ‘static’ for vitis ai quantization.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> static</p>
-<p><strong>searchable_values:</strong> Categorical([‘static’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘static’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3080,7 +3080,7 @@
             ‘QInt8’ for signed 8-bit integer,</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> QInt8</p>
-<p><strong>searchable_values:</strong> Categorical([‘QInt8’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘QInt8’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3090,7 +3090,7 @@
             Start node that needs quantization. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3100,7 +3100,7 @@
             End node that needs quantization. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3110,7 +3110,7 @@
             List of operator types to quantize. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3120,7 +3120,7 @@
             List of node names to quantize. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3130,7 +3130,7 @@
             List of node names to exclude from quantization. If None, all quantizable.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3140,7 +3140,7 @@
             Quantize weights per channel.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3151,7 +3151,7 @@
             change the computation graph, making debugging of quantization loss difficult.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3161,7 +3161,7 @@
             option used for large size (&gt;2GB) model. Set to True by default.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3172,7 +3172,7 @@
             <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#pre-processing">https://onnxruntime.ai/docs/performance/quantization.html#pre-processing</a></p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3183,7 +3183,7 @@
             Please use NonOverflow or MinMSE as options.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> MinMSE</p>
-<p><strong>searchable_values:</strong> Categorical([‘NonOverflow’, ‘MinMSE’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘NonOverflow’, ‘MinMSE’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3193,7 +3193,7 @@
             QDQ format quantize the model by inserting QuantizeLinear/DeQuantizeLinear on the tensor.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> QDQ</p>
-<p><strong>searchable_values:</strong> Categorical([‘QDQ’, ‘QOperator’])</p>
+<p><strong>search_defaults:</strong> Categorical([‘QDQ’, ‘QOperator’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3203,7 +3203,7 @@
             Perform layer fusion for conv-relu type operations</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3213,7 +3213,7 @@
             Quantization data type of activation.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> QUInt8</p>
-<p><strong>searchable_values:</strong> Conditional(parents: (‘quant_format’, ‘weight_type’), support: {(‘QDQ’, ‘QInt8’): Categorical([‘QInt8’]), (‘QDQ’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘QOperator’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘QOperator’, ‘QInt8’): Categorical([&lt;SpecialParamValue.INVALID: ‘OLIVE_INVALID_PARAM_VALUE’&gt;])}, default: Categorical([&lt;SpecialParamValue.INVALID: ‘OLIVE_INVALID_PARAM_VALUE’&gt;]))</p>
+<p><strong>search_defaults:</strong> Conditional(parents: (‘quant_format’, ‘weight_type’), support: {(‘QDQ’, ‘QInt8’): Categorical([‘QInt8’]), (‘QDQ’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘QOperator’, ‘QUInt8’): Categorical([‘QUInt8’]), (‘QOperator’, ‘QInt8’): Categorical([&lt;SpecialParamValue.INVALID: ‘OLIVE_INVALID_PARAM_VALUE’&gt;])}, default: Categorical([&lt;SpecialParamValue.INVALID: ‘OLIVE_INVALID_PARAM_VALUE’&gt;]))</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3223,7 +3223,7 @@
             Use QDQ format optimized specifically for DPU.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3232,7 +3232,7 @@
 <dd><p>symmetrize calibration data for activations</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3241,7 +3241,7 @@
 <dd><p>symmetrize calibration data for weights</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3250,7 +3250,7 @@
 <dd><p>remains floating-point weight and inserts both QuantizeLinear/DeQuantizeLinear nodes to weight</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3262,7 +3262,7 @@
             value.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3271,7 +3271,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3280,7 +3280,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3289,7 +3289,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3298,7 +3298,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3307,7 +3307,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -3322,7 +3322,7 @@
 <dd><p>List of pre-processing commands to add.</p>
 <p><strong>type:</strong> List[Dict[str, Any]]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3331,7 +3331,7 @@
 <dd><p>List of post-processing commands to add.</p>
 <p><strong>type:</strong> List[Dict[str, Any]]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3340,7 +3340,7 @@
 <dd><p>Composited tool commands to invoke.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3354,7 +3354,7 @@
                     “shape”: [“num_bytes”],</p>
 <p><strong>type:</strong> Dict[str, Any] | List[olive.passes.onnx.append_pre_post_processing_ops.PrePostProcessorInput]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3363,7 +3363,7 @@
 <dd><p>The version of the default (ai.onnx) opset to target.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3372,7 +3372,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3381,7 +3381,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3390,7 +3390,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3399,7 +3399,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3408,7 +3408,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -3427,7 +3427,7 @@
 </div></blockquote>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 0</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3436,7 +3436,7 @@
 <dd><p>Use vocab_mask as an extra graph input to the beam search op. Only supported in ORT &gt;= 1.16.0</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3445,7 +3445,7 @@
 <dd><p>Use prefix_vocab_mask as an extra graph input to the beam search op. Only supported in ORT &gt;= 1.16.0</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3454,7 +3454,7 @@
 <dd><p>Use decoder_input_ids as an extra graph input to the beam search op. Only supported in ORT &gt;= 1.16.0</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3463,7 +3463,7 @@
 <dd><p>Use logits_processor as an extra graph input to the beam search op. Only supported in ORT &gt;= 1.16.0</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3472,7 +3472,7 @@
 <dd><p>Use temperature as an extra graph input to the beam search op. Only supported in ORT &gt;= 1.17.1</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3481,7 +3481,7 @@
 <dd><p>Is the model in fp16 precision.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3490,7 +3490,7 @@
 <dd><p>Use GPU for beam search op.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3499,7 +3499,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3508,7 +3508,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3517,7 +3517,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3526,7 +3526,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3535,7 +3535,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -3556,7 +3556,7 @@
 <dd><p>Convert adapter weights to inputs. If false, the adapter weights will be set as initializers with external data.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3565,7 +3565,7 @@
 <dd><p>Whether the model uses dynamic shape for lora_r. Only used if make_inputs is True. Valid only for float modules.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3574,7 +3574,7 @@
 <dd><p>Create default initializers (empty tensor with lora_r dimension set to 0) for the adapter weights, if inputs not provided during inference. Only used if make_inputs is True. Valid only for float modules.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3583,7 +3583,7 @@
 <dd><p>Format to save the weights in.</p>
 <p><strong>type:</strong> olive.common.utils.WeightsFileFormat</p>
 <p><strong>default_value:</strong> numpy</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3592,7 +3592,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3601,7 +3601,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3610,7 +3610,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3619,7 +3619,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3628,7 +3628,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -3643,7 +3643,7 @@
 <dd><p>Target modules</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3652,7 +3652,7 @@
 <dd><p>Lora R dimension.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 64</p>
-<p><strong>searchable_values:</strong> Categorical([16, 32, 64])</p>
+<p><strong>search_defaults:</strong> Categorical([16, 32, 64])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3661,7 +3661,7 @@
 <dd><p>The alpha parameter for Lora scaling.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3670,7 +3670,7 @@
 <dd><p>The dropout probability for Lora layers.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 0.05</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3679,7 +3679,7 @@
 <dd><p>List of modules apart from LoRA layers to be set as trainable and saved in the final checkpoint.</p>
 <p><strong>type:</strong> None</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3688,7 +3688,7 @@
 <dd><p>Data type to use for training. Should be one of <cite>bfloat16</cite>, <cite>float16</cite> or <cite>float32</cite>. If <cite>float16</cite> will use fp16 mixed-precision training.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> bfloat16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3697,7 +3697,7 @@
 <dd><p>Whether or not to allow TF32 on Ampere GPUs. Can be used to speed up training. For more information, see ‘<a class="reference external" href="https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices">https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices</a>’</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3714,7 +3714,7 @@
 <dd><p>Data config for fine-tuning evaluation. Optional if evaluation is not needed.</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3723,7 +3723,7 @@
 <dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
 <p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -3738,7 +3738,7 @@
 <dd><p>Whether to use nested quantization where the quantization constants from the first quantization are quantized again.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3747,7 +3747,7 @@
 <dd><p>Quantization data type to use. Should be one of <cite>fp4</cite> or <cite>nf4</cite>.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> nf4</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3756,7 +3756,7 @@
 <dd><p>Computation data type for the quantized modules. If not provided, will use the same dtype as torch_dtype</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3765,7 +3765,7 @@
 <dd><p>Whether to save the output model with the bitsandbytes quantization config. If False, the base model will be in the original precision. If True, the base model will be quantized on load.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3774,7 +3774,7 @@
 <dd><p>Lora R dimension.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 64</p>
-<p><strong>searchable_values:</strong> Categorical([16, 32, 64])</p>
+<p><strong>search_defaults:</strong> Categorical([16, 32, 64])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3783,7 +3783,7 @@
 <dd><p>The alpha parameter for Lora scaling.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3792,7 +3792,7 @@
 <dd><p>The dropout probability for Lora layers.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 0.05</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3801,7 +3801,7 @@
 <dd><p>List of modules apart from LoRA layers to be set as trainable and saved in the final checkpoint.</p>
 <p><strong>type:</strong> None</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3810,7 +3810,7 @@
 <dd><p>Data type to use for training. Should be one of <cite>bfloat16</cite>, <cite>float16</cite> or <cite>float32</cite>. If <cite>float16</cite> will use fp16 mixed-precision training.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> bfloat16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3819,7 +3819,7 @@
 <dd><p>Whether or not to allow TF32 on Ampere GPUs. Can be used to speed up training. For more information, see ‘<a class="reference external" href="https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices">https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices</a>’</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3836,7 +3836,7 @@
 <dd><p>Data config for fine-tuning evaluation. Optional if evaluation is not needed.</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3845,7 +3845,7 @@
 <dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
 <p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -3860,7 +3860,7 @@
 <dd><p>Number of LoftQ iterations.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3869,7 +3869,7 @@
 <dd><p>Computation data type for the quantized modules. If not provided, will use the same dtype as torch_dtype</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3878,7 +3878,7 @@
 <dd><p>Whether to save the output model with the bitsandbytes quantization config. If False, the base model will be in the original precision. If True, the base model will be quantized on load.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3887,7 +3887,7 @@
 <dd><p>Lora R dimension.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 64</p>
-<p><strong>searchable_values:</strong> Categorical([16, 32, 64])</p>
+<p><strong>search_defaults:</strong> Categorical([16, 32, 64])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3896,7 +3896,7 @@
 <dd><p>The alpha parameter for Lora scaling.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3905,7 +3905,7 @@
 <dd><p>The dropout probability for Lora layers.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 0.05</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3914,7 +3914,7 @@
 <dd><p>List of modules apart from LoRA layers to be set as trainable and saved in the final checkpoint.</p>
 <p><strong>type:</strong> None</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3923,7 +3923,7 @@
 <dd><p>Data type to use for training. Should be one of <cite>bfloat16</cite>, <cite>float16</cite> or <cite>float32</cite>. If <cite>float16</cite> will use fp16 mixed-precision training.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> bfloat16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3932,7 +3932,7 @@
 <dd><p>Whether or not to allow TF32 on Ampere GPUs. Can be used to speed up training. For more information, see ‘<a class="reference external" href="https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices">https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices</a>’</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3949,7 +3949,7 @@
 <dd><p>Data config for fine-tuning evaluation. Optional if evaluation is not needed.</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3958,7 +3958,7 @@
 <dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
 <p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <section id="lora-qlora-loftq-hftrainingarguments">
@@ -4060,7 +4060,7 @@
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4069,7 +4069,7 @@
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4086,7 +4086,7 @@
 <dd><p>Data config for validation.</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4095,7 +4095,7 @@
 <dd><p>Customized training loop function.</p>
 <p><strong>type:</strong> Callable | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4104,7 +4104,7 @@
 <dd><p>LightningModule for PyTorch Lightning trainer. It is a way of encapsulating all the logic related to the training, validation, and testing of a PyTorch model. Please refer to <a class="reference external" href="https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html">https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html</a> for more details.</p>
 <p><strong>type:</strong> Callable | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4113,7 +4113,7 @@
 <dd><p>LightningDataModule for PyTorch Lightning trainer. It is a way of encapsulating all the data-related logic for training, validation, and testing of a PyTorch model. Please refer to <a class="reference external" href="https://pytorch-lightning.readthedocs.io/en/stable/data/datamodule.html">https://pytorch-lightning.readthedocs.io/en/stable/data/datamodule.html</a> for more details.</p>
 <p><strong>type:</strong> Callable | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4122,7 +4122,7 @@
 <dd><p>Maximum number of epochs for training.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4131,7 +4131,7 @@
 <dd><p>Maximum number of steps for training.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> -1</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4140,7 +4140,7 @@
 <dd><p>Whether perform one evaluation epoch over the validation set after training.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4149,7 +4149,7 @@
 <dd><p>List of list of module names to fuse.</p>
 <p><strong>type:</strong> List[List[str]]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4158,7 +4158,7 @@
 <dd><p>Customized function to create a QConfig for QAT. Please refer to <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.ao.quantization.qconfig.QConfig.html">https://pytorch.org/docs/stable/generated/torch.ao.quantization.qconfig.QConfig.html</a> for details.</p>
 <p><strong>type:</strong> Callable | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4167,7 +4167,7 @@
 <dd><p>Logger for training.</p>
 <p><strong>type:</strong> pytorch_lightning.loggers.logger.Logger | Iterable[pytorch_lightning.loggers.logger.Logger] | Callable | bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4176,7 +4176,7 @@
 <dd><p>Number of GPUs to use.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4185,7 +4185,7 @@
 <dd><p>Random seed for training.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4194,7 +4194,7 @@
 <dd><p>Path to save checkpoints.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -4209,7 +4209,7 @@
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4218,7 +4218,7 @@
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4227,7 +4227,7 @@
 <dd><p>Set or override shapes for model inputs. It configures dynamic and static dimensions in model inputs depending on your inference requirements.</p>
 <p><strong>type:</strong> Callable | str | List</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4236,7 +4236,7 @@
 <dd><p>Function/function name to generate sample of model input in original framework. For PyTorch it can be torch.Tensor. For Tensorflow it can be tf.Tensor or numpy.ndarray.</p>
 <p><strong>type:</strong> Callable | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4245,7 +4245,7 @@
 <dd><p>Compress weights in output OpenVINO model to FP16. Default is True.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4254,7 +4254,7 @@
 <dd><p>Extra configurations for OpenVINO model conversion. extra_config can be set by passing a dictionary where key is the parameter name, and the value is the parameter value. Please check Conversion Parameters documentation for more details: <a class="reference external" href="https://docs.openvino.ai/2023.3/openvino_docs_OV_Converter_UG_Conversion_Options.html">https://docs.openvino.ai/2023.3/openvino_docs_OV_Converter_UG_Conversion_Options.html</a></p>
 <p><strong>type:</strong> Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4263,7 +4263,7 @@
 <dd><p>Name of the output OpenVINO model.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> ov_model</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -4277,7 +4277,7 @@
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4286,7 +4286,7 @@
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4303,7 +4303,7 @@
 <dd><p>Used to specify quantization scheme required for specific type of the model. ‘TRANSFORMER’ is the only supported special quantization scheme to preserve accuracy after quantization of Transformer models (BERT, DistilBERT, etc.). None is default.</p>
 <p><strong>type:</strong> olive.passes.openvino.quantization.ModelTypeEnum</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4312,7 +4312,7 @@
 <dd><p>Defines quantization scheme for the model. Supported values: ‘PERFORMANCE’, ‘MIXED’.</p>
 <p><strong>type:</strong> olive.passes.openvino.quantization.PresetEnum</p>
 <p><strong>default_value:</strong> PERFORMANCE</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4321,7 +4321,7 @@
 <dd><p>This parameter can be used to exclude some layers from the quantization process to preserve the model accuracy. Please refer to <a class="reference external" href="https://docs.openvino.ai/2023.3/basic_quantization_flow.html#tune-quantization-parameters">https://docs.openvino.ai/2023.3/basic_quantization_flow.html#tune-quantization-parameters</a>.</p>
 <p><strong>type:</strong> str | List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4330,7 +4330,7 @@
 <dd><p>Defines the type of the ignored scope. Supported values: ‘names’, ‘types’, ‘patterns’.</p>
 <p><strong>type:</strong> olive.passes.openvino.quantization.IgnoreScopeTypeEnum</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4339,7 +4339,7 @@
 <dd><p>Target device for the model. Supported values: ‘any’, ‘cpu’, ‘gpu’, ‘cpu_spr’, ‘vpu’. Default value is the same as the accelerator type of this workflow run.</p>
 <p><strong>type:</strong> olive.hardware.accelerator.Device</p>
 <p><strong>default_value:</strong> cpu</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4348,7 +4348,7 @@
 <dd><p>Extra configurations for OpenVINO model quantization. Please refer to <a class="reference external" href="https://docs.openvino.ai/2023.3/basic_quantization_flow.html#tune-quantization-parameters">https://docs.openvino.ai/2023.3/basic_quantization_flow.html#tune-quantization-parameters</a>.</p>
 <p><strong>type:</strong> List[Dict]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -4389,7 +4389,7 @@
 <dd><p>List of input types. If not None, it must be a list of the same length as input_names. List members can be None to use default value. Refer to olive.platform_sdk.qualcomm.constants.InputType for valid values.</p>
 <p><strong>type:</strong> List[str | None]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4398,7 +4398,7 @@
 <dd><p>List of input layouts. If not None, it must be a list of the same length as input_names. List members can be None to use inferred value. Refer to olive.platform_sdk.qualcomm.constants.InputLayout for valid values.</p>
 <p><strong>type:</strong> List[str | None]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4407,7 +4407,7 @@
 <dd><p>Extra arguments to pass to snpe conversion tool. Refer to snpe-onnx-to-dlc and snpe-tensorflow-to-dlc at <a class="reference external" href="https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html">https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html</a> for more additional arguments. The value is a string that will be passed as is to the tool. e.g.: –enable_cpu_fallback –priority_hint low</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -4432,7 +4432,7 @@
 <dd><p>Use the enhanced quantizer feature when quantizing the model. Uses an algorithm to determine optimal range instead of min and max range of data.  It can be useful for quantizing models that have long tails in the distribution of the data being quantized.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4441,7 +4441,7 @@
 <dd><p>Pack HTP information in quantized DLC, which is not available in Windows.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>search_defaults:</strong> Categorical([True, False])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4450,7 +4450,7 @@
 <dd><p>List of SoCs to generate HTP Offline cache for.</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4459,7 +4459,7 @@
 <dd><p>Extra arguments to pass to snpe conversion tool. Refer to <a class="reference external" href="https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html#tools_snpe-dlc-quantize">https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html#tools_snpe-dlc-quantize</a> for more additional arguments. The value is a string that will be passed as is to the tool. e.g.: –bias_bitwidth 16 –overwrite_cache_records</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -4476,7 +4476,7 @@
 <dd><p>Target device for the ONNX model. Refer to oliveolive.platform_sdk.qualcomm.constants.SNPEDevice for valid values.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> cpu</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4485,7 +4485,7 @@
 <dd><p>Target ONNX opset version.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 12</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4494,7 +4494,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4503,7 +4503,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4512,7 +4512,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4521,7 +4521,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4530,7 +4530,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -4548,7 +4548,7 @@
 <dd><p>The names and dimensions of the network input layers specified in the format [input_name comma-separated-dimensions], for example:        [“data 1,224,224,3”] Note that the quotes should always be included in order to handle special characters, spaces, etc. For multiple inputs specify multiple –input_dim on the command line like:        [“data 1,224,224,3”, “data2 1,224,224,3”] If –input_dim is not specified, the input dimensions will be inferred from the model. If –input_dim is specified, the input dimensions will be used as-is.</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4557,7 +4557,7 @@
 <dd><p>The name of the output node. If not specified, the output node will be inferred from the model. If specified, the output node will be used as-is. Example: [“out_1”, “out_2”]</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4566,7 +4566,7 @@
 <dd><p>Extra arguments to pass to qnn-[framework]-converter tool, e.g. –show_unconsumed_nodes –custom_io CUSTOM_IO. See the documentation for more details: <a class="reference external" href="https://docs.qualcomm.com/bundle/publicresource/topics/80-63442-50/tools.html">https://docs.qualcomm.com/bundle/publicresource/topics/80-63442-50/tools.html</a></p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -4583,7 +4583,7 @@
 <dd><p>Specifies the targets to build the models for. Default: aarch64-android x86_64-linux-clang</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4592,7 +4592,7 @@
 <dd><p>Specifies the name to use for libraries. Default: uses name in &lt;model.bin&gt; if provided,  else generic qnn_model.so</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -4617,7 +4617,7 @@
 <dd><p>Name of the binary file to save the context binary to. Saved in the same path as –output_dir option with .bin as the binary file extension. If not provided, no backend binary is created.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4626,7 +4626,7 @@
 <dd><p>Extra arguments to qnn-context-binary-generator</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -4652,7 +4652,7 @@
 <dd><p>Target sparsity. This can be a float or a list of two integers. Float is the target sparsity per layer. List [n,m] applies semi-structured (n:m) sparsity patterns. Refer to https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/ for more details on 2:4 sparsity pattern.</p>
 <p><strong>type:</strong> float | List[int]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4661,7 +4661,7 @@
 <dd><p>Blocksize to use for adaptive mask selection.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 128</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4670,7 +4670,7 @@
 <dd><p>Percentage of the average Hessian diagonal to use for dampening. Must be in [0,1].</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 0.01</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4679,7 +4679,7 @@
 <dd><p>Prune all layers with id &gt;= min_layer.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4688,7 +4688,7 @@
 <dd><p>Prune all layers with id &lt; max_layer.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4697,7 +4697,7 @@
 <dd><p>Only prune layers whose name contains the given string(s).</p>
 <p><strong>type:</strong> str | List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4706,7 +4706,7 @@
 <dd><p>Device to use for performing computations. Can be ‘auto, ‘cpu’, ‘cuda’, ‘cuda:0’, etc. If ‘auto’, will use cuda if available. Does not affect the final model.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> auto</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4741,7 +4741,7 @@
 <dd><p>Number of samples of the calibration data to load.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 128</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4750,7 +4750,7 @@
 <dd><p>Batch size for loading the calibration data.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4759,7 +4759,7 @@
 <dd><p>Seed for sampling the calibration data.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 42</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4768,7 +4768,7 @@
 <dd><p>A measure of how much slicing is applied (in the range [0, 1))</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 0.0</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4777,7 +4777,7 @@
 <dd><p>Interval for rounding the weights (the best value may depend on your hardware)</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 8</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4786,7 +4786,7 @@
 <dd><p>Final orientation of the sliced weights. Choices are random or pca.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> random</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -4805,7 +4805,7 @@
 <dd><p>Input model’s data type.</p>
 <p><strong>type:</strong> olive.passes.pytorch.quarot.QuaRot.ModelDtype</p>
 <p><strong>default_value:</strong> fp16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4814,7 +4814,7 @@
 <dd><p>Data config for Dataset to calibrate and calculate perplexity on.</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4823,7 +4823,7 @@
 <dd><p>Number of samples of the calibration data to load.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 128</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4832,7 +4832,7 @@
 <dd><p>Batch size for loading the calibration data.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4841,7 +4841,7 @@
 <dd><p>Seed for sampling the calibration data.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 42</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4850,7 +4850,7 @@
 <dd><p>Apply QuaRot/Hadamard rotation to the model.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4859,7 +4859,7 @@
 <dd><p>Seed for generating random matrix. Use 0 to replicate paper results.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 0</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4868,7 +4868,7 @@
 <dd><p>Apply RTN quantization to the weights.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4879,7 +4879,7 @@
                     It requires flash_attention_2 which only supports Ampere GPUs or newer.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4888,7 +4888,7 @@
 <dd><p>Damping factor for GPTQ. (ignored for RTN quantization)</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 0.01</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4897,7 +4897,7 @@
 <dd><p>Optimize scales for GPTQ (ignored for RTN quantization)</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4906,7 +4906,7 @@
 <dd><p>Number of bits for quantizing weights.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4915,7 +4915,7 @@
 <dd><p>Asymmetric weight quantization (else symmetric by default).</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4924,7 +4924,7 @@
 <dd><p>Group size for groupwise weight quantization.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4933,7 +4933,7 @@
 <dd><p>Number of bits for quantizing activations.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4942,7 +4942,7 @@
 <dd><p>Asymmetric activation quantization (else symmetric by default).</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4951,7 +4951,7 @@
 <dd><p>Clip ratio for activation quantization: new_max = max * clip_ratio.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 1.0</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4960,7 +4960,7 @@
 <dd><p>Group size for groupwise activation quantization, default is None.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4969,7 +4969,7 @@
 <dd><p>Number of bits to quantize the keys to.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4978,7 +4978,7 @@
 <dd><p>Clip ratio for keys quantization: new_max = max * clip_ratio.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 1.0</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4987,7 +4987,7 @@
 <dd><p>Group size for groupwise key quantization.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -4996,7 +4996,7 @@
 <dd><p>Number of bits to quantize the values to.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5005,7 +5005,7 @@
 <dd><p>Clip ratio for values quantization: new_max = max * clip_ratio.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 1.0</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5014,7 +5014,7 @@
 <dd><p>Group size for groupwise value quantization.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5023,7 +5023,7 @@
 <dd><p>Number of bits to quantize the values to.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -5038,7 +5038,7 @@
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5047,7 +5047,7 @@
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5056,7 +5056,7 @@
 <dd><p>quantization bits. Default value is 4</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 4</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5066,7 +5066,7 @@
 <a class="reference external" href="https://github.com/AutoGPTQ/AutoGPTQ/blob/896d8204bc89a7cfbda42bf3314e13cf4ce20b02/auto_gptq/modeling/llama.py#L19-L26">https://github.com/AutoGPTQ/AutoGPTQ/blob/896d8204bc89a7cfbda42bf3314e13cf4ce20b02/auto_gptq/modeling/llama.py#L19-L26</a></p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5075,7 +5075,7 @@
 <dd><p>Names of other nn modules that in the same level as the transformer layer block. Default value is None.</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5084,7 +5084,7 @@
 <dd><p>Names of linear layers in transformer layer module. Default value is None.</p>
 <p><strong>type:</strong> List[List[str]]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5093,7 +5093,7 @@
 <dd><p>Block size for quantization. Default value is 128.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 128</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5102,7 +5102,7 @@
 <dd><p>Damping factor for quantization. Default value is 0.01.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 0.01</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5111,7 +5111,7 @@
 <dd><p>Use static groups for quantization. Default value is False.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5120,7 +5120,7 @@
 <dd><p>Use true sequential for quantization. Default value is False.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5129,7 +5129,7 @@
 <dd><p>Use descriptive activation for quantization. Default value is False.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5138,7 +5138,7 @@
 <dd><p>Symmetric quantization. Default value is False.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5148,7 +5148,7 @@
                     Data config for quantization. Default value is None.</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -5163,7 +5163,7 @@
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5172,7 +5172,7 @@
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5181,7 +5181,7 @@
 <dd><p>The input model data type.</p>
 <p><strong>type:</strong> olive.passes.pytorch.autoawq.AutoAWQQuantizer.ModelDtype</p>
 <p><strong>default_value:</strong> fp16</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5190,7 +5190,7 @@
 <dd><p>Whether to use zero point quantization to calculate the scales and zeros. If False, it use the symmetric quantization.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5199,7 +5199,7 @@
 <dd><p>The group size to use for quantization. Recommended value is 128 and -1 uses per-column quantization.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 128</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5208,7 +5208,7 @@
 <dd><p>The number of bits to quantize to.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 4</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5217,7 +5217,7 @@
 <dd><p>The version of the quantization algorithm to use. gemm is better for big batch_size (e.g. &gt;= 8) otherwise, gemv is better (e.g. &lt; 8 ). gemm models are compatible with Exllama kernels.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> gemm</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5226,7 +5226,7 @@
 <dd><p>Whether to scale using both w/x(True) or just x(False).</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5235,7 +5235,7 @@
 <dd><p>The list of modules to not quantize, useful for quantizing models that explicitly require to have some modules left in their original precision (e.g. Whisper encoder, Llava encoder, Mixtral gate layers). Please refer to AutoAWQ documentation for quantizing HF models.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> []</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5244,7 +5244,7 @@
 <dd><p>If True, this argument avoids real quantization by only applying the scales quantizing down to FP16.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5253,7 +5253,7 @@
 <dd><p>Data config for quantization. Default value is None.</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -5275,7 +5275,7 @@
 <dd><p>Convert all layers with id &gt;= min_layer.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5284,7 +5284,7 @@
 <dd><p>Convert all layers with id &lt; max_layer.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5293,7 +5293,7 @@
 <dd><p>Only convert layers whose name contains the given string(s).</p>
 <p><strong>type:</strong> str | List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5302,7 +5302,7 @@
 <dd><p>Convert entire model to fp16. If False, only the sparse modules are converted to fp16.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5325,7 +5325,7 @@
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5334,7 +5334,7 @@
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5343,7 +5343,7 @@
 <dd><p>The version of the default (ai.onnx) opset to target.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 14</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5352,7 +5352,7 @@
 <dd><p>List of component models to export. E.g. [‘decoder_model’, ‘decoder_with_past_model’]. None means export all components.</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5361,7 +5361,7 @@
 <dd><p>Whether to use fp16 precision to load torch model and then convert it to onnx.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5370,7 +5370,7 @@
 <dd><p>The device to use to do the export. Defaults to ‘cpu’.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> cpu</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5379,7 +5379,7 @@
 <dd><p>Extra arguments to pass to the <cite>optimum.exporters.onnx.main_export</cite> function.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -5394,7 +5394,7 @@
 <dd><p>When set, the decoder and decoder_with_past are expected to have strictly the same number of outputs. When False, the decoder is allowed to have more outputs that decoder_with_past, in which case constant outputs are added to match the number of outputs.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5403,7 +5403,7 @@
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5412,7 +5412,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5421,7 +5421,7 @@
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5430,7 +5430,7 @@
 <dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5439,7 +5439,7 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
@@ -5464,7 +5464,7 @@
 <dd><p>Whether to export the model or generate required metadata only.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5473,7 +5473,7 @@
 <dd><p>Search options to use for generate loop.</p>
 <p><strong>type:</strong> Dict[str, Any]</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5482,7 +5482,7 @@
 <dd><p>Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5491,7 +5491,7 @@
 <dd><p>Specify the minimum accuracy level for activation of MatMul in int4 quantization.</p>
 <p><strong>type:</strong> olive.passes.onnx.model_builder.ModelBuilder.AccuracyLevel</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5500,7 +5500,7 @@
 <dd><p>Remove embedding layer from your ONNX model.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5509,7 +5509,7 @@
 <dd><p>Remove language modeling head from your ONNX model.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5518,7 +5518,7 @@
 <dd><p>The model can use CUDA graph capture for CUDA execution provider. If enabled, all nodes being placed on the CUDA EP is the prerequisite for the CUDA graph to be used correctly.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 </section>
