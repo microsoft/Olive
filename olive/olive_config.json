@@ -3,6 +3,7 @@
         "AppendPrePostProcessingOps": {
             "module_path": "olive.passes.onnx.append_pre_post_processing_ops.AppendPrePostProcessingOps"
         },
+        "CaptureSplitInfo": { "module_path": "olive.passes.pytorch.capture_split_info.CaptureSplitInfo" },
         "DynamicToFixedShape": { "module_path": "olive.passes.onnx.dynamic_to_fixed_shape.DynamicToFixedShape" },
         "ExtractAdapters": { "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters" },
         "ModelBuilder": {
