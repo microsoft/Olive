@@ -354,7 +354,7 @@
 <h1>Auto-Optimization<a class="headerlink" href="#auto-optimization" title="Permalink to this heading"></a></h1>
 <p>Automatically optimize the input model for the given target and precision.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">is_generative_model</span> <span class="n">IS_GENERATIVE_MODEL</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
@@ -387,7 +387,7 @@
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: False</p>
 </dd>
-<dt><kbd>--adapter_path</kbd></dt>
+<dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
 </dd>
 <dt><kbd>--model_script</kbd></dt>
@@ -610,8 +610,7 @@
 <h1>Capture Onnx Graph<a class="headerlink" href="#capture-onnx-graph" title="Permalink to this heading"></a></h1>
 <p>Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model or PyTorch model.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">is_generative_model</span> <span class="n">IS_GENERATIVE_MODEL</span><span class="p">]</span>
@@ -651,7 +650,7 @@
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: False</p>
 </dd>
-<dt><kbd>--adapter_path</kbd></dt>
+<dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
 </dd>
 <dt><kbd>--model_script</kbd></dt>
@@ -817,18 +816,19 @@
 <section id="convert-adapters">
 <h1>Convert Adapters<a class="headerlink" href="#convert-adapters" title="Permalink to this heading"></a></h1>
 <p>Convert LoRA adapter weights to a file that will be consumed by ONNX models generated by Olive ExtractedAdapters pass.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">convert</span><span class="o">-</span><span class="n">adapters</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">convert</span><span class="o">-</span><span class="n">adapters</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">adapter_format</span> <span class="p">{</span><span class="n">pt</span><span class="p">,</span><span class="n">numpy</span><span class="p">,</span><span class="n">safetensors</span><span class="p">,</span><span class="n">onnx_adapter</span><span class="p">}]</span>
-                              <span class="o">--</span><span class="n">output_path</span> <span class="n">OUTPUT_PATH</span>
-                              <span class="p">[</span><span class="o">--</span><span class="n">dtype</span> <span class="p">{</span><span class="n">float32</span><span class="p">,</span><span class="n">float16</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">quantize_int4</span><span class="p">]</span>
+                              <span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span> <span class="p">[</span><span class="o">--</span><span class="n">dtype</span> <span class="p">{</span><span class="n">float32</span><span class="p">,</span><span class="n">float16</span><span class="p">}]</span>
+                              <span class="p">[</span><span class="o">--</span><span class="n">quantize_int4</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">int4_block_size</span> <span class="p">{</span><span class="mi">16</span><span class="p">,</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">128</span><span class="p">,</span><span class="mi">256</span><span class="p">}]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">int4_quantization_mode</span> <span class="p">{</span><span class="n">symmetric</span><span class="p">,</span><span class="n">asymmetric</span><span class="p">}]</span>
+                              <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
 <h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading"></a></h2>
 <dl class="option-list">
-<dt><kbd>--adapter_path</kbd></dt>
+<dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Can be a local folder or huggingface id.</p>
 </dd>
 <dt><kbd>--adapter_format</kbd></dt>
@@ -836,7 +836,7 @@
 <p>Format to save the weights in. Default is onnx_adapter.</p>
 <p>Default: “onnx_adapter”</p>
 </dd>
-<dt><kbd>--output_path</kbd></dt>
+<dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the exported weights. Will be saved in the <cite>adapter_format</cite> format.</p>
 </dd>
 <dt><kbd>--dtype</kbd></dt>
@@ -857,6 +857,10 @@
 <dd><p>Possible choices: symmetric, asymmetric</p>
 <p>Quantization mode for int4 quantization of adapter weights. Default is symmetric.</p>
 <p>Default: “symmetric”</p>
+</dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
 </dd>
 </dl>
 </section>
