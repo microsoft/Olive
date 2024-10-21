@@ -79,7 +79,7 @@ def main(raw_args=None):
     ep = config["systems"]["local_system"]["accelerators"][0]["execution_providers"][0]
 
     # load output model json
-    output_model_json_path = Path(config["output_dir"]) / "output_model" / "model_config.json"
+    output_model_json_path = Path(config["output_dir"]) / "model_config.json"
     with output_model_json_path.open() as f:
         output_model_json = json.load(f)
 
