@@ -332,7 +332,7 @@ def _get_best_candidate_node(
 
 def _is_generative_model(config: Dict[str, Any]) -> bool:
     model_attributes = config.get("model_attributes") or {}
-    return model_attributes.get("is_generative", False)
+    return model_attributes.get("generative", False)
 
 
 def _package_candidate_models(
