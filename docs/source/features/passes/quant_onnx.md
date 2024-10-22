@@ -47,7 +47,6 @@ b. Select parameters to tune
     // other parameters will use the default value, not to be tuned.
     "per_channel": "SEARCHABLE_VALUES",
     "data_config": "calib_data_config",
-    "disable_search": true
 }
 ```
 
@@ -68,7 +67,6 @@ d. Specify parameters with user defined values
     // set per_channel to True.
     "per_channel": true,
     "data_config": "calib_data_config",
-    "disable_search": true
 }
 ```
 

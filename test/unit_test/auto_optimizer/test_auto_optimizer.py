@@ -143,15 +143,3 @@ class TestAutoOptimizer:
             accelerator, ep, precision = k_list[0], k_list[1], k_list[2]
             rls_pf = get_pass_flows_by_accelerator_ep_precision(0, accelerator, ep, precision)
             assert sorted(rls_pf) == sorted(pf)
-
-    def test_pass_config_when_no_evaluator(self):
-        auto_optimizer = AutoOptimizer(
-            input_model_config=self.input_model_config,
-            evaluator_config=None,
-            accelerator_spec=DEFAULT_CPU_ACCELERATOR,
-            auto_optimizer_config=None,
-            data_configs=self.data_configs,
-        )
-        pass_config, _ = auto_optimizer.suggest()
-        for pass_name in pass_config:
-            assert pass_config[pass_name]["disable_search"] is True
