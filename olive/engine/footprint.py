@@ -434,6 +434,22 @@ class Footprint:
 def get_best_candidate_node(
     pf_footprints: Dict["AcceleratorSpec", Footprint], footprints: Dict["AcceleratorSpec", Footprint]
 ):
+    """Select the best candidate node from the pareto frontier footprints.
+
+    This function evaluates nodes from the given pareto frontier footprints and selects the top-ranked node
+    based on specified objective metrics. It compares nodes from two dictionaries of footprints and
+    ranks them according to their metrics.
+
+    Args:
+        pf_footprints (Dict["AcceleratorSpec", Footprint]): A dictionary mapping accelerator specifications
+            to their corresponding pareto frontier footprints, which contain nodes and their metrics.
+        footprints (Dict["AcceleratorSpec", Footprint"]): A dictionary mapping accelerator specifications
+            to their corresponding footprints, which contain nodes and their metrics.
+
+    Returns:
+        Node: The top-ranked node based on the specified objective metrics.
+
+    """
     objective_dict = next(iter(pf_footprints.values())).objective_dict
     top_nodes = []
     for accelerator_spec, pf_footprint in pf_footprints.items():

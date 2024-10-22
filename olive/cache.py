@@ -423,7 +423,7 @@ class OliveCache:
         additional_files = model_attributes.get("additional_files", [])
 
         for i, src_filepath in enumerate(additional_files):
-            dst_filepath = output_dir / "model" / Path(src_filepath).name
+            dst_filepath = output_dir / Path(src_filepath).name
             additional_files[i] = str(dst_filepath)
 
             if not dst_filepath.exists():

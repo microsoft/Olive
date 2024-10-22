@@ -409,7 +409,7 @@ def save_output_model(config: Dict, output_model_dir: Union[str, Path]):
 
     This assumes a single accelerator workflow.
     """
-    run_output_path = Path(config["output_dir"]) / "output_model"
+    run_output_path = Path(config["output_dir"])
     if not any(run_output_path.rglob("model_config.json")):
         # there must be an run_output_path with at least one model_config.json
         print("Command failed. Please set the log_level to 1 for more detailed logs.")

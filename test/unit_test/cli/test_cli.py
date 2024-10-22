@@ -113,7 +113,7 @@ def test_finetune_command(_, mock_tempdir, mock_run, tmp_path):
 
     # setup
     mock_tempdir.return_value = tmpdir.resolve()
-    workflow_output_dir = tmpdir / "output_model"
+    workflow_output_dir = tmpdir
     workflow_output_dir.mkdir(parents=True)
     dummy_output = workflow_output_dir / "model_config.json"
     with open(dummy_output, "w") as f:
