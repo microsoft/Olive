@@ -81,9 +81,9 @@ class OnnxIO(ConfigBase):
 class OnnxDAG:
     """ONNX model as a directed acyclic graph (DAG)."""
 
-    def __init__(self, model: "ModelProto"):
+    def __init__(self, model: "ModelProto", only_main_graph: bool = False):
         self.model = model
-        self.graphs = self.get_all_graphs(self.model)
+        self.graphs = self.get_all_graphs(self.model, only_main_graph)
         self.nodes: Dict[str, OnnxNode] = {}
         self.ios: Dict[str, OnnxIO] = {}
         self.connections = defaultdict(list)
@@ -95,12 +95,16 @@ class OnnxDAG:
                 self._process_node(node, self.nodes, self.ios, self.connections, idx)
 
     @staticmethod
-    def get_all_graphs(model: "ModelProto") -> List[GraphProto]:
+    def get_all_graphs(model: "ModelProto", only_main_graph: bool = False) -> List[GraphProto]:
         """Get all graphs in the model.
 
         :param model: ONNX model.
+        :param only_main_graph: whether to return only the main graph.
         :return: list of graphs in the model.
         """
+        if only_main_graph:
+            return [model.graph]
+
         all_graphs = []
         graph_queue = [model.graph]
         while graph_queue:
@@ -238,6 +242,14 @@ class OnnxDAG:
 
         assert not self.ios[name].proto, f"Value info for {name} already exists in the graph."
         self.ios[name].proto.append(value_info)
+
+    def is_io(self, io_name: str) -> bool:
+        """Check if an input/output exists in the graph.
+
+        :param io_name: name of the input/output.
+        :return: True if the input/output exists.
+        """
+        return io_name in self.ios
 
     def _add_special_input(
         self,
@@ -463,21 +475,37 @@ class OnnxDAG:
         """
         return self.nodes[node_name].op_type
 
-    def get_node_inputs(self, node_name: str) -> List[str]:
+    def get_node_proto(self, node_name: str) -> NodeProto:
+        """Get the node proto.
+
+        :param node_name: name of the node.
+        :return: NodeProto object.
+        """
+        return self.nodes[node_name].proto
+
+    def get_node_inputs(self, node_name: str, skip_empty_io: bool = False) -> List[str]:
         """Get the input names of a node.
 
         :param node_name: name of the node.
+        :param skip_empty_io: whether to skip empty inputs.
         :return: list of input names.
         """
-        return list(self.nodes[node_name].inputs)
+        inputs = self.nodes[node_name].inputs
+        if skip_empty_io:
+            inputs = filter(lambda i: i != "", inputs)
+        return list(inputs)
 
-    def get_node_outputs(self, node_name: str) -> List[str]:
+    def get_node_outputs(self, node_name: str, skip_empty_io: bool = False) -> List[str]:
         """Get the output names of a node.
 
         :param node_name: name of the node.
+        :param skip_empty_io: whether to skip empty outputs.
         :return: list of output names.
         """
-        return list(self.nodes[node_name].outputs)
+        outputs = self.nodes[node_name].outputs
+        if skip_empty_io:
+            outputs = filter(lambda o: o != "", outputs)
+        return list(outputs)
 
     def get_node_attributes(self, node_name: str) -> Dict[str, Any]:
         """Get the attributes of a node.
@@ -553,16 +581,35 @@ class OnnxDAG:
         """
         return self.ios[io_name].source
 
-    def get_consumers(self, node_name: str) -> List[str]:
+    def get_consumers(self, node_name: str, return_special_outputs: bool = True) -> List[str]:
         """Get the consumers of a node.
 
         :param node_name: name of the node. It can also be an input or initializer.
+
         :return: list of names of nodes that consume one/more outputs of the node.
         """
-        if node_name in self.ios and SpecialInput.is_special_input(self.ios[node_name].source):
-            return list(self.ios[node_name].destination)
+        if node_name in self.ios:
+            consumers = self.ios[node_name].destination
+        else:
+            consumers = self.connections[node_name]
 
-        return list(self.connections[node_name])
+        if return_special_outputs:
+            return list(consumers)
+
+        return list(filter(lambda c: c != SpecialOutput.OUTPUT, consumers))
+
+    def get_parents(self, node_name: str, return_special_inputs: bool = True) -> List[str]:
+        """Get the parents of a node.
+
+        :param node_name: name of the node.
+        :return: list of names of nodes that produce one/more inputs of the node.
+        """
+        parents = [self.ios[i].source for i in self.nodes[node_name].inputs]
+
+        if return_special_inputs:
+            return parents
+
+        return list(filter(lambda p: not SpecialInput.is_special_input(p), parents))
 
     def is_output_producer(self, node_name: str) -> bool:
         """Check if a node is an output producer.
@@ -570,7 +617,10 @@ class OnnxDAG:
         :param node_name: name of the node.
         :return: True if the node produces one/more outputs that are also model outputs.
         """
-        return any(SpecialOutput.OUTPUT in self.ios[o].destination for o in self.nodes[node_name].outputs)
+        return any(
+            SpecialOutput.OUTPUT in self.ios[o].destination
+            for o in self.get_node_outputs(node_name, skip_empty_io=True)
+        )
 
     def _topological_sort_util(self, v: str, visited: Set[str], order: List[str]):
         """Do depth-first search starting from node v.
@@ -683,10 +733,11 @@ class OnnxDAG:
         logger.debug("Removed %d Identity nodes", len(nodes_to_remove))
 
     @classmethod
-    def from_model_path(cls, model_path: Union[str, Path]) -> "OnnxDAG":
+    def from_model_path(cls, model_path: Union[str, Path], only_main_graph: bool = False) -> "OnnxDAG":
         """Load an ONNX model and create an self.
 
         :param model_path: path to the ONNX model.
+        :param only_main_graph: whether to create a DAG with only the main graph.
         :return: OnnxDAG object.
         """
-        return cls(onnx.load(model_path))
+        return cls(onnx.load(model_path), only_main_graph=only_main_graph)

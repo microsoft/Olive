@@ -109,6 +109,4 @@ MODEL_INSIDE_LAYER_MODULES = {
     ]
 }
 
-MODEL_LAYERS_BLOCK_NAME = {"phi3": "model.layers"}
-
 MODELS_TO_LORA_TARGET_MODULES_MAPPING = {"phi3": ["o_proj", "qkv_proj"]}

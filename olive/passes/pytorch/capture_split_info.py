@@ -6,13 +6,14 @@ import logging
 from copy import deepcopy
 from typing import Any, Dict, Union
 
-from olive.common.hf.mappings import MODEL_LAYERS_BLOCK_NAME, NUM_HIDDEN_LAYER_NAMES
+import numpy as np
+
+from olive.common.hf.mappings import MODELS_TO_LAYERS_MAPPING, NUM_HIDDEN_LAYER_NAMES
 from olive.common.utils import find_first_matched_value, get_attr
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class CaptureSplitInfo(Pass):
         if isinstance(model, HfModelHandler):
             model_type = model.get_hf_model_type()
             if layers_block_name is None:
-                layers_block_name = MODEL_LAYERS_BLOCK_NAME.get(model_type, None)
+                layers_block_name = MODELS_TO_LAYERS_MAPPING.get(model_type, None)
         if not layers_block_name:
             raise ValueError("layers_block_name is not set and could not be inferred. Please set it manually.")
 
