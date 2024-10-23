@@ -114,7 +114,6 @@ def test_finetune_command(_, mock_tempdir, mock_run, tmp_path):
     # setup
     mock_tempdir.return_value = tmpdir.resolve()
     workflow_output_dir = tmpdir
-    workflow_output_dir.mkdir(parents=True)
     dummy_output = workflow_output_dir / "model_config.json"
     with open(dummy_output, "w") as f:
         json.dump({"dummy": "output"}, f)
@@ -184,7 +183,6 @@ def test_capture_onnx_command(_, mock_tempdir, mock_run, use_model_builder, tmp_
     # setup
     mock_tempdir.return_value = tmpdir.resolve()
     workflow_output_dir = tmpdir
-    workflow_output_dir.mkdir(parents=True)
     dummy_output = workflow_output_dir / "model_config.json"
     with open(dummy_output, "w") as f:
         json.dump({"config": {"inference_settings": {"dummy-key": "dummy-value"}}}, f)
