@@ -228,7 +228,7 @@ class OnnxDAG:
         """
         self._add_special_input(initializer, graph_idx, SpecialInput.INITIALIZER, keep_input)
 
-    def add_value_info(self, value_info: ValueInfoProto, graph_idx: int):
+    def add_value_info(self, value_info: ValueInfoProto, graph_idx: int, overwrite: bool = False):
         """Add a value info to the graph.
 
         :param value_info: ValueInfoProto of the value info.
@@ -240,8 +240,10 @@ class OnnxDAG:
             self.ios[name] = OnnxIO(proto=[value_info], graph_idx=graph_idx)
             return
 
-        assert not self.ios[name].proto, f"Value info for {name} already exists in the graph."
-        self.ios[name].proto.append(value_info)
+        assert (
+            overwrite or not self.ios[name].proto
+        ), f"Value info for {name} already exists in the graph but overwrite is False."
+        self.ios[name].proto = [value_info]
 
     def is_io(self, io_name: str) -> bool:
         """Check if an input/output exists in the graph.
@@ -538,6 +540,19 @@ class OnnxDAG:
         :return: True if the input/output is an initializer.
         """
         return SpecialInput.is_initializer(self.ios[io_name].source)
+
+    def is_constant_input(self, io_name: str, allow_input_initializer: bool = False) -> bool:
+        """Check if an input/output comes from an initializer or a constant node.
+
+        :param io_name: name of the input/output.
+        :param allow_input_initializer: whether to consider input_initializer as a constant input.
+        :return: True if the input/output is a constant input.
+        """
+        source = self.ios[io_name].source
+        if source in self.nodes:
+            return self.get_node_op_type(source) == "Constant"
+
+        return (source == SpecialInput.INITIALIZER) or (allow_input_initializer and SpecialInput.is_initializer(source))
 
     def get_graph_idx(self, name: str) -> int:
         """Get the index of the graph containing the input/output or node."""

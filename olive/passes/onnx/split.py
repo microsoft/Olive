@@ -55,16 +55,18 @@ class SplitModel(Pass):
             ir_version=model_proto.ir_version,
             opset_import=model_proto.opset_import,
             producer_name="olive",
-            graph=onnx.GraphProto(),
+            graph=onnx.GraphProto(name=model_proto.graph.name),
         )
         split_dags = [OnnxDAG(deepcopy(split_proto)) for _ in range(num_splits)]
 
         # go through the nodes in topological order
         node_order = dag.topological_sort()
         node_assignments = {}
+        constant_nodes = set()
         for node_name in node_order:
             # will handle constant nodes laters
             if dag.get_node_op_type(node_name) == "Constant":
+                constant_nodes.add(node_name)
                 continue
 
             name_components = node_name.replace("/", ".").lstrip(".").split(".")
@@ -72,54 +74,51 @@ class SplitModel(Pass):
             if namespace in split_assignments:
                 node_assignments[node_name] = split_assignments[namespace]
 
-        # handle nodes that are not in split assignments but are between splits
-        # TODO(jambayk): Might have to handle nodes that are between constants/initializers and splits
-        # i.e, nodes unreachable from the model inputs. Like DQ->MatMul where DQ was not assigned to any split
-        is_between_splits = {}
-        for node_name in node_order:
-            if node_name in node_assignments or dag.get_node_op_type(node_name) == "Constant":
+        # what is the next closest split, if not assigned to a split
+        next_split = deepcopy(node_assignments)
+        # already have a topological order, so we will go from the bottom up
+        for node_name in node_order[::-1]:
+            # constants cannot be children of node
+            if node_name in node_assignments or node_name in constant_nodes:
                 continue
 
-            # put the node in the last parent split
-            # assumes that the splits are sequential and there are no parallel splits
+            child_splits = [
+                next_split[child_name]
+                for child_name in dag.get_consumers(node_name, return_special_outputs=False)
+                if next_split[child_name] is not None
+            ]
+            if child_splits:
+                next_split[node_name] = min(child_splits)
+            else:
+                next_split[node_name] = None
+
+        # handle unassigned nodes that are:
+        # - between splits: assign to the split of the parent node
+        # - between constant/initializer and splits: assign the next split
+        for node_name in node_order:
+            if node_name in node_assignments or node_name in constant_nodes:
+                continue
+
+            # after the last split
+            if next_split[node_name] is None:
+                continue
+
+            # between splits
             parent_splits = [
                 node_assignments[parent_name]
                 for parent_name in dag.get_parents(node_name, return_special_inputs=False)
                 if parent_name in node_assignments
             ]
-            if not parent_splits:
-                # before the first split
+            if parent_splits:
+                node_assignments[node_name] = max(parent_splits)
                 continue
-            split_to_use = max(parent_splits)
 
-            # check if the node is followed by another split
-            # if not, is probably after the last split
-            stack = [node_name]
-            while stack:
-                current_node = stack.pop()
-
-                for child_name in dag.get_consumers(current_node, return_special_outputs=False):
-                    if child_name in node_assignments or is_between_splits.get(child_name):
-                        is_between_splits[current_node] = True
-                        break
-                    if is_between_splits.get(child_name) is False:
-                        continue
-                    # remember to come back to this node
-                    stack.append(current_node)
-                    # visit the child node first
-                    stack.append(child_name)
-                    break
-                else:
-                    is_between_splits[current_node] = False
-
-            if is_between_splits[node_name]:
-                node_assignments[node_name] = split_to_use
+            # between constant/initializer and splits
+            if all(dag.is_constant_input(input_name) for input_name in dag.get_node_inputs(node_name)):
+                node_assignments[node_name] = next_split[node_name]
 
         # handle constant nodes, will add a copy of the constant to each split
-        for node_name in node_order:
-            if dag.get_node_op_type(node_name) != "Constant":
-                continue
-
+        for node_name in constant_nodes:
             splits = set()
             for consumer in dag.get_consumers(node_name, return_special_outputs=False):
                 if consumer in node_assignments:
@@ -173,25 +172,41 @@ class SplitModel(Pass):
                     if not output_name:
                         # optional output left as ""
                         continue
+
+                    # mark as output if any consumer is not in the split
+                    is_output = False
+                    for consumer in dag.get_consumers(output_name):
+                        if node_assignments.get(consumer) != split_id:
+                            split_dag.make_output(output_name)
+                            is_output = True
+                            break
+
                     # add vi for the outputs
                     io = dag.get_io(output_name)
                     if io.proto:
                         split_dag.add_value_info(io.proto[0], 0)
-
-                    # mark as output if any consumer is not in the split
-                    for consumer in dag.get_consumers(output_name):
-                        # print(consumer, split_id, node_assignments.get(consumer))
-                        if node_assignments.get(consumer) != split_id:
-                            split_dag.make_output(output_name)
-                            break
+                    elif is_output:
+                        # should this be added as a missing value info?
+                        # not really needed
+                        split_dag.add_value_info(onnx.helper.make_empty_tensor_value_info(output_name), 0)
             else:
                 # add the constant to each split
                 for idx in split_id:
                     split_dags[idx].add_node(dag.get_node_proto(node_name), 0)
 
         if missing_vi:
-            # need to run shape inference on the model and get the missing vi
-            raise NotImplementedError
+            from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+
+            shape_infered_proto = SymbolicShapeInference.infer_shapes(
+                onnx.load(model.model_path, load_external_data=False), auto_merge=True
+            )
+            shape_infered_dag = OnnxDAG(shape_infered_proto, only_main_graph=True)
+
+            for input_name, split_id in missing_vi.items():
+                io = shape_infered_dag.get_io(input_name)
+                if not io.proto:
+                    raise ValueError(f"Missing value info for input {input_name} for split {split_id}")
+                split_dags[split_id].add_value_info(io.proto[0], 0, overwrite=True)
 
         component_models = []
         component_names = []
