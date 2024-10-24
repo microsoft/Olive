@@ -79,37 +79,15 @@ class TestEngine:
         engine = Engine(**options)
 
         # execute
-        engine.register(OnnxDynamicQuantization, disable_search=True)
+        engine.register(OnnxDynamicQuantization)
 
         # assert
         assert "OnnxDynamicQuantization" in engine.pass_config
-
-    def test_register_no_search_fail(self, tmpdir):
-        name = "OnnxDynamicQuantization"
-        # setup
-        model_config = get_onnx_model_config()
-
-        options = {
-            "cache_config": {
-                "cache_dir": tmpdir,
-                "clean_cache": True,
-            },
-            "search_strategy": None,
-        }
-        engine = Engine(**options)
-
-        # execute
-        engine.register(OnnxDynamicQuantization)
-        with pytest.raises(ValueError) as exc_info:  # noqa: PT011
-            engine.run(model_config, [DEFAULT_CPU_ACCELERATOR])
-
-        assert str(exc_info.value) == f"Search strategy is None but pass {name} has search space"
 
     def test_default_engine_run(self, tmpdir):
         # setup
         model_config = get_pytorch_model_config()
         engine = Engine(cache_config={"cache_dir": tmpdir})
-        assert engine.no_search, "Expect no_search to be True by default"
 
         engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13})
         outputs = engine.run(
@@ -239,7 +217,7 @@ class TestEngine:
         mock_local_system.olive_managed_env = False
 
         engine = Engine(cache_config={"cache_dir": tmpdir})
-        engine.register(OptimumConversion, disable_search=True)
+        engine.register(OptimumConversion)
         engine.set_pass_flows()
         # output model to output_dir
         output_dir = Path(tmpdir)
@@ -282,7 +260,7 @@ class TestEngine:
 
         engine = Engine(**options)
         _, p_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
-        engine.register(OnnxConversion, config=p_config, disable_search=True)
+        engine.register(OnnxConversion, config=p_config)
         engine.set_pass_flows()
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
 
@@ -623,7 +601,7 @@ class TestEngine:
                 "search_strategy": None,
             }
             engine = Engine(**options)
-            engine.register(OnnxDynamicQuantization, disable_search=True)
+            engine.register(OnnxDynamicQuantization)
             with patch("onnxruntime.quantization.quantize_dynamic") as mock_quantize_dynamic:
                 mock_quantize_dynamic.side_effect = AttributeError("test")
                 actual_res = engine.run(

@@ -56,7 +56,6 @@
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "save_as_external_data": true,
             "all_tensors_to_one_file": true,
             "model_type": "gpt2",

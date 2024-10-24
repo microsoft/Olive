@@ -248,7 +248,6 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
                 engine.register(
                     Pass.registry[pass_config.type.lower()],
                     config=pass_config.config,
-                    disable_search=pass_config.disable_search,
                     name=pass_name,
                     host=host,
                     evaluator_config=pass_config.evaluator,

@@ -57,7 +57,6 @@ class Pass(ABC):
         self,
         accelerator_spec: AcceleratorSpec,
         config: Dict[str, Any],
-        disable_search: Optional[bool] = False,
         host_device=None,
     ):
         """Initialize the pass.
@@ -66,15 +65,17 @@ class Pass(ABC):
         :type accelerator_spec: AcceleratorSpec
         :param config: the configuration representing search space.
         :type config: Dict[str, Any]
-        :param disable_search: whether to disable search.
-        :type disable_search: Optional[bool]
         :param host_device: the host device for the pass.
         :type host_device: Optional[str]
         """
         assert accelerator_spec is not None, "Please specify the accelerator spec for the pass."
         assert config is not None, "Please specify the configuration for the pass."
 
-        config_class, default_config = self.get_config_class(accelerator_spec, disable_search)
+        # NOTE: The :disable_search argument isn't impactful here since the search isn't
+        # dependent on it. The same parameter in :generate_search_space is what decides
+        # how search points are handled. HEre, Using default values for each config
+        # parameter in the config class keeps it simple.
+        config_class, default_config = self.get_config_class(accelerator_spec, True)
 
         self.accelerator_spec = accelerator_spec
         self.host_device = host_device
@@ -308,7 +309,6 @@ class Pass(ABC):
         """Convert the pass to json."""
         return {
             "type": self.__class__.__name__,
-            "disable_search": True,
             "accelerator": self.accelerator_spec.to_json(),
             "host_device": self.host_device,
             "config": self.serialize_config(self.config, check_object),
@@ -484,7 +484,6 @@ class AbstractPassConfig(NestedConfig):
     """Base class for pass configuration."""
 
     type: str = Field(description="The type of the pass.")
-    disable_search: bool = Field(default=False, description="Whether to disable search.")
     config: Dict[str, Any] = Field(
         None,
         description=(
@@ -516,7 +515,7 @@ class FullPassConfig(AbstractPassConfig):
 
         pass_cls = Pass.registry[self.type.lower()]
         accelerator_spec = AcceleratorSpec(**self.accelerator)  # pylint: disable=not-a-mapping
-        return pass_cls(accelerator_spec, self.config, self.disable_search, self.host_device)
+        return pass_cls(accelerator_spec, self.config, self.host_device)
 
 
 # TODO(myguo): deprecate or remove this function by explicitly specify the accelerator_spec in the arguments
@@ -533,4 +532,4 @@ def create_pass_from_dict(
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
 
     config = pass_cls.generate_search_space(accelerator_spec, config, disable_search)
-    return pass_cls(accelerator_spec, config, disable_search, host_device)
+    return pass_cls(accelerator_spec, config, host_device)

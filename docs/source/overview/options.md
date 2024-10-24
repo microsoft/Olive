@@ -342,10 +342,6 @@ of the pass contains following items:
 
 - `type: [str]` The type of the pass.
 
-- `disable_search: [Boolean]` This decides whether to use the default value (`true`) or the default searchable values,
-  if any, (`false`) for the optional parameters. This is `false` by default and can be overridden if `search_strategy` under `engine` is
-  specified. Otherwise, it is always `true`.
-
 - `config: [Dict]` The configuration of the pass. Its fields can be provided directly to the parent dictionary.
 
 - `host: [str | Dict]` The host of the pass. It can be a string or a dictionary. If it is a string, it is the name of a system in
@@ -356,7 +352,7 @@ evaluator in `evaluators`. If it is a dictionary, it contains the evaluator info
 will be used.
 
 
-Please refer to [Configuring Pass](../tutorials/configure_pass.rst) for more details on `type`, `disable_search` and `config`.
+Please refer to [Configuring Pass](../tutorials/configure_pass.rst) for more details on `type` and `config`.
 
 Please also find the detailed options from following table for each pass:
 

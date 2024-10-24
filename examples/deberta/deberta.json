@@ -38,7 +38,6 @@
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "model_type": "bert",
             "num_heads": 12,
             "hidden_size": 768,
