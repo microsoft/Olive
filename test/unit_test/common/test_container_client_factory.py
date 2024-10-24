@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, call, patch
 
 import pytest
+
 from olive.common.container_client_factory import AzureContainerClientFactory
 
 
@@ -11,8 +12,7 @@ class TestAzureContainerClientFactory:
     def setup(self, mock_ContainerClient, mock_get_credentials):
         self.container_client = AzureContainerClientFactory("dummy_account", "dummy_container")
         self.mock_ContainerClient = mock_ContainerClient
-        
-        
+
     def test_delete_blob(self):
         # setup
         mock_blob = MagicMock()
@@ -24,7 +24,7 @@ class TestAzureContainerClientFactory:
 
         # assert
         self.container_client.client.delete_blob.assert_called_once_with("dummy_blob")
-        
+
     def test_delete_all(self):
         # setup
         mock_blob = MagicMock()
@@ -35,19 +35,18 @@ class TestAzureContainerClientFactory:
 
         # execute
         self.container_client.delete_all()
-        
+
         # assert
         self.container_client.client.delete_blob.assert_has_calls([call("dummy_blob"), call("dummy_blob2")])
         assert self.container_client.client.delete_blob.call_count == 2
-    
 
     def test_upload_blob(self):
         # setup
         data = b"dummy_data"
-        
+
         # execute
         self.container_client.upload_blob("dummy_blob", data, overwrite=True)
-        
+
         # assert
         self.container_client.client.upload_blob.assert_called_once_with("dummy_blob", data=data, overwrite=True)
 
@@ -58,10 +57,10 @@ class TestAzureContainerClientFactory:
         blob_client_mock = MagicMock()
         self.container_client.client.get_blob_client.return_value = blob_client_mock
         blob_client_mock.download_blob.return_value.readall.return_value = b"dummy_data"
-            
+
         # execute
         self.container_client.downlaod_blob(blob_name, file_path)
-        
+
         # assert
         blob_client_mock.download_blob.assert_called_once()
         with open(file_path, "rb") as f:
@@ -70,16 +69,15 @@ class TestAzureContainerClientFactory:
     def test_exists(self):
         # setup
         self.container_client.client.list_blobs.return_value = [MagicMock()]
-        
+
         # assert
         assert self.container_client.exists("dummy_blob") is True
         self.container_client.client.list_blobs.assert_called_once_with("dummy_blob")
-            
-    
+
     def test_exists_not_found(self):
         # setup
         self.container_client.client.list_blobs.return_value = []
-        
+
         # assert
         assert self.container_client.exists("dummy_blob") is False
         self.container_client.client.list_blobs.assert_called_with("dummy_blob")
