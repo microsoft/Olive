@@ -472,7 +472,7 @@ class SharedCache:
                 logger.info("Run %s is not found in shared cache.", model_id)
                 return {}
             logger.info("Downloading %s to %s", blob, run_json_path)
-            retry_func(self.container_client_factory.downlaod_blob, [blob, run_json_path])
+            retry_func(self.container_client_factory.download_blob, [blob, run_json_path])
             with run_json_path.open() as f:
                 return json.load(f)
         except Exception:
@@ -570,7 +570,7 @@ class SharedCache:
 
         try:
             logger.info("Downloading %s to %s", model_config_blob, model_json_path)
-            retry_func(self.container_client_factory.downlaod_blob, [model_config_blob, model_json_path])
+            retry_func(self.container_client_factory.download_blob, [model_config_blob, model_json_path])
             with open(model_json_path) as file:
                 return json.load(file)
         except Exception:
@@ -683,4 +683,4 @@ class SharedCache:
                 else output_model_path / blob.name[len(directory_prefix) + 1 :]
             )
             logger.info("Downloading %s to %s", blob.name, local_file_path)
-            retry_func(self.container_client_factory.downlaod_blob, [blob, local_file_path])
+            retry_func(self.container_client_factory.download_blob, [blob, local_file_path])

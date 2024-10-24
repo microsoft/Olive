@@ -59,7 +59,7 @@ class TestAzureContainerClientFactory:
         blob_client_mock.download_blob.return_value.readall.return_value = b"dummy_data"
 
         # execute
-        self.container_client.downlaod_blob(blob_name, file_path)
+        self.container_client.download_blob(blob_name, file_path)
 
         # assert
         blob_client_mock.download_blob.assert_called_once()

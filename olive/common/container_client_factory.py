@@ -45,7 +45,7 @@ class AzureContainerClientFactory:
         self.client.upload_blob(blob_name, data=data, overwrite=overwrite)
         logger.info("File %s uploaded to the shared cache successfully.", blob_name)
 
-    def downlaod_blob(self, blob_name, file_path):
+    def download_blob(self, blob_name, file_path):
         blob_client = self.client.get_blob_client(blob_name)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with open(file_path, "wb") as download_file:
