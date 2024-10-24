@@ -32,3 +32,6 @@ pytorch_lightning
 sentencepiece
 tabulate
 torchvision
+# 4.46.0 is broken https://github.com/huggingface/transformers/issues/34370
+# TODO(anyone): remove when the issue is fixed or CI migrates to python 3.9
+transformers<4.46.0
