@@ -459,7 +459,11 @@ class SharedCache:
             try:
                 retry_func(self.container_client_factory.delete_blob, [model_id])
             except Exception:
-                logger.exception("Failed to clean up shared cache, please manually clean up. %s", model_id)
+                logger.exception(
+                    "Upload model to shared cache failed. There might be some dirty files in the shared cache."
+                    "Please manually clean up. %s",
+                    model_id,
+                )
 
     def load_run(self, model_id: str, run_json_path: Path) -> Optional[Dict]:
         blob = f"{model_id}/run.json"
@@ -547,7 +551,14 @@ class SharedCache:
         except Exception:
             logger.exception("Failed to upload model to shared cache.")
             # delete all uploaded files if any upload fails
-            self.container_client_factory.delete_blob(model_id)
+            try:
+                retry_func(self.container_client_factory.delete_blob, [model_id])
+            except Exception:
+                logger.exception(
+                    "Upload model to shared cache failed. There might be some dirty files in the shared cache."
+                    "Please manually clean up. %s",
+                    model_id,
+                )
 
     def load_model(self, model_id: str, model_json_path: Path) -> ModelConfig:
         """Get model config from shared cache by model id."""
