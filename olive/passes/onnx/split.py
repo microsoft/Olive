@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict
@@ -150,7 +151,7 @@ class SplitModel(Pass):
 
         # add the nodes to the split dags
         # keep track of missing value info for inputs to the split dags
-        missing_vi = {}
+        missing_vi = defaultdict(list)
         for node_name in node_order:
             split_id = node_assignments.get(node_name)
             if split_id is None:
@@ -182,7 +183,7 @@ class SplitModel(Pass):
                     proto = io.proto[0] if io.proto else None
                     if not proto:
                         # missing value info
-                        missing_vi[input_name] = split_id
+                        missing_vi[input_name].append(split_id)
                         proto = onnx.helper.make_empty_tensor_value_info(input_name)
                     split_dag.add_input(proto, 0)
 
@@ -208,15 +209,15 @@ class SplitModel(Pass):
                     if io.proto:
                         split_dag.add_value_info(io.proto[0], 0)
                     elif is_output:
-                        # should this be added as a missing value info?
-                        # not really needed
-                        split_dag.add_value_info(onnx.helper.make_empty_tensor_value_info(output_name), 0)
+                        # missing value info
+                        missing_vi[output_name].append(split_id)
             else:
                 # add the constant to each split
                 for idx in split_id:
                     split_dags[idx].add_node(dag.get_node_proto(node_name), 0)
 
         if missing_vi:
+            logger.debug("Missing value info for some io. Using onnxruntime shape inference to infer them.")
             from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
 
             shape_infered_proto = SymbolicShapeInference.infer_shapes(
@@ -224,11 +225,12 @@ class SplitModel(Pass):
             )
             shape_infered_dag = OnnxDAG(shape_infered_proto, only_main_graph=True)
 
-            for input_name, split_id in missing_vi.items():
+            for input_name, split_ids in missing_vi.items():
                 io = shape_infered_dag.get_io(input_name)
                 if not io.proto:
                     raise ValueError(f"Missing value info for input {input_name} for split {split_id}")
-                split_dags[split_id].add_value_info(io.proto[0], 0, overwrite=True)
+                for idx in split_ids:
+                    split_dags[idx].add_value_info(io.proto[0], 0, overwrite=True)
 
         component_models = []
         component_names = []
