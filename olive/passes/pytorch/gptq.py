@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Union
 import torch
 
 from olive.common.config_utils import validate_config
-from olive.common.hf.mappings import MODEL_INSIDE_LAYER_MODULES, MODEL_LAYERS_BLOCK_NAME, MODEL_OUTSIDE_LAYER_MODULES
+from olive.common.hf.mappings import MODEL_INSIDE_LAYER_MODULES, MODEL_OUTSIDE_LAYER_MODULES, MODELS_TO_LAYERS_MAPPING
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
@@ -161,7 +161,7 @@ class GptqQuantizer(Pass):
         fields_to_set = {
             "outside_layer_modules": MODEL_OUTSIDE_LAYER_MODULES,
             "inside_layer_modules": MODEL_INSIDE_LAYER_MODULES,
-            "layers_block_name": MODEL_LAYERS_BLOCK_NAME,
+            "layers_block_name": MODELS_TO_LAYERS_MAPPING,
         }
         for key, value in fields_to_set.items():
             if config[key]:

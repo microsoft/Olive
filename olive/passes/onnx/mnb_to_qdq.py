@@ -246,6 +246,8 @@ class MatMulNBitsToQDQ(Pass):
                 dag.add_value_info(vi, graph_idx)
 
             # remove the node
+            if is_model_output:
+                dag.remove_output(node_output)
             dag.remove_node(node_name)
 
             # rename to original name if it is a model output

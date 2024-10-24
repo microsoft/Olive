@@ -144,6 +144,18 @@ ExtractAdapters
 ---------------
 .. autoconfigclass:: olive.passes.ExtractAdapters
 
+.. _capture_split_info:
+
+CaptureSplitInfo
+----------------
+.. autoconfigclass:: olive.passes.CaptureSplitInfo
+
+.. _split_model:
+
+SplitModel
+----------
+.. autoconfigclass:: olive.passes.SplitModel
+
 .. _lora:
 
 LoRA

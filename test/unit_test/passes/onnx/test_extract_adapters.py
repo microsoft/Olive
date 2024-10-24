@@ -116,7 +116,7 @@ def input_model_info_fixture(tmp_path_factory):
 
 
 @pytest.mark.parametrize("model_type", [None, "float", "int4"])
-def test_model_has_adapters(tmp_path, input_model_info, model_type):
+def test_model_has_adapters(input_model_info, model_type):
     if model_type is None:
         assert not model_has_adapters(get_onnx_model().model_path)
     else:
