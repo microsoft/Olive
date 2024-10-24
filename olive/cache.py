@@ -14,9 +14,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, validate_config
-from olive.common.constants import ACCOUNT_URL_TEMPLATE, DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
+from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
+from olive.common.container_client_factory import AzureContainerClientFactory
 from olive.common.pydantic_v1 import root_validator, validator
-from olive.common.utils import get_credentials, hash_dict, hf_repo_exists, set_nested_dict_value
+from olive.common.utils import hash_dict, hf_repo_exists, retry_func, set_nested_dict_value
 from olive.model.config.model_config import ModelConfig
 from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
 
@@ -444,18 +445,7 @@ class OliveCache:
 
 class SharedCache:
     def __init__(self, account_name: str, container_name: str):
-        try:
-            from azure.storage.blob import ContainerClient
-        except ImportError as exc:
-            raise ImportError(
-                "Please install azure-storage-blob and azure-identity to use the shared model cache feature."
-            ) from exc
-        credential = get_credentials()
-        self.container_name = container_name
-        account_url = ACCOUNT_URL_TEMPLATE.format(account_name=account_name)
-        self.container_client = ContainerClient(
-            account_url=account_url, container_name=container_name, credential=credential
-        )
+        self.container_client_factory = AzureContainerClientFactory(account_name, container_name)
 
     def cache_run(self, model_id: str, run_json_path: Path) -> None:
         """Cache run json to shared cache."""
@@ -465,6 +455,8 @@ class SharedCache:
             logger.debug("Cached run %s to shared cache.", model_id)
         except Exception:
             logger.exception("Failed to cache run to shared cache.")
+            # delete all uploaded files if any upload fails
+            self.container_client_factory.delete_blob(model_id)
 
     def load_run(self, model_id: str, run_json_path: Path) -> Optional[Dict]:
         blob = f"{model_id}/run.json"
@@ -472,13 +464,8 @@ class SharedCache:
             if not self.exist_in_shared_cache(blob):
                 logger.info("Run %s is not found in shared cache.", model_id)
                 return {}
-            blob_client = self.container_client.get_blob_client(blob)
             logger.info("Downloading %s to %s", blob, run_json_path)
-
-            with open(run_json_path, "wb") as download_file:
-                download_stream = blob_client.download_blob()
-                download_file.write(download_stream.readall())
-
+            retry_func(self.container_client_factory.downlaod_blob, [blob, run_json_path])
             with run_json_path.open() as f:
                 return json.load(f)
         except Exception:
@@ -551,11 +538,13 @@ class SharedCache:
             # upload model config file
             model_config_bytes = json.dumps(model_json_copy).encode()
             with io.BytesIO(model_config_bytes) as data:
-                self.container_client.upload_blob(f"{model_id}/model.json", data=data, overwrite=False)
-
+                retry_func(self.container_client_factory.upload_blob, [f"{model_id}/model.json", data])
             logger.info("Model %s is uploaded to shared cache.", model_id)
+
         except Exception:
             logger.exception("Failed to upload model to shared cache.")
+            # delete all uploaded files if any upload fails
+            self.container_client_factory.delete_blob(model_id)
 
     def load_model(self, model_id: str, model_json_path: Path) -> ModelConfig:
         """Get model config from shared cache by model id."""
@@ -566,13 +555,8 @@ class SharedCache:
             return None
 
         try:
-            blob_client = self.container_client.get_blob_client(model_config_blob)
             logger.info("Downloading %s to %s", model_config_blob, model_json_path)
-
-            with open(model_json_path, "wb") as download_file:
-                download_stream = blob_client.download_blob()
-                download_file.write(download_stream.readall())
-
+            retry_func(self.container_client_factory.downlaod_blob, [model_config_blob, model_json_path])
             with open(model_json_path) as file:
                 return json.load(file)
         except Exception:
@@ -647,7 +631,7 @@ class SharedCache:
     def exist_in_shared_cache(self, blob_name: str) -> bool:
         logger.debug("Checking shared cache for: %s", blob_name)
         try:
-            return any(self.container_client.list_blobs(blob_name))
+            return retry_func(self.container_client_factory.exists, [blob_name])
         except Exception:
             logger.exception("Failed to check shared cache for %s.", blob_name)
             return False
@@ -673,20 +657,16 @@ class SharedCache:
     def _upload_file_to_blob(self, file_path: Path, blob_name: str):
         logger.info("Uploading %s to %s", file_path, blob_name)
         with open(file_path, "rb") as data:
-            self.container_client.upload_blob(name=blob_name, data=data, overwrite=False)
+            retry_func(self.container_client_factory.upload_blob, [blob_name, data])
 
     def _download_blob_list(
         self, blob_list, directory_prefix: str, output_model_path: Path, prefix: str = None
     ) -> None:
         for blob in blob_list:
-            blob_client = self.container_client.get_blob_client(blob)
             local_file_path = (
                 output_model_path / prefix / blob.name[len(directory_prefix) + 1 :]
                 if prefix
                 else output_model_path / blob.name[len(directory_prefix) + 1 :]
             )
             logger.info("Downloading %s to %s", blob.name, local_file_path)
-            local_file_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(local_file_path, "wb") as download_file:
-                download_stream = blob_client.download_blob()
-                download_file.write(download_stream.readall())
+            retry_func(self.container_client_factory.downlaod_blob, [blob, local_file_path])
