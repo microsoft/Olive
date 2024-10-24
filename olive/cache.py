@@ -376,9 +376,38 @@ class OliveCache:
         output_dir.mkdir(parents=True, exist_ok=True)
         model_json = self.load_model(model_id)
         if model_json["type"].lower() == "compositemodel":
-            logger.warning("Saving models of type '%s' is not supported yet.", model_json["type"])
-            return None
+            model_json_config = model_json["config"]
+            copied_components = []
+            for component_names, component in zip(
+                model_json_config["model_component_names"], model_json_config["model_components"]
+            ):
+                copied_components.append(
+                    self._save_model(
+                        component,
+                        output_dir=output_dir,
+                        overwrite=overwrite,
+                        only_cache_files=only_cache_files,
+                        path_prefix=component_names,
+                    )
+                )
+            model_json_config["model_components"] = copied_components
+            model_json = self._save_additional_files(model_json, output_dir)
+        else:
+            model_json = self._save_model(model_json, output_dir, overwrite)
 
+        # save model json
+        with (output_dir / "model_config.json").open("w") as f:
+            json.dump(model_json, f, indent=4)
+        return model_json
+
+    def _save_model(
+        self,
+        model_json: dict,
+        output_dir: str,
+        overwrite: bool = False,
+        only_cache_files: bool = False,
+        path_prefix: str = None,
+    ) -> dict:
         # create model object so that we can get the resource paths
         model_config: ModelConfig = ModelConfig.from_json(model_json)
         resource_paths = model_config.get_resource_paths()
@@ -413,17 +442,26 @@ class OliveCache:
                         continue
 
             # save resource to output directory
-            model_json["config"][resource_name] = local_resource_path.save_to_dir(
-                output_dir, resource_name.replace("_path", ""), overwrite
-            )
+            path_name = resource_name.replace("_path", "")
+            if path_prefix:
+                path_name = f"{path_prefix}_{path_name}"
+            model_json["config"][resource_name] = local_resource_path.save_to_dir(output_dir, path_name, overwrite)
 
+        # we only have additional files for onnx models so saving to "model" is safe
+        model_path_name = "model"
+        if path_prefix:
+            model_path_name = f"{path_prefix}_{model_path_name}"
+        return self._save_additional_files(model_json, output_dir / model_path_name)
+
+    def _save_additional_files(self, model_json: dict, output_dir: Path) -> dict:
         # Copy "additional files" to the model folder
         # we only have additional files for onnx models so saving to "model" is safe
         model_attributes = model_json["config"].get("model_attributes") or {}
         additional_files = model_attributes.get("additional_files", [])
 
         for i, src_filepath in enumerate(additional_files):
-            dst_filepath = output_dir / "model" / Path(src_filepath).name
+            output_dir.mkdir(parents=True, exist_ok=True)
+            dst_filepath = output_dir / Path(src_filepath).name
             additional_files[i] = str(dst_filepath)
 
             if not dst_filepath.exists():
@@ -432,9 +470,6 @@ class OliveCache:
         if additional_files:
             model_json["config"]["model_attributes"]["additional_files"] = additional_files
 
-        # save model json
-        with (output_dir / "model_config.json").open("w") as f:
-            json.dump(model_json, f, indent=4)
         return model_json
 
     def disable_shared_cache(self):
