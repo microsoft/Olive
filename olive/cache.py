@@ -456,7 +456,10 @@ class SharedCache:
         except Exception:
             logger.exception("Failed to cache run to shared cache.")
             # delete all uploaded files if any upload fails
-            self.container_client_factory.delete_blob(model_id)
+            try:
+                retry_func(self.container_client_factory.delete_blob, [model_id])
+            except Exception:
+                logger.exception("Failed to clean up shared cache, please manually clean up. %s", model_id)
 
     def load_run(self, model_id: str, run_json_path: Path) -> Optional[Dict]:
         blob = f"{model_id}/run.json"
