@@ -796,12 +796,6 @@
           "description": "The type of the pass.",
           "type": "string"
         },
-        "disable_search": {
-          "title": "Disable Search",
-          "description": "Whether to disable search.",
-          "default": false,
-          "type": "boolean"
-        },
         "config": {
           "title": "Config",
           "description": "The configuration of the pass. Values for required parameters must be provided. For optional parameters, default values or searchable values (if available and search is not disabled) will be used if not provided.",

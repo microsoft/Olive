@@ -557,9 +557,6 @@ of the pass. The value of the dictionary is another dictionary that contains the
 of the pass contains following items:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> The type of the pass.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">disable_search:</span> <span class="pre">[Boolean]</span></code> This decides whether to use the default value (<code class="docutils literal notranslate"><span class="pre">true</span></code>) or the default searchable values,
-if any, (<code class="docutils literal notranslate"><span class="pre">false</span></code>) for the optional parameters. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default and can be overridden if <code class="docutils literal notranslate"><span class="pre">search_strategy</span></code> under <code class="docutils literal notranslate"><span class="pre">engine</span></code> is
-specified. Otherwise, it is always <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The configuration of the pass. Its fields can be provided directly to the parent dictionary.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">host:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The host of the pass. It can be a string or a dictionary. If it is a string, it is the name of a system in
 <code class="docutils literal notranslate"><span class="pre">systems</span></code>. If it is a dictionary, it contains the system information. If not specified, the host of the engine will be used.</p></li>
@@ -567,7 +564,7 @@ specified. Otherwise, it is always <code class="docutils literal notranslate"><s
 evaluator in <code class="docutils literal notranslate"><span class="pre">evaluators</span></code>. If it is a dictionary, it contains the evaluator information. If not specified, the evaluator of the engine
 will be used.</p></li>
 </ul>
-<p>Please refer to <a class="reference internal" href="../tutorials/configure_pass.html"><span class="std std-doc">Configuring Pass</span></a> for more details on <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">disable_search</span></code> and <code class="docutils literal notranslate"><span class="pre">config</span></code>.</p>
+<p>Please refer to <a class="reference internal" href="../tutorials/configure_pass.html"><span class="std std-doc">Configuring Pass</span></a> for more details on <code class="docutils literal notranslate"><span class="pre">type</span></code> and <code class="docutils literal notranslate"><span class="pre">config</span></code>.</p>
 <p>Please also find the detailed options from following table for each pass:</p>
 <table class="docutils align-default">
 <thead>

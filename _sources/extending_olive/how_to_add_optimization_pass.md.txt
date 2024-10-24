@@ -44,10 +44,10 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
 
 - `description` : description of the parameter
 
-- `default_value`: default value for the parameter. This value is used as the default if `disable_search=False` or there are no searchable values.
+- `default_value`: default value for the parameter. This value is used as the default when not searching or when there are no searchable values.
     Must be the same type as the parameter or a ConditionalDefault SearchParameter.
 
-- `search_defaults`: default search values for the parameter. This value is used as the default if `disable_search=True`.
+- `search_defaults`: default search values for the parameter. This value is used as the default when searching.
     Must be a Categorical or Conditional SearchParameter.
 
 ### Example
