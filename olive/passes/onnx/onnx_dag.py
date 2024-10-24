@@ -207,8 +207,7 @@ class OnnxDAG:
                 raise ValueError(f"Output {o} is already connected to another node.")
             ios[o].source = name
             for destination in ios[o].destination:
-                if destination != SpecialOutput.OUTPUT:
-                    connections[name].append(destination)
+                connections[name].append(destination)
 
     def add_input(self, input_proto: ValueInfoProto, graph_idx: int, keep_initializer: bool = False):
         """Add an input to the graph.
@@ -587,6 +586,17 @@ class OnnxDAG:
         if self.is_output(io_name):
             return
         self.ios[io_name].destination.append(SpecialOutput.OUTPUT)
+        self.connections[self.get_producer(io_name)].append(SpecialOutput.OUTPUT)
+
+    def remove_output(self, io_name: str):
+        """Remove an output from an input/output.
+
+        :param io_name: name of the input/output.
+        """
+        if not self.is_output(io_name):
+            return
+        self.ios[io_name].destination.remove(SpecialOutput.OUTPUT)
+        self.connections[self.get_producer(io_name)].remove(SpecialOutput.OUTPUT)
 
     def get_producer(self, io_name: str) -> str:
         """Get the producer of an input/output.
@@ -596,7 +606,7 @@ class OnnxDAG:
         """
         return self.ios[io_name].source
 
-    def get_consumers(self, node_name: str, return_special_outputs: bool = True) -> List[str]:
+    def get_consumers(self, node_name: str, return_special_outputs: bool = False) -> List[str]:
         """Get the consumers of a node.
 
         :param node_name: name of the node. It can also be an input or initializer.
@@ -613,7 +623,7 @@ class OnnxDAG:
 
         return list(filter(lambda c: c != SpecialOutput.OUTPUT, consumers))
 
-    def get_parents(self, node_name: str, return_special_inputs: bool = True) -> List[str]:
+    def get_parents(self, node_name: str, return_special_inputs: bool = False) -> List[str]:
         """Get the parents of a node.
 
         :param node_name: name of the node.
@@ -626,16 +636,21 @@ class OnnxDAG:
 
         return list(filter(lambda p: not SpecialInput.is_special_input(p), parents))
 
+    def is_input_consumer(self, node_name: str) -> bool:
+        """Check if a node is an input consumer.
+
+        :param node_name: name of the node.
+        :return: True if the node consumes one/more inputs that are also model inputs.
+        """
+        return any(SpecialInput.is_special_input(p) for p in self.get_parents(node_name, return_special_inputs=True))
+
     def is_output_producer(self, node_name: str) -> bool:
         """Check if a node is an output producer.
 
         :param node_name: name of the node.
         :return: True if the node produces one/more outputs that are also model outputs.
         """
-        return any(
-            SpecialOutput.OUTPUT in self.ios[o].destination
-            for o in self.get_node_outputs(node_name, skip_empty_io=True)
-        )
+        return SpecialOutput.OUTPUT in self.get_consumers(node_name, return_special_outputs=True)
 
     def _topological_sort_util(self, v: str, visited: Set[str], order: List[str]):
         """Do depth-first search starting from node v.

@@ -84,7 +84,7 @@ class SplitModel(Pass):
 
             child_splits = [
                 next_split[child_name]
-                for child_name in dag.get_consumers(node_name, return_special_outputs=False)
+                for child_name in dag.get_consumers(node_name)
                 if next_split[child_name] is not None
             ]
             if child_splits:
@@ -106,7 +106,7 @@ class SplitModel(Pass):
             # between splits
             parent_splits = [
                 node_assignments[parent_name]
-                for parent_name in dag.get_parents(node_name, return_special_inputs=False)
+                for parent_name in dag.get_parents(node_name)
                 if parent_name in node_assignments
             ]
             if parent_splits:
@@ -117,10 +117,32 @@ class SplitModel(Pass):
             if all(dag.is_constant_input(input_name) for input_name in dag.get_node_inputs(node_name)):
                 node_assignments[node_name] = next_split[node_name]
 
+        # handle cast nodes of the from:
+        # - Input -> Cast -> Split
+        # - Split -> Cast -> Output
+        for node_name in node_order:
+            if (
+                node_name in node_assignments
+                or dag.get_node_op_type(node_name) != "Cast"
+                # only one consumer (model output or another node)
+                or len(dag.get_consumers(node_name, True)) != 1
+            ):
+                continue
+
+            if (
+                dag.is_input_consumer(node_name)
+                and (consumer := dag.get_consumers(node_name, True)[0]) in node_assignments
+            ):
+                node_assignments[node_name] = node_assignments[consumer]
+            elif (parent_name := dag.get_parents(node_name, True)[0]) in node_assignments and dag.is_output_producer(
+                node_name
+            ):
+                node_assignments[node_name] = node_assignments[parent_name]
+
         # handle constant nodes, will add a copy of the constant to each split
         for node_name in constant_nodes:
             splits = set()
-            for consumer in dag.get_consumers(node_name, return_special_outputs=False):
+            for consumer in dag.get_consumers(node_name):
                 if consumer in node_assignments:
                     splits.add(node_assignments[consumer])
             if splits:
@@ -175,7 +197,7 @@ class SplitModel(Pass):
 
                     # mark as output if any consumer is not in the split
                     is_output = False
-                    for consumer in dag.get_consumers(output_name):
+                    for consumer in dag.get_consumers(output_name, True):
                         if node_assignments.get(consumer) != split_id:
                             split_dag.make_output(output_name)
                             is_output = True
