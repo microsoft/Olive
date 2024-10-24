@@ -127,8 +127,7 @@ def test_finetune_command(_, mock_tempdir, mock_run, tmp_path):
 
     # setup
     mock_tempdir.return_value = tmpdir.resolve()
-    workflow_output_dir = tmpdir / "output_model"
-    workflow_output_dir.mkdir(parents=True)
+    workflow_output_dir = tmpdir
     dummy_output = workflow_output_dir / "model_config.json"
     with open(dummy_output, "w") as f:
         json.dump({"dummy": "output"}, f)
@@ -197,8 +196,7 @@ def test_capture_onnx_command(_, mock_tempdir, mock_run, use_model_builder, tmp_
 
     # setup
     mock_tempdir.return_value = tmpdir.resolve()
-    workflow_output_dir = tmpdir / "output_model"
-    workflow_output_dir.mkdir(parents=True)
+    workflow_output_dir = tmpdir
     dummy_output = workflow_output_dir / "model_config.json"
     with open(dummy_output, "w") as f:
         json.dump({"config": {"inference_settings": {"dummy-key": "dummy-value"}}}, f)
@@ -270,7 +268,7 @@ def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_na
     mock_tempdir.return_value = tmpdir.resolve()
     mock_run.return_value = {}
 
-    workflow_output_dir = tmpdir / "output_model" / algorithm_name
+    workflow_output_dir = tmpdir / algorithm_name
     workflow_output_dir.mkdir(parents=True)
     model_config_path = workflow_output_dir / "model_config.json"
     with model_config_path.open("w") as f:
