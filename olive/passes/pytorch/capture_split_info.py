@@ -8,8 +8,8 @@ from typing import Any, Dict, Union
 
 import numpy as np
 
-from olive.common.hf.mappings import MODELS_TO_LAYERS_MAPPING, NUM_HIDDEN_LAYER_NAMES
-from olive.common.utils import find_first_matched_value, get_attr
+from olive.common.hf.mappings import MODELS_TO_LAYERS_MAPPING
+from olive.common.utils import get_attr
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.passes import Pass
@@ -29,12 +29,13 @@ class CaptureSplitInfo(Pass):
                 required=True,
                 description="Number of splits to divide the model layers into.",
             ),
-            "layers_block_name": PassConfigParam(
+            "block_to_split": PassConfigParam(
                 type_=str,
                 default_value=None,
                 description=(
-                    "Name of the layers block to split. Supported model types in"
-                    " olive.common.hf.mappings.MODELS_TO_LAYERS_MAPPING are auto-filled"
+                    "Name of the model block to split. Children of the block will be divided into the splits. For"
+                    " supported transformers models, the default value is the transformers layer block name. Refer to"
+                    " olive.common.hf.mappings.MODELS_TO_LAYERS_MAPPING for supported models."
                 ),
             ),
         }
@@ -42,32 +43,29 @@ class CaptureSplitInfo(Pass):
     def _run_for_config(
         self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any], output_model_path: str
     ) -> Union[HfModelHandler, PyTorchModelHandler]:
-        layers_block_name = config["layers_block_name"]
-        if isinstance(model, HfModelHandler):
+        block_to_split = config["block_to_split"]
+        # check for None specifically since "" is a valid value
+        if block_to_split is None and isinstance(model, HfModelHandler):
             model_type = model.get_hf_model_type()
-            if layers_block_name is None:
-                layers_block_name = MODELS_TO_LAYERS_MAPPING.get(model_type, None)
-        if not layers_block_name:
-            raise ValueError("layers_block_name is not set and could not be inferred. Please set it manually.")
+            block_to_split = MODELS_TO_LAYERS_MAPPING.get(model_type, None)
+        if block_to_split is None:
+            raise ValueError("block_to_split is not set and could not be inferred. Please set it manually.")
 
-        num_layers = None
-        if isinstance(model, HfModelHandler):
-            # model attributes already has the hf model config loaded
-            num_layers = find_first_matched_value(model.model_attributes, NUM_HIDDEN_LAYER_NAMES)
-        if not num_layers:
-            # load the models and get the number of layers
-            loaded_model = model.load_model(cache_model=False)
-            layers = get_attr(loaded_model, layers_block_name)
-
-            if layers is None:
-                raise ValueError(f"layers_block_name {layers_block_name} not found in model.")
-
-            num_layers = len(layers)
+        block_members = []
+        # we could get the number of layers for hf model from the model attributes
+        # but will just load the model to make the logic simple for now
+        # consider loading with meta device to avoid loading the weights
+        loaded_model = model.load_model(cache_model=False)
+        block = get_attr(loaded_model, block_to_split)
+        if block is None:
+            raise ValueError(f"block_to_split {block_to_split} not found in model.")
+        for child_name, _ in block.named_children():
+            block_members.append(child_name)
 
         split_assignments = {}
-        for split_idx, split_members in enumerate(np.array_split(range(num_layers), config["num_splits"])):
-            for i in split_members:
-                split_assignments[f"{layers_block_name}.{i}"] = split_idx
+        for split_idx, split_members in enumerate(np.array_split(block_members, config["num_splits"])):
+            for child_name in split_members:
+                split_assignments[f"{block_to_split}.{child_name}".lstrip(".")] = split_idx
 
         # create a copy of the iput model and add the split assignments as a new attribute
         model.model = None

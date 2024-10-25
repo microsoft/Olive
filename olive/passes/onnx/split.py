@@ -26,6 +26,15 @@ class SplitModel(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
+            "include_all_nodes": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=(
+                    "Include all nodes in the split model. Nodes outside the splits or before the first split will be"
+                    " assigned to the first split. Nodes after the last split will be assigned to the last split. If"
+                    " False, these nodes will not be included in the split models."
+                ),
+            ),
             **get_external_data_config(),
         }
 
@@ -42,6 +51,9 @@ class SplitModel(Pass):
                     for key, value in (assignment.split("=") for assignment in metadata_prop.value.split(";"))
                 }
                 break
+        # TODO(jambayk): Should we allow split assignments in the model attributes too?
+        if not split_assignments:
+            raise ValueError("No split assignments found in the model metadata")
 
         # TODO(jambayk): Make this more generic, for now only assume transformers layers are split
         # so depth of namespace is same for all split assignments
@@ -93,52 +105,75 @@ class SplitModel(Pass):
             else:
                 next_split[node_name] = None
 
-        # handle unassigned nodes that are:
-        # - between splits: assign to the split of the parent node
-        # - between constant/initializer and splits: assign the next split
-        for node_name in node_order:
-            if node_name in node_assignments or node_name in constant_nodes:
-                continue
+        if config["include_all_nodes"]:
+            for node_name in node_order:
+                if node_name in node_assignments or node_name in constant_nodes:
+                    continue
 
-            # after the last split
-            if next_split[node_name] is None:
-                continue
+                # parent has a split - after last split or the before/outside parent has been assigned
+                parent_splits = [
+                    node_assignments[parent_name]
+                    for parent_name in dag.get_parents(node_name)
+                    if parent_name in node_assignments
+                ]
+                if parent_splits:
+                    node_assignments[node_name] = max(parent_splits)
+                    continue
 
-            # between splits
-            parent_splits = [
-                node_assignments[parent_name]
-                for parent_name in dag.get_parents(node_name)
-                if parent_name in node_assignments
-            ]
-            if parent_splits:
-                node_assignments[node_name] = max(parent_splits)
-                continue
+                # before the first split
+                if next_split[node_name] is not None:
+                    node_assignments[node_name] = next_split[node_name]
+                    continue
 
-            # between constant/initializer and splits
-            if all(dag.is_constant_input(input_name) for input_name in dag.get_node_inputs(node_name)):
-                node_assignments[node_name] = next_split[node_name]
+                # outside the splits
+                node_assignments[node_name] = 0
+        else:
+            # handle unassigned nodes that are:
+            # - between splits: assign to the split of the parent node
+            # - between constant/initializer and splits: assign the next split
+            for node_name in node_order:
+                if node_name in node_assignments or node_name in constant_nodes:
+                    continue
 
-        # handle cast nodes of the from:
-        # - Input -> Cast -> Split
-        # - Split -> Cast -> Output
-        for node_name in node_order:
-            if (
-                node_name in node_assignments
-                or dag.get_node_op_type(node_name) != "Cast"
-                # only one consumer (model output or another node)
-                or len(dag.get_consumers(node_name, True)) != 1
-            ):
-                continue
+                # after the last split
+                if next_split[node_name] is None:
+                    continue
 
-            if (
-                dag.is_input_consumer(node_name)
-                and (consumer := dag.get_consumers(node_name, True)[0]) in node_assignments
-            ):
-                node_assignments[node_name] = node_assignments[consumer]
-            elif (parent_name := dag.get_parents(node_name, True)[0]) in node_assignments and dag.is_output_producer(
-                node_name
-            ):
-                node_assignments[node_name] = node_assignments[parent_name]
+                # between splits
+                parent_splits = [
+                    node_assignments[parent_name]
+                    for parent_name in dag.get_parents(node_name)
+                    if parent_name in node_assignments
+                ]
+                if parent_splits:
+                    node_assignments[node_name] = max(parent_splits)
+                    continue
+
+                # between constant/initializer and splits
+                if all(dag.is_constant_input(input_name) for input_name in dag.get_node_inputs(node_name)):
+                    node_assignments[node_name] = next_split[node_name]
+
+            # handle cast nodes of the from:
+            # - Input -> Cast -> Split
+            # - Split -> Cast -> Output
+            for node_name in node_order:
+                if (
+                    node_name in node_assignments
+                    or dag.get_node_op_type(node_name) != "Cast"
+                    # only one consumer (model output or another node)
+                    or len(dag.get_consumers(node_name, True)) != 1
+                ):
+                    continue
+
+                if (
+                    dag.is_input_consumer(node_name)
+                    and (consumer := dag.get_consumers(node_name, True)[0]) in node_assignments
+                ):
+                    node_assignments[node_name] = node_assignments[consumer]
+                elif (
+                    parent_name := dag.get_parents(node_name, True)[0]
+                ) in node_assignments and dag.is_output_producer(node_name):
+                    node_assignments[node_name] = node_assignments[parent_name]
 
         # handle constant nodes, will add a copy of the constant to each split
         for node_name in constant_nodes:

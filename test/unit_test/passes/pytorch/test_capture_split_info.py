@@ -25,26 +25,34 @@ class CustomModel(torch.nn.Module):
 
 
 @pytest.mark.parametrize(
-    ("input_model", "layers_block_name", "split_assignments"),
+    ("input_model", "block_to_split", "num_splits", "split_assignments"),
     [
         (
             PyTorchModelHandler(model_loader=lambda _: CustomModel()),
             "layers",
+            2,
             {"layers.0": 0, "layers.1": 0, "layers.2": 1, "layers.3": 1},
+        ),
+        (
+            PyTorchModelHandler(model_loader=lambda _: CustomModel()),
+            "",
+            3,
+            {"before_layer": 0, "layers": 1, "after_layer": 2},
         ),
         (
             HfModelHandler(model_path="hf-internal-testing/tiny-random-LlamaForCausalLM"),
             None,
+            2,
             {"model.layers.0": 0, "model.layers.1": 1},
         ),
     ],
 )
-def test_capture_split_info(input_model, layers_block_name, split_assignments, tmp_path):
+def test_capture_split_info(input_model, block_to_split, num_splits, split_assignments, tmp_path):
     config = {
-        "num_splits": 2,
+        "num_splits": num_splits,
     }
-    if layers_block_name:
-        config["layers_block_name"] = layers_block_name
+    if block_to_split is not None:
+        config["block_to_split"] = block_to_split
     p = create_pass_from_dict(CaptureSplitInfo, config, disable_search=True)
 
     out = p.run(input_model, str(tmp_path))

@@ -52,6 +52,64 @@ def input_model_info_fixture(tmp_path_factory):
     return all_models
 
 
+def common_check(tmp_path, input_model_info, model_type, include_all_nodes):
+    input_model = input_model_info[model_type]
+
+    split_model = create_pass_from_dict(SplitModel, {"include_all_nodes": include_all_nodes}, disable_search=True).run(
+        input_model, tmp_path
+    )
+
+    assert isinstance(split_model, CompositeModelHandler)
+    components = list(split_model.model_components)
+    assert len(components) == 2
+    assert all(isinstance(component, ONNXModelHandler) for component in components)
+
+    # check that the split models can be loaded
+    # TODO(jambayk): Consider running the full model and comparing the outputs with the splits
+    # this is more involved. have to modify the input model to create outputs for the split outputs
+    for component in components:
+        component.prepare_session(execution_providers="CPUExecutionProvider")
+
+    # check that the splits have the expected kv inputs
+    for split_idx in range(2):
+        io_config = components[split_idx].io_config
+
+        expected_kv_inputs = [f"past_key_values.{split_idx}.key", f"past_key_values.{split_idx}.value"]
+        if not include_all_nodes and model_type == "opt_fp16_keep_io_types":
+            # key is used before the firt split too
+            expected_kv_inputs.remove(f"past_key_values.{split_idx}.key")
+        assert set(expected_kv_inputs) <= set(io_config["input_names"])
+
+        expected_kv_outputs = [f"present.{split_idx}.key", f"present.{split_idx}.value"]
+        assert set(expected_kv_outputs) <= set(io_config["output_names"])
+
+    return input_model, components
+
+
+@pytest.mark.parametrize(
+    "model_type",
+    ["convert_fp32", "opt_fp32", "opt_fp16", "opt_fp16_keep_io_types"],
+)
+def test_split_model_all_nodes(tmp_path, input_model_info, model_type):
+    input_model, components = common_check(tmp_path, input_model_info, model_type, True)
+    input_io_config = input_model.io_config
+
+    # input of first split must be a subset of the input of the input model
+    assert set(components[0].io_config["input_names"]) <= set(input_io_config["input_names"])
+    # input of second split must be a subset of model input + first split output
+    assert set(components[1].io_config["input_names"]) <= set(
+        input_io_config["input_names"] + components[0].io_config["output_names"]
+    )
+    # output of first split not used by second split must be a subset of the output of the input model
+    split_1_model_output = set(components[0].io_config["output_names"]) - set(components[1].io_config["input_names"])
+    assert split_1_model_output <= set(input_io_config["output_names"])
+    # output of second split must be a subset of the output of the input model
+    split_2_model_output = set(components[1].io_config["output_names"])
+    assert split_2_model_output <= set(input_io_config["output_names"])
+    # all split model outputs must be the same as the input model outputs
+    assert (split_1_model_output | split_2_model_output) == set(input_io_config["output_names"])
+
+
 @pytest.mark.parametrize(
     ("model_type", "expected_overlap"),
     [
@@ -61,35 +119,11 @@ def input_model_info_fixture(tmp_path_factory):
         ("opt_fp16_keep_io_types", 4),
     ],
 )
-def test_split_model(tmp_path, input_model_info, model_type, expected_overlap):
-    input_model = input_model_info[model_type]
+def test_split_model_only_splits(tmp_path, input_model_info, model_type, expected_overlap):
+    _, components = common_check(tmp_path, input_model_info, model_type, False)
 
-    split_model = create_pass_from_dict(SplitModel, disable_search=True).run(input_model, tmp_path)
-
-    assert isinstance(split_model, CompositeModelHandler)
-    components = list(split_model.model_components)
-    assert len(components) == 2
-    assert all(isinstance(component, ONNXModelHandler) for component in components)
-
-    # check that the splits have the expected kv inputs
-    for split_idx in range(2):
-        io_config = components[split_idx].io_config
-
-        expected_kv_inputs = [f"past_key_values.{split_idx}.key", f"past_key_values.{split_idx}.value"]
-        if model_type == "opt_fp16_keep_io_types":
-            # key is used before the firt split too
-            expected_kv_inputs.remove(f"past_key_values.{split_idx}.key")
-        assert set(expected_kv_inputs) <= set(io_config["input_names"])
-
-        expected_kv_outputs = [f"present.{split_idx}.key", f"present.{split_idx}.value"]
-        assert set(expected_kv_outputs) <= set(io_config["output_names"])
     # check that the splits have the expected overlap
     assert (
         len(set(components[0].io_config["output_names"]).intersection(set(components[1].io_config["input_names"])))
         == expected_overlap
     )
-    # check that the split models can be loaded
-    # TODO(jambayk): Consider running the full model and comparing the outputs with the splits
-    # this is more involved. have to modify the input model to create outputs for the split outputs
-    for component in components:
-        component.prepare_session(execution_providers="CPUExecutionProvider")
