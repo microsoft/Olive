@@ -78,3 +78,11 @@ OrtSessionParamsTuning:
   EP: null
   precision: null
   accelerator: null
+CaptureSplitInfo:
+  EP: null
+  precision: null
+  accelerator: null
+SplitModel:
+  EP: null
+  precision: null
+  accelerator: null

@@ -1,0 +1,21 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "load_kwargs": { "attn_implementation": "eager" },
+        "model_path": "meta-llama/Llama-2-7b-hf"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
+        }
+    },
+    "passes": {
+        "s": { "type": "CaptureSplitInfo", "num_splits": 3 },
+        "c": { "type": "OnnxConversion", "target_opset": 17, "torch_dtype": "float32" },
+        "sm": { "type": "SplitModel" }
+    },
+    "host": "local_system",
+    "target": "local_system",
+    "output_dir": "models/llama2_split"
+}

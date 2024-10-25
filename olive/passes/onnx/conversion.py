@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
 import onnx
-import onnx.external_data_helper
 import torch
 from packaging import version
 
@@ -375,6 +374,14 @@ class OnnxConversion(Pass):
         converted_onnx_model = OnnxConversion._export_pytorch_model(
             pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
         )
+
+        model_attributes = deepcopy(model.model_attributes or {})
+
+        # add split information if present
+        split_assignments = model_attributes.get("split_assignments")
+        if split_assignments:
+            split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
+            onnx.helper.set_model_props(converted_onnx_model, {"split_assignments": split_assignment_str})
 
         # save the model to the output path and return the model
         output_model_path = resolve_onnx_path(output_model_path)
