@@ -14,34 +14,58 @@ class TestAzureContainerClientFactory:
     def setup(self, mock_ContainerClient, mock_get_credentials):
         self.container_client = AzureContainerClientFactory("dummy_account", "dummy_container")
 
-    def test_delete_blob(self):
+    @patch("olive.common.container_client_factory.retry_func")
+    def test_get_blob_list(self, mock_retry_func):
         # setup
         mock_blob = MagicMock()
         mock_blob.name = "dummy_blob"
-        self.container_client.client.list_blobs.return_value = [mock_blob]
+        mock_retry_func.return_value = [mock_blob]
+
+        # execute
+        blob_list = self.container_client.get_blob_list("dummy_blob")
+
+        # assert
+        assert blob_list == [mock_blob]
+        mock_retry_func.assert_called_once_with(self.container_client.client.list_blobs, ["dummy_blob"])
+
+    @patch("olive.common.container_client_factory.retry_func")
+    @patch("olive.common.container_client_factory.AzureContainerClientFactory.get_blob_list")
+    def test_delete_blob(self, mock_get_blob_list, mock_retry_func):
+        # setup
+        mock_blob = MagicMock()
+        mock_blob.name = "dummy_blob"
+        mock_get_blob_list.return_value = [mock_blob]
 
         # execute
         self.container_client.delete_blob("dummy_blob")
 
         # assert
-        self.container_client.client.delete_blob.assert_called_once_with("dummy_blob")
+        mock_retry_func.assert_called_once_with(self.container_client.client.delete_blob, ["dummy_blob"])
 
-    def test_delete_all(self):
+    @patch("olive.common.container_client_factory.retry_func")
+    @patch("olive.common.container_client_factory.AzureContainerClientFactory.get_blob_list")
+    def test_delete_all(self, mock_get_blob_list, mock_retry_func):
         # setup
         mock_blob = MagicMock()
         mock_blob.name = "dummy_blob"
         mock_blob2 = MagicMock()
         mock_blob2.name = "dummy_blob2"
-        self.container_client.client.list_blobs.return_value = [mock_blob, mock_blob2]
+        mock_get_blob_list.return_value = [mock_blob, mock_blob2]
 
         # execute
         self.container_client.delete_all()
 
         # assert
-        self.container_client.client.delete_blob.assert_has_calls([call("dummy_blob"), call("dummy_blob2")])
-        assert self.container_client.client.delete_blob.call_count == 2
+        mock_retry_func.assert_has_calls(
+            [
+                call(self.container_client.client.delete_blob, ["dummy_blob"]),
+                call(self.container_client.client.delete_blob, ["dummy_blob2"]),
+            ]
+        )
+        assert mock_retry_func.call_count == 2
 
-    def test_upload_blob(self):
+    @patch("olive.common.container_client_factory.retry_func")
+    def test_upload_blob(self, mock_retry_func):
         # setup
         data = b"dummy_data"
 
@@ -49,9 +73,20 @@ class TestAzureContainerClientFactory:
         self.container_client.upload_blob("dummy_blob", data, overwrite=True)
 
         # assert
-        self.container_client.client.upload_blob.assert_called_once_with("dummy_blob", data=data, overwrite=True)
+        mock_retry_func.assert_called_once_with(
+            self.container_client.client.upload_blob, ["dummy_blob", data], overwrite=True
+        )
 
-    def test_download_blob(self, tmp_path):
+    @patch("olive.common.container_client_factory.retry_func")
+    @patch("olive.common.container_client_factory.AzureContainerClientFactory._download_blob")
+    def test_download_blob(self, mock__download_blob, mock_retry_func):
+        # execute
+        self.container_client.download_blob("dummy_blob", "dummy_file_path")
+
+        # assert
+        mock_retry_func.assert_called_once_with(self.container_client._download_blob, ["dummy_blob", "dummy_file_path"])
+
+    def test__download_blob(self, tmp_path):
         # setup
         blob_name = "dummy_blob"
         file_path = tmp_path / "downloaded_blob"
@@ -60,25 +95,18 @@ class TestAzureContainerClientFactory:
         blob_client_mock.download_blob.return_value.readall.return_value = b"dummy_data"
 
         # execute
-        self.container_client.download_blob(blob_name, file_path)
+        self.container_client._download_blob(blob_name, file_path)
 
         # assert
         blob_client_mock.download_blob.assert_called_once()
         with open(file_path, "rb") as f:
             assert f.read() == b"dummy_data"
 
-    def test_exists(self):
+    @pytest.mark.parametrize("mock_blob_list", [[MagicMock()], []])
+    @patch("olive.common.container_client_factory.AzureContainerClientFactory.get_blob_list")
+    def test_exists(self, mock_get_blob_list, mock_blob_list):
         # setup
-        self.container_client.client.list_blobs.return_value = [MagicMock()]
+        mock_get_blob_list.return_value = mock_blob_list
 
         # assert
-        assert self.container_client.exists("dummy_blob") is True
-        self.container_client.client.list_blobs.assert_called_once_with("dummy_blob")
-
-    def test_exists_not_found(self):
-        # setup
-        self.container_client.client.list_blobs.return_value = []
-
-        # assert
-        assert self.container_client.exists("dummy_blob") is False
-        self.container_client.client.list_blobs.assert_called_with("dummy_blob")
+        assert self.container_client.exists("dummy_blob") == bool(mock_blob_list)

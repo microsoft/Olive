@@ -1,7 +1,7 @@
 import logging
 
 from olive.common.constants import ACCOUNT_URL_TEMPLATE
-from olive.common.utils import get_credentials
+from olive.common.utils import get_credentials, retry_func
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +22,10 @@ class AzureContainerClientFactory:
         )
 
     def delete_blob(self, blob_name):
-        for blob in self.client.list_blobs(blob_name):
+        blob_list = self.get_blob_list(blob_name)
+        for blob in blob_list:
             logger.info("Deleting %s", blob.name)
-            self.client.delete_blob(blob.name)
+            retry_func(self.client.delete_blob, [blob.name])
 
         if self.exists(blob_name):
             logger.error("Deletion of the files %s failed. Please try again.", blob_name)
@@ -32,9 +33,10 @@ class AzureContainerClientFactory:
             logger.info("Files %s removed from the shared cache successfully.", blob_name)
 
     def delete_all(self):
-        for blob in self.client.list_blobs():
+        blob_list = self.get_blob_list()
+        for blob in blob_list:
             logger.info("Deleting %s", blob.name)
-            self.client.delete_blob(blob.name)
+            retry_func(self.client.delete_blob, [blob.name])
 
         if self.exists():
             logger.error("Deletion of all files failed. Please try again.")
@@ -42,10 +44,13 @@ class AzureContainerClientFactory:
             logger.info("All files removed from the shared cache successfully.")
 
     def upload_blob(self, blob_name, data, overwrite=False):
-        self.client.upload_blob(blob_name, data=data, overwrite=overwrite)
+        retry_func(self.client.upload_blob, [blob_name, data], overwrite=overwrite)
         logger.info("File %s uploaded to the shared cache successfully.", blob_name)
 
     def download_blob(self, blob_name, file_path):
+        retry_func(self._download_blob, [blob_name, file_path])
+
+    def _download_blob(self, blob_name, file_path):
         blob_client = self.client.get_blob_client(blob_name)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with open(file_path, "wb") as download_file:
@@ -54,4 +59,8 @@ class AzureContainerClientFactory:
         logger.debug("File %s downloaded to %s successfully.", blob_name, file_path)
 
     def exists(self, blob_name=None):
-        return any(self.client.list_blobs(blob_name))
+        blob_list = self.get_blob_list(blob_name)
+        return any(blob_list)
+
+    def get_blob_list(self, blob_name=None):
+        return retry_func(self.client.list_blobs, [blob_name])

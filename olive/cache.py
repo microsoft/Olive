@@ -17,7 +17,7 @@ from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, vali
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.container_client_factory import AzureContainerClientFactory
 from olive.common.pydantic_v1 import root_validator, validator
-from olive.common.utils import hash_dict, hf_repo_exists, retry_func, set_nested_dict_value
+from olive.common.utils import hash_dict, hf_repo_exists, set_nested_dict_value
 from olive.model.config.model_config import ModelConfig
 from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
 
@@ -457,7 +457,7 @@ class SharedCache:
             logger.exception("Failed to cache run to shared cache.")
             # delete all uploaded files if any upload fails
             try:
-                retry_func(self.container_client_factory.delete_blob, [model_id])
+                self.container_client_factory.delete_blob(model_id)
             except Exception:
                 logger.exception(
                     "Upload model to shared cache failed. There might be some dirty files in the shared cache."
@@ -472,7 +472,7 @@ class SharedCache:
                 logger.info("Run %s is not found in shared cache.", model_id)
                 return {}
             logger.info("Downloading %s to %s", blob, run_json_path)
-            retry_func(self.container_client_factory.download_blob, [blob, run_json_path])
+            self.container_client_factory.download_blob(blob, run_json_path)
             with run_json_path.open() as f:
                 return json.load(f)
         except Exception:
@@ -545,14 +545,14 @@ class SharedCache:
             # upload model config file
             model_config_bytes = json.dumps(model_json_copy).encode()
             with io.BytesIO(model_config_bytes) as data:
-                retry_func(self.container_client_factory.upload_blob, [f"{model_id}/model.json", data])
+                self.container_client_factory.upload_blob(f"{model_id}/model.json", data)
             logger.info("Model %s is uploaded to shared cache.", model_id)
 
         except Exception:
             logger.exception("Failed to upload model to shared cache.")
             # delete all uploaded files if any upload fails
             try:
-                retry_func(self.container_client_factory.delete_blob, [model_id])
+                self.container_client_factory.delete_blob(model_id)
             except Exception:
                 logger.exception(
                     "Upload model to shared cache failed. There might be some dirty files in the shared cache."
@@ -570,7 +570,7 @@ class SharedCache:
 
         try:
             logger.info("Downloading %s to %s", model_config_blob, model_json_path)
-            retry_func(self.container_client_factory.download_blob, [model_config_blob, model_json_path])
+            self.container_client_factory.download_blob(model_config_blob, model_json_path)
             with open(model_json_path) as file:
                 return json.load(file)
         except Exception:
@@ -645,7 +645,7 @@ class SharedCache:
     def exist_in_shared_cache(self, blob_name: str) -> bool:
         logger.debug("Checking shared cache for: %s", blob_name)
         try:
-            return retry_func(self.container_client_factory.exists, [blob_name])
+            return self.container_client_factory.exists(blob_name)
         except Exception:
             logger.exception("Failed to check shared cache for %s.", blob_name)
             return False
@@ -671,7 +671,7 @@ class SharedCache:
     def _upload_file_to_blob(self, file_path: Path, blob_name: str):
         logger.info("Uploading %s to %s", file_path, blob_name)
         with open(file_path, "rb") as data:
-            retry_func(self.container_client_factory.upload_blob, [blob_name, data])
+            self.container_client_factory.upload_blob(blob_name, data)
 
     def _download_blob_list(
         self, blob_list, directory_prefix: str, output_model_path: Path, prefix: str = None
@@ -683,4 +683,4 @@ class SharedCache:
                 else output_model_path / blob.name[len(directory_prefix) + 1 :]
             )
             logger.info("Downloading %s to %s", blob.name, local_file_path)
-            retry_func(self.container_client_factory.download_blob, [blob, local_file_path])
+            self.container_client_factory.download_blob(blob, local_file_path)
