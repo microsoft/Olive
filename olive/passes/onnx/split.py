@@ -255,9 +255,9 @@ class SplitModel(Pass):
             logger.debug("Missing value info for some io. Using onnxruntime shape inference to infer them.")
             from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
 
-            shape_inferred_proto = SymbolicShapeInference.infer_shapes(
-                onnx.load(model.model_path, load_external_data=False), auto_merge=True
-            )
+            # should we just use the same model proto? might modify dynamic shapes of existing value infos
+            # if this becomes an issue replace with a newly loaded model proto
+            shape_inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True)
             shape_inferred_dag = OnnxDAG(shape_inferred_proto, only_main_graph=True)
 
             for input_name, split_ids in missing_vi.items():
