@@ -4,6 +4,8 @@ import pytest
 
 from olive.common.container_client_factory import AzureContainerClientFactory
 
+# pylint: disable=W0201
+
 
 class TestAzureContainerClientFactory:
     @pytest.fixture(autouse=True)
@@ -11,7 +13,6 @@ class TestAzureContainerClientFactory:
     @patch("azure.storage.blob.ContainerClient")
     def setup(self, mock_ContainerClient, mock_get_credentials):
         self.container_client = AzureContainerClientFactory("dummy_account", "dummy_container")
-        self.mock_ContainerClient = mock_ContainerClient
 
     def test_delete_blob(self):
         # setup
