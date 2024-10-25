@@ -247,8 +247,9 @@ class Pass(ABC):
             # the input model attributes, we should not update/extend anymore outside of the pass run
             output_model.model_attributes = output_model.model_attributes or model.model_attributes
             if not isinstance(output_model, CompositeModelHandler):
-                # not sure if we should carry forward additional files for composite model
-                # if we should, should we carry forward for each component or just the composite model
+                # save and carry forward additional files into the the output model path
+                # for composite model, the additional_files attribute is already present in the parent
+                # model_attributes
                 Pass._carry_forward_additional_files(model, output_model)
 
         return output_model
