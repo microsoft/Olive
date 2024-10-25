@@ -45,7 +45,6 @@ class SharedCacheCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--model_hash",
             type=str,
-            required=True,
             help="The model hash to remove from the shared cache.",
         )
         sub_parser.set_defaults(func=SharedCacheCommand)
