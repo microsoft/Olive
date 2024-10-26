@@ -44,7 +44,7 @@ class AzureContainerClientFactory:
             logger.info("All files removed from the shared cache successfully.")
 
     def upload_blob(self, blob_name, data, overwrite=False):
-        retry_func(self.client.upload_blob, [blob_name, data], overwrite=overwrite)
+        retry_func(self.client.upload_blob, [blob_name, data], {"overwrite": overwrite})
         logger.info("File %s uploaded to the shared cache successfully.", blob_name)
 
     def download_blob(self, blob_name, file_path):

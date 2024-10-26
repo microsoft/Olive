@@ -4,7 +4,7 @@ import pytest
 
 from olive.common.container_client_factory import AzureContainerClientFactory
 
-# pylint: disable=W0201
+# pylint: disable=W0201, W0212
 
 
 class TestAzureContainerClientFactory:
