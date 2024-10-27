@@ -74,7 +74,7 @@ class TestAzureContainerClientFactory:
 
         # assert
         mock_retry_func.assert_called_once_with(
-            self.container_client.client.upload_blob, ["dummy_blob", data], overwrite=True
+            self.container_client.client.upload_blob, ["dummy_blob", data], {"overwrite": True}
         )
 
     @patch("olive.common.container_client_factory.retry_func")
