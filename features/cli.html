@@ -1068,8 +1068,8 @@
 <section id="shared-cache">
 <h1>Shared Cache<a class="headerlink" href="#shared-cache" title="Permalink to this heading"></a></h1>
 <p>Delete Olive model cache stored in the cloud.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">shared</span><span class="o">-</span><span class="n">cache</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">delete</span><span class="p">]</span> <span class="o">--</span><span class="n">account</span> <span class="n">ACCOUNT</span> <span class="o">--</span><span class="n">container</span>
-                          <span class="n">CONTAINER</span> <span class="o">--</span><span class="n">model_hash</span> <span class="n">MODEL_HASH</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">shared</span><span class="o">-</span><span class="n">cache</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">delete</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="nb">all</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">y</span><span class="p">]</span> <span class="o">--</span><span class="n">account</span> <span class="n">ACCOUNT</span>
+                          <span class="o">--</span><span class="n">container</span> <span class="n">CONTAINER</span> <span class="p">[</span><span class="o">--</span><span class="n">model_hash</span> <span class="n">MODEL_HASH</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -1077,6 +1077,14 @@
 <dl class="option-list">
 <dt><kbd>--delete</kbd></dt>
 <dd><p>Delete a model cache from the shared cache.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--all</kbd></dt>
+<dd><p>Delete all model cache from the cloud cache.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>-y, --yes</kbd></dt>
+<dd><p>Confirm the deletion without prompting for confirmation.</p>
 <p>Default: False</p>
 </dd>
 <dt><kbd>--account</kbd></dt>
