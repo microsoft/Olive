@@ -385,11 +385,9 @@ class NVModelOptQuantization(Pass):
         # Load the original ONNX model
         model = onnx.load(model_path)
 
-        # Check the current opset version
         current_opset = {opset.domain: opset.version for opset in model.opset_import}
         logger.debug(f"Current opset imports: {current_opset}")
 
-        # Determine if the default domain has opset version 21
         default_domain_version = current_opset.get("", 0)
         if default_domain_version >= 21:
             logger.info(
@@ -397,16 +395,13 @@ class NVModelOptQuantization(Pass):
             )
             return model_path  # No conversion needed
 
-        # If not, proceed to convert to opset 21
         logger.info(f"Converting model opset from {default_domain_version} to 21.")
 
-        # Create new opset imports with version 21
         new_opset_imports = [
             helper.make_opsetid("", 21),  # Default domain with opset version 21
             helper.make_opsetid("com.microsoft", 1),  # Microsoft domain with version 1
         ]
 
-        # Optionally, retain other existing opset imports
         for domain, version in current_opset.items():
             if domain not in ["", "com.microsoft"]:
                 new_opset_imports.append(helper.make_opsetid(domain, version))
