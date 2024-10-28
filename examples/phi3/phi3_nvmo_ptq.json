@@ -3,7 +3,7 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ]
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "DmlExecutionProvider" ] } ]
         }
     },
     "passes": {
