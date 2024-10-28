@@ -6,7 +6,7 @@ import math
 from argparse import ArgumentParser
 from typing import TYPE_CHECKING, Tuple
 
-from olive.cli.base import BaseOliveCLICommand
+from olive.cli.base import BaseOliveCLICommand, add_logging_options
 from olive.common.utils import WeightsFileFormat, save_weights
 
 if TYPE_CHECKING:
@@ -24,6 +24,7 @@ class ConvertAdaptersCommand(BaseOliveCLICommand):
             ),
         )
         sub_parser.add_argument(
+            "-a",
             "--adapter_path",
             type=str,
             required=True,
@@ -37,6 +38,7 @@ class ConvertAdaptersCommand(BaseOliveCLICommand):
             help=f"Format to save the weights in. Default is {WeightsFileFormat.ONNX_ADAPTER}.",
         )
         sub_parser.add_argument(
+            "-o",
             "--output_path",
             type=str,
             required=True,
@@ -72,6 +74,7 @@ class ConvertAdaptersCommand(BaseOliveCLICommand):
             choices=["symmetric", "asymmetric"],
             help="Quantization mode for int4 quantization of adapter weights. Default is symmetric.",
         )
+        add_logging_options(sub_parser)
         sub_parser.set_defaults(func=ConvertAdaptersCommand)
 
     def run(self):

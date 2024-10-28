@@ -56,14 +56,7 @@ class Engine:
         azureml_client_config=None,
     ):
         self.workflow_id = workflow_id
-        self.no_search = False
-        if not search_strategy:
-            # if search strategy is None or False, disable search
-            self.no_search = True
-            self.search_strategy = None
-        else:
-            # if search strategy is provided in config, use it
-            self.search_strategy = SearchStrategy(search_strategy)
+        self.search_strategy = SearchStrategy(search_strategy) if search_strategy else None
 
         # default host
         host = host or {"type": SystemType.Local}
@@ -129,7 +122,6 @@ class Engine:
         self,
         pass_type: Type["Pass"],
         config: Dict[str, Any] = None,
-        disable_search: bool = False,
         name: str = None,
         host: "OliveSystem" = None,
         evaluator_config: "OliveEvaluatorConfig" = None,
@@ -150,7 +142,6 @@ class Engine:
         self.pass_config[name] = {
             "type": pass_type,
             "config": config or {},
-            "disable_search": disable_search,
             "host": host,
             "evaluator": evaluator_config,
         }
@@ -171,7 +162,7 @@ class Engine:
                 if name not in self.passes:
                     break
 
-        if self.no_search and len(p.search_space) > 0:
+        if not self.search_strategy and len(p.search_space) > 0:
             raise ValueError(f"Search strategy is None but pass {name} has search space")
 
         self.passes[name] = {"pass": p, "host": host, "evaluator": evaluator_config}
@@ -334,10 +325,7 @@ class Engine:
                     logger.debug("No passes registered, return input model evaluation results.")
                     return results
 
-            if self.no_search:
-                logger.debug("Running Olive in no-search mode ...")
-                output_footprint = self.run_no_search(input_model_config, input_model_id, accelerator_spec, output_dir)
-            else:
+            if self.search_strategy:
                 logger.debug("Running Olive in search mode ...")
                 output_footprint = self.run_search(
                     input_model_config,
@@ -345,6 +333,9 @@ class Engine:
                     accelerator_spec,
                     output_dir,
                 )
+            else:
+                logger.debug("Running Olive in no-search mode ...")
+                output_footprint = self.run_no_search(input_model_config, input_model_id, accelerator_spec, output_dir)
         except EXCEPTIONS_TO_RAISE:
             raise
         except Exception:
@@ -371,8 +362,8 @@ class Engine:
         for name, config in self.pass_config.items():
             pass_cls: Type[Pass] = config["type"]
             pass_cfg = config["config"]
-            pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, config["disable_search"])
-            p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"], host_device)
+            pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, self.search_strategy is None)
+            p = pass_cls(accelerator_spec, pass_cfg, host_device)
             self.register_pass(p, name=name, host=config["host"], evaluator_config=config["evaluator"])
 
         # list of passes starting from the first pass with non-empty search space
@@ -693,7 +684,7 @@ class Engine:
         if not should_prune:
             # evaluate the model
             evaluator_config = self.evaluator_for_pass(pass_id)
-            if self.no_search and evaluator_config is None:
+            if not self.search_strategy and evaluator_config is None:
                 # skip evaluation if no search and no evaluator
                 signal = None
             else:
@@ -787,7 +778,7 @@ class Engine:
             #      search process robust. We need rethrow the exception only when
             #      it is not pass specific. For example, for olive bugs and user errors
             logger.exception("Pass run failed.")
-            if self.no_search:
+            if not self.search_strategy:
                 raise  # rethrow the exception if no search is performed
 
         run_end_time = datetime.now().timestamp()

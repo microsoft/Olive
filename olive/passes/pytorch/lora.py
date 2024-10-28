@@ -141,7 +141,7 @@ class LoRABase(Pass):
             "lora_r": PassConfigParam(
                 type_=int,
                 default_value=64,
-                searchable_values=Categorical([16, 32, 64]),
+                search_defaults=Categorical([16, 32, 64]),
                 description="Lora R dimension.",
             ),
             "lora_alpha": PassConfigParam(

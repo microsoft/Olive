@@ -313,25 +313,21 @@ class TestPassConfigValidation:
         }
 
     @pytest.mark.parametrize(
-        ("search_strategy", "disable_search", "approach", "is_valid"),
+        ("search_strategy", "approach", "is_valid"),
         [
-            (None, None, None, True),
-            (None, None, "SEARCHABLE_VALUES", False),
-            (None, False, "SEARCHABLE_VALUES", False),
-            (None, None, "dummy_approach", True),
-            (None, True, "dummy_approach", True),
+            (None, None, True),
+            (None, "SEARCHABLE_VALUES", False),
+            (None, "dummy_approach", True),
             (
                 {"execution_order": "joint", "search_algorithm": "exhaustive"},
-                None,
                 "SEARCHABLE_VALUES",
                 True,
             ),
         ],
     )
-    def test_pass_config_(self, search_strategy, disable_search, approach, is_valid):
+    def test_pass_config_(self, search_strategy, approach, is_valid):
         config_dict = self.template.copy()
         config_dict["search_strategy"] = search_strategy
-        config_dict["passes"]["tuning"]["disable_search"] = disable_search
         config_dict["passes"]["tuning"]["approach"] = approach
         if not is_valid:
             with pytest.raises(ValueError):  # noqa: PT011

@@ -44,10 +44,10 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
 
 - `description` : description of the parameter
 
-- `default_value`: default value for the parameter. This value is used as the default if `disable_search=False` or there are no searchable values.
+- `default_value`: default value for the parameter. This value is used as the default when not searching or when there are no searchable values.
     Must be the same type as the parameter or a ConditionalDefault SearchParameter.
 
-- `searchable_values`: default searchable values for the parameter. This value is used as the default if `disable_search=True`.
+- `search_defaults`: default search values for the parameter. This value is used as the default when searching.
     Must be a Categorical or Conditional SearchParameter.
 
 ### Example
@@ -61,7 +61,7 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
             "param2": PassConfigParam(type_=int, default_value=1, description="param2 description"),
             # optional parameter with default value and searchable values
             "param3": PassConfigParam(
-                type_=int, default_value=1, searchable_values=Categorical([1, 2, 3]), description="param3 description"
+                type_=int, default_value=1, search_defaults=Categorical([1, 2, 3]), description="param3 description"
             ),
             # optional parameter with `category` set to `object`
             # the value of this parameter can be a string or a function that takes a string and returns the object,
@@ -75,11 +75,11 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
                 default_value=ConditionalDefault(parents="param2", support={(1,): 2, (2,): 3}, default=4),
                 description="param5 description",
             ),
-            # optional parameter with searchable_values that depends on other parameter values
+            # optional parameter with search_defaults that depends on other parameter values
             "param6": PassConfigParam(
                 type_=int,
                 default_value=1,
-                searchable_values=Conditional(
+                search_defaults=Conditional(
                     parents=("param2", "param3"),
                     # invalid if (param2, param3) not in [(1, 1), (1, 2)]
                     support={

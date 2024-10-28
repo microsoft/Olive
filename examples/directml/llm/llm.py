@@ -139,7 +139,6 @@ def optimize(
     if quant_strategy is not None:
         olive_config["passes"]["quantize"] = {
             "type": "IncStaticQuantization",
-            "disable_search": True,
             "backend": f"onnxrt_{device}_ep",
             "approach": "weight_only",
             "device": "gpu",

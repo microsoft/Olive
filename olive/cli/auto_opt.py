@@ -5,7 +5,7 @@
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
-from typing import ClassVar, Dict, List
+from typing import Dict, List
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -67,7 +67,6 @@ TEMPLATE = {
 
 
 class AutoOptCommand(BaseOliveCLICommand):
-    allow_unknown_args: ClassVar[bool] = True
 
     @staticmethod
     def register_subcommand(parser: ArgumentParser):

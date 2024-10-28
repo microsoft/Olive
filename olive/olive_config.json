@@ -59,6 +59,7 @@
         "VitisQOpQuantizer": { "module_path": "olive.passes.onnx.vitis_ai.quantizer.VitisQOpQuantizer" },
         "quantize_static": { "module_path": "olive.passes.onnx.vitis_ai.quantize.quantize_static" },
         "PowerOfTwoMethod": { "module_path": "olive.passes.onnx.vitis_ai.quant_utils.PowerOfTwoMethod" },
+        "SplitModel": { "module_path": "olive.passes.onnx.split.SplitModel" },
         "OpenVINOConversion": {
             "module_path": "olive.passes.openvino.conversion.OpenVINOConversion",
             "extra_dependencies": [ "openvino" ]
@@ -67,14 +68,15 @@
             "module_path": "olive.passes.openvino.quantization.OpenVINOQuantization",
             "extra_dependencies": [ "openvino" ]
         },
-        "GptqQuantizer": {
-            "module_path": "olive.passes.pytorch.gptq.GptqQuantizer",
-            "module_dependencies": [ "auto-gptq", "optimum" ]
-        },
         "AutoAWQQuantizer": {
             "module_path": "olive.passes.pytorch.autoawq.AutoAWQQuantizer",
             "module_dependencies": [ "autoawq" ]
         },
+        "GptqQuantizer": {
+            "module_path": "olive.passes.pytorch.gptq.GptqQuantizer",
+            "module_dependencies": [ "auto-gptq", "optimum" ]
+        },
+        "CaptureSplitInfo": { "module_path": "olive.passes.pytorch.capture_split_info.CaptureSplitInfo" },
         "MergeAdapterWeights": { "module_path": "olive.passes.pytorch.merge_adapter_weights.MergeAdapterWeights" },
         "LoftQ": { "module_path": "olive.passes.pytorch.lora.LoftQ" },
         "LoRA": { "module_path": "olive.passes.pytorch.lora.LoRA", "extra_dependencies": [ "lora" ] },

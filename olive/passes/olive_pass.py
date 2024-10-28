@@ -7,10 +7,10 @@ import logging
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Type, Union, get_args
 
 from olive.common.config_utils import NestedConfig, ParamCategory, validate_config, validate_lowercase
-from olive.common.pydantic_v1 import Field, validator
+from olive.common.pydantic_v1 import BaseModel, Field, ValidationError, create_model, validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
@@ -57,7 +57,6 @@ class Pass(ABC):
         self,
         accelerator_spec: AcceleratorSpec,
         config: Dict[str, Any],
-        disable_search: Optional[bool] = False,
         host_device=None,
     ):
         """Initialize the pass.
@@ -66,15 +65,17 @@ class Pass(ABC):
         :type accelerator_spec: AcceleratorSpec
         :param config: the configuration representing search space.
         :type config: Dict[str, Any]
-        :param disable_search: whether to disable search.
-        :type disable_search: Optional[bool]
         :param host_device: the host device for the pass.
         :type host_device: Optional[str]
         """
         assert accelerator_spec is not None, "Please specify the accelerator spec for the pass."
         assert config is not None, "Please specify the configuration for the pass."
 
-        config_class, default_config = self.get_config_class(accelerator_spec, disable_search)
+        # NOTE: The :disable_search argument isn't impactful here since the search isn't
+        # dependent on it. The same parameter in :generate_search_space is what decides
+        # how search points are handled. HEre, Using default values for each config
+        # parameter in the config class keeps it simple.
+        config_class, default_config = self.get_config_class(accelerator_spec, True)
 
         self.accelerator_spec = accelerator_spec
         self.host_device = host_device
@@ -120,11 +121,49 @@ class Pass(ABC):
 
         # Get the config class with default value or default search value
         config_class, default_config = cls.get_config_class(accelerator_spec, disable_search)
+
+        if not disable_search:
+            # Replace user-provided values with Categorical if user intended to search
+            config = cls.identify_search_values(config, default_config)
+
         # Generate the search space by using both default value and default search value and user provided config
         config = validate_config(config, config_class)
 
         config = cls._resolve_config(config, default_config)
         return cls._init_fixed_and_search_params(config, default_config)
+
+    @classmethod
+    def identify_search_values(
+        cls,
+        config: Dict[str, Any],
+        default_config: Dict[str, PassConfigParam],
+    ):
+        """Conditionally, replace user provided search values with Categorical."""
+        for name, param in default_config.items():
+            if param.search_defaults and name in config:
+                value = config[name]
+
+                # If the user provided a non-empty list, validate if "type of
+                # each elements" in the list is the same as the "param's expected type".
+                # If successful, treat it as a searchable value i.e. turn it into a Categorical.
+                if isinstance(value, list) and len(value) > 0:
+                    dummy_values_config = {name: (List[param.type_], None)}
+                    dummy_values_model = create_model(
+                        f"SearchableParamConfig_{name}_values", **dummy_values_config, __base__=BaseModel
+                    )
+
+                    try:
+                        validate_config({name: value}, dummy_values_model)
+                        config[name] = Categorical(value)
+                        continue
+                    except ValidationError:
+                        # Expected in certain cases and intentionally ignored!!
+                        pass
+
+                # If not, leave the value alone so that the default validation
+                # would report an appropriate error.
+
+        return config
 
     @classmethod
     def get_config_class(cls, accelerator_spec: AcceleratorSpec, disable_search: Optional[bool] = False):
@@ -207,7 +246,11 @@ class Pass(ABC):
             # assumption: the model attributes from passes, if any, are more important than
             # the input model attributes, we should not update/extend anymore outside of the pass run
             output_model.model_attributes = output_model.model_attributes or model.model_attributes
-            Pass._carry_forward_additional_files(model, output_model)
+            if not isinstance(output_model, CompositeModelHandler):
+                # save and carry forward additional files into the the output model path
+                # for composite model, the additional_files attribute is already present in the parent
+                # model_attributes
+                Pass._carry_forward_additional_files(model, output_model)
 
         return output_model
 
@@ -270,7 +313,6 @@ class Pass(ABC):
         """Convert the pass to json."""
         return {
             "type": self.__class__.__name__,
-            "disable_search": True,
             "accelerator": self.accelerator_spec.to_json(),
             "host_device": self.host_device,
             "config": self.serialize_config(self.config, check_object),
@@ -297,7 +339,7 @@ class Pass(ABC):
                 "param3": PassConfigParam(
                     type_=int,
                     default_value=1,
-                    searchable_values=Categorical([1, 2, 3]),
+                    search_defaults=Categorical([1, 2, 3]),
                     description="param3 description",
                 ),
                 # optional parameter with `category` set to `object`
@@ -314,11 +356,11 @@ class Pass(ABC):
                     default_value=ConditionalDefault(parents="param2", support={(1,): 2, (2,): 3}, default=4),
                     description="param5 description",
                 ),
-                # optional parameter with searchable_values that depends on other parameter values
+                # optional parameter with search_defaults that depends on other parameter values
                 "param6": PassConfigParam(
                     type_=int,
                     default_value=1,
-                    searchable_values=Conditional(
+                    search_defaults=Conditional(
                         parents=("param2", "param3"),
                         # invalid if (param2, param3) not in [(1, 1), (1, 2)]
                         support={
@@ -341,7 +383,7 @@ class Pass(ABC):
             if value == PassParamDefault.DEFAULT_VALUE:
                 config[key] = default_config[key].default_value
             elif value == PassParamDefault.SEARCHABLE_VALUES:
-                v = default_config[key].searchable_values
+                v = default_config[key].search_defaults
                 if v is None:
                     logger.warning("Parameter %s does not have searchable values. Using default value instead.", key)
                     v = default_config[key].default_value
@@ -446,7 +488,6 @@ class AbstractPassConfig(NestedConfig):
     """Base class for pass configuration."""
 
     type: str = Field(description="The type of the pass.")
-    disable_search: bool = Field(default=False, description="Whether to disable search.")
     config: Dict[str, Any] = Field(
         None,
         description=(
@@ -478,7 +519,7 @@ class FullPassConfig(AbstractPassConfig):
 
         pass_cls = Pass.registry[self.type.lower()]
         accelerator_spec = AcceleratorSpec(**self.accelerator)  # pylint: disable=not-a-mapping
-        return pass_cls(accelerator_spec, self.config, self.disable_search, self.host_device)
+        return pass_cls(accelerator_spec, self.config, self.host_device)
 
 
 # TODO(myguo): deprecate or remove this function by explicitly specify the accelerator_spec in the arguments
@@ -495,4 +536,4 @@ def create_pass_from_dict(
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
 
     config = pass_cls.generate_search_space(accelerator_spec, config, disable_search)
-    return pass_cls(accelerator_spec, config, disable_search, host_device)
+    return pass_cls(accelerator_spec, config, host_device)

@@ -246,20 +246,6 @@ class RunConfig(NestedConfig):
         if "engine" not in values:
             raise ValueError("Invalid engine")
 
-        disable_search = v.get("disable_search")
-        if not values["engine"].search_strategy:
-            if disable_search is False:
-                raise ValueError("You cannot set disable_search is False if search strategy is None/False/{}")
-            # disable search if search_strategy is None/False/{}, user cannot override it.
-            # If user explicitly set, raise error when disable_search is False and search_strategy is None/False/{}
-            if disable_search is None:
-                disable_search = True
-        else:
-            # disable search if user explicitly set disable_search to True
-            disable_search = disable_search or False
-
-        v["disable_search"] = disable_search
-
         # validate first to gather config params
         v = validate_config(v, RunPassConfig).dict()
 
@@ -273,7 +259,7 @@ class RunConfig(NestedConfig):
             if param_name.endswith("data_config"):
                 v["config"] = _resolve_data_config(v["config"], values, param_name)
 
-        if disable_search and searchable_configs:
+        if not values["engine"].search_strategy and searchable_configs:
             raise ValueError(
                 f"You cannot disable search for {v['type']} and"
                 f" set {searchable_configs} to SEARCHABLE_VALUES at the same time."

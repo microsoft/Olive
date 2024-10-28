@@ -6,21 +6,19 @@ Install python packages
 ```
 pip install -r requirements-vision.txt
 ```
-Also, this example requires org-nightly package for ORT. Please install the following packages as you need:
-- `ort-nightly>=1.19.0.dev20240601002` or `ort-nightly-gpu>=1.19.0.dev20240601002`
-    - [ORT nightly package](https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages) is needed until the latest changes are in the newest ORT stable package
-    - For CPU:
-    ```bash
-    pip install ort-nightly --index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-    ```
-    - For CUDA 11.X:
-    ```bash
-    pip install ort-nightly-gpu --index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-    ```
-    - For CUDA 12.X:
-    ```bash
-    pip install ort-nightly-gpu --index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-12-nightly/pypi/simple/
-    ```
+Please install the following packages as you need:
+- For CPU:
+```bash
+pip install onnxruntime>=1.19.2
+```
+- For CUDA 11.X:
+```bash
+pip install onnxruntime-gpu>=1.19.2 --index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-11/pypi/simple/
+```
+- For CUDA 12.X:
+```bash
+pip install onnxruntime-gpu>=1.19.2
+```
 
 ### For optimizing model from Hugging Face
 if you have not logged in Hugging Face account,

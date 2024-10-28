@@ -56,7 +56,7 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 13 },
-        "transformers_optimization": { "type": "OrtTransformersOptimization", "disable_search": true },
+        "transformers_optimization": { "type": "OrtTransformersOptimization" },
         "quantization": {
             "type": "OnnxQuantization",
             "quant_preprocess": true,

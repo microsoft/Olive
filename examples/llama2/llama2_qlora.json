@@ -63,5 +63,5 @@
     },
     "host": "local_system",
     "target": "local_system",
-    "clean_cache": false
+    "output_dir": "models/llama2_qlora"
 }

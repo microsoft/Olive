@@ -45,11 +45,7 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 14 },
-        "transformers_optimization": {
-            "type": "OrtTransformersOptimization",
-            "disable_search": true,
-            "model_type": "bert"
-        },
+        "transformers_optimization": { "type": "OrtTransformersOptimization", "model_type": "bert" },
         "quantization": {
             "type": "IncQuantization",
             "approach": "SEARCHABLE_VALUES",

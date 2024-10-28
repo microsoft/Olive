@@ -34,12 +34,12 @@ class PassConfigParam(ConfigParam):
     description : description of the parameter
     default_value: default value for the parameter. This value is used if search is disabled or there are no searchable
         values. Must be the same type as the parameter or a ConditionalDefault SearchParameter.
-    searchable_values: default searchable values for the parameter. This value is used if search is enabled.
-        Must be a Categorical or Conditional SearchParameter.
+    search_defaults: default search defaults for the search parameter. This value is used if search is enabled and user
+        hasn't provided any specific input to search on. Must be a Categorical or Conditional SearchParameter.
 
     """
 
-    searchable_values: SearchParameter = None
+    search_defaults: SearchParameter = None
 
     def __repr__(self):
         repr_list = []
@@ -123,15 +123,15 @@ def create_config_class(
             continue
 
         # Value can be one of
-        # 1. Instance of type_ if search is disabled or searchable_values is None
-        # 2. Search Parameter if search is enabled and searchable_values is not None
+        # 1. Instance of type_ if search is disabled or search_defaults is None
+        # 2. Search Parameter if search is enabled and search_defaults is not None
         # 3. PassParamDefault if value is set to "DEFAULT_VALUE" or "SEARCHABLE_VALUES"
         # 4. SpecialParamValue.IGNORED if the param is ignored for a specific search point. This is used to ignore
         #    parameters that are only used conditional on other parameters. Such as static quantization parameters
         #    that are only used if the quantization mode is static.
         type_ = Optional[Union[type_, SearchParameter, PassParamDefault, SpecialParamValue]]
-        if not disable_search and param_config.searchable_values is not None:
-            config[param] = (type_, param_config.searchable_values)
+        if not disable_search and param_config.search_defaults is not None:
+            config[param] = (type_, param_config.search_defaults)
         else:
             config[param] = (type_, param_config.default_value)
 
