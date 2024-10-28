@@ -33,6 +33,7 @@ jobs:
       python_version: ${{ parameters.python_version }}
       onnxruntime: ${{ parameters.onnxruntime }}
       torch: ${{ parameters.torch }}
+      ort_nightly: ${{ parameters.ort_nightly }}
 
   - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
     - script: |

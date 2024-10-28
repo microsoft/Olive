@@ -28,6 +28,7 @@ jobs:
         python_version: ${{ parameters.python_version }}
         onnxruntime: ${{ parameters.onnxruntime }}
         torch: ${{ parameters.torch }}
+        ort_nightly: ${{ parameters.ort_nightly }}
 
     # set exampleRequirements to requirements.txt if user does not specify
     - script:

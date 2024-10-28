@@ -2,6 +2,7 @@ parameters:
   python_version: '3.8'
   onnxruntime: 'onnxruntime'
   torch: torch
+  ort_nightly: false
 
 steps:
 - task: UsePythonVersion@0
@@ -15,12 +16,10 @@ steps:
 - script: python -m pip install .
   displayName: Install Olive
 
-- ${{ if startsWith(parameters.onnxruntime, 'ort-nightly') }}:
+- ${{ if parameters.ort_nightly }}:
   - script: |
-      pip install onnxruntime
-      pip uninstall -y onnxruntime
-      pip install ${{ parameters.onnxruntime }} --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-    displayName: Install ${{ parameters.onnxruntime }}
+      pip install --pre ${{ parameters.onnxruntime }} --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+    displayName: Install ${{ parameters.onnxruntime }} nightly
 - ${{ else }}:
   - script: |
       pip install ${{ parameters.onnxruntime }}

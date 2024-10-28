@@ -22,7 +22,8 @@ jobs:
     device: 'cpu'
     windows: False
     test_type: 'unit_test'
-    onnxruntime: ort-nightly
+    ort_nightly: True
+    onnxruntime: onnxruntime
 
 # Linux GPU unit test
 - template: job_templates/olive-test-template.yaml
@@ -32,7 +33,8 @@ jobs:
     device: 'gpu'
     windows: False
     test_type: 'unit_test'
-    onnxruntime: ort-nightly-gpu
+    ort_nightly: True
+    onnxruntime: onnxruntime-gpu
     requirements_file: 'requirements-test-gpu.txt'
 
 # Windows unit test
@@ -43,14 +45,16 @@ jobs:
     device: 'cpu'
     windows: True
     test_type: 'unit_test'
-    onnxruntime: ort-nightly
+    ort_nightly: True
+    onnxruntime: onnxruntime
 
 # Linux examples test
 - template: job_templates/olive-example-template.yaml
   parameters:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
-    onnxruntime: ort-nightly
+    ort_nightly: True
+    onnxruntime: onnxruntime
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -76,7 +80,8 @@ jobs:
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
-    onnxruntime: ort-nightly
+    ort_nightly: True
+    onnxruntime: onnxruntime
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -96,7 +101,8 @@ jobs:
   parameters:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
-    onnxruntime: ort-nightly-gpu
+    ort_nightly: True
+    onnxruntime: onnxruntime-gpu
     examples:
       bert_cuda_gpu:
         exampleFolder: bert
