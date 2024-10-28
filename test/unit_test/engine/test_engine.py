@@ -335,7 +335,7 @@ class TestEngine:
         }
         engine = Engine(**options)
         _, p_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
-        engine.register(OnnxConversion, config=p_config, disable_search=True)
+        engine.register(OnnxConversion, config=p_config)
         # output model to output_dir
         output_dir = tmp_path / "output_dir"
 
