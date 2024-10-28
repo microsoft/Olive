@@ -87,12 +87,13 @@ class OnnxDAG:
         self.nodes: Dict[str, OnnxNode] = {}
         self.ios: Dict[str, OnnxIO] = {}
         self.connections = defaultdict(list)
+        self.unique_node_counter = 0
 
         # traverse the graphs and populate nodes, ios, and connections
         for idx, graph in enumerate(self.graphs):
             self._process_io(graph, self.ios, idx)
             for node in graph.node:
-                self._process_node(node, self.nodes, self.ios, self.connections, idx)
+                self.add_node(node, idx)
 
     @staticmethod
     def get_all_graphs(model: "ModelProto", only_main_graph: bool = False) -> List[GraphProto]:
@@ -154,6 +155,7 @@ class OnnxDAG:
 
     @staticmethod
     def _process_node(
+        name: str,
         node_proto: NodeProto,
         nodes: Dict[str, OnnxNode],
         ios: Dict[str, OnnxIO],
@@ -171,7 +173,6 @@ class OnnxDAG:
         :param overwrite_input_initializers: whether to overwrite the inputs and/or initializers if a node
             output is already present as an one. If False, it will raise an error.
         """
-        name = node_proto.name
         onnx_node = OnnxNode(
             proto=node_proto,
             op_type=node_proto.op_type,
@@ -343,7 +344,13 @@ class OnnxDAG:
         :param overwrite_input_initializers: whether to overwrite the inputs and/or initializers if a node
             output is already present as an one. If False, it will raise an error.
         """
-        self._process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx, overwrite_input_initializers)
+        node_name = node_proto.name
+        if not node_name or node_name in self.nodes:
+            node_name = f"{node_proto.op_type}_{self.unique_node_counter}"
+            self.unique_node_counter += 1
+        self._process_node(
+            node_name, node_proto, self.nodes, self.ios, self.connections, graph_idx, overwrite_input_initializers
+        )
 
     def remove_node(self, node_name: str):
         """Remove a node from the graph.
