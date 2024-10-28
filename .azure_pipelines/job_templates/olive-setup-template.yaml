@@ -18,7 +18,7 @@ steps:
 
 - ${{ if parameters.ort_nightly }}:
   - script: |
-      pip install --pre ${{ parameters.onnxruntime }}  --extra-index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+      pip install --pre ${{ parameters.onnxruntime }} --extra-index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
     displayName: Install ${{ parameters.onnxruntime }} nightly
 - ${{ else }}:
   - script: |
