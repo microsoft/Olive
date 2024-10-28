@@ -4,8 +4,9 @@
 # --------------------------------------------------------------------------
 import tempfile
 from argparse import ArgumentParser
+from collections import OrderedDict
 from copy import deepcopy
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -24,46 +25,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import hardlink_copy_dir, set_nested_dict_value
-
-EVALUATE_TEMPLATE = {
-    "common_evaluator": {
-        "metrics": [
-            {
-                "name": "accuracy",
-                "type": "accuracy",
-                "sub_types": [
-                    {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.1}},
-                ],
-                "data_config": "data_config",
-            },
-            {
-                "name": "latency",
-                "type": "latency",
-                "sub_types": [
-                    {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 1}},
-                ],
-                "data_config": "data_config",
-                "user_config": {"io_bind": True},
-            },
-        ]
-    }
-}
-
-TEMPLATE = {
-    "input_model": {"type": "HfModel"},
-    "auto_optimizer_config": {},
-    "search_strategy": {"execution_order": "joint", "search_algorithm": "tpe", "num_samples": 5, "seed": 0},
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
-        }
-    },
-    "host": "local_system",
-    "evaluators": EVALUATE_TEMPLATE,
-    "evaluator": "common_evaluator",
-    "target": "local_system",
-}
+from olive.package_config import OlivePackageConfig
 
 
 class AutoOptCommand(BaseOliveCLICommand):
@@ -122,7 +84,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             "--precision",
             type=str,
             default="fp32",
-            choices=["fp16", "fp32", "int4", "int8"],
+            choices=["fp4", "fp8", "fp16", "fp32", "int4", "int8", "int16", "int32", "nf4"],
             help=(
                 "The output precision of the optimized model. If not specified, "
                 "the default precision is fp32 for cpu and fp16 for gpu"
@@ -137,6 +99,41 @@ class AutoOptCommand(BaseOliveCLICommand):
             ),
         )
 
+        # DynamicToFixedShape options
+        sub_parser.add_argument(
+            "--dynamic-to-fixed-shape-dim-param",
+            type=str,
+            nargs="*",
+            default=None,
+            help=(
+                "Symbolic parameter names to use for dynamic to fixed shape pass. "
+                "Required only when DynamicToFixedShape pass is enabled."
+            ),
+        )
+        sub_parser.add_argument(
+            "--dynamic-to-fixed-shape-dim-value",
+            type=int,
+            nargs="*",
+            default=None,
+            help=(
+                "Symbolic parameter values to use for dynamic to fixed shape pass. "
+                "Required only when DynamicToFixedShape pass is enabled."
+            ),
+        )
+
+        # MixedPrecisionOverrides options
+        sub_parser.add_argument(
+            "--mixed-precision-overrides-config",
+            type=str,
+            nargs="*",
+            default=None,
+            help=(
+                "Dictionary of name to precision. Has to be even number of entreis with even "
+                "entries being the keys and odd entries being the values. "
+                'Required only when output precision is "fp16" and MixedPrecisionOverrides pass is enabled.'
+            ),
+        )
+
         add_search_options(sub_parser)
         add_remote_options(sub_parser)
         add_shared_cache_options(sub_parser)
@@ -148,7 +145,6 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
-
             olive_run(run_config)
 
             if is_remote_run(self.args):
@@ -163,24 +159,37 @@ class AutoOptCommand(BaseOliveCLICommand):
 
     def get_run_config(self, tempdir) -> Dict:
         config = deepcopy(TEMPLATE)
+        olive_config = OlivePackageConfig.load_default_config()
 
-        excluded_passes = ["OrtPerfTuning"]
-        if self.args.use_model_builder:
-            excluded_passes.append("OnnxConversion")
-        else:
-            excluded_passes.append("ModelBuilder")
+        if (self.args.provider == "DmlExecutionProvider") and (self.args.device not in ["gpu", "npu"]):
+            # Force the device to gpu for Direct ML provider
+            self.args.device = "gpu"
 
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
-            ("data_configs", self._get_data_config()),
-            ("auto_optimizer_config", {"precisions": [self.args.precision], "excluded_passes": excluded_passes}),
         ]
+        if self.args.enable_search is None:
+            to_replace.append(("passes", self._get_passes_config(config["passes"], olive_config)))
+        elif self.args.enable_search:
+            excluded_passes = [
+                "OrtPerfTuning",
+                "OnnxConversion" if self.args.use_model_builder else "ModelBuilder",
+            ]
+            to_replace.extend(
+                [
+                    ("data_configs", self._get_data_config()),
+                    (
+                        "auto_optimizer_config",
+                        {"precisions": [self.args.precision], "excluded_passes": excluded_passes},
+                    ),
+                ]
+            )
+
         for keys, value in to_replace:
-            if value is None:
-                continue
-            set_nested_dict_value(config, keys, value)
+            if value is not None:
+                set_nested_dict_value(config, keys, value)
 
         update_accelerator_options(self.args, config)
         update_search_options(self.args, config)
@@ -191,12 +200,15 @@ class AutoOptCommand(BaseOliveCLICommand):
             del config["evaluators"]
             del config["evaluator"]
             del config["search_strategy"]
-        elif not config["data_configs"]:
-            raise ValueError("Dataset is required when search is enabled")
+            del config["auto_optimizer_config"]
+        elif self.args.enable_search:
+            del config["passes"]
+            if not config["data_configs"]:
+                raise ValueError("Dataset is required when search is enabled")
 
         return config
 
-    def _get_data_config(self) -> List[Dict]:
+    def _get_data_config(self) -> List[Dict[str, Any]]:
         if not self.args.data_name:
             return []
 
@@ -215,8 +227,141 @@ class AutoOptCommand(BaseOliveCLICommand):
             "dataloader_config": {},
         }
         for keys, value in to_replace:
-            if value is None:
-                continue
-            set_nested_dict_value(data_config, keys, value)
+            if value is not None:
+                set_nested_dict_value(data_config, keys, value)
 
         return [data_config]
+
+    def _get_passes_config(self, passes_config: Dict[str, Any], olive_config: OlivePackageConfig) -> Dict[str, Any]:
+        if self.args.mixed_precision_overrides_config and len(self.args.mixed_precision_overrides_config) % 2 != 0:
+            raise ValueError("Even number of entries required for mixed precision overrides config.")
+
+        mixed_precision_overrides_config = (
+            {
+                self.args.mixed_precision_overrides_config[i]: self.args.mixed_precision_overrides_config[i + 1]
+                for i in range(0, len(self.args.mixed_precision_overrides_config), 2)
+            }
+            if self.args.mixed_precision_overrides_config
+            else None
+        )
+
+        to_replace = [
+            (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
+            (
+                ("dynamic_quant", "weight_type"),
+                PRECISION_MAPPING["dynamic_quant"].get(self.args.precision, self.args.precision),
+            ),
+            (
+                ("model_builder", "precision"),
+                PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
+            ),
+            (("model_builder", "metadata_only"), self.args.input_model["type"].lower() == "onnxmodel"),
+            (("to_fixed_shape", "dim_param"), self.args.dynamic_to_fixed_shape_dim_param),
+            (("to_fixed_shape", "dim_value"), self.args.dynamic_to_fixed_shape_dim_value),
+            (("mixed_precision_overrides", "overrides_config"), mixed_precision_overrides_config),
+        ]
+        for keys, value in to_replace:
+            if value is not None:
+                set_nested_dict_value(passes_config, keys, value)
+
+        del passes_config["conversion" if self.args.use_model_builder else "model_builder"]
+        if self.args.provider != "DmlExecutionProvider":
+            # Use the DynamicToFixedShape pass only for DmlExecutionProvider
+            # becase Direct ML doesn't support dynamic shaped inputs
+            del passes_config["to_fixed_shape"]
+
+        for pass_name in list(passes_config.keys()):
+            pass_run_config = passes_config[pass_name]
+            pass_module_config = olive_config.get_pass_module_config(pass_run_config["type"])
+            if (
+                (self.args.precision not in pass_module_config.supported_precisions)
+                or (self.args.provider not in pass_module_config.supported_providers)
+                or (self.args.device not in pass_module_config.supported_accelerators)
+            ):
+                del passes_config[pass_name]
+
+        if "to_fixed_shape" in passes_config and not (
+            self.args.dynamic_to_fixed_shape_dim_param and self.args.dynamic_to_fixed_shape_dim_value
+        ):
+            raise ValueError("dim-param and dim-value are required for DynamicToFixedShape.")
+
+        if ("conversion" not in passes_config) and ("model_builder" not in passes_config):
+            raise ValueError("Cannot export an onnx model with combination of provided options.")
+
+        return passes_config
+
+
+EVALUATE_TEMPLATE = {
+    "common_evaluator": {
+        "metrics": [
+            {
+                "name": "accuracy",
+                "type": "accuracy",
+                "sub_types": [
+                    {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.1}},
+                ],
+                "data_config": "data_config",
+            },
+            {
+                "name": "latency",
+                "type": "latency",
+                "sub_types": [
+                    {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 1}},
+                ],
+                "data_config": "data_config",
+                "user_config": {"io_bind": True},
+            },
+        ]
+    }
+}
+
+TEMPLATE = {
+    "input_model": {"type": "HfModel"},
+    "auto_optimizer_config": {},
+    "search_strategy": {"execution_order": "joint", "search_algorithm": "tpe", "num_samples": 5, "seed": 0},
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+        }
+    },
+    "passes": OrderedDict(
+        [
+            ("conversion", {"type": "OnnxConversion"}),
+            ("model_builder", {"type": "ModelBuilder", "precision": "fp32", "metadata_only": False}),
+            ("transformer_optimizer", {"type": "OrtTransformersOptimization"}),
+            ("optimizer", {"type": "OnnxModelOptimizer"}),
+            ("fp16_to_fp32", {"type": "OnnxIOFloat16ToFloat32"}),
+            ("qnn_preprocess", {"type": "QNNPreprocess"}),
+            ("dynamic_quant", {"type": "OnnxQuantization", "weight_type": "QInt8"}),
+            ("matmul4", {"type": "OnnxMatMul4Quantizer"}),
+            ("bnb4", {"type": "OnnxBnb4Quantization", "quant_type": "nf4"}),
+            ("to_fixed_shape", {"type": "DynamicToFixedShape", "dim_param": None, "dim_value": None}),
+            ("mixed_precision_overrides", {"type": "MixedPrecisionOverrides", "overrides_config": None}),
+            ("mixed_precision", {"type": "OrtMixedPrecision"}),
+            ("mnb_to_qdq", {"type": "MatMulNBitsToQDQ"}),
+            ("extract_adapters", {"type": "ExtractAdapters"}),
+        ]
+    ),
+    "host": "local_system",
+    "evaluators": EVALUATE_TEMPLATE,
+    "evaluator": "common_evaluator",
+    "target": "local_system",
+}
+
+PRECISION_MAPPING = {
+    "conversion": {},
+    "model_builder": {},
+    "transformer_optimizer": {},
+    "optimizer": {},
+    "fp16_to_fp32": {},
+    "qnn_preprocess": {},
+    "dynamic_quant": {"int8": "QInt8", "uint8": "QUInt8"},
+    "matmul4": {},
+    "bnb4": {},
+    "to_fixed_shape": {},
+    "mixed_precision_overrides": {},
+    "mixed_precision": {},
+    "mnb_to_qdq": {},
+    "extract_adapters": {},
+}

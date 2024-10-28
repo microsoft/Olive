@@ -25,7 +25,7 @@ from olive.systems.system_config import SystemConfig
         (["OpenVINOExecutionProvider"], None),
         (["CUDAExecutionProvider"], ["gpu"]),
         (["CPUExecutionProvider", "CUDAExecutionProvider"], ["gpu"]),
-        (["DmlExecutionProvider", "CUDAExecutionProvider"], ["gpu"]),
+        (["DmlExecutionProvider", "CUDAExecutionProvider"], None),
         (["QNNExecutionProvider", "CUDAExecutionProvider"], ["npu", "gpu"]),
     ],
 )
