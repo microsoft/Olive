@@ -90,6 +90,21 @@ python phi3.py --quarot
 Get access to the following resources on Hugging Face Hub:
 - [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
 
+### Quantize the model using [TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
+use; [Package onnxruntime-genai-directml](https://github.com/microsoft/onnxruntime-genai)>=0.4.0
+
+Setup
+```bash
+pip install olive-ai[nvmo]
+pip install onnxruntime-genai-directml>=0.4.0
+pip install onnxruntime-directml
+pip install -r requirements-nvmo-awq.txt
+```
+
+quantization: For quantization, use the config file phi3_nvmo_ptq.json 
+```bash
+olive run --config phi3_nvmo_ptq.json
+```
 
 ## More Inference Examples
 - [Android chat APP with Phi-3 and ONNX Runtime Mobile](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/mobile/examples/phi-3/android)
