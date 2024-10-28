@@ -3,13 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Union
 
-from olive.common.config_utils import validate_config
 from olive.common.utils import StrEnumBase
-from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OliveModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -17,75 +14,14 @@ from olive.passes import Pass
 from olive.passes.onnx.common import model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 from olive.strategy.search_parameter import Categorical
-
-logger = logging.getLogger(__name__)
+from onnx.onnx_pb import ModelProto
 import onnx
 from onnx import helper
 import os
-import shutil  # Import shutil for directory cleanup
-import tempfile  # Import tempfile for creating unique temp directories
+import shutil
+import tempfile
 
-
-# static quantization specific config
-_dataloader_config = {
-    "data_config": PassConfigParam(
-        type_=Union[DataConfig, Dict],
-        required=True,
-        description="Data config to load data for computing latency.",
-    ),
-}
-
-
-# Function to modify the model's opset to 21 if it's not already
-def convert_opset_to_21(model_path: str, output_path: str) -> str:
-    # Load the original ONNX model
-    model = onnx.load(model_path)
-
-    # Check the current opset version
-    current_opset = {opset.domain: opset.version for opset in model.opset_import}
-    logger.debug(f"Current opset imports: {current_opset}")
-
-    # Determine if the default domain has opset version 21
-    default_domain_version = current_opset.get("", 0)
-    if default_domain_version >= 21:
-        logger.info(
-            f"Model already uses opset version {default_domain_version} for the default domain. Skipping conversion."
-        )
-        return model_path  # No conversion needed
-
-    # If not, proceed to convert to opset 21
-    logger.info(f"Converting model opset from {default_domain_version} to 21.")
-
-    # Create new opset imports with version 21
-    new_opset_imports = [
-        helper.make_opsetid("", 21),  # Default domain with opset version 21
-        helper.make_opsetid("com.microsoft", 1),  # Microsoft domain with version 1
-    ]
-
-    # Optionally, retain other existing opset imports
-    for domain, version in current_opset.items():
-        if domain not in ["", "com.microsoft"]:
-            new_opset_imports.append(helper.make_opsetid(domain, version))
-
-    # Create the updated model with new opset imports
-    updated_model = onnx.helper.make_model(model.graph, opset_imports=new_opset_imports)
-
-    # Define the external data file path (all tensors saved in one file)
-    external_data_path = os.path.basename(output_path) + "_data"
-
-    # Save the updated model with external data
-    onnx.save(
-        updated_model,
-        output_path,
-        save_as_external_data=True,
-        all_tensors_to_one_file=True,
-        location=external_data_path,
-    )
-
-    logger.info(f"Model opset successfully converted to 21 and saved to {output_path}.")
-
-    # Return the path to the saved model
-    return output_path
+logger = logging.getLogger(__name__)
 
 
 class NVModelOptQuantization(Pass):
@@ -116,7 +52,7 @@ class NVModelOptQuantization(Pass):
                 type_=NVModelOptQuantization.Algorithm,
                 default_value="AWQ",
                 searchable_values=Categorical(["AWQ"]),
-                description="Algorithm of weight only quantization. Support 'AWQ'.",
+                description="Algorithm of weight only quantization. Supports 'AWQ'.",
             ),
             "calibration": PassConfigParam(
                 type_=NVModelOptQuantization.Calibration,
@@ -161,68 +97,365 @@ class NVModelOptQuantization(Pass):
             logger.error("Calibration method must be either 'awq_lite' or 'awq_clip'.")
             return False
 
-        # Optional: Validate 'hf' if necessary
-        if not search_point.get("hf"):
-            logger.warning("Tokenizer directory 'hf' is not specified.")
+        # Optional: Validate 'tokenizer_dir' if necessary
+        if not search_point.get("tokenizer_dir"):
+            logger.warning("Tokenizer directory 'tokenizer_dir' is not specified.")
 
         return True
+
+    def initialize_quant_config(self, config: Dict[str, Any]):
+        """
+        Initialize the quantization configuration by setting up dependencies and calibration data.
+        """
+        # Import torch and DataLoader
+        try:
+            import torch
+            from torch.utils.data import DataLoader
+
+            self.torch = torch
+            self.DataLoader = DataLoader
+        except ImportError:
+            logger.error(
+                "The 'torch' library is required but not installed. Please install it using 'pip install torch'."
+            )
+            raise ImportError("torch is not installed. Exiting.") from None
+
+        # Import datasets
+        try:
+            from datasets import load_dataset
+
+            self.load_dataset = load_dataset
+        except ImportError:
+            logger.error(
+                "The 'datasets' library is required but not installed. Please install it using 'pip install datasets'."
+            )
+            raise ImportError("datasets is not installed. Exiting.") from None
+
+        # Import transformers
+        try:
+            from transformers import AutoConfig, AutoTokenizer
+
+            self.AutoConfig = AutoConfig
+            self.AutoTokenizer = AutoTokenizer
+        except ImportError:
+            logger.error(
+                "The 'transformers' library is required but not installed. Please install it using 'pip install transformers'."
+            )
+            raise ImportError("transformers is not installed. Exiting.") from None
+
+        # Determine the device
+        device = self.torch.device("cuda" if self.torch.cuda.is_available() else "cpu")
+
+        # Prepare calibration inputs
+        calib_inputs = self.get_calib_inputs(
+            dataset_name="cnn",
+            model_name=config["tokenizer_dir"],
+            cache_dir="./cache",
+            calib_size=32,
+            batch_size=1,
+            block_size=512,
+            device=device,
+            use_fp16=True,
+            use_buffer_share=False,
+            add_past_kv_inputs=True,
+            max_calib_rows_to_load=128,
+            add_position_ids=True,
+        )
+
+        # Return a dictionary containing necessary configuration for quantization
+        return {
+            "algorithm": config.get("algorithm", self.Algorithm.AWQ.value),
+            "precision": config.get("precision", self.Precision.INT4.value),
+            "calibration_method": config.get("calibration", self.Calibration.AWQ_CLIP.value),
+            "tokenizer_dir": config["tokenizer_dir"],
+            "calibration_data_reader": calib_inputs,
+        }
+
+    def make_model_input(
+        self,
+        config,
+        input_ids_arg,
+        attention_mask_arg,
+        add_past_kv_inputs,
+        device,
+        use_fp16,
+        use_buffer_share,
+        add_position_ids,
+    ):
+        # Access torch from the instance variable
+        torch = self.torch
+
+        input_ids = input_ids_arg
+        attention_mask = attention_mask_arg
+
+        if isinstance(input_ids_arg, list):
+            input_ids = torch.tensor(input_ids_arg, device=device, dtype=torch.int64)
+            attention_mask = torch.tensor(attention_mask_arg, device=device, dtype=torch.int64)
+
+        inputs = {
+            "input_ids": input_ids.contiguous(),
+            "attention_mask": attention_mask.contiguous(),
+        }
+
+        if add_position_ids:
+            position_ids = attention_mask.long().cumsum(-1) - 1
+            position_ids.masked_fill_(attention_mask == 0, 1)
+            inputs["position_ids"] = position_ids.contiguous()
+
+        if add_past_kv_inputs:
+            torch_dtype = torch.float16 if use_fp16 else torch.float32
+            batch_size, sequence_length = input_ids.shape
+            max_sequence_length = config.max_position_embeddings
+            num_heads, head_size = (
+                config.num_key_value_heads,
+                config.hidden_size // config.num_attention_heads,
+            )
+            for i in range(config.num_hidden_layers):
+                past_key = torch.zeros(
+                    batch_size,
+                    num_heads,
+                    max_sequence_length if use_buffer_share else 0,
+                    head_size,
+                    device=device,
+                    dtype=torch_dtype,
+                )
+                past_value = torch.zeros(
+                    batch_size,
+                    num_heads,
+                    max_sequence_length if use_buffer_share else 0,
+                    head_size,
+                    device=device,
+                    dtype=torch_dtype,
+                )
+                inputs.update(
+                    {
+                        f"past_key_values.{i}.key": past_key.contiguous(),
+                        f"past_key_values.{i}.value": past_value.contiguous(),
+                    }
+                )
+
+        return inputs
+
+    def get_calib_inputs(
+        self,
+        dataset_name,
+        model_name,
+        cache_dir,
+        calib_size,
+        batch_size,
+        block_size,
+        device,
+        use_fp16,
+        use_buffer_share,
+        add_past_kv_inputs,
+        max_calib_rows_to_load,
+        add_position_ids,
+    ):
+        # Access transformers and datasets from the instance variables
+        auto_config = self.AutoConfig
+        auto_tokenizer = self.AutoTokenizer
+        load_dataset = self.load_dataset
+
+        config = auto_config.from_pretrained(
+            model_name, use_auth_token=True, cache_dir=cache_dir, trust_remote_code=True
+        )
+        tokenizer = auto_tokenizer.from_pretrained(
+            model_name, use_auth_token=True, cache_dir=cache_dir, trust_remote_code=True
+        )
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+        tokenizer.pad_token = tokenizer.eos_token
+
+        assert calib_size <= max_calib_rows_to_load, "calib size should be no more than max_calib_rows_to_load"
+
+        if "cnn" in dataset_name:
+            dataset2 = load_dataset("cnn_dailymail", name="3.0.0", split="train").select(range(max_calib_rows_to_load))
+            column = "article"
+        elif "pile" in dataset_name:
+            dataset2 = load_dataset("mit-han-lab/pile-val-backup", split="validation")
+            column = "text"
+        else:
+            raise ValueError(f'dataset "{dataset_name}" not supported')
+
+        dataset2 = dataset2[column][:calib_size]
+        batch_encoded = tokenizer.batch_encode_plus(
+            dataset2, return_tensors="pt", padding=True, truncation=True, max_length=block_size
+        )
+        batch_encoded = batch_encoded.to(device)
+        batch_encoded_input_ids = batch_encoded["input_ids"]
+        batch_encoded_attention_mask = batch_encoded["attention_mask"]
+
+        # Access DataLoader from the instance variable
+        data_loader = self.DataLoader
+
+        calib_dataloader_input_ids = data_loader(batch_encoded_input_ids, batch_size=batch_size, shuffle=False)
+        calib_dataloader_attention_mask = data_loader(
+            batch_encoded_attention_mask, batch_size=batch_size, shuffle=False
+        )
+
+        assert len(calib_dataloader_input_ids.dataset) == len(calib_dataloader_attention_mask.dataset)
+        assert len(calib_dataloader_input_ids) == len(calib_dataloader_attention_mask)
+
+        number_of_batched_samples = calib_size // batch_size
+
+        batched_input_ids = []
+        for idx, data in enumerate(calib_dataloader_input_ids):
+            batched_input_ids.append(data)
+            if idx == (number_of_batched_samples - 1):
+                break
+
+        batched_attention_mask = []
+        for idx, data in enumerate(calib_dataloader_attention_mask):
+            batched_attention_mask.append(data)
+            if idx == (number_of_batched_samples - 1):
+                break
+
+        logger.info(
+            f"Quantize-Script: number_of_batched_samples={number_of_batched_samples}, "
+            f"batch-input-ids-list-len={len(batched_input_ids)}, batched_attention_mask={len(batched_attention_mask)}"
+        )
+
+        batched_inputs_list = []
+        for i in range(number_of_batched_samples):
+            input_ids = batched_input_ids[i]
+            attention_mask = batched_attention_mask[i]
+
+            inputs = self.make_model_input(
+                config,
+                input_ids,
+                attention_mask,
+                add_past_kv_inputs,
+                device,
+                use_fp16,
+                use_buffer_share,
+                add_position_ids,
+            )
+            inputs = {input_name: torch_tensor.cpu().numpy() for input_name, torch_tensor in inputs.items()}
+            batched_inputs_list.append(inputs)
+
+        logger.info(f"Quantize-Script: number of batched inputs = {len(batched_inputs_list)}")
+        return batched_inputs_list
+
+    def quantize_awq(self, model: Union[ModelProto, str], quant_config: Dict[str, Any]) -> ModelProto:
+        """
+        Perform nvidia_awq quantization using ModelOpt's int4 quantize function.
+
+        Args:
+            model (ModelProto | str): The ONNX model or path to the model to quantize.
+            quant_config (Dict[str, Any]): Configuration dictionary for quantization.
+
+        Returns:
+            ModelProto: The quantized ONNX model.
+        """
+        try:
+            from modelopt.onnx.quantization.int4 import quantize as quantize_int4
+        except ImportError:
+            logger.error(
+                "Please ensure that the 'modelopt' package is installed. Install it using 'pip install nvidia_modelopt'."
+            )
+            raise ImportError(
+                "modelopt is not installed. Please install it using 'pip install nvidia_modelopt'. Exiting."
+            ) from None
+
+        logger.info("Starting nvidia_awq quantization...")
+
+        # Prepare calibration inputs
+        calib_inputs = quant_config["calibration_data_reader"]
+
+        # Perform quantization using ModelOpt's int4 quantize function
+        quantized_model = quantize_int4(
+            model,
+            calibration_method=quant_config["calibration_method"],
+            calibration_data_reader=calib_inputs,
+        )
+
+        logger.info("Completed nvidia_awq quantization.")
+        return quantized_model
+
+    def convert_opset_to_21(self, model_path: str, output_path: str) -> str:
+        """
+        Modify the model's opset to 21 if it's not already.
+
+        Args:
+            model_path (str): Path to the original ONNX model.
+            output_path (str): Path to save the converted model.
+
+        Returns:
+            str: Path to the saved model.
+        """
+        # Load the original ONNX model
+        model = onnx.load(model_path)
+
+        # Check the current opset version
+        current_opset = {opset.domain: opset.version for opset in model.opset_import}
+        logger.debug(f"Current opset imports: {current_opset}")
+
+        # Determine if the default domain has opset version 21
+        default_domain_version = current_opset.get("", 0)
+        if default_domain_version >= 21:
+            logger.info(
+                f"Model already uses opset version {default_domain_version} for the default domain. Skipping conversion."
+            )
+            return model_path  # No conversion needed
+
+        # If not, proceed to convert to opset 21
+        logger.info(f"Converting model opset from {default_domain_version} to 21.")
+
+        # Create new opset imports with version 21
+        new_opset_imports = [
+            helper.make_opsetid("", 21),  # Default domain with opset version 21
+            helper.make_opsetid("com.microsoft", 1),  # Microsoft domain with version 1
+        ]
+
+        # Optionally, retain other existing opset imports
+        for domain, version in current_opset.items():
+            if domain not in ["", "com.microsoft"]:
+                new_opset_imports.append(helper.make_opsetid(domain, version))
+
+        # Create the updated model with new opset imports
+        updated_model = onnx.helper.make_model(model.graph, opset_imports=new_opset_imports)
+
+        # Define the external data file path (all tensors saved in one file)
+        external_data_path = os.path.basename(output_path) + "_data"
+
+        # Save the updated model with external data
+        onnx.save(
+            updated_model,
+            output_path,
+            save_as_external_data=True,
+            all_tensors_to_one_file=True,
+            location=external_data_path,
+        )
+
+        logger.info(f"Model opset successfully converted to 21 and saved to {output_path}.")
+
+        # Return the path to the saved model
+        return output_path
 
     def _run_for_config(
         self, model: OliveModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> OliveModelHandler:
-        try:
-            from onnxruntime.quantization.matmul_4bits_quantizer import (
-                NVAWQWeightOnlyQuantConfig,
-                QuantFormat,
-                MatMul4BitsQuantizer,
-            )
-        except ImportError as exc:
-            raise ImportError(
-                "Please install `olive-ai[nvmo]` or `nvidia-modelopt[onnx]` to use INT4 AWQ quantization!"
-            ) from exc
 
-        # Step 1: Convert model's opset to 21 if necessary and save temporarily
-        temp_dir = tempfile.mkdtemp(prefix="modelopt_temp_")  # Create a unique temp directory
+        temp_dir = tempfile.mkdtemp(prefix="modelopt_temp_")
         try:
             logger.info(f"Temporary directory created at {temp_dir}.")
 
             temp_model_path = os.path.join(temp_dir, "model.onnx")
-            converted_model_path = convert_opset_to_21(model.model_path, temp_model_path)
+            converted_model_path = self.convert_opset_to_21(model.model_path, temp_model_path)
             if converted_model_path == model.model_path:
                 logger.info("No opset conversion was necessary.")
             else:
                 logger.info(f"Temporary model saved at {converted_model_path}.")
 
-            # Step 2: Quantize the model
-            block_size = 128
-            is_symmetric = False
-            accuracy_level = None
-            calibration_method = config.get("calibration", NVModelOptQuantization.Calibration.AWQ_CLIP.value)
-            logger.info(f"Using calibration method: {calibration_method}")
+            quant_config = self.initialize_quant_config(config)
 
-            quant_config = NVAWQWeightOnlyQuantConfig(
-                tokenizer_dir=config["tokenizer_dir"],
-                calibration_method=calibration_method,
-            )
-
-            quant = MatMul4BitsQuantizer(
+            quantized_model = self.quantize_awq(
                 model=converted_model_path,
-                algo_config=quant_config,
-                block_size=block_size,
-                is_symmetric=is_symmetric,
-                accuracy_level=accuracy_level,
-                nodes_to_exclude=[],
-                quant_format=QuantFormat.QDQ,
+                quant_config=quant_config,
             )
-            quant.process()
-            q_model = quant.model.model
-            logger.info("Model quantization completed successfully.")
 
-            # Step 3: Save the quantized model to the output path
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-            olive_model = model_proto_to_olive_model(q_model, output_model_path, config)
+            olive_model = model_proto_to_olive_model(quantized_model, output_model_path, config)
             logger.info(f"Quantized model saved to {output_model_path}")
-
             return olive_model
 
         finally:
