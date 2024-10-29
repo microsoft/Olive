@@ -103,8 +103,7 @@ class NVModelOptQuantization(Pass):
         return True
 
     def initialize_quant_config(self, config: Dict[str, Any]):
-        """Initialize the quantization configuration by setting up dependencies and calibration data.
-        """
+        """Initialize the quantization configuration by setting up dependencies and calibration data."""
         # Import torch and DataLoader
         import torch
         from torch.utils.data import DataLoader
@@ -118,7 +117,7 @@ class NVModelOptQuantization(Pass):
 
             self.load_dataset = load_dataset
         except ImportError:
-            logger.error(
+            logger.exception(
                 "The 'datasets' library is required but not installed. Please install it using 'pip install datasets'."
             )
             raise ImportError("datasets is not installed. Exiting.") from None
@@ -279,8 +278,8 @@ class NVModelOptQuantization(Pass):
 
         if len(calib_dataloader_input_ids.dataset) != len(calib_dataloader_attention_mask.dataset):
             raise ValueError(
-                f"Mismatch in dataset lengths: calib_dataloader_input_ids has {len(calib_dataloader_input_ids.dataset)} "
-                f"items, while calib_dataloader_attention_mask has {len(calib_dataloader_attention_mask.dataset)} items."
+                f"Mismatch in dataset len: calib_dataloader_input_ids has {len(calib_dataloader_input_ids.dataset)} "
+                f"items, calib_dataloader_attention_mask has {len(calib_dataloader_attention_mask.dataset)} items."
             )
 
         if len(calib_dataloader_input_ids) != len(calib_dataloader_attention_mask):
@@ -303,11 +302,6 @@ class NVModelOptQuantization(Pass):
             if idx == (number_of_batched_samples - 1):
                 break
 
-        logger.info(
-            f"Quantize-Script: number_of_batched_samples={number_of_batched_samples}, "
-            f"batch-input-ids-list-len={len(batched_input_ids)}, batched_attention_mask={len(batched_attention_mask)}"
-        )
-
         batched_inputs_list = []
         for i in range(number_of_batched_samples):
             input_ids = batched_input_ids[i]
@@ -326,7 +320,6 @@ class NVModelOptQuantization(Pass):
             inputs = {input_name: torch_tensor.cpu().numpy() for input_name, torch_tensor in inputs.items()}
             batched_inputs_list.append(inputs)
 
-        logger.info(f"Quantize-Script: number of batched inputs = {len(batched_inputs_list)}")
         return batched_inputs_list
 
     def quantize_awq(self, model: Union[ModelProto, str], quant_config: Dict[str, Any]) -> ModelProto:
@@ -343,8 +336,8 @@ class NVModelOptQuantization(Pass):
         try:
             from modelopt.onnx.quantization.int4 import quantize as quantize_int4
         except ImportError:
-            logger.error(
-                "Please ensure that the 'modelopt' package is installed. Install it using 'pip install nvidia_modelopt'."
+            logger.exception(
+                "Please ensure that 'modelopt' package is installed. Install it with 'pip install nvidia_modelopt'."
             )
             raise ImportError(
                 "modelopt is not installed. Please install it using 'pip install nvidia_modelopt'. Exiting."
@@ -380,16 +373,19 @@ class NVModelOptQuantization(Pass):
         model = onnx.load(model_path)
 
         current_opset = {opset.domain: opset.version for opset in model.opset_import}
-        logger.debug(f"Current opset imports: {current_opset}")
 
         default_domain_version = current_opset.get("", 0)
         if default_domain_version >= 21:
             logger.info(
-                f"Model already uses opset version {default_domain_version} for the default domain. Skipping conversion."
+                "Model already uses opset version %s for the default domain. Skip conversion.",
+                default_domain_version
             )
             return model_path  # No conversion needed
 
-        logger.info(f"Converting model opset from {default_domain_version} to 21.")
+        logger.info(
+            "Converting model opset from %s to 21.",
+            default_domain_version
+        )
 
         new_opset_imports = [
             helper.make_opsetid("", 21),  # Default domain with opset version 21
@@ -415,7 +411,10 @@ class NVModelOptQuantization(Pass):
             location=external_data_path,
         )
 
-        logger.info(f"Model opset successfully converted to 21 and saved to {output_path}.")
+        logger.info(
+            "Model opset successfully converted to 21 and saved to %s.",
+            output_path
+        )
 
         # Return the path to the saved model
         return output_path
@@ -426,14 +425,18 @@ class NVModelOptQuantization(Pass):
 
         temp_dir = tempfile.mkdtemp(prefix="modelopt_temp_")
         try:
-            logger.info(f"Temporary directory created at {temp_dir}.")
+            logger.info(
+                "Temporary directory created at %s.",
+                temp_dir
+            )
 
             temp_model_path = os.path.join(temp_dir, "model.onnx")
             converted_model_path = self.convert_opset_to_21(model.model_path, temp_model_path)
             if converted_model_path == model.model_path:
                 logger.info("No opset conversion was necessary.")
             else:
-                logger.info(f"Temporary model saved at {converted_model_path}.")
+                logger.info("Temporary model saved at %s.", converted_model_path)
+
 
             quant_config = self.initialize_quant_config(config)
 
@@ -444,7 +447,8 @@ class NVModelOptQuantization(Pass):
 
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
             olive_model = model_proto_to_olive_model(quantized_model, output_model_path, config)
-            logger.info(f"Quantized model saved to {output_model_path}")
+            logger.info("Quantized model saved to %s", output_model_path)
+
             return olive_model
 
         finally:
@@ -452,8 +456,11 @@ class NVModelOptQuantization(Pass):
             if os.path.exists(temp_dir):
                 try:
                     shutil.rmtree(temp_dir)
-                    logger.info(f"Temporary directory {temp_dir} has been cleaned up.")
+                    logger.info("Temporary directory %s has been cleaned up.", temp_dir)
+
                 except Exception as cleanup_exc:
                     logger.warning(
-                        f"Failed to clean up temporary directory {temp_dir}: {cleanup_exc}"
+                        "Failed to clean up temporary directory %s: %s",
+                        temp_dir,
+                        cleanup_exc
                     )
