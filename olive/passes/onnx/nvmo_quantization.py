@@ -45,25 +45,24 @@ class NVModelOptQuantization(Pass):
             "precision": PassConfigParam(
                 type_=NVModelOptQuantization.Precision,
                 default_value="int4",
-                searchable_values=Categorical(["fp8", "int8", "int4"]),
+                search_defaults=Categorical(["fp8", "int8", "int4"]),
                 description="NVModelOpt Quantization mode.",
             ),
             "algorithm": PassConfigParam(
                 type_=NVModelOptQuantization.Algorithm,
                 default_value="AWQ",
-                searchable_values=Categorical(["AWQ"]),
+                search_defaults=Categorical(["AWQ"]),
                 description="Algorithm of weight only quantization. Supports 'AWQ'.",
             ),
             "calibration": PassConfigParam(
                 type_=NVModelOptQuantization.Calibration,
                 default_value="awq_clip",
-                searchable_values=Categorical(["awq_lite", "awq_clip"]),
+                search_defaults=Categorical(["awq_lite", "awq_clip"]),
                 description="Calibration method for weight only quantization. Supports 'awq_lite' and 'awq_clip'.",
             ),
             "tokenizer_dir": PassConfigParam(
                 type_=str,
                 required=True,
-                default_value="",  # Updated default value
                 description="Tokenizer directory for calibration method.",
             ),
         }
@@ -104,21 +103,14 @@ class NVModelOptQuantization(Pass):
         return True
 
     def initialize_quant_config(self, config: Dict[str, Any]):
-        """
-        Initialize the quantization configuration by setting up dependencies and calibration data.
+        """Initialize the quantization configuration by setting up dependencies and calibration data.
         """
         # Import torch and DataLoader
-        try:
-            import torch
-            from torch.utils.data import DataLoader
+        import torch
+        from torch.utils.data import DataLoader
 
-            self.torch = torch
-            self.DataLoader = DataLoader
-        except ImportError:
-            logger.error(
-                "The 'torch' library is required but not installed. Please install it using 'pip install torch'."
-            )
-            raise ImportError("torch is not installed. Exiting.") from None
+        self.torch = torch
+        self.DataLoader = DataLoader
 
         # Import datasets
         try:
@@ -132,16 +124,9 @@ class NVModelOptQuantization(Pass):
             raise ImportError("datasets is not installed. Exiting.") from None
 
         # Import transformers
-        try:
-            from transformers import AutoConfig, AutoTokenizer
-
-            self.AutoConfig = AutoConfig
-            self.AutoTokenizer = AutoTokenizer
-        except ImportError:
-            logger.error(
-                "The 'transformers' library is required but not installed. Please install it using 'pip install transformers'."
-            )
-            raise ImportError("transformers is not installed. Exiting.") from None
+        from transformers import AutoConfig, AutoTokenizer
+        self.AutoConfig = AutoConfig
+        self.AutoTokenizer = AutoTokenizer
 
         # Determine the device
         device = self.torch.device("cuda" if self.torch.cuda.is_available() else "cpu")
@@ -292,8 +277,17 @@ class NVModelOptQuantization(Pass):
             batch_encoded_attention_mask, batch_size=batch_size, shuffle=False
         )
 
-        assert len(calib_dataloader_input_ids.dataset) == len(calib_dataloader_attention_mask.dataset)
-        assert len(calib_dataloader_input_ids) == len(calib_dataloader_attention_mask)
+        if len(calib_dataloader_input_ids.dataset) != len(calib_dataloader_attention_mask.dataset):
+            raise ValueError(
+                f"Mismatch in dataset lengths: calib_dataloader_input_ids has {len(calib_dataloader_input_ids.dataset)} "
+                f"items, while calib_dataloader_attention_mask has {len(calib_dataloader_attention_mask.dataset)} items."
+            )
+
+        if len(calib_dataloader_input_ids) != len(calib_dataloader_attention_mask):
+            raise ValueError(
+                f"Mismatch in dataloader lengths: calib_dataloader_input_ids has {len(calib_dataloader_input_ids)} "
+                f"items, while calib_dataloader_attention_mask has {len(calib_dataloader_attention_mask)} items."
+            )
 
         number_of_batched_samples = calib_size // batch_size
 
@@ -336,8 +330,7 @@ class NVModelOptQuantization(Pass):
         return batched_inputs_list
 
     def quantize_awq(self, model: Union[ModelProto, str], quant_config: Dict[str, Any]) -> ModelProto:
-        """
-        Perform nvidia_awq quantization using ModelOpt's int4 quantize function.
+        """Perform nvidia_awq quantization using ModelOpt's int4 quantize function.
 
         Args:
             model (ModelProto | str): The ONNX model or path to the model to quantize.
@@ -345,6 +338,7 @@ class NVModelOptQuantization(Pass):
 
         Returns:
             ModelProto: The quantized ONNX model.
+
         """
         try:
             from modelopt.onnx.quantization.int4 import quantize as quantize_int4
@@ -372,8 +366,7 @@ class NVModelOptQuantization(Pass):
         return quantized_model
 
     def convert_opset_to_21(self, model_path: str, output_path: str) -> str:
-        """
-        Modify the model's opset to 21 if it's not already.
+        """Modify the model's opset to 21 if it's not already.
 
         Args:
             model_path (str): Path to the original ONNX model.
@@ -381,6 +374,7 @@ class NVModelOptQuantization(Pass):
 
         Returns:
             str: Path to the saved model.
+
         """
         # Load the original ONNX model
         model = onnx.load(model_path)
