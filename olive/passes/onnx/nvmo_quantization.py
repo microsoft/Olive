@@ -3,8 +3,15 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, Union
+
+import onnx
+from onnx import helper
+from onnx.onnx_pb import ModelProto
 
 from olive.common.utils import StrEnumBase
 from olive.hardware.accelerator import AcceleratorSpec
@@ -14,12 +21,6 @@ from olive.passes import Pass
 from olive.passes.onnx.common import model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 from olive.strategy.search_parameter import Categorical
-from onnx.onnx_pb import ModelProto
-import onnx
-from onnx import helper
-import os
-import shutil
-import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,7 @@ class NVModelOptQuantization(Pass):
 
         # Import transformers
         from transformers import AutoConfig, AutoTokenizer
+
         self.AutoConfig = AutoConfig
         self.AutoTokenizer = AutoTokenizer
 
@@ -377,15 +379,11 @@ class NVModelOptQuantization(Pass):
         default_domain_version = current_opset.get("", 0)
         if default_domain_version >= 21:
             logger.info(
-                "Model already uses opset version %s for the default domain. Skip conversion.",
-                default_domain_version
+                "Model already uses opset version %s for the default domain. Skip conversion.", default_domain_version
             )
             return model_path  # No conversion needed
 
-        logger.info(
-            "Converting model opset from %s to 21.",
-            default_domain_version
-        )
+        logger.info("Converting model opset from %s to 21.", default_domain_version)
 
         new_opset_imports = [
             helper.make_opsetid("", 21),  # Default domain with opset version 21
@@ -411,10 +409,7 @@ class NVModelOptQuantization(Pass):
             location=external_data_path,
         )
 
-        logger.info(
-            "Model opset successfully converted to 21 and saved to %s.",
-            output_path
-        )
+        logger.info("Model opset successfully converted to 21 and saved to %s.", output_path)
 
         # Return the path to the saved model
         return output_path
@@ -425,10 +420,7 @@ class NVModelOptQuantization(Pass):
 
         temp_dir = tempfile.mkdtemp(prefix="modelopt_temp_")
         try:
-            logger.info(
-                "Temporary directory created at %s.",
-                temp_dir
-            )
+            logger.info("Temporary directory created at %s.", temp_dir)
 
             temp_model_path = os.path.join(temp_dir, "model.onnx")
             converted_model_path = self.convert_opset_to_21(model.model_path, temp_model_path)
@@ -436,7 +428,6 @@ class NVModelOptQuantization(Pass):
                 logger.info("No opset conversion was necessary.")
             else:
                 logger.info("Temporary model saved at %s.", converted_model_path)
-
 
             quant_config = self.initialize_quant_config(config)
 
@@ -459,8 +450,4 @@ class NVModelOptQuantization(Pass):
                     logger.info("Temporary directory %s has been cleaned up.", temp_dir)
 
                 except Exception as cleanup_exc:
-                    logger.warning(
-                        "Failed to clean up temporary directory %s: %s",
-                        temp_dir,
-                        cleanup_exc
-                    )
+                    logger.warning("Failed to clean up temporary directory %s: %s", temp_dir, cleanup_exc)
