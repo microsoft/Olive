@@ -10,8 +10,12 @@ from pathlib import Path
 from typing import Any, Dict, Union
 
 import onnx
+import torch
+from datasets import load_dataset
 from onnx import helper
 from onnx.onnx_pb import ModelProto
+from torch.utils.data import DataLoader
+from transformers import AutoConfig, AutoTokenizer
 
 from olive.common.utils import StrEnumBase
 from olive.hardware.accelerator import AcceleratorSpec
@@ -39,15 +43,6 @@ class NVModelOptQuantization(Pass):
     class Calibration(StrEnumBase):
         AWQ_LITE = "awq_lite"
         AWQ_CLIP = "awq_clip"
-
-    def __init__(self):
-        super().__init__()
-        # Initialize attributes to None
-        self.torch = None
-        self.DataLoader = None
-        self.load_dataset = None
-        self.AutoConfig = None
-        self.AutoTokenizer = None
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -113,34 +108,6 @@ class NVModelOptQuantization(Pass):
         return True
 
     def initialize_quant_config(self, config: Dict[str, Any]):
-        """Initialize the quantization configuration by setting up dependencies and calibration data."""
-        # Import torch and DataLoader
-        import torch
-        from torch.utils.data import DataLoader
-
-        self.torch = torch
-        self.DataLoader = DataLoader
-
-        # Import datasets
-        try:
-            from datasets import load_dataset
-
-            self.load_dataset = load_dataset
-        except ImportError:
-            logger.exception(
-                "The 'datasets' library is required but not installed. Please install it using 'pip install datasets'."
-            )
-            raise ImportError("datasets is not installed. Exiting.") from None
-
-        # Import transformers
-        from transformers import AutoConfig, AutoTokenizer
-
-        self.AutoConfig = AutoConfig
-        self.AutoTokenizer = AutoTokenizer
-
-        # Determine the device
-        device = self.torch.device("cuda" if self.torch.cuda.is_available() else "cpu")
-
         # Prepare calibration inputs
         calib_inputs = self.get_calib_inputs(
             dataset_name="cnn",
@@ -149,7 +116,7 @@ class NVModelOptQuantization(Pass):
             calib_size=32,
             batch_size=1,
             block_size=512,
-            device=device,
+            device="cpu",
             use_fp16=True,
             use_buffer_share=False,
             add_past_kv_inputs=True,
@@ -177,9 +144,6 @@ class NVModelOptQuantization(Pass):
         use_buffer_share,
         add_position_ids,
     ):
-        # Access torch from the instance variable
-        torch = self.torch
-
         input_ids = input_ids_arg
         attention_mask = attention_mask_arg
 
@@ -199,7 +163,7 @@ class NVModelOptQuantization(Pass):
 
         if add_past_kv_inputs:
             torch_dtype = torch.float16 if use_fp16 else torch.float32
-            batch_size, sequence_length = input_ids.shape
+            batch_size, _ = input_ids.shape
             max_sequence_length = config.max_position_embeddings
             num_heads, head_size = (
                 config.num_key_value_heads,
@@ -247,14 +211,11 @@ class NVModelOptQuantization(Pass):
         add_position_ids,
     ):
         # Access transformers and datasets from the instance variables
-        auto_config = self.AutoConfig
-        auto_tokenizer = self.AutoTokenizer
-        load_dataset = self.load_dataset
 
-        config = auto_config.from_pretrained(
+        config = AutoConfig.from_pretrained(
             model_name, use_auth_token=True, cache_dir=cache_dir, trust_remote_code=True
         )
-        tokenizer = auto_tokenizer.from_pretrained(
+        tokenizer = AutoTokenizer.from_pretrained(
             model_name, use_auth_token=True, cache_dir=cache_dir, trust_remote_code=True
         )
         tokenizer.add_special_tokens({"pad_token": "[PAD]"})
@@ -279,13 +240,8 @@ class NVModelOptQuantization(Pass):
         batch_encoded_input_ids = batch_encoded["input_ids"]
         batch_encoded_attention_mask = batch_encoded["attention_mask"]
 
-        # Access DataLoader from the instance variable
-        data_loader = self.DataLoader
-
-        calib_dataloader_input_ids = data_loader(batch_encoded_input_ids, batch_size=batch_size, shuffle=False)
-        calib_dataloader_attention_mask = data_loader(
-            batch_encoded_attention_mask, batch_size=batch_size, shuffle=False
-        )
+        calib_dataloader_input_ids = DataLoader(batch_encoded_input_ids, batch_size=batch_size, shuffle=False)
+        calib_dataloader_attention_mask = DataLoader(batch_encoded_attention_mask, batch_size=batch_size, shuffle=False)
 
         if len(calib_dataloader_input_ids.dataset) != len(calib_dataloader_attention_mask.dataset):
             raise ValueError(
