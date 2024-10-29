@@ -197,6 +197,16 @@ class ModelBuilder(Pass):
             split_assignments = model_attributes.get("split_assignments")
             if split_assignments:
                 split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
+                replacements = {
+                    "self_attn": "attn",
+                    "self_attention": "attn",
+                    "dense_4h_to_h": "down_proj",
+                    "dense_h_to_4h": "gate_up_proj",
+                    "dense": "o_proj",
+                    "query_key_value": "qkv_proj",
+                }
+                for old, new in replacements.items():
+                    split_assignment_str = split_assignment_str.replace(f".{old}", f".{new}")
 
                 # load the model and set the split_assignments as model properties
                 # without the external data so that they can be used as is with the resaved model
