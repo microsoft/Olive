@@ -3,9 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import os
-import shutil
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, Union
 
@@ -347,30 +344,24 @@ class NVModelOptQuantization(Pass):
         logger.info("Completed nvidia_awq quantization.")
         return quantized_model
 
-    def convert_opset_to_21(self, model_path: str, output_path: str) -> str:
-        """Modify the model's opset to 21 if it's not already.
+    def convert_opset_to_21_proto(self, model_proto: ModelProto) -> ModelProto:
+        """Modify the model's opset to 21 if it's not already, operating on a ModelProto.
 
         Args:
-            model_path (str): Path to the original ONNX model.
-            output_path (str): Path to save the converted model.
+            model_proto (ModelProto): The ONNX model proto to modify.
 
         Returns:
-            str: Path to the saved model.
+            ModelProto: The updated ONNX model proto with opset version 21.
 
         """
-        # Load the original ONNX model
-        model = onnx.load(model_path)
-
-        current_opset = {opset.domain: opset.version for opset in model.opset_import}
+        current_opset = {opset.domain: opset.version for opset in model_proto.opset_import}
 
         default_domain_version = current_opset.get("", 0)
         if default_domain_version >= 21:
             logger.info(
                 "Model already uses opset version %s for the default domain. Skip conversion.", default_domain_version
             )
-            return model_path  # No conversion needed
-
-        logger.info("Converting model opset from %s to 21.", default_domain_version)
+            return model_proto  # No conversion needed
 
         new_opset_imports = [
             helper.make_opsetid("", 21),  # Default domain with opset version 21
@@ -381,60 +372,41 @@ class NVModelOptQuantization(Pass):
             if domain not in ["", "com.microsoft"]:
                 new_opset_imports.append(helper.make_opsetid(domain, version))
 
-        # Create the updated model with new opset imports
-        updated_model = onnx.helper.make_model(model.graph, opset_imports=new_opset_imports)
+        # Update the model's opset imports
+        model_proto.opset_import.clear()
+        model_proto.opset_import.extend(new_opset_imports)
 
-        # Define the external data file path (all tensors saved in one file)
-        external_data_path = os.path.basename(output_path) + "_data"
+        logger.info("Model opset successfully converted to 21.")
 
-        # Save the updated model with external data
-        onnx.save(
-            updated_model,
-            output_path,
-            save_as_external_data=True,
-            all_tensors_to_one_file=True,
-            location=external_data_path,
-        )
-
-        logger.info("Model opset successfully converted to 21 and saved to %s.", output_path)
-
-        # Return the path to the saved model
-        return output_path
+        return model_proto
 
     def _run_for_config(
         self, model: OliveModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> OliveModelHandler:
 
-        temp_dir = tempfile.mkdtemp(prefix="modelopt_temp_")
         try:
-            logger.info("Temporary directory created at %s.", temp_dir)
-
-            temp_model_path = os.path.join(temp_dir, "model.onnx")
-            converted_model_path = self.convert_opset_to_21(model.model_path, temp_model_path)
-            if converted_model_path == model.model_path:
-                logger.info("No opset conversion was necessary.")
-            else:
-                logger.info("Temporary model saved at %s.", converted_model_path)
+            logger.info("Loading the original ONNX model from %s.", model.model_path)
+            # Load the original ONNX model into a ModelProto
+            model_proto = onnx.load(model.model_path)
 
             quant_config = self.initialize_quant_config(config)
 
-            quantized_model = self.quantize_awq(
-                model=converted_model_path,
+            # Perform quantization
+            quantized_model_proto = self.quantize_awq(
+                model=model_proto,
                 quant_config=quant_config,
             )
 
+            # Convert opset to 21 if required
+            converted_model_proto = self.convert_opset_to_21_proto(quantized_model_proto)
+
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-            olive_model = model_proto_to_olive_model(quantized_model, output_model_path, config)
-            logger.info("Quantized model saved to %s", output_model_path)
 
-            return olive_model
+            onnx.save(converted_model_proto, output_model_path)
+            logger.info("Quantized and opset-converted model saved to %s", output_model_path)
 
-        finally:
-            # Cleanup the temporary directory
-            if os.path.exists(temp_dir):
-                try:
-                    shutil.rmtree(temp_dir)
-                    logger.info("Temporary directory %s has been cleaned up.", temp_dir)
+            return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
 
-                except Exception as cleanup_exc:
-                    logger.warning("Failed to clean up temporary directory %s: %s", temp_dir, cleanup_exc)
+        except Exception:
+            logger.exception("An error occurred during quantization and opset conversion")
+            raise
