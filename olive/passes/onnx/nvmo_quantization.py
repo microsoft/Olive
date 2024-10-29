@@ -67,8 +67,13 @@ class NVModelOptQuantization(Pass):
             ),
             "tokenizer_dir": PassConfigParam(
                 type_=str,
-                required=True,
+                default_value="",
                 description="Tokenizer directory for calibration method.",
+            ),
+            "random_calib_data": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to use random calibration data instead of actual calibration data.",
             ),
         }
 
@@ -101,35 +106,52 @@ class NVModelOptQuantization(Pass):
             logger.error("Calibration method must be either 'awq_lite' or 'awq_clip'.")
             return False
 
+        random_calib = search_point.get("random_calib_data", False)
+        if not isinstance(random_calib, bool):
+            logger.error("'random_calib_data' must be a boolean value.")
+            return False
+
+        tokenizer_dir = search_point.get("tokenizer_dir", "")
+        if not random_calib and not tokenizer_dir:
+            logger.error("'tokenizer_dir' must be specified when 'random_calib_data' is False.")
+            return False
+
         # Optional: Validate 'tokenizer_dir' if necessary
         if not search_point.get("tokenizer_dir"):
             logger.warning("Tokenizer directory 'tokenizer_dir' is not specified.")
 
         return True
 
-    def initialize_quant_config(self, config: Dict[str, Any]):
-        # Prepare calibration inputs
-        calib_inputs = self.get_calib_inputs(
-            dataset_name="cnn",
-            model_name=config["tokenizer_dir"],
-            cache_dir="./cache",
-            calib_size=32,
-            batch_size=1,
-            block_size=512,
-            device="cpu",
-            use_fp16=True,
-            use_buffer_share=False,
-            add_past_kv_inputs=True,
-            max_calib_rows_to_load=128,
-            add_position_ids=True,
-        )
+    def initialize_quant_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        # Check if 'tokenizer_dir' is provided and not empty
+        random_calib = config.get("random_calib_data", False)
+        if not random_calib:
+            # Prepare calibration inputs only if tokenizer_dir is specified
+            calib_inputs = self.get_calib_inputs(
+                dataset_name="cnn",
+                model_name=config["tokenizer_dir"],
+                cache_dir="./cache",
+                calib_size=32,
+                batch_size=1,
+                block_size=512,
+                device="cpu",
+                use_fp16=True,
+                use_buffer_share=False,
+                add_past_kv_inputs=True,
+                max_calib_rows_to_load=128,
+                add_position_ids=True,
+            )
+        else:
+            # If tokenizer_dir is empty, do not prepare calibration inputs
+            calib_inputs = None
+            logger.info("No tokenizer directory specified. Skipping calibration input preparation.")
 
         # Return a dictionary containing necessary configuration for quantization
         return {
             "algorithm": config.get("algorithm", self.Algorithm.AWQ.value),
             "precision": config.get("precision", self.Precision.INT4.value),
             "calibration_method": config.get("calibration", self.Calibration.AWQ_CLIP.value),
-            "tokenizer_dir": config["tokenizer_dir"],
+            "tokenizer_dir": config.get("tokenizer_dir", ""),
             "calibration_data_reader": calib_inputs,
         }
 
