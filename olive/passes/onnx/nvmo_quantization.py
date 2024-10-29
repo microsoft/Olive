@@ -40,6 +40,15 @@ class NVModelOptQuantization(Pass):
         AWQ_LITE = "awq_lite"
         AWQ_CLIP = "awq_clip"
 
+    def __init__(self):
+        super().__init__()
+        # Initialize attributes to None
+        self.torch = None
+        self.DataLoader = None
+        self.load_dataset = None
+        self.AutoConfig = None
+        self.AutoTokenizer = None
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
