@@ -132,22 +132,43 @@ class OnnxDAG:
         :param ios: dictionary to store the inputs, outputs, and initializers.
         :param graph_idx: index of the graph in the model.
         """
+        error_message = (
+            "%s %s already exists in the graph. Assuming they are the same and skipping. If not so, please make the"
+            " names unique."
+        )
+
         for i in graph.input:
+            if i.name in ios:
+                logger.warning(error_message, "Input", i.name)
+                continue
             ios[i.name] = OnnxIO(proto=[i], source=SpecialInput.INPUT, graph_idx=graph_idx)
         for o in graph.output:
+            if o.name in ios:
+                if SpecialInput.is_input(ios[o.name].source):
+                    # probably won't happen since this is a pass through from i to o
+                    # but just in case
+                    ios[o.name].destination.append(SpecialOutput.OUTPUT)
+                else:
+                    logger.warning(error_message, "Output", o.name)
+                continue
             ios[o.name] = OnnxIO(proto=[o], destination=[SpecialOutput.OUTPUT], graph_idx=graph_idx)
         for initializer in graph.initializer:
-            if initializer.name in ios:
-                # it can be both an input and an initializer
-                io = ios[initializer.name]
-                io.proto.append(initializer)
-                io.source = SpecialInput.INPUT_INITIALIZER
-            else:
+            if initializer.name not in ios:
                 ios[initializer.name] = OnnxIO(
                     proto=[initializer],
                     source=SpecialInput.INITIALIZER,
                     graph_idx=graph_idx,
                 )
+                continue
+
+            if SpecialInput.is_initializer(ios[initializer.name].source):
+                logger.warning(error_message, "Initializer", initializer.name)
+                continue
+
+            # it can be both an input and an initializer
+            io = ios[initializer.name]
+            io.proto.append(initializer)
+            io.source = SpecialInput.INPUT_INITIALIZER
         for vi in graph.value_info:
             if vi.name not in ios:
                 ios[vi.name] = OnnxIO(proto=[vi], graph_idx=graph_idx)
