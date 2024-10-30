@@ -55,10 +55,17 @@ class HfMixin:
         # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
         return get_tokenizer(self.model_path)
 
-    def save_metadata(self, output_dir: str, exclude_load_keys: Optional[List[str]] = None, **kwargs) -> List[str]:
+    def save_metadata(
+        self,
+        output_dir: str,
+        include_module_files: bool = False,
+        exclude_load_keys: Optional[List[str]] = None,
+        **kwargs
+    ) -> List[str]:
         """Save model metadata files to the output directory.
 
         :param output_dir: output directory to save metadata files
+        :param include_module_files: whether to include module files in the metadata
         :param exclude_load_keys: list of keys to exclude from load_kwargs
         :param kwargs: additional keyword arguments to pass to `save_pretrained` method
         :return: list of file paths
@@ -73,7 +80,7 @@ class HfMixin:
 
         # save config and module files
         config = self.get_hf_model_config(exclude_load_keys=exclude_load_keys)
-        if getattr(config, "auto_map", None):
+        if include_module_files and getattr(config, "auto_map", None):
             # needs model_name_or_path to find module files
             # conditional since model_name_or_path might trigger preprocessing for some mlflow models
             config, module_files = save_module_files(

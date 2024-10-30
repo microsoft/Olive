@@ -121,7 +121,11 @@ class OnnxConversion(Pass):
             model_attributes["additional_files"] = additional_files = model_attributes.get("additional_files", [])
             # quantization config is already popped from the model and included in model_attributes
             # don't want the information to be saved in metadata (issues with generation config save)
-            additional_files.extend(model.save_metadata(str(output_dir), exclude_load_keys=["quantization_config"]))
+            additional_files.extend(
+                model.save_metadata(
+                    str(output_dir), include_module_files=True, exclude_load_keys=["quantization_config"]
+                )
+            )
 
         return output_model
 

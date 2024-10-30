@@ -55,12 +55,15 @@ def test_save_metadata_with_module_files(trust_remote_code, tmp_path):
         model_path="katuni4ka/tiny-random-phi3",
         load_kwargs=load_kwargs,
     )
-    saved_filepaths = olive_model.save_metadata(tmp_path)
+    saved_filepaths = olive_model.save_metadata(tmp_path, include_module_files=True)
     # assert len(saved_filepaths) == 9
     assert all(Path(fp).exists() for fp in saved_filepaths)
-    # class is transformers.Phi3Config if trust_remote_code is False
-    # configuration_phi3.Phi3Config if trust_remote_code is True
-    assert transformers.AutoConfig.from_pretrained(tmp_path, **load_kwargs).__class__.__name__ == "Phi3Config"
+    if trust_remote_code:
+        expected_class_name = f"transformers_modules.{tmp_path.name}.configuration_phi3.Phi3Config"
+    else:
+        expected_class_name = "transformers.models.phi3.configuration_phi3.Phi3Config"
+    config = transformers.AutoConfig.from_pretrained(tmp_path, **load_kwargs)
+    assert f"{config.__module__}.{config.__class__.__name__}" == expected_class_name
     assert isinstance(
         transformers.AutoTokenizer.from_pretrained(tmp_path, **load_kwargs),
         transformers.LlamaTokenizerFast,
