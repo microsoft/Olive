@@ -20,6 +20,9 @@ steps:
   - script: |
       pip install onnxruntime
       pip uninstall -y onnxruntime
+      wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb
+      sudo dpkg -i cuda-keyring_1.1-1_all.deb
+      sudo apt-get update
       sudo apt-get -y install cudnn9-cuda-12
       pip install --pre ${{ parameters.onnxruntime }} --extra-index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
     displayName: Install ${{ parameters.onnxruntime }} nightly
