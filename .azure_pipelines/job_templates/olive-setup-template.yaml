@@ -23,7 +23,9 @@ steps:
       wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" ./cuda-keyring_1.1-1_all.deb
       sudo apt-get update
+      which nvcc
       sudo apt-get -y install cudnn9-cuda-12
+      which nvcc
       pip install --pre ${{ parameters.onnxruntime }} --extra-index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
     displayName: Install ${{ parameters.onnxruntime }} nightly
 - ${{ else }}:
