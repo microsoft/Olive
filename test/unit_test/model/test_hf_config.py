@@ -32,8 +32,8 @@ class TestHfLoadKwargs:
             ("auto", "auto"),
             (1, 1),
             ("cuda:0", "cuda:0"),
-            (torch.device(0), "cuda:0"),
-            (torch.device("cuda:0"), "cuda:0"),
+            pytest.param(torch.device(0), "cuda:0", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")),
+            pytest.param(torch.device("cuda:0"), "cuda:0", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")),
         ],
     )
     def test_device_map(self, inputs, inner):
