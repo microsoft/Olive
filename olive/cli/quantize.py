@@ -224,7 +224,7 @@ ALGORITHMS = {
         "description": "(HfModel, OnnxModel) WOQ with GPTQ.",
     },
     "rtn": {
-        "implementations": ["quarot", "bnb4", "matmul4", "nvmo"],
+        "implementations": ["quarot", "bnb4", "matmul4"],
         "hf_model_defaults": {"implementation": "quarot", "precision": "int16"},
         "onnx_model_defaults": {"implementation": "onnx_static", "precision": "int8"},
         "description": "(HfModel, OnnxModel) WOQ with RTN.",
