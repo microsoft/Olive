@@ -40,7 +40,7 @@ class TestHfLoadKwargs:
         ])
 
     @pytest.mark.parametrize("inputs, inner", test_cases)
-    def test_device_map(inputs, inner):
+    def test_device_map(self, inputs, inner):
         args = HfLoadKwargs(device_map=inputs)
         assert args.device_map == inner
 
