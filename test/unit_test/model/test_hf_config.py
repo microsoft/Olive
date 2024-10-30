@@ -26,17 +26,21 @@ class TestHfLoadKwargs:
         assert args.torch_dtype == inner
         assert args.get_torch_dtype() == output
 
-    @pytest.mark.parametrize(
-        ("inputs", "inner"),
-        [
-            ("auto", "auto"),
-            (1, 1),
+    test_cases = [
+        ("auto", "auto"),
+        (1, 1),
+    ]
+
+    # Add CUDA-specific cases only if CUDA is available
+    if torch.cuda.is_available():
+        test_cases.extend([
             ("cuda:0", "cuda:0"),
-            pytest.param(torch.device(0), "cuda:0", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")),
-            pytest.param(torch.device("cuda:0"), "cuda:0", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")),
-        ],
-    )
-    def test_device_map(self, inputs, inner):
+            (torch.device(0), "cuda:0"),
+            (torch.device("cuda:0"), "cuda:0"),
+        ])
+
+    @pytest.mark.parametrize("inputs, inner", test_cases)
+    def test_device_map(inputs, inner):
         args = HfLoadKwargs(device_map=inputs)
         assert args.device_map == inner
 
