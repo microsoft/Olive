@@ -8,7 +8,6 @@ from typing import Any, Dict, Union
 
 import onnx
 import torch
-from datasets import load_dataset
 from onnx import helper
 from onnx.onnx_pb import ModelProto
 from torch.utils.data import DataLoader
@@ -141,7 +140,7 @@ class NVModelOptQuantization(Pass):
         else:
             # If tokenizer_dir is empty, do not prepare calibration inputs
             calib_inputs = None
-            logger.info("No tokenizer directory specified. Skipping calibration input preparation.")
+            logger.debug("No tokenizer directory specified. Skipping calibration input preparation.")
 
         # Return a dictionary containing necessary configuration for quantization
         return {
@@ -242,6 +241,8 @@ class NVModelOptQuantization(Pass):
 
         assert calib_size <= max_calib_rows_to_load, "calib size should be no more than max_calib_rows_to_load"
 
+        from datasets import load_dataset
+
         if "cnn" in dataset_name:
             dataset2 = load_dataset("cnn_dailymail", name="3.0.0", split="train").select(range(max_calib_rows_to_load))
             column = "article"
@@ -329,7 +330,7 @@ class NVModelOptQuantization(Pass):
                 "modelopt is not installed. Please install it using 'pip install nvidia_modelopt'. Exiting."
             ) from None
 
-        logger.info("Starting nvidia_awq quantization...")
+        logger.debug("Starting nvidia_awq quantization...")
 
         # Prepare calibration inputs
         calib_inputs = quant_config["calibration_data_reader"]
@@ -341,7 +342,7 @@ class NVModelOptQuantization(Pass):
             calibration_data_reader=calib_inputs,
         )
 
-        logger.info("Completed nvidia_awq quantization.")
+        logger.debug("Completed nvidia_awq quantization.")
         return quantized_model
 
     def convert_opset_to_21_proto(self, model_proto: ModelProto) -> ModelProto:
@@ -358,7 +359,7 @@ class NVModelOptQuantization(Pass):
 
         default_domain_version = current_opset.get("", 0)
         if default_domain_version >= 21:
-            logger.info(
+            logger.debug(
                 "Model already uses opset version %s for the default domain. Skip conversion.", default_domain_version
             )
             return model_proto  # No conversion needed
@@ -376,7 +377,7 @@ class NVModelOptQuantization(Pass):
         model_proto.opset_import.clear()
         model_proto.opset_import.extend(new_opset_imports)
 
-        logger.info("Model opset successfully converted to 21.")
+        logger.debug("Model opset successfully converted to 21.")
 
         return model_proto
 
@@ -385,7 +386,7 @@ class NVModelOptQuantization(Pass):
     ) -> OliveModelHandler:
 
         try:
-            logger.info("Loading the original ONNX model from %s.", model.model_path)
+            logger.debug("Loading the original ONNX model from %s.", model.model_path)
             # Load the original ONNX model into a ModelProto
             model_proto = onnx.load(model.model_path)
 
@@ -403,7 +404,7 @@ class NVModelOptQuantization(Pass):
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
             onnx.save(converted_model_proto, output_model_path)
-            logger.info("Quantized and opset-converted model saved to %s", output_model_path)
+            logger.debug("Quantized and opset-converted model saved to %s", output_model_path)
 
             return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
 
