@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import numpy as np
 import onnx
@@ -26,15 +26,6 @@ class SplitModel(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
-            "include_all_nodes": PassConfigParam(
-                type_=bool,
-                default_value=True,
-                description=(
-                    "Include all nodes in the split model. Nodes outside the splits or before the first split will be"
-                    " assigned to the first split. Nodes after the last split will be assigned to the last split. If"
-                    " False, these nodes will not be included in the split models."
-                ),
-            ),
             **get_external_data_config(),
         }
 
@@ -58,7 +49,6 @@ class SplitModel(Pass):
         # TODO(jambayk): Make this more generic, for now only assume transformers layers are split
         # so depth of namespace is same for all split assignments
         num_splits = len(np.unique(list(split_assignments.values())))
-        namespace_depth = len(next(iter(split_assignments)).split("."))
 
         # create a dag for the model, won't split nested graphs
         dag = OnnxDAG(model_proto, only_main_graph=True)
@@ -82,98 +72,41 @@ class SplitModel(Pass):
                 constant_nodes.add(node_name)
                 continue
 
-            name_components = node_name.replace("/", ".").lstrip(".").split(".")
-            namespace = ".".join(name_components[:namespace_depth])
-            if namespace in split_assignments:
-                node_assignments[node_name] = split_assignments[namespace]
+            # get the assignment for the node
+            split_id = self.get_assignment(node_name, split_assignments)
 
-        # what is the next closest split, if not assigned to a split
-        next_split = deepcopy(node_assignments)
-        # already have a topological order, so we will go from the bottom up
+            # if not assigned: assign to parent split if any
+            # if assigned: check the parent ids also, the child should not be lower than the parent
+            # this can happen in case the pytorch model did not order the modules correctly
+            # phi3: o_proj in module comes before qkv_proj but o_proj is a child of qkv_proj
+            parent_splits = [
+                node_assignments[parent_name]
+                for parent_name in dag.get_parents(node_name)
+                if parent_name in node_assignments
+            ]
+
+            if split_id is None and not parent_splits:
+                # will assign later
+                # either before the first split or outside the splits
+                continue
+
+            node_assignments[node_name] = max([*([split_id] if split_id is not None else []), *parent_splits])
+
+        # go in reverse order to assign the remaining nodes
         for node_name in node_order[::-1]:
             # constants cannot be children of node
             if node_name in node_assignments or node_name in constant_nodes:
                 continue
 
+            # before the splits - assign to the closest child split
+            # outside the splits - assign to 0
             child_splits = [
-                next_split[child_name]
+                node_assignments[child_name]
                 for child_name in dag.get_consumers(node_name)
-                if next_split[child_name] is not None
+                if child_name in node_assignments
             ]
-            if child_splits:
-                next_split[node_name] = min(child_splits)
-            else:
-                next_split[node_name] = None
 
-        if config["include_all_nodes"]:
-            for node_name in node_order:
-                if node_name in node_assignments or node_name in constant_nodes:
-                    continue
-
-                # parent has a split - after last split or the before/outside parent has been assigned
-                parent_splits = [
-                    node_assignments[parent_name]
-                    for parent_name in dag.get_parents(node_name)
-                    if parent_name in node_assignments
-                ]
-                if parent_splits:
-                    node_assignments[node_name] = max(parent_splits)
-                    continue
-
-                # before the first split
-                if next_split[node_name] is not None:
-                    node_assignments[node_name] = next_split[node_name]
-                    continue
-
-                # outside the splits
-                node_assignments[node_name] = 0
-        else:
-            # handle unassigned nodes that are:
-            # - between splits: assign to the split of the parent node
-            # - between constant/initializer and splits: assign the next split
-            for node_name in node_order:
-                if node_name in node_assignments or node_name in constant_nodes:
-                    continue
-
-                # after the last split
-                if next_split[node_name] is None:
-                    continue
-
-                # between splits
-                parent_splits = [
-                    node_assignments[parent_name]
-                    for parent_name in dag.get_parents(node_name)
-                    if parent_name in node_assignments
-                ]
-                if parent_splits:
-                    node_assignments[node_name] = max(parent_splits)
-                    continue
-
-                # between constant/initializer and splits
-                if all(dag.is_constant_input(input_name) for input_name in dag.get_node_inputs(node_name)):
-                    node_assignments[node_name] = next_split[node_name]
-
-            # handle cast nodes of the from:
-            # - Input -> Cast -> Split
-            # - Split -> Cast -> Output
-            for node_name in node_order:
-                if (
-                    node_name in node_assignments
-                    or dag.get_node_op_type(node_name) != "Cast"
-                    # only one consumer (model output or another node)
-                    or len(dag.get_consumers(node_name, True)) != 1
-                ):
-                    continue
-
-                if (
-                    dag.is_input_consumer(node_name)
-                    and (consumer := dag.get_consumers(node_name, True)[0]) in node_assignments
-                ):
-                    node_assignments[node_name] = node_assignments[consumer]
-                elif (
-                    parent_name := dag.get_parents(node_name, True)[0]
-                ) in node_assignments and dag.is_output_producer(node_name):
-                    node_assignments[node_name] = node_assignments[parent_name]
+            node_assignments[node_name] = min(child_splits) if child_splits else 0
 
         # handle constant nodes, will add a copy of the constant to each split
         for node_name in constant_nodes:
@@ -278,3 +211,11 @@ class SplitModel(Pass):
             component_names.append(split_name)
 
         return CompositeModelHandler(component_models, component_names)
+
+    def get_assignment(self, node_name: str, split_assignments: Dict[str, int]) -> Optional[int]:
+        name_components = node_name.replace("/", ".").lstrip(".").split(".")
+        while name_components:
+            if ".".join(name_components) in split_assignments:
+                return split_assignments[".".join(name_components)]
+            name_components.pop()
+        return None
