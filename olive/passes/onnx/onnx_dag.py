@@ -87,12 +87,13 @@ class OnnxDAG:
         self.nodes: Dict[str, OnnxNode] = {}
         self.ios: Dict[str, OnnxIO] = {}
         self.connections = defaultdict(list)
+        self.unique_node_counter = 0
 
         # traverse the graphs and populate nodes, ios, and connections
         for idx, graph in enumerate(self.graphs):
             self._process_io(graph, self.ios, idx)
             for node in graph.node:
-                self._process_node(node, self.nodes, self.ios, self.connections, idx)
+                self.add_node(node, idx)
 
     @staticmethod
     def get_all_graphs(model: "ModelProto", only_main_graph: bool = False) -> List[GraphProto]:
@@ -131,17 +132,32 @@ class OnnxDAG:
         :param ios: dictionary to store the inputs, outputs, and initializers.
         :param graph_idx: index of the graph in the model.
         """
+        error_message = (
+            "%s %s already exists in the graph. Will use the latest definition. If they are different, please fix the"
+            " model with unique names."
+        )
+
         for i in graph.input:
+            if i.name in ios:
+                logger.warning(error_message, "Input", i.name)
             ios[i.name] = OnnxIO(proto=[i], source=SpecialInput.INPUT, graph_idx=graph_idx)
         for o in graph.output:
+            if o.name in ios:
+                logger.warning(error_message, "Output", o.name)
             ios[o.name] = OnnxIO(proto=[o], destination=[SpecialOutput.OUTPUT], graph_idx=graph_idx)
         for initializer in graph.initializer:
-            if initializer.name in ios:
-                # it can be both an input and an initializer
+            if initializer.name in ios and not SpecialInput.is_initializer(ios[initializer.name].source):
+                # already exists as an input
                 io = ios[initializer.name]
                 io.proto.append(initializer)
                 io.source = SpecialInput.INPUT_INITIALIZER
+            elif initializer.name in ios:
+                # already exists as an input_initializer or initializer
+                # replace the existing proto at proto[-1]
+                logger.warning(error_message, "Initializer", initializer.name)
+                ios[initializer.name].proto[-1] = initializer
             else:
+                # new initializer
                 ios[initializer.name] = OnnxIO(
                     proto=[initializer],
                     source=SpecialInput.INITIALIZER,
@@ -154,6 +170,7 @@ class OnnxDAG:
 
     @staticmethod
     def _process_node(
+        name: str,
         node_proto: NodeProto,
         nodes: Dict[str, OnnxNode],
         ios: Dict[str, OnnxIO],
@@ -171,7 +188,6 @@ class OnnxDAG:
         :param overwrite_input_initializers: whether to overwrite the inputs and/or initializers if a node
             output is already present as an one. If False, it will raise an error.
         """
-        name = node_proto.name
         onnx_node = OnnxNode(
             proto=node_proto,
             op_type=node_proto.op_type,
@@ -343,7 +359,13 @@ class OnnxDAG:
         :param overwrite_input_initializers: whether to overwrite the inputs and/or initializers if a node
             output is already present as an one. If False, it will raise an error.
         """
-        self._process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx, overwrite_input_initializers)
+        node_name = node_proto.name
+        if not node_name or node_name in self.nodes:
+            node_name = f"{node_proto.op_type}_{self.unique_node_counter}"
+            self.unique_node_counter += 1
+        self._process_node(
+            node_name, node_proto, self.nodes, self.ios, self.connections, graph_idx, overwrite_input_initializers
+        )
 
     def remove_node(self, node_name: str):
         """Remove a node from the graph.
@@ -629,7 +651,7 @@ class OnnxDAG:
         :param node_name: name of the node.
         :return: list of names of nodes that produce one/more inputs of the node.
         """
-        parents = [self.ios[i].source for i in self.nodes[node_name].inputs]
+        parents = [self.ios[i].source for i in self.nodes[node_name].inputs if i != ""]
 
         if return_special_inputs:
             return parents

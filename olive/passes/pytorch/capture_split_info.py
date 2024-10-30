@@ -127,17 +127,29 @@ class CaptureSplitInfo(Pass):
         split_assignments = {}
         split_idx = 0
         split_bytes = 0
+        node_idx = 0
         for name, _ in model.load_model(cache_model=False).named_modules():
             if name not in module_to_bytes:
                 continue
 
+            if node_idx == 0:
+                # always assign the first module to the first split
+                split_assignments[name] = split_idx
+                split_bytes += module_to_bytes[name]
+                node_idx += 1
+                continue
+
             num_bytes = module_to_bytes[name]
+
+            # check if the next module can be added to the current split
+            # if not, assign it to the next split
             if split_bytes + num_bytes > max_memory:
                 split_idx += 1
                 split_bytes = 0
 
             split_assignments[name] = split_idx
             split_bytes += num_bytes
+            node_idx += 1
         logger.info("Split the model into %d splits based on the cost model.", split_idx + 1)
 
         return split_assignments
