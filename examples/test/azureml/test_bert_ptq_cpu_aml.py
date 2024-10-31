@@ -20,6 +20,8 @@ def setup():
     [
         # aml system test
         ("bert_ptq_cpu.json", "tpe", "joint", "aml_system"),
+        # aml model test on local system
+        ("bert_ptq_cpu_aml.json", "tpe", "joint", "local_system"),
         # aml model test in aml system
         ("bert_ptq_cpu_aml.json", False, None, "aml_system"),
     ],
