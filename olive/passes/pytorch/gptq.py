@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Union
 
 import torch
+from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.hf.mappings import MODEL_INSIDE_LAYER_MODULES, MODEL_OUTSIDE_LAYER_MODULES, MODELS_TO_LAYERS_MAPPING
@@ -101,7 +102,7 @@ class GptqQuantizer(Pass):
     def _run_for_config(
         self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
-        from auto_gptq import BaseQuantizeConfig
+        from auto_gptq import BaseQuantizeConfig, __version__
         from auto_gptq.modeling import BaseGPTQForCausalLM
         from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
 
@@ -173,6 +174,27 @@ class GptqQuantizer(Pass):
                     raise ValueError(f"Can't get {key} to quantize automatically, please provide it in config.")
 
         quantized_model.quantize(dataset)
+
+        # until https://github.com/AutoGPTQ/AutoGPTQ/pull/602, bias was always present
+        # in the quantized model, so we need to remove it
+        if version.parse(__version__) < version.parse("0.8.0"):
+            from auto_gptq.utils.import_utils import dynamically_import_QuantLinear
+
+            qlinear_class = dynamically_import_QuantLinear(
+                use_triton=False,
+                desc_act=config["desc_act"],
+                group_size=config["group_size"],
+                bits=config["bits"],
+                disable_exllama=False,
+                disable_exllamav2=True,
+            )
+
+            for module in quantized_model.modules():
+                if not isinstance(module, qlinear_class) or module.bias is None:
+                    continue
+
+                if all(module.bias == 0):
+                    module.bias = None
 
         # TODO(anyone): Is pytorch model support needed? auto-awq only works with transformers like models
         if isinstance(model, PyTorchModelHandler):
