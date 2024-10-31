@@ -80,6 +80,7 @@ jobs:
   - task: PublishCodeCoverageResults@2
     inputs:
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+    displayName: Publish code coverage results
 
   - script: git clean -dfX
     condition: always()
