@@ -358,12 +358,15 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">is_generative_model</span> <span class="n">IS_GENERATIVE_MODEL</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">split</span> <span class="n">SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">subset</span> <span class="n">SUBSET</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">fp4</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">nf4</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">dynamic</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">fixed</span><span class="o">-</span><span class="n">shape</span><span class="o">-</span><span class="n">dim</span><span class="o">-</span><span class="n">param</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_PARAM</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_PARAM</span> <span class="o">...</span><span class="p">]]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">dynamic</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">fixed</span><span class="o">-</span><span class="n">shape</span><span class="o">-</span><span class="n">dim</span><span class="o">-</span><span class="n">value</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_VALUE</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_VALUE</span> <span class="o">...</span><span class="p">]]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">mixed</span><span class="o">-</span><span class="n">precision</span><span class="o">-</span><span class="n">overrides</span><span class="o">-</span><span class="n">config</span> <span class="p">[</span><span class="n">MIXED_PRECISION_OVERRIDES_CONFIG</span> <span class="p">[</span><span class="n">MIXED_PRECISION_OVERRIDES_CONFIG</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">enable_search</span> <span class="p">[{</span><span class="n">exhaustive</span><span class="p">,</span><span class="n">tpe</span><span class="p">,</span><span class="n">random</span><span class="p">}]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
@@ -410,7 +413,7 @@
 <p>Default: “cpu”</p>
 </dd>
 <dt><kbd>--provider</kbd></dt>
-<dd><p>Possible choices: CUDAExecutionProvider, CPUExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProviderROCMExecutionProvider, TensorrtExecutionProvider</p>
+<dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider</p>
 <p>Execution provider to use for ONNX model.</p>
 <p>Default: “CPUExecutionProvider”</p>
 </dd>
@@ -431,13 +434,22 @@
 <p>Default: 1</p>
 </dd>
 <dt><kbd>--precision</kbd></dt>
-<dd><p>Possible choices: fp16, fp32, int4, int8</p>
+<dd><p>Possible choices: fp4, fp8, fp16, fp32, int4, int8, int16, int32, nf4</p>
 <p>The output precision of the optimized model. If not specified, the default precision is fp32 for cpu and fp16 for gpu</p>
 <p>Default: “fp32”</p>
 </dd>
 <dt><kbd>--use_model_builder</kbd></dt>
 <dd><p>Whether to use model builder pass for optimization, enable only when the model is supported by model builder</p>
 <p>Default: False</p>
+</dd>
+<dt><kbd>--dynamic-to-fixed-shape-dim-param</kbd></dt>
+<dd><p>Symbolic parameter names to use for dynamic to fixed shape pass. Required only when DynamicToFixedShape pass is enabled.</p>
+</dd>
+<dt><kbd>--dynamic-to-fixed-shape-dim-value</kbd></dt>
+<dd><p>Symbolic parameter values to use for dynamic to fixed shape pass. Required only when DynamicToFixedShape pass is enabled.</p>
+</dd>
+<dt><kbd>--mixed-precision-overrides-config</kbd></dt>
+<dd><p>Dictionary of name to precision. Has to be even number of entreis with even entries being the keys and odd entries being the values. Required only when output precision is “fp16” and MixedPrecisionOverrides pass is enabled.</p>
 </dd>
 <dt><kbd>--enable_search</kbd></dt>
 <dd><p>Possible choices: exhaustive, tpe, random</p>
@@ -882,7 +894,7 @@
                                  <span class="p">[</span><span class="o">--</span><span class="n">enable_profiling</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">predict_with_kv_cache</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">providers_list</span> <span class="p">[{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}</span> <span class="p">[{</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProviderROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">}</span> <span class="o">...</span><span class="p">]]]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">providers_list</span> <span class="p">[{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">}</span> <span class="p">[{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">}</span> <span class="o">...</span><span class="p">]]]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
@@ -954,7 +966,7 @@
 <p>Default: “cpu”</p>
 </dd>
 <dt><kbd>--providers_list</kbd></dt>
-<dd><p>Possible choices: CUDAExecutionProvider, CPUExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProviderROCMExecutionProvider, TensorrtExecutionProvider</p>
+<dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider</p>
 <p>List of execution providers to use for ONNX model. They are case sensitive. If not provided, all available providers will be used.</p>
 </dd>
 <dt><kbd>--resource_group</kbd></dt>
