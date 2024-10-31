@@ -15,6 +15,7 @@ import yaml
 from olive.cli.constants import CONDA_CONFIG
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import hardlink_copy_dir, hash_dict, hf_repo_exists, set_nested_dict_value, unescaped_str
+from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, find_all_resources
 
 
@@ -570,16 +571,9 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
         help="Target device to run the model.",
     )
 
-    execution_providers = [
-        "CUDAExecutionProvider",
-        "CPUExecutionProvider",
-        "DmlExecutionProvider",
-        "JsExecutionProvider",
-        "MIGraphXExecutionProvider",
-        "OpenVINOExecutionProvider",
-        "QNNExecutionProviderROCMExecutionProvider",
-        "TensorrtExecutionProvider",
-    ]
+    execution_providers = sorted(
+        {provider for provider_list in DEVICE_TO_EXECUTION_PROVIDERS.values() for provider in provider_list}
+    )
 
     if single_provider:
         accelerator_group.add_argument(
@@ -605,16 +599,11 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
 
 
 def update_accelerator_options(args, config, single_provider: bool = True):
+    execution_providers = [args.provider] if single_provider else args.providers_list
     to_replace = [
         (("systems", "local_system", "accelerators", 0, "device"), args.device),
+        (("systems", "local_system", "accelerators", 0, "execution_providers"), execution_providers),
     ]
-
-    execution_providers = [args.provider] if single_provider else args.providers_list
-    for idx, provider in enumerate(execution_providers):
-        if not provider.endswith("ExecutionProvider"):
-            execution_providers[idx] = f"{provider}ExecutionProvider"
-    to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), execution_providers))
-
     for k, v in to_replace:
         if v is not None:
             set_nested_dict_value(config, k, v)

@@ -3,11 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Type, Union
+from typing import Callable, ClassVar, Dict, List, Optional, Set, Type, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object
 from olive.common.pydantic_v1 import Field, create_model, validator
 from olive.common.utils import StrEnumBase
+from olive.hardware.accelerator import Device
+from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import validate_resource_path
 from olive.strategy.search_parameter import SearchParameter, SpecialParamValue, json_to_search_parameter
 
@@ -139,7 +141,31 @@ def create_config_class(
 
 
 class PassModuleConfig(ConfigBase):
+    class Precision(StrEnumBase):
+        INT4 = "int4"
+        INT8 = "int8"
+        INT16 = "int16"
+        INT32 = "int32"
+        UINT4 = "uint4"
+        UINT8 = "uint8"
+        UINT16 = "uint16"
+        UINT32 = "uint32"
+        FP4 = "fp4"
+        FP8 = "fp8"
+        FP16 = "fp16"
+        FP32 = "fp32"
+        NF4 = "nf4"
+
+    ACCELERATORS: ClassVar[Set[str]] = {v.value for v in Device}
+    PRECISIONS: ClassVar[Set[str]] = {v.value for v in Precision}
+    EXECUTION_PROVIDERS: ClassVar[Set[str]] = {
+        provider for provider_list in DEVICE_TO_EXECUTION_PROVIDERS.values() for provider in provider_list
+    }
+
     module_path: str
+    supported_providers: Set[str] = Field(default_factory=set)
+    supported_accelerators: Set[str] = Field(default_factory=set)
+    supported_precisions: Set[str] = Field(default_factory=set)
     module_dependencies: List[str] = Field(default_factory=list)
     extra_dependencies: List[str] = Field(default_factory=list)
 
@@ -147,4 +173,43 @@ class PassModuleConfig(ConfigBase):
     def validate_module_path(cls, v):
         if not v:
             raise ValueError("module_path cannot be empty or None")
+        return v
+
+    @validator("supported_providers", pre=True)
+    def validate_supported_providers(cls, v, values):
+        v = v or []
+        if v == ["*"]:
+            v = PassModuleConfig.EXECUTION_PROVIDERS
+        return v
+
+    @validator("supported_providers", pre=True, each_item=True)
+    def validate_supported_provider(cls, v, values):
+        if v not in PassModuleConfig.EXECUTION_PROVIDERS:
+            raise ValueError(f"Invalid provider: {v}")
+        return v
+
+    @validator("supported_accelerators", pre=True)
+    def validate_supported_accelerators(cls, v, values):
+        v = v or []
+        if v == ["*"]:
+            v = PassModuleConfig.ACCELERATORS
+        return v
+
+    @validator("supported_accelerators", pre=True, each_item=True)
+    def validate_supported_accelerator(cls, v, values):
+        if v not in PassModuleConfig.ACCELERATORS:
+            raise ValueError(f"Invalid accelerator: {v}")
+        return v
+
+    @validator("supported_precisions", pre=True)
+    def validate_supported_precisions(cls, v, values):
+        v = v or []
+        if v == ["*"]:
+            v = PassModuleConfig.PRECISIONS
+        return v
+
+    @validator("supported_precisions", pre=True, each_item=True)
+    def validate_supported_precision(cls, v, values):
+        if v not in PassModuleConfig.PRECISIONS:
+            raise ValueError(f"Invalid precision: {v}")
         return v
