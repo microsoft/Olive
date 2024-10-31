@@ -39,6 +39,14 @@ class MatMulNBitsToQDQ(Pass):
                     " EPs such as DirectML."
                 ),
             ),
+            "use_int4": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to use int4 data type for the quantized weight. Default is False and uses uint4 data type."
+                ),
+            ),
+            # TODO(jambayk): should we provide an option to always add zero point even if it's equal to DQ default?
             **get_external_data_config(),
         }
 
@@ -51,6 +59,9 @@ class MatMulNBitsToQDQ(Pass):
         dag = OnnxDAG.from_model_path(model.model_path)
         # remove unnecessary identity nodes
         dag.remove_identity_nodes()
+
+        # if matmulnbits zero point is the following, then the zero point is not needed in the DQ node
+        default_zp = 8 if config["use_int4"] else 0
 
         num_modified = 0
         for node_name in dag.get_node_names():
@@ -102,14 +113,6 @@ class MatMulNBitsToQDQ(Pass):
             dq_inputs = []
 
             for qi_name, new_qi_name, unpacked_col_size in quant_inputs:
-                dq_inputs.append(new_qi_name)
-
-                consumers = dag.get_consumers(qi_name)
-                if len(consumers) > 1 and not all(dag.get_node_op_type(c) == "MatMulNBits" for c in consumers):
-                    # if the initializer is used in multiple nodes, ensure that all of them are MatMulNBits
-                    # lets deal with this case later if it arises, could use a unique name if new_qi_name == qi_name
-                    continue
-
                 # get the np array
                 # weight: uint8, scales: float32, zeros: uint8
                 qi = dag.get_initializer_np_array(qi_name)
@@ -123,22 +126,39 @@ class MatMulNBitsToQDQ(Pass):
                     # remove padding if any
                     qi = qi[:, :unpacked_col_size]
 
+                # skip if is a no-op zero point
+                if new_qi_name.endswith(".qzeros") and np.all(qi == default_zp):
+                    continue
+
                 if not config["use_transpose_op"]:
                     # becomes K X N
                     qi = qi.T
 
                 if qi.dtype == np.uint8:
+                    if config["use_int4"]:
+                        # no worries about making signed since the values only use 4 bits
+                        qi = qi.astype(np.int8)
+                        # subtract 8 to make it signed
+                        # no worries here again since the values are in the range 0-15 and numpy uses 2's complement
+                        qi -= 8
+
                     # pack in the format expected by onnx and create the tensor
                     tensor = onnx.helper.make_tensor(
-                        new_qi_name, onnx.TensorProto.UINT4, qi.shape, self._pack_on_flat(qi).tobytes(), raw=True
+                        new_qi_name,
+                        onnx.TensorProto.INT4 if config["use_int4"] else onnx.TensorProto.UINT4,
+                        qi.shape,
+                        self._pack_on_flat(qi).tobytes(),
+                        raw=True,
                     )
                 else:
                     tensor = onnx.numpy_helper.from_array(qi, name=new_qi_name)
 
                 # add the initializer
                 dag.add_initializer(tensor, graph_idx)
+                # add the input name
+                dq_inputs.append(new_qi_name)
             # DQ default zp is 0 but MatMulNBits is 8, so we need to add a zero tensor with all 8s
-            if len(dq_inputs) == 2:
+            if len(dq_inputs) == 2 and not config["use_int4"]:
                 zp_name = f"{dq_name}.qzeros"
                 zp_tensor = onnx.helper.make_tensor(
                     zp_name,

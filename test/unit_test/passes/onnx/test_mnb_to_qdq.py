@@ -61,8 +61,9 @@ def create_mnb_model_fixture(request, tmp_path):
     reason="Int4 DQ is only supported in ORT >= 1.20",
 )
 @pytest.mark.parametrize("use_transpose_op", [True, False])
+@pytest.mark.parametrize("use_int4", [True, False])
 @pytest.mark.parametrize("execution_provider", ["CPUExecutionProvider", "CUDAExecutionProvider"])
-def test_mnb_to_qdq(create_mnb_model, execution_provider, use_transpose_op, tmp_path):
+def test_mnb_to_qdq(create_mnb_model, execution_provider, use_int4, use_transpose_op, tmp_path):
     available_providers = onnxruntime.get_available_providers()
     if execution_provider not in available_providers:
         pytest.skip(f"{execution_provider} is not available on this system {available_providers}")
@@ -71,7 +72,9 @@ def test_mnb_to_qdq(create_mnb_model, execution_provider, use_transpose_op, tmp_
     input_model = ONNXModelHandler(mnb_path)
 
     # setup
-    p = create_pass_from_dict(MatMulNBitsToQDQ, {"use_transpose_op": use_transpose_op}, disable_search=True)
+    p = create_pass_from_dict(
+        MatMulNBitsToQDQ, {"use_transpose_op": use_transpose_op, "use_int4": use_int4}, disable_search=True
+    )
     output_folder = tmp_path / "qdq-model"
 
     # execute

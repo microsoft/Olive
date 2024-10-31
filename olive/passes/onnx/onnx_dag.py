@@ -651,7 +651,7 @@ class OnnxDAG:
         :param node_name: name of the node.
         :return: list of names of nodes that produce one/more inputs of the node.
         """
-        parents = [self.ios[i].source for i in self.nodes[node_name].inputs]
+        parents = [self.ios[i].source for i in self.nodes[node_name].inputs if i != ""]
 
         if return_special_inputs:
             return parents
