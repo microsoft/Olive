@@ -182,9 +182,10 @@ class ExtractAdapters(Pass):
             dag.remove_node(node_name)
 
         if config["make_inputs"]:
-            if quant_modules and (config["dynamic_lora_r"] or config["optional_inputs"]):
-                # dynamic shape and optional inputs not supported for quantized modules yet
-                logger.warning("Quantized modules are not supported with dynamic_lora_r or optional_inputs. Ignoring.")
+            if quant_modules and config["dynamic_lora_r"]:
+                # MatMulNBits has static K,N dimensions which are set as attributes
+                # No use case for DequantizeLinear with dynamic lora_r
+                logger.info("Quantized modules do not support dynamic_lora_r. Ignoring.")
                 logger.debug("Quantized modules: %s", quant_modules)
 
             # create inputs for the weights
@@ -285,7 +286,14 @@ class ExtractAdapters(Pass):
     def _make_dynamic_optional(cls, dag: OnnxDAG, weights: Dict[str, "NDArray"], name: str, config: Dict[str, Any]):
         """Make the input dynamic and optional."""
         if "quant" in name:
-            # already logged warning before
+            # dynamic shape not supported for quantized modules
+            # cannot have empty tensor as default values, so create default initializers of the same shape
+            # scales must be zero to make the dequantized weights zero
+            # quant weight and zeros points also made zero to be clean and consistent
+            if config["optional_inputs"]:
+                initializer_proto = onnx.numpy_helper.from_array(np.zeros_like(weights[name]), name)
+                dag.add_initializer(initializer_proto, 0, keep_input=True)
+
             return
 
         # lora r dimension index
@@ -295,7 +303,7 @@ class ExtractAdapters(Pass):
         if config["dynamic_lora_r"]:
             dag.make_input_dim_dynamic(name, dim_idx, "lora_r")
 
-        # create default initializer
+        # create default initializer with the lora_r dimension set to 0
         if config["optional_inputs"]:
             shape = list(weights[name].shape)
             shape[dim_idx] = 0
