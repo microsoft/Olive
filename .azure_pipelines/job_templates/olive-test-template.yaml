@@ -77,6 +77,12 @@ jobs:
       failTaskOnFailedTests: true
     displayName: Upload pipeline run test results
 
+  # Code coverage requires
+  - task: UseDotNet@2
+    displayName: 'Use .NET Core sdk 7.0.x'
+    inputs:
+      version: 7.0.x
+
   - task: PublishCodeCoverageResults@2
     inputs:
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
