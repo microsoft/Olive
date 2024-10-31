@@ -118,7 +118,7 @@
         "gpu": [ "onnxruntime-gpu" ],
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
-        "nvmo": [ "nvidia-modelopt", "onnx-graphsurgeon", "datasets>=2.14.4"],
+        "nvmo": [ "nvidia-modelopt", "onnx-graphsurgeon", "datasets>=2.14.4" ],
         "openvino": [ "openvino==2023.2.0", "nncf==2.7.0", "numpy<2.0" ],
         "optimum": [ "optimum" ],
         "ort-genai": [ "onnxruntime-genai" ],
