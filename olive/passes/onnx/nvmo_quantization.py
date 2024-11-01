@@ -387,14 +387,11 @@ class NVModelOptQuantization(Pass):
 
         try:
             logger.debug("Loading the original ONNX model from %s.", model.model_path)
-            # Load the original ONNX model into a ModelProto
-            model_proto = onnx.load(model.model_path)
-
             quant_config = self.initialize_quant_config(config)
 
             # Perform quantization
             quantized_model_proto = self.quantize_awq(
-                model=model_proto,
+                model=model.model_path,
                 quant_config=quant_config,
             )
 
