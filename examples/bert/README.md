@@ -5,7 +5,6 @@ This folder contains examples of BERT optimization using different workflows.
 - CPU: [Optimization with Intel® Neural Compressor PTQ](#bert-optimization-with-intel®-neural-compressor-ptq-on-cpu)
 - CPU: [Optimization with QAT Customized Training Loop](#bert-optimization-with-qat-customized-training-loop-on-cpu)
 - GPU: [Optimization with CUDA/TensorRT](#bert-optimization-with-cudatensorrt-on-gpu)
-- GPU: [Optimization with TensorRT-Model-Optimizer](#bert-optimization-with-tensorRT-model-optimizer-on-cpugpu)
 
 Go to [How to run](#how-to-run)
 
@@ -96,14 +95,6 @@ This workflow performs BERT optimization on GPU with CUDA/TensorRT. It performs 
 2. TensorRT: `TensorrtExecutionProvider`
     - *PyTorch Model -> Onnx Model -> ONNX Runtime performance tuning with trt_fp16_enable*
     Config file: [bert_trt_gpu.json](bert_trt_gpu.json)
-
-### BERT optimization with TensorRT-Model-Optimizer on CPU/GPU
-This workflow performs BERT post training quantization (PTQ) on CPU/GPU with TensorRT-Model-Optimizer. It performs the optimization pipeline:
-- *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> TensorRT-Model-Optimizer Quantized Onnx Model*
-
-Deployment support for TensorRT-Model-Optimizer quantized models is coming soon in ORT, in the meantime try [TensorRT 10.x](https://github.com/NVIDIA/TensorRT/tree/v10.0.1).<br>
-Config file: [bert_nvmo_ptq.json](bert_nvmo_ptq.json)
-
 
 ## How to run
 ### Pip requirements
