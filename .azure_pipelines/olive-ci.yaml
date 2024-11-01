@@ -18,6 +18,7 @@ trigger:
     - examples/mistral/*
     - examples/open_llama/*
     - examples/phi2/*
+    - examples/phi3/*
 pr:
   branches:
     include:
@@ -42,6 +43,7 @@ pr:
     - examples/mistral/*
     - examples/open_llama/*
     - examples/phi2/*
+    - examples/phi3/*
 
 variables:
   runCodesignValidationInjection: false
