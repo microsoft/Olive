@@ -251,8 +251,10 @@ def generate_config(args):
 
     if args.tune_session_params:
         passes_to_use.append("tune_session_params")
+        template_json["search_strategy"] = {"execution_order": "joint", "search_algorithm": "exhaustive"}
+        template_json["evaluator"] = "common_evaluator"
     else:
-        del template_json["search_strategy"]
+        del template_json["evaluators"]
 
     target = str(args.target)
     if target == "web":

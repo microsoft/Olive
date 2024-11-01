@@ -63,9 +63,9 @@
     "passes": {
         "lora": {
             "type": "LoRA",
-            "target_modules": [ "o_proj", "qkv_proj" ],
             "train_data_config": "tiny_codes_train",
             "eval_data_config": "tiny_codes_eval",
+            "lora_r": 64,
             "training_args": {
                 "per_device_train_batch_size": 1,
                 "per_device_eval_batch_size": 1,
@@ -80,6 +80,7 @@
             "type": "QLoRA",
             "train_data_config": "tiny_codes_train",
             "eval_data_config": "tiny_codes_eval",
+            "lora_r": 64,
             "training_args": {
                 "per_device_train_batch_size": 1,
                 "per_device_eval_batch_size": 1,
@@ -94,7 +95,7 @@
         "merge_adapter_weights": { "type": "MergeAdapterWeights" },
         "awq": { "type": "AutoAWQQuantizer" },
         "builder": { "type": "ModelBuilder", "precision": "<place_holder>" },
-        "fp2_logits": { "type": "OnnxIOFloat16ToFloat32" },
+        "fp32_logits": { "type": "OnnxIOFloat16ToFloat32" },
         "tune_session_params": {
             "type": "OrtSessionParamsTuning",
             "data_config": "gqa_transformer_prompt_dummy_data",
@@ -114,7 +115,6 @@
             "calibration_data_config": "wikitext2_train"
         }
     },
-    "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
     "pass_flows": [ [ "<place_holder>" ] ],
     "cache_dir": "cache",
     "output_dir": "models",
