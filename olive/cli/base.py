@@ -285,11 +285,13 @@ def add_input_model_options(
     enable_pt: bool = False,
     enable_onnx: bool = False,
     default_output_path: Optional[str] = None,
+    directory_output: bool = True,
 ):
     """Add model options to the sub_parser.
 
     Use enable_hf, enable_hf_adapter, enable_pt, enable_onnx to enable the corresponding model options.
     If default_output_path is None, it is required to provide the output_path.
+    If directory_output is True, the output_path is a directory and will be created if it doesn't exist.
     """
     assert any([enable_hf, enable_hf_adapter, enable_pt, enable_onnx]), "At least one model option should be enabled."
 
@@ -299,6 +301,8 @@ def add_input_model_options(
         "-m",
         "--model_name_or_path",
         type=str,
+        # only pytorch model doesn't require model_name_or_path
+        required=not enable_pt,
         help=(
             "Path to the input model. "
             "See https://microsoft.github.io/Olive/features/cli.html#providing-input-models "
@@ -338,7 +342,7 @@ def add_input_model_options(
     model_group.add_argument(
         "-o",
         "--output_path",
-        type=output_path_type,
+        type=output_path_type if directory_output else str,
         required=default_output_path is None,
         default=default_output_path,
         help="Path to save the command output.",
