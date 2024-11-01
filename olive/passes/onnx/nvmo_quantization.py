@@ -374,7 +374,7 @@ class NVModelOptQuantization(Pass):
                 new_opset_imports.append(helper.make_opsetid(domain, version))
 
         # Update the model's opset imports
-        model_proto.opset_import.clear()
+        model_proto.ClearField("opset_import")
         model_proto.opset_import.extend(new_opset_imports)
 
         logger.debug("Model opset successfully converted to 21.")
