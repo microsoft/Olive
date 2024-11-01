@@ -6,11 +6,11 @@ import csv
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 import numpy as np
 
-from olive.common.hf.mappings import MODELS_TO_LAYERS_MAPPING
+from olive.common.hf.mappings import MODELS_TO_EMBEDDINGS_MAPPING, MODELS_TO_LAYERS_MAPPING
 from olive.common.utils import get_attr
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
@@ -51,6 +51,18 @@ class CaptureSplitInfo(Pass):
                     "Maximum memory in bytes that can be used by the model. Required if cost_model is provided."
                 ),
             ),
+            "exclude_embeds": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Exclude the embeddings layer/s from the split calculation. Only used with cost_model.",
+            ),
+            "exclude_lm_head": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Exclude the language model head layer/s from the split calculation. Only used with cost_model."
+                ),
+            ),
         }
 
     def validate_search_point(
@@ -74,9 +86,9 @@ class CaptureSplitInfo(Pass):
     ) -> Union[HfModelHandler, PyTorchModelHandler]:
         split_assignments = None
         if config["num_splits"]:
-            split_assignments = self.split_using_num_splits(model, config["num_splits"], config["block_to_split"])
+            split_assignments = self.split_using_num_splits(model, config)
         elif config["cost_model"]:
-            split_assignments = self.split_using_cost_model(model, config["cost_model"], config["max_memory"])
+            split_assignments = self.split_using_cost_model(model, config)
         else:
             raise ValueError("One of num_splits or cost_model is required.")
 
@@ -89,8 +101,9 @@ class CaptureSplitInfo(Pass):
         return output_model
 
     def split_using_num_splits(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], num_splits: int, block_to_split: Optional[str] = None
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any]
     ) -> Dict[str, int]:
+        block_to_split = config["block_to_split"]
         # check for None specifically since "" is a valid value
         if block_to_split is None and isinstance(model, HfModelHandler):
             model_type = model.get_hf_model_type()
@@ -108,28 +121,35 @@ class CaptureSplitInfo(Pass):
         block_members = [child_name for child_name, _ in block.named_children()]
 
         split_assignments = {}
-        for split_idx, split_members in enumerate(np.array_split(block_members, num_splits)):
+        for split_idx, split_members in enumerate(np.array_split(block_members, config["num_splits"])):
             for child_name in split_members:
                 split_assignments[f"{block_to_split}.{child_name}".lstrip(".")] = split_idx
 
         return split_assignments
 
     def split_using_cost_model(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], cost_model: Union[str, Path], max_memory: int
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any]
     ) -> Dict[str, int]:
         # will only care about the number of bytes for now
         module_to_bytes = {}
-        with open(cost_model) as f:
+        with open(config["cost_model"]) as f:
             reader = csv.DictReader(f)
             for row in reader:
                 module_to_bytes[row["module"]] = int(row["num_bytes"])
+
+        modules_to_exclude = set()
+        if config["exclude_embeds"]:
+            model_type = model.get_hf_model_type() if isinstance(model, HfModelHandler) else None
+            modules_to_exclude.update(MODELS_TO_EMBEDDINGS_MAPPING.get(model_type, ["model.embed_tokens"]))
+        if config["exclude_lm_head"]:
+            modules_to_exclude.add("lm_head")
 
         split_assignments = {}
         split_idx = 0
         split_bytes = 0
         node_idx = 0
         for name, _ in model.load_model(cache_model=False).named_modules():
-            if name not in module_to_bytes:
+            if name not in module_to_bytes or name in modules_to_exclude:
                 continue
 
             if node_idx == 0:
@@ -143,7 +163,7 @@ class CaptureSplitInfo(Pass):
 
             # check if the next module can be added to the current split
             # if not, assign it to the next split
-            if split_bytes + num_bytes > max_memory:
+            if split_bytes + num_bytes > config["max_memory"]:
                 split_idx += 1
                 split_bytes = 0
 

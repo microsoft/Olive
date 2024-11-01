@@ -42,6 +42,7 @@ class GenerateCostModelCommand(BaseOliveCLICommand):
         # model costs
         costs = {}
         for name, module in model_handler.load_model().named_modules():
+            # pylint: disable=protected-access
             if module._modules:
                 # has children
                 continue
@@ -51,7 +52,11 @@ class GenerateCostModelCommand(BaseOliveCLICommand):
             costs[name] = (num_params, num_bytes)
 
         # write to csv
-        output_path = Path(self.args.output_path).with_suffix(".csv")
+        if not self.args.output_path.endswith(".csv"):
+            # do this instead of using Path.with_suffix because it will remove periods in the path
+            # but model names can have periods
+            self.args.output_path += ".csv"
+        output_path = Path(self.args.output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w") as f:
             f.write("module,num_params,num_bytes\n")
