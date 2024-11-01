@@ -46,7 +46,14 @@ class MatMulNBitsToQDQ(Pass):
                     "Whether to use int4 data type for the quantized weight. Default is False and uses uint4 data type."
                 ),
             ),
-            # TODO(jambayk): should we provide an option to always add zero point even if it's equal to DQ default?
+            "add_zero_point": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to add zero point for symmetric quantized weights, i.e., DQ zero point is 0. Default is"
+                    " False."
+                ),
+            ),
             **get_external_data_config(),
         }
 
@@ -61,7 +68,9 @@ class MatMulNBitsToQDQ(Pass):
         dag.remove_identity_nodes()
 
         # if matmulnbits zero point is the following, then the zero point is not needed in the DQ node
-        default_zp = 8 if config["use_int4"] else 0
+        default_mnb_zp = 8 if config["use_int4"] else 0
+        int_np_dtype = np.int8 if config["use_int4"] else np.uint8
+        int_elem_type = onnx.TensorProto.INT4 if config["use_int4"] else onnx.TensorProto.UINT4
 
         num_modified = 0
         for node_name in dag.get_node_names():
@@ -87,6 +96,10 @@ class MatMulNBitsToQDQ(Pass):
             N = node_attributes["N"]  # noqa: N806
             block_size = node_attributes["block_size"]
             num_k_blocks = math.ceil(K / block_size)
+            # will make this a per-axis DQ if num_k_blocks == 1
+            # - orginally per-axis K == block_size
+            # - originally blockwise but K <= block_size
+            is_per_axis = num_k_blocks == 1
 
             # only deal with 4 bits (int4) for now
             if node_attributes["bits"] != 4:
@@ -126,8 +139,12 @@ class MatMulNBitsToQDQ(Pass):
                     # remove padding if any
                     qi = qi[:, :unpacked_col_size]
 
+                # Make 1-D scale or qzero if per-axis
+                if new_qi_name.endswith((".scales", ".qzeros")) and is_per_axis:
+                    qi = qi.flatten()
+
                 # skip if is a no-op zero point
-                if new_qi_name.endswith(".qzeros") and np.all(qi == default_zp):
+                if not config["add_zero_point"] and new_qi_name.endswith(".qzeros") and np.all(qi == default_mnb_zp):
                     continue
 
                 if not config["use_transpose_op"]:
@@ -145,7 +162,7 @@ class MatMulNBitsToQDQ(Pass):
                     # pack in the format expected by onnx and create the tensor
                     tensor = onnx.helper.make_tensor(
                         new_qi_name,
-                        onnx.TensorProto.INT4 if config["use_int4"] else onnx.TensorProto.UINT4,
+                        int_elem_type,
                         qi.shape,
                         self._pack_on_flat(qi).tobytes(),
                         raw=True,
@@ -158,13 +175,18 @@ class MatMulNBitsToQDQ(Pass):
                 # add the input name
                 dq_inputs.append(new_qi_name)
             # DQ default zp is 0 but MatMulNBits is 8, so we need to add a zero tensor with all 8s
-            if len(dq_inputs) == 2 and not config["use_int4"]:
+            # no need to add for int4 if add_zero_point is False
+            if len(dq_inputs) == 2 and (config["add_zero_point"] or not config["use_int4"]):
                 zp_name = f"{dq_name}.qzeros"
+                zp_shape = (
+                    [N] if is_per_axis else ([N, num_k_blocks] if config["use_transpose_op"] else [num_k_blocks, N])
+                )
                 zp_tensor = onnx.helper.make_tensor(
                     zp_name,
-                    onnx.TensorProto.UINT4,
-                    [N, num_k_blocks] if config["use_transpose_op"] else [num_k_blocks, N],
-                    self._pack_on_flat(np.zeros(N * num_k_blocks, dtype=np.uint8) + 8).tobytes(),
+                    int_elem_type,
+                    zp_shape,
+                    # no zp in matmulnbits is equivalent to 8 uint4 and 0 int4 in DQ
+                    self._pack_on_flat(np.zeros(N * num_k_blocks, dtype=int_np_dtype) + 8 - default_mnb_zp).tobytes(),
                     raw=True,
                 )
                 dag.add_initializer(zp_tensor, graph_idx)
@@ -189,8 +211,10 @@ class MatMulNBitsToQDQ(Pass):
                     dq_inputs,
                     [dq_output],
                     name=dq_name,
-                    block_size=block_size,
-                    axis=1 if config["use_transpose_op"] else 0,
+                    block_size=None if is_per_axis else block_size,
+                    # for some reason block_wise and per-axis appear to use swapped axis
+                    # flip the axis if it is per-axis
+                    axis=(1 if config["use_transpose_op"] else 0) ^ (1 if is_per_axis else 0),
                 )
             )
             new_value_infos.append(
