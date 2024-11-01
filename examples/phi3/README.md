@@ -101,6 +101,8 @@ pip install onnxruntime-directml
 pip install -r requirements-nvmo-awq.txt
 ```
 
+Install cuda version compatible with cupy
+
 quantization: For quantization, use the config file phi3_nvmo_ptq.json
 ```bash
 olive run --config phi3_nvmo_ptq.json
