@@ -180,15 +180,6 @@ Run the following command to execute the workflow:
 python llama2.py --qlora
 ```
 
-**Note:**
-Get access to the following resource on Hugging Face Hub:
-- [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
-
-Login to your Hugging Face account:
-```bash
-huggingface-cli login
-```
-
 ### Running Workflows on the Cloud
 
 You may notice that this workflow takes a long time to run, especially for QLoRA. Olive offers a feature that allows you to submit the workflow to the cloud, enabling it to run on the compute resources in your Azure Machine Learning workspace.
