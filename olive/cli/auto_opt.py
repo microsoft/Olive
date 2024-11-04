@@ -107,7 +107,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             default=None,
             help=(
                 "Symbolic parameter names to use for dynamic to fixed shape pass. "
-                "Required only when DynamicToFixedShape pass is enabled."
+                "Required only when using QNNExecutionProvider."
             ),
         )
         sub_parser.add_argument(
@@ -117,7 +117,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             default=None,
             help=(
                 "Symbolic parameter values to use for dynamic to fixed shape pass. "
-                "Required only when DynamicToFixedShape pass is enabled."
+                "Required only when using QNNExecutionProvider."
             ),
         )
 
@@ -164,6 +164,8 @@ class AutoOptCommand(BaseOliveCLICommand):
         if (self.args.provider == "DmlExecutionProvider") and (self.args.device not in ["gpu", "npu"]):
             # Force the device to gpu for Direct ML provider
             self.args.device = "gpu"
+        elif self.args.provider in ["QNNExecutionProvider", "VitisAIExecutionProvider"]:
+            self.args.device = "npu"
 
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
@@ -171,7 +173,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             ("log_severity_level", self.args.log_level),
         ]
         if self.args.enable_search is None:
-            to_replace.append(("passes", self._get_passes_config(config["passes"], olive_config)))
+            to_replace.append(("passes", self._get_passes_config(config, olive_config)))
         elif self.args.enable_search:
             excluded_passes = [
                 "OrtPerfTuning",
@@ -232,10 +234,11 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         return [data_config]
 
-    def _get_passes_config(self, passes_config: Dict[str, Any], olive_config: OlivePackageConfig) -> Dict[str, Any]:
+    def _get_passes_config(self, config: Dict[str, Any], olive_config: OlivePackageConfig) -> Dict[str, Any]:
         if self.args.mixed_precision_overrides_config and len(self.args.mixed_precision_overrides_config) % 2 != 0:
             raise ValueError("Even number of entries required for mixed precision overrides config.")
 
+        passes_config: Dict[str, Any] = config["passes"]
         mixed_precision_overrides_config = (
             {
                 self.args.mixed_precision_overrides_config[i]: self.args.mixed_precision_overrides_config[i + 1]
@@ -255,7 +258,7 @@ class AutoOptCommand(BaseOliveCLICommand):
                 ("model_builder", "precision"),
                 PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
             ),
-            (("model_builder", "metadata_only"), self.args.input_model["type"].lower() == "onnxmodel"),
+            (("model_builder", "metadata_only"), config["input_model"]["type"].lower() == "onnxmodel"),
             (("to_fixed_shape", "dim_param"), self.args.dynamic_to_fixed_shape_dim_param),
             (("to_fixed_shape", "dim_value"), self.args.dynamic_to_fixed_shape_dim_value),
             (("mixed_precision_overrides", "overrides_config"), mixed_precision_overrides_config),
@@ -265,10 +268,13 @@ class AutoOptCommand(BaseOliveCLICommand):
                 set_nested_dict_value(passes_config, keys, value)
 
         del passes_config["conversion" if self.args.use_model_builder else "model_builder"]
-        if self.args.provider != "DmlExecutionProvider":
-            # Use the DynamicToFixedShape pass only for DmlExecutionProvider
-            # becase Direct ML doesn't support dynamic shaped inputs
+        if (self.args.provider != "QNNExecutionProvider") or self.args.use_model_builder:
+            # Use the DynamicToFixedShape pass only for QNNExecutionProvider
+            # becase QNN doesn't support dynamic shaped inputs
             del passes_config["to_fixed_shape"]
+        elif self.args.provider != "JsExecutionProvider":
+            # JS EP doesn't support fp16
+            del passes_config["fp16_to_fp32"]
 
         for pass_name in list(passes_config.keys()):
             pass_run_config = passes_config[pass_name]
@@ -283,7 +289,10 @@ class AutoOptCommand(BaseOliveCLICommand):
         if "to_fixed_shape" in passes_config and not (
             self.args.dynamic_to_fixed_shape_dim_param and self.args.dynamic_to_fixed_shape_dim_value
         ):
-            raise ValueError("dim-param and dim-value are required for DynamicToFixedShape.")
+            raise ValueError(
+                "dynamic-to-fixed-shape-dim-param and dynamic-to-fixed-shape-dim-value are required "
+                "when using QNNExecutionProvider."
+            )
 
         if ("conversion" not in passes_config) and ("model_builder" not in passes_config):
             raise ValueError("Cannot export an onnx model with combination of provided options.")
