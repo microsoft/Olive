@@ -3,9 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from dataclasses import dataclass
 from typing import List, Optional, Union
 
+from olive.common.config_utils import ConfigBase
+from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import StrEnumBase
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 
@@ -21,31 +22,61 @@ class Device(StrEnumBase):
     INTEL_MYRIAD = "intel_myriad"
 
 
-@dataclass(frozen=True, eq=True)
-class AcceleratorSpec:
+MEM_TO_INT = {"KB": 1e3, "MB": 1e6, "GB": 1e9, "TB": 1e12}
+
+
+def validate_memory(v):
+    if not isinstance(v, str) or v.isdigit():
+        return v
+
+    v = v.upper()
+    if v[-2:] not in MEM_TO_INT:
+        raise ValueError(f"Memory unit {v[-2:]} is not supported. Supported units are {MEM_TO_INT.keys()}")
+
+    return int(v[:-2]) * int(MEM_TO_INT[v[-2:]])
+
+
+class AcceleratorSpec(ConfigBase):
     """Accelerator specification is the concept of a hardware device that be used to optimize or evaluate a model."""
 
     accelerator_type: Union[str, Device]
-    execution_provider: Optional[str] = None
-    vender: str = None
-    version: str = None
-    memory: int = None
-    num_cores: int = None
+    execution_provider: Optional[str] = Field(
+        None, description="Execution provider for the accelerator. Must end with ExecutionProvider"
+    )
+    memory: Union[int, str] = Field(
+        None, description="Memory size in bytes. Can also be provided in string format like 1GB"
+    )
 
     def __str__(self) -> str:
-        if self.execution_provider:
-            # remove the suffix "ExecutionProvider", len("ExecutionProvider") = 17
-            ep = self.execution_provider[:-17]
-            return f"{str(self.accelerator_type).lower()}-{ep.lower()}"
-        else:
-            return str(self.accelerator_type).lower()
+        """Return the string representation of the accelerator spec.
 
-    def to_json(self):
-        json_data = {"accelerator_type": str(self.accelerator_type)}
-        if self.execution_provider:
-            json_data["execution_provider"] = self.execution_provider
+        Representation is of the form:
+            - cpu
+            - cpu-cpu
+            - cpu-cpu-memory=1024
+        """
+        dict_repr = self.dict()
+        components = [dict_repr.pop("accelerator_type")]
+        if ep := dict_repr.pop("execution_provider"):
+            components.append(ep[:-17])
+        for k, v in dict_repr.items():
+            if v is not None:
+                components.append(f"{k}={v}")
 
-        return json_data
+        return "-".join([str(c).lower() for c in components])
+
+    @validator("execution_provider", pre=True)
+    def check_execution_provider(cls, v):
+        if v is None:
+            return v
+
+        if not v.endswith("ExecutionProvider"):
+            raise ValueError(f"Execution provider {v} should end with ExecutionProvider")
+        return v
+
+    @validator("memory", pre=True)
+    def check_memory(cls, v):
+        return validate_memory(v)
 
 
 DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="CPUExecutionProvider")

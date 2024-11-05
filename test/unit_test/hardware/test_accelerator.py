@@ -151,10 +151,8 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             {"type": "LocalSystem"},
             [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
             [
-                (
-                    "There is no any accelerator specified. Inferred accelerators: "
-                    "[AcceleratorConfig(device='cpu', execution_providers=['CPUExecutionProvider'])]"
-                )
+                "There is no any accelerator specified. Inferred accelerators: "
+                "[AcceleratorConfig(device='cpu', execution_providers=['CPUExecutionProvider'])]"
             ],
             ["AzureExecutionProvider", "CPUExecutionProvider"],
         ),
@@ -478,3 +476,10 @@ def test_accelerator_config():
     assert acc_cfg2.device is None
     with pytest.raises(ValueError, match="Either device or execution_providers must be provided"):
         _ = AcceleratorConfig.parse_obj({})
+
+
+@pytest.mark.parametrize(("memory", "expected_bytes"), [(100, 100), ("100KB", 100 * 1000), ("100", 100)])
+def test_accelerator_with_memory(memory, expected_bytes):
+    acc = AcceleratorSpec(accelerator_type="cpu", execution_provider="CPUExecutionProvider", memory=memory)
+    assert acc.memory == expected_bytes
+    assert str(acc) == f"cpu-cpu-memory={expected_bytes}"

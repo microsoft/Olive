@@ -110,7 +110,7 @@ def test_run_without_ep(mock_model_to_json, mock_model_from_json, mock_run, conf
     mock_model_to_json.return_value = {"type": "PyTorchModel", "config": {"io_config": {}}}
     ret = olive_run(config)
     assert len(ret) == 1
-    assert next(iter(ret)) == AcceleratorSpec("cpu")
+    assert next(iter(ret)) == AcceleratorSpec(accelerator_type="cpu")
 
 
 def test_run_packages():

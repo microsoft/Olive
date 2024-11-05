@@ -42,7 +42,7 @@ def test_quantization_aware_training_pass_default(tmp_path):
 
 
 def test_optional_ep(tmp_path):
-    accl = AcceleratorSpec("cpu", None)
+    accl = AcceleratorSpec(accelerator_type="cpu")
     config = {
         "train_data_config": {
             "name": "train_data_config",

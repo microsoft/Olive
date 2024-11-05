@@ -133,8 +133,6 @@ class AutoOptCommand(BaseOliveCLICommand):
             type=str,
             help="Path to the cost model file to use for model splitting. Mutually exclusive with num-splits.",
         )
-        # TODO(jambayk): Move this to device options
-        sub_parser.add_argument("--device-memory", type=int, help="Device memory in bytes to use for model splitting.")
 
         # MixedPrecisionOverrides options
         sub_parser.add_argument(
@@ -264,7 +262,6 @@ class AutoOptCommand(BaseOliveCLICommand):
         to_replace = [
             (("capture_split_info", "num_splits"), self.args.num_splits),
             (("capture_split_info", "cost_model"), self.args.cost_model),
-            (("capture_split_info", "max_memory"), self.args.device_memory),
             (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
             (
                 ("dynamic_quant", "weight_type"),
@@ -286,8 +283,8 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         if self.args.num_splits is None and self.args.cost_model is None:
             del passes_config["capture_split_info"], passes_config["split_model"]
-        if self.args.cost_model is not None and self.args.device_memory is None:
-            raise ValueError("device_memory is required if cost_model is provided.")
+        if self.args.cost_model is not None and self.args.memory is None:
+            raise ValueError("Accelerator memory is required if cost_model is provided.")
 
         del passes_config["conversion" if self.args.use_model_builder else "model_builder"]
         # Remove dynamic-to-fixed-shape pass if not required
@@ -355,8 +352,10 @@ TEMPLATE = {
     "passes": OrderedDict(
         [
             ("capture_split_info", {"type": "CaptureSplitInfo"}),
-            ("conversion", {"type": "OnnxConversion"}),
+            # always convert in float32 since float16 doesn't work for all models
+            ("conversion", {"type": "OnnxConversion", "torch_dtype": "float32"}),
             ("model_builder", {"type": "ModelBuilder", "precision": "fp32", "metadata_only": False}),
+            # use transformer optimizer for fp16 conversion too
             (
                 "transformer_optimizer",
                 {"type": "OrtTransformersOptimization", "opt_level": 0, "use_fp16": False, "keep_io_types": False},

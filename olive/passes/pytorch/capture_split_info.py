@@ -44,13 +44,6 @@ class CaptureSplitInfo(Pass):
                 category=ParamCategory.PATH,
                 description="Path to the cost model csv file. One of num_splits or cost_model is required.",
             ),
-            # TODO(jambayk): Get this from the accelerator spec?
-            "max_memory": PassConfigParam(
-                type_=int,
-                description=(
-                    "Maximum memory in bytes that can be used by the model. Required if cost_model is provided."
-                ),
-            ),
             "exclude_embeds": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -75,11 +68,15 @@ class CaptureSplitInfo(Pass):
             logger.info("One of num_splits or cost_model is required.")
             return False
 
-        if search_point.get("cost_model") is not None and search_point.get("max_memory") is None:
-            logger.info("max_memory is required if cost_model is provided.")
+        if search_point.get("cost_model") is not None and accelerator_spec.memory is None:
+            logger.info("Accelerator memory is required if cost_model is provided.")
             return False
 
         return True
+
+    @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        return False
 
     def _run_for_config(
         self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any], output_model_path: str
@@ -130,6 +127,9 @@ class CaptureSplitInfo(Pass):
     def split_using_cost_model(
         self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any]
     ) -> Dict[str, int]:
+        if self.accelerator_spec.memory is None:
+            raise ValueError("Accelerator memory is required to split using cost model.")
+
         # will only care about the number of bytes for now
         module_to_bytes = {}
         with open(config["cost_model"]) as f:
@@ -163,7 +163,7 @@ class CaptureSplitInfo(Pass):
 
             # check if the next module can be added to the current split
             # if not, assign it to the next split
-            if split_bytes + num_bytes > config["max_memory"]:
+            if split_bytes + num_bytes > self.accelerator_spec.memory:
                 split_idx += 1
                 split_bytes = 0
 

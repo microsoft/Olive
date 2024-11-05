@@ -155,12 +155,11 @@ class OliveCache:
 
     @staticmethod
     def get_run_json(pass_name: int, pass_config: dict, input_model_id: str, accelerator_spec: "AcceleratorSpec"):
-        accelerator_spec = str(accelerator_spec) if accelerator_spec else None
         return {
             "input_model_id": input_model_id,
             "pass_name": pass_name,
             "pass_config": pass_config,
-            "accelerator_spec": accelerator_spec,
+            "accelerator_spec": accelerator_spec.to_json() if accelerator_spec else None,
         }
 
     @classmethod

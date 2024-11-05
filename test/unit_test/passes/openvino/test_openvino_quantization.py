@@ -40,7 +40,7 @@ def test_openvino_quantization(tmp_path):
         OpenVINOQuantization,
         config,
         disable_search=True,
-        accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
+        accelerator_spec=AcceleratorSpec(accelerator_type="cpu", execution_provider="OpenVINOExecutionProvider"),
     )
     output_folder = str(tmp_path / "quantized")
 
@@ -73,7 +73,7 @@ def test_openvino_quantization_with_accuracy(tmp_path):
         OpenVINOQuantization,
         config,
         disable_search=True,
-        accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
+        accelerator_spec=AcceleratorSpec(accelerator_type="cpu", execution_provider="OpenVINOExecutionProvider"),
     )
     output_folder = str(tmp_path / "quantized")
 
@@ -106,7 +106,7 @@ def get_openvino_model(tmp_path):
         OpenVINOConversion,
         openvino_conversion_config,
         disable_search=True,
-        accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
+        accelerator_spec=AcceleratorSpec(accelerator_type="cpu", execution_provider="OpenVINOExecutionProvider"),
     )
     output_folder = str(tmp_path / "openvino")
 
