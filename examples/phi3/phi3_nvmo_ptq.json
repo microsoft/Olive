@@ -10,6 +10,7 @@
             "accelerators": [ { "device": "gpu", "execution_providers": [ "DmlExecutionProvider" ] } ]
         }
     },
+    "engine": { "target": "local_system" },
     "passes": {
         "builder": { "type": "ModelBuilder", "precision": "fp16" },
         "quantization": {
