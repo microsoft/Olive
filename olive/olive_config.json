@@ -165,8 +165,8 @@
         },
         "QNNPreprocess": {
             "module_path": "olive.passes.onnx.qnn.qnn_preprocess.QNNPreprocess",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu"],
             "supported_precisions": [ "*" ]
         },
         "VitisAIQuantization": {
