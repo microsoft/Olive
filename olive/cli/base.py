@@ -572,7 +572,7 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
         type=str,
         default="cpu",
         choices=["gpu", "cpu", "npu"],
-        help="Target device to run the model.",
+        help="Target device to run the model. Default is cpu.",
     )
 
     execution_providers = sorted(
@@ -585,7 +585,7 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
             type=str,
             default="CPUExecutionProvider",
             choices=execution_providers,
-            help="Execution provider to use for ONNX model.",
+            help="Execution provider to use for ONNX model. Default is CPUExecutionProvider.",
         )
     else:
         accelerator_group.add_argument(

@@ -121,6 +121,21 @@ class AutoOptCommand(BaseOliveCLICommand):
             ),
         )
 
+        # Split options
+        split_group = sub_parser.add_mutually_exclusive_group(required=False)
+        split_group.add_argument(
+            "--num-splits",
+            type=int,
+            help="Number of splits to use for model splitting. Input model must be an HfModel.",
+        )
+        split_group.add_argument(
+            "--cost-model",
+            type=str,
+            help="Path to the cost model file to use for model splitting. Mutually exclusive with num-splits.",
+        )
+        # TODO(jambayk): Move this to device options
+        sub_parser.add_argument("--device-memory", type=int, help="Device memory in bytes to use for model splitting.")
+
         # MixedPrecisionOverrides options
         sub_parser.add_argument(
             "--mixed-precision-overrides-config",
@@ -171,7 +186,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             ("log_severity_level", self.args.log_level),
         ]
         if self.args.enable_search is None:
-            to_replace.append(("passes", self._get_passes_config(config["passes"], olive_config)))
+            to_replace.append(("passes", self._get_passes_config(config, olive_config)))
         elif self.args.enable_search:
             excluded_passes = [
                 "OrtPerfTuning",
@@ -232,10 +247,11 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         return [data_config]
 
-    def _get_passes_config(self, passes_config: Dict[str, Any], olive_config: OlivePackageConfig) -> Dict[str, Any]:
+    def _get_passes_config(self, config: Dict[str, Any], olive_config: OlivePackageConfig) -> Dict[str, Any]:
         if self.args.mixed_precision_overrides_config and len(self.args.mixed_precision_overrides_config) % 2 != 0:
             raise ValueError("Even number of entries required for mixed precision overrides config.")
 
+        passes_config: Dict[str, Any] = config["passes"]
         mixed_precision_overrides_config = (
             {
                 self.args.mixed_precision_overrides_config[i]: self.args.mixed_precision_overrides_config[i + 1]
@@ -246,6 +262,9 @@ class AutoOptCommand(BaseOliveCLICommand):
         )
 
         to_replace = [
+            (("capture_split_info", "num_splits"), self.args.num_splits),
+            (("capture_split_info", "cost_model"), self.args.cost_model),
+            (("capture_split_info", "max_memory"), self.args.device_memory),
             (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
             (
                 ("dynamic_quant", "weight_type"),
@@ -255,7 +274,8 @@ class AutoOptCommand(BaseOliveCLICommand):
                 ("model_builder", "precision"),
                 PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
             ),
-            (("model_builder", "metadata_only"), self.args.input_model["type"].lower() == "onnxmodel"),
+            (("model_builder", "metadata_only"), config["input_model"]["type"].lower() == "onnxmodel"),
+            (("transformer_optimizer", "use_fp16"), self.args.precision == "fp16"),
             (("to_fixed_shape", "dim_param"), self.args.dynamic_to_fixed_shape_dim_param),
             (("to_fixed_shape", "dim_value"), self.args.dynamic_to_fixed_shape_dim_value),
             (("mixed_precision_overrides", "overrides_config"), mixed_precision_overrides_config),
@@ -264,11 +284,23 @@ class AutoOptCommand(BaseOliveCLICommand):
             if value is not None:
                 set_nested_dict_value(passes_config, keys, value)
 
+        if self.args.num_splits is None and self.args.cost_model is None:
+            del passes_config["capture_split_info"], passes_config["split_model"]
+        if self.args.cost_model is not None and self.args.device_memory is None:
+            raise ValueError("device_memory is required if cost_model is provided.")
+
         del passes_config["conversion" if self.args.use_model_builder else "model_builder"]
-        if self.args.provider != "DmlExecutionProvider":
-            # Use the DynamicToFixedShape pass only for DmlExecutionProvider
-            # becase Direct ML doesn't support dynamic shaped inputs
+        # Remove dynamic-to-fixed-shape pass if not required
+        if (self.args.dynamic_to_fixed_shape_dim_param is None) ^ (self.args.dynamic_to_fixed_shape_dim_value is None):
+            raise ValueError(
+                "Only one of dynamic-to-fixed-shape-dim-param and dynamic-to-fixed-shape-dim-value is set. Provide both"
+                " or none."
+            )
+        elif self.args.dynamic_to_fixed_shape_dim_param is None:
             del passes_config["to_fixed_shape"]
+        # Remove mixed_precision_overrides pass if not required
+        if mixed_precision_overrides_config is None:
+            del passes_config["mixed_precision_overrides"]
 
         for pass_name in list(passes_config.keys()):
             pass_run_config = passes_config[pass_name]
@@ -279,11 +311,6 @@ class AutoOptCommand(BaseOliveCLICommand):
                 or (self.args.device not in pass_module_config.supported_accelerators)
             ):
                 del passes_config[pass_name]
-
-        if "to_fixed_shape" in passes_config and not (
-            self.args.dynamic_to_fixed_shape_dim_param and self.args.dynamic_to_fixed_shape_dim_value
-        ):
-            raise ValueError("dim-param and dim-value are required for DynamicToFixedShape.")
 
         if ("conversion" not in passes_config) and ("model_builder" not in passes_config):
             raise ValueError("Cannot export an onnx model with combination of provided options.")
@@ -327,19 +354,23 @@ TEMPLATE = {
     },
     "passes": OrderedDict(
         [
+            ("capture_split_info", {"type": "CaptureSplitInfo"}),
             ("conversion", {"type": "OnnxConversion"}),
             ("model_builder", {"type": "ModelBuilder", "precision": "fp32", "metadata_only": False}),
-            ("transformer_optimizer", {"type": "OrtTransformersOptimization"}),
+            (
+                "transformer_optimizer",
+                {"type": "OrtTransformersOptimization", "opt_level": 0, "use_fp16": False, "keep_io_types": False},
+            ),
             ("optimizer", {"type": "OnnxModelOptimizer"}),
             ("fp16_to_fp32", {"type": "OnnxIOFloat16ToFloat32"}),
             ("qnn_preprocess", {"type": "QNNPreprocess"}),
+            ("mixed_precision_overrides", {"type": "MixedPrecisionOverrides", "overrides_config": None}),
             ("dynamic_quant", {"type": "OnnxQuantization", "weight_type": "QInt8"}),
             ("matmul4", {"type": "OnnxMatMul4Quantizer"}),
             ("bnb4", {"type": "OnnxBnb4Quantization", "quant_type": "nf4"}),
             ("to_fixed_shape", {"type": "DynamicToFixedShape", "dim_param": None, "dim_value": None}),
-            ("mixed_precision_overrides", {"type": "MixedPrecisionOverrides", "overrides_config": None}),
-            ("mixed_precision", {"type": "OrtMixedPrecision"}),
             ("mnb_to_qdq", {"type": "MatMulNBitsToQDQ"}),
+            ("split_model", {"type": "SplitModel"}),
             ("extract_adapters", {"type": "ExtractAdapters"}),
         ]
     ),
@@ -350,6 +381,7 @@ TEMPLATE = {
 }
 
 PRECISION_MAPPING = {
+    "capture_split_info": {},
     "conversion": {},
     "model_builder": {},
     "transformer_optimizer": {},
@@ -363,5 +395,6 @@ PRECISION_MAPPING = {
     "mixed_precision_overrides": {},
     "mixed_precision": {},
     "mnb_to_qdq": {},
+    "split_model": {},
     "extract_adapters": {},
 }
