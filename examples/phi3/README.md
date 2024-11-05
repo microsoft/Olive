@@ -116,7 +116,7 @@ Setup
 ```bash
 pip install olive-ai[nvmo]
 pip install onnxruntime-genai-directml>=0.4.0
-pip install onnxruntime-directml
+pip install onnxruntime-directml==1.20.0
 pip install -r requirements-nvmo-awq.txt
 ```
 
