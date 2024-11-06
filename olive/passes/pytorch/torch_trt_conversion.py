@@ -12,7 +12,7 @@ from olive.common.config_utils import validate_config
 from olive.common.hf.utils import get_model_max_length
 from olive.common.utils import get_attr, tensor_data_to_device
 from olive.data.config import DataConfig
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
@@ -66,6 +66,16 @@ class TorchTRTConversion(Pass):
                 ),
             ),
         }
+
+    def validate_search_point(
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    ) -> bool:
+        # since the run will leverage the host device to move the model to device,
+        # we need to check if the host device is GPU
+        if self.host_device != Device.GPU:
+            logger.info("TorchTRTConversion only supports GPU.")
+            return False
+        return True
 
     @torch.no_grad()
     def _run_for_config(

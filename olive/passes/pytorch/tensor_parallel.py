@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict
 
 from olive.common.config_utils import ParamCategory
 from olive.common.pydantic_v1 import validator
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import DistributedHfModelHandler, HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
@@ -171,7 +171,7 @@ class PyTorchTensorParallel(Pass):
             with multiprocessing.Pool(processes=max_parallel_jobs) as pool:
                 results = pool.map(PyTorchTensorParallel._generate_one, params)
 
-        if torch.cuda.is_available():
+        if self.host_device == Device.GPU and torch.cuda.is_available():
             torch.cuda.empty_cache()
 
         if world_size != sum(results):
