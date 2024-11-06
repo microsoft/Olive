@@ -5,6 +5,7 @@
 import pytest
 import torch
 
+from olive.hardware import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.capture_split_info import CaptureSplitInfo
@@ -78,13 +79,13 @@ def test_capture_split_info_cost_model(include_embeds_lm_head, tmp_path):
         CaptureSplitInfo,
         {
             "cost_model": cost_model_path,
-            # 2 layers
-            # each layer is around 10 kB in fp16
-            # embed_tokens and lm_head are around 1 MB each in fp16
-            "max_memory": 1e4,
             "exclude_embeds": not include_embeds_lm_head,
             "exclude_lm_head": not include_embeds_lm_head,
         },
+        # 2 layers
+        # each layer is around 10 kB in fp16
+        # embed_tokens and lm_head are around 1 MB each in fp16
+        accelerator_spec=AcceleratorSpec(accelerator_type="cpu", memory=1e4),
         disable_search=True,
     )
     input_model = HfModelHandler(model_path=model_name)
@@ -100,3 +101,17 @@ def test_capture_split_info_cost_model(include_embeds_lm_head, tmp_path):
         expected_num_splits = 4
 
     assert len(set(split_assignments.values())) == expected_num_splits
+
+
+def test_capture_split_info_missing_memory(tmp_path):
+    p = create_pass_from_dict(
+        CaptureSplitInfo,
+        {
+            "cost_model": "cost_model.csv",
+        },
+        disable_search=True,
+    )
+    input_model = HfModelHandler(model_path="hf-internal-testing/tiny-random-LlamaForCausalLM")
+
+    with pytest.raises(ValueError, match="Accelerator memory is required to split using cost model."):
+        p.run(input_model, tmp_path)

@@ -11,7 +11,7 @@ from olive.systems.system_config import SystemConfig
                 {"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]},
                 {"device": "cpu", "execution_providers": ["CPUExecutionProvider"]},
             ],
-            [{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}],
+            [{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"], "memory": None}],
         ),
         (
             [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],

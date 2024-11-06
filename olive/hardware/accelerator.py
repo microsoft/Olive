@@ -21,31 +21,47 @@ class Device(StrEnumBase):
     INTEL_MYRIAD = "intel_myriad"
 
 
+MEM_TO_INT = {"KB": 1e3, "MB": 1e6, "GB": 1e9, "TB": 1e12}
+
+
 @dataclass(frozen=True, eq=True)
 class AcceleratorSpec:
     """Accelerator specification is the concept of a hardware device that be used to optimize or evaluate a model."""
 
     accelerator_type: Union[str, Device]
     execution_provider: Optional[str] = None
-    vender: str = None
-    version: str = None
     memory: int = None
-    num_cores: int = None
 
     def __str__(self) -> str:
+        str_rep = str(self.accelerator_type).lower()
         if self.execution_provider:
-            # remove the suffix "ExecutionProvider", len("ExecutionProvider") = 17
-            ep = self.execution_provider[:-17]
-            return f"{str(self.accelerator_type).lower()}-{ep.lower()}"
-        else:
-            return str(self.accelerator_type).lower()
+            str_rep += f"-{self.execution_provider[:-17].lower()}"
+        if self.memory:
+            str_rep += f"-memory={self.memory}"
+        return str_rep
 
     def to_json(self):
         json_data = {"accelerator_type": str(self.accelerator_type)}
         if self.execution_provider:
             json_data["execution_provider"] = self.execution_provider
+        if self.memory is not None:
+            json_data["memory"] = self.memory
 
         return json_data
+
+    @staticmethod
+    def str_to_int_memory(v: Union[int, str]) -> int:
+        if not isinstance(v, str):
+            return v
+
+        if v.isdigit():
+            return int(v)
+
+        v = v.upper()
+        if v[-2:] not in MEM_TO_INT:
+            raise ValueError(f"Memory unit {v[-2:]} is not supported. Supported units are {MEM_TO_INT.keys()}")
+
+        return int(v[:-2]) * int(MEM_TO_INT[v[-2:]])
 
 
 DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="CPUExecutionProvider")
