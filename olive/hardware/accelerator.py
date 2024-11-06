@@ -65,6 +65,9 @@ class AcceleratorSpec(ConfigBase):
 
         return "-".join([str(c).lower() for c in components])
 
+    def __hash__(self):
+        return hash(str(self))
+
     @validator("execution_provider", pre=True)
     def check_execution_provider(cls, v):
         if v is None:
