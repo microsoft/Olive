@@ -22,7 +22,7 @@ jobs:
       PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
       HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
       PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
-    container: nvidia/cuda:12.6.2-cudnn-runtime-ubuntu20.04
+    container: mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.6.2-cudnn-runtime-ubuntu20.04
 
     steps:
     - script: docker system df && docker system prune -a -f && docker system df
