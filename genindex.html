@@ -68,6 +68,7 @@
 <li class="toctree-l1"><a class="reference internal" href="features/cli.html#generate-adapters">Generate Adapters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features/cli.html#convert-adapters">Convert Adapters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features/cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features/cli.html#generate-cost-model-for-model-splitting">Generate Cost Model for Model Splitting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features/cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features/cli.html#azureml">AzureML</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features/cli.html#shared-cache">Shared Cache</a></li>
@@ -529,6 +530,8 @@
 </li>
         <li><a href="api/passes.html#cmdoption-arg-10">convert_attribute</a>, <a href="api/passes.html#cmdoption-arg-105">[1]</a>, <a href="api/passes.html#cmdoption-arg-111">[2]</a>, <a href="api/passes.html#cmdoption-arg-116">[3]</a>, <a href="api/passes.html#cmdoption-arg-123">[4]</a>, <a href="api/passes.html#cmdoption-arg-143">[5]</a>, <a href="api/passes.html#cmdoption-arg-15">[6]</a>, <a href="api/passes.html#cmdoption-arg-164">[7]</a>, <a href="api/passes.html#cmdoption-arg-183">[8]</a>, <a href="api/passes.html#cmdoption-arg-189">[9]</a>, <a href="api/passes.html#cmdoption-arg-195">[10]</a>, <a href="api/passes.html#cmdoption-arg-200">[11]</a>, <a href="api/passes.html#cmdoption-arg-205">[12]</a>, <a href="api/passes.html#cmdoption-arg-24">[13]</a>, <a href="api/passes.html#cmdoption-arg-245">[14]</a>, <a href="api/passes.html#cmdoption-arg-279">[15]</a>, <a href="api/passes.html#cmdoption-arg-29">[16]</a>, <a href="api/passes.html#cmdoption-arg-35">[17]</a>, <a href="api/passes.html#cmdoption-arg-40">[18]</a>, <a href="api/passes.html#cmdoption-arg-45">[19]</a>, <a href="api/passes.html#cmdoption-arg-5">[20]</a>, <a href="api/passes.html#cmdoption-arg-50">[21]</a>, <a href="api/passes.html#cmdoption-arg-72">[22]</a>, <a href="api/passes.html#cmdoption-arg-99">[23]</a>, <a href="api/passes.html#cmdoption-arg-convert_attribute">[24]</a>
 </li>
+        <li><a href="api/passes.html#cmdoption-arg-cost_model">cost_model</a>
+</li>
         <li><a href="api/passes.html#cmdoption-arg-cpu_cores">cpu_cores</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-damp_percent">damp_percent</a>
@@ -559,7 +562,7 @@
 </li>
         <li><a href="api/passes.html#cmdoption-arg-element_wise_binary_ops">element_wise_binary_ops</a>
 </li>
-        <li><a href="api/passes.html#cmdoption-arg-280">enable_cuda_graph</a>, <a href="api/passes.html#cmdoption-arg-enable_cuda_graph">[1]</a>
+        <li><a href="api/passes.html#cmdoption-arg-282">enable_cuda_graph</a>, <a href="api/passes.html#cmdoption-arg-enable_cuda_graph">[1]</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-enable_dpu">enable_dpu</a>
 </li>
@@ -573,9 +576,9 @@
 </li>
         <li><a href="api/passes.html#cmdoption-arg-example_input_func">example_input_func</a>
 </li>
-        <li><a href="api/passes.html#cmdoption-arg-exclude_embeds">exclude_embeds</a>
+        <li><a href="api/passes.html#cmdoption-arg-280">exclude_embeds</a>, <a href="api/passes.html#cmdoption-arg-exclude_embeds">[1]</a>
 </li>
-        <li><a href="api/passes.html#cmdoption-arg-exclude_lm_head">exclude_lm_head</a>
+        <li><a href="api/passes.html#cmdoption-arg-281">exclude_lm_head</a>, <a href="api/passes.html#cmdoption-arg-exclude_lm_head">[1]</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-132">excluded_precisions</a>, <a href="api/passes.html#cmdoption-arg-152">[1]</a>, <a href="api/passes.html#cmdoption-arg-excluded_precisions">[2]</a>
 </li>
@@ -630,8 +633,6 @@
         <li><a href="api/passes.html#cmdoption-arg-ignored_scope">ignored_scope</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-ignored_scope_type">ignored_scope_type</a>
-</li>
-        <li><a href="api/passes.html#cmdoption-arg-include_all_nodes">include_all_nodes</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-input">input</a>
 </li>
@@ -706,6 +707,8 @@
         <li><a href="api/passes.html#cmdoption-arg-max_finite_val">max_finite_val</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-265">max_layer</a>, <a href="api/passes.html#cmdoption-arg-max_layer">[1]</a>
+</li>
+        <li><a href="api/passes.html#cmdoption-arg-max_memory">max_memory</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-merge_adapter_weights">merge_adapter_weights</a>
 </li>
@@ -992,6 +995,13 @@
         <li><a href="api/passes.html#cmdoption-arg-10">command line option</a>, <a href="api/passes.html#cmdoption-arg-105">[1]</a>, <a href="api/passes.html#cmdoption-arg-111">[2]</a>, <a href="api/passes.html#cmdoption-arg-116">[3]</a>, <a href="api/passes.html#cmdoption-arg-123">[4]</a>, <a href="api/passes.html#cmdoption-arg-143">[5]</a>, <a href="api/passes.html#cmdoption-arg-15">[6]</a>, <a href="api/passes.html#cmdoption-arg-164">[7]</a>, <a href="api/passes.html#cmdoption-arg-183">[8]</a>, <a href="api/passes.html#cmdoption-arg-189">[9]</a>, <a href="api/passes.html#cmdoption-arg-195">[10]</a>, <a href="api/passes.html#cmdoption-arg-200">[11]</a>, <a href="api/passes.html#cmdoption-arg-205">[12]</a>, <a href="api/passes.html#cmdoption-arg-24">[13]</a>, <a href="api/passes.html#cmdoption-arg-245">[14]</a>, <a href="api/passes.html#cmdoption-arg-279">[15]</a>, <a href="api/passes.html#cmdoption-arg-29">[16]</a>, <a href="api/passes.html#cmdoption-arg-35">[17]</a>, <a href="api/passes.html#cmdoption-arg-40">[18]</a>, <a href="api/passes.html#cmdoption-arg-45">[19]</a>, <a href="api/passes.html#cmdoption-arg-5">[20]</a>, <a href="api/passes.html#cmdoption-arg-50">[21]</a>, <a href="api/passes.html#cmdoption-arg-72">[22]</a>, <a href="api/passes.html#cmdoption-arg-99">[23]</a>, <a href="api/passes.html#cmdoption-arg-convert_attribute">[24]</a>
 </li>
       </ul></li>
+      <li>
+    cost_model
+
+      <ul>
+        <li><a href="api/passes.html#cmdoption-arg-cost_model">command line option</a>
+</li>
+      </ul></li>
       <li><a href="api/systems.html#olive.hardware.accelerator.Device.CPU">CPU (olive.hardware.accelerator.Device attribute)</a>
 </li>
       <li>
@@ -1157,7 +1167,7 @@
     enable_cuda_graph
 
       <ul>
-        <li><a href="api/passes.html#cmdoption-arg-280">command line option</a>, <a href="api/passes.html#cmdoption-arg-enable_cuda_graph">[1]</a>
+        <li><a href="api/passes.html#cmdoption-arg-282">command line option</a>, <a href="api/passes.html#cmdoption-arg-enable_cuda_graph">[1]</a>
 </li>
       </ul></li>
       <li>
@@ -1214,7 +1224,7 @@
     exclude_embeds
 
       <ul>
-        <li><a href="api/passes.html#cmdoption-arg-exclude_embeds">command line option</a>
+        <li><a href="api/passes.html#cmdoption-arg-280">command line option</a>, <a href="api/passes.html#cmdoption-arg-exclude_embeds">[1]</a>
 </li>
       </ul></li>
   </ul></td>
@@ -1223,7 +1233,7 @@
     exclude_lm_head
 
       <ul>
-        <li><a href="api/passes.html#cmdoption-arg-exclude_lm_head">command line option</a>
+        <li><a href="api/passes.html#cmdoption-arg-281">command line option</a>, <a href="api/passes.html#cmdoption-arg-exclude_lm_head">[1]</a>
 </li>
       </ul></li>
       <li>
@@ -1475,13 +1485,6 @@
       </ul></li>
       <li><a href="api/systems.html#olive.systems.docker.LocalDockerConfig.image_name">image_name (olive.systems.docker.LocalDockerConfig attribute)</a>
 </li>
-      <li>
-    include_all_nodes
-
-      <ul>
-        <li><a href="api/passes.html#cmdoption-arg-include_all_nodes">command line option</a>
-</li>
-      </ul></li>
       <li>
     input
 
@@ -1815,6 +1818,13 @@
         <li><a href="api/passes.html#cmdoption-arg-265">command line option</a>, <a href="api/passes.html#cmdoption-arg-max_layer">[1]</a>
 </li>
       </ul></li>
+      <li>
+    max_memory
+
+      <ul>
+        <li><a href="api/passes.html#cmdoption-arg-max_memory">command line option</a>
+</li>
+      </ul></li>
       <li><a href="api/resource_path.html#olive.azureml.azureml_client.AzureMLClientConfig.max_operation_retries">max_operation_retries (olive.azureml.azureml_client.AzureMLClientConfig attribute)</a>
 </li>
       <li><a href="api/engine.html#olive.strategy.search_strategy.SearchStrategyConfig.max_time">max_time (olive.strategy.search_strategy.SearchStrategyConfig attribute)</a>
@@ -1840,10 +1850,10 @@
         <li><a href="api/passes.html#cmdoption-arg-134">command line option</a>, <a href="api/passes.html#cmdoption-arg-154">[1]</a>, <a href="api/passes.html#cmdoption-arg-metric">[2]</a>
 </li>
       </ul></li>
-      <li><a href="api/engine.html#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.metrics">metrics (olive.evaluator.olive_evaluator.OliveEvaluatorConfig attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/engine.html#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.metrics">metrics (olive.evaluator.olive_evaluator.OliveEvaluatorConfig attribute)</a>
+</li>
       <li><a href="api/metric.html#olive.evaluator.metric.MetricType">MetricType (class in olive.evaluator.metric)</a>
 </li>
       <li><a href="api/metric.html#olive.evaluator.metric.LatencySubType.MIN">MIN (olive.evaluator.metric.LatencySubType attribute)</a>

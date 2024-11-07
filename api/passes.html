@@ -70,6 +70,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../features/cli.html#generate-adapters">Generate Adapters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/cli.html#convert-adapters">Convert Adapters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html#generate-cost-model-for-model-splitting">Generate Cost Model for Model Splitting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/cli.html#azureml">AzureML</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/cli.html#shared-cache">Shared Cache</a></li>
@@ -3653,7 +3654,8 @@
 <span class="sig-name descname"><span class="pre">num_splits</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-num_splits" title="Permalink to this definition"></a></dt>
 <dd><p>Number of splits to divide the model layers into.</p>
 <p><strong>type:</strong> int</p>
-<p><strong>required:</strong> True</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
@@ -3665,20 +3667,47 @@
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-cost_model">
+<span class="sig-name descname"><span class="pre">cost_model</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-cost_model" title="Permalink to this definition"></a></dt>
+<dd><p>Path to the cost model csv file. One of num_splits or cost_model is required. Must be a csv with headers <cite>module,num_bytes</cite> where module is the name modules (with no children) in the model and num_bytes is the int number of bytes the module uses when in the desired precision. Any other column is not used.</p>
+<p><strong>type:</strong> str | pathlib.Path</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-max_memory">
+<span class="sig-name descname"><span class="pre">max_memory</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-max_memory" title="Permalink to this definition"></a></dt>
+<dd><p>Maximum memory in bytes that can be used by the model. Required if cost_model is provided.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-exclude_embeds">
+<span class="sig-name descname"><span class="pre">exclude_embeds</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-exclude_embeds" title="Permalink to this definition"></a></dt>
+<dd><p>Exclude the embeddings layer/s from the split calculation. Only used with cost_model.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-exclude_lm_head">
+<span class="sig-name descname"><span class="pre">exclude_lm_head</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-exclude_lm_head" title="Permalink to this definition"></a></dt>
+<dd><p>Exclude the language model head layer/s from the split calculation. Only used with cost_model.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
 </section>
 <section id="splitmodel">
 <span id="split-model"></span><h2>SplitModel<a class="headerlink" href="#splitmodel" title="Permalink to this heading"></a></h2>
 <p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
 <p><strong>Output:</strong> handler.composite.CompositeModelHandler</p>
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-include_all_nodes">
-<span class="sig-name descname"><span class="pre">include_all_nodes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-include_all_nodes" title="Permalink to this definition"></a></dt>
-<dd><p>Include all nodes in the split model. Nodes outside the splits or before the first split will be assigned to the first split. Nodes after the last split will be assigned to the last split. If False, these nodes will not be included in the split models.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> True</p>
-<p><strong>search_defaults:</strong> None</p>
-</dd></dl>
-
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-201">
 <span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-201" title="Permalink to this definition"></a></dt>
@@ -5588,8 +5617,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-exclude_embeds">
-<span class="sig-name descname"><span class="pre">exclude_embeds</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-exclude_embeds" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-280">
+<span class="sig-name descname"><span class="pre">exclude_embeds</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-280" title="Permalink to this definition"></a></dt>
 <dd><p>Remove embedding layer from your ONNX model.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
@@ -5597,8 +5626,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-exclude_lm_head">
-<span class="sig-name descname"><span class="pre">exclude_lm_head</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-exclude_lm_head" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-281">
+<span class="sig-name descname"><span class="pre">exclude_lm_head</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-281" title="Permalink to this definition"></a></dt>
 <dd><p>Remove language modeling head from your ONNX model.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
@@ -5606,8 +5635,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-280">
-<span class="sig-name descname"><span class="pre">enable_cuda_graph</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-280" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-282">
+<span class="sig-name descname"><span class="pre">enable_cuda_graph</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-282" title="Permalink to this definition"></a></dt>
 <dd><p>The model can use CUDA graph capture for CUDA execution provider. If enabled, all nodes being placed on the CUDA EP is the prerequisite for the CUDA graph to be used correctly.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> None</p>
