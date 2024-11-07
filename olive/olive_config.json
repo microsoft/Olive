@@ -102,7 +102,7 @@
         },
         "OnnxMatMul4Quantizer": {
             "module_path": "olive.passes.onnx.quantization.OnnxMatMul4Quantizer",
-            "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider" ],
+            "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
             "supported_accelerators": [ "cpu", "gpu" ],
             "supported_precisions": [ "int4" ]
         },
@@ -165,8 +165,8 @@
         },
         "QNNPreprocess": {
             "module_path": "olive.passes.onnx.qnn.qnn_preprocess.QNNPreprocess",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "*" ]
         },
         "VitisAIQuantization": {

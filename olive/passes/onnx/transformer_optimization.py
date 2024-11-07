@@ -257,15 +257,22 @@ class OrtTransformersOptimization(Pass):
 
         if run_config["model_type"] is None or run_config["model_type"] not in transformers_optimizer.MODEL_TYPES:
             logger.warning(
-                (
-                    "Unsupported model type: %s, will skip this pass. Please select one from "
-                    "[%s] which need to be set under "
-                    "OrtTransformersOptimization.config"
-                ),
+                "Unsupported model type: %s, will skip this pass. Please select one from "
+                "[%s] which need to be set under "
+                "OrtTransformersOptimization.config",
                 run_config["model_type"],
                 ", ".join(transformers_optimizer.MODEL_TYPES),
             )
             return model
+        if run_config["model_type"] == "phi":
+            onnx_model = onnx.load(model.model_path, load_external_data=False)
+            if not onnx_model.functions:
+                logger.debug(
+                    "Model type is inferred as phi, but no functions are found in the model. It is not a dynamo"
+                    " exported model. Setting the model type to bert."
+                )
+                run_config["model_type"] = "bert"
+            del onnx_model
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 

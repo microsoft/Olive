@@ -98,6 +98,14 @@ class AutoOptCommand(BaseOliveCLICommand):
                 "when the model is supported by model builder"
             ),
         )
+        sub_parser.add_argument(
+            "--use_qdq_encoding",
+            action="store_true",
+            help=(
+                "Whether to use QDQ encoding for quantized operators instead of ONNXRuntime contrib operators like"
+                " MatMulNBits"
+            ),
+        )
 
         # DynamicToFixedShape options
         sub_parser.add_argument(
@@ -120,6 +128,26 @@ class AutoOptCommand(BaseOliveCLICommand):
                 "Required only when using QNNExecutionProvider."
             ),
         )
+
+        # Split options
+        split_group = sub_parser.add_mutually_exclusive_group(required=False)
+        split_group.add_argument(
+            "--num-splits",
+            type=int,
+            help="Number of splits to use for model splitting. Input model must be an HfModel.",
+        )
+        split_group.add_argument(
+            "--cost-model",
+            type=str,
+            help=(
+                "Path to the cost model csv file to use for model splitting. Mutually exclusive with num-splits. Must"
+                " be a csv with headers `module,num_params,num_bytes` where each row corresponds to the name or a"
+                " module (with no children), the number of parameters, and the number of bytes the module uses when in"
+                " the desired precision."
+            ),
+        )
+        # TODO(jambayk): Move this to device options
+        sub_parser.add_argument("--memory", type=int, help="Device memory in bytes to use for model splitting.")
 
         # MixedPrecisionOverrides options
         sub_parser.add_argument(
@@ -249,6 +277,9 @@ class AutoOptCommand(BaseOliveCLICommand):
         )
 
         to_replace = [
+            (("capture_split_info", "num_splits"), self.args.num_splits),
+            (("capture_split_info", "cost_model"), self.args.cost_model),
+            (("capture_split_info", "max_memory"), self.args.memory),
             (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
             (
                 ("dynamic_quant", "weight_type"),
@@ -258,7 +289,13 @@ class AutoOptCommand(BaseOliveCLICommand):
                 ("model_builder", "precision"),
                 PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
             ),
-            (("model_builder", "metadata_only"), config["input_model"]["type"].lower() == "onnxmodel"),
+            # select the float dtype based on the precision, int4 only quantizes matmuls so we still need to set
+            # the float precision separately
+            (
+                ("transformer_optimizer", "use_fp16"),
+                self.args.precision == "fp16"
+                or (self.args.precision == "int4" and self.args.provider != "CPUExecutionProvider"),
+            ),
             (("to_fixed_shape", "dim_param"), self.args.dynamic_to_fixed_shape_dim_param),
             (("to_fixed_shape", "dim_value"), self.args.dynamic_to_fixed_shape_dim_value),
             (("mixed_precision_overrides", "overrides_config"), mixed_precision_overrides_config),
@@ -267,19 +304,49 @@ class AutoOptCommand(BaseOliveCLICommand):
             if value is not None:
                 set_nested_dict_value(passes_config, keys, value)
 
-        del passes_config["conversion" if self.args.use_model_builder else "model_builder"]
-        if (self.args.provider != "QNNExecutionProvider") or self.args.use_model_builder:
+        passes_to_remove = set()
+        if config["input_model"]["type"].lower() == "onnxmodel":
+            # remove passes that only operate on PyTorch/Hf models
+            passes_to_remove.update(["capture_split_info", "conversion", "model_builder", "split_model"])
+        else:
+            # only one graph capture pass is used
+            passes_to_remove.add("conversion" if self.args.use_model_builder else "model_builder")
+
+        # optional split passes
+        if self.args.num_splits is None and self.args.cost_model is None:
+            passes_to_remove.update(["capture_split_info", "split_model"])
+        if self.args.cost_model is not None and self.args.memory is None:
+            raise ValueError("memory is required if cost_model is provided.")
+
+        if self.args.provider != "QNNExecutionProvider":
             # Use the DynamicToFixedShape pass only for QNNExecutionProvider
             # becase QNN doesn't support dynamic shaped inputs
-            del passes_config["to_fixed_shape"]
-        elif self.args.provider != "JsExecutionProvider":
-            # JS EP doesn't support fp16
-            del passes_config["fp16_to_fp32"]
+            passes_to_remove.add("to_fixed_shape")
+        else:
+            # qnn ep might not supported optimized model
+            # will re-enable it if needed in the future
+            passes_to_remove.update(["transformer_optimizer", "optimizer"])
+
+        if self.args.provider not in {"JsExecutionProvider", "WebGpuExecutionProvider"}:
+            # JS EP doesn't support fp16 io
+            passes_to_remove.add("fp16_to_fp32")
 
         if self.args.use_model_builder:
-            # Don't run optimizer when using model builder
-            del passes_config["transformer_optimizer"]
+            # Don't run optimizers when using model builder
+            passes_to_remove.add("transformer_optimizer")
+            passes_to_remove.add("optimizer")
+            # model already comes in int4
+            passes_to_remove.add("matmul4")
 
+        if mixed_precision_overrides_config is None:
+            # Remove mixed_precision_overrides pass if not required
+            passes_to_remove.add("mixed_precision_overrides")
+
+        if not self.args.use_qdq_encoding:
+            # Remove QDQ encoding pass if not required
+            passes_to_remove.add("mnb_to_qdq")
+
+        # remove passes that are incompatible with the selected precision, provider, or device
         for pass_name in list(passes_config.keys()):
             pass_run_config = passes_config[pass_name]
             pass_module_config = olive_config.get_pass_module_config(pass_run_config["type"])
@@ -288,7 +355,10 @@ class AutoOptCommand(BaseOliveCLICommand):
                 or (self.args.provider not in pass_module_config.supported_providers)
                 or (self.args.device not in pass_module_config.supported_accelerators)
             ):
-                del passes_config[pass_name]
+                passes_to_remove.add(pass_name)
+
+        for pass_name in passes_to_remove:
+            del passes_config[pass_name]
 
         if "to_fixed_shape" in passes_config and not (
             self.args.dynamic_to_fixed_shape_dim_param and self.args.dynamic_to_fixed_shape_dim_value
@@ -298,7 +368,12 @@ class AutoOptCommand(BaseOliveCLICommand):
                 "when using QNNExecutionProvider."
             )
 
-        if ("conversion" not in passes_config) and ("model_builder" not in passes_config):
+        # check that there is at least one capture pass for non-onnx models
+        if (
+            (config["input_model"]["type"].lower() != "onnxmodel")
+            and ("conversion" not in passes_config)
+            and ("model_builder" not in passes_config)
+        ):
             raise ValueError("Cannot export an onnx model with combination of provided options.")
 
         return passes_config
@@ -340,19 +415,33 @@ TEMPLATE = {
     },
     "passes": OrderedDict(
         [
-            ("conversion", {"type": "OnnxConversion"}),
-            ("model_builder", {"type": "ModelBuilder", "precision": "fp32", "metadata_only": False}),
-            ("transformer_optimizer", {"type": "OrtTransformersOptimization"}),
+            # pytorch related passes
+            ("capture_split_info", {"type": "CaptureSplitInfo"}),
+            # always convert in float32 since float16 doesn't work for all models
+            ("conversion", {"type": "OnnxConversion", "torch_dtype": "float32"}),
+            ("model_builder", {"type": "ModelBuilder", "precision": "fp32"}),
+            # model optimization passes
+            # use transformer optimizer for fp16 conversion too
+            # opt_level set to 0 to avoid graph transformations done by onnxruntime inference sessions
+            # that are incompatible with later passes. opt_level > 0 is optional and can be done during session creation
+            (
+                "transformer_optimizer",
+                {"type": "OrtTransformersOptimization", "opt_level": 0, "use_fp16": False, "keep_io_types": False},
+            ),
             ("optimizer", {"type": "OnnxModelOptimizer"}),
+            # change io types to fp32
             ("fp16_to_fp32", {"type": "OnnxIOFloat16ToFloat32"}),
+            # qnn preparation passes
+            ("to_fixed_shape", {"type": "DynamicToFixedShape", "dim_param": None, "dim_value": None}),
             ("qnn_preprocess", {"type": "QNNPreprocess"}),
+            ("mixed_precision_overrides", {"type": "MixedPrecisionOverrides", "overrides_config": None}),
+            # quantization passes
             ("dynamic_quant", {"type": "OnnxQuantization", "weight_type": "QInt8"}),
             ("matmul4", {"type": "OnnxMatMul4Quantizer"}),
             ("bnb4", {"type": "OnnxBnb4Quantization", "quant_type": "nf4"}),
-            ("to_fixed_shape", {"type": "DynamicToFixedShape", "dim_param": None, "dim_value": None}),
-            ("mixed_precision_overrides", {"type": "MixedPrecisionOverrides", "overrides_config": None}),
-            ("mixed_precision", {"type": "OrtMixedPrecision"}),
+            # post processing passes
             ("mnb_to_qdq", {"type": "MatMulNBitsToQDQ"}),
+            ("split_model", {"type": "SplitModel"}),
             ("extract_adapters", {"type": "ExtractAdapters"}),
         ]
     ),
@@ -363,6 +452,7 @@ TEMPLATE = {
 }
 
 PRECISION_MAPPING = {
+    "capture_split_info": {},
     "conversion": {},
     "model_builder": {},
     "transformer_optimizer": {},
@@ -376,5 +466,6 @@ PRECISION_MAPPING = {
     "mixed_precision_overrides": {},
     "mixed_precision": {},
     "mnb_to_qdq": {},
+    "split_model": {},
     "extract_adapters": {},
 }

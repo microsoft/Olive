@@ -44,9 +44,9 @@ class CaptureSplitInfo(Pass):
                 category=ParamCategory.PATH,
                 description=(
                     "Path to the cost model csv file. One of num_splits or cost_model is required. Must be a csv with"
-                    " headers `module,num_bytes` where module is the name modules (with no children) in the model and"
-                    " num_bytes is the int number of bytes the module uses when in the desired precision. Any other"
-                    " column is not used."
+                    " headers `module,num_params,num_bytes` where each row corresponds to the name or a module (with no"
+                    " children), the number of parameters, and the number of bytes the module uses when in the desired"
+                    " precision."
                 ),
             ),
             # TODO(jambayk): Get this from the accelerator spec?
