@@ -418,7 +418,7 @@ TEMPLATE = {
             # pytorch related passes
             ("capture_split_info", {"type": "CaptureSplitInfo"}),
             # always convert in float32 since float16 doesn't work for all models
-            ("conversion", {"type": "OnnxConversion"}),
+            ("conversion", {"type": "OnnxConversion", "torch_dtype": "float32"}),
             ("model_builder", {"type": "ModelBuilder", "precision": "fp32"}),
             # model optimization passes
             # use transformer optimizer for fp16 conversion too
