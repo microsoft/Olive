@@ -147,7 +147,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             ),
         )
         # TODO(jambayk): Move this to device options
-        sub_parser.add_argument("--device-memory", type=int, help="Device memory in bytes to use for model splitting.")
+        sub_parser.add_argument("--memory", type=int, help="Device memory in bytes to use for model splitting.")
 
         # MixedPrecisionOverrides options
         sub_parser.add_argument(
@@ -279,7 +279,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         to_replace = [
             (("capture_split_info", "num_splits"), self.args.num_splits),
             (("capture_split_info", "cost_model"), self.args.cost_model),
-            (("capture_split_info", "max_memory"), self.args.device_memory),
+            (("capture_split_info", "max_memory"), self.args.memory),
             (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
             (
                 ("dynamic_quant", "weight_type"),
@@ -289,7 +289,13 @@ class AutoOptCommand(BaseOliveCLICommand):
                 ("model_builder", "precision"),
                 PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
             ),
-            (("transformer_optimizer", "use_fp16"), self.args.precision == "fp16"),
+            # select the float dtype based on the precision, int4 only quantizes matmuls so we still need to set
+            # the float precision separately
+            (
+                ("transformer_optimizer", "use_fp16"),
+                self.args.precision == "fp16"
+                or (self.args.precision == "int4" and self.args.provider != "CPUExecutionProvider"),
+            ),
             (("to_fixed_shape", "dim_param"), self.args.dynamic_to_fixed_shape_dim_param),
             (("to_fixed_shape", "dim_value"), self.args.dynamic_to_fixed_shape_dim_value),
             (("mixed_precision_overrides", "overrides_config"), mixed_precision_overrides_config),
@@ -309,13 +315,17 @@ class AutoOptCommand(BaseOliveCLICommand):
         # optional split passes
         if self.args.num_splits is None and self.args.cost_model is None:
             passes_to_remove.update(["capture_split_info", "split_model"])
-        if self.args.cost_model is not None and self.args.device_memory is None:
-            raise ValueError("device_memory is required if cost_model is provided.")
+        if self.args.cost_model is not None and self.args.memory is None:
+            raise ValueError("memory is required if cost_model is provided.")
 
-        if self.args.provider != "QNNExecutionProvider" or self.args.use_model_builder:
+        if self.args.provider != "QNNExecutionProvider":
             # Use the DynamicToFixedShape pass only for QNNExecutionProvider
             # becase QNN doesn't support dynamic shaped inputs
             passes_to_remove.add("to_fixed_shape")
+        else:
+            # qnn ep might not supported optimized model
+            # will re-enable it if needed in the future
+            passes_to_remove.update(["transformer_optimizer", "optimizer"])
 
         if self.args.provider != "JsExecutionProvider":
             # JS EP doesn't support fp16 io
@@ -325,6 +335,8 @@ class AutoOptCommand(BaseOliveCLICommand):
             # Don't run optimizers when using model builder
             passes_to_remove.add("transformer_optimizer")
             passes_to_remove.add("optimizer")
+            # model already comes in int4
+            passes_to_remove.add("matmul4")
 
         if mixed_precision_overrides_config is None:
             # Remove mixed_precision_overrides pass if not required
@@ -411,7 +423,7 @@ TEMPLATE = {
             # model optimization passes
             # use transformer optimizer for fp16 conversion too
             # opt_level set to 0 to avoid graph transformations done by onnxruntime inference sessions
-            # that are incompatible with later passes. opt_level > 0 is optional and cane be done during session creation
+            # that are incompatible with later passes. opt_level > 0 is optional and can be done during session creation
             (
                 "transformer_optimizer",
                 {"type": "OrtTransformersOptimization", "opt_level": 0, "use_fp16": False, "keep_io_types": False},

@@ -186,7 +186,6 @@ class ExtractAdapters(Pass):
                 # MatMulNBits has static K,N dimensions which are set as attributes
                 # No use case for DequantizeLinear with dynamic lora_r
                 logger.info("Quantized modules do not support dynamic_lora_r. Ignoring.")
-                logger.debug("Quantized modules: %s", quant_modules)
 
             # create inputs for the weights
             for weight_name in weights:
