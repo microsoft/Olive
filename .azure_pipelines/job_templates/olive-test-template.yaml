@@ -9,10 +9,6 @@ parameters:
   torch: 'torch'
   requirements_file: 'requirements-test.txt'
 
-
-# - ${{ if and(eq(parameters.device, 'gpu') }}:
-#   container: nvidia/cuda:12.6.2-cudnn-runtime-ubuntu20.04
-
 jobs:
 - job: ${{parameters.name}}
   timeoutInMinutes: 300
@@ -26,6 +22,8 @@ jobs:
     PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
     HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
     PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
+${{ if eq(parameters.onnxruntime, 'onnxruntime-gpu')}}:
+  container: nvidia/cuda:12.6.2-cudnn-runtime-ubuntu20.04
 
   steps:
   - script: docker system df && docker system prune -a -f && docker system df
