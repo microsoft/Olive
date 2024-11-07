@@ -10,7 +10,7 @@ parameters:
   requirements_file: 'requirements-test.txt'
 
 
-${{ if and(eq(paramerts.device, 'gpu') }}:
+- ${{ if and(eq(parameters.device, 'gpu') }}:
   container: nvidia/cuda:12.6.2-cudnn-runtime-ubuntu20.04
 
 jobs:
