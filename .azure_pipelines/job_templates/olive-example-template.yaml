@@ -21,7 +21,7 @@ jobs:
       HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
       OLIVE_TEMPDIR: $(Pipeline.Workspace)/.olive_tempdir
       PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
-    container: mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.4.1-cudnn-runtime-ubuntu20.04
+    container: mcr.microsoft.com/mirror/nvcr/nvidia/pytorch/24.05-py3
 
     steps:
     - template: olive-setup-template.yaml

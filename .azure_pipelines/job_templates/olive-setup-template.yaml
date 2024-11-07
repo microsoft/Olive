@@ -4,13 +4,6 @@ parameters:
   torch: torch
 
 steps:
-- script: |
-    sudo apt update
-    DEBIAN_FRONTEND=noninteractive sudo apt install software-properties-common -y
-    DEBIAN_FRONTEND=noninteractive sudo add-apt-repository ppa:deadsnakes/ppa
-    sudo apt install python${{ parameters.python_version }} -y
-  displayName: Install Python ${{ parameters.python_version }}
-
 - task: UsePythonVersion@0
   inputs:
     versionSpec: ${{ parameters.python_version }}
