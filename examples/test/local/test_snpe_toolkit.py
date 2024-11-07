@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import os
 import platform
+import sys
 from pathlib import Path
 
 import pytest
@@ -71,6 +72,10 @@ class TestSnpeToolkit:
 
     @pytest.mark.parametrize("use_olive_env", [True, False])
     def test_inception_snpe(self, use_olive_env):
+        if use_olive_env and sys.version_info[:2] != (3, 8):
+            # requires python 3.8 to use the active python environments
+            pytest.skip("Skip the test case when python version is not 3.8.")
+
         from olive.workflows import run as olive_run
 
         self._setup_resource(use_olive_env)

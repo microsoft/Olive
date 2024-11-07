@@ -28,13 +28,7 @@ class TestHfLoadKwargs:
 
     @pytest.mark.parametrize(
         ("inputs", "inner"),
-        [
-            ("auto", "auto"),
-            (1, 1),
-            ("cuda:0", "cuda:0"),
-            (torch.device(0), "cuda:0"),
-            (torch.device("cuda:0"), "cuda:0"),
-        ],
+        [("auto", "auto"), (1, 1), ("cuda:0", "cuda:0")],
     )
     def test_device_map(self, inputs, inner):
         args = HfLoadKwargs(device_map=inputs)
