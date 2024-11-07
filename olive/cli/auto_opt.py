@@ -327,7 +327,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             # will re-enable it if needed in the future
             passes_to_remove.update(["transformer_optimizer", "optimizer"])
 
-        if self.args.provider != "JsExecutionProvider":
+        if self.args.provider not in {"JsExecutionProvider", "WebGpuExecutionProvider"}:
             # JS EP doesn't support fp16 io
             passes_to_remove.add("fp16_to_fp32")
 
