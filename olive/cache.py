@@ -647,17 +647,15 @@ class SharedCache:
         output_model_path = Path(output_model_path) / "model"
 
         model_directory_prefix = f"{input_model_id}/model/model"
-        blob_list = self.container_client.list_blobs(name_starts_with=model_directory_prefix)
+        blob_list = self.container_client_factory.get_blob_list(model_directory_prefix)
         self._download_blob_list(blob_list, model_directory_prefix, output_model_path)
 
         adapter_directory_prefix = f"{input_model_id}/model/adapter"
-        blob_list = self.container_client.list_blobs(name_starts_with=adapter_directory_prefix)
+        blob_list = self.container_client_factory.get_blob_list(adapter_directory_prefix)
         self._download_blob_list(blob_list, adapter_directory_prefix, output_model_path, "adapter")
 
         additional_files_directory_prefix = f"{input_model_id}/model/additional_files"
-        additional_files_blob_list = self.container_client.list_blobs(
-            name_starts_with=additional_files_directory_prefix
-        )
+        additional_files_blob_list = self.container_client_factory.get_blob_list(additional_files_directory_prefix)
         self._download_blob_list(
             additional_files_blob_list, additional_files_directory_prefix, output_model_path, "additional_files"
         )
