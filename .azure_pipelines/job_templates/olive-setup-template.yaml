@@ -15,6 +15,9 @@ steps:
 - script: python -m pip install .
   displayName: Install Olive
 
+- script: conda install -y cudnn=9
+  displayName: Install cudnn
+
 - ${{ if startsWith(parameters.onnxruntime, 'ort-nightly') }}:
   - script: |
       pip install onnxruntime
