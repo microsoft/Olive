@@ -21,6 +21,7 @@ jobs:
       HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
       OLIVE_TEMPDIR: $(Pipeline.Workspace)/.olive_tempdir
       PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
+
   ${{ if eq(parameters.onnxruntime, 'onnxruntime-gpu')}}:
     container: nvidia/cuda:12.6.2-cudnn-runtime-ubuntu20.04
 
