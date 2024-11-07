@@ -22,7 +22,7 @@ jobs:
       PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
       HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
       PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
-    container: mcr.microsoft.com/mirror/nvcr/nvidia/pytorch/24.05-py3
+    container: mcr.microsoft.com/mirror/nvcr/nvidia/pytorch:24.05-py3
 
     steps:
     - script: docker system df && docker system prune -a -f && docker system df
