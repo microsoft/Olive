@@ -276,6 +276,10 @@ class AutoOptCommand(BaseOliveCLICommand):
             # JS EP doesn't support fp16
             del passes_config["fp16_to_fp32"]
 
+        if self.args.use_model_builder:
+            # Don't run optimizer when using model builder
+            del passes_config["transformer_optimizer"]
+
         for pass_name in list(passes_config.keys()):
             pass_run_config = passes_config[pass_name]
             pass_module_config = olive_config.get_pass_module_config(pass_run_config["type"])
