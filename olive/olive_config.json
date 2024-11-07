@@ -60,8 +60,8 @@
         },
         "MixedPrecisionOverrides": {
             "module_path": "olive.passes.onnx.mixed_precision_overrides.MixedPrecisionOverrides",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "*" ]
         },
         "MoEExpertsDistributor": {
