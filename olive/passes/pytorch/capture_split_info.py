@@ -42,7 +42,12 @@ class CaptureSplitInfo(Pass):
             "cost_model": PassConfigParam(
                 type_=Union[str, Path],
                 category=ParamCategory.PATH,
-                description="Path to the cost model csv file. One of num_splits or cost_model is required.",
+                description=(
+                    "Path to the cost model csv file. One of num_splits or cost_model is required. Must be a csv with"
+                    " headers `module,num_bytes` where module is the name modules (with no children) in the model and"
+                    " num_bytes is the int number of bytes the module uses when in the desired precision. Any other"
+                    " column is not used."
+                ),
             ),
             # TODO(jambayk): Get this from the accelerator spec?
             "max_memory": PassConfigParam(
