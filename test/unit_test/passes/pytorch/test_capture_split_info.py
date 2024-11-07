@@ -47,7 +47,7 @@ class CustomModel(torch.nn.Module):
         ),
     ],
 )
-def test_capture_split_info(input_model, block_to_split, num_splits, split_assignments, tmp_path):
+def test_capture_split_info_num_splits(input_model, block_to_split, num_splits, split_assignments, tmp_path):
     config = {
         "num_splits": num_splits,
     }
@@ -57,3 +57,46 @@ def test_capture_split_info(input_model, block_to_split, num_splits, split_assig
 
     out = p.run(input_model, str(tmp_path))
     assert out.model_attributes["split_assignments"] == split_assignments
+
+
+def get_cost_model(tmp_path, model_name) -> str:
+    from olive.cli.launcher import main as cli_main
+
+    cost_model_path = str(tmp_path / "cost_model.csv")
+
+    cli_main(["generate-cost-model", "-m", model_name, "-o", cost_model_path])
+
+    return cost_model_path
+
+
+@pytest.mark.parametrize("include_embeds_lm_head", [True, False])
+def test_capture_split_info_cost_model(include_embeds_lm_head, tmp_path):
+    model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    cost_model_path = get_cost_model(tmp_path, model_name)
+
+    p = create_pass_from_dict(
+        CaptureSplitInfo,
+        {
+            "cost_model": cost_model_path,
+            # 2 layers
+            # each layer is around 10 kB in fp16
+            # embed_tokens and lm_head are around 1 MB each in fp16
+            "max_memory": 1e4,
+            "exclude_embeds": not include_embeds_lm_head,
+            "exclude_lm_head": not include_embeds_lm_head,
+        },
+        disable_search=True,
+    )
+    input_model = HfModelHandler(model_path=model_name)
+
+    out = p.run(input_model, str(tmp_path))
+    split_assignments = out.model_attributes["split_assignments"]
+
+    if not include_embeds_lm_head:
+        assert "model.embed_tokens" not in split_assignments
+        assert "model.lm_head" not in split_assignments
+        expected_num_splits = 2
+    else:
+        expected_num_splits = 4
+
+    assert len(set(split_assignments.values())) == expected_num_splits
