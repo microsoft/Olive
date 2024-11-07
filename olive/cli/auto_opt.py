@@ -139,7 +139,12 @@ class AutoOptCommand(BaseOliveCLICommand):
         split_group.add_argument(
             "--cost-model",
             type=str,
-            help="Path to the cost model file to use for model splitting. Mutually exclusive with num-splits.",
+            help=(
+                "Path to the cost model csv file to use for model splitting. Mutually exclusive with num-splits. Must"
+                " be a csv with headers `module,num_params,num_bytes` where each row corresponds to the name or a"
+                " module (with no children), the number of parameters, and the number of bytes the module uses when in"
+                " the desired precision."
+            ),
         )
         # TODO(jambayk): Move this to device options
         sub_parser.add_argument("--device-memory", type=int, help="Device memory in bytes to use for model splitting.")
