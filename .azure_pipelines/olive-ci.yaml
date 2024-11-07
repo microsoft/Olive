@@ -49,6 +49,8 @@ variables:
   runCodesignValidationInjection: false
   skipComponentGovernanceDetection: true
 
+container: nvidia/cuda:12.6.2-cudnn-runtime-ubuntu20.04
+
 jobs:
 # Linux unit tests
 - template: job_templates/olive-test-template.yaml
