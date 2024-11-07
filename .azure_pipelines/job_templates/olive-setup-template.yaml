@@ -5,10 +5,10 @@ parameters:
 
 steps:
 - script: |
-    apt update
-    DEBIAN_FRONTEND=noninteractive apt install software-properties-common -y
-    DEBIAN_FRONTEND=noninteractive add-apt-repository ppa:deadsnakes/ppa
-    apt install python${{ parameters.python_version }} -y
+    sudo apt update
+    DEBIAN_FRONTEND=noninteractive sudo apt install software-properties-common -y
+    DEBIAN_FRONTEND=noninteractive sudo add-apt-repository ppa:deadsnakes/ppa
+    sudo apt install python${{ parameters.python_version }} -y
   displayName: Install Python ${{ parameters.python_version }}
 
 - task: UsePythonVersion@0
