@@ -175,8 +175,6 @@ class QuantLinear4bit(torch.nn.Module):
         self.in_features = in_features
         self.out_features = out_features
 
-        assert group_size >= 16, "group_size must >= 16"
-        assert math.log2(group_size).is_integer(), "group_size must be a power of 2"
         self.group_size = group_size
 
         # only support 4 bits for now
