@@ -162,6 +162,10 @@ class AutoOptCommand(BaseOliveCLICommand):
             ),
         )
 
+        sub_parser.add_argument(
+            "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
+        )
+
         add_search_options(sub_parser)
         add_remote_options(sub_parser)
         add_shared_cache_options(sub_parser)
@@ -338,6 +342,9 @@ class AutoOptCommand(BaseOliveCLICommand):
             # model already comes in int4
             passes_to_remove.add("matmul4")
 
+        if self.args.use_model_builder or not self.args.use_ort_genai:
+            passes_to_remove.add("genai_config_only")
+
         if mixed_precision_overrides_config is None:
             # Remove mixed_precision_overrides pass if not required
             passes_to_remove.add("mixed_precision_overrides")
@@ -420,6 +427,7 @@ TEMPLATE = {
             # always convert in float32 since float16 doesn't work for all models
             ("conversion", {"type": "OnnxConversion", "torch_dtype": "float32"}),
             ("model_builder", {"type": "ModelBuilder", "precision": "fp32"}),
+            ("genai_config_only": {"type": "ModelBuilder", "metadata_only": True}),
             # model optimization passes
             # use transformer optimizer for fp16 conversion too
             # opt_level set to 0 to avoid graph transformations done by onnxruntime inference sessions
