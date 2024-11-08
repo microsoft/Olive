@@ -193,11 +193,15 @@ class AutoOptCommand(BaseOliveCLICommand):
         config = deepcopy(TEMPLATE)
         olive_config = OlivePackageConfig.load_default_config()
 
+        # TODO(anyone): Change add_accelerator_options to have no default device, this can be inferred
+        # by create_accelerators
         if (self.args.provider == "DmlExecutionProvider") and (self.args.device not in ["gpu", "npu"]):
             # Force the device to gpu for Direct ML provider
             self.args.device = "gpu"
         elif self.args.provider in ["QNNExecutionProvider", "VitisAIExecutionProvider"]:
             self.args.device = "npu"
+        elif self.args.provider == "CUDAExecutionProvider":
+            self.args.device = "gpu"
 
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
@@ -284,6 +288,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             (("capture_split_info", "num_splits"), self.args.num_splits),
             (("capture_split_info", "cost_model"), self.args.cost_model),
             (("capture_split_info", "max_memory"), self.args.memory),
+            (("conversion", "save_metadata_for_token_generation"), self.args.use_ort_genai),
             (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
             (
                 ("dynamic_quant", "weight_type"),
@@ -293,10 +298,14 @@ class AutoOptCommand(BaseOliveCLICommand):
                 ("model_builder", "precision"),
                 PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
             ),
+            (
+                ("genai_config_only", "precision"),
+                PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
+            ),
             # select the float dtype based on the precision, int4 only quantizes matmuls so we still need to set
             # the float precision separately
             (
-                ("transformer_optimizer", "use_fp16"),
+                ("transformer_optimizer", "float16"),
                 self.args.precision == "fp16"
                 or (self.args.precision == "int4" and self.args.provider != "CPUExecutionProvider"),
             ),
@@ -427,14 +436,14 @@ TEMPLATE = {
             # always convert in float32 since float16 doesn't work for all models
             ("conversion", {"type": "OnnxConversion", "torch_dtype": "float32"}),
             ("model_builder", {"type": "ModelBuilder", "precision": "fp32"}),
-            ("genai_config_only": {"type": "ModelBuilder", "metadata_only": True}),
+            ("genai_config_only", {"type": "ModelBuilder", "precision": "fp32", "metadata_only": True}),
             # model optimization passes
             # use transformer optimizer for fp16 conversion too
             # opt_level set to 0 to avoid graph transformations done by onnxruntime inference sessions
             # that are incompatible with later passes. opt_level > 0 is optional and can be done during session creation
             (
                 "transformer_optimizer",
-                {"type": "OrtTransformersOptimization", "opt_level": 0, "use_fp16": False, "keep_io_types": False},
+                {"type": "OrtTransformersOptimization", "opt_level": 0, "float16": False, "keep_io_types": False},
             ),
             ("optimizer", {"type": "OnnxModelOptimizer"}),
             # change io types to fp32
