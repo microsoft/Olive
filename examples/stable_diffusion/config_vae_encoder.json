@@ -7,7 +7,7 @@
         "io_config": {
             "input_names": [ "sample", "return_dict" ],
             "output_names": [ "latent_sample" ],
-            "dynamic_axes": { "sample": { "0": "batch", "1": "channels", "2": "height", "3": "width" } }
+            "dynamic_axes": { "sample": { "0": "enocder_batch", "1": "enocder_channels", "2": "enocder_height", "3": "enocder_width" } }
         },
         "dummy_inputs_func": "vae_encoder_conversion_inputs"
     },

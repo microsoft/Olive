@@ -7,6 +7,7 @@ import shutil
 import sys
 from pathlib import Path
 from typing import Dict
+from . import config
 
 import onnxruntime as ort
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline
@@ -133,6 +134,8 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
     batch_size = common_args.batch_size
     image_size = common_args.image_size
     provider = common_args.provider
+    vae_sample_size = config.vae_sample_size
+    unet_sample_size = config.unet_sample_size
 
     if static_dims:
         hidden_batch_size = batch_size if (guidance_scale == 0.0) else batch_size * 2
@@ -146,6 +149,16 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
         sess_options.add_free_dimension_override_by_name("unet_time_batch", 1)
         sess_options.add_free_dimension_override_by_name("unet_hidden_batch", hidden_batch_size)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
+
+        sess_options.add_free_dimension_override_by_name("decoder_batch", batch_size)
+        sess_options.add_free_dimension_override_by_name("decoder_channels", 4)
+        sess_options.add_free_dimension_override_by_name("decoder_height", unet_sample_size)
+        sess_options.add_free_dimension_override_by_name("decoder_width", unet_sample_size)
+
+        sess_options.add_free_dimension_override_by_name("encoder_batch", batch_size)
+        sess_options.add_free_dimension_override_by_name("encoder_channels", 3)
+        sess_options.add_free_dimension_override_by_name("encoder_height", vae_sample_size)
+        sess_options.add_free_dimension_override_by_name("encoder_width", vae_sample_size)
 
     provider_map = {
         "dml": "DmlExecutionProvider",

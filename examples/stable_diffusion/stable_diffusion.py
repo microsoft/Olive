@@ -10,7 +10,7 @@ import warnings
 from pathlib import Path
 from typing import Dict
 
-import config
+import sd_utils.config as config
 import numpy as np
 import torch
 from diffusers import DiffusionPipeline
