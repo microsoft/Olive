@@ -367,9 +367,11 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">fp4</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">nf4</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_qdq_encoding</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">dynamic</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">fixed</span><span class="o">-</span><span class="n">shape</span><span class="o">-</span><span class="n">dim</span><span class="o">-</span><span class="n">param</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_PARAM</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_PARAM</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">dynamic</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">fixed</span><span class="o">-</span><span class="n">shape</span><span class="o">-</span><span class="n">dim</span><span class="o">-</span><span class="n">value</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_VALUE</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_VALUE</span> <span class="o">...</span><span class="p">]]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">num</span><span class="o">-</span><span class="n">splits</span> <span class="n">NUM_SPLITS</span> <span class="o">|</span> <span class="o">--</span><span class="n">cost</span><span class="o">-</span><span class="n">model</span> <span class="n">COST_MODEL</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">mixed</span><span class="o">-</span><span class="n">precision</span><span class="o">-</span><span class="n">overrides</span><span class="o">-</span><span class="n">config</span> <span class="p">[</span><span class="n">MIXED_PRECISION_OVERRIDES_CONFIG</span> <span class="p">[</span><span class="n">MIXED_PRECISION_OVERRIDES_CONFIG</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">enable_search</span> <span class="p">[{</span><span class="n">exhaustive</span><span class="p">,</span><span class="n">tpe</span><span class="p">,</span><span class="n">random</span><span class="p">}]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
@@ -413,12 +415,12 @@
 </dd>
 <dt><kbd>--device</kbd></dt>
 <dd><p>Possible choices: gpu, cpu, npu</p>
-<p>Target device to run the model.</p>
+<p>Target device to run the model. Default is cpu.</p>
 <p>Default: “cpu”</p>
 </dd>
 <dt><kbd>--provider</kbd></dt>
 <dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider</p>
-<p>Execution provider to use for ONNX model.</p>
+<p>Execution provider to use for ONNX model. Default is CPUExecutionProvider.</p>
 <p>Default: “CPUExecutionProvider”</p>
 </dd>
 <dt><kbd>-d, --data_name</kbd></dt>
@@ -446,11 +448,24 @@
 <dd><p>Whether to use model builder pass for optimization, enable only when the model is supported by model builder</p>
 <p>Default: False</p>
 </dd>
+<dt><kbd>--use_qdq_encoding</kbd></dt>
+<dd><p>Whether to use QDQ encoding for quantized operators instead of ONNXRuntime contrib operators like MatMulNBits</p>
+<p>Default: False</p>
+</dd>
 <dt><kbd>--dynamic-to-fixed-shape-dim-param</kbd></dt>
 <dd><p>Symbolic parameter names to use for dynamic to fixed shape pass. Required only when using QNNExecutionProvider.</p>
 </dd>
 <dt><kbd>--dynamic-to-fixed-shape-dim-value</kbd></dt>
 <dd><p>Symbolic parameter values to use for dynamic to fixed shape pass. Required only when using QNNExecutionProvider.</p>
+</dd>
+<dt><kbd>--num-splits</kbd></dt>
+<dd><p>Number of splits to use for model splitting. Input model must be an HfModel.</p>
+</dd>
+<dt><kbd>--cost-model</kbd></dt>
+<dd><p>Path to the cost model csv file to use for model splitting. Mutually exclusive with num-splits. Must be a csv with headers <cite>module,num_params,num_bytes</cite> where each row corresponds to the name or a module (with no children), the number of parameters, and the number of bytes the module uses when in the desired precision.</p>
+</dd>
+<dt><kbd>--memory</kbd></dt>
+<dd><p>Device memory in bytes to use for model splitting.</p>
 </dd>
 <dt><kbd>--mixed-precision-overrides-config</kbd></dt>
 <dd><p>Dictionary of name to precision. Has to be even number of entreis with even entries being the keys and odd entries being the values. Required only when output precision is “fp16” and MixedPrecisionOverrides pass is enabled.</p>
@@ -966,7 +981,7 @@
 </dd>
 <dt><kbd>--device</kbd></dt>
 <dd><p>Possible choices: gpu, cpu, npu</p>
-<p>Target device to run the model.</p>
+<p>Target device to run the model. Default is cpu.</p>
 <p>Default: “cpu”</p>
 </dd>
 <dt><kbd>--providers_list</kbd></dt>
