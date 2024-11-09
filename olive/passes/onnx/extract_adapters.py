@@ -66,7 +66,7 @@ class ExtractAdapters(Pass):
             ),
             "save_format": PassConfigParam(
                 type_=WeightsFileFormat,
-                default_value=WeightsFileFormat.NUMPY,
+                default_value=WeightsFileFormat.ONNX_ADAPTER,
                 description="Format to save the weights in.",
             ),
         }

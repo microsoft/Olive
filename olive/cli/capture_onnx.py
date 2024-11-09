@@ -138,7 +138,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         )
 
         sub_parser.add_argument(
-            "--use_ort_genai", action="store_true", help="Use OnnxRuntie generate() API to run the model"
+            "--use_ort_genai", action="store_true", help="Use OnnxRuntime generate() API to run the model"
         )
 
         # remote options
