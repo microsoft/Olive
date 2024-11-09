@@ -25,6 +25,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import hardlink_copy_dir, set_nested_dict_value
+from olive.constants import MNBAccuracyLevel
 from olive.package_config import OlivePackageConfig
 
 
@@ -109,6 +110,17 @@ class AutoOptCommand(BaseOliveCLICommand):
             help=(
                 "Whether to use QDQ encoding for quantized operators instead of ONNXRuntime contrib operators like"
                 " MatMulNBits"
+            ),
+        )
+        sub_parser.add_argument(
+            "--int4_accuracy_level",
+            type=int,
+            required=False,
+            choices=[el.value for el in MNBAccuracyLevel],
+            help=(
+                "Accuracy level for the activation of MatMulNBits operator in int4 quantized model. Refer to"
+                " https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits"
+                " for more details."
             ),
         )
 
@@ -294,6 +306,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             (("capture_split_info", "cost_model"), self.args.cost_model),
             (("conversion", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
             (("conversion", "save_metadata_for_token_generation"), self.args.use_ort_genai),
+            (("conversion", "int4_accuracy_level"), self.args.int4_accuracy_level),
             (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
             (
                 ("dynamic_quant", "weight_type"),
@@ -303,6 +316,7 @@ class AutoOptCommand(BaseOliveCLICommand):
                 ("model_builder", "precision"),
                 PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
             ),
+            (("model_builder", "int4_accuracy_level"), self.args.int4_accuracy_level),
             (
                 ("genai_config_only", "precision"),
                 PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
@@ -317,6 +331,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             (("to_fixed_shape", "dim_param"), self.args.dynamic_to_fixed_shape_dim_param),
             (("to_fixed_shape", "dim_value"), self.args.dynamic_to_fixed_shape_dim_value),
             (("mixed_precision_overrides", "overrides_config"), mixed_precision_overrides_config),
+            (("matmul4", "accuracy_level"), self.args.int4_accuracy_level),
         ]
         for keys, value in to_replace:
             if value is not None:

@@ -19,14 +19,8 @@ from olive.cli.base import (
     update_remote_options,
     update_shared_cache_options,
 )
-from olive.common.utils import IntEnumBase, set_nested_dict_value
-
-
-class ModelBuilderAccuracyLevel(IntEnumBase):
-    fp32 = 1
-    fp16 = 2
-    bf16 = 3
-    int8 = 4
+from olive.common.utils import set_nested_dict_value
+from olive.constants import MNBAccuracyLevel
 
 
 class CaptureOnnxGraphCommand(BaseOliveCLICommand):
@@ -106,12 +100,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             help="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
         )
         mb_group.add_argument(
-            "--int4_accuracy_level",
-            type=ModelBuilderAccuracyLevel,
-            required=False,
-            help="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
-        )
-        mb_group.add_argument(
             "--exclude_embeds",
             type=bool,
             default=False,
@@ -128,7 +116,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         mb_group.add_argument(
             "--enable_cuda_graph",
             type=bool,
-            default=None,  # Explicitly setting to None to differentiate between user intent and default.
             required=False,
             help=(
                 "The model can use CUDA graph capture for CUDA execution provider. "
@@ -139,6 +126,17 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         sub_parser.add_argument(
             "--use_ort_genai", action="store_true", help="Use OnnxRuntime generate() API to run the model"
+        )
+        sub_parser.add_argument(
+            "--int4_accuracy_level",
+            type=int,
+            required=False,
+            choices=[el.value for el in MNBAccuracyLevel],
+            help=(
+                "Accuracy level for the activation of MatMulNBits operator in int4 quantized model. Refer to"
+                " https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits"
+                " for more details."
+            ),
         )
 
         # remote options
@@ -182,50 +180,39 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 ("systems", "local_system", "accelerators", 0, "execution_providers"),
                 [("CUDAExecutionProvider" if is_fp16 else "CPUExecutionProvider")],
             ),
+            # Model Builder options
+            (("passes", "m", "precision"), self.args.precision),
+            (("passes", "m", "exclude_embeds"), self.args.exclude_embeds),
+            (("passes", "m", "exclude_lm_head"), self.args.exclude_lm_head),
+            (("passes", "m", "enable_cuda_graph"), self.args.enable_cuda_graph),
+            (("passes", "m", "int4_block_size"), self.args.int4_block_size),
+            (("passes", "m", "int4_accuracy_level"), self.args.int4_accuracy_level),
+            # PyTorch Exporter options
+            (
+                ("passes", "c", "device"),
+                self.args.conversion_device if self.args.conversion_device == "cpu" else "cuda",
+            ),
+            (("passes", "c", "torch_dtype"), self.args.torch_dtype),
+            (("passes", "c", "target_opset"), self.args.target_opset),
+            (("passes", "c", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
+            (("passes", "c", "past_key_value_name"), self.args.past_key_value_name),
+            (("passes", "c", "save_metadata_for_token_generation"), self.args.use_ort_genai),
+            (("passes", "c", "int4_accuracy_level"), self.args.int4_accuracy_level),
+            # Metadata options
+            (("passes", "mo", "precision"), "fp16" if is_fp16 else "fp32"),
         ]
-        if self.args.use_model_builder:
-            del config["passes"]["c"]
-            to_replace.extend(
-                [
-                    (("passes", "m", "precision"), self.args.precision),
-                    (("passes", "m", "exclude_embeds"), self.args.exclude_embeds),
-                    (("passes", "m", "exclude_lm_head"), self.args.exclude_lm_head),
-                    (("passes", "m", "enable_cuda_graph"), self.args.enable_cuda_graph),
-                ]
-            )
-            if self.args.int4_block_size is not None:
-                to_replace.append((("passes", "m", "int4_block_size"), self.args.int4_block_size))
-            if self.args.int4_accuracy_level is not None:
-                to_replace.append((("passes", "m", "int4_accuracy_level"), self.args.int4_accuracy_level))
-        else:
-            to_replace.extend(
-                [
-                    (
-                        ("passes", "c", "device"),
-                        self.args.conversion_device if self.args.conversion_device == "cpu" else "cuda",
-                    ),
-                    (("passes", "c", "torch_dtype"), self.args.torch_dtype),
-                    (("passes", "c", "target_opset"), self.args.target_opset),
-                    (("passes", "c", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
-                    (("passes", "c", "save_metadata_for_token_generation"), self.args.use_ort_genai),
-                ]
-            )
-            if self.args.use_dynamo_exporter:
-                to_replace.append((("passes", "c", "past_key_value_name"), self.args.past_key_value_name))
-            if not self.args.use_ort_genai:
-                del config["passes"]["m"]
-            else:
-                to_replace.extend(
-                    [
-                        (("passes", "m", "precision"), "fp16" if is_fp16 else "fp32"),
-                        (("passes", "m", "metadata_only"), True),
-                    ]
-                )
-
         for keys, value in to_replace:
             if value is None:
                 continue
             set_nested_dict_value(config, keys, value)
+
+        if self.args.use_model_builder:
+            del config["passes"]["c"], config["passes"]["mo"]
+        else:
+            del config["passes"]["m"]
+            if not self.args.use_ort_genai:
+                del config["passes"]["mo"]
+
         update_remote_options(config, self.args, "capture-onnx-graph", tempdir)
         update_shared_cache_options(config, self.args)
 
@@ -244,7 +231,8 @@ TEMPLATE = {
         "c": {
             "type": "OnnxConversion",
         },
-        "m": {"type": "ModelBuilder", "metadata_only": False},
+        "mo": {"type": "ModelBuilder", "metadata_only": True},
+        "m": {"type": "ModelBuilder"},
     },
     "host": "local_system",
     "target": "local_system",

@@ -14,7 +14,7 @@ from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.pydantic_v1 import validator
-from olive.common.utils import exclude_keys, hash_string
+from olive.common.utils import StrEnumBase, exclude_keys, hash_string
 from olive.data.config import DataConfig
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
@@ -609,6 +609,13 @@ class OnnxStaticQuantization(OnnxQuantization):
 
 
 class OnnxMatMul4Quantizer(Pass):
+
+    class Algorithm(StrEnumBase):
+        DEFAULT = "DEFAULT"
+        HQQ = "HQQ"
+        RTN = "RTN"
+        GPTQ = "GPTQ"
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
@@ -644,7 +651,7 @@ class OnnxMatMul4Quantizer(Pass):
                 ),
             ),
             "algorithm": PassConfigParam(
-                type_=str,
+                type_=OnnxMatMul4Quantizer.Algorithm,
                 default_value=None,
                 description=(
                     "If 'None', the Matmul node with fp32 const weight will be quantize to int4."
@@ -704,8 +711,6 @@ class OnnxMatMul4Quantizer(Pass):
     @classmethod
     def _validators(cls) -> Dict[str, Callable]:
         return {
-            "validate_accuracy_level": validator("accuracy_level", allow_reuse=True)(_validate_accuracy_level),
-            "validate_algorithm": validator("algorithm", allow_reuse=True)(_validate_algorithm),
             "validate_quant_config": validator("weight_only_quant_configs", allow_reuse=True)(
                 _validate_weight_only_quant_config
             ),
@@ -788,26 +793,6 @@ class OnnxMatMul4Quantizer(Pass):
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(quant.model.model, output_model_path, config)
-
-
-def _validate_accuracy_level(v, values, field):
-    if not v:
-        return v
-
-    if v not in (0, 1, 2, 3, 4):
-        raise ValueError(f"OnnxMatMul4Quantizer {field.name} must be 0(unset), 1(fp32), 2(fp16), 3(bf16) or 4(int8)")
-
-    return v
-
-
-def _validate_algorithm(v, values, field):
-    if not v:
-        return v
-
-    if v not in ("DEFAULT", "HQQ", "RTN", "GPTQ"):
-        raise ValueError(f"OnnxMatMul4Quantizer {field.name} must be 'DEFAULT', 'HQQ', 'RTN', 'GPTQ'")
-
-    return v
 
 
 def _validate_weight_only_quant_config(v, values, field):

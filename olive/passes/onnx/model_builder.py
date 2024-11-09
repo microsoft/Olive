@@ -13,7 +13,8 @@ from typing import Any, Dict, Union
 import onnx
 import transformers
 
-from olive.common.utils import IntEnumBase, StrEnumBase
+from olive.common.utils import StrEnumBase
+from olive.constants import MNBAccuracyLevel
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -34,12 +35,6 @@ class ModelBuilder(Pass):
         FP16 = "fp16"
         INT8 = "int8"
         INT4 = "int4"
-
-    class AccuracyLevel(IntEnumBase):
-        fp32 = 1
-        fp16 = 2
-        bf16 = 3
-        int8 = 4
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -64,7 +59,7 @@ class ModelBuilder(Pass):
                 description="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
             ),
             "int4_accuracy_level": PassConfigParam(
-                type_=ModelBuilder.AccuracyLevel,
+                type_=MNBAccuracyLevel,
                 required=False,
                 description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
             ),

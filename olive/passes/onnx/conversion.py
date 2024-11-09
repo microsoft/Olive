@@ -15,6 +15,7 @@ from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
+from olive.constants import MNBAccuracyLevel
 from olive.hardware import AcceleratorSpec
 from olive.model import (
     DistributedHfModelHandler,
@@ -103,6 +104,15 @@ class OnnxConversion(Pass):
                     "Includes config.json, generation_config.json, and tokenizer related files."
                 ),
             ),
+            "int4_accuracy_level": PassConfigParam(
+                type_=MNBAccuracyLevel,
+                required=False,
+                description=(
+                    "Accuracy level for the activation of MatMulNBits operator in int4 quantized model. Refer to"
+                    " https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits"
+                    " for more details."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -186,7 +196,7 @@ class OnnxConversion(Pass):
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
         pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config["merge_adapter_weights"])
-        pytorch_model = make_export_compatible_quant(pytorch_model)
+        pytorch_model = make_export_compatible_quant(pytorch_model, accuracy_level=config["int4_accuracy_level"])
         # cast to dtype, want all modules including lora layers and quant linears in the same dtype
         if torch_dtype:
             pytorch_model = pytorch_model.to(torch_dtype)

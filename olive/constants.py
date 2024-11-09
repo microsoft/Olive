@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive.common.utils import StrEnumBase
+from olive.common.utils import IntEnumBase, StrEnumBase
 
 
 class Framework(StrEnumBase):
@@ -32,3 +32,12 @@ class ModelFileFormat(StrEnumBase):
     QNN_SERIALIZED_BIN = "QNN.SERIALIZED.BIN"
     OPENVINO_IR = "OpenVINO.IR"
     COMPOSITE_MODEL = "Composite"
+
+
+class MNBAccuracyLevel(IntEnumBase):
+    """Accuracy level of the MatMulNBits Operator."""
+
+    fp32 = 1
+    fp16 = 2
+    bf16 = 3
+    int8 = 4

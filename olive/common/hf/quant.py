@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 import math
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 import torch
 import transformers
@@ -78,7 +78,7 @@ def get_bnb_qlinear_cls(quantization_config):
 
 @torch.no_grad()
 def _replace_qlinear_modules(
-    model: torch.nn.Module, mapping: Dict[str, Tuple[Callable, Callable]], desc: str
+    model: torch.nn.Module, mapping: Dict[str, Tuple[Callable, Callable]], desc: str, **kwargs
 ) -> Tuple[torch.nn.Module, bool]:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions.
 
@@ -87,6 +87,7 @@ def _replace_qlinear_modules(
         - function to get qlinear class from quantization config
         - function to get new class to replace qlinear modules with
     :param desc: description of the operation
+    :param kwargs: additional arguments to pass to the functions
     :return model: the modified model
     :return modified: whether the model was modified
     """
@@ -106,7 +107,7 @@ def _replace_qlinear_modules(
     num_modified = 0
     for name, module in model.named_modules():
         if isinstance(module, qlinear_class):
-            new_module = mapping[quantization_method][1](module)
+            new_module = mapping[quantization_method][1](module, **kwargs)
             set_attr(model, name, new_module)
             # quantized lora layers have another reference to the qlinear module
             parent = get_attr(model, ".".join(name.split(".")[:-1]))
@@ -124,16 +125,13 @@ class QuantLinearTorchFunction(torch.autograd.Function):
 
     # pylint: disable=W0223,W0221
     @staticmethod
-    def symbolic(g, x, qweight, scales, qzeros, g_idx, bits, group_size, in_features, out_features):
+    def symbolic(g, x, qweight, scales, qzeros, g_idx, bits, group_size, in_features, out_features, accuracy_level):
         tensor_args = [x, qweight, scales, qzeros]
         if g_idx is not None:
             tensor_args.append(g_idx)
-        attrs = {
-            "K_i": in_features,
-            "N_i": out_features,
-            "bits_i": bits,
-            "block_size_i": group_size,
-        }
+        attrs = {"K_i": in_features, "N_i": out_features, "bits_i": bits, "block_size_i": group_size}
+        if accuracy_level is not None:
+            attrs["accuracy_level_i"] = accuracy_level
 
         output = g.op(
             "com.microsoft::MatMulNBits",
@@ -150,7 +148,7 @@ class QuantLinearTorchFunction(torch.autograd.Function):
         return output
 
     @staticmethod
-    def forward(ctx, x, qweight, scales, qzeros, g_idx, bits, group_size, in_features, out_features):
+    def forward(ctx, x, qweight, scales, qzeros, g_idx, bits, group_size, in_features, out_features, accuracy_level):
         if torch.onnx.is_in_onnx_export():
             return torch.zeros(x.shape[:-1] + (out_features,), dtype=x.dtype, device=x.device)
         raise NotImplementedError("QuantLinearTorchFunction forward is only implemented for onnx export")
@@ -170,10 +168,12 @@ class QuantLinear4bit(torch.nn.Module):
         g_idx: bool = False,
         bias: bool = False,
         dtype: torch.dtype = torch.float32,
+        accuracy_level: Optional[int] = None,
     ):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
+        self.accuracy_level = accuracy_level
 
         self.group_size = group_size
 
@@ -215,6 +215,7 @@ class QuantLinear4bit(torch.nn.Module):
             self.group_size,
             self.in_features,
             self.out_features,
+            self.accuracy_level,
         )
         return out + self.bias if self.bias is not None else out
 
@@ -251,7 +252,7 @@ class QuantLinear4bit(torch.nn.Module):
         self.g_idx = g_idx
 
 
-def make_auto_awq_qlinear4bit(qlinear):
+def make_auto_awq_qlinear4bit(qlinear, accuracy_level: Optional[int] = None):
     if qlinear.w_bit != 4:
         return qlinear
 
@@ -271,13 +272,14 @@ def make_auto_awq_qlinear4bit(qlinear):
         iweight.shape[0],
         bias=qlinear.bias is not None,
         dtype=qlinear.scales.dtype,
+        accuracy_level=accuracy_level,
     )
     new_qlinear.pack(iweight, izeros, scales)
 
     return new_qlinear
 
 
-def make_auto_gptq_qlinear4bit(qlinear):
+def make_auto_gptq_qlinear4bit(qlinear, accuracy_level: Optional[int] = None):
     if qlinear.bits != 4:
         return qlinear
 
@@ -300,6 +302,7 @@ def make_auto_gptq_qlinear4bit(qlinear):
         g_idx=g_idx is not None,
         bias=qlinear.bias is not None,
         dtype=qlinear.scales.dtype,
+        accuracy_level=accuracy_level,
     )
     new_qlinear.pack(iweight, izeros, scales, g_idx)
 
@@ -313,10 +316,10 @@ EXPORT_QLINEAR_MAPPING = {
 }
 
 
-def make_export_compatible_quant(model: torch.nn.Module) -> torch.nn.Module:
+def make_export_compatible_quant(model: torch.nn.Module, accuracy_level: Optional[int] = None) -> torch.nn.Module:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions."""
     model, modified = _replace_qlinear_modules(
-        model, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model"
+        model, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model", accuracy_level=accuracy_level
     )
     if modified:
         # set quantization method to None, gptq doesn't allow dtype casting
