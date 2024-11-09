@@ -209,6 +209,7 @@
       "properties": {
         "device": {
           "title": "Device",
+          "description": "Device to use for the accelerator",
           "anyOf": [
             {
               "type": "string"
@@ -220,10 +221,23 @@
         },
         "execution_providers": {
           "title": "Execution Providers",
+          "description": "Execution providers for the accelerator. Each must end with ExecutionProvider",
           "type": "array",
           "items": {
             "type": "string"
           }
+        },
+        "memory": {
+          "title": "Memory",
+          "description": "Memory size of accelerator in bytes. Can also be provided in string format like 1GB.",
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
         }
       }
     },

@@ -150,8 +150,8 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">CaseInsensitiveEnum</span><span class="p">,</span> <span class="n">ConfigBase</span>
-<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">validator</span>
-<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">Device</span>
+<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
+<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span><span class="p">,</span> <span class="n">Device</span>
 
 
 <div class="viewcode-block" id="SystemType"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.common.SystemType">[docs]</a><span class="k">class</span> <span class="nc">SystemType</span><span class="p">(</span><span class="n">CaseInsensitiveEnum</span><span class="p">):</span>
@@ -163,14 +163,30 @@
 
 
 <div class="viewcode-block" id="AcceleratorConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.common.AcceleratorConfig">[docs]</a><span class="k">class</span> <span class="nc">AcceleratorConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">execution_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Device to use for the accelerator&quot;</span><span class="p">)</span>
+    <span class="n">execution_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Execution providers for the accelerator. Each must end with ExecutionProvider&quot;</span>
+    <span class="p">)</span>
+    <span class="n">memory</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Memory size of accelerator in bytes. Can also be provided in string format like 1GB.&quot;</span>
+    <span class="p">)</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;execution_providers&quot;</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">validate_device_and_execution_providers</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;device&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">v</span> <span class="ow">and</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;device&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># checking for not v since v could be an empty list</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Either device or execution_providers must be provided&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+<div class="viewcode-block" id="AcceleratorConfig.validate_ep_suffix"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.common.AcceleratorConfig.validate_ep_suffix">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;execution_providers&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">each_item</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_ep_suffix</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">v</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;ExecutionProvider&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Execution provider </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> should end with ExecutionProvider&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">v</span></div>
+
+<div class="viewcode-block" id="AcceleratorConfig.validate_memory"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.common.AcceleratorConfig.validate_memory">[docs]</a>    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;memory&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_memory</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">AcceleratorSpec</span><span class="o">.</span><span class="n">str_to_int_memory</span><span class="p">(</span><span class="n">v</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="AzureMLDockerConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.common.AzureMLDockerConfig">[docs]</a><span class="k">class</span> <span class="nc">AzureMLDockerConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
