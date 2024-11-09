@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import pytest
 
+from olive.hardware import AcceleratorSpec
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
@@ -31,6 +32,7 @@ def input_model_info_fixture(request, tmp_path_factory):
 
     # add split info to the model
     capture_config = {}
+    accelerator_spec = None
     if request.param:
         from olive.cli.launcher import main as cli_main
 
@@ -39,12 +41,12 @@ def input_model_info_fixture(request, tmp_path_factory):
         cli_main(["generate-cost-model", "-m", model_name, "-o", cost_model_path])
 
         capture_config["cost_model"] = cost_model_path
-        capture_config["max_memory"] = 4e4
+        accelerator_spec = AcceleratorSpec(accelerator_type="cpu", memory=4e4)
     else:
         capture_config["num_splits"] = 2
-    input_model = create_pass_from_dict(CaptureSplitInfo, capture_config, disable_search=True).run(
-        input_model, tmp_path
-    )
+    input_model = create_pass_from_dict(
+        CaptureSplitInfo, capture_config, accelerator_spec=accelerator_spec, disable_search=True
+    ).run(input_model, tmp_path)
 
     # conversion fp32
     all_models["convert_fp32"] = create_pass_from_dict(
