@@ -15,6 +15,7 @@ import yaml
 from olive.cli.constants import CONDA_CONFIG
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import hardlink_copy_dir, hash_dict, hf_repo_exists, set_nested_dict_value, unescaped_str
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, find_all_resources
 
@@ -598,6 +599,12 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
                 "If not provided, all available providers will be used."
             ),
         )
+    accelerator_group.add_argument(
+        "--memory",
+        type=AcceleratorSpec.str_to_int_memory,
+        default=None,
+        help="Memory limit for the accelerator in bytes. Default is None.",
+    )
 
     return accelerator_group
 
@@ -607,6 +614,7 @@ def update_accelerator_options(args, config, single_provider: bool = True):
     to_replace = [
         (("systems", "local_system", "accelerators", 0, "device"), args.device),
         (("systems", "local_system", "accelerators", 0, "execution_providers"), execution_providers),
+        (("systems", "local_system", "accelerators", 0, "memory"), args.memory),
     ]
     for k, v in to_replace:
         if v is not None:

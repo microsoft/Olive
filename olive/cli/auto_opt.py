@@ -146,8 +146,6 @@ class AutoOptCommand(BaseOliveCLICommand):
                 " the desired precision."
             ),
         )
-        # TODO(jambayk): Move this to device options
-        sub_parser.add_argument("--memory", type=int, help="Device memory in bytes to use for model splitting.")
 
         # MixedPrecisionOverrides options
         sub_parser.add_argument(
@@ -287,7 +285,6 @@ class AutoOptCommand(BaseOliveCLICommand):
         to_replace = [
             (("capture_split_info", "num_splits"), self.args.num_splits),
             (("capture_split_info", "cost_model"), self.args.cost_model),
-            (("capture_split_info", "max_memory"), self.args.memory),
             (("conversion", "save_metadata_for_token_generation"), self.args.use_ort_genai),
             (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
             (
