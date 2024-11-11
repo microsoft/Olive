@@ -91,6 +91,11 @@ class AutoOptCommand(BaseOliveCLICommand):
             ),
         )
         sub_parser.add_argument(
+            "--use_dynamo_exporter",
+            action="store_true",
+            help="Whether to use dynamo_export API to export ONNX model.",
+        )
+        sub_parser.add_argument(
             "--use_model_builder",
             action="store_true",
             help=(
@@ -285,6 +290,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         to_replace = [
             (("capture_split_info", "num_splits"), self.args.num_splits),
             (("capture_split_info", "cost_model"), self.args.cost_model),
+            (("conversion", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
             (("conversion", "save_metadata_for_token_generation"), self.args.use_ort_genai),
             (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
             (
@@ -431,7 +437,7 @@ TEMPLATE = {
             # pytorch related passes
             ("capture_split_info", {"type": "CaptureSplitInfo"}),
             # always convert in float32 since float16 doesn't work for all models
-            ("conversion", {"type": "OnnxConversion", "torch_dtype": "float32"}),
+            ("conversion", {"type": "OnnxConversion", "torch_dtype": "float32", "use_dynamo_exporter": False}),
             ("model_builder", {"type": "ModelBuilder", "precision": "fp32"}),
             ("genai_config_only", {"type": "ModelBuilder", "precision": "fp32", "metadata_only": True}),
             # model optimization passes
