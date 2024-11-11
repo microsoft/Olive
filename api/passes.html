@@ -2239,6 +2239,24 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-use_int4">
+<span class="sig-name descname"><span class="pre">use_int4</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_int4" title="Permalink to this definition"></a></dt>
+<dd><p>Whether to use int4 data type for the quantized weight. Default is False and uses uint4 data type.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-add_zero_point">
+<span class="sig-name descname"><span class="pre">add_zero_point</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-add_zero_point" title="Permalink to this definition"></a></dt>
+<dd><p>Whether to add zero point for symmetric quantized weights, i.e., DQ zero point is 0. Default is False.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-107">
 <span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-107" title="Permalink to this definition"></a></dt>
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
