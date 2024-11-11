@@ -368,7 +368,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">fp4</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">nf4</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_qdq_encoding</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">use_dynamo_exporter</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">use_qdq_encoding</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">dynamic</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">fixed</span><span class="o">-</span><span class="n">shape</span><span class="o">-</span><span class="n">dim</span><span class="o">-</span><span class="n">param</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_PARAM</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_PARAM</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">dynamic</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">fixed</span><span class="o">-</span><span class="n">shape</span><span class="o">-</span><span class="n">dim</span><span class="o">-</span><span class="n">value</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_VALUE</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_VALUE</span> <span class="o">...</span><span class="p">]]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">num</span><span class="o">-</span><span class="n">splits</span> <span class="n">NUM_SPLITS</span> <span class="o">|</span> <span class="o">--</span><span class="n">cost</span><span class="o">-</span><span class="n">model</span> <span class="n">COST_MODEL</span><span class="p">]</span>
@@ -447,6 +448,10 @@
 <dd><p>Possible choices: fp4, fp8, fp16, fp32, int4, int8, int16, int32, nf4</p>
 <p>The output precision of the optimized model. If not specified, the default precision is fp32 for cpu and fp16 for gpu</p>
 <p>Default: “fp32”</p>
+</dd>
+<dt><kbd>--use_dynamo_exporter</kbd></dt>
+<dd><p>Whether to use dynamo_export API to export ONNX model.</p>
+<p>Default: False</p>
 </dd>
 <dt><kbd>--use_model_builder</kbd></dt>
 <dd><p>Whether to use model builder pass for optimization, enable only when the model is supported by model builder</p>
