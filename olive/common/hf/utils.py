@@ -31,6 +31,21 @@ def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTr
     else:
         raise ValueError("unsupported transformers version")
 
+    model_config = get_model_config(model_name_or_path, **kwargs)
+    if getattr(model_config, "quantization_config", None):
+        if not isinstance(model_config.quantization_config, dict):
+            model_config.quantization_config = model_config.quantization_config.to_dict()
+
+        if model_config.quantization_config.get("quant_method") == "gptq":
+            config_use_exllama = model_config.quantization_config.get("use_exllama")
+            # Force use_exllama to False for GPTQ quantized models unless it's provided as load kwargs
+            # we mostly use quantized model for export and finetuning. Both don't support exllama
+            kwargs_use_exllama = kwargs.pop("use_exllama", None) or False
+            if config_use_exllama != kwargs_use_exllama:
+                model_config.quantization_config["use_exllama"] = kwargs_use_exllama
+                # provide config to the model load kwargs to override the saved config
+                kwargs["config"] = model_config
+
     class_tuple = targeted_task["pt"] or (AutoModel,)
     model = None
     for i, model_class in enumerate(class_tuple):

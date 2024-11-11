@@ -40,7 +40,8 @@ def test_load_model_from_task():
         ([ValueError("value error 1"), ValueError("value error 2")], ValueError, "value error 2"),
     ],
 )
-def test_load_model_from_task_exception_handling(exceptions, expected_exception, expected_message):
+@patch("olive.common.hf.utils.get_model_config")
+def test_load_model_from_task_exception_handling(_, exceptions, expected_exception, expected_message):
     with patch("transformers.pipelines.check_task") as mock_check_task:
         mocked_model_classes = []
         for exception in exceptions:
