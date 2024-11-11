@@ -106,8 +106,8 @@
             "supported_accelerators": [ "cpu", "gpu" ],
             "supported_precisions": [ "int4" ]
         },
-        "OnnxModelOptimizer": {
-            "module_path": "olive.passes.onnx.model_optimizer.OnnxModelOptimizer",
+        "OnnxPeepholeOptimizer": {
+            "module_path": "olive.passes.onnx.peephole_optimizer.OnnxPeepholeOptimizer",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ]

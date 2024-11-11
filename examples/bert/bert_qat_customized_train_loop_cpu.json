@@ -36,7 +36,7 @@
             "training_loop_func": "training_loop_func"
         },
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
-        "model_optimizer": { "type": "ONNXModelOptimizer" },
+        "peephole_optimizer": { "type": "OnnxPeepholeOptimizer" },
         "transformers_optimization": { "type": "OrtTransformersOptimization" },
         "session_params_tuning": { "type": "OrtSessionParamsTuning" }
     },

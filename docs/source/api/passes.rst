@@ -18,11 +18,11 @@ OnnxOpVersionConversion
 -----------------------
 .. autoconfigclass:: olive.passes.OnnxOpVersionConversion
 
-.. _onnx_model_optimizer:
+.. _onnx_peephole_optimizer:
 
-OnnxModelOptimizer
-------------------
-.. autoconfigclass:: olive.passes.OnnxModelOptimizer
+OnnxPeepholeOptimizer
+---------------------
+.. autoconfigclass:: olive.passes.OnnxPeepholeOptimizer
 
 .. _ort_transformers_optimization:
 

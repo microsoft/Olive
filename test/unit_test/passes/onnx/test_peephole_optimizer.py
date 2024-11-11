@@ -12,7 +12,7 @@ from onnx import TensorProto, helper
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import model_proto_to_olive_model
-from olive.passes.onnx.model_optimizer import OnnxModelOptimizer
+from olive.passes.onnx.peephole_optimizer import OnnxPeepholeOptimizer
 
 if TYPE_CHECKING:
     from olive.model import ONNXModelHandler
@@ -29,10 +29,10 @@ def external_data_config_fixture():
     }
 
 
-def test_onnx_model_optimizer_pass(tmp_path):
+def test_onnx_peephole_optimizer_pass(tmp_path):
     # setup
     input_model = get_onnx_model()
-    p = create_pass_from_dict(OnnxModelOptimizer, {}, disable_search=True)
+    p = create_pass_from_dict(OnnxPeepholeOptimizer, {}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
     # execute
@@ -57,19 +57,19 @@ def _make_model_for_patch_unsupported_argmax_operator(
     ]
     model = helper.make_model(
         graph_def,
-        producer_name="From test_model_optimizer.py",
+        producer_name="From test_peephole_optimizer.py",
         opset_imports=opset_imports,
     )
 
     return model_proto_to_olive_model(model, filepath, config)
 
 
-def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_modified(tmp_path, external_data_config):
+def test_onnx_peephole_optimizer_pass_patch_unsupported_argmax_operator_modified(tmp_path, external_data_config):
     m = _make_model_for_patch_unsupported_argmax_operator(
         TensorProto.INT64, str(tmp_path / "input.onnx"), external_data_config
     )
     p = create_pass_from_dict(
-        OnnxModelOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
+        OnnxPeepholeOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
     )
 
     actual_model = p.run(m, str(tmp_path / "onnx"))
@@ -94,12 +94,12 @@ def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_modified(tm
     assert others_op_count == 0
 
 
-def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_unmodified(tmp_path, external_data_config):
+def test_onnx_peephole_optimizer_pass_patch_unsupported_argmax_operator_unmodified(tmp_path, external_data_config):
     m = _make_model_for_patch_unsupported_argmax_operator(
         TensorProto.INT32, str(tmp_path / "input.onnx"), external_data_config
     )
     p = create_pass_from_dict(
-        OnnxModelOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
+        OnnxPeepholeOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
     )
 
     actual_model = p.run(m, str(tmp_path / "onnx"))
@@ -120,7 +120,7 @@ def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_unmodified(
     assert others_op_count == 0
 
 
-def test_onnx_model_optimizer_pass_fuse_reshape_operations(tmp_path, external_data_config):
+def test_onnx_peephole_optimizer_pass_fuse_reshape_operations(tmp_path, external_data_config):
     import numpy as np
 
     X = helper.make_tensor_value_info("X", TensorProto.INT64, [None])  # noqa: N806
@@ -160,13 +160,13 @@ def test_onnx_model_optimizer_pass_fuse_reshape_operations(tmp_path, external_da
     ]
     model = helper.make_model(
         graph_def,
-        producer_name="From test_model_optimizer.py",
+        producer_name="From test_peephole_optimizer.py",
         opset_imports=opset_imports,
     )
 
     m = model_proto_to_olive_model(model, str(tmp_path / "input.onnx"), external_data_config)
     p = create_pass_from_dict(
-        OnnxModelOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR
+        OnnxPeepholeOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR
     )
 
     actual_model = p.run(m, str(tmp_path / "onnx"))
