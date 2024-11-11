@@ -184,14 +184,14 @@
 <p>Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.</p>
 <section id="model-optimizer">
 <h2>Model Optimizer<a class="headerlink" href="#model-optimizer" title="Permalink to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">OnnxModelOptimizer</span></code> optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
+<p><code class="docutils literal notranslate"><span class="pre">OnnxPeepholeOptimizer</span></code> optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
 reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.</p>
-<p>Also, inserts a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operation for cases where <code class="docutils literal notranslate"><span class="pre">ArgMax</span></code> input isn’t supported on the device. For example, on GPU inferencing, TensorProto.INT64 isn’t supported so a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operator inserted to cast the inputs to TensorProto.INT32.</p>
-<p>Please refer to <a class="reference internal" href="../../api/passes.html#onnx-model-optimizer"><span class="std std-ref">OnnxModelOptimizer</span></a> for more details about the pass and its config parameters.</p>
+<p>Also, inserts a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operation for cases where <code class="docutils literal notranslate"><span class="pre">ArgMax</span></code> input. For example, before ONNXRuntime 1.20, TensorProto.INT64 isn’t supported on CPU or CUDA EP so a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operator inserted to cast the inputs to TensorProto.INT32.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#onnx-peephole-optimizer"><span class="std std-ref">OnnxPeepholeOptimizer</span></a> for more details about the pass and its config parameters.</p>
 <section id="example-configuration">
 <h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading"></a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxModelOptimizer&quot;</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxPeepholeOptimizer&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
