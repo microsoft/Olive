@@ -1,0 +1,23 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "microsoft/Phi-3-mini-4k-instruct",
+        "task": "text-classification"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "DmlExecutionProvider" ] } ]
+        }
+    },
+    "engine": { "target": "local_system" },
+    "passes": {
+        "builder": { "type": "ModelBuilder", "precision": "fp16" },
+        "quantization": {
+            "type": "NVModelOptQuantization",
+            "algorithm": "AWQ",
+            "tokenizer_dir": "microsoft/Phi-3-mini-4k-instruct",
+            "calibration": "awq_lite"
+        }
+    }
+}

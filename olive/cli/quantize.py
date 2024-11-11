@@ -196,7 +196,7 @@ TEMPLATE = {
         "bnb4": {"type": "OnnxBnb4Quantization", "quant_type": "nf4"},
         "matmul4": {"type": "OnnxMatMul4Quantizer", "accuracy_level": 4},
         "mnb_to_qdq": {"type": "MatMulNBitsToQDQ"},
-        "nvmo": {"type": "NVModelOptQuantization", "precision": "int4", "algorithm": "RTN"},
+        "nvmo": {"type": "NVModelOptQuantization", "precision": "int4", "algorithm": "AWQ"},
         "onnx_dynamic": {"type": "OnnxDynamicQuantization", "weight_type": "QInt8"},
         "inc_dynamic": {"type": "IncDynamicQuantization", "quant_level": "auto", "algorithm": "RTN"},
         # NOTE(all): Not supported yet!
@@ -224,7 +224,7 @@ ALGORITHMS = {
         "description": "(HfModel, OnnxModel) WOQ with GPTQ.",
     },
     "rtn": {
-        "implementations": ["quarot", "bnb4", "matmul4", "nvmo"],
+        "implementations": ["quarot", "bnb4", "matmul4"],
         "hf_model_defaults": {"implementation": "quarot", "precision": "int16"},
         "onnx_model_defaults": {"implementation": "onnx_static", "precision": "int8"},
         "description": "(HfModel, OnnxModel) WOQ with RTN.",

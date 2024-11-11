@@ -77,10 +77,16 @@ jobs:
       failTaskOnFailedTests: true
     displayName: Upload pipeline run test results
 
-  - task: PublishCodeCoverageResults@1
+  # Code coverage requires
+  - task: UseDotNet@2
+    displayName: 'Use .NET Core sdk 7.0.x'
     inputs:
-      codeCoverageTool: 'Cobertura'
+      version: 7.0.x
+
+  - task: PublishCodeCoverageResults@2
+    inputs:
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+    displayName: Publish code coverage results
 
   - script: git clean -dfX
     condition: always()

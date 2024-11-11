@@ -91,6 +91,18 @@ Automatically tune the OnnxRuntime session parameters for a given onnx model. Cu
     :prog: olive
     :path: tune-session-params
 
+Generate Cost Model for Model Splitting
+=======================================
+
+Generate a cost model for a given model and save it as a csv file. This cost model is consumed by the CaptureSplitInfo pass. Only supports HfModel.
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: generate-cost-model
+
+
 Qualcomm SDK
 ============
 

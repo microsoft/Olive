@@ -897,7 +897,9 @@ class Engine:
             host_accelerators = self.host_config.config.accelerators
             if host_accelerators and host_accelerators[0].execution_providers:
                 host_accelerator_spec = AcceleratorSpec(
-                    host_accelerators[0].device, host_accelerators[0].execution_providers[0]
+                    host_accelerators[0].device,
+                    host_accelerators[0].execution_providers[0],
+                    memory=host_accelerators[0].memory,
                 )
             else:
                 host_accelerator_spec = None

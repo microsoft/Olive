@@ -49,7 +49,7 @@
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 14 },
         "transformers_optimization": { "type": "OrtTransformersOptimization", "float16": true },
-        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mrpc" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mrpc", "io_bind": true }
     },
     "pass_flows": [
         [ "conversion", "transformers_optimization", "session_params_tuning" ],

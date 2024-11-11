@@ -82,6 +82,11 @@ def get_args(raw_args):
         action="store_true",
         help="Run AWQ on the base model or the finetuned model",
     )
+    quant_group.add_argument(
+        "--tune-session-params",
+        action="store_true",
+        help="Tune onnx session params",
+    )
 
     parser.add_argument(
         "--precision",
@@ -243,6 +248,13 @@ def generate_config(args):
             print("AWQ only supports int4 precision. Changing precision to int4")
             args.precision = "int4"
     passes_to_use.append("builder")
+
+    if args.tune_session_params:
+        passes_to_use.append("tune_session_params")
+        template_json["search_strategy"] = {"execution_order": "joint", "search_algorithm": "exhaustive"}
+        template_json["evaluator"] = "common_evaluator"
+    else:
+        del template_json["evaluators"]
 
     target = str(args.target)
     if target == "web":

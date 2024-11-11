@@ -11,16 +11,7 @@ trigger:
     - README.md
     - CONTRIBUTING.md
     - LICENSE
-pr:
-  branches:
-    include:
-    - main
-  paths:
-    include:
-    - olive/azureml/*
-    - olive/systems/azureml/*
-    - examples/test/azureml/*
-    - examples/test/utils.py
+pr: none
 
 jobs:
 # Linux examples test

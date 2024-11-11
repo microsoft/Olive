@@ -33,8 +33,23 @@ if you have not logged in Azure account,
 - Install Azure Command-Line Interface (CLI) following [this link](https://learn.microsoft.com/en-us/cli/azure/)
 - Run `az login` to login your Azure account to allows Olive to access the model.
 
+# Usage with CLI
+You can use Olive CLI command to export, fine-tune, and optimize the model for a chosen hardware target. Few examples below:
 
-## Usage
+```
+# To auto-optimize the exported model
+olive auto-opt -m microsoft/Phi-3-mini-4k-instruct --precision int8
+
+# To quantize the model
+olive quantize -m microsoft/Phi-3-mini-4k-instruct --trust_remote_code --precision fp16 --implementation quarot
+
+# To tune ONNX session params
+olive tune-session-params -m microsoft/Phi-3-mini-4k-instruct --io_bind --enable_cuda_graph
+```
+
+For more information on available options to individual CLI command run `olive <command-name> --help` on the command line.
+
+## Usage with custom configuration
 we will use the `phi3.py` script to fine-tune and optimize model for a chosen hardware target by running the following commands.
 
 ```
@@ -52,6 +67,9 @@ python phi3.py --target cuda --finetune_method lora --inference --prompt "Write 
 
 # Fine-tune, quantize using AWQ and optimize the model for cpu target
 python phi3.py --target cpu --precision int4 --finetune_method lora --awq
+
+# Search and generate an optimized ONNX session tuning config
+python phi3.py --target cuda --precision fp16 --tune-session-params
 ```
 
 Run the following to get more information about the script:
@@ -64,6 +82,7 @@ This script includes
 - (optional) Fine-tune model by lora or qlora method with dataset of `nampdn-ai/tiny-codes`.
 - (optional) Quantize the original or fine-tuned model using AWQ. If AWQ is not used, the model will be quantized using RTN if precision is int4.
 - Generate optimized onnx model with Olive based on the configuration file for the chosen HW target
+- Search and generate optimized ONNX session tuning config
 - (optional) Inference the optimized model with ONNX Runtime Generate() API with non-web target
 
 
@@ -90,6 +109,23 @@ python phi3.py --quarot
 Get access to the following resources on Hugging Face Hub:
 - [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
 
+### Quantize the model using [TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
+use; [Package onnxruntime-genai-directml](https://github.com/microsoft/onnxruntime-genai)>=0.4.0
+
+Setup
+```bash
+pip install olive-ai[nvmo]
+pip install onnxruntime-genai-directml>=0.4.0
+pip install onnxruntime-directml==1.20.0
+pip install -r requirements-nvmo-awq.txt
+```
+
+Install the CUDA version compatible with CuPy as mentioned in requirements-nvmo-awq.txt
+
+quantization: For quantization, use the config file phi3_nvmo_ptq.json
+```bash
+olive run --config phi3_nvmo_ptq.json
+```
 
 ## More Inference Examples
 - [Android chat APP with Phi-3 and ONNX Runtime Mobile](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/mobile/examples/phi-3/android)

@@ -40,6 +40,12 @@ jobs:
       super_resolution:
         exampleFolder: super_resolution
         exampleName: super_resolution
+      mobilenet_qnn_toolkit:
+        exampleFolder: mobilenet
+        exampleName: qnn_tooklit
+      inception_snpe_toolkit:
+        exampleFolder: inception
+        exampleName: snpe_toolkit
 
 
 # Windows examples test
@@ -68,6 +74,12 @@ jobs:
       super_resolution:
         exampleFolder: super_resolution
         exampleName: super_resolution
+      mobilenet_qnn_toolkit:
+        exampleFolder: mobilenet
+        exampleName: qnn_tooklit
+      inception_snpe_toolkit:
+        exampleFolder: inception
+        exampleName: snpe_toolkit
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-template.yaml

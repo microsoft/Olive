@@ -46,7 +46,7 @@ class OnnxIOFloat16ToFloat32(Pass):
                 assert o not in o_map[o]
                 o_map[o] = [n]
 
-    def wrap_inputs(self, graph, i_map, names):
+    def wrap_inputs(self, graph, i_map, names) -> int:
         # 1. find fp16 inputs
         # 2. rewrite all consumers
         # 3. insert cast
@@ -71,7 +71,9 @@ class OnnxIOFloat16ToFloat32(Pass):
             graph.node.insert(0, cast)
             i.type.tensor_type.elem_type = onnx.TensorProto.FLOAT
 
-    def wrap_outputs(self, graph, i_map, o_map, names):
+        return len(inputs)
+
+    def wrap_outputs(self, graph, i_map, o_map, names) -> int:
         # 1. find fp16 outputs
         # 2. rewrite all providers
         # 3. append cast
@@ -101,6 +103,8 @@ class OnnxIOFloat16ToFloat32(Pass):
             graph.node.append(cast)
             o.type.tensor_type.elem_type = onnx.TensorProto.FLOAT
 
+        return len(outputs)
+
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
@@ -119,8 +123,12 @@ class OnnxIOFloat16ToFloat32(Pass):
         if config["name_pattern"]:
             pat = re.compile(config["name_pattern"])
 
-        self.wrap_inputs(ort_onnx_model.model.graph, i_map, pat)
-        self.wrap_outputs(ort_onnx_model.model.graph, i_map, o_map, pat)
+        wrapped_inputs = self.wrap_inputs(ort_onnx_model.model.graph, i_map, pat)
+        wrapped_outputs = self.wrap_outputs(ort_onnx_model.model.graph, i_map, o_map, pat)
+        if wrapped_inputs + wrapped_outputs == 0:
+            logger.info("No float16 inputs/outputs found. Skip conversion.")
+            return model
+        logger.info("Converted %d inputs and %d outputs from float16 to float32", wrapped_inputs, wrapped_outputs)
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(ort_onnx_model.model, output_model_path, config)

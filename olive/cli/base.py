@@ -15,6 +15,8 @@ import yaml
 from olive.cli.constants import CONDA_CONFIG
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import hardlink_copy_dir, hash_dict, hf_repo_exists, set_nested_dict_value, unescaped_str
+from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, find_all_resources
 
 
@@ -284,11 +286,13 @@ def add_input_model_options(
     enable_pt: bool = False,
     enable_onnx: bool = False,
     default_output_path: Optional[str] = None,
+    directory_output: bool = True,
 ):
     """Add model options to the sub_parser.
 
     Use enable_hf, enable_hf_adapter, enable_pt, enable_onnx to enable the corresponding model options.
     If default_output_path is None, it is required to provide the output_path.
+    If directory_output is True, the output_path is a directory and will be created if it doesn't exist.
     """
     assert any([enable_hf, enable_hf_adapter, enable_pt, enable_onnx]), "At least one model option should be enabled."
 
@@ -298,6 +302,8 @@ def add_input_model_options(
         "-m",
         "--model_name_or_path",
         type=str,
+        # only pytorch model doesn't require model_name_or_path
+        required=not enable_pt,
         help=(
             "Path to the input model. "
             "See https://microsoft.github.io/Olive/features/cli.html#providing-input-models "
@@ -337,7 +343,7 @@ def add_input_model_options(
     model_group.add_argument(
         "-o",
         "--output_path",
-        type=output_path_type,
+        type=output_path_type if directory_output else str,
         required=default_output_path is None,
         default=default_output_path,
         help="Path to save the command output.",
@@ -567,19 +573,12 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
         type=str,
         default="cpu",
         choices=["gpu", "cpu", "npu"],
-        help="Target device to run the model.",
+        help="Target device to run the model. Default is cpu.",
     )
 
-    execution_providers = [
-        "CUDAExecutionProvider",
-        "CPUExecutionProvider",
-        "DmlExecutionProvider",
-        "JsExecutionProvider",
-        "MIGraphXExecutionProvider",
-        "OpenVINOExecutionProvider",
-        "QNNExecutionProviderROCMExecutionProvider",
-        "TensorrtExecutionProvider",
-    ]
+    execution_providers = sorted(
+        {provider for provider_list in DEVICE_TO_EXECUTION_PROVIDERS.values() for provider in provider_list}
+    )
 
     if single_provider:
         accelerator_group.add_argument(
@@ -587,7 +586,7 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
             type=str,
             default="CPUExecutionProvider",
             choices=execution_providers,
-            help="Execution provider to use for ONNX model.",
+            help="Execution provider to use for ONNX model. Default is CPUExecutionProvider.",
         )
     else:
         accelerator_group.add_argument(
@@ -600,21 +599,23 @@ def add_accelerator_options(sub_parser, single_provider: bool = True):
                 "If not provided, all available providers will be used."
             ),
         )
+    accelerator_group.add_argument(
+        "--memory",
+        type=AcceleratorSpec.str_to_int_memory,
+        default=None,
+        help="Memory limit for the accelerator in bytes. Default is None.",
+    )
 
     return accelerator_group
 
 
 def update_accelerator_options(args, config, single_provider: bool = True):
+    execution_providers = [args.provider] if single_provider else args.providers_list
     to_replace = [
         (("systems", "local_system", "accelerators", 0, "device"), args.device),
+        (("systems", "local_system", "accelerators", 0, "execution_providers"), execution_providers),
+        (("systems", "local_system", "accelerators", 0, "memory"), args.memory),
     ]
-
-    execution_providers = [args.provider] if single_provider else args.providers_list
-    for idx, provider in enumerate(execution_providers):
-        if not provider.endswith("ExecutionProvider"):
-            execution_providers[idx] = f"{provider}ExecutionProvider"
-    to_replace.append((("systems", "local_system", "accelerators", 0, "execution_providers"), execution_providers))
-
     for k, v in to_replace:
         if v is not None:
             set_nested_dict_value(config, k, v)

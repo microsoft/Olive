@@ -25,7 +25,7 @@ from olive.systems.system_config import SystemConfig
         (["OpenVINOExecutionProvider"], None),
         (["CUDAExecutionProvider"], ["gpu"]),
         (["CPUExecutionProvider", "CUDAExecutionProvider"], ["gpu"]),
-        (["DmlExecutionProvider", "CUDAExecutionProvider"], ["gpu"]),
+        (["DmlExecutionProvider", "CUDAExecutionProvider"], None),
         (["QNNExecutionProvider", "CUDAExecutionProvider"], ["npu", "gpu"]),
     ],
 )
@@ -118,6 +118,17 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
             [("cpu", "CPUExecutionProvider")],
             ["CPUExecutionProvider"],
         ),
+        # LocalSystem with memory
+        (
+            {
+                "type": "LocalSystem",
+                "config": {
+                    "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"], "memory": 1234}]
+                },
+            },
+            [("cpu", "CPUExecutionProvider", 1234)],
+            ["CPUExecutionProvider"],
+        ),
     ],
 )
 @patch("onnxruntime.get_available_providers")
@@ -133,7 +144,11 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
         python_mock.start()
 
     expected_accelerator_specs = [
-        AcceleratorSpec(accelerator_type=acc_spec[0].lower(), execution_provider=acc_spec[1])
+        AcceleratorSpec(
+            accelerator_type=acc_spec[0].lower(),
+            execution_provider=acc_spec[1],
+            memory=acc_spec[2] if len(acc_spec) == 3 else None,
+        )
         for acc_spec in expected_acc_specs
     ]
 
@@ -151,10 +166,8 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             {"type": "LocalSystem"},
             [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
             [
-                (
-                    "There is no any accelerator specified. Inferred accelerators: "
-                    "[AcceleratorConfig(device='cpu', execution_providers=['CPUExecutionProvider'])]"
-                )
+                "There is no any accelerator specified. Inferred accelerators: "
+                "[AcceleratorConfig(device='cpu', execution_providers=['CPUExecutionProvider'], memory=None)]"
             ],
             ["AzureExecutionProvider", "CPUExecutionProvider"],
         ),
@@ -277,6 +290,25 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             ["The following execution providers are not supported: 'ROCMExecutionProvider'"],
             ["CUDAExecutionProvider", "CPUExecutionProvider"],
         ),
+        (
+            # fill the EPs. memory is provided.
+            {"type": "LocalSystem", "config": {"accelerators": [{"device": "cpu", "memory": "10kB"}]}},
+            [
+                {
+                    "device": "cpu",
+                    "execution_providers": ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
+                    "memory": 10000,
+                }
+            ],
+            [
+                "The following execution providers are filtered: DmlExecutionProvider.",
+                (
+                    "The accelerator execution providers is not specified for cpu. Use the inferred ones. "
+                    "['OpenVINOExecutionProvider', 'CPUExecutionProvider']"
+                ),
+            ],
+            ["OpenVINOExecutionProvider", "CPUExecutionProvider", "DmlExecutionProvider"],
+        ),
     ],
 )
 @patch("onnxruntime.get_available_providers")
@@ -308,6 +340,8 @@ def test_normalize_accelerators(
     for i, acc in enumerate(expected_accs):
         assert normalized_accs.config.accelerators[i].device == acc["device"]
         assert normalized_accs.config.accelerators[i].execution_providers == acc["execution_providers"]
+        if "memory" in acc:
+            assert normalized_accs.config.accelerators[i].memory == acc["memory"]
 
     if expected_logs:
         for log in expected_logs:
@@ -334,6 +368,13 @@ def test_normalize_accelerators(
             },
             ("npu", ["QNNExecutionProvider"]),
         ),
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"execution_providers": ["QNNExecutionProvider"], "memory": "1gb"}]},
+            },
+            ("npu", ["QNNExecutionProvider"], 1e9),
+        ),
     ],
 )
 def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
@@ -341,6 +382,8 @@ def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
     normalized_accs = AcceleratorNormalizer(system_config, skip_supported_eps_check=True).normalize()
     assert normalized_accs.config.accelerators[0].device == expected_acc[0]
     assert normalized_accs.config.accelerators[0].execution_providers == expected_acc[1]
+    if len(expected_acc) == 3:
+        assert normalized_accs.config.accelerators[0].memory == expected_acc[2]
 
 
 @pytest.mark.parametrize(
@@ -459,12 +502,26 @@ def test_create_accelerator_with_error(
             },
             [("gpu", None)],
         ),
+        # LocalSystem with memory
+        (
+            {
+                "type": "LocalSystem",
+                "config": {
+                    "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"], "memory": 1234}]
+                },
+            },
+            [("cpu", "CPUExecutionProvider", 1234)],
+        ),
     ],
 )
 def test_create_accelerator_without_ep(system_config, expected_acc_specs):
     system_config = validate_config(system_config, SystemConfig)
     expected_accelerator_specs = [
-        AcceleratorSpec(accelerator_type=acc_spec[0].lower(), execution_provider=acc_spec[1])
+        AcceleratorSpec(
+            accelerator_type=acc_spec[0].lower(),
+            execution_provider=acc_spec[1],
+            memory=acc_spec[2] if len(acc_spec) == 3 else None,
+        )
         for acc_spec in expected_acc_specs
     ]
     accelerators = create_accelerators(system_config, skip_supported_eps_check=False, is_ep_required=False)
@@ -478,3 +535,5 @@ def test_accelerator_config():
     assert acc_cfg2.device is None
     with pytest.raises(ValueError, match="Either device or execution_providers must be provided"):
         _ = AcceleratorConfig.parse_obj({})
+    acc_cfg3 = AcceleratorConfig.parse_obj({"device": "cpu", "memory": "1MB"})
+    assert acc_cfg3.memory == 1e6

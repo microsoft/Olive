@@ -5,7 +5,7 @@
 import logging
 
 from olive.cli.base import BaseOliveCLICommand
-from olive.common.utils import get_credentials
+from olive.common.container_client_factory import AzureContainerClientFactory
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,17 @@ class SharedCacheCommand(BaseOliveCLICommand):
             "--delete",
             action="store_true",
             help="Delete a model cache from the shared cache.",
+        )
+        sub_parser.add_argument(
+            "--all",
+            action="store_true",
+            help="Delete all model cache from the cloud cache.",
+        )
+        sub_parser.add_argument(
+            "-y",
+            "--yes",
+            action="store_true",
+            help="Confirm the deletion without prompting for confirmation.",
         )
         sub_parser.add_argument(
             "--account",
@@ -34,35 +45,21 @@ class SharedCacheCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--model_hash",
             type=str,
-            required=True,
             help="The model hash to remove from the shared cache.",
         )
         sub_parser.set_defaults(func=SharedCacheCommand)
 
     def run(self):
-        try:
-            from azure.storage.blob import ContainerClient
-        except ImportError as exc:
-            raise ImportError(
-                "Please install azure-storage-blob and azure-identity to use the shared model cache feature."
-            ) from exc
-
-        account_url = f"https://{self.args.account}.blob.core.windows.net"
-        client = ContainerClient(
-            account_url=account_url,
-            container_name=self.args.container,
-            credential=get_credentials({"exclude_managed_identity_credential": True}),
+        container_client_factory = AzureContainerClientFactory(
+            self.args.account, self.args.container, exclude_managed_identity_credential=True
         )
-
         if self.args.delete:
-            self._delete_model_cache(client, self.args.model_hash)
-
-    def _delete_model_cache(self, client, model_hash):
-        for blob in client.list_blobs(model_hash):
-            logger.info("Deleting %s", blob.name)
-            client.delete_blob(blob.name)
-
-        if any(client.list_blobs(model_hash)):
-            logger.error("Deletion of the model cache with hash %s failed. Please try again.", model_hash)
-        else:
-            logger.info("Model cache with hash %s removed from the shared cache successfully.", model_hash)
+            if self.args.all:
+                if self.args.yes:
+                    container_client_factory.delete_all()
+                else:
+                    confirm = input("Are you sure you want to delete all cache? (y/n): ")
+                    if confirm.lower() == "y":
+                        container_client_factory.delete_all()
+            else:
+                container_client_factory.delete_blob(self.args.model_hash)

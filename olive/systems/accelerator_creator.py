@@ -210,9 +210,9 @@ def create_accelerators(
                         "Ignore the CPUExecutionProvider for non-cpu device since cpu accelerator is also present."
                     )
                 else:
-                    accelerator_specs.append(AcceleratorSpec(device, ep))
+                    accelerator_specs.append(AcceleratorSpec(device, ep, memory=accelerator.memory))
         else:
-            accelerator_specs.append(AcceleratorSpec(device))
+            accelerator_specs.append(AcceleratorSpec(device, memory=accelerator.memory))
 
     assert accelerator_specs, (
         "No valid accelerator specified for target system. "

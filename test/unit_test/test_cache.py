@@ -5,7 +5,7 @@
 import json
 import shutil
 from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import ANY, mock_open, patch
 
 import pytest
 
@@ -353,13 +353,13 @@ class TestCache:
 
 class TestSharedCache:
     @pytest.fixture(autouse=True)
-    @patch("olive.common.utils.get_credentials")
-    @patch("azure.storage.blob.ContainerClient")
-    def setup(self, mock_container_client, mock_get_credentials):
+    @patch("olive.common.container_client_factory.AzureContainerClientFactory")
+    def setup(self, mock_AzureContainerClientFactory):
+        self.mock_factory_instance = mock_AzureContainerClientFactory.return_value
         self.shared_cache = SharedCache("dummy_account", "dummy_container")
 
-    @patch("olive.cache.SharedCache._upload_file_to_blob")
-    def test_cache_run(self, mock_upload_file_to_blob, tmp_path):
+    @patch("olive.cache.AzureContainerClientFactory.upload_blob")
+    def test_cache_run(self, mock_upload_blob, tmp_path):
         # setup
         model_id = "model"
         run_json_path = tmp_path / "run.json"
@@ -369,14 +369,29 @@ class TestSharedCache:
         self.shared_cache.cache_run(model_id, run_json_path)
 
         # assert
-        mock_upload_file_to_blob.assert_called_once_with(run_json_path, f"{model_id}/run.json")
+        self.shared_cache.container_client_factory.upload_blob.assert_called_once_with(f"{model_id}/run.json", ANY)
 
-    @patch("olive.cache.SharedCache.exist_in_shared_cache")
-    def test_load_run_not_found(self, mock_exist_in_shared_cache, tmp_path):
+    @patch("olive.cache.AzureContainerClientFactory.upload_blob")
+    @patch("olive.cache.AzureContainerClientFactory.delete_blob")
+    def test_cache_run_exception(self, mock_delete_blob, mock_upload_blob, tmp_path):
         # setup
         model_id = "model"
         run_json_path = tmp_path / "run.json"
-        mock_exist_in_shared_cache.return_value = False
+        run_json_path.write_text(json.dumps({"key": "value"}))
+
+        # execute
+        with patch.object(self.shared_cache.container_client_factory, "upload_blob", side_effect=Exception):
+            self.shared_cache.cache_run(model_id, run_json_path)
+
+            # assert
+            self.shared_cache.container_client_factory.delete_blob.assert_called_once_with(model_id)
+
+    @patch("olive.cache.AzureContainerClientFactory.exists")
+    def test_load_run_not_found(self, mock_exists, tmp_path):
+        # setup
+        model_id = "model"
+        run_json_path = tmp_path / "run.json"
+        mock_exists.return_value = False
 
         # execute
         loaded_run = self.shared_cache.load_run(model_id, run_json_path)
@@ -384,32 +399,32 @@ class TestSharedCache:
         # assert
         assert loaded_run == {}
 
-    @patch("olive.cache.SharedCache.exist_in_shared_cache")
-    def test_load_run(self, mock_exist_in_shared_cache, tmp_path):
+    @patch("olive.cache.AzureContainerClientFactory.exists")
+    @patch("olive.cache.AzureContainerClientFactory.download_blob")
+    def test_load_run(self, mock_download_blob, mock_exists, tmp_path):
         # setup
         model_id = "model"
         run_json_path = tmp_path / "run.json"
         run_json = {"key": "value"}
-        mock_exist_in_shared_cache.return_value = True
-        mock_blob_client = MagicMock()
-        mock_download_stream = MagicMock()
-        self.shared_cache.container_client.get_blob_client.return_value = mock_blob_client
-        mock_blob_client.download_blob.return_value = mock_download_stream
-        mock_download_stream.readall.return_value = json.dumps(run_json).encode()
+        mock_exists.return_value = True
+        run_json_path.write_text(json.dumps(run_json))
 
         # execute
         loaded_run = self.shared_cache.load_run(model_id, run_json_path)
 
         # assert
         assert loaded_run == run_json
-        mock_blob_client.download_blob.assert_called_once()
+        mock_download_blob.assert_called_once_with(f"{model_id}/run.json", run_json_path)
 
-    def test_cache_model(self):
+    @patch("olive.cache.AzureContainerClientFactory.exists")
+    @patch("olive.cache.AzureContainerClientFactory.upload_blob")
+    def test_cache_model(self, mock_upload_blob, mock_exists):
         # setup
         model_id = "model_id"
         model_json = {"type": "onnxmodel", "config": {"model_path": "model.onnx"}}
         model_binary_data = b"Test binary data"
         m = mock_open(read_data=model_binary_data)
+        mock_exists.return_value = False
         with patch("builtins.open", m), patch.object(Path, "exists", return_value=True):
             with open("model.onnx", "rb") as model_data:
                 model_data.read()
@@ -419,47 +434,71 @@ class TestSharedCache:
 
             # assert
             # 1. model_config.json 2. model
-            assert self.shared_cache.container_client.upload_blob.call_count == 2
+            assert mock_upload_blob.call_count == 2
 
-    @patch("olive.cache.SharedCache.exist_in_shared_cache")
-    def test_load_model(self, mock_exist_in_shared_cache, tmp_path):
+    @patch("olive.cache.AzureContainerClientFactory.exists")
+    @patch("olive.cache.AzureContainerClientFactory.upload_blob")
+    @patch("olive.cache.AzureContainerClientFactory.delete_blob")
+    def test_cache_model_exception(self, mock_delete_blob, mock_upload_blob, mock_exists):
+        # setup
+        model_id = "model_id"
+        model_json = {"type": "onnxmodel", "config": {"model_path": "model.onnx"}}
+        model_binary_data = b"Test binary data"
+        m = mock_open(read_data=model_binary_data)
+        mock_exists.return_value = False
+        with patch("builtins.open", m), patch.object(Path, "exists", return_value=True):
+            with open("model.onnx", "rb") as model_data:
+                model_data.read()
+
+            # execute
+            with patch.object(self.shared_cache.container_client_factory, "upload_blob", side_effect=Exception):
+                self.shared_cache.cache_model(model_id, model_json)
+
+            # assert
+            self.shared_cache.container_client_factory.delete_blob.assert_called_once_with(model_id)
+
+    @patch("olive.cache.AzureContainerClientFactory.exists")
+    @patch("olive.cache.AzureContainerClientFactory.download_blob")
+    def test_load_model(self, mock_download_blob, mock_exists, tmp_path):
         # setup
         model_id = "model"
         model_json_path = tmp_path / "model.json"
         model_json = {"config": {"model_path": "path/to/model"}}
-        mock_exist_in_shared_cache.return_value = True
-        mock_blob_client = MagicMock()
-        self.shared_cache.container_client.get_blob_client.return_value = mock_blob_client
-        mock_blob_client.download_blob.return_value.readall.return_value = json.dumps(model_json).encode()
+        model_json_path.write_text(json.dumps(model_json))
+        mock_exists.return_value = True
 
         # execute
         loaded_model = self.shared_cache.load_model(model_id, model_json_path)
 
         # assert
         assert loaded_model == model_json
-        mock_blob_client.download_blob.assert_called_once()
+        mock_download_blob.assert_called_once()
 
-    def test_exist_in_shared_cache(self):
+    @pytest.mark.parametrize("expected_exists", [True, False])
+    @patch("olive.cache.AzureContainerClientFactory.exists")
+    def test_exist_in_shared_cache(self, mock_exists, expected_exists):
         # setup
         blob_name = "model_id/model.json"
-        self.shared_cache.container_client.list_blobs.return_value = [blob_name]
+        mock_exists.return_value = expected_exists
 
         # execute
-        exists = self.shared_cache.exist_in_shared_cache(blob_name)
+        actual_exists = self.shared_cache.exist_in_shared_cache(blob_name)
 
         # assert
-        assert exists is True
-        self.shared_cache.container_client.list_blobs.assert_called_once()
+        assert actual_exists == expected_exists
+        mock_exists.assert_called_once_with(blob_name)
 
-    @patch("olive.cache.SharedCache._upload_file_to_blob")
-    def test_upload_model_files(self, mock_upload_file_to_blob, tmp_path):
+    @patch("olive.cache.AzureContainerClientFactory.upload_blob")
+    def test_upload_model_files(self, mock_upload_blob, tmp_path):
         # setup
         model_path = tmp_path / "model"
         model_path.mkdir()
-        (model_path / "file.txt").write_text("dummy content")
+        file_path = model_path / "file.txt"
+        file_path.write_text("dummy content")
+        model_blob = "model_blob"
 
         # execute
-        self.shared_cache.upload_model_files(str(model_path), "model_blob")
+        self.shared_cache.upload_model_files(str(model_path), model_blob)
 
         # assert
-        mock_upload_file_to_blob.assert_called()
+        mock_upload_blob.assert_called_once_with(f"{model_blob}/file.txt", ANY)

@@ -38,6 +38,9 @@ def test_llama2(search_algorithm, execution_order, system, cache_config, olive_j
     olive_config["passes"]["f"]["training_args"]["per_device_train_batch_size"] = 2
     olive_config["passes"]["f"]["training_args"]["per_device_eval_batch_size"] = 2
 
+    # don't know what version of ort might be in the container, set to numpy for backward compatibility
+    olive_config["passes"]["e"]["save_format"] = "numpy"
+
     # add shared cache config
     olive_config["cache_config"] = cache_config
 

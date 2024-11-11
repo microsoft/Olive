@@ -18,6 +18,7 @@ trigger:
     - examples/mistral/*
     - examples/open_llama/*
     - examples/phi2/*
+    - examples/phi3/*
 pr:
   branches:
     include:
@@ -42,38 +43,36 @@ pr:
     - examples/mistral/*
     - examples/open_llama/*
     - examples/phi2/*
+    - examples/phi3/*
 
 variables:
   runCodesignValidationInjection: false
   skipComponentGovernanceDetection: true
 
 jobs:
-# Linux unit test and integration test
-- template: job_templates/olive-build-template.yaml
-  parameters:
-    name: Linux_CI
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    windows: False
-    onnxruntime: onnxruntime
-
-# Linux GPU unit test
+# Linux unit tests
 - template: job_templates/olive-test-template.yaml
   parameters:
-    name: Linux_GPU_CI_Unit_Test_Olive
+    name: Linux_CPU_CI_Unit_Test
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    test_type: 'unit_test'
+
+- template: job_templates/olive-test-template.yaml
+  parameters:
+    name: Linux_GPU_CI_Unit_Test
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     test_type: 'unit_test'
-    windows: False
     device: 'gpu'
     onnxruntime: onnxruntime-gpu
     requirements_file: 'requirements-test-gpu.txt'
 
-# Windows unit test and integration test
-- template: job_templates/olive-build-template.yaml
+# Windows unit tests
+- template: job_templates/olive-test-template.yaml
   parameters:
-    name: Windows_CI
+    name: Windows_CPU_CI_Unit_Test
     pool: $(OLIVE_POOL_WIN2019)
+    test_type: 'unit_test'
     windows: True
-    onnxruntime: onnxruntime
 
 # Linux examples test
 - template: job_templates/olive-example-template.yaml
@@ -91,12 +90,6 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
-      mobilenet_qnn_toolkit:
-        exampleFolder: mobilenet
-        exampleName: qnn_tooklit
-      inception_snpe_toolkit:
-        exampleFolder: inception
-        exampleName: snpe_toolkit
       mobilenet_qnn_ep:
         exampleFolder: mobilenet
         exampleName: mobilenet_qnn_ep
@@ -117,12 +110,6 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
-      mobilenet_qnn_toolkit:
-        exampleFolder: mobilenet
-        exampleName: qnn_tooklit
-      inception_snpe_toolkit:
-        exampleFolder: inception
-        exampleName: snpe_toolkit
       mobilenet_qnn_ep:
         exampleFolder: mobilenet
         exampleName: mobilenet_qnn_ep
@@ -146,28 +133,28 @@ jobs:
         exampleName: llama2
         exampleRequirements: requirements-pipeline.txt
 
-# Multiple EP Linux testing
-- template: job_templates/olive-test-template.yaml
-  parameters:
-    name: Linux_CI_Multiple_EP_Test_Olive
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    device: 'cpu'
-    windows: 'False'
-    test_type: 'multiple_ep'
-    onnxruntime: onnxruntime
-    python_version: '3.8'
+# these jobs need secrets not available in forks
+- ${{ if ne(variables['System.PullRequest.IsFork'], 'True') }}:
+  # integration tests
+  - template: job_templates/olive-test-template.yaml
+    parameters:
+      name: Linux_CPU_CI_Integration_Test
+      pool: $(OLIVE_POOL_UBUNTU2004)
+      test_type: 'integ_test'
 
-# Not run since all test cases are skipped for Windows
-# # Multiple EP Windows testing
-# - template: job_templates/olive-test-template.yaml
-#   parameters:
-#     name: Windows_CI_Multiple_EP_Test_Olive
-#     pool: $(OLIVE_POOL_WIN2019)
-#     device: 'cpu'
-#     windows: 'True'
-#     test_type: 'multiple_ep'
-#     onnxruntime: onnxruntime
-#     python_version: '3.10'
+  - template: job_templates/olive-test-template.yaml
+    parameters:
+      name: Windows_CPU_CI_Integration_Test
+      pool: $(OLIVE_POOL_WIN2019)
+      test_type: 'integ_test'
+      windows: True
+
+  # Multiple EP Linux testing
+  - template: job_templates/olive-test-template.yaml
+    parameters:
+      name: Linux_CI_Multiple_EP_Test
+      pool: $(OLIVE_POOL_UBUNTU2004)
+      test_type: 'multiple_ep'
 
 # build documents
 - template: job_templates/olive-build-doc-template.yaml

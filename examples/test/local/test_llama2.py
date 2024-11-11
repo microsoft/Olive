@@ -5,8 +5,7 @@
 import os
 
 import pytest
-
-from olive.common.hf.login import huggingface_login
+from packaging import version
 
 from ..utils import assert_nodes, get_example_dir, patch_config
 
@@ -22,18 +21,24 @@ def setup():
 @pytest.mark.parametrize("system", ["local_system"])
 @pytest.mark.parametrize("olive_json", ["llama2_qlora.json"])
 def test_llama2(search_algorithm, execution_order, system, olive_json):
+    from onnxruntime import __version__ as ort_version
+
     from olive.workflows import run as olive_run
 
-    hf_token = os.environ.get("HF_TOKEN")
-    huggingface_login(hf_token)
-
     olive_config = patch_config(olive_json, search_algorithm, execution_order, system)
+
+    # replace meta-llama with open-llama version of the model
+    # doesn't require login
+    olive_config["input_model"]["model_path"] = "openlm-research/open_llama_7b_v2"
 
     # reduce qlora steps for faster test
     olive_config["passes"]["f"]["training_args"]["max_steps"] = 5
     olive_config["passes"]["f"]["training_args"]["logging_steps"] = 5
     olive_config["passes"]["f"]["training_args"]["per_device_train_batch_size"] = 2
     olive_config["passes"]["f"]["training_args"]["per_device_eval_batch_size"] = 2
+
+    if version.parse(ort_version) < version.parse("1.20"):
+        olive_config["passes"]["e"]["save_format"] = "numpy"
 
     footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     assert_nodes(footprint)
