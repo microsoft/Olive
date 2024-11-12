@@ -1,0 +1,382 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>olive.model.handler.pytorch &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/width.css?v=b55249da" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/header.css?v=5dcc4e7b" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js?v=b3ba4146"></script>
+      <script src="../../../../_static/doctools.js?v=888ff710"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../../../../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Olive
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">OLIVE COMMANDS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html">Run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#finetune">Finetune</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#auto-optimization">Auto-Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#quantization">Quantization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#capture-onnx-graph">Capture Onnx Graph</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#generate-adapters">Generate Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#convert-adapters">Convert Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#generate-cost-model-for-model-splitting">Generate Cost Model for Model Splitting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#azureml">AzureML</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#shared-cache">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#providing-input-models">Providing Input Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/cli.html#model-script-file-information">Model Script File Information</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/azureml_integration.html">Azure ML integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/huggingface_model_optimization.html">Huggingface Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/lora.html">LoRA Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/shared_cache.html">Shared Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/run_workflow_remotely.html">Remote Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/conversion.html">Model Conversions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/quantization.html">Model Quantizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../extending_olive/custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">olive.model.handler.pytorch</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for olive.model.handler.pytorch</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -------------------------------------------------------------------------</span>
+<span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1"># Licensed under the MIT License.</span>
+<span class="c1"># --------------------------------------------------------------------------</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">serialize_to_json</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
+<span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
+<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">Device</span>
+<span class="kn">from</span> <span class="nn">olive.model.config</span> <span class="kn">import</span> <span class="n">IoConfig</span><span class="p">,</span> <span class="n">complete_kv_cache_with_model_attributes</span><span class="p">,</span> <span class="n">extend_io_config_with_kv_cache</span>
+<span class="kn">from</span> <span class="nn">olive.model.config.registry</span> <span class="kn">import</span> <span class="n">model_handler_registry</span>
+<span class="kn">from</span> <span class="nn">olive.model.handler.base</span> <span class="kn">import</span> <span class="n">OliveModelHandler</span>
+<span class="kn">from</span> <span class="nn">olive.model.handler.mixin</span> <span class="kn">import</span> <span class="n">DummyInputsMixin</span><span class="p">,</span> <span class="n">PytorchKvCacheMixin</span>
+<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">ResourceType</span><span class="p">,</span> <span class="n">create_resource_path</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">PyTorchModelHandlerBase</span><span class="p">(</span>
+    <span class="n">OliveModelHandler</span><span class="p">,</span> <span class="n">DummyInputsMixin</span><span class="p">,</span> <span class="n">PytorchKvCacheMixin</span>
+<span class="p">):</span>  <span class="c1"># pylint: disable=too-many-ancestors</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for PyTorch model handler.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">run_session</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">session</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">generative</span> <span class="k">else</span> <span class="n">session</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">generative</span> <span class="k">else</span> <span class="n">session</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">results</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_resolved_io_config</span><span class="p">(</span>
+        <span class="n">io_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">IoConfig</span><span class="p">],</span>
+        <span class="n">force_kv_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve io_config to a dictionary.</span>
+
+<span class="sd">        :param io_config: io_config to resolve.</span>
+<span class="sd">        :param force_kv_cache: whether to enable kv_cache if not already enabled.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">io_config_obj</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="n">IoConfig</span><span class="p">)</span>
+
+        <span class="c1"># enable kv_cache</span>
+        <span class="n">io_config_obj</span><span class="o">.</span><span class="n">kv_cache</span> <span class="o">=</span> <span class="n">io_config_obj</span><span class="o">.</span><span class="n">kv_cache</span> <span class="ow">or</span> <span class="n">force_kv_cache</span>
+
+        <span class="k">if</span> <span class="n">io_config_obj</span><span class="o">.</span><span class="n">kv_cache</span><span class="p">:</span>
+            <span class="n">kv_cache_config</span> <span class="o">=</span> <span class="n">complete_kv_cache_with_model_attributes</span><span class="p">(</span><span class="n">io_config_obj</span><span class="o">.</span><span class="n">kv_cache</span><span class="p">,</span> <span class="n">model_attributes</span> <span class="ow">or</span> <span class="p">{})</span>
+            <span class="n">io_config_obj</span> <span class="o">=</span> <span class="n">extend_io_config_with_kv_cache</span><span class="p">(</span><span class="n">io_config_obj</span><span class="p">,</span> <span class="n">kv_cache_config</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">io_config_obj</span><span class="o">.</span><span class="n">dict</span><span class="p">(</span><span class="n">exclude_none</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
+        <span class="c1"># add _io_config to config to keep what was provided at init</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;io_config&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span>
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="PyTorchModelHandler"><a class="viewcode-back" href="../../../../api/models.html#olive.model.PyTorchModelHandler">[docs]</a><span class="nd">@model_handler_registry</span><span class="p">(</span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">PyTorchModelHandler</span><span class="p">(</span><span class="n">PyTorchModelHandlerBase</span><span class="p">):</span>  <span class="c1"># pylint: disable=too-many-ancestors</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;PyTorch model handler.</span>
+
+<span class="sd">    Besides the model loading for PyTorch model, the model handler also provides the following functionalities:</span>
+<span class="sd">      * Get the model io configuration from user provider io_config.</span>
+<span class="sd">      * Get the dummy inputs for PyTorch model used to evaluate the latency.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">resource_keys</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">,</span> <span class="s2">&quot;script_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;model_script&quot;</span><span class="p">)</span>
+    <span class="n">json_config_keys</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;model_file_format&quot;</span><span class="p">,</span> <span class="s2">&quot;model_loader&quot;</span><span class="p">,</span> <span class="s2">&quot;dummy_inputs_func&quot;</span><span class="p">,</span> <span class="s2">&quot;generative&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_file_format</span><span class="p">:</span> <span class="n">ModelFileFormat</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_ENTIRE_MODEL</span><span class="p">,</span>
+        <span class="n">model_loader</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_script</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">script_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">io_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">IoConfig</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dummy_inputs_func</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">generative</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">model_loader</span><span class="p">,</span> <span class="n">Callable</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">model_loader</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">model_script</span><span class="p">)</span> <span class="ow">or</span> <span class="n">model_path</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;model_path is required since model_loader is not callable or model_script is not provided&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_loader</span> <span class="o">=</span> <span class="n">model_loader</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">PYTORCH</span><span class="p">,</span>
+            <span class="n">model_file_format</span><span class="o">=</span><span class="n">model_file_format</span><span class="p">,</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+            <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">,</span>
+            <span class="n">io_config</span><span class="o">=</span><span class="n">io_config</span><span class="p">,</span>
+            <span class="n">generative</span><span class="o">=</span><span class="n">generative</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_resources</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>
+
+        <span class="c1"># ensure that script_dir and model_script are local resorces</span>
+        <span class="k">for</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">expected_type</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="p">(</span><span class="s2">&quot;script_dir&quot;</span><span class="p">,</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFolder</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;model_script&quot;</span><span class="p">,</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFile</span><span class="p">),</span>
+        <span class="p">]:</span>
+            <span class="n">resource</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="n">resource_name</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">resource</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">resource</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">expected_type</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource_name</span><span class="si">}</span><span class="s2"> must be a local </span><span class="si">{</span><span class="n">expected_type</span><span class="si">}</span><span class="s2">.&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span> <span class="o">=</span> <span class="n">dummy_inputs_func</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">script_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;script_dir&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_script</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;model_script&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;torch.nn.Module&quot;</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">torch</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Load user module at the beginning since we may need user defined models to load model</span>
+            <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+
+            <span class="c1"># Load special path or format model -&gt; load model from hf config -&gt; load normal path model</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_loader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_loader</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_TORCH_SCRIPT</span><span class="p">:</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_ENTIRE_MODEL</span><span class="p">:</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_SLICE_GPT_MODEL</span><span class="p">:</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_slicegpt_model</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_STATE_DICT</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Please use customized model loader to load state dict of model.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported model file format: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span> <span class="k">if</span> <span class="n">cache_model</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">model</span>
+
+    <span class="k">def</span> <span class="nf">_load_slicegpt_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">slicgpt.hf_utils</span> <span class="kn">import</span> <span class="n">load_sliced_model</span>
+
+        <span class="n">model_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_name&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">model_name</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`model_name` model attribute is required to load SliceGPT model.&quot;</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading SliceGPT model with model_name </span><span class="si">%s</span><span class="s2"> from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">model_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+        <span class="n">loaded_model</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">load_sliced_model</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">loaded_model</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return io config of the model.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">io_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">)):</span>
+            <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+            <span class="n">io_config</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resolved_io_config</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="n">model_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_dummy_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filter_hook</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filter_hook_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a dummy input for the model.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span>
+
+        <span class="c1"># Priority: user provided dummy_inputs_func &gt; io_config</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using dummy_inputs_func to get dummy inputs&quot;</span><span class="p">)</span>
+            <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+            <span class="c1"># respect user&#39;s dummy_inputs_func, no hook</span>
+            <span class="k">return</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+
+        <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_dummy_inputs_from_io_config</span><span class="p">(</span>
+            <span class="n">filter_hook</span><span class="o">=</span><span class="n">filter_hook</span><span class="p">,</span> <span class="n">filter_hook_kwargs</span><span class="o">=</span><span class="n">filter_hook_kwargs</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unable to get dummy inputs for the model.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dummy_inputs</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
