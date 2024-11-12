@@ -7,11 +7,12 @@ from copy import deepcopy
 from typing import Any, Dict, Union
 
 import torch
+from packaging import version
 
-from olive.common.utils import StrEnumBase
+from olive.common.utils import StrEnumBase, get_attr
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler, PyTorchModelHandler
+from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
 from olive.passes.pytorch.common import inherit_hf_from_hf
@@ -107,9 +108,7 @@ class AutoAWQQuantizer(Pass):
         }
 
     @torch.no_grad()
-    def _run_for_config(
-        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
-    ) -> Union[HfModelHandler, PyTorchModelHandler]:
+    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
         from awq import AutoAWQForCausalLM
 
         if not torch.cuda.is_available():
@@ -139,6 +138,7 @@ class AutoAWQQuantizer(Pass):
         awq_model = AutoAWQForCausalLM.from_pretrained(
             model.model_name_or_path, **self._resolve_load_args(model.get_load_kwargs())
         )
+        awq_model = self._maybe_patch_awq_model(awq_model)
         tokenizer = model.get_hf_tokenizer()
 
         # quantize the model
@@ -167,12 +167,36 @@ class AutoAWQQuantizer(Pass):
             new_load_kwargs["extra_args"]["use_safetensors"] = True
         return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path, load_kwargs=new_load_kwargs)
 
-    def _resolve_load_args(self, hf_loading_args):
-        loading_args = {}
-        # default value for `safetensors` is True in auto AWQ
-        loading_args["safetensors"] = hf_loading_args.get("use_safetensors", True)
-        if device_map := hf_loading_args.get("device_map"):
-            loading_args["device_map"] = device_map
-        if trust_remote_code := hf_loading_args.get("trust_remote_code"):
-            loading_args["trust_remote_code"] = trust_remote_code
-        return loading_args
+    def _resolve_load_args(self, hf_loading_args: Dict[str, Any]):
+        return {
+            # want to default to using safetensors like in AutoAWQ
+            "safetensors": hf_loading_args.get("use_safetensors", True),
+            # only trust remote code if the user has explicitly set it
+            "trust_remote_code": hf_loading_args.get("trust_remote_code"),
+            # Not much to be gained my using "auto" device map, so default to None
+            "device_map": hf_loading_args.get("device_map"),
+        }
+
+    def _maybe_patch_awq_model(self, awq_model):
+        from awq import __version__ as autoawq_version
+        from transformers import __version__ as transformers_version
+
+        # https://github.com/huggingface/transformers/issues/32420
+        # there is an issue in transformers with the rotary embedding where some tensors are still on CPU
+        # causing device mismatch error
+        # max limit on awq version in case fix is released
+        # transformers releases too frequently so we can't keep track of all versions
+        if version.parse(transformers_version) >= version.parse("4.43") and version.parse(
+            autoawq_version
+        ) <= version.parse("0.2.6"):
+            original_move_embed = awq_model.move_embed
+
+            def new_move_embed(model, device):
+                original_move_embed(model, "cuda")
+                # almost all model types have rotary embeddings at model.model.rotary_emb so won't keep a mapping
+                if rotary_embed_module := get_attr(model, "model.rotary_emb"):
+                    rotary_embed_module.to(device)
+
+            awq_model.move_embed = new_move_embed
+
+        return awq_model
