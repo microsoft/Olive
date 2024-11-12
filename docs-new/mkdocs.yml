@@ -143,16 +143,26 @@ nav:
         - Model conversions:
           - Pytorch: how-to/configure-workflows/convert_pytorch.md
           - ONNX: how-to/configure-workflows/convert_onnx.md
-      - Cloud Model Cache: how-to/configure-workflows/cloud-model-cache.md
+      - Shared Model Cache: how-to/configure-workflows/shared-model-cache.md
       - Model Packaging: how-to/configure-workflows/model-packaging.md
       - Automatic Optimizer: how-to/configure-workflows/auto-opt.md
       - Integrations:
-        - Azure AI: how-to/configure-workflows/azure-ai.md
+        - Azure AI: 
+          - Azure AI: how-to/configure-workflows/azure-ai/azure-ai.md
+          - Azure Arc: how-to/configure-workflows/azure-ai/azure_arc.md
+          - Azure Script: how-to/configure-workflows/azure-ai/azure_script.md
         - Hugging Face: how-to/configure-workflows/hugging-face-integration.md
   - Reference:
     - api/index.md
-    - CLI: api/cli-reference.md
-    - Configurations: api/config-reference.md
+    - CLI: api/cli.md
+    - Pass: api/pass.md
+    - Model: api/model.md
+    - Engine: api/engine.md
+    - System: api/system.md
+    - Metric: api/metric.md
+    - Resource Path: api/resource-path.md
+    - Search Algorithms: api/search-algorithms.md
+    - Evaluator: api/evaluator.md
   - Extending Olive:
     - extending/index.md
     - Design: extending/design.md

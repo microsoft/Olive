@@ -138,5 +138,3 @@ AzureMLModels packaging will register the output models to your Azure Machine Le
 
 #### Azure ML Data
 AzureMLData packaging will upload the output models to your Azure Machine Learning workspace as Data assets. Please find more details [here](model-packaging.md#azuremldata).
-
-
