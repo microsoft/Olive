@@ -7,7 +7,6 @@ import shutil
 import sys
 from pathlib import Path
 from typing import Dict
-from . import config
 
 import onnxruntime as ort
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline
@@ -15,6 +14,8 @@ from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
 from olive.model import ONNXModelHandler
+
+from . import config
 
 # ruff: noqa: TID252, T201
 
