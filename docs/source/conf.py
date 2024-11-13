@@ -3,13 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
+from pathlib import Path
 import sys
-
-import sphinx_rtd_theme
 
 # ruff: noqa
 # pylint: skip-file
 sys.path.append(os.path.abspath("exts"))
+sys.path.append(str(Path(".").resolve()))
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -39,15 +39,18 @@ extensions = [
     "sphinx.ext.githubpages",
     "sphinx.ext.napoleon",
     "sphinx_tabs.tabs",
-    # "nbsphinx",
+    "sphinx_design",
+    "sphinxcontrib.mermaid",
     "auto_config_doc",
     "sphinxarg.ext",
     "sphinxcontrib.autodoc_pydantic",
     "sphinxcontrib.jquery",
+    "_extension.gallery_directive",
 ]
 
 myst_enable_extensions = [
     "html_image",
+    "colon_fence", 
 ]
 
 source_suffix = {
@@ -63,17 +66,53 @@ suppress_warnings = ["myst.xref_missing"]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
 
 html_static_path = ["_static"]
 html_css_files = [
     # better contrast between h3 and h4, high priority so that it overrides the theme
     ("css/header.css", {"priority": 1000}),
-    "css/width.css",
+    "css/icons.css"
 ]
 html_js_files = [
     "js/custom_version.js",
 ]
+
+
+# pydata theme
+html_theme_options = {
+    "header_links_before_dropdown": 4,
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/microsoft/Olive",
+            "icon": "fa-brands fa-github",
+        },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/olive-ai",
+            "icon": "fa-custom fa-pypi",
+        }
+    ],
+    "logo": {
+        "text": "Olive",
+        "image_dark": "images/olive_logo.png",
+    },
+    "show_toc_level": 1,
+    "navbar_align": "left",
+    # "announcement": "Announcement: This is an example announcement.",
+    "show_version_warning_banner": True,
+    "navbar_center": ["navbar-nav"],
+    "navbar_start": ["navbar-logo"],
+    "footer_start": ["copyright"],
+    "secondary_sidebar_items": {
+        "**": ["page-toc"],
+    }
+}
+
+html_sidebars = {
+    "**": [],
+}
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
