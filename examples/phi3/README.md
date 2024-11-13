@@ -139,7 +139,7 @@ olive run --config phi3_nvmo_ptq.json
 ### Steps to Quantize a Different LLM Models
 
 - **Locate and Update the Configuration File:**
-  
+
     Open the `phi3_nvmo_ptq.json` file in your preferred text editor. Change the `model_path` to point to the repository or directory of the model you wish to quantize and ensure that the `tokenizer_dir` corresponds to the tokenizer used by the new model.
 
 ## More Inference Examples
