@@ -214,8 +214,8 @@ class GptqQuantizer(Pass):
             return inherit_pytorch_from_pytorch(model, output_model_path)
 
         # save quantized model and metadata
-        model.save_metadata(output_model_path)
         quantized_model.save_quantized(output_model_path)
+        model.save_metadata(output_model_path)
 
         # need to disable exllama to be able to load on cpu
         # should we do this using load kwargs? It works but transformers prints a warning

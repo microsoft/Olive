@@ -156,9 +156,8 @@ class AutoAWQQuantizer(Pass):
             **data_kwargs,
         )
 
-        # save_quantized also saves the metadata, so we just save the tokenizer
-        tokenizer.save_pretrained(output_model_path)
         awq_model.save_quantized(output_model_path)
+        awq_model.save_metadata(output_model_path)
 
         # return HfModelHandler with updated model path
         new_load_kwargs = deepcopy(model.load_kwargs.dict()) if model.load_kwargs else {}

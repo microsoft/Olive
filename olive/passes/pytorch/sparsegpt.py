@@ -192,8 +192,8 @@ class SparseGPT(Pass):
 
         # save model
         pytorch_model.config.use_cache = use_cache
-        model.save_metadata(output_model_path)
         pytorch_model.save_pretrained(output_model_path)
+        model.save_metadata(output_model_path)
 
         # return HfModelHandler with updated model path
         return inherit_hf_from_hf(model, output_model_path)
