@@ -109,38 +109,31 @@ python phi3.py --quarot
 Get access to the following resources on Hugging Face Hub:
 - [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
 
-# Quantize using [NVIDIA TensorRT Model Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
-The _TensorRT Model Optimizer_ is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users, it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.
-
-The primary objective of the _TensorRT-Model-Optimizer_ is to generate optimized, standards-compliant ONNX-format models for DirectML backends
-
+# Quantize Models with NVIDIA TensorRT Model Optimizer
+The **TensorRT Model Optimizer** is designed to bring advanced model compression techniques, including quantization, to Windows RTX PC systems. Engineered for Windows, it delivers rapid and efficient quantization through features such as local GPU calibration, reduced memory usage, and fast processing.
+The primary goal of TensorRT Model Optimizer is to produce optimized, ONNX-format models compatible with DirectML backends.
 ## Setup
+Run the following commands to install necessary packages:
 ```bash
 pip install olive-ai[nvmo]
 pip install onnxruntime-genai-directml>=0.4.0
 pip install onnxruntime-directml==1.20.0
 pip install -r requirements-nvmo-awq.txt
 ```
-Install the CUDA version compatible with CuPy as mentioned in requirements-nvmo-awq.txt
-
+Install the CUDA version compatible with CuPy as specified in `requirements-nvmo-awq.txt`.
 ## Validate Installation
-After completing the setup, it's essential to verify that the `modelopt` package is installed correctly. Run the following command in your terminal:
+After setup, confirm the correct installation of the `modelopt` package by running:
 ```bash
 python -c "from modelopt.onnx.quantization.int4 import quantize as quantize_int4"
 ```
-
 ## Quantization
-For quantization, use the config file `phi3_nvmo_ptq.json`. This configuration runs **two passes**: one for the builder and one for quantization. Currently, Modelopt only supports quantizing models that were built with `modelbuild`; no other builder types are supported.
-
+To perform quantization, use the configuration file `phi3_nvmo_ptq.json`. This config executes two passes: one for model building and one for quantization. Note that ModelOpt currently only supports quantizing models created with the `modelbuild` tool.
 ```bash
 olive run --config phi3_nvmo_ptq.json
 ```
-
-### Steps to Quantize a Different LLM Models
-
-- **Locate and Update the Configuration File:**
-
-    Open the `phi3_nvmo_ptq.json` file in your preferred text editor. Change the `model_path` to point to the repository or directory of the model you wish to quantize and ensure that the `tokenizer_dir` corresponds to the tokenizer used by the new model.
+## Steps to Quantize Different LLM Models
+1. **Locate and Update Configuration File:**
+   Open `phi3_nvmo_ptq.json` in a text editor. Update the `model_path` to point to the directory or repository of the model you want to quantize. Ensure that `tokenizer_dir` is set to the tokenizer directory for the new model.
 
 ## More Inference Examples
 - [Android chat APP with Phi-3 and ONNX Runtime Mobile](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/mobile/examples/phi-3/android)
