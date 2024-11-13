@@ -109,7 +109,7 @@ python phi3.py --quarot
 Get access to the following resources on Hugging Face Hub:
 - [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
 
-### Quantize the model using [TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
+## Quantize the model using [TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
 use; [Package onnxruntime-genai-directml](https://github.com/microsoft/onnxruntime-genai)>=0.4.0
 
 Setup
