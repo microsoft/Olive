@@ -122,3 +122,21 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
 }
 ```
 Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
+
+## NVIDIA TensorRT Model Optimizer - Windows
+Olive also integrates ###
+The TensorRT Model Optimizer for Windows is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users, ModelOpt-Windows is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.
+
+The primary objective of the ModelOpt-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard
+
+### Example Configuration
+```json
+"quantization": {
+    "type": "NVModelOptQuantization",
+    "algorithm": "AWQ",
+    "tokenizer_dir": "microsoft/Phi-3-mini-4k-instruct",
+    "calibration": "awq_lite"
+}
+```
+
+
