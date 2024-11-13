@@ -1,7 +1,6 @@
-.. _models:
-
 OliveModels
 =================================
+
 The following models are available in Olive.
 
 .. _model_config:

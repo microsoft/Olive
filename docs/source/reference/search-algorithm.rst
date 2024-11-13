@@ -1,7 +1,6 @@
-.. _search_algorithms:
-
 SearchAlgorithms
 =================================
+
 The following search algorithms are available in Olive.
 
 Each algorithm is followed by a description of the algorithm and a list of the its configuration options.

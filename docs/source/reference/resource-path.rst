@@ -1,7 +1,6 @@
-.. _resource_path:
-
 ResourcePath
 =============
+
 The following are the resource paths available in Olive.
 
 ResourceType

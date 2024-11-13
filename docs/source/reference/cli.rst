@@ -1,4 +1,5 @@
-.. _command_line_tools:
+Command Line Tools
+===================
 
 Olive provides command line tools that can be invoked using the ``olive`` command.
 

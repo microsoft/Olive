@@ -1,28 +1,19 @@
----
-myst:
-  html_meta:
-    "description lang=en": |
-      Top-level documentation for pydata-sphinx theme, with links to the rest
-      of the site..
-html_theme.sidebar_secondary.remove: true
----
-  
 # OLIVE: AI Model Optimization Toolkit for the ONNX Runtime
-
+<br/>
 
 ```{gallery-grid}
 :grid-columns: 1 2 2 3
 
 - header: "{octicon}`codescan-checkmark` Overview"
-  content: "Learn the benefits of using OLIVE to optimize your models."
+  content: "Learn the benefits of using OLIVE to optimize your models.<br/>{octicon}`arrow-right` [Overview](why-olive.md)"
 - header: "{octicon}`zap` Get Started"
-  content: "Install `olive-ai` with `pip` and get up and running with OLIVE in minutes."
+  content: "Install `olive-ai` with `pip` and get up and running with OLIVE in minutes.<br/>{octicon}`arrow-right` [Get Started](getting-started/getting-started.md)"
 - header: "{octicon}`rocket` How To"
-  content: "Find more details on specific OLIVE capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!"
+  content: "Find more details on specific OLIVE capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!<br/>{octicon}`arrow-right` [Features](how-to/index)"
 - header: "{fas}`code`  API Reference"
-  content: "Get more details on specific OLIVE capabilities, such as running workflows on remote compute (for example, Azure AI), model packaging, conversions, and more!"
+  content: "Get more details on specific OLIVE capabilities, such as running workflows on remote compute (for example, Azure AI), model packaging, conversions, and more!<br/>{octicon}`arrow-right` [APIs](reference/index)"
 - header: "{octicon}`diff-added`  Extending OLIVE"
-  content: "Learn about the design of OLIVE and how to extend OLIVE with your own optimization methods."
+  content: "Learn about the design of OLIVE and how to extend OLIVE with your own optimization methods.<br/>{octicon}`arrow-right` [Extend Olive](extending/index)"
 ```
 
 

@@ -1,7 +1,5 @@
-.. _evaluator:
-
 OliveEvaluator
-=================================
+=================
 
 OliveEvaluator
 --------------

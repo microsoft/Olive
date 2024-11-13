@@ -1,7 +1,6 @@
-.. _systems:
-
 OliveSystems
 =================================
+
 The following systems are available in Olive.
 
 Config

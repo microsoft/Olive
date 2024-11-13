@@ -1,7 +1,6 @@
-.. _passes:
-
 Passes
 =================================
+
 The following passes are available in Olive.
 
 Each pass is followed by a description of the pass and a list of the pass's configuration options.

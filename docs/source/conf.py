@@ -95,7 +95,7 @@ html_theme_options = {
         }
     ],
     "logo": {
-        "text": "Olive",
+        "image_light": "images/olive_logo.png",
         "image_dark": "images/olive_logo.png",
     },
     "show_toc_level": 1,

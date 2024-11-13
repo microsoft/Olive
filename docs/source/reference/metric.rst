@@ -1,5 +1,3 @@
-.. _metric:
-
 Metric
 ======
 
