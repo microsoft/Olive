@@ -132,6 +132,12 @@ For quantization, use the config file phi3_nvmo_ptq.json
 olive run --config phi3_nvmo_ptq.json
 ```
 
+### Steps to Quantize a Different Model
+
+- **Locate and Update the Configuration File:**
+  
+    Open the `phi3_nvmo_ptq.json` file in your preferred text editor. Change the `model_path` to point to the repository or directory of the model you wish to quantize and ensure that the `tokenizer_dir` corresponds to the tokenizer used by the new model.
+
 ## More Inference Examples
 - [Android chat APP with Phi-3 and ONNX Runtime Mobile](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/mobile/examples/phi-3/android)
 
