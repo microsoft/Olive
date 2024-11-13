@@ -142,6 +142,6 @@ Olive consolidates the NVIDIA TensorRT Model Optimizer quantization into a singl
 }
 ```
 
-Please refer to [Phi3 example](https://github.com/microsoft/Olive/tree/main/examples/phi3#quantize-the-model-using-tensorrt-model-optimizer)  for usability and setup details.
+Please refer to [Phi3 example](https://github.com/microsoft/Olive/tree/main/examples/phi3#quantize-using-nvidia-tensorrt-model-optimizer)  for usability and setup details.
 
 
