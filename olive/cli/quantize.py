@@ -37,7 +37,14 @@ class QuantizeCommand(BaseOliveCLICommand):
         )
 
         # model options
-        add_input_model_options(sub_parser, enable_hf=True, enable_pt=True, default_output_path="quantized-model")
+        add_input_model_options(
+            sub_parser,
+            enable_hf=True,
+            enable_hf_adapter=True,
+            enable_pt=True,
+            enable_onnx=True,
+            default_output_path="quantized-model",
+        )
 
         sub_parser.add_argument(
             "--algorithm",
