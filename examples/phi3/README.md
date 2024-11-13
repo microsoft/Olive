@@ -132,7 +132,7 @@ To perform quantization, use the configuration file `phi3_nvmo_ptq.json`. This c
 olive run --config phi3_nvmo_ptq.json
 ```
 ## Steps to Quantize Different LLM Models
-1. **Locate and Update Configuration File:**
+- **Locate and Update Configuration File:**
    Open `phi3_nvmo_ptq.json` in a text editor. Update the `model_path` to point to the directory or repository of the model you want to quantize. Ensure that `tokenizer_dir` is set to the tokenizer directory for the new model.
 
 ## More Inference Examples
