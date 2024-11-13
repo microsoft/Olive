@@ -105,7 +105,7 @@ class HfMixin:
             tokenizer_filepaths = save_tokenizer(self.get_hf_tokenizer(), output_dir, **kwargs)
             saved_filepaths.extend([fp for fp in tokenizer_filepaths if Path(fp).exists()])
 
-        logger.debug("Save metadata files to %s: %s", output_dir=output_dir, saved_filepaths=saved_filepaths)
+        logger.debug("Save metadata files to %s: %s", output_dir, saved_filepaths)
 
         return saved_filepaths
 
