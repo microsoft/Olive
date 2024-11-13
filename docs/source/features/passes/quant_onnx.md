@@ -123,14 +123,14 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
 ```
 Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
 
-## NVIDIA TensorRT Model Optimizer
-Olive also integrates [TensorRT Model Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
+## NVIDIA TensorRT Model Optimizer-Windows
+Olive also integrates [TensorRT Model Optimizer-Windows](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
 
-The TensorRT Model Optimizer is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users,it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.
+The TensorRT Model Optimizer-Windows is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users,it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.
 
-The primary objective of the ModelOpt-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard.
+The primary objective of the TensorRT Model Optimizer-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard.
 
-Olive consolidates the NVIDIA TensorRT Model Optimizer quantization into a single pass called NVModelOptQuantization which supports AWQ algorithum.
+Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ algorithum.
 
 ### Example Configuration
 ```json
