@@ -14,19 +14,19 @@ from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
 from olive.model import ONNXModelHandler
+import sd_utils.config as config
 
-from . import config
 
 # ruff: noqa: TID252, T201
 
 
-def update_cuda_config(config: Dict):
+def update_cuda_config(config_cuda: Dict):
     if version.parse(OrtVersion) < version.parse("1.17.0"):
         # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
-        config["passes"]["optimize_cuda"]["optimization_options"] = {"enable_skip_group_norm": False}
-    config["pass_flows"] = [["convert", "optimize_cuda"]]
-    config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
-    return config
+        config_cuda["passes"]["optimize_cuda"]["optimization_options"] = {"enable_skip_group_norm": False}
+    config_cuda["pass_flows"] = [["convert", "optimize_cuda"]]
+    config_cuda["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
+    return config_cuda
 
 
 def validate_args(args, provider):
