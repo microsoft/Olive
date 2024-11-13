@@ -102,6 +102,10 @@
 <li class="toctree-l4"><a class="reference internal" href="#id2">Example Configuration</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#nvidia-tensorrt-model-optimizer-windows">NVIDIA TensorRT Model Optimizer-Windows</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id3">Example Configuration</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -278,6 +282,25 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
 </pre></div>
 </div>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#vitis-ai-quantization"><span class="std std-ref">VitisAIQuantization</span></a> for more details about the pass and its config parameters.</p>
+</section>
+</section>
+<section id="nvidia-tensorrt-model-optimizer-windows">
+<h2>NVIDIA TensorRT Model Optimizer-Windows<a class="headerlink" href="#nvidia-tensorrt-model-optimizer-windows" title="Permalink to this heading"></a></h2>
+<p>Olive also integrates <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Model-Optimizer">TensorRT Model Optimizer-Windows</a></p>
+<p>The TensorRT Model Optimizer-Windows is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users,it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.</p>
+<p>The primary objective of the TensorRT Model Optimizer-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard.</p>
+<p>Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ algorithm.</p>
+<section id="id3">
+<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AWQ&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tokenizer_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;microsoft/Phi-3-mini-4k-instruct&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;calibration&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq_lite&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/phi3#quantize-using-nvidia-tensorrt-model-optimizer">Phi3 example</a>  for usability and setup details.</p>
 </section>
 </section>
 </section>
