@@ -127,7 +127,8 @@ python -c "from modelopt.onnx.quantization.int4 import quantize as quantize_int4
 ```
 
 ## Quantization:
-For quantization, use the config file phi3_nvmo_ptq.json
+For quantization, use the config file `phi3_nvmo_ptq.json`. This configuration runs **two passes**: one for the builder and one for quantization. Currently, Modelopt only supports quantizing models that were built with `modelbuild`; no other builder types are supported.
+
 ```bash
 olive run --config phi3_nvmo_ptq.json
 ```
