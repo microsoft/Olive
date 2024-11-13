@@ -109,7 +109,7 @@ python phi3.py --quarot
 Get access to the following resources on Hugging Face Hub:
 - [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
 
-# Quantize model using [TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
+# Quantize using [NVIDIA TensorRT Model Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
 The _TensorRT Model Optimizer_ is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users, it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.
 
 The primary objective of the _TensorRT-Model-Optimizer_ is to generate optimized, standards-compliant ONNX-format models for DirectML backends
@@ -129,14 +129,14 @@ After completing the setup, it's essential to verify that the `modelopt` package
 python -c "from modelopt.onnx.quantization.int4 import quantize as quantize_int4"
 ```
 
-## Quantization:
+## Quantization
 For quantization, use the config file `phi3_nvmo_ptq.json`. This configuration runs **two passes**: one for the builder and one for quantization. Currently, Modelopt only supports quantizing models that were built with `modelbuild`; no other builder types are supported.
 
 ```bash
 olive run --config phi3_nvmo_ptq.json
 ```
 
-### Steps to Quantize a Different Model
+### Steps to Quantize a Different LLM Models
 
 - **Locate and Update the Configuration File:**
   
