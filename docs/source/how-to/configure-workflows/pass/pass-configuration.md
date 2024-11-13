@@ -32,12 +32,15 @@ Here is an example of how to configure the `OnnxQuantization` Pass:
     "weight_type": "QUInt8"
 }
 ```
-!!! note
-    `type` is case insensitive.
+
+```{Note}
+`type` is case insensitive.
+```
 
 
 ```{toctree}
 :maxdepth: 1
+:hidden:
 
 convert-onnx
 convert-pytorch

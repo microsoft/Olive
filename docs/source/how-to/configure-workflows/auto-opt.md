@@ -59,220 +59,232 @@ Here is a simple example of Auto Optimizer configuration, the item which is not 
     }
 ```
 
-!!! note
-    In this example, Auto Optimizer will search for the best passes combination for different execution providers, e.g. CUDAExecutionProvider and TensorrtExecutionProvider.
+```{Note}
+In this example, Auto Optimizer will search for the best passes combination for different execution providers, e.g. CUDAExecutionProvider and TensorrtExecutionProvider.
 
-    - For CUDAExecutionProvider, it will try float16 in ``OrtTransformersOptimization``.
-    - For TensorrtExecutionProvider, it will try trt_fp16 in ``OrtPerfTuning``.
+- For CUDAExecutionProvider, it will try float16 in ``OrtTransformersOptimization``.
+- For TensorrtExecutionProvider, it will try trt_fp16 in ``OrtPerfTuning``.
+```
+
 
 Here the available pass flows for given accelerator, execution providers and precision:
 
-<figure markdown="span">
-  ![Image title](../../images/auto_opt/pass_flows.png){ width="700" }
-  <figcaption>Automatic Optimization pass flows</figcaption>
-</figure>
+```{figure} ../../images/olive-design.png
+:width: 700px
+:align: center
+
+Automatic Optimization pass flows
+```
 
 Auto Optimizer can catch up with manual settings in most cases, and it is more convenient to use.
 
 Here is another quick comparison between Auto Optimizer and manual settings.
 
-=== "Auto Optimizer"
+:::: {tab-set}
 
-    ```json
-    {
-        "input_model":{
-            "type": "HfModel",
-            "model_path": "Intel/bert-base-uncased-mrpc",
-            "task": "text-classification"
-        },
-        "systems": {
-            "local_system": {
-                "type": "LocalSystem",
-                "accelerators": [
-                    {
-                        "device": "gpu",
-                        "execution_providers": [
-                            "CUDAExecutionProvider",
-                            "TensorrtExecutionProvider"
-                        ]
-                    }
-                ]
-            }
-        },
-        "data_configs": [{
-            "name": "glue",
-            "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "data_name": "glue",
-                "split": "validation",
-                "subset": "mrpc"
-            },
-            "pre_process_data_config": {
-                "input_cols": [ "sentence1", "sentence2" ],
-                "label_col": "label"
-            },
-            "dataloader_config": {
-                "batch_size": 1
-            }
-        }],
-        "evaluators": {
-            "common_evaluator": {
-                "metrics":[
-                    {
-                        "name": "accuracy",
-                        "type": "accuracy",
-                        "backend": "huggingface_metrics",
-                        "data_config": "glue",
-                        "sub_types": [
-                            {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                            {"name": "f1"}
-                        ]
-                    },
-                    {
-                        "name": "latency",
-                        "type": "latency",
-                        "data_config": "glue",
-                        "sub_types": [
-                            {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
-                            {"name": "max"},
-                            {"name": "min"}
-                        ]
-                    }
-                ]
-            }
-        },
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "tpe",
-            "num_samples": 1,
-            "seed": 0
-        },
-        "evaluator": "common_evaluator",
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir" : "models/bert_gpu"
-    }
-    ```
+::: {tab-item} Auto Optimizer
 
-=== "Manual Settings for CUDA&TRT EP"
-
-    ```json
-    {
-        "input_model":{
-            "type": "HfModel",
-            "model_path": "Intel/bert-base-uncased-mrpc",
-            "task": "text-classification"
+```json
+{
+    "input_model":{
+        "type": "HfModel",
+        "model_path": "Intel/bert-base-uncased-mrpc",
+        "task": "text-classification"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider",
+                        "TensorrtExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "data_configs": [{
+        "name": "glue",
+        "type": "HuggingfaceContainer",
+        "load_dataset_config": {
+            "data_name": "glue",
+            "split": "validation",
+            "subset": "mrpc"
         },
-        "systems": {
-            "local_system": {
-                "type": "LocalSystem",
-                "accelerators": [
-                    {
-                        "device": "gpu",
-                        "execution_providers": [
-                            "CUDAExecutionProvider",
-                            "TensorrtExecutionProvider"
-                        ]
-                    }
-                ]
-            }
+        "pre_process_data_config": {
+            "input_cols": [ "sentence1", "sentence2" ],
+            "label_col": "label"
         },
-        "data_configs": [{
-            "name": "glue",
-            "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "data_name": "glue",
-                "split": "validation",
-                "subset": "mrpc"
-            },
-            "pre_process_data_config": {
-                "max_samples": 100,
-                "input_cols": [ "sentence1", "sentence2" ],
-                "label_col": "label"
-            },
-            "dataloader_config": {
-                "batch_size": 1
-            }
-        }],
-        "evaluators": {
-            "common_evaluator": {
-                "metrics":[
-                    {
-                        "name": "accuracy",
-                        "type": "accuracy",
-                        "backend": "huggingface_metrics",
-                        "data_config": "glue",
-                        "sub_types": [
-                            {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                            {"name": "f1"}
-                        ]
-                    },
-                    {
-                        "name": "latency",
-                        "type": "latency",
-                        "data_config": "glue",
-                        "sub_types": [
-                            {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
-                            {"name": "max"},
-                            {"name": "min"}
-                        ]
-                    }
-                ]
-            }
+        "dataloader_config": {
+            "batch_size": 1
+        }
+    }],
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "backend": "huggingface_metrics",
+                    "data_config": "glue",
+                    "sub_types": [
+                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+                        {"name": "f1"}
+                    ]
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "data_config": "glue",
+                    "sub_types": [
+                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                        {"name": "max"},
+                        {"name": "min"}
+                    ]
+                }
+            ]
+        }
+    },
+    "search_strategy": {
+        "execution_order": "joint",
+        "search_algorithm": "tpe",
+        "num_samples": 1,
+        "seed": 0
+    },
+    "evaluator": "common_evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir" : "models/bert_gpu"
+}
+```
+
+:::
+
+::: {tab-item} Manual Settings for CUDA&TRT EP
+
+```json
+{
+    "input_model":{
+        "type": "HfModel",
+        "model_path": "Intel/bert-base-uncased-mrpc",
+        "task": "text-classification"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider",
+                        "TensorrtExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "data_configs": [{
+        "name": "glue",
+        "type": "HuggingfaceContainer",
+        "load_dataset_config": {
+            "data_name": "glue",
+            "split": "validation",
+            "subset": "mrpc"
         },
-        "passes": {
-            "conversion": {
-                "type": "OnnxConversion"
-            },
-            "cuda_transformers_optimization": {
-                "type": "OrtTransformersOptimization",
-                "float16": true
-            },
-            "trt_transformers_optimization": {
-                "type": "OrtTransformersOptimization",
-                "float16": false
-            },
-            "cuda_perf_tuning": {
-                "type": "OrtPerfTuning",
-                "enable_cuda_graph": true,
-                "io_bind": true,
-                "data_config": "glue"
-            },
-            "trt_perf_tuning": {
-                "type": "OrtPerfTuning",
-                "enable_cuda_graph": false,
-                "enable_trt_fp16": true,
-                "io_bind": true,
-                "data_config": "glue"
-            }
+        "pre_process_data_config": {
+            "max_samples": 100,
+            "input_cols": [ "sentence1", "sentence2" ],
+            "label_col": "label"
         },
-        "pass_flows": [
-            ["conversion", "cuda_transformers_optimization", "cuda_perf_tuning"],
-            ["conversion", "trt_transformers_optimization", "trt_perf_tuning"]
-        ],
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "tpe",
-            "num_samples": 1,
-            "seed": 0
+        "dataloader_config": {
+            "batch_size": 1
+        }
+    }],
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "backend": "huggingface_metrics",
+                    "data_config": "glue",
+                    "sub_types": [
+                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+                        {"name": "f1"}
+                    ]
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "data_config": "glue",
+                    "sub_types": [
+                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                        {"name": "max"},
+                        {"name": "min"}
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion"
         },
-        "evaluator": "common_evaluator",
-        "host": "local_system",
-        "target": "local_system",
-        "cache_dir": "cache",
-        "output_dir" : "models/bert_gpu"
-    }
-    ```
+        "cuda_transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "float16": true
+        },
+        "trt_transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "float16": false
+        },
+        "cuda_perf_tuning": {
+            "type": "OrtPerfTuning",
+            "enable_cuda_graph": true,
+            "io_bind": true,
+            "data_config": "glue"
+        },
+        "trt_perf_tuning": {
+            "type": "OrtPerfTuning",
+            "enable_cuda_graph": false,
+            "enable_trt_fp16": true,
+            "io_bind": true,
+            "data_config": "glue"
+        }
+    },
+    "pass_flows": [
+        ["conversion", "cuda_transformers_optimization", "cuda_perf_tuning"],
+        ["conversion", "trt_transformers_optimization", "trt_perf_tuning"]
+    ],
+    "search_strategy": {
+        "execution_order": "joint",
+        "search_algorithm": "tpe",
+        "num_samples": 1,
+        "seed": 0
+    },
+    "evaluator": "common_evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir" : "models/bert_gpu"
+}
+```
+:::
 
-!!! note
-    In this example, Auto Optimizer can use default settings to catch up with manual settings. Auto Optimizer is aware of following rules which requires expert knowledge in manual settings:
+::::
 
-    1. For CUDAExecutionProvider:
-        - it would be better to disable ``enable_trt_fp16`` and enable ``enable_cuda_graph`` in ``OrtPerfTuning`` pass, and enable ``float16`` in ``OrtTransformersOptimization`` pass.
+```{Note}
+In this example, Auto Optimizer can use default settings to catch up with manual settings. Auto Optimizer is aware of following rules which requires expert knowledge in manual settings:
 
-    2. For TensorrtExecutionProvider:
-        - it would be better to enable ``enable_trt_fp16`` and disable ``enable_cuda_graph`` in ``OrtPerfTuning`` pass, and disable ``float16`` in ``OrtTransformersOptimization`` pass.
+1. For CUDAExecutionProvider:
+    - it would be better to disable ``enable_trt_fp16`` and enable ``enable_cuda_graph`` in ``OrtPerfTuning`` pass, and enable ``float16`` in ``OrtTransformersOptimization`` pass.
 
-    3. At the same time, for both CUDAExecutionProvider and TensorrtExecutionProvider:
-        - it would be better to enable ``io_bind`` in ``OrtPerfTuning`` pass.
+2. For TensorrtExecutionProvider:
+    - it would be better to enable ``enable_trt_fp16`` and disable ``enable_cuda_graph`` in ``OrtPerfTuning`` pass, and disable ``float16`` in ``OrtTransformersOptimization`` pass.
+
+3. At the same time, for both CUDAExecutionProvider and TensorrtExecutionProvider:
+    - it would be better to enable ``io_bind`` in ``OrtPerfTuning`` pass.
+```

@@ -79,9 +79,9 @@ def eval_accuracy(model, device, execution_providers):
     # return metric value
 ```
 
-!!! example
-
-    Please refer to [this `user_script.py`](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py) for a detailed example of how to set up a custom metric. 
+```{Note}
+Please refer to [this `user_script.py`](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py) for a detailed example of how to set up a custom metric. 
+```
 
 
 Alternatively, if you only need Olive to run the inference and you will calculate the metric by yourself, you can specify `metric_func: "None"` in the metric configuration.
@@ -125,5 +125,6 @@ If you have multiple metrics to evaluate, you can configure them in the followin
 }
 ```
 
-!!! note
-    If you have more than one metric, you need to specify `priority: {RANK}`, which Olive will use to determine the best model. 
+```{Note}
+If you have more than one metric, you need to specify `priority: {RANK}`, which Olive will use to determine the best model. 
+```

@@ -36,22 +36,19 @@ The local system represents the local machine where the Pass is run or the Model
 }
 ```
 
-!!! note
+```{Note}
+* Local system doesn't support `olive_managed_env`.
+* The accelerators attribute for local system is optional. If not provided, Olive will get the available execution providers installed in the current local machine and infer its `device`.
+* For each accelerator, either `device` or ``execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the `device` or `execution_providers` if possible.
 
-    * Local system doesn't support `olive_managed_env`.
-    * The accelerators attribute for local system is optional. If not provided, Olive will get the available execution providers installed in the current local machine and infer its `device`.
-    * For each accelerator, either `device` or ``execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the `device` or `execution_providers` if possible.
+Most of time, the local system could be simplified as below:
 
-    Most of time, the local system could be simplified as below:
-
-    ```json
     {
         "type": "LocalSystem"
     }
-    ```
 
-    In this case, Olive will infer the `device` and `execution_providers` based on the local machine. Please note the `device` attribute is required for **host** since it will not be inferred for host system.
-
+In this case, Olive will infer the `device` and `execution_providers` based on the local machine. Please note the `device` attribute is required for **host** since it will not be inferred for host system.
+```
 
 ## Python Environment System
 
@@ -92,12 +89,11 @@ Here are the examples of configuring the general Python Environment System.
 }
 ```
 
-!!! note
-
-    - The python environment must have `olive-ai` installed if `olive_managed_env = False`.
-    - The accelerators for python system is optional. If not provided, Olive will get the available execution providers installed in current python virtual environment and infer its `device`.
-    - For each accelerator, either `device` or `execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the `device` or `execution_providers` if possible.
-
+```{Note}
+- The python environment must have `olive-ai` installed if `olive_managed_env = False`.
+- The accelerators for python system is optional. If not provided, Olive will get the available execution providers installed in current python virtual environment and infer its `device`.
+- For each accelerator, either `device` or `execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the `device` or `execution_providers` if possible.
+```
 
 ### Managed Python Environment System
 
@@ -127,10 +123,10 @@ For managed python environment system, Olive can only infer the onnxruntime from
 }
 ```
 
-
-!!! example
-    Please refer to [this example](https://github.com/microsoft/Olive/blob/main/examples/resnet/resnet_multiple_ep.json>`)
-    for how to use managed python environment system to optimize the model against different execution providers.
+```{Note}
+Please refer to [this example](https://github.com/microsoft/Olive/blob/main/examples/resnet/resnet_multiple_ep.json>`)
+for how to use managed python environment system to optimize the model against different execution providers.
+```
 
 ## Docker System
 
@@ -146,11 +142,11 @@ The docker system represents the docker container where the Pass is run or the M
 * `requirements_file`: The path to the requirements file. If provided, Olive will install the required packages from the requirements file in the docker container.
 * `olive_managed_env`: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.
 
-!!! note
-
-    * the `build_context_path`, `dockerfile` and `requirements_file` cannot be ``None`` at the same time.
-    * The docker container must have `olive-ai` installed.
-    * The ``device`` and ``execution_providers`` for docker system is mandatory. Otherwise, Olive will raise an error.
+```{Note}
+* the `build_context_path`, `dockerfile` and `requirements_file` cannot be ``None`` at the same time.
+* The docker container must have `olive-ai` installed.
+* The ``device`` and ``execution_providers`` for docker system is mandatory. Otherwise, Olive will raise an error.
+```
 
 ### Prerequisites
 
@@ -241,14 +237,14 @@ The AzureML system represents the Azure Machine Learning workspace where the Pas
 * `datastore`: The datastore name where to export artifacts. Default is `workspaceblobstore`.
 * `olive_managed_env`: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.
 
-!!! note
-
-    * Both `aml_docker_config` and `aml_environment_config` cannot be ``None`` at the same time.
-    * If `aml_environment_config` is provided, Olive will use the existing AzureML environment with the specified name, version and label.
-    * Otherwise, Olive will create a new AzureML environment using the `aml_docker_config` configuration.
-    * The `azureml_client_config` will be propagated from engine `azureml_client` if not provided.
-    * The `requirements_file` is only used when `olive_managed_env = True` to install the required packages in the AzureML environment.
-    * The ``device`` and ``execution_providers`` for AzureML system is mandatory. Otherwise, Olive will raise an error.
+```{Note}
+* Both `aml_docker_config` and `aml_environment_config` cannot be ``None`` at the same time.
+* If `aml_environment_config` is provided, Olive will use the existing AzureML environment with the specified name, version and label.
+* Otherwise, Olive will create a new AzureML environment using the `aml_docker_config` configuration.
+* The `azureml_client_config` will be propagated from engine `azureml_client` if not provided.
+* The `requirements_file` is only used when `olive_managed_env = True` to install the required packages in the AzureML environment.
+* The ``device`` and ``execution_providers`` for AzureML system is mandatory. Otherwise, Olive will raise an error.
+```
 
 ### Prerequisites
 
@@ -300,11 +296,10 @@ There are some readymade systems available for AzureML. These systems are pre-co
 }
 ```
 
-!!! note
-
-    The accelerators specified in the readymade systems will be filtered against the devices supported by the readymade system. If the specified device is not supported by the readymade system, Olive will filter out the accelerator.
-    In above example, the readymade system supports only GPU. Therefore, the final accelerators will be ``[{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}]`` and the CPU will be filtered out.
-
+```{Note}
+The accelerators specified in the readymade systems will be filtered against the devices supported by the readymade system. If the specified device is not supported by the readymade system, Olive will filter out the accelerator.
+In above example, the readymade system supports only GPU. Therefore, the final accelerators will be ``[{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}]`` and the CPU will be filtered out.
+```
 
 ### Managed AzureML System
 
@@ -366,9 +361,8 @@ The isolated ORT system represents the isolated ONNX Runtime environment in whic
 }
 ```
 
-!!! note
-
-    * Isolated ORT System does not support `olive_managed_env` and can only be used to evaluate ONNX models.
-    * The accelerators for Isolated ORT system is optional. If not provided, Olive will get the available execution providers installed in current virtual environment and infer its device.
-    * For each accelerator, either `device` or `execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the ``device`` or `execution_providers` if possible.
-
+```{Note}
+* Isolated ORT System does not support `olive_managed_env` and can only be used to evaluate ONNX models.
+* The accelerators for Isolated ORT system is optional. If not provided, Olive will get the available execution providers installed in current virtual environment and infer its device.
+* For each accelerator, either `device` or `execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the ``device`` or `execution_providers` if possible.
+```

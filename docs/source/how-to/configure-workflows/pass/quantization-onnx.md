@@ -1,4 +1,4 @@
-# ONNX
+# ONNX Quantization
 
 [ONNX](https://onnx.ai/) is an open graph format to represent machine learning models. [ONNX Runtime](https://onnxruntime.ai/docs/) is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.
 

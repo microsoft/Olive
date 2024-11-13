@@ -130,11 +130,3 @@ Then you can specify where to use it in the Engine config:
     "target": "aml_system",
 }
 ```
-
-### Packaging the output models to AzureML workspace
-#### Azure ML Models
-AzureMLModels packaging will register the output models to your Azure Machine Learning workspace. Please find more details [here](model-packaging.md#azuremlmodels).
-
-
-#### Azure ML Data
-AzureMLData packaging will upload the output models to your Azure Machine Learning workspace as Data assets. Please find more details [here](model-packaging.md#azuremldata).

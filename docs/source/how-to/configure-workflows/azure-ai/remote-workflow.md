@@ -14,7 +14,7 @@ pip install olive-ai[azureml]
 
 ## Configure an AzureML system
 
-To run the workflow on AzureML system, the configuration is same as normal AzureML system configuration. Please find more details in [this instruction](../tutorials/configure_systems.rst).
+To run the workflow on AzureML system, the configuration is same as normal AzureML system configuration. Please find more details in [this instruction](../systems.md).
 
 ## Run Olive Workflow
 

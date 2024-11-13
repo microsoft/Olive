@@ -76,11 +76,11 @@ Configure Workflows (Advanced)
 ------------------------------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :hidden:
 
-   configure-workflows/model-opt-and-transform/index
    configure-workflows/pass/pass-configuration
+   configure-workflows/model-opt-and-transform/index
    configure-workflows/how-to-configure-data
    configure-workflows/metrics-configuration
    configure-workflows/model-packaging

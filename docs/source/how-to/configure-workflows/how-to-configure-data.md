@@ -5,29 +5,29 @@ Olive Data config organizes the data loading, preprocessing, batching and post p
 The configuration of Olive data config is positioned under Olive run config with the field of `data_configs`, which is a list of data config items.
 
 ```json
-
-    "data_configs": [
-        { "name": "dataset_1", /* additional config here */ },
-        { "name": "dataset_2", /* additional config here */ }
-    ]
+"data_configs": [
+    { "name": "dataset_1", /* additional config here */ },
+    { "name": "dataset_2", /* additional config here */ }
+]
 ```
 
-!!! note
-    `name` for each dataset should be unique, and must be composed letters, numbers, and underscores.
+```{Note}
+`name` for each dataset should be unique, and must be composed letters, numbers, and underscores.
+```
 
 Then if there is any requirement to leverage the data config in Olive passes/evaluator, we can simply refer to the data config **key name**. 
 
 ```json
-    "evaluators": {
-        "common_evaluator": {
-            "data_config": "dataset_1"
-        }
-    },
-    "passes": {
-        "common_pass": {
-            "data_config": "dataset_2"
-        }
+"evaluators": {
+    "common_evaluator": {
+        "data_config": "dataset_1"
     }
+},
+"passes": {
+    "common_pass": {
+        "data_config": "dataset_2"
+    }
+}
 ```
 
 
@@ -189,46 +189,43 @@ The above case shows to rewrite all the components in data config. But sometime,
 }
 ```
 
-!!! info
+```{Note}
+You should provide the `user_script` and `script_dir` if you want to customize the component type. The `user_script` should be a python script which contains the customized component type. The `script_dir` should be the directory path which contains the `user_script`. If your customized dataset is from Hugging Face, you should at least allow the `trust_remote_code` in your function's arguments list to indicate whether you trust the remote code or not. `kwargs` is the additional keyword arguments provided in the config, it can cover the case of `trust_remote_code` as well.
 
-    You should provide the `user_script` and `script_dir` if you want to customize the component type. The `user_script` should be a python script which contains the customized component type. The `script_dir` should be the directory path which contains the `user_script`. If your customized dataset is from Hugging Face, you should at least allow the `trust_remote_code` in your function's arguments list to indicate whether you trust the remote code or not. `kwargs` is the additional keyword arguments provided in the config, it can cover the case of `trust_remote_code` as well.
-    
-    Here is an example for `user_script`:
+Here is an example for `user_script`:
 
-    ```python
+    from olive.data.registry import Registry
 
-        from olive.data.registry import Registry
+    @Registry.register_dataset()
+    def customized_huggingface_dataset(data_dir, **kwargs):
+        # kwargs can cover the case of trust_remote_code or user can add trust_remote_code in the function's
+        # arguments list, like, customized_huggingface_dataset(data_dir, trust_remote_code=None, **kwargs):
+        
+        # ...
 
-        @Registry.register_dataset()
-        def customized_huggingface_dataset(data_dir, **kwargs):
-            # kwargs can cover the case of trust_remote_code or user can add trust_remote_code in the function's
-            # arguments list, like, customized_huggingface_dataset(data_dir, trust_remote_code=None, **kwargs):
-            
-            # ...
+    @Registry.register_pre_process()
+    def customized_huggingface_pre_process(dataset, **kwargs):
+        # ...
 
-        @Registry.register_pre_process()
-        def customized_huggingface_pre_process(dataset, **kwargs):
-            # ...
+    @Registry.register_post_process()
+    def customized_post_process(output):
+        # ...
 
-        @Registry.register_post_process()
-        def customized_post_process(output):
-            # ...
+    @Registry.register_dataloader()
+    def customized_dataloader(dataset):
+        # ...
 
-        @Registry.register_dataloader()
-        def customized_dataloader(dataset):
-            # ...
-    ```
+Some examples:
 
-    Some examples:
+- [user_script](https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L8-L10)
+- [The `json_config`](https://github.com/microsoft/Olive/blob/main/examples/inception/inception_config.json#L14-L16)
 
-    - [user_script](https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L8-L10)
-    - [The `json_config`](https://github.com/microsoft/Olive/blob/main/examples/inception/inception_config.json#L14-L16)
+The components will be called with the following arguments along with any additional keyword arguments provided in the config:
 
-    The components will be called with the following arguments along with any additional keyword arguments provided in the config:
+- `load_dataset`: `data_dir` (required, but the type can be `Optional[str]`)
+- `pre_process_data`: `dataset` (required, must be the first argument)
+- `post_process_data`: `output` (required, must be the first argument)
+- `dataloader`: `dataset` (required, must be the first argument)
 
-    - `load_dataset`: `data_dir` (required, but the type can be `Optional[str]`)
-    - `pre_process_data`: `dataset` (required, must be the first argument)
-    - `post_process_data`: `output` (required, must be the first argument)
-    - `dataloader`: `dataset` (required, must be the first argument)
-
-    the required arguments for `pre_process_data`/`post_process_data`/`dataloader` must start with `_` to avoid the conflict with the additional keyword arguments provided in the config.
+the required arguments for `pre_process_data`/`post_process_data`/`dataloader` must start with `_` to avoid the conflict with the additional keyword arguments provided in the config.
+```

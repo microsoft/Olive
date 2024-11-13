@@ -2,55 +2,64 @@
 
 The `olive finetune` command will finetune a PyTorch/Hugging Face model and output a Hugging Face PEFT adapter. If you want to convert the PEFT adapter into a format for the ONNX Runtime, you can execute the `olive generate-adapter` command after finetuning.
 
-## :material-clock-fast: Quickstart
+## {octicon}`zap` Quickstart
 
 The following example shows how to finetune [Llama-3.2-1B-Instruct from Hugging Face](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main) either using your local computer (if you have a GPU device) or using remote compute via Azure AI integration with Olive.
 
-=== "Local"
+:::: {tab-set}
 
-    !!! info
-        You'll need a GPU device on your local machine to fine-tune a model. 
+::: {tab-item} Local
 
-    ```bash
-    olive finetune \
-        --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \
-        --trust_remote_code \
-        --output_path finetuned-model \
-        --data_name xxyyzzz/phrase_classification \
-        --text_template "<|start_header_id|>user<|end_header_id|>\n{phrase}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n{tone}" \
-        --method qlora \
-        --max_steps 30 \
-        --log_level 1 \
-    ```
+```{Note}
+You'll need a GPU device on your local machine to fine-tune a model. 
+```
 
-=== "Azure AI"
+```bash
+olive finetune \
+    --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \
+    --trust_remote_code \
+    --output_path finetuned-model \
+    --data_name xxyyzzz/phrase_classification \
+    --text_template "<|start_header_id|>user<|end_header_id|>\n{phrase}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n{tone}" \
+    --method qlora \
+    --max_steps 30 \
+    --log_level 1 \
+```
+:::
 
-    You can fine-tune on remote Azure ML compute by updating the placeholders (`{}`) in the following code snippet with your workspace, resource group and compute name details. Read the [How to create a compute cluster](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-create-attach-compute-cluster?view=azureml-api-2&tabs=azure-studio) article for more details on setting up a GPU cluster in Azure ML.
+::: {tab-item} Azure AI
 
-    ```bash
-    olive finetune \
-        --model_name_or_path azureml://registries/azureml-meta/models/Llama-3.2-1B/versions/2 \ # (1)!
-        --trust_remote_code \
-        --output_path finetuned-model \
-        --data_name xxyyzzz/phrase_classification \
-        --text_template "<|start_header_id|>user<|end_header_id|>\n{phrase}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n{tone}" \
-        --method qlora \
-        --max_steps 30 \
-        --log_level 1 \
-        --resource_group {RESOURCE_GROUP_NAME} \
-        --workspace_name {WORKSPACE_NAME} \
-        --aml_compute {COMPUTE_NAME}
-    ```
-    
-    1. Note that the model path is pointing to an Azure ML registry.
+You can fine-tune on remote Azure ML compute by updating the placeholders (`{}`) in the following code snippet with your workspace, resource group and compute name details. Read the [How to create a compute cluster](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-create-attach-compute-cluster?view=azureml-api-2&tabs=azure-studio) article for more details on setting up a GPU cluster in Azure ML.
 
-    You can download the model artefact using the Azure ML CLI:
+```bash
+olive finetune \
+    --model_name_or_path azureml://registries/azureml-meta/models/Llama-3.2-1B/versions/2 \ # (1)
+    --trust_remote_code \
+    --output_path finetuned-model \
+    --data_name xxyyzzz/phrase_classification \
+    --text_template "<|start_header_id|>user<|end_header_id|>\n{phrase}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n{tone}" \
+    --method qlora \
+    --max_steps 30 \
+    --log_level 1 \
+    --resource_group {RESOURCE_GROUP_NAME} \
+    --workspace_name {WORKSPACE_NAME} \
+    --aml_compute {COMPUTE_NAME}
+```
 
-    ```bash
-    az ml job download --name {JOB_ID} --resource-group {RESOURCE_GROUP_NAME} --workspace-name {WORKSPACE_NAME} -all
-    ```
+**Annotations:**
 
-### :octicons-plug-16: Generate the adapters for ONNX Runtime
+1. Note that the model path is pointing to an Azure ML registry.
+
+You can download the model artefact using the Azure ML CLI:
+
+```bash
+az ml job download --name {JOB_ID} --resource-group {RESOURCE_GROUP_NAME} --workspace-name {WORKSPACE_NAME} -all
+```
+:::
+
+::::
+
+### {octicon}`plug` Generate the adapters for ONNX Runtime
 
 If you would like your fine-tuned model to run on the ONNX Runtime, you'll need to execute the `olive generate-adapter` command, using
 
@@ -70,93 +79,95 @@ Once the `olive generate-adapter` has successfully completed, you'll have:
 
 OLIVE and the ONNX runtime support the *multi-LoRA* model serving pattern, which greatly reduces the compute footprint of serving many adapters:
 
-<figure markdown="span">
-  ![Image title](../../images/multi-lora.png){ width="700" }
-  <figcaption>Multi-LoRA serving versus single-LoRA serving</figcaption>
-</figure>
+
+```{figure} ../../images/olive-design.png
+:width: 700px
+:align: center
+
+Multi-LoRA serving versus single-LoRA serving
+```
 
 You can use the `olive finetune` command for each adapter and then convert them using `olive generate-adapter` (updating the `--adapter_path` for each). In the [Inference model using ONNX runtime](#simple-onnx-inference-model-using-onnx-runtime) section, we show you how to load many adapters.
 
-### :simple-onnx: Inference model using ONNX Runtime
+### <span class="onnx-icon"></span> Inference model using ONNX Runtime
 
-=== "Python"
+:::: {tab-set}
 
-    Copy-and-paste the code below into a new Python file called `app.py`:
+::: {tab-item} Python
 
-    ```python
-    import onnxruntime_genai as og
-    import numpy as np
-    import os
+Copy-and-paste the code below into a new Python file called `app.py`:
 
-    model_folder = "adapter-onnx/model"
+```python
+import onnxruntime_genai as og
+import numpy as np
+import os
 
-    # Load the base model and tokenizer
-    model = og.Model(model_folder)
-    tokenizer = og.Tokenizer(model)
-    tokenizer_stream = tokenizer.create_stream()
+model_folder = "adapter-onnx/model"
 
-    # Load the LoRA adapter weights
-    weights_file = os.path.join(model_folder, "adapter_weights.npz")
-    adapter_weights = np.load(weights_file)
+# Load the base model and tokenizer
+model = og.Model(model_folder)
+tokenizer = og.Tokenizer(model)
+tokenizer_stream = tokenizer.create_stream()
 
-    # Set the max length to something sensible by default,
-    # since otherwise it will be set to the entire context length
-    search_options = {}
-    search_options['max_length'] = 200
-    search_options['past_present_share_buffer'] = False
+# Load the LoRA adapter weights
+weights_file = os.path.join(model_folder, "adapter_weights.npz")
+adapter_weights = np.load(weights_file)
 
-    chat_template = "<|start_header_id|>user<|end_header_id|>\n{input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
+# Set the max length to something sensible by default,
+# since otherwise it will be set to the entire context length
+search_options = {}
+search_options['max_length'] = 200
+search_options['past_present_share_buffer'] = False
 
-    text = input("Enter phrase: ")
+chat_template = "<|start_header_id|>user<|end_header_id|>\n{input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
 
-    # Keep asking for input phrases
-    while text != "exit":
-    if not text:
-        print("Error, input cannot be empty")
-        exit
+text = input("Enter phrase: ")
 
-    # generate prompt (prompt template + input)
-    prompt = f'{chat_template.format(input=text)}'
+# Keep asking for input phrases
+while text != "exit":
+if not text:
+    print("Error, input cannot be empty")
+    exit
 
-    # encode the prompt using the tokenizer
-    input_tokens = tokenizer.encode(prompt)
+# generate prompt (prompt template + input)
+prompt = f'{chat_template.format(input=text)}'
 
-    # the adapter weights are added to the model at inference time. This means you
-    # can select different adapters for different tasks i.e. multi-LoRA.
+# encode the prompt using the tokenizer
+input_tokens = tokenizer.encode(prompt)
 
-    params = og.GeneratorParams(model)
-    for key in adapter_weights.keys():
-        params.set_model_input(key, adapter_weights[key])
-    params.set_search_options(**search_options)
-    params.input_ids = input_tokens
-    generator = og.Generator(model, params)
+# the adapter weights are added to the model at inference time. This means you
+# can select different adapters for different tasks i.e. multi-LoRA.
 
-    print("Output: ", end='', flush=True)
-    # stream the output
-    try:
-        while not generator.is_done():
-        generator.compute_logits()
-        generator.generate_next_token()
+params = og.GeneratorParams(model)
+for key in adapter_weights.keys():
+    params.set_model_input(key, adapter_weights[key])
+params.set_search_options(**search_options)
+params.input_ids = input_tokens
+generator = og.Generator(model, params)
 
-        new_token = generator.get_next_tokens()[0]
-        print(tokenizer_stream.decode(new_token), end='', flush=True)
-    except KeyboardInterrupt:
-        print("  --control+c pressed, aborting generation--")
+print("Output: ", end='', flush=True)
+# stream the output
+try:
+    while not generator.is_done():
+    generator.compute_logits()
+    generator.generate_next_token()
 
-    print()
-    text = input("Input: ")
+    new_token = generator.get_next_tokens()[0]
+    print(tokenizer_stream.decode(new_token), end='', flush=True)
+except KeyboardInterrupt:
+    print("  --control+c pressed, aborting generation--")
 
-    ```
+print()
+text = input("Input: ")
 
-    Run the code with:
+```
+:::
 
-    ```bash
-    python app.py
-    ```
+::::
 
-## :fontawesome-solid-signs-post: Next steps
+Run the code with:
 
-<!-- [:octicons-arrow-right-24: Tutorials](../tutorials/index.md) -->
-
-[:octicons-arrow-right-24: Feature How-tos](../how-to/index.md)
+```bash
+python app.py
+```
 

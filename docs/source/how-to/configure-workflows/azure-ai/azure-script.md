@@ -59,4 +59,4 @@ You can delete an AzureML compute instance by:
 olive manage-aml-compute --delete --compute_name <compute_name>
 ```
 
-More details can be found at [Command Line Tools](command_line_tools).
+More details can be found at [Command Line Tools](../../../reference/cli.rst).

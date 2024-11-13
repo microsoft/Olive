@@ -8,8 +8,9 @@ OLIVE encapsulates all the latest cutting edge quantization techniques into a si
 
 Currently, OLIVE supports the following techniques:
 
-!!! note
-    Some methods require a GPU and/or a calibration dataset.
+```{Note}
+Some methods require a GPU and/or a calibration dataset.
+```
 
 | Method | Description | GPU required | Calibration dataset required | Input model format(s) | Output model format |
 | ------ | ------------ | ------------ | ------------------ | ------------------ | ------------------- |
@@ -21,13 +22,15 @@ Currently, OLIVE supports the following techniques:
 | INC Dynamic | Intel® Neural Compressor model compression tool.  | ❌ | ❌ | :simple-onnx: | :simple-onnx: |
 | NVMO | NVIDIA TensorRT Model Optimizer is a library comprising state-of-the-art model optimization techniques including quantization, sparsity, distillation, and pruning to compress models. | ❌ | ❌ | :simple-onnx: | :simple-onnx: |
 
-## :material-clock-fast: Quickstart
+## {octicon}`zap` Quickstart
 
 To use AWQ quantization on [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main) run the following command:
 
-!!! note
-    - You'll need to execute this command on a GPU machine.
-    - If you want to quantize a different model, update the `--model_name_or_path` to a different Hugging Face Repo ID (`{username}/{model})
+
+```{Note}
+- You'll need to execute this command on a GPU machine.
+- If you want to quantize a different model, update the `--model_name_or_path` to a different Hugging Face Repo ID (`{username}/{model})
+```
 
 ```bash
 olive quantize \ 

@@ -9,7 +9,6 @@ import sys
 # ruff: noqa
 # pylint: skip-file
 sys.path.append(os.path.abspath("exts"))
-sys.path.append(str(Path(".").resolve()))
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -45,7 +44,7 @@ extensions = [
     "sphinxarg.ext",
     "sphinxcontrib.autodoc_pydantic",
     "sphinxcontrib.jquery",
-    "_extension.gallery_directive",
+    "gallery_directive",
 ]
 
 myst_enable_extensions = [
@@ -78,8 +77,6 @@ html_js_files = [
     "js/custom_version.js",
 ]
 
-
-# pydata theme
 html_theme_options = {
     "header_links_before_dropdown": 4,
     "icon_links": [
