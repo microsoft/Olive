@@ -109,7 +109,10 @@ python phi3.py --quarot
 Get access to the following resources on Hugging Face Hub:
 - [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
 
-# Quantize the model using [TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
+# Quantize model using [TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
+The _TensorRT Model Optimizer_ is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users, it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.
+
+The primary objective of the _TensorRT-Model-Optimizer_ is to generate optimized, standards-compliant ONNX-format models for DirectML backends
 
 ## Setup
 ```bash
