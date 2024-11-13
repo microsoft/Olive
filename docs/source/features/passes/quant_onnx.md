@@ -124,7 +124,7 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
 Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
 
 ## NVIDIA TensorRT Model Optimizer
-Olive also integrates [TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
+Olive also integrates [TensorRT Model Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
 
 The TensorRT Model Optimizer is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users,it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.
 
