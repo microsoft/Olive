@@ -110,19 +110,24 @@ Get access to the following resources on Hugging Face Hub:
 - [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
 
 # Quantize the model using [TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
-use [Package onnxruntime-genai-directml](https://github.com/microsoft/onnxruntime-genai) >=0.4.0
 
-Setup
+## Setup
 ```bash
 pip install olive-ai[nvmo]
 pip install onnxruntime-genai-directml>=0.4.0
 pip install onnxruntime-directml==1.20.0
 pip install -r requirements-nvmo-awq.txt
 ```
-
 Install the CUDA version compatible with CuPy as mentioned in requirements-nvmo-awq.txt
 
-quantization: For quantization, use the config file phi3_nvmo_ptq.json
+## Validate Installation
+After completing the setup, it's essential to verify that the `modelopt` package is installed correctly. Run the following command in your terminal:
+```bash
+python -c "from modelopt.onnx.quantization.int4 import quantize as quantize_int4"
+```
+
+## Quantization:
+For quantization, use the config file phi3_nvmo_ptq.json
 ```bash
 olive run --config phi3_nvmo_ptq.json
 ```
