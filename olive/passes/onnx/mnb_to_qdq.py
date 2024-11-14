@@ -69,28 +69,49 @@ class MatMulNBitsToQDQ(Pass):
         # 2. Repacking
         ir_model = ir.serde.deserialize_model(model.load_model())
 
-        def mat_mul_n_bits_pattern(op, input_A, qweight, qscales, qzeros, g_idx, bias):
-            return op.MatMulNBits(input_A, qweight, qscales, qzeros, g_idx, bias)
+        def mat_mul_n_bits_pattern(op, input_A, q_weight, q_scales, q_zeros, g_idx, bias):
+            # bias is an optional input
+            return op.MatMulNBits(
+                input_A,
+                q_weight,
+                q_scales,
+                q_zeros,
+                g_idx,
+                bias,
+                _outputs=["mat_mul_n_bits_out"],  # Bind the output to the name "mat_mul_n_bits_out"
+            )
 
         def _is_initializer(context, value: ir.Value) -> bool:
             graph: ir.Graph = context.graph
             return value in graph.initializers.values()
 
-        def mat_mul_n_bits_pattern_check(context, input_A, qweight, qscales, qzeros, g_idx, bias) -> bool:
-            if not _is_initializer(context, qweight):
+        def mat_mul_n_bits_pattern_check(context, *, q_weight, g_idx, mat_mul_n_bits_out: ir.Value, **_) -> bool:
+            if not _is_initializer(context, q_weight):
                 return False
-            node: ir.Node = _get_node(input_A)
-            block_size = node.attributes["block_size"].value
-            K = node.attributes["K"].value
+            node: ir.Node = mat_mul_n_bits_out.producer()
+            block_size = node.attributes["block_size"].as_int()
+            k = node.attributes["K"].as_int()
+            if not _is_initializer(g_idx, q_weight):
+                return False
             g_idx = g_idx.constant_value.numpy()
-            trivial_g_idx = np.arange(K, dtype=np.int32) // block_size
+            trivial_g_idx = np.arange(k, dtype=np.int32) // block_size
             if not np.array_equal(g_idx, trivial_g_idx):
-                # Log
+                # TODO: We can log why the pattern is not matched here
                 return False
             return True
 
-        def mat_mul_n_bits_replacement(op, input_A, qweight, qscales, qzeros, g_idx, bias):
-            node: ir.Node = _get_node(input_A)
+        def mat_mul_n_bits_replacement(
+            op,
+            *,
+            input_A: ir.Value,
+            q_weight: ir.Value,
+            q_scales: ir.Value,
+            q_zeros: ir.Value,
+            bias: ir.Value,
+            mat_mul_n_bits_out: ir.Value,
+            **_,
+        ):
+            node: ir.Node = mat_mul_n_bits_out.producer()
             # TODO(justinchuby): Keep the old name of the node
             k: int = node.attributes["K"].as_int()
             block_size: int = node.attributes["block_size"].as_int()
@@ -100,11 +121,11 @@ class MatMulNBitsToQDQ(Pass):
             # - originally blockwise but K <= block_size
             is_per_axis = num_k_blocks == 1
 
-            # dequantizelinear -> transpose -> matmul -> add (optional)
+            # DequantizeLinear -> Transpose -> MatMul -> Add (optional)
             dq = op.DequantizeLinear(
-                qweight,
-                qscales,
-                qzeros,
+                q_weight,
+                q_scales,
+                q_zeros,
                 block_size=None if is_per_axis else block_size,
                 # for some reason block_wise and per-axis appear to use swapped axis
                 # flip the axis if it is per-axis
@@ -121,13 +142,13 @@ class MatMulNBitsToQDQ(Pass):
                 matmul = op.Add(matmul, bias)
             return matmul
 
-        replace_matmul_n_bits = orp.RewriteRule(
+        replace_mat_mul_n_bits = orp.RewriteRule(
             mat_mul_n_bits_pattern,
             mat_mul_n_bits_pattern_check,
             mat_mul_n_bits_replacement,
         )
+        # TODO(justinchuby): Call the rewriter with replace_mat_mul_n_bits
 
-        # TODO(justinchuby): Call the rewriter with replace_matmul_n_bits
         # 2. Repack the quantized weights
         for node in ir_model.graph:
             if "needs_repacking" not in node.meta:
@@ -151,6 +172,11 @@ class MatMulNBitsToQDQ(Pass):
                 # TODO(justinchuby): Ensure the node has three inputs
                 node.replace_input_with(3, input_3)
                 ir_model.graph.register_initializer(input_3)
+
+            # Clear the meta data
+            del node.meta["needs_repacking"]
+            del node.meta["K"]
+            del node.meta["N"]
 
         # TODO(justinchuby): Register and remove initializers
         ir_model.opset_imports[""] = max(21, ir_model.opset_imports[""])
