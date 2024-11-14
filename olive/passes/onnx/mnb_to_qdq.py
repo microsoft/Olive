@@ -151,7 +151,7 @@ class MatMulNBitsToQDQ(Pass):
         # TODO(justinchuby): Call the rewriter with replace_mat_mul_n_bits
 
         # 2. Repack the quantized weights
-        for node in ir_model.graph:
+        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
             if "needs_repacking" not in node.meta:
                 continue
 
