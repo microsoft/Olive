@@ -62,7 +62,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
         input_model["task"] = args.task
     if getattr(args, "adapter_path", None):
         input_model["adapter_path"] = args.adapter_path
-    if getattr(args, "trust_remote_code", None):
+    if getattr(args, "trust_remote_code", None) is not None:
         input_model["load_kwargs"]["trust_remote_code"] = args.trust_remote_code
     return input_model
 
