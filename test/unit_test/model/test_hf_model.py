@@ -61,9 +61,14 @@ class TestHFModel:
         assert olive_model.model_name_or_path == str(Path(self.local_path).resolve()) if local else self.model_name
 
     @pytest.mark.parametrize("local", [True, False])
+    @pytest.mark.parametrize("trust_remote_code", [True, False])
     @pytest.mark.parametrize("tokenizer_exists", [True, False])
-    def test_save_metadata(self, local, tokenizer_exists, tmp_path):
-        olive_model = HfModelHandler(model_path=self.local_path if local else self.model_name, task=self.task)
+    def test_save_metadata(self, local, trust_remote_code, tokenizer_exists, tmp_path):
+        olive_model = HfModelHandler(
+            model_path=self.local_path if local else self.model_name,
+            task=self.task,
+            load_kwargs={"trust_remote_code": trust_remote_code, "revision": self.revision},
+        )
         if tokenizer_exists:
             olive_model.get_hf_tokenizer().save_pretrained(tmp_path)
         saved_filepaths = olive_model.save_metadata(tmp_path)
@@ -108,6 +113,7 @@ def test_save_metadata_with_module_files(trust_remote_code, tmp_path):
         model_path="katuni4ka/tiny-random-phi3",
         load_kwargs=load_kwargs,
     )
+
     saved_filepaths = olive_model.save_metadata(tmp_path)
     assert all(Path(fp).exists() for fp in saved_filepaths)
     if trust_remote_code:

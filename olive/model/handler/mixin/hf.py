@@ -47,9 +47,7 @@ class HfMixin:
         :param exclude_load_keys: list of keys to exclude from load_kwargs
         :return: generation config or None
         """
-        return get_generation_config(
-            self.model_path, fail_on_not_found=False, **self.get_load_kwargs(exclude_load_keys)
-        )
+        return get_generation_config(self.model_path, **self.get_load_kwargs(exclude_load_keys))
 
     def get_hf_tokenizer(self) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
         """Get tokenizer for the model."""
@@ -76,9 +74,12 @@ class HfMixin:
         # save config and module files
         # load already saved config, could be saved by loaded_model.save_pretrained
         # don't want to override it with the current model config
-        config = get_model_config(
-            output_dir, fail_on_not_found=False, trust_remote_code=self.get_load_kwargs().get("trust_remote")
-        ) or self.get_hf_model_config(exclude_load_keys=exclude_load_keys)
+        config_file_path = output_dir / "config.json"
+        config = (
+            get_model_config(output_dir, trust_remote_code=self.get_load_kwargs().get("trust_remote"))
+            if config_file_path.exists()
+            else self.get_hf_model_config(exclude_load_keys=exclude_load_keys)
+        )
         if getattr(config, "auto_map", None):
             # needs model_name_or_path to find module files
             # conditional since model_name_or_path might trigger preprocessing for some mlflow models
@@ -90,18 +91,21 @@ class HfMixin:
             )
             saved_filepaths.extend(module_files)
         save_model_config(config, output_dir, **kwargs)
-        saved_filepaths.append(str(output_dir / "config.json"))
+        saved_filepaths.append(str(config_file_path))
 
         # save model generation config, skip if it already exists
         # non-generative models won't have generation config
-        if (not get_generation_config(output_dir, fail_on_not_found=False)) and (
+        generation_config_file_path = output_dir / "generation_config.json"
+        if not generation_config_file_path.exists() and (
             generation_config := self.get_hf_generation_config(exclude_load_keys=exclude_load_keys)
         ):
             save_model_config(generation_config, output_dir, **kwargs)
-            saved_filepaths.append(str(output_dir / "generation_config.json"))
+            saved_filepaths.append(str(generation_config_file_path))
 
         # save tokenizer, skip if it already exists
-        if not get_tokenizer(output_dir, fail_on_not_found=False):
+        try:
+            get_tokenizer(output_dir)
+        except OSError:
             tokenizer_filepaths = save_tokenizer(self.get_hf_tokenizer(), output_dir, **kwargs)
             saved_filepaths.extend([fp for fp in tokenizer_filepaths if Path(fp).exists()])
 

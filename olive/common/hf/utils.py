@@ -77,26 +77,17 @@ def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTr
     return model
 
 
-def from_pretrained(cls, model_name_or_path: str, mlflow_dir: str, fail_on_not_found: bool = True, **kwargs):
+def from_pretrained(cls, model_name_or_path: str, mlflow_dir: str, **kwargs):
     """Call cls.from_pretrained with hf checkpoint or mlflow model.
 
     If the model_name_or_path is an MLFlow model, the corresponding subdirectory is used.
     """
-    try:
-        return cls.from_pretrained(get_pretrained_name_or_path(model_name_or_path, mlflow_dir), **kwargs)
-    except OSError:
-        if fail_on_not_found:
-            raise
-        return None
+    return cls.from_pretrained(get_pretrained_name_or_path(model_name_or_path, mlflow_dir), **kwargs)
 
 
-def get_model_config(model_name_or_path: str, fail_on_not_found: bool = True, **kwargs) -> Optional["PretrainedConfig"]:
+def get_model_config(model_name_or_path: str, **kwargs) -> "PretrainedConfig":
     """Get HF Config for the given model_name_or_path."""
-    model_config = from_pretrained(
-        AutoConfig, model_name_or_path, "config", fail_on_not_found=fail_on_not_found, **kwargs
-    )
-    if model_config is None:
-        return None
+    model_config = from_pretrained(AutoConfig, model_name_or_path, "config", **kwargs)
 
     # add quantization config
     quantization_config = kwargs.get("quantization_config")
@@ -192,23 +183,17 @@ def get_module_file(
     return class_reference, str(module_file)
 
 
-def get_generation_config(
-    model_name_or_path: str, fail_on_not_found: bool = True, **kwargs
-) -> Optional["GenerationConfig"]:
+def get_generation_config(model_name_or_path: str, **kwargs) -> Optional["GenerationConfig"]:
     """Get HF model's generation config for the given model_name_or_path. If not found, return None."""
-    return from_pretrained(GenerationConfig, model_name_or_path, "model", fail_on_not_found=fail_on_not_found, **kwargs)
-
-
-def get_tokenizer(
-    model_name_or_path: str, fail_on_not_found: bool = True, **kwargs
-) -> Optional[Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]]:
-    """Get HF model's tokenizer."""
-    tokenizer = from_pretrained(
-        AutoTokenizer, model_name_or_path, "tokenizer", fail_on_not_found=fail_on_not_found, **kwargs
-    )
-    if tokenizer is None:
+    try:
+        return from_pretrained(GenerationConfig, model_name_or_path, "model", **kwargs)
+    except OSError:
         return None
 
+
+def get_tokenizer(model_name_or_path: str, **kwargs) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
+    """Get HF model's tokenizer."""
+    tokenizer = from_pretrained(AutoTokenizer, model_name_or_path, "tokenizer", **kwargs)
     if getattr(tokenizer, "pad_token", None) is None:
         logger.debug("Setting pad_token to eos_token for tokenizer %s", model_name_or_path)
         tokenizer.pad_token = tokenizer.eos_token
