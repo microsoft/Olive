@@ -19,7 +19,6 @@ sys.path.append(os.path.abspath("exts"))
 
 project = "Olive"
 copyright = "2023, olivedevteam@microsoft.com"
-author = "olivedevteam@microsoft.com"
 version = "latest"
 
 # -- General configuration ---------------------------------------------------
