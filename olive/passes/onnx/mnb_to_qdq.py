@@ -129,7 +129,7 @@ class MatMulNBitsToQDQ(Pass):
                 block_size=None if is_per_axis else block_size,
                 # for some reason block_wise and per-axis appear to use swapped axis
                 # flip the axis if it is per-axis
-                axis=config["use_transpose_op"] or is_per_axis,
+                axis=config["use_transpose_op"] ^ is_per_axis,
             )
             # TODO(justinchuby): Improve the way we mark something that needs repacking
             dq_node = dq.producer()
