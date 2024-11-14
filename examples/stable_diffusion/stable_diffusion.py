@@ -10,11 +10,11 @@ import warnings
 from pathlib import Path
 from typing import Dict
 
-import config
 import numpy as np
 import torch
 from diffusers import DiffusionPipeline
 from packaging import version
+from sd_utils import config
 from user_script import get_base_model_name
 
 from olive.common.utils import set_tempdir
