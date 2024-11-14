@@ -111,10 +111,10 @@ class MatMulNBitsToQDQ(Pass):
             mat_mul_n_bits_out: ir.Value,
             **_,
         ):
-            node: ir.Node = mat_mul_n_bits_out.producer()
+            mat_mul_n_bits: ir.Node = mat_mul_n_bits_out.producer()
             # TODO(justinchuby): Keep the old name of the node
-            k: int = node.attributes["K"].as_int()
-            block_size: int = node.attributes["block_size"].as_int()
+            k: int = mat_mul_n_bits.attributes["K"].as_int()
+            block_size: int = mat_mul_n_bits.attributes["block_size"].as_int()
             num_k_blocks = math.ceil(k / block_size)
             # will make this a per-axis DQ if num_k_blocks == 1
             # - originally per-axis K == block_size
@@ -122,7 +122,7 @@ class MatMulNBitsToQDQ(Pass):
             is_per_axis = num_k_blocks == 1
 
             # DequantizeLinear -> Transpose -> MatMul -> Add (optional)
-            dq = op.DequantizeLinear(
+            dq: ir.Value = op.DequantizeLinear(
                 q_weight,
                 q_scales,
                 q_zeros,
@@ -132,9 +132,10 @@ class MatMulNBitsToQDQ(Pass):
                 axis=config["use_transpose_op"] or is_per_axis,
             )
             # TODO(justinchuby): Improve the way we mark something that needs repacking
-            dq.producer().meta["needs_repacking"] = True
-            dq.producer().meta["K"] = k
-            dq.producer().meta["N"] = node.attributes["N"].as_int()
+            dq_node = dq.producer()
+            dq_node.meta["needs_repacking"] = True
+            dq_node.meta["K"] = k
+            dq_node.meta["N"] = mat_mul_n_bits.attributes["N"].as_int()
             if config["use_transpose_node"]:
                 dq = op.Transpose(dq, perm=[1, 0])
             matmul = op.MatMul(input_A, dq)
