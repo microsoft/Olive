@@ -109,9 +109,12 @@ class FineTuneCommand(BaseOliveCLICommand):
         return {k: v for k, v in vars(training_args).items() if k in arg_keys}
 
     def get_run_config(self, tempdir: str) -> Dict:
+        input_model_config = get_input_model_config(self.args)
+        assert input_model_config["type"].lower() == "hfmodel", "Only HfModel is supported in finetune command."
+
         finetune_key = ("passes", "f")
         to_replace = [
-            ("input_model", get_input_model_config(self.args)),
+            ("input_model", input_model_config),
             ((*finetune_key, "type"), self.args.method),
             ((*finetune_key, "torch_dtype"), self.args.torch_dtype),
             ((*finetune_key, "training_args"), self.parse_training_args()),
