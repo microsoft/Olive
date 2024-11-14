@@ -9,13 +9,12 @@ from pathlib import Path
 from typing import Dict
 
 import onnxruntime as ort
+import sd_utils.config as config
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
 from olive.model import ONNXModelHandler
-import sd_utils.config as config
-
 
 # ruff: noqa: TID252, T201
 
