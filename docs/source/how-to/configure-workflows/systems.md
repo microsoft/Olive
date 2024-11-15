@@ -8,7 +8,7 @@ There are five systems in Olive: **local system**, **Python environment system**
 
 For each **host** or **target**, it will represent list of accelerators that are supported by the system. Each accelerator is represented by a dictionary with the following attributes:
 
-- `device`: The device type of the accelerator. It could be "cpu", "gpu", "npu", etc. 
+- `device`: The device type of the accelerator. It could be "cpu", "gpu", "npu", etc.
 - `execution_providers`: The execution provider list that are supported by the accelerator. For example, `["CUDAExecutionProvider", "CPUExecutionProvider"]`.
 
 The **host** only use the `device` attribute to run the passes. Instead, the **target** uses both `device` and `execution_providers` attributes to run passes or evaluate models.

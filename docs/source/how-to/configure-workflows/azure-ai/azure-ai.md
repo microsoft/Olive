@@ -8,7 +8,7 @@ If you will use Azure ML resources and assets, you need to provide your Azure ML
 * You have AzureML system for targets or hosts.
 * You have Azure ML model as input model.
 
-You can set your client in your Olive configuration using: 
+You can set your client in your Olive configuration using:
 
 ```json
 "azureml_client": {

@@ -15,7 +15,7 @@ The configuration of Olive data config is positioned under Olive run config with
 `name` for each dataset should be unique, and must be composed letters, numbers, and underscores.
 ```
 
-Then if there is any requirement to leverage the data config in Olive passes/evaluator, we can simply refer to the data config **key name**. 
+Then if there is any requirement to leverage the data config in Olive passes/evaluator, we can simply refer to the data config **key name**.
 
 ```json
 "evaluators": {
@@ -160,7 +160,7 @@ Then the complete config would be like:
         "max_samples": null
     },
     "post_process_data_config": {
-        "type": "text_classification_post_process"                
+        "type": "text_classification_post_process"
     },
     "dataloader_config": {
         "type": "default_dataloader",
@@ -200,7 +200,7 @@ Here is an example for `user_script`:
     def customized_huggingface_dataset(data_dir, **kwargs):
         # kwargs can cover the case of trust_remote_code or user can add trust_remote_code in the function's
         # arguments list, like, customized_huggingface_dataset(data_dir, trust_remote_code=None, **kwargs):
-        
+
         # ...
 
     @Registry.register_pre_process()

@@ -7,7 +7,7 @@ Set-up
 .. toctree::
    :maxdepth: 1
    :hidden:
-   
+
    installation
 
 .. grid:: 1 1 1 1
@@ -154,7 +154,7 @@ Integrations
 .. toctree::
    :maxdepth: 1
    :hidden:
-   
+
    configure-workflows/azure-ai/index
    configure-workflows/huggingface-integration
 

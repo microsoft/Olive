@@ -24,7 +24,7 @@ The *input* into the workflow is the Llama-3.2-1B-Instruct model from Hugging Fa
 
 The *output* of the workflow is a Zip file containing the ONNX model and ORT configuration settings.
 
-### {octicon}`code-square` Define the workflow in a YAML file 
+### {octicon}`code-square` Define the workflow in a YAML file
 
 First, define the "quickstart workflow" in a YAML file:
 
