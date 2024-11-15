@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
-from pathlib import Path
 import sys
 
 # ruff: noqa
@@ -48,7 +47,7 @@ extensions = [
 
 myst_enable_extensions = [
     "html_image",
-    "colon_fence", 
+    "colon_fence",
 ]
 
 source_suffix = {
@@ -70,7 +69,7 @@ html_static_path = ["_static"]
 html_css_files = [
     # better contrast between h3 and h4, high priority so that it overrides the theme
     ("css/header.css", {"priority": 1000}),
-    "css/icons.css"
+    "css/icons.css",
 ]
 html_js_files = [
     "js/custom_version.js",
@@ -88,7 +87,7 @@ html_theme_options = {
             "name": "PyPI",
             "url": "https://pypi.org/project/olive-ai",
             "icon": "fa-custom fa-pypi",
-        }
+        },
     ],
     "logo": {
         "image_light": "images/olive_logo.png",
@@ -103,7 +102,7 @@ html_theme_options = {
     "footer_start": ["copyright"],
     "secondary_sidebar_items": {
         "**": ["page-toc"],
-    }
+    },
 }
 
 html_sidebars = {

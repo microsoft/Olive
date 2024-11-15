@@ -5,17 +5,17 @@
 Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.
 
 ## Model Optimizer
-`OnnxModelOptimizer` optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
+`OnnxPeepholeOptimizer` optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
 reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.
 
-Also, inserts a `Cast` operation for cases where `ArgMax` input isn't supported on the device. For example, on GPU inferencing, TensorProto.INT64 isn't supported so a `Cast` operator inserted to cast the inputs to TensorProto.INT32.
+Also, inserts a `Cast` operation for cases where `ArgMax` input. For example, before ONNXRuntime 1.20, TensorProto.INT64 isn't supported on CPU or CUDA EP so a `Cast` operator inserted to cast the inputs to TensorProto.INT32.
 
-Please refer to [OnnxModelOptimizer](onnx_model_optimizer) for more details about the pass and its config parameters.
+Please refer to [OnnxPeepholeOptimizer](onnx_peephole_optimizer) for more details about the pass and its config parameters.
 
 ### Example Configuration
 ```json
 {
-    "type": "OnnxModelOptimizer"
+    "type": "OnnxPeepholeOptimizer"
 }
 ```
 
@@ -179,13 +179,13 @@ ONNX Runtime provides high performance across a range of hardware options throug
 environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
-`OrtPerfTuning` covers basic knobs that can be leveraged to find the best performance for your model and hardware.
+`OrtSessionParamsTuning` covers basic knobs that can be leveraged to find the best performance for your model and hardware.
 
 ### Example Configuration
 ```json
 {
-    "type": "OrtPerfTuning",
-    "data_config": "perf_tuning_data_config",
+    "type": "OrtSessionParamsTuning",
+    "data_config": "session_params_tuning_data_config",
     "batch_size": 1,
     "providers_list" : [
         [
@@ -238,4 +238,4 @@ b. As constant inputs with packed weights
 
 Please refer to [ExtractAdapters](extract_adapters) for more details about the pass and its config parameters.
 
-Olive also provides a command line tool to export adapters saved after peft fine-tuning to a format compatible with a model that has been optimized with the `ExtractAdapters` pass. More details on the ``olive export-adapters`` command can be found at [Command Line Tools](command_line_tools).
+Olive also provides a command line tool to convert adapters saved after peft fine-tuning to a format compatible with a model that has been optimized with the `ExtractAdapters` pass. More details on the ``olive convert-adapters`` command can be found at [Command Line Tools](command_line_tools).

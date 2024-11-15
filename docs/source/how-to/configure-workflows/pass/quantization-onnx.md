@@ -41,8 +41,7 @@ b. Select parameters to tune
     // select per_channel to tune with "SEARCHABLE_VALUES".
     // other parameters will use the default value, not to be tuned.
     "per_channel": "SEARCHABLE_VALUES",
-    "data_config": "calib_data_config",
-    "disable_search": true
+    "data_config": "calib_data_config"
 }
 ```
 
@@ -52,7 +51,7 @@ c. Use default values of the OlivePass (no tuning in this way)
     "type": "OnnxQuantization",
     // set per_channel to "DEFAULT_VALUE"
     "per_channel": "DEFAULT_VALUE",
-    "data_config": "calib_data_config",
+    "data_config": "calib_data_config"
 }
 ```
 
@@ -62,8 +61,7 @@ d. Specify parameters with user defined values
     "type": "OnnxQuantization",
     // set per_channel to True.
     "per_channel": true,
-    "data_config": "calib_data_config",
-    "disable_search": true
+    "data_config": "calib_data_config"
 }
 ```
 
@@ -115,7 +113,7 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
     "quant_format":"QDQ",
     "activation_type":"QUInt8",
     "weight_type":"QInt8",
-    "data_config": "calib_data_config",
+    "data_config": "calib_data_config"
 }
 ```
 Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.

@@ -13,6 +13,6 @@ sphinx>=6.1.3
 sphinx-argparse
 sphinx-rtd-theme
 sphinx-tabs
-sphinxcontrib-jquery
 sphinx_design
+sphinxcontrib-jquery
 sphinxcontrib-mermaid

@@ -101,9 +101,7 @@ class GalleryGridDirective(SphinxDirective):
 
             loc_options_str = "\n".join(f":{k}: {v}" for k, v in item.items()) + "  \n"
 
-            card = GRID_CARD.format(
-                options=loc_options_str, content=header + image + content, title=title
-            )
+            card = GRID_CARD.format(options=loc_options_str, content=header + image + content, title=title)
             grid_items.append(card)
 
         # Parse the template with Sphinx Design to create an output container

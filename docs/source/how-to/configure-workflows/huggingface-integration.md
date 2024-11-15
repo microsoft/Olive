@@ -32,6 +32,24 @@ If you have the Huggingface model prepared in local:
 
 **Note:** You must also have the tokenizer and other necessary files in the same local directory.
 
+### Azure ML model
+
+Olive supports loading model from your Azure Machine Learning workspace. Find detailed configurations [here](./azure-ai/azure-ai.md).
+
+Example: [Llama-2-7b](https://ml.azure.com/models/Llama-2-7b/version/13/catalog/registry/azureml-meta) from Azure ML model catalog:
+
+```json
+"input_model":{
+    "type": "HfModel",
+    "model_path": {
+        "type": "azureml_registry_model",
+        "name": "Llama-2-7b",
+        "registry_name": "azureml-meta",
+        "version": "13"
+    }
+}
+```
+
 ### Model config loading
 
 Olive can automatically retrieve model configurations from Huggingface hub:
@@ -90,8 +108,8 @@ Example: datasets in `data_configs`:
 Pass config:
 
 ```json
-"perf_tuning": {
-    "type": "OrtPerfTuning",
+"session_params_tuning": {
+    "type": "OrtSessionParamsTuning",
     "data_config": "oasst1_train"
 }
 ```
