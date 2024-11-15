@@ -30,7 +30,6 @@ class QuantizationAwareTraining(Pass):
             **get_user_script_data_config(),
             "train_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
-                required=True,
                 description="Data config for training.",
             ),
             "val_data_config": PassConfigParam(
@@ -102,7 +101,8 @@ class QuantizationAwareTraining(Pass):
         if Path(output_model_path).suffix != ".pt":
             output_model_path += ".pt"
 
-        qat_trainer_config.train_data_config = validate_config(config["train_data_config"], DataConfig)
+        if config["train_data_config"]:
+            qat_trainer_config.train_data_config = validate_config(config["train_data_config"], DataConfig)
         if config["val_data_config"]:
             qat_trainer_config.val_data_config = validate_config(config["val_data_config"], DataConfig)
         if config["training_loop_func"]:

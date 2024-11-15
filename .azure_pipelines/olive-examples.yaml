@@ -25,6 +25,9 @@ jobs:
       bert_ptq_cpu_docker:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_docker
+      bert:
+        exampleFolder: bert
+        exampleName: bert_inc
       resnet_vitis_ai_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_vitis_ai_ptq_cpu
@@ -56,6 +59,9 @@ jobs:
     onnxruntime: onnxruntime
     python_version: '3.10'
     examples:
+      bert:
+        exampleFolder: bert
+        exampleName: bert
       bert_ptq_cpu_docker:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_docker

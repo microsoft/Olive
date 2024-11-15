@@ -167,7 +167,7 @@ def bert_inc_glue_calibration_dataset(data_dir, **kwargs):
 
 
 @Registry.register_dataloader()
-def bert_inc_glue_calibration_dataloader(dataset, batch_size, **kwargs):
+def bert_inc_glue_calibration_dataloader(dataset, batch_size=1, **kwargs):
     return DefaultDataLoader(dataset=dataset, batch_size=batch_size)
 
 
@@ -176,7 +176,7 @@ def bert_inc_glue_calibration_dataloader(dataset, batch_size, **kwargs):
 # -------------------------------------------------------------------------
 
 
-def eval_accuracy(model: OliveModelHandler, device, execution_providers, batch_size, **kwargs):
+def eval_accuracy(model: OliveModelHandler, device, execution_providers, batch_size=1, **kwargs):
     dataset = bert_dataset("Intel/bert-base-uncased-mrpc")
     dataloader = bert_dataloader(dataset, batch_size)
     preds = []
@@ -240,6 +240,7 @@ def training_loop_func(model):
     training_args.save_strategy = "steps"
     training_args.save_total_limit = 1
     training_args.metric_for_best_model = "accuracy"
+    training_args.save_safetensors = False
 
     dataset = BertDataset("Intel/bert-base-uncased-mrpc")
 
