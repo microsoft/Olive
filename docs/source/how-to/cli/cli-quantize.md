@@ -1,6 +1,6 @@
 # Quantize
 
-Quantization refers to techniques for performing computations and storing tensors at lower bitwidths than floating point precision. A quantized model executes some or all of the operations on tensors with reduced precision rather than full precision (floating point) values. This allows for a more compact model representation and the use of high performance vectorized operations on many hardware platforms. 
+Quantization refers to techniques for performing computations and storing tensors at lower bitwidths than floating point precision. A quantized model executes some or all of the operations on tensors with reduced precision rather than full precision (floating point) values. This allows for a more compact model representation and the use of high performance vectorized operations on many hardware platforms.
 
 OLIVE encapsulates all the latest cutting edge quantization techniques into a single command line tool that enables you to easily experiment/test the impact of different techniques.
 
@@ -33,9 +33,9 @@ To use AWQ quantization on [Llama-3.2-1B-Instruct](https://huggingface.co/meta-l
 ```
 
 ```bash
-olive quantize \ 
-    --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \ 
-    --algorithms awq \ 
+olive quantize \
+    --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \
+    --algorithms awq \
     --output_path quantized-model \
     --log_level 1
 ```

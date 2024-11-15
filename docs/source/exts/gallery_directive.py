@@ -10,7 +10,7 @@ but might be abstracted into a standalone package if it proves useful.
 """
 
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 
 from docutils import nodes
 from docutils.parsers.rst import directives
@@ -52,6 +52,7 @@ class GalleryGridDirective(SphinxDirective):
     Danger:
         This directive can only be used in the context of a Myst documentation page as
         the templates use Markdown flavored formatting.
+
     """
 
     name = "gallery-grid"
@@ -66,7 +67,7 @@ class GalleryGridDirective(SphinxDirective):
         "class-card": directives.unchanged,
     }
 
-    def run(self) -> List[nodes.Node]:
+    def run(self) -> Optional[List[nodes.Node]]:
         """Create the gallery grid."""
         if self.arguments:
             # If an argument is given, assume it's a path to a YAML file
@@ -78,7 +79,7 @@ class GalleryGridDirective(SphinxDirective):
             if not path_data.exists():
                 logger.info(f"Could not find grid data at {path_data}.")
                 nodes.text("No grid data found at {path_data}.")
-                return
+                return None
             yaml_string = path_data.read_text()
         else:
             yaml_string = "\n".join(self.content)
@@ -133,6 +134,7 @@ def setup(app: Sphinx) -> Dict[str, Any]:
 
     Returns:
         the 2 parallel parameters set to ``True``.
+
     """
     app.add_directive("gallery-grid", GalleryGridDirective)
 

@@ -11,7 +11,7 @@ The following example shows how to finetune [Llama-3.2-1B-Instruct from Hugging 
 ::: {tab-item} Local
 
 ```{Note}
-You'll need a GPU device on your local machine to fine-tune a model. 
+You'll need a GPU device on your local machine to fine-tune a model.
 ```
 
 ```bash

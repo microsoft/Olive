@@ -4,7 +4,7 @@ The `olive auto-opt` command automatically optimizes a PyTorch/Hugging Face mode
 
 ## {octicon}`zap` Quickstart
 
-The Olive automatic optimization command (`auto-opt`) can pull models from Hugging Face, Local disk, or the Azure AI Model Catalog. In this getting started guide, you'll be optimizing [Llama-3.2-1B-Instruct from Hugging Face](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main). Llama 3.2 is a gated model and therefore you'll need to be signed into Hugging-Face to get access. 
+The Olive automatic optimization command (`auto-opt`) can pull models from Hugging Face, Local disk, or the Azure AI Model Catalog. In this getting started guide, you'll be optimizing [Llama-3.2-1B-Instruct from Hugging Face](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main). Llama 3.2 is a gated model and therefore you'll need to be signed into Hugging-Face to get access.
 
 ``` bash
 huggingface-cli login --token {TOKEN} # (1)
@@ -17,9 +17,9 @@ huggingface-cli login --token {TOKEN} # (1)
 The `olive auto-opt` command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (`int4`), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).
 
 ``` bash
-olive auto-opt \ 
+olive auto-opt \
     --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \  # (1)
-    --trust_remote_code \ 
+    --trust_remote_code \
     --output_path optimized-model \ # (2)
     --device cpu \ # (3)
     --providers CPUExecutionProvider \ # (4)
@@ -71,7 +71,7 @@ chat_template = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 You are a helpful assistant<|eot_id|><|start_header_id|>user<|end_header_id|>
 
 {input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
-""" 
+"""
 
 text = input("Input: ")
 
