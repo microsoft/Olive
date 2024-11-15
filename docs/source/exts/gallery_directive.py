@@ -60,7 +60,7 @@ class GalleryGridDirective(SphinxDirective):
     required_arguments = 0
     optional_arguments = 1
     final_argument_whitespace = True
-    option_spec: ClassVar[dict[str, Any]] = {
+    option_spec: ClassVar[Dict[str, Any]] = {
         # A class to be added to the resulting container
         "grid-columns": directives.unchanged,
         "class-container": directives.unchanged,
