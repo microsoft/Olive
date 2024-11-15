@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from ..utils import check_output, get_example_dir, patch_config
+from ..utils import check_output, get_example_dir
 
 
 @pytest.fixture(scope="module", autouse=True)
