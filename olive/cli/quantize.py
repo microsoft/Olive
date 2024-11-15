@@ -235,12 +235,12 @@ ALGORITHMS = {
         "onnx_model_defaults": {"implementation": "matmul4", "precision": "int4"},
         "description": "(OnnxModel) HQQ quantization using onnxruntime.",
     },
-    "static": {
-        "implementations": ["onnx_static", "inc_static"],
-        "hf_model_defaults": {"implementation": None, "precision": None},
-        "onnx_model_defaults": {"implementation": "onnx_static", "precision": "int8"},
-        "description": "(OnnxModel) Static quantization using onnxruntime.",
-    },
+    # "static": {
+    #     "implementations": ["onnx_static", "inc_static"],
+    #     "hf_model_defaults": {"implementation": None, "precision": None},
+    #     "onnx_model_defaults": {"implementation": "onnx_static", "precision": "int8"},
+    #     "description": "(OnnxModel) Static quantization using onnxruntime.",
+    # },
     "dynamic": {
         "implementations": ["onnx_dynamic", "inc_dynamic"],
         "hf_model_defaults": {"implementation": None, "precision": None},

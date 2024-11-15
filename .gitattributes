@@ -1,0 +1,8 @@
+# Set the default behavior, in case people don't have core.autocrlf set.
+* text=auto
+
+# Windows specific files should retain windows line-endings
+*.ps1 text eol=crlf
+
+# make sure .sh retains Unix line endings, even when checked out on windows.
+*.sh text eol=lf
