@@ -277,11 +277,12 @@ class RunConfig(NestedConfig):
 def resolve_all_data_configs(config, values):
     """Recursively traverse the config dictionary to resolve all 'data_config' keys."""
     for param_name, param_value in config.items():
-        if isinstance(param_value, dict):
-            resolve_all_data_configs(param_value, values)
-
         if param_name.endswith("data_config"):
             _resolve_data_config(config, values, param_name)
+            return
+
+        if isinstance(param_value, dict):
+            resolve_all_data_configs(param_value, values)
 
 
 def _insert_azureml_client(config, azureml_client):
