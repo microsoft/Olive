@@ -17,7 +17,7 @@ sys.path.append(os.path.abspath("exts"))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "Olive"
-copyright = "2023, olivedevteam@microsoft.com"
+copyright = "2023, Olive Dev team"
 version = "latest"
 
 # -- General configuration ---------------------------------------------------
