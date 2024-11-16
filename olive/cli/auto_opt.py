@@ -91,6 +91,11 @@ class AutoOptCommand(BaseOliveCLICommand):
             ),
         )
         sub_parser.add_argument(
+            "--use_dynamo_exporter",
+            action="store_true",
+            help="Whether to use dynamo_export API to export ONNX model.",
+        )
+        sub_parser.add_argument(
             "--use_model_builder",
             action="store_true",
             help=(
@@ -201,8 +206,10 @@ class AutoOptCommand(BaseOliveCLICommand):
         elif self.args.provider == "CUDAExecutionProvider":
             self.args.device = "gpu"
 
+        # _get_passes_config requires input_model to be set
+        config["input_model"] = get_input_model_config(self.args)
+
         to_replace = [
-            ("input_model", get_input_model_config(self.args)),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
         ]
@@ -285,6 +292,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         to_replace = [
             (("capture_split_info", "num_splits"), self.args.num_splits),
             (("capture_split_info", "cost_model"), self.args.cost_model),
+            (("conversion", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
             (("conversion", "save_metadata_for_token_generation"), self.args.use_ort_genai),
             (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
             (
@@ -335,7 +343,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         else:
             # qnn ep might not supported optimized model
             # will re-enable it if needed in the future
-            passes_to_remove.update(["transformer_optimizer", "optimizer"])
+            passes_to_remove.update(["transformer_optimizer", "peephole_optimizer"])
 
         if self.args.provider not in {"JsExecutionProvider", "WebGpuExecutionProvider"}:
             # JS EP doesn't support fp16 io
@@ -344,7 +352,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         if self.args.use_model_builder:
             # Don't run optimizers when using model builder
             passes_to_remove.add("transformer_optimizer")
-            passes_to_remove.add("optimizer")
+            passes_to_remove.add("peephole_optimizer")
             # model already comes in int4
             passes_to_remove.add("matmul4")
 
@@ -431,7 +439,7 @@ TEMPLATE = {
             # pytorch related passes
             ("capture_split_info", {"type": "CaptureSplitInfo"}),
             # always convert in float32 since float16 doesn't work for all models
-            ("conversion", {"type": "OnnxConversion", "torch_dtype": "float32"}),
+            ("conversion", {"type": "OnnxConversion", "torch_dtype": "float32", "use_dynamo_exporter": False}),
             ("model_builder", {"type": "ModelBuilder", "precision": "fp32"}),
             ("genai_config_only", {"type": "ModelBuilder", "precision": "fp32", "metadata_only": True}),
             # model optimization passes
@@ -442,7 +450,7 @@ TEMPLATE = {
                 "transformer_optimizer",
                 {"type": "OrtTransformersOptimization", "opt_level": 0, "float16": False, "keep_io_types": False},
             ),
-            ("optimizer", {"type": "OnnxModelOptimizer"}),
+            ("peephole_optimizer", {"type": "OnnxPeepholeOptimizer"}),
             # change io types to fp32
             ("fp16_to_fp32", {"type": "OnnxIOFloat16ToFloat32"}),
             # qnn preparation passes
@@ -470,7 +478,7 @@ PRECISION_MAPPING = {
     "conversion": {},
     "model_builder": {},
     "transformer_optimizer": {},
-    "optimizer": {},
+    "peephole_optimizer": {},
     "fp16_to_fp32": {},
     "qnn_preprocess": {},
     "dynamic_quant": {"int8": "QInt8", "uint8": "QUInt8"},

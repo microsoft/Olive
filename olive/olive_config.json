@@ -106,8 +106,8 @@
             "supported_accelerators": [ "cpu", "gpu" ],
             "supported_precisions": [ "int4" ]
         },
-        "OnnxModelOptimizer": {
-            "module_path": "olive.passes.onnx.model_optimizer.OnnxModelOptimizer",
+        "OnnxPeepholeOptimizer": {
+            "module_path": "olive.passes.onnx.peephole_optimizer.OnnxPeepholeOptimizer",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ]
@@ -356,7 +356,7 @@
         "gpu": [ "onnxruntime-gpu" ],
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
-        "nvmo": [ "nvidia-modelopt", "onnx-graphsurgeon", "datasets>=2.14.4" ],
+        "nvmo": [ "nvidia-modelopt", "onnx-graphsurgeon", "datasets>=2.14.4", "cppimport==22.8.2" ],
         "openvino": [ "openvino==2023.2.0", "nncf==2.7.0", "numpy<2.0" ],
         "optimum": [ "optimum" ],
         "ort-genai": [ "onnxruntime-genai" ],

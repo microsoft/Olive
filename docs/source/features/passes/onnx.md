@@ -5,17 +5,17 @@
 Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.
 
 ## Model Optimizer
-`OnnxModelOptimizer` optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
+`OnnxPeepholeOptimizer` optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
 reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.
 
-Also, inserts a `Cast` operation for cases where `ArgMax` input isn't supported on the device. For example, on GPU inferencing, TensorProto.INT64 isn't supported so a `Cast` operator inserted to cast the inputs to TensorProto.INT32.
+Also, inserts a `Cast` operation for cases where `ArgMax` input. For example, before ONNXRuntime 1.20, TensorProto.INT64 isn't supported on CPU or CUDA EP so a `Cast` operator inserted to cast the inputs to TensorProto.INT32.
 
-Please refer to [OnnxModelOptimizer](onnx_model_optimizer) for more details about the pass and its config parameters.
+Please refer to [OnnxPeepholeOptimizer](onnx_peephole_optimizer) for more details about the pass and its config parameters.
 
 ### Example Configuration
 ```json
 {
-    "type": "OnnxModelOptimizer"
+    "type": "OnnxPeepholeOptimizer"
 }
 ```
 
