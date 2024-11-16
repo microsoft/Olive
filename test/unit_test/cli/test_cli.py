@@ -282,9 +282,7 @@ def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_na
     mock_tempdir.return_value = tmpdir.resolve()
     mock_run.return_value = {}
 
-    workflow_output_dir = tmpdir / algorithm_name
-    workflow_output_dir.mkdir(parents=True)
-    model_config_path = workflow_output_dir / "model_config.json"
+    model_config_path = tmpdir / "model_config.json"
     with model_config_path.open("w") as f:
         f.write("{}")
 
@@ -307,7 +305,7 @@ def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_na
 
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == "dummy_model"
-    assert {el.name for el in output_dir.iterdir()} == {algorithm_name}
+    assert {el.name for el in output_dir.iterdir()} == {"model_config.json"}
 
 
 # TODO(anyone): Add tests for ManageAMLComputeCommand
