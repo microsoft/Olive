@@ -78,7 +78,7 @@ huggingface-cli login --token {TOKEN} # (1)
 
 1. Follow the [Hugging Face documentation for setting up User Access Tokens](https://huggingface.co/docs/hub/security-tokens)
 
-## {octicon}`copilot;1em` Automatic model optimization with Olive
+## {octicon}`dependabot;1em` Automatic model optimization with Olive
 
 Once you have installed Olive, next you'll run the `auto-opt` command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (`int4`), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).
 ```bash
