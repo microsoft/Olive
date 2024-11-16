@@ -10,7 +10,7 @@ reduce the computational cost and improve the performance of the model. The opti
 
 Also, inserts a `Cast` operation for cases where `ArgMax` input. For example, before ONNXRuntime 1.20, TensorProto.INT64 isn't supported on CPU or CUDA EP so a `Cast` operator inserted to cast the inputs to TensorProto.INT32.
 
-Please refer to [OnnxPeepholeOptimizer](onnx_peephole_optimizer) for more details about the pass and its config parameters.
+Please refer to [OnnxPeepholeOptimizer](../../../reference/pass.rst#onnx_peephole_optimizer) for more details about the pass and its config parameters.
 
 ### Example Configuration
 ```json
@@ -29,7 +29,7 @@ These optimizations are provided by onnxruntime through
 refer to the [corresponding documentation](https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/README.md)
 for more details on the optimizations done by this tool.
 
-Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for more details about the pass and its config parameters.
+Please refer to [OrtTransformersOptimization](../../../reference/pass.rst#ort_transformers_optimization) for more details about the pass and its config parameters.
 
 ### Example Configuration
 ```json
@@ -236,6 +236,6 @@ b. As constant inputs with packed weights
 }
 ```
 
-Please refer to [ExtractAdapters](extract_adapters) for more details about the pass and its config parameters.
+Please refer to [ExtractAdapters](../../../reference/pass.rst#extract_adapters) for more details about the pass and its config parameters.
 
 Olive also provides a command line tool to convert adapters saved after peft fine-tuning to a format compatible with a model that has been optimized with the `ExtractAdapters` pass. More details on the ``olive convert-adapters`` command can be found at [Command Line Tools](../../../reference/cli.rst).
