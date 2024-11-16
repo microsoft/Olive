@@ -49,6 +49,7 @@ This document introduces Olive and provides some examples to get you started.
    features/conversion
    features/quantization
    features/model_transformations_and_optimizations
+   features/model_splitting
 
 .. toctree::
    :maxdepth: 1
