@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LoRA Adapters &mdash; Olive  documentation</title>
+  <title>Model Splitting &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
@@ -23,8 +23,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Packaging Olive artifacts" href="packaging_output_models.html" />
-    <link rel="prev" title="Huggingface Integration" href="huggingface_model_optimization.html" /> 
+    <link rel="next" title="Design" href="../extending_olive/design.html" />
+    <link rel="prev" title="QNN" href="passes/qnn.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -82,14 +82,23 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="azureml_integration.html">Azure ML integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Integration</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">LoRA Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lora.html">LoRA Adapters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="shared_cache.html">Shared Cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="run_workflow_remotely.html">Remote Workflow</a></li>
 <li class="toctree-l1"><a class="reference internal" href="conversion.html">Model Conversions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quantization.html">Model Quantizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="model_splitting.html">Model Splitting</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Model Splitting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#approach">Approach</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cli">CLI</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#auto-opt">auto-opt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#generate-cost-model">generate-cost-model</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#conclusion">Conclusion</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
 <ul>
@@ -135,9 +144,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">LoRA Adapters</li>
+      <li class="breadcrumb-item active">Model Splitting</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/features/lora.md.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/features/model_splitting.md.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -145,36 +154,63 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="lora-adapters">
-<h1>LoRA Adapters<a class="headerlink" href="#lora-adapters" title="Permalink to this heading"></a></h1>
-<p>Olive provides a standard interface and a specialized interface to finetune a model and generate LoRA adapter. The standard interface, usually powered with an UX such as VS Code, provides maximum flexibility where the user can describe the fine-tuning parameters, model transformations parameters, datasets etc., in a .json or .yaml configuration which is provided to Olive as an input. For example,</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>olive<span class="w"> </span>run<span class="w"> </span>--<span class="w"> </span>config<span class="w"> </span>llama2_qlora.config
+  <section id="model-splitting">
+<h1>Model Splitting<a class="headerlink" href="#model-splitting" title="Permalink to this heading"></a></h1>
+<p>With the advent of Small Language Models (SLM) such Microsoft’s Phi family of models, it has become possible to deploy powerful language models on edge devices. However, these models are still a few gigabytes in size even after model optimization and compressions techniques like quantization. These sizes might be too large to load in a single session on the edge device, whether it is due to memory or runtime limitations.</p>
+<p>Therefore, we need to split the model into multiple components and run inference on them in a cascade. This raises several questions: How to split the model? How many splits to make? and where to make the splits? In existing implementations that we have seen, users load the model graph and take note of the connections between different sections of the model. These connections are then used to modify the model graph and create the split graphs. However, this requires an understanding of the model architecture in the exported graph and is not a scalable approach.</p>
+<section id="approach">
+<h2>Approach<a class="headerlink" href="#approach" title="Permalink to this heading"></a></h2>
+<p>Olive automates this process by using the rich model structure available in the PyTorch model to make the split decisions to produce optimized ONNX model splits.</p>
+<p>Olive provides multiple ways to guide split decisions:</p>
+<ol class="arabic simple">
+<li><p>For transformers like models, if the user already knows the number of splits to make, Olive can split transformer layers into equal splits. Such a split decision is made at a higher level of the model architecture.</p></li>
+<li><p>The user can provide a cost model (a CSV containing the cost per module in the model in terms of memory, FLOPs and parameter counts).  Olive currently uses the memory requirements of each layer to determine split assignments. However, we intend to improve splitting algorithm considering layers’ arithmetic intensity.</p></li>
+</ol>
+</section>
+<section id="cli">
+<h2>CLI<a class="headerlink" href="#cli" title="Permalink to this heading"></a></h2>
+<p>Olive provides command line tools that make it easy for the user to optimize and split models. Olive provides utility to generate cost model for LLMs from HuggingFace hub. Olive also includes pre-generated cost models for popular models.</p>
+<section id="auto-opt">
+<h3>auto-opt<a class="headerlink" href="#auto-opt" title="Permalink to this heading"></a></h3>
+<p>Olive provides <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> command to convert, optimize and quantize the ONNX model. t now also provides options to split the model.</p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">num-splits</span></code></strong></p>
+<p>Let’s split the model using a user defined number of splits.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>auto-opt<span class="w"> </span>-m<span class="w"> </span>microsoft/Phi-3.5-mini-instruct<span class="w"> </span>--precision<span class="w"> </span>fp16<span class="w"> </span>--provider<span class="w"> </span>CUDAExecutionProvider<span class="w"> </span>--num-splits<span class="w"> </span><span class="m">2</span><span class="w"> </span>-o<span class="w"> </span>models/phi-nsplit
 </pre></div>
 </div>
-<p>Alternatively the user can use simplified command line to finetune HF model and generate LoRA adapters. For example,</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>olive<span class="w"> </span>finetune<span class="w"> </span>--method<span class="w"> </span>qlora<span class="w"> </span>--m<span class="w"> </span>meta-llama/Llama-2-7b-hf<span class="w"> </span>-d<span class="w"> </span>nampdn-ai/tiny-codes<span class="w"> </span><span class="se">\</span>
---train_split<span class="w"> </span><span class="s2">&quot;train[:4096]&quot;</span><span class="w"> </span>--eval_split<span class="w"> </span><span class="s2">&quot;train[4096:4224]&quot;</span><span class="w"> </span>--per_device_train_batch_size<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
---per_device_eval_batch_size<span class="w"> </span><span class="m">16</span><span class="w"> </span>--max_steps<span class="w"> </span><span class="m">150</span><span class="w"> </span>--logging_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span>-o<span class="w"> </span>models/tiny-codes<span class="w"> </span><span class="se">\</span>
---text_template<span class="w"> </span><span class="s2">&quot;### Language: {programming_language} \n### Question: {prompt} \n### Answer: {response}&quot;</span>
+<p>Olive uses the <code class="docutils literal notranslate"><span class="pre">model_type</span></code> for the HuggingFace model and divides the transformers layers equally among the splits. <code class="docutils literal notranslate"><span class="pre">microsoft/Phi-3.5-mini-instruct</span></code> has 32 such layers so each split gets assigned 16 layers each in this example. The first layer also includes the embedding layer and attention subgraphs while the final layer includes the language modeling head.</p>
+<p>The following shows the final split models:</p>
+<p><a class="reference internal" href="../_images/num_splits.png"><img alt="num_splits" class="align-center" src="../_images/num_splits.png" style="width: 500px;" /></a><br></p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">cost-model</span></code></strong></p>
+<p>Let’s now split the model using a cost model. Please refer to the <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/assets/cost_models/Phi-3.5-mini.csv">pre-generated cost models</a> in the Olive repository for an example a cost model csv.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>auto-opt<span class="w"> </span>-m<span class="w"> </span>microsoft/Phi-3.5-mini-instruct<span class="w"> </span>--precision<span class="w"> </span>fp16<span class="w"> </span>--provider<span class="w"> </span>CUDAExecutionProvider<span class="w"> </span>--memory<span class="w"> </span>2GB<span class="w"> </span>--cost-model<span class="w"> </span>phi-3.5-cost.csv<span class="w"> </span>-o<span class="w"> </span>models/phi-costsplit
 </pre></div>
 </div>
-<p>The output of the above commands will be LoRA adapter file as well as optimized ONNX Model.</p>
-<p>In addition, Olive provides a separate command to produce LoRA adapter for ORT’s consumption from already finetuned PEFT model.</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>olive<span class="w"> </span>convert-adapters<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--adapter_path<span class="w"> </span>ADAPTER_PATH<span class="o">]</span><span class="w"> </span><span class="se">\</span>
-<span class="w">                      </span><span class="o">[</span>--output_path<span class="w"> </span>OUTPUT_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dtype<span class="w"> </span><span class="o">{</span>float32,float16<span class="o">}]</span><span class="w"> </span><span class="se">\</span>
-<span class="w">                      </span><span class="o">[</span>--quantize_int4<span class="o">]</span><span class="w"> </span><span class="se">\</span>
-<span class="w">                      </span><span class="o">[</span>--int4_block_size<span class="w"> </span><span class="o">{</span><span class="m">16</span>,32,64,128,256<span class="o">}]</span><span class="w"> </span><span class="se">\</span>
-<span class="w">                      </span><span class="o">[</span>--int4_quantization_mode<span class="w"> </span><span class="o">{</span>symmetric,asymmetric<span class="o">}]</span>
+<p>Olive uses the memory specs of the device and the cost model to automatically choose the required number of splits and make split assignments for each module.</p>
+<p>The following shows the final split models:</p>
+<p><a class="reference internal" href="../_images/cost_model.png"><img alt="cost_model" class="align-center" src="../_images/cost_model.png" style="width: 400px;" /></a><br></p>
+<p>In this example, Olive split the model into four components each with size less than the max target memory of 2GB specified by the user.</p>
+</section>
+<section id="generate-cost-model">
+<h3>generate-cost-model<a class="headerlink" href="#generate-cost-model" title="Permalink to this heading"></a></h3>
+<p>This tool can generate cost model for HuggingFace transformers models.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>generate-cost-model<span class="w"> </span>-m<span class="w"> </span>microsoft/Phi-3.5-mini-instruct<span class="w"> </span>-p<span class="w"> </span>fp16<span class="w"> </span>-o<span class="w"> </span>phi-3.5-cost.csv
 </pre></div>
 </div>
+</section>
+</section>
+<section id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Permalink to this heading"></a></h2>
+<p>In this blog post, we introduced how one can use Olive to split models.</p>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="huggingface_model_optimization.html" class="btn btn-neutral float-left" title="Huggingface Integration" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="packaging_output_models.html" class="btn btn-neutral float-right" title="Packaging Olive artifacts" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="passes/qnn.html" class="btn btn-neutral float-left" title="QNN" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../extending_olive/design.html" class="btn btn-neutral float-right" title="Design" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
