@@ -5,6 +5,11 @@ Model optimization
    :class-container: cards
 
    .. grid-item-card::
+      **Model splitting**
+
+      :octicon:`arrow-right;1em;sd-text-info` `Model splitting <model-splitting.html>`_
+
+   .. grid-item-card::
       **Configure model path**
 
       :octicon:`arrow-right;1em;sd-text-info` `Configure model path <configure-model-path.html>`_
@@ -38,6 +43,7 @@ Model optimization
    :maxdepth: 1
    :hidden:
 
+   model-splitting
    configure-model-path
    onnx
    pytorch
