@@ -49,7 +49,6 @@
         "quantization": {
             "type": "IncStaticQuantization",
             "quant_format": "QOperator",
-            "user_script": "user_script.py",
             "data_config": "inc_quat_data_config",
             "recipes": { "smooth_quant": true, "smooth_quant_args": { "alpha": 0.7 } },
             "metric": {
@@ -73,5 +72,5 @@
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
-    "output_dir": "models/bert_inc_static_ptq_cpu"
+    "output_dir": "models/bert_inc_smoothquant_ptq_cpu"
 }

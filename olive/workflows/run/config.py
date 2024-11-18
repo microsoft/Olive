@@ -256,8 +256,8 @@ class RunConfig(NestedConfig):
         for param_name in v["config"]:
             if v["config"][param_name] == PassParamDefault.SEARCHABLE_VALUES:
                 searchable_configs.add(param_name)
-            if param_name.endswith("data_config"):
-                v["config"] = _resolve_data_config(v["config"], values, param_name)
+
+        resolve_all_data_configs(v["config"], values)
 
         if not values["engine"].search_strategy and searchable_configs:
             raise ValueError(
@@ -272,6 +272,17 @@ class RunConfig(NestedConfig):
         if v is None:
             return v
         return _resolve_config(values, v)
+
+
+def resolve_all_data_configs(config, values):
+    """Recursively traverse the config dictionary to resolve all 'data_config' keys."""
+    for param_name, param_value in config.items():
+        if param_name.endswith("data_config"):
+            _resolve_data_config(config, values, param_name)
+            continue
+
+        if isinstance(param_value, dict):
+            resolve_all_data_configs(param_value, values)
 
 
 def _insert_azureml_client(config, azureml_client):
