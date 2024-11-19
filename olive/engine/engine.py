@@ -208,9 +208,11 @@ class Engine:
                     output_dir/pareto_frontier_footprints.json: pareto frontier footprints
                     output_dir/run_history.txt: run history
                     output_dir/input_model_metrics.json: evaluation results of the input model
+                    output_dir/...: output model files
 
                 2. Multiple accelerator specs:
                     output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec
+                    output_dir/...: output model files
 
             No search mode:
                 1. One accelerator spec
@@ -218,17 +220,15 @@ class Engine:
                     output_dir/run_history.txt: run history
                     output_dir/input_model_metrics.json: evaluation results of the input model
                     output_dir/output_footprints.json: footprint of the output models
+                    output_dir/...: output model files
 
                     A. One pass flow:
                         output_dir/metrics.json: evaluation results of the output model
-                        output_dir/model_config.json: output model configuration
                         output_dir/...: output model files
-
-                    B. Multiple pass flows:
-                        output_dir/{pass_flow}/...: Same as A but for each pass flow
 
                 2. Multiple accelerator specs
                     output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec
+                    output_dir/...: output model files
 
         """
         if not accelerator_specs:
