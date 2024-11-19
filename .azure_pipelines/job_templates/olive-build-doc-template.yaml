@@ -17,7 +17,7 @@ jobs:
     steps:
     - template: olive-setup-template.yaml
       parameters:
-        python_version: '3.8'
+        python_version: '3.9'
         onnxruntime: 'onnxruntime'
         torch: 'torch'
 
