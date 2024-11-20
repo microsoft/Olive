@@ -132,10 +132,9 @@ class PyTorchTensorParallel(Pass):
             impl.load_rank_weights(pytorch_model)
 
             # 5. Save it out for each rank
-            # save metadata first since pytorch model also saves config.json
-            olive_model.save_metadata(output_filepath)
             pytorch_model.config.world_size = world_size
             pytorch_model.save_pretrained(output_filepath)
+            olive_model.save_metadata(output_filepath)
         finally:
             # 6. Restore layers that were replaced
             impl.restore_layers()

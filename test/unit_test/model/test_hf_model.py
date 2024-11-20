@@ -2,10 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import unittest
+import json
 from pathlib import Path
 from unittest.mock import patch
 
+import huggingface_hub
 import pytest
 import torch
 import transformers
@@ -15,37 +16,94 @@ from olive.model.handler.hf import HfModelHandler
 
 
 # pylint: disable=attribute-defined-outside-init
-class TestHFModel(unittest.TestCase):
+class TestHFModel:
     @pytest.fixture(autouse=True)
-    def setup(self, tmp_path):
+    def setup(self):
         # hf config values
-        self.task = "text-classification"
-        self.model_name = "hf-internal-testing/tiny-random-BertForSequenceClassification"
-        self.output_dir = tmp_path
+        self.task = "text-generation-with-past"
+        self.model_name = "katuni4ka/tiny-random-phi3"
+        self.revision = "585361abfee667f3c63f8b2dc4ad58405c4e34e2"
 
-    def test_load_model(self):
-        olive_model = HfModelHandler(model_path=self.model_name, task=self.task)
+        self.local_path = huggingface_hub.snapshot_download(self.model_name, revision=self.revision)
+
+    @pytest.mark.parametrize("local", [True, False])
+    @pytest.mark.parametrize("trust_remote_code", [True, False])
+    def test_load_model(self, local, trust_remote_code):
+        olive_model = HfModelHandler(
+            model_path=self.local_path if local else self.model_name,
+            task=self.task,
+            load_kwargs={"trust_remote_code": trust_remote_code, "revision": self.revision},
+        )
 
         pytorch_model = olive_model.load_model()
-        assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
+        modeling_dir = Path(self.local_path).name if local else f"{self.model_name.replace('/', '.')}.{self.revision}"
+        expected_class_name = (
+            f"transformers_modules.{modeling_dir}.modeling_phi3.Phi3ForCausalLM"
+            if trust_remote_code
+            else "transformers.models.phi3.modeling_phi3.Phi3ForCausalLM"
+        )
+        assert f"{pytorch_model.__module__}.{pytorch_model.__class__.__name__}" == expected_class_name
 
-    def test_load_model_with_kwargs(self):
-        olive_model = HfModelHandler(model_path=self.model_name, task=self.task, load_kwargs={"torch_dtype": "float16"})
+    @pytest.mark.parametrize("local", [True, False])
+    def test_load_model_with_kwargs(self, local):
+        olive_model = HfModelHandler(
+            model_path=self.local_path if local else self.model_name,
+            task=self.task,
+            load_kwargs={"torch_dtype": "float16"},
+        )
         pytorch_model = olive_model.load_model()
-        assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
+        assert isinstance(pytorch_model, transformers.Phi3ForCausalLM)
         assert pytorch_model.dtype == torch.float16
 
-    def test_model_name_or_path(self):
-        olive_model = HfModelHandler(model_path=self.model_name, task=self.task)
-        assert olive_model.model_name_or_path == self.model_name
+    @pytest.mark.parametrize("local", [True, False])
+    def test_model_name_or_path(self, local):
+        olive_model = HfModelHandler(model_path=self.local_path if local else self.model_name, task=self.task)
+        assert olive_model.model_name_or_path == str(Path(self.local_path).resolve()) if local else self.model_name
 
-    def test_save_metadata(self):
-        olive_model = HfModelHandler(model_path=self.model_name, task=self.task)
-        saved_filepaths = olive_model.save_metadata(self.output_dir)
-        assert len(saved_filepaths) == 5
+    @pytest.mark.parametrize("local", [True, False])
+    @pytest.mark.parametrize("trust_remote_code", [True, False])
+    @pytest.mark.parametrize("tokenizer_exists", [True, False])
+    def test_save_metadata(self, local, trust_remote_code, tokenizer_exists, tmp_path):
+        olive_model = HfModelHandler(
+            model_path=self.local_path if local else self.model_name,
+            task=self.task,
+            load_kwargs={"trust_remote_code": trust_remote_code, "revision": self.revision},
+        )
+        if tokenizer_exists:
+            olive_model.get_hf_tokenizer().save_pretrained(tmp_path)
+        saved_filepaths = olive_model.save_metadata(tmp_path)
+        assert len(saved_filepaths) == (4 if tokenizer_exists else 9)
         assert all(Path(fp).exists() for fp in saved_filepaths)
-        assert isinstance(transformers.AutoConfig.from_pretrained(self.output_dir), transformers.BertConfig)
-        assert isinstance(transformers.AutoTokenizer.from_pretrained(self.output_dir), transformers.BertTokenizerFast)
+        assert isinstance(transformers.AutoConfig.from_pretrained(tmp_path), transformers.Phi3Config)
+        assert isinstance(transformers.AutoTokenizer.from_pretrained(tmp_path), transformers.LlamaTokenizerFast)
+
+    @pytest.mark.parametrize("local", [True, False])
+    @pytest.mark.parametrize("trust_remote_code", [True, False])
+    def test_save_pretrained_metadata(self, local, trust_remote_code, tmp_path):
+        olive_model = HfModelHandler(
+            model_path=self.local_path if local else self.model_name,
+            task=self.task,
+            load_kwargs={"trust_remote_code": trust_remote_code, "revision": self.revision},
+        )
+
+        # modify the config and save the model
+        loaded_model = olive_model.load_model()
+        loaded_model.config.dummy_key = "dummy_value"
+        loaded_model.save_pretrained(tmp_path)
+
+        saved_filepaths = olive_model.save_metadata(tmp_path)
+        # generation config is also saved
+        assert len(saved_filepaths) == 8
+
+        with open(tmp_path / "config.json") as f:
+            config = json.load(f)
+        # encure already saved config is used
+        assert config["dummy_key"] == "dummy_value"
+        # ensure the auto_map is updated
+        assert config["auto_map"] == {
+            "AutoConfig": "configuration_phi3.Phi3Config",
+            "AutoModelForCausalLM": "modeling_phi3.Phi3ForCausalLM",
+        }
 
 
 @pytest.mark.parametrize("trust_remote_code", [True, False])
@@ -55,19 +113,22 @@ def test_save_metadata_with_module_files(trust_remote_code, tmp_path):
         model_path="katuni4ka/tiny-random-phi3",
         load_kwargs=load_kwargs,
     )
+
     saved_filepaths = olive_model.save_metadata(tmp_path)
-    # assert len(saved_filepaths) == 9
     assert all(Path(fp).exists() for fp in saved_filepaths)
-    # class is transformers.Phi3Config if trust_remote_code is False
-    # configuration_phi3.Phi3Config if trust_remote_code is True
-    assert transformers.AutoConfig.from_pretrained(tmp_path, **load_kwargs).__class__.__name__ == "Phi3Config"
+    if trust_remote_code:
+        expected_class_name = f"transformers_modules.{tmp_path.name}.configuration_phi3.Phi3Config"
+    else:
+        expected_class_name = "transformers.models.phi3.configuration_phi3.Phi3Config"
+    config = transformers.AutoConfig.from_pretrained(tmp_path, **load_kwargs)
+    assert f"{config.__module__}.{config.__class__.__name__}" == expected_class_name
     assert isinstance(
         transformers.AutoTokenizer.from_pretrained(tmp_path, **load_kwargs),
         transformers.LlamaTokenizerFast,
     )
 
 
-class TestHFDummyInput(unittest.TestCase):
+class TestHFDummyInput:
     @pytest.fixture(autouse=True)
     def setup(self):
         # hf config values
