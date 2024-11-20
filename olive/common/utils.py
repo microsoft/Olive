@@ -292,7 +292,7 @@ def get_attr(module, attr, fail_on_not_found=False):
             if fail_on_not_found:
                 raise AttributeError(not_found_message) from e
             else:
-                logger.warning(not_found_message)
+                logger.debug(not_found_message)
                 return None
     return module
 

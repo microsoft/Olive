@@ -59,8 +59,13 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             save_output_model(run_config, self.args.output_path)
 
     def get_run_config(self, tempdir: str) -> Dict:
+        input_model_config = get_input_model_config(self.args)
+        assert (
+            input_model_config["type"].lower() == "onnxmodel"
+        ), "Only ONNX models are supported in generate-adapter command."
+
         to_replace = [
-            ("input_model", get_input_model_config(self.args)),
+            ("input_model", input_model_config),
             (("passes", "e", "save_format"), self.args.adapter_format),
             ("output_dir", tempdir),
             ("log_severity_level", self.args.log_level),
