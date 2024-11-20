@@ -980,8 +980,8 @@
         <span class="c1"># save the new master weights</span>
         <span class="n">new_master_weights_path</span> <span class="o">=</span> <span class="n">output_model_path</span> <span class="o">/</span> <span class="s2">&quot;model&quot;</span>
         <span class="n">new_master_weights_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">model</span><span class="o">.</span><span class="n">save_metadata</span><span class="p">(</span><span class="n">new_master_weights_path</span><span class="p">)</span>
         <span class="n">pytorch_model</span><span class="o">.</span><span class="n">save_pretrained</span><span class="p">(</span><span class="n">new_master_weights_path</span><span class="p">)</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">save_metadata</span><span class="p">(</span><span class="n">new_master_weights_path</span><span class="p">)</span>
 
         <span class="k">del</span> <span class="n">pytorch_model</span>
 
