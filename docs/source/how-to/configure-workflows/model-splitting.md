@@ -32,7 +32,7 @@ The following shows the final split models:
 :width: 500px
 :align: center
 
-Olive Architecture
+Number splits
 ```
 
 **`cost-model`**
@@ -51,7 +51,7 @@ The following shows the final split models:
 :width: 400px
 :align: center
 
-Olive Architecture
+Cost model
 ```
 
 In this example, Olive split the model into four components each with size less than the max target memory of 2GB specified by the user.

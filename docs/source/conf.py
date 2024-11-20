@@ -133,5 +133,5 @@ linkcheck_ignore = [
     # TODO(jambayk): remove this when the issue is fixed
     r"https://www.intel.com/*",
     r".*\.html",
-    "https://github.com/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb"
+    "https://github.com/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb",
 ]
