@@ -4,48 +4,48 @@ The `olive auto-opt` command automatically optimizes a PyTorch/Hugging Face mode
 
 ## {octicon}`zap` Quickstart
 
-The Olive automatic optimization command (`auto-opt`) can pull models from Hugging Face, Local disk, or the Azure AI Model Catalog. In this getting started guide, you'll be optimizing [Llama-3.2-1B-Instruct from Hugging Face](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main). Llama 3.2 is a gated model and therefore you'll need to be signed into Hugging-Face to get access.
+The Olive automatic optimization command (`auto-opt`) can pull models from Hugging Face, Local disk, or the Azure AI Model Catalog. In this quickstart, you'll be optimizing [Llama-3.2-1B-Instruct from Hugging Face](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main). Llama 3.2 is a gated model and therefore you'll need to be signed into Hugging-Face to get access.
 
 ``` bash
-huggingface-cli login --token {TOKEN} # (1)
+huggingface-cli login --token {TOKEN}
 ```
 
-**Annotations:**
+```{tip}
+Follow the [Hugging Face documentation for setting up User Access Tokens](https://huggingface.co/docs/hub/security-tokens)
+```
 
-1. Follow the [Hugging Face documentation for setting up User Access Tokens](https://huggingface.co/docs/hub/security-tokens)
+Next, you'll run the `auto-opt` command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (`int4`), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).
 
-The `olive auto-opt` command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (`int4`), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).
-
-``` bash
+```bash
 olive auto-opt \
-    --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \  # (1)
+    --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \
     --trust_remote_code \
-    --output_path optimized-model \ # (2)
-    --device cpu \ # (3)
-    --providers CPUExecutionProvider \ # (4)
-    --precisions int4 \ # (5)
-    --log_level 1 # (6)
+    --output_path models/llama/ao \
+    --device cpu \
+    --provider CPUExecutionProvider \
+    --use_ort_genai \
+    --precision int4 \
+    --log_level 1
 ```
 
-**Annotations:**
+### More details on arguments
 
-1. Can be either (a) the Hugging Face Repo ID for the model` {username}/{repo-name}` or (b) a path on local disk to the model or (c) an Azure AI Model registry ID.
-2. The output path on local disk to store the optimized model.
-3. The device type to model will execute on - CPU/NPU/GPU.
-4. The hardware provider - for example Nvidia CUDA (`CUDAExecutionProvider`), DirectML (`DmlExecutionProvider`), AMD (`MIGraphXExecutionProvider`, `ROCMExecutionProvider`), OpenVINO (`OpenVINOExecutionProvider`), Qualcomm (`QNNExecutionProvider`), TensorRT (`TensorrtExecutionProvider`).
-5. The precision of the optimized model (`fp16`, `fp32`, `int4`, `int8`).
-6. The logging level. 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL.
+- The `model_name_or_path` can be either (a) the Hugging Face Repo ID for the model `{username}/{repo-name}` or (b) a path on local disk to the model or (c) an Azure AI Model registry ID.
+- `output_path` is the path on local disk to store the optimized model.
+- `device` is the device the model will execute on - CPU/NPU/GPU.
+- `provider` is the hardware provider of the device to inference the model on. For example, Nvidia CUDA (`CUDAExecutionProvider`), DirectML (`DmlExecutionProvider`), AMD (`MIGraphXExecutionProvider`, `ROCMExecutionProvider`), OpenVINO (`OpenVINOExecutionProvider`), Qualcomm (`QNNExecutionProvider`), TensorRT (`TensorrtExecutionProvider`).
+- `precision` is the precision for the optimized model (`fp16`, `fp32`, `int4`, `int8`). Precisions lower than `fp32` will mean the model will be quantized using RTN method.
+- `use_ort_genai` will create the configuration files so that you can consume the model using the Generate API for ONNX Runtime.
 
 With the `auto-opt` command, you can change the input model to one that is available on Hugging Face - for example, to [HuggingFaceTB/SmolLM-360M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM-360M-Instruct) - or a model that resides on local disk. Olive, will go through the same process of *automatically* converting (to ONNX), optimizing the graph and quantizing the weights. The model can be optimized for different providers and devices - for example, you can choose DirectML (for Windows) as the provider and target either the NPU, GPU, or CPU device.
 
-### <span class="onnx-icon"></span> Inference model using ONNX Runtime
+## Inference model using ONNX Runtime
 
 The ONNX Runtime (ORT) is a fast and light-weight package (available in many programming languages) that runs cross-platform. ORT enables you to infuse your AI models into your applications so that inference is handled *on-device*. The following code creates a simple console-based chat interface that inferences your optimized model.
 
 :::: {tab-set}
 
 ::: {tab-item} Python
-
 Copy-and-paste the code below into a new Python file called `app.py`:
 
 ```python
@@ -53,7 +53,7 @@ import onnxruntime_genai as og
 import numpy as np
 import os
 
-model_folder = "optimized-model/model"
+model_folder = "models/llama/ao/model"
 
 # Load the base model and tokenizer
 model = og.Model(model_folder)

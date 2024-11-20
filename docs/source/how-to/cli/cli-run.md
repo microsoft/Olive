@@ -1,10 +1,10 @@
-# Run OLIVE workflows
+# Run Olive workflows
 
-The OLIVE `run` command allows you to execute any of the 40+ optimizations available in OLIVE in a sequence you define in a YAML/JSON file called a *workflow*.
+The Olive `run` command allows you to execute any of the 40+ optimizations available in Olive in a sequence you define in a YAML/JSON file called a *workflow*.
 
 ## {octicon}`zap` Quickstart
 
-In this quickstart, you'll execute the following OLIVE workflow:
+In this quickstart, you'll execute the following Olive workflow:
 
 ```{mermaid}
 graph LR

@@ -35,6 +35,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
     "sphinx.ext.napoleon",
+    "sphinx_copybutton",
     "sphinx_tabs.tabs",
     "sphinx_design",
     "sphinxcontrib.mermaid",
@@ -89,10 +90,10 @@ html_theme_options = {
             "icon": "fa-custom fa-pypi",
         },
     ],
-    "logo": {
-        "image_light": "images/olive_logo.png",
-        "image_dark": "images/olive_logo.png",
-    },
+    # "logo": {
+    #     "image_light": "images/olive_logo.png",
+    #     "image_dark": "images/olive_logo.png",
+    # },
     "show_toc_level": 1,
     "navbar_align": "left",
     # "announcement": "Announcement: This is an example announcement.",

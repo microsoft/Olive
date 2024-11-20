@@ -5,24 +5,16 @@ hide:
 
 # Getting started
 
-## <span class="notebook-icon"></span> Notebook available!
+## Notebook available!
 
-This quickstart is available as a Jupyter Notebook, which you can download and run on your own computer. Alternatively, you can run the notebook using Google Colab (for free):
-
+This quickstart is available as a Jupyter Notebook, which you can download and run on your own computer.
 
 ```{button-link} https://github.com/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb
 :color: primary
 :outline:
 
 Download Jupyter Notebook
-```
-
-```{button-link} https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb
-:color: primary
-:outline:
-
-Open in Google Colab
-```
+``` 
 
 ## {fab}`python` Install with pip
 
@@ -36,8 +28,8 @@ We recommend installing Olive in a [virtual environment](https://docs.python.org
 If your machine only has a CPU device, install the following libraries:
 
 ```bash
-pip install olive-ai[cpu,auto-opt,finetune,capture-onnx-graph,bnb]
-pip install transformers datasets onnxscript
+pip install olive-ai[cpu,finetune]
+pip install transformers==4.44.2
 ```
 :::
 
@@ -45,7 +37,8 @@ pip install transformers datasets onnxscript
 If your machine has a GPU device (e.g. CUDA), install the following libraries:
 
 ```bash
-pip install olive-ai[gpu,auto-opt,finetune,capture-onnx-graph,bnb]
+pip install olive-ai[gpu,finetune]
+pip install transformers==4.44.2
 ```
 :::
 
@@ -53,8 +46,8 @@ pip install olive-ai[gpu,auto-opt,finetune,capture-onnx-graph,bnb]
 DirectML provides GPU acceleration on Windows for machine learning tasks across a broad range of supported hardware and drivers, including all DirectX 12-capable GPUs.
 
 ```bash
-pip install olive-ai[directml,auto-opt,finetune,capture-onnx-graph,bnb]
-pip install transformers datasets onnxscript
+pip install olive-ai[directml,finetune]
+pip install transformers==4.44.2
 ```
 :::
 
@@ -66,47 +59,45 @@ pip install transformers datasets onnxscript
 For more details on installing Olive from source and other installation options available, [read the installation guide](../how-to/installation.md).
 ```
 
-## <span class="hf-icon"></span> Log-in to Hugging Face
+## Log-in to Hugging Face
 
 The Olive automatic optimization command (`auto-opt`) can pull models from Hugging Face, Local disk, or the Azure AI Model Catalog. In this getting started guide, you'll be optimizing [Llama-3.2-1B-Instruct from Hugging Face](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main). Llama 3.2 is a gated model and therefore you'll need to be signed into Hugging-Face to get access.
 
 ``` bash
-huggingface-cli login --token {TOKEN} # (1)
+huggingface-cli login --token {TOKEN}
 ```
 
-**Annotations:**
-
-1. Follow the [Hugging Face documentation for setting up User Access Tokens](https://huggingface.co/docs/hub/security-tokens)
+```{tip}
+Follow the [Hugging Face documentation for setting up User Access Tokens](https://huggingface.co/docs/hub/security-tokens)
+```
 
 ## {octicon}`dependabot;1em` Automatic model optimization with Olive
 
 Once you have installed Olive, next you'll run the `auto-opt` command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (`int4`), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).
 ```bash
 olive auto-opt \
-    --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \  # (1)
+    --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \
     --trust_remote_code \
-    --output_path optimized-model \  # (2)
-    --device cpu \  # (3)
-    --provider CPUExecutionProvider \  # (4)
-    --precision int4 \  # (5)
-    --use_model_builder True \  # (6)
-    --log_level 1  # (7)
+    --output_path models/llama/ao \
+    --device cpu \
+    --provider CPUExecutionProvider \
+    --use_ort_genai \
+    --precision int4 \
+    --log_level 1
 ```
 
-**Annotations:**
+### More details on arguments
 
-1. Can be either (a) the Hugging Face Repo ID for the model `{username}/{repo-name}` or (b) a path on local disk to the model or (c) an Azure AI Model registry ID.
-2. The output path on local disk to store the optimized model.
-3. The device type the model will execute on - CPU/NPU/GPU.
-4. The hardware provider—for example, Nvidia CUDA (`CUDAExecutionProvider`), DirectML (`DmlExecutionProvider`), AMD (`MIGraphXExecutionProvider`, `ROCMExecutionProvider`), OpenVINO (`OpenVINOExecutionProvider`), Qualcomm (`QNNExecutionProvider`), TensorRT (`TensorrtExecutionProvider`).
-5. The precision of the optimized model (`fp16`, `fp32`, `int4`, `int8`).
-6. Use Model Builder for graph capture.
-7. The logging level. 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL.
-
+- The `model_name_or_path` can be either (a) the Hugging Face Repo ID for the model `{username}/{repo-name}` or (b) a path on local disk to the model or (c) an Azure AI Model registry ID.
+- `output_path` is the path on local disk to store the optimized model.
+- `device` is the device the model will execute on - CPU/NPU/GPU.
+- `provider` is the hardware provider of the device to inference the model on. For example, Nvidia CUDA (`CUDAExecutionProvider`), DirectML (`DmlExecutionProvider`), AMD (`MIGraphXExecutionProvider`, `ROCMExecutionProvider`), OpenVINO (`OpenVINOExecutionProvider`), Qualcomm (`QNNExecutionProvider`), TensorRT (`TensorrtExecutionProvider`).
+- `precision` is the precision for the optimized model (`fp16`, `fp32`, `int4`, `int8`). Precisions lower than `fp32` will mean the model will be quantized using RTN method.
+- `use_ort_genai` will create the configuration files so that you can consume the model using the Generate API for ONNX Runtime.
 
 With the `auto-opt` command, you can change the input model to one that is available on Hugging Face - for example, to [HuggingFaceTB/SmolLM-360M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM-360M-Instruct) - or a model that resides on local disk. Olive, will go through the same process of *automatically* converting (to ONNX), optimizing the graph and quantizing the weights. The model can be optimized for different providers and devices - for example, you can choose DirectML (for Windows) as the provider and target either the NPU, GPU, or CPU device.
 
-## <span class="onnx-icon"></span> Inference model using ONNX Runtime
+## Inference model using ONNX Runtime
 
 The ONNX Runtime (ORT) is a fast and light-weight package (available in many programming languages) that runs cross-platform. ORT enables you to infuse your AI models into your applications so that inference is handled *on-device*. The following code creates a simple console-based chat interface that inferences your optimized model.
 :::: {tab-set}
@@ -119,7 +110,7 @@ import onnxruntime_genai as og
 import numpy as np
 import os
 
-model_folder = "optimized-model/model"
+model_folder = "models/llama/ao/model"
 
 # Load the base model and tokenizer
 model = og.Model(model_folder)

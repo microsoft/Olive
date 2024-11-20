@@ -1,5 +1,6 @@
 How-to
 =======
+Find more details on specific Olive capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!
 
 Set-up
 ------
