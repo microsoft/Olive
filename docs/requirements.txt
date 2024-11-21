@@ -12,8 +12,8 @@ pydata_sphinx_theme
 pytorch_lightning
 sphinx>=6.1.3
 sphinx-argparse
+sphinx-copybutton
 sphinx-tabs
 sphinx_design
 sphinxcontrib-jquery
 sphinxcontrib-mermaid
-sphinx-copybutton

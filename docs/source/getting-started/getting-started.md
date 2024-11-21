@@ -14,7 +14,7 @@ This quickstart is available as a Jupyter Notebook, which you can download and r
 :outline:
 
 Download Jupyter Notebook
-``` 
+```
 
 ## {fab}`python` Install with pip
 

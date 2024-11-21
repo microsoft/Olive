@@ -70,7 +70,6 @@ html_static_path = ["_static"]
 html_css_files = [
     # better contrast between h3 and h4, high priority so that it overrides the theme
     ("css/header.css", {"priority": 1000}),
-    "css/icons.css",
 ]
 html_js_files = [
     "js/custom_version.js",
@@ -90,10 +89,6 @@ html_theme_options = {
             "icon": "fa-custom fa-pypi",
         },
     ],
-    # "logo": {
-    #     "image_light": "images/olive_logo.png",
-    #     "image_dark": "images/olive_logo.png",
-    # },
     "show_toc_level": 1,
     "navbar_align": "left",
     # "announcement": "Announcement: This is an example announcement.",
