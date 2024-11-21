@@ -14,7 +14,14 @@ import yaml
 
 from olive.cli.constants import CONDA_CONFIG
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import hardlink_copy_dir, hash_dict, hf_repo_exists, set_nested_dict_value, unescaped_str
+from olive.common.utils import (
+    hardlink_copy_dir,
+    hardlink_copy_file,
+    hash_dict,
+    hf_repo_exists,
+    set_nested_dict_value,
+    unescaped_str,
+)
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, find_all_resources
@@ -417,35 +424,32 @@ def save_output_model(config: Dict, output_model_dir: Union[str, Path]):
     This assumes a single accelerator workflow.
     """
     run_output_path = Path(config["output_dir"])
-    if not any(run_output_path.rglob("model_config.json")):
-        # there must be an run_output_path with at least one model_config.json
+    model_config_path = run_output_path / "model_config.json"
+    if not model_config_path.exists():
         print("Command failed. Please set the log_level to 1 for more detailed logs.")
         return
 
     output_model_dir = Path(output_model_dir).resolve()
 
-    # hardlink/copy the output model to the output_model_dir
-    hardlink_copy_dir(run_output_path, output_model_dir)
+    with model_config_path.open("r") as f:
+        model_config = json.load(f)
 
-    # need to update the local path in the model_config.json
-    # should the path be relative or absolute? relative makes it easy to move the output
-    # around but the path needs to be updated when the model config is used
-    for model_config_file in output_model_dir.rglob("model_config.json"):
-        with model_config_file.open("r") as f:
-            model_config = json.load(f)
+    all_resources = find_all_resources(model_config)
+    for resource_key, resource_path in all_resources.items():
+        src_path = Path(resource_path.get_path()).resolve()
+        if src_path.is_dir():
+            hardlink_copy_dir(src_path, output_model_dir / src_path)
+        else:
+            hardlink_copy_file(src_path, output_model_dir)
 
-        all_resources = find_all_resources(model_config)
-        for resource_key, resource_path in all_resources.items():
-            resource_path_str = resource_path.get_path()
-            if resource_path_str.startswith(str(run_output_path)):
-                set_nested_dict_value(
-                    model_config,
-                    resource_key,
-                    resource_path_str.replace(str(run_output_path), str(output_model_dir)),
-                )
-
-        with model_config_file.open("w") as f:
-            json.dump(model_config, f, indent=4)
+        set_nested_dict_value(
+            model_config,
+            resource_key,
+            str(output_model_dir / src_path.name),
+        )
+    output_model_config_path = output_model_dir / "model_config.json"
+    with output_model_config_path.open("w") as f:
+        json.dump(model_config, f, indent=4)
 
     print(f"Command succeeded. Output model saved to {output_model_dir}")
 
