@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Tuple, Union
 
 from olive.common.config_utils import ConfigBase
 from olive.common.hf.mappings import HIDDEN_SIZE_NAMES, NUM_HEADS_NAMES, NUM_HIDDEN_LAYER_NAMES
@@ -35,6 +35,9 @@ class IoConfig(ConfigBase):
     output_shapes: List[List[int]] = None
     output_types: List[str] = None
     dynamic_axes: Dict[str, Dict[int, str]] = None
+    # Please check `dynamic_shapes` in torch.export.export
+    # https://pytorch.org/docs/stable/export.html#torch.export.export
+    dynamic_shapes: Union[Dict[str, Any], Tuple[Any], List[Any]] = None
     # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
     # even though we want the dimension to be a constant int.
     # We use a workaround here: first use dim_param like "1" to represent the dimension, and then

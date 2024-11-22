@@ -236,8 +236,10 @@ class OnnxConversion(Pass):
                     input_names=io_config.input_names,
                     output_names=io_config.output_names,
                     dynamic_axes=io_config.dynamic_axes,
+                    dynamic_shapes=io_config.dynamic_shapes,
                     dynamo=True,
                     fallback=True,
+                    report=True,
                 )
                 assert onnx_program is not None
                 onnx_model = onnx_program.model_proto
