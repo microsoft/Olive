@@ -156,7 +156,7 @@ For more complex scenarios, you can create fully customize workflows where you c
 
       Learn how to split a model into multiple components.
 
-      :octicon:`arrow-right;1em;sd-text-info` `Model splitting <model-splitting.html>`_
+      :octicon:`arrow-right;1em;sd-text-info` `Model splitting <configure-workflows/model-splitting.html>`_
 
 Integrations
 ------------
