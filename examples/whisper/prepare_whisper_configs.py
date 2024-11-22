@@ -153,7 +153,7 @@ def main(raw_args=None):
     # set model name in prepost
     template_json["passes"]["prepost"]["tool_command_args"]["model_name"] = model_name
 
-    for device, precision in SUPPORTED_WORKFLOWS:
+    for device, precision in SUPPORTED_WORKFLOWS.items():
         workflow = SUPPORTED_WORKFLOWS[(device, precision)]
         config = deepcopy(template_json)
 

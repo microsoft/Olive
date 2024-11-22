@@ -98,7 +98,7 @@ class QNNInferenceSession:
         latencies = {"init": [], "net_run": [], "net_run_throughput": []}
         for i in range(runs):
             latencies_item = self._parse_latency(i, tmp_dir_path)
-            for key in latencies:  # pylint: disable=consider-using-dict-items
+            for key in latencies:  # noqa: PLC0206 # pylint: disable=consider-using-dict-items
                 latencies[key].append(latencies_item[key])
 
         tmp_dir.cleanup()
