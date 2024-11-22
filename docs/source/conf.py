@@ -130,5 +130,5 @@ linkcheck_ignore = [
     r"https://www.intel.com/*",
     # TODO(team): html files are generated after doc build. Linkcheck doesn't work for them.
     # Remove this when linkcheck works for html files.
-    r".*\.html",
+    r"^(?!https).*\.html$",
 ]
