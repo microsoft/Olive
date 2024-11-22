@@ -8,10 +8,10 @@ from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten
 from olive.evaluator.olive_evaluator import OliveEvaluator
 
 __all__ = [
-    "flatten_metric_result",
     "Metric",
     "MetricResult",
     "OliveEvaluator",
     "SubMetric",
     "SubMetricResult",
+    "flatten_metric_result",
 ]

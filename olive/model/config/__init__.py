@@ -16,6 +16,6 @@ __all__ = [
     "IoConfig",
     "KVCacheConfig",
     "ModelConfig",
-    "extend_io_config_with_kv_cache",
     "complete_kv_cache_with_model_attributes",
+    "extend_io_config_with_kv_cache",
 ]
