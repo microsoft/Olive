@@ -1,277 +1,531 @@
 
-
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
-<head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to Olive’s documentation! &mdash; Olive  documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css" />
-      <link rel="stylesheet" type="text/css" href="_static/css/width.css?v=b55249da" />
-      <link rel="stylesheet" type="text/css" href="_static/css/header.css?v=5dcc4e7b" />
 
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Olive: The AI Model Optimization Toolkit for the ONNX Runtime &#8212; Olive  documentation</title>
   
-      <script src="_static/jquery.js?v=5d32c60e"></script>
-      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=b3ba4146"></script>
-      <script src="_static/doctools.js?v=888ff710"></script>
-      <script src="_static/sphinx_highlight.js?v=4825356b"></script>
-      <script src="_static/js/custom_version.js?v=3856a39b"></script>
-    <script src="_static/js/theme.js"></script>
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!-- 
+    this give us a css class that will be invisible only if js is disabled 
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=26a4bc78f4c0ddb94549" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=26a4bc78f4c0ddb94549" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/css/header.css?v=5dcc4e7b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=26a4bc78f4c0ddb94549"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=26a4bc78f4c0ddb94549" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=26a4bc78f4c0ddb94549" />
+
+    <script src="_static/jquery.js?v=5d32c60e"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
+    <script src="_static/js/custom_version.js?v=3856a39b"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Olive" href="overview/olive.html" /> 
-</head>
+    <link rel="next" title="Overview" href="why-olive.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="latest" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
 
-<body class="wy-body-for-nav"> 
-  <div class="wy-grid-for-nav">
-    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
-      <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
 
-          
-          
-          <a href="#" class="icon icon-home">
-            Olive
-          </a>
-<div role="search">
-  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
-    <input type="hidden" name="check_keywords" value="yes" />
-    <input type="hidden" name="area" value="default" />
-  </form>
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
 </div>
-        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="overview/olive.html">Olive</a></li>
-<li class="toctree-l1"><a class="reference internal" href="overview/quicktour.html">Quick Tour</a></li>
-<li class="toctree-l1"><a class="reference internal" href="overview/options.html">Olive Options</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="getstarted/installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="getstarted/quickstart_examples.html">Quickstart Examples</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">OLIVE COMMANDS</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html">Run</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#finetune">Finetune</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#auto-optimization">Auto-Optimization</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#quantization">Quantization</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#capture-onnx-graph">Capture Onnx Graph</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#generate-adapters">Generate Adapters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#convert-adapters">Convert Adapters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#generate-cost-model-for-model-splitting">Generate Cost Model for Model Splitting</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#azureml">AzureML</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#shared-cache">Shared Cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#providing-input-models">Providing Input Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#model-script-file-information">Model Script File Information</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="features/azureml_integration.html">Azure ML integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/huggingface_model_optimization.html">Huggingface Integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/lora.html">LoRA Adapters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/shared_cache.html">Shared Cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/run_workflow_remotely.html">Remote Workflow</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/conversion.html">Model Conversions</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/quantization.html">Model Quantizations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/model_splitting.html">Model Splitting</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="extending_olive/design.html">Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
-<li class="toctree-l1"><a class="reference internal" href="extending_olive/custom_scripts.html">Custom Scripts</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_systems.html">How To Configure System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_metrics.html">How To Configure Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_pass.html">How To Configure Pass</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_data.html">How To Configure Data</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_model_path.html">How To Set Model Path</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/advanced_users.html">Advanced User Tour</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/azureml_scripts.html">Azure ML scripts</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="api/models.html">OliveModels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/resource_path.html">ResourcePath</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/systems.html">OliveSystems</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/evaluator.html">OliveEvaluator</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/metric.html">Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/search-algorithms.html">SearchAlgorithms</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/engine.html">Engine</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/passes.html">Passes</a></li>
-</ul>
 
-        </div>
-      </div>
-    </nav>
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
-          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="#">Olive</a>
-      </nav>
+  
+    
+  
 
-      <div class="wy-nav-content">
-        <div class="rst-content">
-          <div role="navigation" aria-label="Page navigation">
-  <ul class="wy-breadcrumbs">
-      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Welcome to Olive’s documentation!</li>
-      <li class="wy-breadcrumbs-aside">
-            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
-      </li>
+<a class="navbar-brand logo" href="#">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Olive  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="how-to/index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="examples.html">
+    Examples
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
   </ul>
-  <hr/>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
 </div>
-          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-           <div itemprop="articleBody">
-             
-  <section id="welcome-to-olive-s-documentation">
-<h1>Welcome to Olive’s documentation!<a class="headerlink" href="#welcome-to-olive-s-documentation" title="Permalink to this heading"></a></h1>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>Olive is currently under <strong>pre-release</strong>. There will be constant updates and improvements to the functions and usage.
-Feel free to give feedback and suggestions to us.</p>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="how-to/index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="examples.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none"></div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="olive-the-ai-model-optimization-toolkit-for-the-onnx-runtime">
+<h1>Olive: The AI Model Optimization Toolkit for the ONNX Runtime<a class="headerlink" href="#olive-the-ai-model-optimization-toolkit-for-the-onnx-runtime" title="Link to this heading">#</a></h1>
+<br/>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 gallery-directive docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-3 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-header docutils">
+<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-codescan-checkmark" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.28 6.28a.75.75 0 1 0-1.06-1.06L6.25 8.19l-.97-.97a.75.75 0 0 0-1.06 1.06l1.5 1.5a.75.75 0 0 0 1.06 0l3.5-3.5Z"></path><path d="M7.5 15a7.5 7.5 0 1 1 5.807-2.754l2.473 2.474a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215l-2.474-2.473A7.472 7.472 0 0 1 7.5 15Zm0-13.5a6 6 0 1 0 4.094 10.386.748.748 0 0 1 .293-.292 6.002 6.002 0 0 0 1.117-6.486A6.002 6.002 0 0 0 7.5 1.5Z"></path></svg> Overview</p>
 </div>
-<p>This document introduces Olive and provides some examples to get you started.</p>
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Learn the benefits of using Olive to optimize your models.<br/><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference internal" href="why-olive.html"><span class="std std-doc">Overview</span></a></p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-header docutils">
+<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-zap" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"></path></svg> Get Started</p>
+</div>
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Install <code class="docutils literal notranslate"><span class="pre">olive-ai</span></code> with <code class="docutils literal notranslate"><span class="pre">pip</span></code> and get up and running with OLIVE in minutes.<br/><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference internal" href="getting-started/getting-started.html"><span class="std std-doc">Get Started</span></a></p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-header docutils">
+<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-rocket" viewBox="0 0 16 16" aria-hidden="true"><path d="M14.064 0h.186C15.216 0 16 .784 16 1.75v.186a8.752 8.752 0 0 1-2.564 6.186l-.458.459c-.314.314-.641.616-.979.904v3.207c0 .608-.315 1.172-.833 1.49l-2.774 1.707a.749.749 0 0 1-1.11-.418l-.954-3.102a1.214 1.214 0 0 1-.145-.125L3.754 9.816a1.218 1.218 0 0 1-.124-.145L.528 8.717a.749.749 0 0 1-.418-1.11l1.71-2.774A1.748 1.748 0 0 1 3.31 4h3.204c.288-.338.59-.665.904-.979l.459-.458A8.749 8.749 0 0 1 14.064 0ZM8.938 3.623h-.002l-.458.458c-.76.76-1.437 1.598-2.02 2.5l-1.5 2.317 2.143 2.143 2.317-1.5c.902-.583 1.74-1.26 2.499-2.02l.459-.458a7.25 7.25 0 0 0 2.123-5.127V1.75a.25.25 0 0 0-.25-.25h-.186a7.249 7.249 0 0 0-5.125 2.123ZM3.56 14.56c-.732.732-2.334 1.045-3.005 1.148a.234.234 0 0 1-.201-.064.234.234 0 0 1-.064-.201c.103-.671.416-2.273 1.15-3.003a1.502 1.502 0 1 1 2.12 2.12Zm6.94-3.935c-.088.06-.177.118-.266.175l-2.35 1.521.548 1.783 1.949-1.2a.25.25 0 0 0 .119-.213ZM3.678 8.116 5.2 5.766c.058-.09.117-.178.176-.266H3.309a.25.25 0 0 0-.213.119l-1.2 1.95ZM12 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg> How To</p>
+</div>
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Find more details on specific Olive capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!<br/><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference internal" href="how-to/index.html"><span class="doc std std-doc">Features</span></a></p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-header docutils">
+<p class="sd-card-text"><span class="fas fa-code"></span>  API Reference</p>
+</div>
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Get more details on specific Olive capabilities, such as running workflows on remote compute (for example, Azure AI), model packaging, conversions, and more!<br/><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference internal" href="reference/index.html"><span class="doc std std-doc">APIs</span></a></p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-header docutils">
+<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-diff-added" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 1h10.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 15H2.75A1.75 1.75 0 0 1 1 13.25V2.75C1 1.784 1.784 1 2.75 1Zm10.5 1.5H2.75a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25ZM8 4a.75.75 0 0 1 .75.75v2.5h2.5a.75.75 0 0 1 0 1.5h-2.5v2.5a.75.75 0 0 1-1.5 0v-2.5h-2.5a.75.75 0 0 1 0-1.5h2.5v-2.5A.75.75 0 0 1 8 4Z"></path></svg>  Extending Olive</p>
+</div>
+<div class="sd-card-body docutils">
+<p class="sd-card-text">Learn about the design of Olive and how to extend Olive with your own optimization methods.<br/><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference internal" href="extending/index.html"><span class="doc std std-doc">Extend Olive</span></a></p>
+</div>
+</div>
+</div>
+</div>
+</div>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="overview/olive.html">Olive</a></li>
-<li class="toctree-l1"><a class="reference internal" href="overview/quicktour.html">Quick Tour</a></li>
-<li class="toctree-l1"><a class="reference internal" href="overview/options.html">Olive Options</a></li>
-</ul>
-</div>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="getstarted/installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="getstarted/quickstart_examples.html">Quickstart Examples</a></li>
-</ul>
-</div>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
-</ul>
-</div>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">OLIVE COMMANDS</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html">Run</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#finetune">Finetune</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#auto-optimization">Auto-Optimization</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#quantization">Quantization</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#capture-onnx-graph">Capture Onnx Graph</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#generate-adapters">Generate Adapters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#convert-adapters">Convert Adapters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#generate-cost-model-for-model-splitting">Generate Cost Model for Model Splitting</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#qualcomm-sdk">Qualcomm SDK</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#azureml">AzureML</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#shared-cache">Shared Cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#providing-input-models">Providing Input Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/cli.html#model-script-file-information">Model Script File Information</a></li>
-</ul>
-</div>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="features/azureml_integration.html">Azure ML integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/huggingface_model_optimization.html">Huggingface Integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/lora.html">LoRA Adapters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/shared_cache.html">Shared Cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/run_workflow_remotely.html">Remote Workflow</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/conversion.html">Model Conversions</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/quantization.html">Model Quantizations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="features/model_splitting.html">Model Splitting</a></li>
-</ul>
-</div>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="extending_olive/design.html">Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
-<li class="toctree-l1"><a class="reference internal" href="extending_olive/custom_scripts.html">Custom Scripts</a></li>
-</ul>
-</div>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_systems.html">How To Configure System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_metrics.html">How To Configure Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_pass.html">How To Configure Pass</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_data.html">How To Configure Data</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/configure_model_path.html">How To Set Model Path</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/advanced_users.html">Advanced User Tour</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/azureml_scripts.html">Azure ML scripts</a></li>
-</ul>
-</div>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="api/models.html">OliveModels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/resource_path.html">ResourcePath</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/systems.html">OliveSystems</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/evaluator.html">OliveEvaluator</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/metric.html">Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/search-algorithms.html">SearchAlgorithms</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/engine.html">Engine</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/passes.html">Passes</a></li>
-</ul>
 </div>
 </section>
 
 
-           </div>
-          </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="overview/olive.html" class="btn btn-neutral float-right" title="Olive" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
-
-  <hr/>
-
-  <div role="contentinfo">
-    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
-  </div>
-
-  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   
-
-</footer>
-        </div>
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="right-next"
+       href="why-olive.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Overview</p>
       </div>
-    </section>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
   </div>
-  <script>
-      jQuery(function () {
-          SphinxRtdTheme.Navigation.enable(true);
-      });
-  </script> 
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=26a4bc78f4c0ddb94549"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=26a4bc78f4c0ddb94549"></script>
 
-</body>
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2025, Olive Dev team.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
 </html>

@@ -1,0 +1,795 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>ONNX &#8212; Olive  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!-- 
+    this give us a css class that will be invisible only if js is disabled 
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=26a4bc78f4c0ddb94549" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=26a4bc78f4c0ddb94549" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/css/header.css?v=5dcc4e7b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../_static/scripts/fontawesome.js?digest=26a4bc78f4c0ddb94549"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=26a4bc78f4c0ddb94549" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=26a4bc78f4c0ddb94549" />
+
+    <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/configure-workflows/model-opt-and-transform/onnx';</script>
+    <script src="../../../_static/js/custom_version.js?v=3856a39b"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="PyTorch" href="pytorch.html" />
+    <link rel="prev" title="How To Set Model Path" href="configure-model-path.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="latest" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Olive  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../../index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../examples.html">
+    Examples
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../../index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../examples.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">How-to</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Model optimization</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">ONNX</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="onnx">
+<h1>ONNX<a class="headerlink" href="#onnx" title="Link to this heading">#</a></h1>
+<p><a class="reference external" href="https://onnx.ai/">ONNX</a> is an open graph format to represent machine learning models. <a class="reference external" href="https://onnxruntime.ai/docs/">ONNX Runtime</a> is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.</p>
+<p>Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.</p>
+<section id="model-optimizer">
+<h2>Model Optimizer<a class="headerlink" href="#model-optimizer" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">OnnxPeepholeOptimizer</span></code> optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
+reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.</p>
+<p>Also, inserts a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operation for cases where <code class="docutils literal notranslate"><span class="pre">ArgMax</span></code> input. For example, before ONNXRuntime 1.20, TensorProto.INT64 isn’t supported on CPU or CUDA EP so a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operator inserted to cast the inputs to TensorProto.INT32.</p>
+<p>Please refer to <a class="reference internal" href="../../../reference/pass.html#onnx_peephole_optimizer"><span class="std std-ref">OnnxPeepholeOptimizer</span></a> for more details about the pass and its config parameters.</p>
+<section id="example-configuration">
+<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxPeepholeOptimizer&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="ort-transformers-optimization">
+<h2>ORT Transformers Optimization<a class="headerlink" href="#ort-transformers-optimization" title="Link to this heading">#</a></h2>
+<p>While ONNX Runtime automatically applies most optimizations while loading transformer models, some of the latest optimizations that have not
+yet been integrated into ONNX Runtime.
+<code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code> provides an offline capability to optimize <a class="reference external" href="https://huggingface.co/docs/transformers/index">transformers</a> models
+in scenarios where ONNX Runtime does not apply the optimization at load time.
+These optimizations are provided by onnxruntime through
+<a class="reference external" href="https://github.com/microsoft/onnxruntime/tree/main/onnxruntime/python/tools/transformers">onnxruntime.transformers</a>. Please
+refer to the <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/README.md">corresponding documentation</a>
+for more details on the optimizations done by this tool.</p>
+<p>Please refer to <a class="reference internal" href="../../../reference/pass.html#ort_transformers_optimization"><span class="std std-ref">OrtTransformersOptimization</span></a> for more details about the pass and its config parameters.</p>
+<section id="id1">
+<h3>Example Configuration<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtTransformersOptimization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bert&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="append-pre-post-processing-ops">
+<h2>Append Pre/Post Processing Ops<a class="headerlink" href="#append-pre-post-processing-ops" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AppendPrePostProcessingOps</span></code> inserts pre and post processing ops into the ONNX graph.</p>
+<section id="id2">
+<h3>Example Configuration<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;superresolution&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tool_command_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;output_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;png&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;whisper&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tool_command_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;use_audio_decoder&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">AppendPrePostProcessingOps</span></code> also supports pre/post processing ops by leveraging the <a class="reference external" href="https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps">onnxruntime-extension steps</a> and <code class="docutils literal notranslate"><span class="pre">PrePostProcessor</span></code>.
+You can refer to <a class="reference external" href="https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/Example%20usage%20of%20the%20PrePostProcessor.md">here</a> to see how to leverage <code class="docutils literal notranslate"><span class="pre">PrePostProcessor</span></code> to customize pre and post processing ops.</p>
+<ul class="simple">
+<li><p>Olive introduces two placeholders to represent the model input/output shape dimension value: <code class="docutils literal notranslate"><span class="pre">__model_input__</span></code> and <code class="docutils literal notranslate"><span class="pre">__model_output__</span></code>.</p></li>
+<li><p>To support the IoMapEntry, the step need choose use the full form. For example:</p></li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;YCbCrToPixels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BGR&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">[</span><span class="s2">&quot;Y1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">            </span><span class="p">[</span><span class="s2">&quot;Cb1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span>
+<span class="w">            </span><span class="p">[</span><span class="s2">&quot;Cr1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">tool_command_args</span></code> will be used to describe the input parameters to create the <code class="docutils literal notranslate"><span class="pre">PrePostProcessor</span></code> instance. It is list of <code class="docutils literal notranslate"><span class="pre">PrePostProcessorInput</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">name</span></code> is the tensor name. The <code class="docutils literal notranslate"><span class="pre">data_type</span></code> and <code class="docutils literal notranslate"><span class="pre">shape</span></code> will be used to create the tensor type. The <code class="docutils literal notranslate"><span class="pre">shape</span></code> can be a list of integers or a list of string.</p></li>
+</ul>
+<p>Users that write their own pre/post processing steps need to have the knowledge about whether the step includes the operators that is built-in support or supported in onnxruntime-extensions.
+For example, for some ops like <code class="docutils literal notranslate"><span class="pre">ConvertImageToBGR</span></code> which requires other extensions may be incompatible with ort-web, user need to exclude this kind of ops to generate proper models.</p>
+<p>Here are some examples to describe the pre/post processing which is exactly same with <a class="reference external" href="https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/add_pre_post_processing_to_model.py#L89">superresolution</a></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;pre&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;ConvertImageToBGR&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;Resize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;resize_to&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;CenterCrop&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;height&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;width&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;PixelsToYCbCr&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BGR&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;ImageBytesToFloat&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;Unsqueeze&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]}},</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;post&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;Squeeze&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]}},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;FloatToImageBytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Y1_uint8&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;Resize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;resize_to&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">                    </span><span class="p">],</span>
+<span class="w">                    </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HW&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">&quot;PixelsToYCbCr&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]],</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;FloatToImageBytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;multiplier&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cb1_uint8&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;Resize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;resize_to&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">                    </span><span class="p">],</span>
+<span class="w">                    </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HW&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">&quot;PixelsToYCbCr&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]],</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;FloatToImageBytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;multiplier&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cr1_uint8&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;YCbCrToPixels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BGR&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="p">[</span><span class="s2">&quot;Y1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">                    </span><span class="p">[</span><span class="s2">&quot;Cb1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span>
+<span class="w">                    </span><span class="p">[</span><span class="s2">&quot;Cr1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">                </span><span class="p">],</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;ConvertBGRToImage&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;image_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;png&quot;</span><span class="p">}},</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;tool_command_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint8&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;num_bytes&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="insert-beam-search-op">
+<h2>Insert Beam Search Op<a class="headerlink" href="#insert-beam-search-op" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">InsertBeamSearch</span></code> chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.</p>
+<section id="id3">
+<h3>Example Configuration<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InsertBeamSearch&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;no_repeat_ngram_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="ort-performance-tuning">
+<h2>ORT Performance Tuning<a class="headerlink" href="#ort-performance-tuning" title="Link to this heading">#</a></h2>
+<p>ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
+environments.
+For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
+improve performance.
+<code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
+<section id="id4">
+<h3>Example Configuration<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtSessionParamsTuning&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;session_params_tuning_data_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;providers_list&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">[</span>
+<span class="w">            </span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;device_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;arena_extend_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kNextPowerOfTwo&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;gpu_mem_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2147483648</span><span class="p">,</span><span class="w"> </span><span class="c1">// 2 * 1024 * 1024 * 1024,</span>
+<span class="w">                </span><span class="nt">&quot;cudnn_conv_algo_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;EXHAUSTIVE&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;do_copy_in_default_stream&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;enable_profiling&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py">this file</a>
+for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;calib_data_config/dataloader_config/type&quot;</span></code>.</p>
+</section>
+</section>
+<section id="extract-adapters">
+<h2>Extract Adapters<a class="headerlink" href="#extract-adapters" title="Link to this heading">#</a></h2>
+<p>LoRA, QLoRA and related techniques allow us to fine-tune a pre-trained model by adding a small number of trainable matrices called adapters. The same base model can be used for multiple tasks by adding different adapters for each task. To support using multiple adapters with the same optimized onnx model, the <code class="docutils literal notranslate"><span class="pre">ExtractAdapters</span></code> pass extracts the adapters weights from the model and saves them to a separate file. The model graph is then modified in one of the following ways:</p>
+<ul class="simple">
+<li><p>Adapters weights are set as external tensors pointing to a non-existent file. The onnx model is thus invalid by itself as it cannot be loaded. In order to create an inference session using this model, the adapter weights must be added to a sessions options object using <code class="docutils literal notranslate"><span class="pre">add_initializer</span></code> or <code class="docutils literal notranslate"><span class="pre">add_external_initializers</span></code>.</p></li>
+<li><p>Adapter weights are converted into model inputs. The onnx model is valid. During inference, the adapter weights must be provided as part of the inputs. We call them constant inputs here since these weights don’t change between runs when using the one set of adapters.</p></li>
+</ul>
+<section id="id5">
+<h3>Example Configuration<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
+<p>a. As external initializers</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExtractAdapters&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;make_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. As constant inputs with packed weights</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExtractAdapters&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;make_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;pack_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../../../reference/pass.html#extract_adapters"><span class="std std-ref">ExtractAdapters</span></a> for more details about the pass and its config parameters.</p>
+<p>Olive also provides a command line tool to convert adapters saved after peft fine-tuning to a format compatible with a model that has been optimized with the <code class="docutils literal notranslate"><span class="pre">ExtractAdapters</span></code> pass. More details on the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">convert-adapters</span></code> command can be found at <a class="reference internal" href="../../../reference/cli.html"><span class="std std-doc">Command Line Tools</span></a>.</p>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="configure-model-path.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">How To Set Model Path</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="pytorch.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">PyTorch</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-optimizer">Model Optimizer</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-configuration">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ort-transformers-optimization">ORT Transformers Optimization</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#append-pre-post-processing-ops">Append Pre/Post Processing Ops</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#insert-beam-search-op">Insert Beam Search Op</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ort-performance-tuning">ORT Performance Tuning</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#extract-adapters">Extract Adapters</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">Example Configuration</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=26a4bc78f4c0ddb94549"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=26a4bc78f4c0ddb94549"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2025, Olive Dev team.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

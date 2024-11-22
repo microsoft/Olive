@@ -1,0 +1,658 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Finetune &#8212; Olive  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!-- 
+    this give us a css class that will be invisible only if js is disabled 
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=26a4bc78f4c0ddb94549" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=26a4bc78f4c0ddb94549" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=26a4bc78f4c0ddb94549"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=26a4bc78f4c0ddb94549" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=26a4bc78f4c0ddb94549" />
+
+    <script src="../../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/cli/cli-finetune';</script>
+    <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Quantize" href="cli-quantize.html" />
+    <link rel="prev" title="Auto Optimization" href="cli-auto-opt.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="latest" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Olive  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../examples.html">
+    Examples
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../examples.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">How-to</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Finetune</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="finetune">
+<h1>Finetune<a class="headerlink" href="#finetune" title="Link to this heading">#</a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">finetune</span></code> command will finetune a PyTorch/Hugging Face model and output a Hugging Face PEFT adapter. If you want to convert the PEFT adapter into a format for the ONNX Runtime, you can execute the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">generate-adapter</span></code> command after finetuning.</p>
+<section id="quickstart">
+<h2><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-zap" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"></path></svg> Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading">#</a></h2>
+<p>The following example shows how to finetune <a class="reference external" href="https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main">Llama-3.2-1B-Instruct from Hugging Face</a> either using your local computer (if you have a GPU device) or using remote compute via Azure AI integration with Olive.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Local</label><div class="sd-tab-content docutils">
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You’ll need a GPU device on your local machine to fine-tune a model.</p>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>finetune<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--model_name_or_path<span class="w"> </span>meta-llama/Llama-3.2-1B-Instruct<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--trust_remote_code<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output_path<span class="w"> </span>models/llama/ft<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--data_name<span class="w"> </span>xxyyzzz/phrase_classification<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--text_template<span class="w"> </span><span class="s2">&quot;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;\n{phrase}&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;\n{tone}&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--method<span class="w"> </span>lora<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--max_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--log_level<span class="w"> </span><span class="m">1</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Azure AI</label><div class="sd-tab-content docutils">
+<p>You can fine-tune on remote Azure ML compute by updating the placeholders (<code class="docutils literal notranslate"><span class="pre">{}</span></code>) in the following code snippet with your workspace, resource group and compute name details. Read the <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-create-attach-compute-cluster?view=azureml-api-2&amp;amp;tabs=azure-studio">How to create a compute cluster</a> article for more details on setting up a GPU cluster in Azure ML.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>finetune<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--model_name_or_path<span class="w"> </span>azureml://registries/azureml-meta/models/Llama-3.2-1B/versions/2<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--trust_remote_code<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output_path<span class="w"> </span>models/llama/ft<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--data_name<span class="w"> </span>xxyyzzz/phrase_classification<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--text_template<span class="w"> </span><span class="s2">&quot;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;\n{phrase}&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;\n{tone}&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--method<span class="w"> </span>lora<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--max_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--log_level<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--resource_group<span class="w"> </span><span class="o">{</span>RESOURCE_GROUP_NAME<span class="o">}</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--workspace_name<span class="w"> </span><span class="o">{</span>WORKSPACE_NAME<span class="o">}</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--aml_compute<span class="w"> </span><span class="o">{</span>COMPUTE_NAME<span class="o">}</span>
+</pre></div>
+</div>
+<p>You can download the model artifact using the Azure ML CLI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>az<span class="w"> </span>ml<span class="w"> </span>job<span class="w"> </span>download<span class="w"> </span>--name<span class="w"> </span><span class="o">{</span>JOB_ID<span class="o">}</span><span class="w"> </span>--resource-group<span class="w"> </span><span class="o">{</span>RESOURCE_GROUP_NAME<span class="o">}</span><span class="w"> </span>--workspace-name<span class="w"> </span><span class="o">{</span>WORKSPACE_NAME<span class="o">}</span><span class="w"> </span>-all
+</pre></div>
+</div>
+</div>
+</div>
+<section id="auto-optimize-the-model-and-adapters">
+<h3><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-dependabot" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.75 7.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Zm5.25.75a.75.75 0 0 0-1.5 0v1.5a.75.75 0 0 0 1.5 0v-1.5Z"></path><path d="M6.25 0h2A.75.75 0 0 1 9 .75V3.5h3.25a2.25 2.25 0 0 1 2.25 2.25V8h.75a.75.75 0 0 1 0 1.5h-.75v2.75a2.25 2.25 0 0 1-2.25 2.25h-8.5a2.25 2.25 0 0 1-2.25-2.25V9.5H.75a.75.75 0 0 1 0-1.5h.75V5.75A2.25 2.25 0 0 1 3.75 3.5H7.5v-2H6.25a.75.75 0 0 1 0-1.5ZM3 5.75v6.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-6.5a.75.75 0 0 0-.75-.75h-8.5a.75.75 0 0 0-.75.75Z"></path></svg> Auto-Optimize the model and adapters<a class="headerlink" href="#auto-optimize-the-model-and-adapters" title="Link to this heading">#</a></h3>
+<p>If you would like your fine-tuned model to run on the ONNX Runtime, you’ll can execute the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">auto-opt</span></code> command to produce an optimized ONNX model and adapter, using</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>auto-opt<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--model_name_or_path<span class="w"> </span>models/llama/ft/model<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--adapter_path<span class="w"> </span>models/llama/ft/adapter<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--provider<span class="w"> </span>CPUExecutionProvider<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--use_ort_genai<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--output_path<span class="w"> </span>models/llama/onnx<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--log_level<span class="w"> </span><span class="m">1</span>
+</pre></div>
+</div>
+<p>Once the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">auto-opt</span></code> command has successfully completed, you’ll have:</p>
+<ol class="arabic simple">
+<li><p>The base model in an optimized ONNX format.</p></li>
+<li><p>The adapter weights in a format for ONNX Runtime.</p></li>
+</ol>
+<p>Olive and the ONNX runtime support the <em>multi-LoRA</em> model serving pattern, which greatly reduces the compute footprint of serving many adapters:</p>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../../_images/multi-lora-diagram.png"><img alt="../../_images/multi-lora-diagram.png" src="../../_images/multi-lora-diagram.png" style="width: 700px;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Multi-LoRA serving versus single-LoRA serving</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="inference-model-using-onnx-runtime">
+<h3>Inference model using ONNX Runtime<a class="headerlink" href="#inference-model-using-onnx-runtime" title="Link to this heading">#</a></h3>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
+Python</label><div class="sd-tab-content docutils">
+<p>Copy-and-paste the code below into a new Python file called <code class="docutils literal notranslate"><span class="pre">app.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">onnxruntime_genai</span> <span class="k">as</span> <span class="nn">og</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;loading model and adapters...&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="s2">&quot;models/llama/onnx/model&quot;</span><span class="p">)</span>
+<span class="n">adapters</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Adapters</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<span class="n">adapters</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;models/llama/onnx/model/adapter_weights.onnx_adapter&quot;</span><span class="p">,</span> <span class="s2">&quot;phrase_classifier&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;DONE!&quot;</span><span class="p">)</span>
+
+<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Tokenizer</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<span class="n">tokenizer_stream</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">create_stream</span><span class="p">()</span>
+
+<span class="n">params</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">GeneratorParams</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<span class="n">params</span><span class="o">.</span><span class="n">set_search_options</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">past_present_share_buffer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">user_input</span> <span class="o">=</span> <span class="s2">&quot;cricket is a wonderful sport&quot;</span>
+<span class="n">params</span><span class="o">.</span><span class="n">input_ids</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;</span><span class="se">\n</span><span class="si">{</span><span class="n">user_input</span><span class="si">}</span><span class="s2">&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">generator</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Generator</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="n">generator</span><span class="o">.</span><span class="n">set_active_adapter</span><span class="p">(</span><span class="n">adapters</span><span class="p">,</span> <span class="s2">&quot;phrase_classifier&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">user_input</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="k">while</span> <span class="ow">not</span> <span class="n">generator</span><span class="o">.</span><span class="n">is_done</span><span class="p">():</span>
+    <span class="n">generator</span><span class="o">.</span><span class="n">compute_logits</span><span class="p">()</span>
+    <span class="n">generator</span><span class="o">.</span><span class="n">generate_next_token</span><span class="p">()</span>
+
+    <span class="n">new_token</span> <span class="o">=</span> <span class="n">generator</span><span class="o">.</span><span class="n">get_next_tokens</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">tokenizer_stream</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">new_token</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Run the code with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>app.py
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="cli-auto-opt.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Auto Optimization</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="cli-quantize.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Quantize</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quickstart"><svg aria-hidden="true" class="sd-octicon sd-octicon-zap" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"></path></svg> Quickstart</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-optimize-the-model-and-adapters"><svg aria-hidden="true" class="sd-octicon sd-octicon-dependabot" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M5.75 7.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Zm5.25.75a.75.75 0 0 0-1.5 0v1.5a.75.75 0 0 0 1.5 0v-1.5Z"></path><path d="M6.25 0h2A.75.75 0 0 1 9 .75V3.5h3.25a2.25 2.25 0 0 1 2.25 2.25V8h.75a.75.75 0 0 1 0 1.5h-.75v2.75a2.25 2.25 0 0 1-2.25 2.25h-8.5a2.25 2.25 0 0 1-2.25-2.25V9.5H.75a.75.75 0 0 1 0-1.5h.75V5.75A2.25 2.25 0 0 1 3.75 3.5H7.5v-2H6.25a.75.75 0 0 1 0-1.5ZM3 5.75v6.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-6.5a.75.75 0 0 0-.75-.75h-8.5a.75.75 0 0 0-.75.75Z"></path></svg> Auto-Optimize the model and adapters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#inference-model-using-onnx-runtime">Inference model using ONNX Runtime</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=26a4bc78f4c0ddb94549"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=26a4bc78f4c0ddb94549"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2025, Olive Dev team.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
