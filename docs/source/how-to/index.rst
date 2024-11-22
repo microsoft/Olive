@@ -175,7 +175,7 @@ Integrations
 
       **How to integrate with Azure AI**
 
-      Learn how to use integrations with Azure AI, such as model catalog, remote compute, and data/job artefacts.
+      Learn how to use integrations with Azure AI, such as model catalog, remote compute, and data/job artifacts.
 
       :octicon:`arrow-right;1em;sd-text-info` `Integrate with Azure AI <configure-workflows/azure-ai/index.html>`_
 
