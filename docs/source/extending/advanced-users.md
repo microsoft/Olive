@@ -6,7 +6,7 @@ olive run --config user_provided_info.json
 ```
 
 ```python
-from olive.workflows import run as olive_run`
+from olive.workflows import run as olive_run
 olive_run(user_provided_info_json_file)
 ```
 
