@@ -8,10 +8,10 @@ from olive.passes.pass_config import PassModuleConfig, PassParamDefault
 REGISTRY = Pass.registry
 
 __all__ = [
-    "Pass",
-    "PassParamDefault",
-    "PassModuleConfig",
+    "REGISTRY",
     "AbstractPassConfig",
     "FullPassConfig",
-    "REGISTRY",
+    "Pass",
+    "PassModuleConfig",
+    "PassParamDefault",
 ]

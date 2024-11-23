@@ -13,12 +13,12 @@ from olive.model.handler.snpe import SNPEModelHandler
 from olive.model.handler.tensorflow import TensorFlowModelHandler
 
 __all__ = [
-    "OliveModelHandler",
     "CompositeModelHandler",
     "DistributedHfModelHandler",
     "DistributedOnnxModelHandler",
     "HfModelHandler",
     "ONNXModelHandler",
+    "OliveModelHandler",
     "OpenVINOModelHandler",
     "PyTorchModelHandler",
     "QNNModelHandler",

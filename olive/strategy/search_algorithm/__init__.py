@@ -9,4 +9,4 @@ from olive.strategy.search_algorithm.tpe_sampler import TPESearchAlgorithm
 
 REGISTRY = SearchAlgorithm.registry
 
-__all__ = ["SearchAlgorithm", "ExhaustiveSearchAlgorithm", "RandomSearchAlgorithm", "TPESearchAlgorithm", "REGISTRY"]
+__all__ = ["REGISTRY", "ExhaustiveSearchAlgorithm", "RandomSearchAlgorithm", "SearchAlgorithm", "TPESearchAlgorithm"]

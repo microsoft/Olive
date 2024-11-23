@@ -10,8 +10,8 @@ from olive.passes.onnx.vitis_ai.quantize import quantize_static
 
 __all__ = [
     "CalibrationDataReader",
-    "quantize_static",
     "PowerOfTwoMethod",
     "QuantFormat",
     "QuantType",
+    "quantize_static",
 ]
