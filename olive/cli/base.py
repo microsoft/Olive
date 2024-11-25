@@ -267,9 +267,9 @@ def add_remote_options(sub_parser: ArgumentParser):
         type=str,
         required=False,
         help=(
-            "The azureml keyvault name with huggingface token to use for remote run. Refer to"
-            " https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login for"
-            " more details."
+            "The azureml keyvault name with huggingface token to use for remote run. Refer to "
+            "https://microsoft.github.io/Olive/how-to/configure-workflows/huggingface-integration.html#huggingface-login"
+            " for more details."
         ),
     )
     remote_group.add_argument(
@@ -309,7 +309,7 @@ def add_input_model_options(
         required=not enable_pt,
         help=(
             "Path to the input model. "
-            "See https://microsoft.github.io/Olive/features/cli.html#providing-input-models "
+            "See https://microsoft.github.io/Olive/reference/cli.html#providing-input-models "
             "for more informsation."
         ),
     )
@@ -338,7 +338,7 @@ def add_input_model_options(
             type=str,
             help=(
                 "The directory containing the local PyTorch model script file."
-                "See https://microsoft.github.io/Olive/features/cli.html#model-script-file-information "
+                "See https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information "
                 "for more informsation."
             ),
         )

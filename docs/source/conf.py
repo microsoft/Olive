@@ -128,6 +128,7 @@ linkcheck_ignore = [
     r"https://docs.qualcomm.com/*",
     # TODO(jambayk): remove this when the issue is fixed
     r"https://www.intel.com/*",
-    r".*\.html",
-    "https://github.com/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb",
+    # TODO(team): html files are generated after doc build. Linkcheck doesn't work for them.
+    # Remove this when linkcheck works for html files.
+    r"^(?!https).*\.html$",
 ]
