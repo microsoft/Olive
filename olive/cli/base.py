@@ -309,7 +309,7 @@ def add_input_model_options(
         required=not enable_pt,
         help=(
             "Path to the input model. "
-            "See https://microsoft.github.io/Olive/features/cli.html#providing-input-models "
+            "See https://microsoft.github.io/Olive/reference/cli.html#providing-input-models "
             "for more informsation."
         ),
     )
@@ -338,7 +338,7 @@ def add_input_model_options(
             type=str,
             help=(
                 "The directory containing the local PyTorch model script file."
-                "See https://microsoft.github.io/Olive/features/cli.html#model-script-file-information "
+                "See https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information "
                 "for more informsation."
             ),
         )
