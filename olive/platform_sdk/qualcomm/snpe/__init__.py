@@ -4,4 +4,4 @@
 # --------------------------------------------------------------------------
 from olive.platform_sdk.qualcomm.snpe.snpe import SNPEInferenceSession, SNPESessionOptions
 
-__all__ = ["SNPESessionOptions", "SNPEInferenceSession"]
+__all__ = ["SNPEInferenceSession", "SNPESessionOptions"]

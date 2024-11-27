@@ -13,7 +13,8 @@ from contextlib import redirect_stdout
 from typing import TYPE_CHECKING
 
 import tensorrt as trt
-from torch_tensorrt.fx import InputTensorSpec, TRTInterpreter, TRTModule, compile  # pylint: disable=redefined-builtin
+from torch_tensorrt.fx import compile  # noqa: A004 # pylint: disable=redefined-builtin
+from torch_tensorrt.fx import InputTensorSpec, TRTInterpreter, TRTModule
 from torch_tensorrt.fx.tracer.acc_tracer import acc_tracer
 
 if TYPE_CHECKING:

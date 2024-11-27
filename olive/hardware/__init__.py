@@ -12,10 +12,10 @@ from olive.hardware.accelerator import (
 )
 
 __all__ = [
-    "AcceleratorLookup",
-    "AcceleratorSpec",
     "DEFAULT_CPU_ACCELERATOR",
     "DEFAULT_GPU_CUDA_ACCELERATOR",
     "DEFAULT_GPU_TRT_ACCELERATOR",
+    "AcceleratorLookup",
+    "AcceleratorSpec",
     "Device",
 ]
