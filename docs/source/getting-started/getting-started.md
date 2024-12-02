@@ -92,7 +92,7 @@ olive auto-opt \
 - `output_path` is the path on local disk to store the optimized model.
 - `device` is the device the model will execute on - CPU/NPU/GPU.
 - `provider` is the hardware provider of the device to inference the model on. For example, Nvidia CUDA (`CUDAExecutionProvider`), DirectML (`DmlExecutionProvider`), AMD (`MIGraphXExecutionProvider`, `ROCMExecutionProvider`), OpenVINO (`OpenVINOExecutionProvider`), Qualcomm (`QNNExecutionProvider`), TensorRT (`TensorrtExecutionProvider`).
-- `precision` is the precision for the optimized model (`fp16`, `fp32`, `int4`, `int8`). 
+- `precision` is the precision for the optimized model (`fp16`, `fp32`, `int4`, `int8`).
 - `use_ort_genai` will create the configuration files so that you can consume the model using the Generate API for ONNX Runtime.
 
 With the `auto-opt` command, you can change the input model to one that is available on Hugging Face - for example, to [HuggingFaceTB/SmolLM-360M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM-360M-Instruct) - or a model that resides on local disk. Olive, will go through the same process of *automatically* converting (to ONNX), optimizing the graph and quantizing the weights. The model can be optimized for different providers and devices.
