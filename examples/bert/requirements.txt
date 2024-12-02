@@ -1,10 +1,12 @@
 azure-ai-ml
 azure-identity
-datasets
+# TODO(anyone): load_metrics was removed since 3.0.0. Using evaluate instead
+datasets<3.0.0
 docker>=7.1.0
 evaluate
 neural-compressor
 optimum
+pytorch_lightning
 scikit-learn
 scipy
 tabulate

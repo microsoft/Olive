@@ -835,8 +835,8 @@ class LoftQ(QLoRABase):
         # save the new master weights
         new_master_weights_path = output_model_path / "model"
         new_master_weights_path.mkdir(parents=True, exist_ok=True)
-        model.save_metadata(new_master_weights_path)
         pytorch_model.save_pretrained(new_master_weights_path)
+        model.save_metadata(new_master_weights_path)
 
         del pytorch_model
 

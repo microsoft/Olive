@@ -52,14 +52,18 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
         "model_path": model_path,
         "generative": args.is_generative_model,
         "load_kwargs": {
-            "trust_remote_code": args.trust_remote_code,
             "attn_implementation": "eager",
         },
     }
-    if args.task:
+    # use getattr to avoid AttributeError in case hf model or adapter_path is not supported
+    # will let the command fail if hf model is returned even though it is not supported
+    if getattr(args, "task", None):
+        # conditional is needed since task=None is not handled in the model handler
         input_model["task"] = args.task
     if getattr(args, "adapter_path", None):
         input_model["adapter_path"] = args.adapter_path
+    if getattr(args, "trust_remote_code", None) is not None:
+        input_model["load_kwargs"]["trust_remote_code"] = args.trust_remote_code
     return input_model
 
 
@@ -169,8 +173,7 @@ def get_input_model_config(args: Namespace) -> Dict:
         with open(model_path / "model_config.json") as f:
             model_config = json.load(f)
 
-        adapter_path = getattr(args, "adapter_path", None)
-        if adapter_path:
+        if adapter_path := getattr(args, "adapter_path", None):
             assert model_config["type"].lower() == "hfmodel", "Only HfModel supports adapter_path."
             model_config["config"]["adapter_path"] = adapter_path
 
@@ -264,9 +267,9 @@ def add_remote_options(sub_parser: ArgumentParser):
         type=str,
         required=False,
         help=(
-            "The azureml keyvault name with huggingface token to use for remote run. Refer to"
-            " https://microsoft.github.io/Olive/features/huggingface_model_optimization.html#huggingface-login for"
-            " more details."
+            "The azureml keyvault name with huggingface token to use for remote run. Refer to "
+            "https://microsoft.github.io/Olive/how-to/configure-workflows/huggingface-integration.html#huggingface-login"
+            " for more details."
         ),
     )
     remote_group.add_argument(
@@ -306,7 +309,7 @@ def add_input_model_options(
         required=not enable_pt,
         help=(
             "Path to the input model. "
-            "See https://microsoft.github.io/Olive/features/cli.html#providing-input-models "
+            "See https://microsoft.github.io/Olive/reference/cli.html#providing-input-models "
             "for more informsation."
         ),
     )
@@ -335,7 +338,7 @@ def add_input_model_options(
             type=str,
             help=(
                 "The directory containing the local PyTorch model script file."
-                "See https://microsoft.github.io/Olive/features/cli.html#model-script-file-information "
+                "See https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information "
                 "for more informsation."
             ),
         )

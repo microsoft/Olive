@@ -156,13 +156,24 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
 
+        input_model_config = get_input_model_config(self.args)
+        assert input_model_config["type"].lower() in {
+            "hfmodel",
+            "pytorchmodel",
+        }, "Only HfModel and PyTorchModel are supported in capture-onnx-graph command."
+
         # whether model is in fp16 (currently not supported by CPU EP)
         is_fp16 = (not self.args.use_model_builder and self.args.torch_dtype == "float16") or (
             self.args.use_model_builder and self.args.precision == "fp16"
         )
         to_replace = [
+<<<<<<< HEAD
             ("input_model", get_input_model_config(self.args)),
             ("output_dir", self.args.output_path),
+=======
+            ("input_model", input_model_config),
+            ("output_dir", tempdir),
+>>>>>>> origin
             ("log_severity_level", self.args.log_level),
             (("systems", "local_system", "accelerators", 0, "device"), "gpu" if is_fp16 else "cpu"),
             (

@@ -49,7 +49,7 @@ class MergeAdapterWeights(Pass):
         ).load_model()
         merged_model = pytorch_model.merge_and_unload()
 
-        model.save_metadata(output_model_path)
         merged_model.save_pretrained(output_model_path)
+        model.save_metadata(output_model_path)
 
         return inherit_hf_from_hf(model, output_model_path, adapter_path=None)

@@ -142,6 +142,8 @@ def save_module_files(
                 value,
                 e,
             )
+    # set _auto_class to None to avoid saving the module file again and causing SameFileError error
+    config._auto_class = None  # pylint: disable=protected-access
 
     return config, list(module_files)
 

@@ -72,7 +72,14 @@ class HfMixin:
         saved_filepaths = []
 
         # save config and module files
-        config = self.get_hf_model_config(exclude_load_keys=exclude_load_keys)
+        # load already saved config, could be saved by loaded_model.save_pretrained
+        # don't want to override it with the current model config
+        config_file_path = output_dir / "config.json"
+        config = (
+            get_model_config(output_dir, trust_remote_code=self.get_load_kwargs().get("trust_remote"))
+            if config_file_path.exists()
+            else self.get_hf_model_config(exclude_load_keys=exclude_load_keys)
+        )
         if getattr(config, "auto_map", None):
             # needs model_name_or_path to find module files
             # conditional since model_name_or_path might trigger preprocessing for some mlflow models
@@ -84,18 +91,25 @@ class HfMixin:
             )
             saved_filepaths.extend(module_files)
         save_model_config(config, output_dir, **kwargs)
-        saved_filepaths.append(str(output_dir / "config.json"))
+        saved_filepaths.append(str(config_file_path))
 
-        # save model generation config
+        # save model generation config, skip if it already exists
         # non-generative models won't have generation config
-        generation_config = self.get_hf_generation_config(exclude_load_keys=exclude_load_keys)
-        if generation_config:
+        generation_config_file_path = output_dir / "generation_config.json"
+        if not generation_config_file_path.exists() and (
+            generation_config := self.get_hf_generation_config(exclude_load_keys=exclude_load_keys)
+        ):
             save_model_config(generation_config, output_dir, **kwargs)
-            saved_filepaths.append(str(output_dir / "generation_config.json"))
+            saved_filepaths.append(str(generation_config_file_path))
 
-        # save tokenizer
-        tokenizer_filepaths = save_tokenizer(self.get_hf_tokenizer(), output_dir, **kwargs)
-        saved_filepaths.extend([fp for fp in tokenizer_filepaths if Path(fp).exists()])
+        # save tokenizer, skip if it already exists
+        try:
+            get_tokenizer(output_dir)
+        except OSError:
+            tokenizer_filepaths = save_tokenizer(self.get_hf_tokenizer(), output_dir, **kwargs)
+            saved_filepaths.extend([fp for fp in tokenizer_filepaths if Path(fp).exists()])
+
+        logger.debug("Save metadata files to %s: %s", output_dir, saved_filepaths)
 
         return saved_filepaths
 
