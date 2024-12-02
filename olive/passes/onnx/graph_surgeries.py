@@ -34,9 +34,7 @@ class Surgeon:
     @staticmethod
     def get_node_by_name(model, name: str, match_output: bool = False):
         for node in model.graph.node:
-            if match_output and node.output[0] == name:
-                return node
-            elif not match_output and node.name == name:
+            if (match_output and node.output[0] == name) or (not match_output and node.name == name):
                 return node
         return None
 
@@ -164,7 +162,7 @@ class ZeroOutInput(Surgeon):
 
         node = self.get_node_by_name(model, self.node_name)
         if node is None:
-            logger.warning(f"Node '{self.node_name}' not found in the model.")
+            logger.warning("Node %s not found in the model.", self.node_name)
             return model
 
         input_name = node.input[self.input_idx]
@@ -181,7 +179,7 @@ class ZeroOutInput(Surgeon):
                 target_shape = shapes[input_name]
                 target_type = types[input_name]
             else:
-                logger.warning(f"Cannot determine shape and type for input '{input_name}'.")
+                logger.warning("Cannot determine shape and type for input '%s'.", input_name)
                 return model
 
         elif input_name in {inp.name for inp in model.graph.input}:
@@ -190,7 +188,7 @@ class ZeroOutInput(Surgeon):
                 target_shape = [dim.dim_value if dim.dim_value > 0 else 1 for dim in target.type.tensor_type.shape.dim]
                 target_type = target.type.tensor_type.elem_type
             else:
-                logger.warning(f"Cannot determine shape and type for input '{input_name}'.")
+                logger.warning("Cannot determine shape and type for input '%s'.", input_name)
                 return model
 
         elif input_name in {init.name for init in model.graph.initializer}:
@@ -198,7 +196,7 @@ class ZeroOutInput(Surgeon):
             target_shape = target.dims
             target_type = target.data_type
         else:
-            logger.warning(f"Input '{input_name}' not found in the model.")
+            logger.warning("Input '%s' not found in the model.", input_name)
             return model
 
         if target_shape is None or target_type is None:
@@ -301,8 +299,7 @@ class ExposeQuantizedOutput(Surgeon):
         )
         tensor_type = onnx.TensorProto.FLOAT
         tensor_shape = scale_array.shape
-        model = self._add_protos_to_model(model, initializer, node, tensor_type, tensor_shape)
-        return model
+        return self._add_protos_to_model(model, initializer, node, tensor_type, tensor_shape)
 
     def _add_zero_point(self, model, zero_point_value, onnx_dtype, np_dtype):
         name = self._make_name("zero_point")
@@ -315,8 +312,7 @@ class ExposeQuantizedOutput(Surgeon):
         )
         tensor_type = onnx_dtype
         tensor_shape = zero_point_array.shape
-        model = self._add_protos_to_model(model, initializer, node, tensor_type, tensor_shape)
-        return model
+        return self._add_protos_to_model(model, initializer, node, tensor_type, tensor_shape)
 
     def __call__(self, model: ModelProto):
         from onnx.helper import tensor_dtype_to_np_dtype
@@ -352,12 +348,11 @@ class ExposeQuantizedOutput(Surgeon):
         zero_point_value = to_array(zero_point_initializer)[0]
         zero_point_onnx_dtype = zero_point_initializer.data_type
         zero_point_np_dtype = tensor_dtype_to_np_dtype(zero_point_onnx_dtype)
-        model = self._add_zero_point(model, zero_point_value, zero_point_onnx_dtype, zero_point_np_dtype)
-        return model
+        return self._add_zero_point(model, zero_point_value, zero_point_onnx_dtype, zero_point_np_dtype)
 
 
 class GraphSurgeries(Pass):
-    """ONNX graph surgeries collections
+    """ONNX graph surgeries collections.
 
     This pass applies a list of surgeries to the ONNX model.
     Each surgery is a transformation on the ONNX graph.
@@ -378,11 +373,12 @@ class GraphSurgeries(Pass):
                 }
             ]
         }
+
     """
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
+        return {
             "surgeries": PassConfigParam(
                 type_=List[Dict[str, Any]],
                 default_value=[],
@@ -390,7 +386,6 @@ class GraphSurgeries(Pass):
                 description="List of surgeries to apply, each with its type and parameters",
             ),
         }
-        return config
 
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
@@ -398,7 +393,7 @@ class GraphSurgeries(Pass):
         surgeries = config["surgeries"]
         onnx_model = model.load_model()
         for surgery in surgeries:
-            logger.info(f"Applying surgery: {surgery}")
+            logger.info("Applying surgery: %s", surgery)
             surgeon_instance = self.init_surgeon_instance(surgery)
             onnx_model = surgeon_instance(onnx_model)
         return model_proto_to_olive_model(onnx_model, output_model_path, config)

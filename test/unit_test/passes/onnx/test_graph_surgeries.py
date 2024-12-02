@@ -15,7 +15,7 @@ def get_onnx_model(model_path):
     input1 = helper.make_tensor_value_info("input1", TensorProto.FLOAT, [1])
     input2 = helper.make_tensor_value_info("input2", TensorProto.FLOAT, [1])
 
-    intermediate = helper.make_tensor_value_info("intermediate", TensorProto.FLOAT, [None])
+    helper.make_tensor_value_info("intermediate", TensorProto.FLOAT, [None])
 
     output = helper.make_tensor_value_info("output1", TensorProto.FLOAT, [None])
 
@@ -41,7 +41,7 @@ def get_quantized_model(model_path):
     scale_initializer = numpy_helper.from_array(np.array([0.1], dtype=np.float32), name="scale")
     zero_point_initializer = numpy_helper.from_array(np.array([128], dtype=np.uint8), name="zero_point")
 
-    quantized_output = helper.make_tensor_value_info("quantized_output", TensorProto.UINT8, [1])
+    helper.make_tensor_value_info("quantized_output", TensorProto.UINT8, [1])
     quantize_node = helper.make_node(
         "QuantizeLinear", inputs=["input1", "scale", "zero_point"], outputs=["quantized_output"], name="QuantizeNode"
     )
@@ -81,7 +81,7 @@ def test_rename_inputs(tmp_path):
 
     # assert
     model_def = onnx_model.load_model()
-    assert renamed_input in [input.name for input in model_def.graph.input]
+    assert renamed_input in [graph_input.name for graph_input in model_def.graph.input]
 
 
 def test_rename_outputs(tmp_path):
@@ -151,7 +151,7 @@ def test_reorder_inputs(tmp_path):
 
     # assert
     model_def = onnx_model.load_model()
-    assert [input.name for input in model_def.graph.input] == ["input2", "input1"]
+    assert [graph_input.name for graph_input in model_def.graph.input] == ["input2", "input1"]
 
 
 def test_zero_out_input(tmp_path):
@@ -192,7 +192,7 @@ def test_remove_inputs(tmp_path):
 
     # assert
     model_def = onnx_model.load_model()
-    assert [input.name for input in model_def.graph.input] == ["input2"]
+    assert [graph_input.name for graph_input in model_def.graph.input] == ["input2"]
 
 
 def test_expose_outputs(tmp_path):
