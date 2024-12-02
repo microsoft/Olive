@@ -69,22 +69,22 @@ class RenameInputs(Surgeon):
 
     def __call__(self, model: ModelProto):
         for old_name, new_name in zip(self.old_names, self.new_names):
-            for i in range(len(model.graph.node)):
-                for j in range(len(model.graph.node[i].input)):
-                    if model.graph.node[i].input[j] == old_name:
-                        model.graph.node[i].input[j] = new_name
+            for node in model.graph.node:
+                for idx, input_name in enumerate(node.input):
+                    if input_name == old_name:
+                        node.input[idx] = new_name
 
-                for j in range(len(model.graph.node[i].output)):
-                    if model.graph.node[i].output[j] == old_name:
-                        model.graph.node[i].output[j] = new_name
+                for idx, output_name in enumerate(node.output):
+                    if output_name == old_name:
+                        node.output[idx] = new_name
 
-            for i in range(len(model.graph.input)):
-                if model.graph.input[i].name == old_name:
-                    model.graph.input[i].name = new_name
+            for idx, graph_input in enumerate(model.graph.input):
+                if graph_input.name == old_name:
+                    model.graph.input[idx].name = new_name
 
-            for i in range(len(model.graph.output)):
-                if model.graph.output[i].name == old_name:
-                    model.graph.output[i].name = new_name
+            for idx, graph_output in enumerate(model.graph.output):
+                if graph_output.name == old_name:
+                    model.graph.output[idx].name = new_name
         return model
 
 
@@ -95,22 +95,22 @@ class RenameOutputs(Surgeon):
 
     def __call__(self, model: ModelProto):
         for old_name, new_name in zip(self.old_names, self.new_names):
-            for i in range(len(model.graph.node)):
-                for j in range(len(model.graph.node[i].input)):
-                    if model.graph.node[i].input[j] == old_name:
-                        model.graph.node[i].input[j] = new_name
+            for node in model.graph.node:
+                for idx, input_name in enumerate(node.input):
+                    if input_name == old_name:
+                        node.input[idx] = new_name
 
-                for j in range(len(model.graph.node[i].output)):
-                    if model.graph.node[i].output[j] == old_name:
-                        model.graph.node[i].output[j] = new_name
+                for idx, output_name in enumerate(node.output):
+                    if output_name == old_name:
+                        node.output[idx] = new_name
 
-            for i in range(len(model.graph.input)):
-                if model.graph.input[i].name == old_name:
-                    model.graph.input[i].name = new_name
+            for graph_input in model.graph.input:
+                if graph_input.name == old_name:
+                    graph_input.name = new_name
 
-            for i in range(len(model.graph.output)):
-                if model.graph.output[i].name == old_name:
-                    model.graph.output[i].name = new_name
+            for graph_output in model.graph.output:
+                if graph_output.name == old_name:
+                    graph_output.name = new_name
         return model
 
 
@@ -156,8 +156,7 @@ class ZeroOutInput(Surgeon):
         self.input_idx = input_idx
 
     def __call__(self, model: ModelProto):
-        import numpy as np
-        from onnx.helper import make_node, make_tensor
+        from onnx.helper import make_node
         from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
 
         node = self.get_node_by_name(model, self.node_name)
