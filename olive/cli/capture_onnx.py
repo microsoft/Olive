@@ -5,7 +5,6 @@
 import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
-from pathlib import Path
 from typing import Dict
 
 from olive.cli.base import (
@@ -167,13 +166,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             self.args.use_model_builder and self.args.precision == "fp16"
         )
         to_replace = [
-<<<<<<< HEAD
-            ("input_model", get_input_model_config(self.args)),
-            ("output_dir", self.args.output_path),
-=======
             ("input_model", input_model_config),
-            ("output_dir", tempdir),
->>>>>>> origin
+            ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
             (("systems", "local_system", "accelerators", 0, "device"), "gpu" if is_fp16 else "cpu"),
             (
