@@ -14,17 +14,10 @@ import yaml
 
 from olive.cli.constants import CONDA_CONFIG
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import (
-    hardlink_copy_dir,
-    hardlink_copy_file,
-    hash_dict,
-    hf_repo_exists,
-    set_nested_dict_value,
-    unescaped_str,
-)
+from olive.common.utils import hash_dict, hf_repo_exists, set_nested_dict_value, unescaped_str
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, find_all_resources
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 
 class BaseOliveCLICommand(ABC):
@@ -415,43 +408,6 @@ def update_remote_options(config: Dict, args: Namespace, cli_action: str, tempdi
             "hf_token": bool(args.keyvault_name),
         }
         config["workflow_host"] = "aml_system"
-
-
-# TODO(anyone): Consider using the footprint directly to save the model
-def save_output_model(config: Dict, output_model_dir: Union[str, Path]):
-    """Save the output model to the output_model_dir.
-
-    This assumes a single accelerator workflow.
-    """
-    run_output_path = Path(config["output_dir"])
-    model_config_path = run_output_path / "model_config.json"
-    if not model_config_path.exists():
-        print("Command failed. Please set the log_level to 1 for more detailed logs.")
-        return
-
-    output_model_dir = Path(output_model_dir).resolve()
-
-    with model_config_path.open("r") as f:
-        model_config = json.load(f)
-
-    all_resources = find_all_resources(model_config)
-    for resource_key, resource_path in all_resources.items():
-        src_path = Path(resource_path.get_path()).resolve()
-        if src_path.is_dir():
-            hardlink_copy_dir(src_path, output_model_dir / src_path)
-        else:
-            hardlink_copy_file(src_path, output_model_dir)
-
-        set_nested_dict_value(
-            model_config,
-            resource_key,
-            str(output_model_dir / src_path.name),
-        )
-    output_model_config_path = output_model_dir / "model_config.json"
-    with output_model_config_path.open("w") as f:
-        json.dump(model_config, f, indent=4)
-
-    print(f"Command succeeded. Output model saved to {output_model_dir}")
 
 
 def add_dataset_options(sub_parser, required=True, include_train=True, include_eval=True):
