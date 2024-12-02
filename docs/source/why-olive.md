@@ -21,21 +21,19 @@ Olive executes a *workflow*, which is an ordered sequence of individual model op
 
 ## Benefits of using Olive
 
-{octicon}`check-circle-fill;1em;sd-text-success` **Reduce frustration and time** of trial-and-error manual experimentation with different techniques for graph optimization, compression, and quantization. Define your quality and performance constraints and let Olive automatically find the best model for you.
+{octicon}`check-circle-fill;1em;sd-text-success` **Reduce frustration and time** of trial-and-error manual experimentation with different techniques for graph optimization, compression, and quantization. Define your target and precision and let Olive automatically produce the best model for you.
 
 {octicon}`check-circle-fill;1em;sd-text-success` **40+ built-in model optimization components** covering cutting-edge techniques in quantization, compression, graph optimization, and finetuning.
 
-{octicon}`check-circle-fill;1em;sd-text-success` **Easy-to-use CLI** for common model optimization tasks. For example, `olive quantize`, `olive auto-opt`, `olive finetune`.
+{octicon}`check-circle-fill;1em;sd-text-success` **Easy-to-use CLI** for common model optimization tasks. For example, `olive quantize`, `olive auto-opt`, `olive finetune`. Advanced users can easily construct *workflows* using YAML/JSON to *orchestrate* model transformations and optimizations steps.
 
 {octicon}`check-circle-fill;1em;sd-text-success` Model packaging and deployment built-in.
 
-{octicon}`check-circle-fill;1em;sd-text-success` Supports **Multi LoRA serving**.
-
-{octicon}`check-circle-fill;1em;sd-text-success` Construct *workflows* using YAML/JSON to *orchestrate* model optimization and deployment tasks.
+{octicon}`check-circle-fill;1em;sd-text-success` Enables **Multi LoRA serving**.
 
 {octicon}`check-circle-fill;1em;sd-text-success` Hugging Face and Azure AI Integration.
 
-{octicon}`check-circle-fill;1em;sd-text-success` Built-in **caching** mechanism to save costs.
+{octicon}`check-circle-fill;1em;sd-text-success` Built-in **caching** mechanism to improve team's productivity.
 
 ## Try Olive
 
