@@ -18,6 +18,7 @@ import pkg_resources
 
 from olive.common.constants import OS
 from olive.common.utils import retry_func, run_subprocess
+from olive.engine.footprint import get_best_candidate_node
 from olive.engine.packaging.packaging_config import (
     AzureMLDeploymentPackagingConfig,
     DockerfilePackagingConfig,
@@ -68,7 +69,7 @@ def _package_dockerfile(
     config: DockerfilePackagingConfig = packaging_config.config
     logger.info("Packaging output models to Dockerfile")
     base_image = config.base_image
-    best_node = _get_best_candidate_node(pf_footprints, footprints)
+    best_node = get_best_candidate_node(pf_footprints, footprints)
 
     docker_context_path = "docker_content"
     content_path = output_dir / docker_context_path
@@ -133,7 +134,7 @@ def _package_azureml_deployment(
 
     try:
         # Get best model from footprint
-        best_node = _get_best_candidate_node(pf_footprints, footprints)
+        best_node = get_best_candidate_node(pf_footprints, footprints)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             tempdir = Path(temp_dir)
@@ -303,33 +304,6 @@ def _package_azureml_deployment(
         raise
 
 
-def _get_best_candidate_node(
-    pf_footprints: Dict["AcceleratorSpec", "Footprint"], footprints: Dict["AcceleratorSpec", "Footprint"]
-):
-    objective_dict = next(iter(pf_footprints.values())).objective_dict
-    top_nodes = []
-    for accelerator_spec, pf_footprint in pf_footprints.items():
-        footprint = footprints[accelerator_spec]
-        if pf_footprint.nodes and footprint.nodes:
-            top_nodes.append(next(iter(pf_footprint.get_top_ranked_nodes(1))))
-    return next(
-        iter(
-            sorted(
-                top_nodes,
-                key=lambda x: tuple(
-                    (
-                        x.metrics.value[metric].value
-                        if x.metrics.cmp_direction[metric] == 1
-                        else -x.metrics.value[metric].value
-                    )
-                    for metric in objective_dict
-                ),
-                reverse=True,
-            )
-        )
-    )
-
-
 def _is_generative_model(config: Dict[str, Any]) -> bool:
     model_attributes = config.get("model_attributes") or {}
     return model_attributes.get("generative", False)
@@ -353,7 +327,7 @@ def _package_candidate_models(
         tempdir = Path(temp_dir)
 
         if packaging_type == PackagingType.Zipfile:
-            best_node: FootprintNode = _get_best_candidate_node(pf_footprints, footprints)
+            best_node: FootprintNode = get_best_candidate_node(pf_footprints, footprints)
             is_generative = _is_generative_model(best_node.model_config["config"])
 
             if packaging_config.include_runtime_packages:

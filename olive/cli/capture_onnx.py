@@ -14,8 +14,6 @@ from olive.cli.base import (
     add_remote_options,
     add_shared_cache_options,
     get_input_model_config,
-    is_remote_run,
-    save_output_model,
     update_remote_options,
     update_shared_cache_options,
 )
@@ -152,13 +150,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
-
             olive_run(run_config)
-
-            if is_remote_run(self.args):
-                return
-
-            save_output_model(run_config, self.args.output_path)
 
     def get_run_config(self, tempdir: str) -> Dict:
         config = deepcopy(TEMPLATE)
@@ -175,7 +167,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         )
         to_replace = [
             ("input_model", input_model_config),
-            ("output_dir", tempdir),
+            ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
             (("systems", "local_system", "accelerators", 0, "device"), "gpu" if is_fp16 else "cpu"),
             (
@@ -248,4 +240,5 @@ TEMPLATE = {
     },
     "host": "local_system",
     "target": "local_system",
+    "no_artifacts": True,
 }

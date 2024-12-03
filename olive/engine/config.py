@@ -24,3 +24,4 @@ class EngineConfig(ConfigBase, extra=Extra.forbid):
     target: SystemConfig = None
     evaluator: OliveEvaluatorConfig = None
     plot_pareto_frontier: bool = False
+    no_artifacts: bool = False

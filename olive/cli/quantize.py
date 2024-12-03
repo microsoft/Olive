@@ -18,8 +18,6 @@ from olive.cli.base import (
     add_logging_options,
     add_remote_options,
     add_shared_cache_options,
-    is_remote_run,
-    save_output_model,
     update_dataset_options,
     update_input_model_options,
     update_shared_cache_options,
@@ -141,7 +139,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             (("passes", "onnx_dynamic", "weight_type"), precision),
             (("passes", "inc_dynamic", "algorithm"), self.args.algorithm.upper()),
             (("passes", "inc_dynamic", "bits"), precision),
-            ("output_dir", tempdir),
+            ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
         ]
         for k, v in to_replace:
@@ -162,11 +160,6 @@ class QuantizeCommand(BaseOliveCLICommand):
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
             olive_run(run_config)
-
-            if is_remote_run(self.args):
-                return
-
-            save_output_model(run_config, self.args.output_path)
 
 
 TEMPLATE = {
@@ -215,6 +208,7 @@ TEMPLATE = {
     "output_dir": "models",
     "host": "local_system",
     "target": "local_system",
+    "no_artifacts": True,
 }
 
 ALGORITHMS = {

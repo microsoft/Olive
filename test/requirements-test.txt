@@ -30,6 +30,7 @@ peft==0.10.0
 plotly
 protobuf==3.20.3
 psutil
+pytest
 pytorch_lightning
 sentencepiece
 tabulate

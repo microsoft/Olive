@@ -17,14 +17,12 @@ from olive.cli.base import (
     add_search_options,
     add_shared_cache_options,
     get_input_model_config,
-    is_remote_run,
-    save_output_model,
     update_accelerator_options,
     update_remote_options,
     update_search_options,
     update_shared_cache_options,
 )
-from olive.common.utils import hardlink_copy_dir, set_nested_dict_value
+from olive.common.utils import set_nested_dict_value
 from olive.package_config import OlivePackageConfig
 
 
@@ -182,16 +180,6 @@ class AutoOptCommand(BaseOliveCLICommand):
             run_config = self.get_run_config(tempdir)
             olive_run(run_config)
 
-            if is_remote_run(self.args):
-                return
-
-            if run_config.get("search_strategy"):
-                # TODO(anyone): maybe save the best model instead of just the search results
-                hardlink_copy_dir(run_config["output_dir"], self.args.output_path)
-                print(f"Search results are saved to {self.args.output_path}")
-            else:
-                save_output_model(run_config, self.args.output_path)
-
     def get_run_config(self, tempdir) -> Dict:
         config = deepcopy(TEMPLATE)
         olive_config = OlivePackageConfig.load_default_config()
@@ -210,7 +198,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         config["input_model"] = get_input_model_config(self.args)
 
         to_replace = [
-            ("output_dir", tempdir),
+            ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
         ]
         if self.args.enable_search is None:
@@ -471,6 +459,7 @@ TEMPLATE = {
     "evaluators": EVALUATE_TEMPLATE,
     "evaluator": "common_evaluator",
     "target": "local_system",
+    "no_artifacts": True,
 }
 
 PRECISION_MAPPING = {

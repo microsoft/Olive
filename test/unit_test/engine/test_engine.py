@@ -285,7 +285,7 @@ class TestEngine:
         # output model to output_dir
         output_dir = tmp_path / "output_dir"
         expected_metrics = MetricResult.parse_obj(metric_result_dict)
-        expected_saved_model_config = get_onnx_model_config(model_path=output_dir / "output_model" / "model.onnx")
+        expected_saved_model_config = get_onnx_model_config(model_path=output_dir / "model.onnx")
 
         # execute
         footprint = engine.run(
@@ -299,16 +299,55 @@ class TestEngine:
         assert output_node.model_config == onnx_model_config
         assert expected_metrics == output_node.metrics.value
 
-        output_model_dir = output_dir / "output_model"
-        model_json_path = output_model_dir / "model_config.json"
+        model_json_path = output_dir / "model_config.json"
         assert model_json_path.is_file()
         with model_json_path.open() as f:
             assert json.load(f) == expected_saved_model_config.to_json()
 
-        result_json_path = output_model_dir / "metrics.json"
+        result_json_path = output_dir / "metrics.json"
         assert result_json_path.is_file()
         with result_json_path.open() as f:
             assert json.load(f) == expected_metrics.__root__
+
+    @pytest.mark.parametrize(
+        "search_strategy",
+        [
+            {
+                "execution_order": "joint",
+                "search_algorithm": "random",
+            },
+            None,
+        ],
+    )
+    def test_run_output_model(self, search_strategy, tmp_path):
+        # setup
+        model_config = get_pytorch_model_config()
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+        options = {
+            "cache_config": {
+                "cache_dir": tmp_path,
+                "clean_cache": True,
+                "clean_evaluation_cache": True,
+            },
+            "search_strategy": search_strategy,
+            "evaluator": evaluator_config,
+        }
+        engine = Engine(**options)
+        _, p_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
+        engine.register(OnnxConversion, config=p_config)
+        # output model to output_dir
+        output_dir = tmp_path / "output_dir"
+
+        # execute
+        engine.run(
+            model_config,
+            [DEFAULT_CPU_ACCELERATOR],
+            output_dir=output_dir,
+        )
+
+        # assert
+        assert Path(output_dir / "model.onnx").is_file()
 
     def test_pass_exception(self, caplog, tmpdir):
         # Need explicitly set the propagate to allow the message to be logged into caplog

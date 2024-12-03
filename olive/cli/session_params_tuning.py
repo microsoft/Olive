@@ -128,7 +128,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         to_replace = [
             ("input_model", get_input_model_config(self.args)),
             (session_params_tuning_key, self._update_pass_config(config["passes"]["session_params_tuning"])),
-            ("output_dir", tempdir),
+            ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
         ]
 
@@ -146,14 +146,12 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
-
             output = olive_run(run_config)
 
             if is_remote_run(self.args):
                 return
 
             output_path = Path(self.args.output_path).resolve()
-            output_path.mkdir(parents=True, exist_ok=True)
             for key, value in output.items():
                 if len(value.nodes) < 1:
                     print(f"Tuning for {key} failed. Please set the log_level to 1 for more detailed logs.")
@@ -191,4 +189,5 @@ TEMPLATE = {
     },
     "host": "local_system",
     "target": "local_system",
+    "no_artifacts": True,
 }
