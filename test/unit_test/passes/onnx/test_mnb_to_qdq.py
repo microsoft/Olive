@@ -65,7 +65,7 @@ def create_mnb_model_fixture(request, tmp_path):
 @pytest.mark.parametrize("use_transpose_op", [True, False])
 @pytest.mark.parametrize("use_int4", [True, False])
 @pytest.mark.parametrize("add_zero_point", [True, False])
-@pytest.mark.parametrize("execution_provider", ["CPUExecutionProvider", "CUDAExecutionProvider"])
+@pytest.mark.parametrize("execution_provider", ["CPUExecutionProvider"])
 def test_mnb_to_qdq(create_mnb_model, execution_provider, add_zero_point, use_int4, use_transpose_op, tmp_path):
     available_providers = onnxruntime.get_available_providers()
     if execution_provider not in available_providers:

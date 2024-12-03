@@ -14,7 +14,7 @@ import time
 from pprint import pprint
 from typing import TYPE_CHECKING, List
 
-import ClientPatch
+import client_patch
 from azure.devops.connection import Connection
 from azure.devops.v7_1.pipelines.models import (
     RepositoryResourceParameters,
@@ -48,7 +48,6 @@ def _main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--project-name", default="PublicPackages", type=str, help="Project name")
-    parser.add_argument("--pipeline-name", default='"Olive-ORT-Nightly', type=str, help="Pipeline name")
     parser.add_argument("--build-id", required=True, type=str, help="Build Id")
     args = parser.parse_args()
 
@@ -57,7 +56,7 @@ def _main():
     connection = Connection(base_url=_organization_url, creds=credentials)
 
     # Ref: https://github.com/microsoft/azure-devops-python-api/issues/461
-    ClientPatch.patch_azure_devops_client()
+    client_patch.patch_azure_devops_client()
 
     # Get build definition
     build_client: BuildClient = connection.clients.get_build_client()

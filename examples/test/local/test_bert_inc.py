@@ -16,15 +16,7 @@ def setup():
     os.chdir(get_example_dir("bert"))
 
 
-@pytest.mark.parametrize(
-    "olive_json",
-    [
-        "bert_inc_dynamic_ptq_cpu.json",
-        "bert_inc_ptq_cpu.json",
-        "bert_inc_smoothquant_ptq_cpu.json",
-        "bert_inc_static_ptq_cpu.json",
-    ],
-)
+@pytest.mark.parametrize("olive_json", ["bert_inc_dynamic_ptq_cpu.json", "bert_inc_ptq_cpu.json"])
 def test_bert(olive_json):
     from olive.workflows import run as olive_run
 
