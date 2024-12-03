@@ -319,7 +319,7 @@ graph {
   input: "input1"
   node {
     op_type: "Add"
-    input: ["input1", "input2"]
+    input: ["input2", "input1"]
     output: ["add_output"]
   }
 }
@@ -434,7 +434,7 @@ graph {
   input: "input1"
   node {
     op_type: "Add"
-    input: ["input1", "input2"]
+    input: ["input1"]
     output: ["add_output"]
   }
 }

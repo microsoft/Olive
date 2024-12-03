@@ -152,6 +152,7 @@ def test_reorder_inputs(tmp_path):
     # assert
     model_def = onnx_model.load_model()
     assert [graph_input.name for graph_input in model_def.graph.input] == ["input2", "input1"]
+    assert [node.input for node in model_def.graph.node if node.name == "Add"] == [["input2", "input1"]]
 
 
 def test_zero_out_input(tmp_path):
@@ -193,6 +194,8 @@ def test_remove_inputs(tmp_path):
     # assert
     model_def = onnx_model.load_model()
     assert [graph_input.name for graph_input in model_def.graph.input] == ["input2"]
+    for node in model_def.graph.node:
+        assert "input1" not in node.input
 
 
 def test_expose_outputs(tmp_path):
