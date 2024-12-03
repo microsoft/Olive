@@ -701,6 +701,11 @@
           "default": false,
           "type": "boolean"
         },
+        "no_artifacts": {
+          "title": "No Artifacts",
+          "default": false,
+          "type": "boolean"
+        },
         "evaluate_input_model": {
           "title": "Evaluate Input Model",
           "default": true,

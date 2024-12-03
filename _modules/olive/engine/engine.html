@@ -435,6 +435,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># --------------------------------------------------------------------------</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">defaultdict</span>
 <span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
@@ -446,7 +447,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.constants</span> <span class="kn">import</span> <span class="n">DEFAULT_WORKFLOW_ID</span><span class="p">,</span> <span class="n">LOCAL_INPUT_MODEL_ID</span>
 <span class="kn">from</span> <span class="nn">olive.engine.config</span> <span class="kn">import</span> <span class="n">FAILED_CONFIG</span><span class="p">,</span> <span class="n">INVALID_CONFIG</span><span class="p">,</span> <span class="n">PRUNED_CONFIGS</span>
-<span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span>
+<span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNode</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span><span class="p">,</span> <span class="n">get_best_candidate_node</span>
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric_result</span> <span class="kn">import</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">joint_metric_key</span>
@@ -485,6 +486,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">evaluator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cache_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">CacheConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">plot_pareto_frontier</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">no_artifacts</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">azureml_client_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
@@ -508,6 +510,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">:</span> <span class="n">OliveCache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_config</span><span class="o">.</span><span class="n">create_cache</span><span class="p">(</span><span class="n">workflow_id</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">plot_pareto_frontier</span> <span class="o">=</span> <span class="n">plot_pareto_frontier</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">skip_saving_artifacts</span> <span class="o">=</span> <span class="n">no_artifacts</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">azureml_client_config</span>
 
         <span class="c1"># dictionary of passes</span>
@@ -646,9 +649,11 @@ window.addEventListener("load", () => mermaid.run());
 <span class="sd">                    output_dir/pareto_frontier_footprints.json: pareto frontier footprints</span>
 <span class="sd">                    output_dir/run_history.txt: run history</span>
 <span class="sd">                    output_dir/input_model_metrics.json: evaluation results of the input model</span>
+<span class="sd">                    output_dir/...: output model files</span>
 
 <span class="sd">                2. Multiple accelerator specs:</span>
 <span class="sd">                    output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec</span>
+<span class="sd">                    output_dir/...: output model files</span>
 
 <span class="sd">            No search mode:</span>
 <span class="sd">                1. One accelerator spec</span>
@@ -656,17 +661,15 @@ window.addEventListener("load", () => mermaid.run());
 <span class="sd">                    output_dir/run_history.txt: run history</span>
 <span class="sd">                    output_dir/input_model_metrics.json: evaluation results of the input model</span>
 <span class="sd">                    output_dir/output_footprints.json: footprint of the output models</span>
+<span class="sd">                    output_dir/...: output model files</span>
 
 <span class="sd">                    A. One pass flow:</span>
-<span class="sd">                        output_dir/output_model/metrics.json: evaluation results of the output model</span>
-<span class="sd">                        output_dir/output_model/model_config.json: output model configuration</span>
-<span class="sd">                        output_dir/output_model/...: output model files</span>
-
-<span class="sd">                    B. Multiple pass flows:</span>
-<span class="sd">                        output_dir/output_model/{pass_flow}/...: Same as A but for each pass flow</span>
+<span class="sd">                        output_dir/metrics.json: evaluation results of the output model</span>
+<span class="sd">                        output_dir/...: output model files</span>
 
 <span class="sd">                2. Multiple accelerator specs</span>
 <span class="sd">                    output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec</span>
+<span class="sd">                    output_dir/...: output model files</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">accelerator_specs</span><span class="p">:</span>
@@ -680,12 +683,14 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">output_subdirs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">accelerator_output_dir_list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">accelerator_spec</span> <span class="ow">in</span> <span class="n">accelerator_specs</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running Olive on accelerator: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
             <span class="n">output_subdirs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">accelerator_output_dir</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">output_dir</span> <span class="o">/</span> <span class="nb">str</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">accelerator_specs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">output_dir</span>
             <span class="p">)</span>
             <span class="n">accelerator_output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">accelerator_output_dir_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">accelerator_output_dir</span><span class="p">)</span>
             <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_system</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">):</span>
                 <span class="n">run_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_accelerator</span><span class="p">(</span>
                     <span class="n">input_model_config</span><span class="p">,</span>
@@ -716,6 +721,16 @@ window.addEventListener("load", () => mermaid.run());
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No packaging config provided, skip packaging artifacts&quot;</span><span class="p">)</span>
+
+        <span class="c1"># TODO(team): refactor output structure</span>
+        <span class="c1"># Do not change condition order. For no search, values of outputs are MetricResult</span>
+        <span class="c1"># Consolidate the output structure for search and no search mode</span>
+        <span class="k">if</span> <span class="n">outputs</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">outputs</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span><span class="o">.</span><span class="n">check_empty_nodes</span><span class="p">():</span>
+            <span class="n">best_node</span><span class="p">:</span> <span class="n">FootprintNode</span> <span class="o">=</span> <span class="n">get_best_candidate_node</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="n">model_id</span><span class="o">=</span><span class="n">best_node</span><span class="o">.</span><span class="n">model_id</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">accelerator_output_dir_list</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_saving_artifacts</span><span class="p">:</span>
+                <span class="p">[</span><span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="k">for</span> <span class="n">folder</span> <span class="ow">in</span> <span class="n">accelerator_output_dir_list</span> <span class="k">if</span> <span class="n">folder</span><span class="o">.</span><span class="n">exists</span><span class="p">()]</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saved output model to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">outputs</span></div>
 
@@ -748,10 +763,11 @@ window.addEventListener("load", () => mermaid.run());
                     <span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span>
                 <span class="p">)</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Input model evaluation results: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
-                <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;input_model_metrics.json&quot;</span>
-                <span class="k">with</span> <span class="n">results_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">results</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saved evaluation results of input model to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">results_path</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_saving_artifacts</span><span class="p">:</span>
+                    <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;input_model_metrics.json&quot;</span>
+                    <span class="k">with</span> <span class="n">results_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">results</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saved evaluation results of input model to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">results_path</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No passes registered, return input model evaluation results.&quot;</span><span class="p">)</span>
                     <span class="k">return</span> <span class="n">results</span>
@@ -773,9 +789,10 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to run Olive on </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="n">output_fp_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;footprints.json&quot;</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Save footprint to </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">output_fp_path</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_fp_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_saving_artifacts</span><span class="p">:</span>
+            <span class="n">output_fp_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;footprints.json&quot;</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Save footprint to </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">output_fp_path</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_fp_path</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;run_accelerator done&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">output_footprint</span>
 
@@ -826,8 +843,7 @@ window.addEventListener("load", () => mermaid.run());
                 <span class="n">pass_name</span> <span class="o">=</span> <span class="n">pass_item</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pass </span><span class="si">{</span><span class="n">pass_name</span><span class="si">}</span><span class="s2"> has search space but search strategy is None&quot;</span><span class="p">)</span>
 
-        <span class="c1"># output models will be saved in output_dir/output_model</span>
-        <span class="n">output_model_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;output_model&quot;</span>
+        <span class="n">output_model_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
 
         <span class="n">output_model_ids</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">pass_flow</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">:</span>
@@ -855,19 +871,17 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">flow_output_dir</span> <span class="o">=</span> <span class="n">output_model_dir</span> <span class="o">/</span> <span class="s2">&quot;-&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pass_flow</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">output_model_dir</span>
             <span class="n">flow_output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_saving_artifacts</span><span class="p">:</span>
                 <span class="n">results_path</span> <span class="o">=</span> <span class="n">flow_output_dir</span> <span class="o">/</span> <span class="s2">&quot;metrics.json&quot;</span>
                 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saved evaluation results of output model to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">results_path</span><span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="n">model_id</span><span class="o">=</span><span class="n">model_ids</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">output_dir</span><span class="o">=</span><span class="n">flow_output_dir</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saved output model to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">flow_output_dir</span><span class="p">)</span>
-
             <span class="n">output_model_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model_ids</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
 
         <span class="n">output_footprints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">create_footprints_by_model_ids</span><span class="p">(</span><span class="n">output_model_ids</span><span class="p">)</span>
-        <span class="n">output_footprints</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;output_footprints.json&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_saving_artifacts</span><span class="p">:</span>
+            <span class="n">output_footprints</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;output_footprints.json&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">output_footprints</span>
 
     <span class="k">def</span> <span class="nf">run_search</span><span class="p">(</span>
@@ -937,7 +951,8 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">pf_footprints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">create_pareto_frontier</span><span class="p">(</span><span class="n">output_model_num</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pf_footprints</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="n">pf_footprints</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;pareto_frontier_footprints.json&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_saving_artifacts</span><span class="p">:</span>
+            <span class="n">pf_footprints</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;pareto_frontier_footprints.json&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">plot_pareto_frontier</span><span class="p">:</span>
             <span class="n">pf_footprints</span><span class="o">.</span><span class="n">plot_pareto_frontier_to_html</span><span class="p">(</span><span class="n">save_path</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;pareto_frontier_footprints_chart.html&quot;</span><span class="p">)</span>
@@ -957,8 +972,9 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Please install tabulate for better run history output&quot;</span><span class="p">)</span>
             <span class="n">formatted_rls</span> <span class="o">=</span> <span class="n">run_history</span>
-        <span class="k">with</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">formatted_rls</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_saving_artifacts</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">formatted_rls</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">resolve_objectives</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
