@@ -7,6 +7,7 @@ This document provides an overview and detailed explanation of the available `Gr
 In the examples, the `surgeries` Pass represents a list of surgeries to be applied sequentially on the ONNX model. You can combine multiple surgeries in the list to perform consecutive modifications in a single operation.
 
 ### Example
+
 ```json
 "surgeries": {
     "type": "GraphSurgeries",
@@ -33,13 +34,32 @@ In the examples, the `surgeries` Pass represents a list of surgeries to be appli
 ### `RenameInputs`
 
 #### Description
+
 Renames specific inputs in the ONNX model.
 
 #### Configurations
+
 - `old_names`: List of original input names to rename.
 - `new_names`: List of new input names.
 
 #### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  input: "input1"
+  input: "input2"
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
+}
+```
+
+After applying:
+
 ```json
 {
     "type": "GraphSurgeries",
@@ -53,35 +73,97 @@ Renames specific inputs in the ONNX model.
 }
 ```
 
+Transformed ONNX model graph:
+
+```
+graph {
+  input: "renamed_input1"
+  input: "renamed_input2"
+  node {
+    op_type: "Add"
+    input: ["renamed_input1", "renamed_input2"]
+    output: ["add_output"]
+  }
+}
+```
+
 ### `RenameOutputs`
 
 #### Description
+
 Renames specific outputs in the ONNX model.
 
 #### Configurations
+
 - `old_names`: List of original output names to rename.
 - `new_names`: List of new output names.
 
 #### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["output1"]
+  }
+}
+```
+
+After applying:
+
 ```json
 {
     "type": "GraphSurgeries",
     "surgeries": [
         {
             "surgeon": "RenameOutputs",
-            "old_names": ["output1", "output2"],
-            "new_names": ["renamed_output1", "renamed_output2"]
+            "old_names": ["output1"],
+            "new_names": ["renamed_output1"]
         }
     ]
+}
+```
+
+Transformed ONNX model graph:
+
+```
+graph {
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["renamed_output1"]
+  }
 }
 ```
 
 ### `InferShapes`
 
 #### Description
+
 Performs shape inference on the ONNX model to populate missing shape information.
 
 #### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  input: "input1" (FLOAT) shape: [1]
+  input: "input2" (FLOAT) shape: [1]
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
+  output: "add_output" (FLOAT)
+}
+```
+
+After applying:
+
 ```json
 {
     "type": "GraphSurgeries",
@@ -93,12 +175,62 @@ Performs shape inference on the ONNX model to populate missing shape information
 }
 ```
 
+Transformed ONNX model graph (with inferred shapes):
+```
+graph {
+  input: "input1" (FLOAT) shape: [1]
+  input: "input2" (FLOAT) shape: [1]
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
+  output: "add_output" (FLOAT) shape: [1]
+}
+```
+
+
 ### `RemoveShapes`
 
 #### Description
+
 Removes all shape information (`value_info`) from the ONNX model.
 
 #### Example
+
+Initial ONNX model graph:
+
+```
+graph test-model {
+  # Inputs
+  input: "input1" (FLOAT) shape: [1]
+  input: "input2" (FLOAT) shape: [1]
+
+  # Value Info
+  value_info: "intermediate" (FLOAT) shape: [1]
+
+  # Nodes
+  node {
+    op_type: "Add"
+    name: "Add"
+    input: ["input1", "input2"]
+    output: ["intermediate"]
+  }
+
+  node {
+    op_type: "Relu"
+    name: "Relu"
+    input: ["intermediate"]
+    output: ["output1"]
+  }
+
+  # Outputs
+  output: "output1" (FLOAT) shape: [1]
+}
+```
+
+After applying:
+
 ```json
 {
     "type": "GraphSurgeries",
@@ -110,15 +242,63 @@ Removes all shape information (`value_info`) from the ONNX model.
 }
 ```
 
+Transformed ONNX model graph:
+
+```
+graph test-model {
+  # Inputs
+  input: "input1" (FLOAT) shape: [1]
+  input: "input2" (FLOAT) shape: [1]
+
+  # Nodes
+  node {
+    op_type: "Add"
+    name: "Add"
+    input: ["input1", "input2"]
+    output: ["intermediate"]
+  }
+
+  node {
+    op_type: "Relu"
+    name: "Relu"
+    input: ["intermediate"]
+    output: ["output1"]
+  }
+
+  # Outputs
+  output: "output1" (FLOAT) shape: [1]
+}
+```
+
+
 ### `ReorderInputs`
 
 #### Description
+
 Reorders the inputs of the ONNX model according to a specified permutation.
 
 #### Configurations
+
 - `permutation`: A list specifying the new order of inputs, as a permutation of the original indices.
 
 #### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  input: "input1"
+  input: "input2"
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
+}
+```
+
+After applying:
+
 ```json
 {
     "type": "GraphSurgeries",
@@ -131,16 +311,50 @@ Reorders the inputs of the ONNX model according to a specified permutation.
 }
 ```
 
+Transformed ONNX model graph:
+
+```
+graph {
+  input: "input2"
+  input: "input1"
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
+}
+```
+
+
 ### `ZeroOutInput`
 
 #### Description
+
 Replaces a specific input of a node with a constant tensor of zeros.
 
 #### Configurations
+
 - `node_name`: Name of the node whose input is to be replaced.
 - `input_idx`: Index of the input to be replaced.
 
 #### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  input: "input1"
+  input: "input2"
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
+}
+```
+
+After applying:
+
 ```json
 {
     "type": "GraphSurgeries",
@@ -154,36 +368,104 @@ Replaces a specific input of a node with a constant tensor of zeros.
 }
 ```
 
+Transformed ONNX model graph:
+
+```
+graph {
+  input: "input1"
+  node {
+    op_type: "Constant"
+    output: ["Add_zero_output_0"]
+    value: [0.0]
+  }
+  node {
+    op_type: "Add"
+    input: ["input1", "Add_zero_output_0"]
+    output: ["add_output"]
+  }
+}
+```
+
+
 ### `RemoveInputs`
 
 #### Description
+
 Removes specific inputs from the ONNX model.
 
 #### Configurations
+
 - `names`: List of input names to remove.
 
 #### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  input: "input1"
+  input: "input2"
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
+}
+```
+
+After applying:
+
 ```json
 {
     "type": "GraphSurgeries",
     "surgeries": [
         {
             "surgeon": "RemoveInputs",
-            "names": ["input1"]
+            "names": ["input2"]
         }
     ]
+}
+```
+
+Transformed ONNX model graph:
+
+```
+graph {
+  input: "input1"
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
 }
 ```
 
 ### `ExposeOutputs`
 
 #### Description
+
 Exposes the outputs of specific nodes in the ONNX model as graph outputs.
 
 #### Configurations
+
 - `names`: List of node names whose outputs should be exposed as graph outputs.
 
 #### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  node {
+    op_type: "Relu"
+    input: ["input1"]
+    output: ["relu_output"]
+  }
+}
+```
+
+After applying:
+
 ```json
 {
     "type": "GraphSurgeries",
@@ -196,15 +478,46 @@ Exposes the outputs of specific nodes in the ONNX model as graph outputs.
 }
 ```
 
+Transformed ONNX model graph:
+
+```
+graph {
+  node {
+    op_type: "Relu"
+    input: ["input1"]
+    output: ["relu_output"]
+  }
+  output: "relu_output"
+}
+```
+
+
 ### `ExposeQuantizedOutput`
 
 #### Description
+
 Replaces a specified output with its quantized version and exposes its `scale` and `zero_point` as graph outputs.
 
 #### Configurations
+
 - `output_name`: Name of the output to replace with its quantized version.
 
 #### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  node {
+    op_type: "DequantizeLinear"
+    input: ["quantized_tensor", "scale", "zero_point"]
+    output: ["output1"]
+  }
+}
+```
+
+After applying:
+
 ```json
 {
     "type": "GraphSurgeries",
@@ -214,5 +527,16 @@ Replaces a specified output with its quantized version and exposes its `scale` a
             "output_name": "output1"
         }
     ]
+}
+```
+
+
+Transformed ONNX model graph:
+
+```
+graph {
+  output: "quantized_tensor"
+  output: "scale"
+  output: "zero_point"
 }
 ```
