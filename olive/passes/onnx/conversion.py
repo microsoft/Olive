@@ -241,7 +241,7 @@ class OnnxConversion(Pass):
                     dynamic_shapes=io_config.dynamic_shapes,
                     dynamo=True,
                     fallback=True,
-                    report=True,
+                    report=False,  # suppress the debug report
                 )
                 assert onnx_program is not None
                 onnx_model = onnx_program.model_proto
