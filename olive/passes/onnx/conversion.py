@@ -14,7 +14,7 @@ import torch
 from packaging import version
 
 from olive.common.config_utils import validate_config
-from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
+from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
 from olive.hardware import AcceleratorSpec
 from olive.model import (
     DistributedHfModelHandler,
@@ -181,6 +181,8 @@ class OnnxConversion(Pass):
 
         logger.debug("Converting model on device %s with dtype %s.", device, torch_dtype)
         pytorch_model.to(device)
+
+        dummy_inputs = tensor_data_to_dtype(dummy_inputs, torch_dtype)
         dummy_inputs = tensor_data_to_device(dummy_inputs, device)
 
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):

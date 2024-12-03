@@ -20,6 +20,8 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+import torch
+
 logger = logging.getLogger(__name__)
 
 
@@ -249,6 +251,26 @@ def tensor_data_to_device(data, device: str):
         return tuple(tensor_data_to_device(v, device) for v in data)
     elif isinstance(data, set):
         return {tensor_data_to_device(v, device) for v in data}
+    else:
+        return data
+
+
+def tensor_data_to_dtype(data, dtype):
+    if dtype is None:
+        return data
+
+    from torch import Tensor
+
+    if isinstance(data, Tensor) and data.dtype in {torch.bfloat16, torch.float16, torch.float32, torch.float64}:
+        return data.to(dtype)
+    elif isinstance(data, dict):
+        return {k: tensor_data_to_dtype(v, dtype) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [tensor_data_to_dtype(v, dtype) for v in data]
+    elif isinstance(data, tuple):
+        return tuple(tensor_data_to_dtype(v, dtype) for v in data)
+    elif isinstance(data, set):
+        return {tensor_data_to_dtype(v, dtype) for v in data}
     else:
         return data
 
