@@ -8,6 +8,8 @@ from olive.hardware import AcceleratorSpec
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
+from olive.passes.onnx.onnx_dag import OnnxDAG
+from olive.passes.onnx.quantization import OnnxStaticQuantization
 from olive.passes.onnx.split import SplitModel
 from olive.passes.onnx.transformer_optimization import OrtTransformersOptimization
 from olive.passes.pytorch.capture_split_info import CaptureSplitInfo
@@ -26,7 +28,7 @@ def input_model_info_fixture(request, tmp_path_factory):
     # input model
     model_name = "katuni4ka/tiny-random-phi3"
     input_model = HfModelHandler(
-        model_path="katuni4ka/tiny-random-phi3",
+        model_path=model_name,
         load_kwargs={"trust_remote_code": False, "revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"},
     )
 
@@ -62,6 +64,18 @@ def input_model_info_fixture(request, tmp_path_factory):
         {"model_type": "bert", "opt_level": 0, "float16": True, "keep_io_types": False},
         disable_search=True,
     ).run(all_models["convert_fp32"], tmp_path / "opt_fp16")
+    # qdq model
+    all_models["qdq"] = create_pass_from_dict(
+        OnnxStaticQuantization,
+        {
+            "data_config": {
+                "name": "calib",
+                "type": "TransformersTokenDummyDataContainer",
+                "load_dataset_config": {"model_name": model_name},
+            }
+        },
+        disable_search=True,
+    ).run(all_models["convert_fp32"], tmp_path / "qdq")
 
     return all_models, request.param, 4 if request.param else 2
 
@@ -98,6 +112,7 @@ def test_split_model_all_nodes(tmp_path, input_model_info, model_type):
             assert set(expected_kv_outputs) <= set(io_config["output_names"])
 
     # check that the splits are connected correctly and produce the expected outputs
+    dag = OnnxDAG.from_model_path(input_model.model_path)
     input_io_config = input_model.io_config
     model_inputs = set(input_io_config["input_names"])
     model_outputs = set(input_io_config["output_names"])
@@ -113,5 +128,16 @@ def test_split_model_all_nodes(tmp_path, input_model_info, model_type):
         if idx == expected_splits - 1:
             # output of last split must be a subset of the output of the input model
             assert set(components[idx].io_config["output_names"]) <= model_outputs
+
+        if model_type != "qdq":
+            continue
+
+        for i_name in components[idx].io_config["input_names"]:
+            if i_name in model_inputs:
+                continue
+
+            # intermediate connections must come from a QuantizeLinear or shape related op (ScatterND, Slice, etc.)
+            assert dag.get_node_op_type(dag.get_producer(i_name)) in {"QuantizeLinear", "ScatterND"}
+
     # all non model outputs must be used between the splits
     assert (seen_outputs - used_outputs) == model_outputs
