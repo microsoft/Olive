@@ -7,7 +7,7 @@ import multiprocessing
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import onnx
 import torch
@@ -160,6 +160,7 @@ class OnnxConversion(Pass):
         device: Union[str, torch.device],
         torch_dtype: Optional[torch.dtype] = None,
         tempdir: Optional[Union[Path, str]] = None,
+        dynamic: bool = True,
     ) -> onnx.ModelProto:
         """Export a torch.nn.Module to ONNX and return the loaded ONNX model.
 
@@ -170,6 +171,7 @@ class OnnxConversion(Pass):
         :param device: the device to use for conversion
         :param torch_dtype: the dtype to cast the model to before conversion
         :param tempdir: directory to use for temporary files
+        :param dynamic: whether to export the model with dynamic axes/shapes
         """
         from olive.common.hf.peft import make_export_compatible_peft
         from olive.common.hf.quant import make_export_compatible_quant
@@ -196,6 +198,10 @@ class OnnxConversion(Pass):
         # get input and output names, and dynamic axes
         assert io_config is not None, "Cannot get io_config for the model."
         io_config = validate_config(io_config, IoConfig)
+        # If dynamic is False, set dynamic_axes and dynamic_shapes to None
+        if not dynamic:
+            io_config.dynamic_axes = None
+            io_config.dynamic_shapes = None
 
         onnx_model = None
         if config["use_dynamo_exporter"]:
@@ -230,6 +236,7 @@ class OnnxConversion(Pass):
                 )
                 onnx_model = onnx_program.model_proto
             else:
+                io_config.dynamic_shapes = _convert_dynamic_shapes_to_torch_export_dims(io_config.dynamic_shapes)
                 onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
                     pytorch_model,
                     dummy_inputs,
@@ -241,7 +248,7 @@ class OnnxConversion(Pass):
                     dynamic_shapes=io_config.dynamic_shapes,
                     dynamo=True,
                     fallback=True,
-                    report=False,  # suppress the debug report
+                    report=logger.isEnabledFor(logging.DEBUG),
                 )
                 assert onnx_program is not None
                 onnx_model = onnx_program.model_proto
@@ -376,8 +383,10 @@ class OnnxConversion(Pass):
         dummy_inputs = self._get_dummy_inputs(model, config)
         io_config = model.io_config
 
+        dynamic = model.model_attributes.get("dynamic", True)
+
         converted_onnx_model = OnnxConversion._export_pytorch_model(
-            pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
+            pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir, dynamic
         )
 
         model_attributes = deepcopy(model.model_attributes or {})
@@ -553,3 +562,49 @@ class OnnxOpVersionConversion(Pass):
             converted_model_proto, str(Path(model.model_path).resolve().parent)
         )
         return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
+
+
+def _convert_dynamic_shapes_to_torch_export_dims(
+    dynamic_shapes: Dict[str, Dict[int, torch.export.Dim]]
+) -> Dict[str, Dict[int, torch.export.Dim]]:
+    """Convert dynamic_shapes to torch export dims.
+
+    :param dynamic_shapes: the dynamic_shapes to convert
+    :return: the converted dynamic_shapes
+    """
+    if dynamic_shapes is None:
+        return None
+
+    # If the axes has the same name, they should be the same torch.export.Dim
+    torch_export_dim_farm: Dict[str, torch.export.Dim] = {}
+
+    # dynamic_shapes follows input format, which could be nested
+    def _from_tuple_to_dim(data: Union[Dict, List, Tuple, Any]) -> Union[Dict, List, Tuple, Any]:
+        if isinstance(data, dict):
+            for key, value in data.items():
+                data[key] = _from_tuple_to_dim(value)
+        elif isinstance(data, list):
+            for i in range(len(data)):
+                data[i] = _from_tuple_to_dim(data[i])
+        elif isinstance(data, tuple):
+            # We assume the tuple is in the format of (name, min, max)
+            # TODO(titaiwang): This format could potentially be used as model
+            # inputs (would string be used as model input?)
+            if len(data) == 3 and isinstance(data[0], str) and isinstance(data[1], int) and isinstance(data[2], int):
+                if data[0] in torch_export_dim_farm:
+                    if torch_export_dim_farm[data[0]].min == data[1] and torch_export_dim_farm[data[0]].max == data[2]:
+                        return torch_export_dim_farm[data[0]]
+                    raise ValueError(
+                        f"Found different boundary for the same axis name {data[0]}. "
+                        f"Previous min: {torch_export_dim_farm[data[0]].min} and "
+                        f"max: {torch_export_dim_farm[data[0]].max}. "
+                        f"Current min: {data[1]} and max: {data[2]}."
+                    )
+                dim = torch.export.Dim(data[0], min=data[1], max=data[2])
+                torch_export_dim_farm[data[0]] = dim
+                return dim
+            else:
+                return tuple(_from_tuple_to_dim(item) for item in data)
+        return data
+
+    return _from_tuple_to_dim(dynamic_shapes)

@@ -20,8 +20,6 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
-import torch
-
 logger = logging.getLogger(__name__)
 
 
@@ -256,6 +254,8 @@ def tensor_data_to_device(data, device: str):
 
 
 def tensor_data_to_dtype(data, dtype):
+    import torch
+
     if dtype is None:
         return data
 
