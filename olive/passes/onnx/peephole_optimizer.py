@@ -31,19 +31,6 @@ class ModelOptimizer:
         self.source_model_path = str(source_model_path)
         self.model = onnx.load(self.source_model_path)
 
-    def remove_initializer_from_input(self) -> onnx.ModelProto:
-        """Remove initializers from inputs in an ONNX model."""
-        initializer_names = {initializer.name for initializer in self.model.graph.initializer}
-
-        updated_inputs = [
-            graph_input for graph_input in self.model.graph.input if graph_input.name not in initializer_names
-        ]
-
-        del self.model.graph.input[:]
-        self.model.graph.input.extend(updated_inputs)
-
-        return self.model
-
     def fuse_transpose_qat(self):
         # DequantizeLinear -> Transpose = Dequantize Linear with transposed initializer
         # Might need to check if this is performant for EPs like DML
@@ -366,7 +353,6 @@ class OnnxPeepholeOptimizer(Pass):
         peephole_optimizer.patch_unsupported_argmax_operator()
         peephole_optimizer.fuse_reshape_operations()
         peephole_optimizer.fold_constant()
-        peephole_optimizer.remove_initializer_from_input()
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(peephole_optimizer.model, output_model_path, config)

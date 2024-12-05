@@ -188,43 +188,6 @@ def test_onnx_peephole_optimizer_pass_fuse_reshape_operations(tmp_path, external
     assert others_op_count == 0
 
 
-def test_onnx_peephole_optimizer_pass_remove_unused_input(tmp_path, external_data_config):
-    # setup
-    input_tensor = helper.make_tensor_value_info("input1", TensorProto.FLOAT, [1, 3])
-    initializer_tensor = helper.make_tensor(
-        name="const1",
-        data_type=TensorProto.FLOAT,
-        dims=[1, 3],
-        vals=[1.0, 2.0, 3.0],
-    )
-    node = helper.make_node(
-        "Add",
-        inputs=["input1", "const1"],
-        outputs=["output1"],
-    )
-    output_tensor = helper.make_tensor_value_info("output1", TensorProto.FLOAT, [1, 3])
-    graph = helper.make_graph(
-        nodes=[node],
-        name="TestGraph",
-        inputs=[input_tensor, helper.make_tensor_value_info("const1", TensorProto.FLOAT, [1, 3])],
-        outputs=[output_tensor],
-        initializer=[initializer_tensor],
-    )
-    model = helper.make_model(graph)
-    m = model_proto_to_olive_model(model, str(tmp_path / "input.onnx"), external_data_config)
-    p = create_pass_from_dict(
-        OnnxPeepholeOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR
-    )
-
-    # execute
-    output_model = p.run(m, str(tmp_path / "onnx"))
-
-    # assert
-    assert Path(output_model.model_path).exists()
-    output_model = output_model.load_model()
-    assert "const1" not in {graph_input.name for graph_input in output_model.graph.input}
-
-
 def test_onnx_peephole_optimizer_pass_constant_folding(tmp_path, external_data_config):
     import numpy as np
 
