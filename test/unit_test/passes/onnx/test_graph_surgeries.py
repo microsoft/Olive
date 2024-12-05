@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from pathlib import Path
+
 import numpy as np
 import onnx
 from onnx import TensorProto, helper, numpy_helper
@@ -152,7 +154,45 @@ def test_reorder_inputs(tmp_path):
     # assert
     model_def = onnx_model.load_model()
     assert [graph_input.name for graph_input in model_def.graph.input] == ["input2", "input1"]
-    assert [node.input for node in model_def.graph.node if node.name == "Add"] == [["input2", "input1"]]
+
+
+def test_onnx_peephole_optimizer_pass_remove_unused_input(tmp_path):
+    # setup
+    model_path = tmp_path / "model.onnx"
+    input_tensor = helper.make_tensor_value_info("input1", TensorProto.FLOAT, [1, 3])
+    initializer_tensor = helper.make_tensor(
+        name="const1",
+        data_type=TensorProto.FLOAT,
+        dims=[1, 3],
+        vals=[1.0, 2.0, 3.0],
+    )
+    node = helper.make_node(
+        "Add",
+        inputs=["input1", "const1"],
+        outputs=["output1"],
+    )
+    output_tensor = helper.make_tensor_value_info("output1", TensorProto.FLOAT, [1, 3])
+    graph = helper.make_graph(
+        nodes=[node],
+        name="TestGraph",
+        inputs=[input_tensor, helper.make_tensor_value_info("const1", TensorProto.FLOAT, [1, 3])],
+        outputs=[output_tensor],
+        initializer=[initializer_tensor],
+    )
+    model = helper.make_model(graph)
+    onnx.save(model, model_path)
+
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "RemoveInitializerFromInputs"}]}, disable_search=True
+    )
+
+    # execute
+    output_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+    # assert
+    assert Path(output_model.model_path).exists()
+    output_model = output_model.load_model()
+    assert "const1" not in {graph_input.name for graph_input in output_model.graph.input}
 
 
 def test_zero_out_input(tmp_path):

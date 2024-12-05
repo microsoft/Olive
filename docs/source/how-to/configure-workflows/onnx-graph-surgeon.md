@@ -319,12 +319,71 @@ graph {
   input: "input1"
   node {
     op_type: "Add"
-    input: ["input2", "input1"]
+    input: ["input1", "input2"]
     output: ["add_output"]
   }
 }
 ```
 
+### `RemoveInitializerFromInputs`
+
+#### Description
+
+Removes initializers from the input list (`graph.input`) of an ONNX model.
+
+#### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  input: "input1"
+  input: "input2"
+  initializer {
+    name: "input2"
+    data_type: FLOAT
+    dims: [1, 3]
+    raw_data: "\000\000\200?\000\000\000@\000\000@@"
+  }
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RemoveInitializerFromInputs"
+        }
+    ]
+}
+```
+
+Transformed ONNX model graph:
+
+```
+graph {
+  input: "input1"
+  initializer {
+    name: "input2"
+    data_type: FLOAT
+    dims: [1, 3]
+    raw_data: "\000\000\200?\000\000\000@\000\000@@"
+  }
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
+}
+```
 
 ### `ZeroOutInput`
 

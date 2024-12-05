@@ -143,19 +143,22 @@ class ReorderInputs(Surgeon):
         if sorted(self.permutation) != list(range(num_inputs)):
             raise ValueError("Invalid permutation: permutation must be a rearrangement of input indices.")
 
-        original_input_names = [graph_input.name for graph_input in inputs]
         reordered_inputs = [inputs[idx] for idx in self.permutation]
-        input_name_mapping = {
-            original_input_names[original_idx]: original_input_names[new_idx]
-            for new_idx, original_idx in enumerate(self.permutation)
-        }
-
         del model.graph.input[:]
         model.graph.input.extend(reordered_inputs)
 
-        for node in model.graph.node:
-            node.input[:] = [input_name_mapping.get(input_name, input_name) for input_name in node.input]
+        return model
 
+
+class RemoveInitializerFromInputs(Surgeon):
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        initializer_names = {initializer.name for initializer in model.graph.initializer}
+        updated_inputs = [graph_input for graph_input in model.graph.input if graph_input.name not in initializer_names]
+        del model.graph.input[:]
+        model.graph.input.extend(updated_inputs)
         return model
 
 
