@@ -315,7 +315,12 @@ class ModelOptimizer:
                 break
 
             nodes_to_remove = []
+            failed_nodes = set()
+
             for node in const_nodes:
+                if node.name in failed_nodes:
+                    continue
+
                 try:
                     op_model = self._run_op(model_copy, node)
                     outputs = self._run_onnx_model(op_model)
@@ -329,6 +334,14 @@ class ModelOptimizer:
                     nodes_to_remove.append(node)
                 except Exception as e:
                     logger.warning("Failed to run %s op (name is %s): %s, skip...", node.op_type, node.name, e)
+                    failed_nodes.add(node.name)
+
+            if not nodes_to_remove and const_nodes:
+                logger.warning(
+                    "Failed to fold constants for the following nodes: %s",
+                    ", ".join(node.name for node in const_nodes),
+                )
+                break
 
             for node in nodes_to_remove:
                 model_copy.graph.node.remove(node)
