@@ -103,6 +103,9 @@ class OnnxConversion(Pass):
                     "Includes config.json, generation_config.json, and tokenizer related files."
                 ),
             ),
+            "dynamic": PassConfigParam(
+                type_=bool, default_value=True, description=("Whether to export the model with dynamic axes/shapes.")
+            ),
         }
 
     def _run_for_config(
@@ -160,7 +163,6 @@ class OnnxConversion(Pass):
         device: Union[str, torch.device],
         torch_dtype: Optional[torch.dtype] = None,
         tempdir: Optional[Union[Path, str]] = None,
-        dynamic: bool = True,
     ) -> onnx.ModelProto:
         """Export a torch.nn.Module to ONNX and return the loaded ONNX model.
 
@@ -199,7 +201,7 @@ class OnnxConversion(Pass):
         assert io_config is not None, "Cannot get io_config for the model."
         io_config = validate_config(io_config, IoConfig)
         # If dynamic is False, set dynamic_axes and dynamic_shapes to None
-        if not dynamic:
+        if config["dynamic"]:
             io_config.dynamic_axes = None
             io_config.dynamic_shapes = None
 
@@ -221,11 +223,11 @@ class OnnxConversion(Pass):
 
             dynamo_config.capture_scalar_outputs = True
             if isinstance(dummy_inputs, dict):
-                dummy_kwargs = dummy_inputs
+                dummy_kwargs = the_input = dummy_inputs
                 dummy_inputs = ()
             else:
                 dummy_kwargs = {}
-                dummy_inputs = tuple(dummy_inputs)
+                dummy_inputs = the_input = tuple(dummy_inputs)
 
             if torch_version < dynamo_supported_version:
                 onnx_program = torch.onnx.dynamo_export(
@@ -236,7 +238,12 @@ class OnnxConversion(Pass):
                 )
                 onnx_model = onnx_program.model_proto
             else:
+                # NOTE: Usually validation is done in io_config.py, but because
+                # dynamic_shapes has nested complexity, and it can't be validated multiple
+                # times like others, we validate it here.
+                io_config.dynamic_shapes = _validate_dynamic_shapes(io_config.dynamic_shapes, the_input)
                 io_config.dynamic_shapes = _convert_dynamic_shapes_to_torch_export_dims(io_config.dynamic_shapes)
+
                 onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
                     pytorch_model,
                     dummy_inputs,
@@ -382,11 +389,8 @@ class OnnxConversion(Pass):
         # get dummy inputs
         dummy_inputs = self._get_dummy_inputs(model, config)
         io_config = model.io_config
-
-        dynamic = model.model_attributes.get("dynamic", True)
-
         converted_onnx_model = OnnxConversion._export_pytorch_model(
-            pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir, dynamic
+            pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
         )
 
         model_attributes = deepcopy(model.model_attributes or {})
@@ -564,10 +568,71 @@ class OnnxOpVersionConversion(Pass):
         return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
 
 
+def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs):
+    """Validate dynamic_shapes.
+
+    This function validates two things:
+
+    (1) To have a valid format of dynamic_shapes, we need to make sure the axes are converted to int.
+        It was string in the JSON format.
+    (2) To make sure the dynamic_shapes is in the same tree structure as dummy_inputs.
+
+    :param dynamic_shapes: the dynamic_shapes to validate
+    :param dummy_inputs: the dummy_inputs to align the dynamic_shapes format
+
+    :return: the validated dynamic_shapes
+    """
+    if not dynamic_shapes:
+        return dynamic_shapes
+
+    from torch.utils import _pytree
+
+    def is_dict_axes(x) -> bool:
+        return isinstance(x, dict) and all(
+            isinstance(key, str)
+            and len(key) == 1
+            and isinstance(value, list)
+            and len(value) == 3
+            and isinstance(value[0], str)
+            and isinstance(value[1], int)
+            and isinstance(value[2], int)
+            for key, value in x.items()
+        )
+
+    flat_dynamic_shapes, _ = _pytree.tree_flatten(dynamic_shapes, is_leaf=is_dict_axes)
+
+    new_dynamic_shapes = []
+    for axes in flat_dynamic_shapes:
+        if axes is None:
+            new_dynamic_shapes.append(axes)
+            continue
+        new_axes = {}
+        for axis, dynamic_shape in axes.items():
+            new_axes[int(axis)] = dynamic_shape
+        new_dynamic_shapes.append(new_axes)
+
+    _, tree_structure = _pytree.tree_flatten(dummy_inputs, is_leaf=is_dict_axes)
+
+    return _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
+
+
 def _convert_dynamic_shapes_to_torch_export_dims(
     dynamic_shapes: Dict[str, Dict[int, torch.export.Dim]]
 ) -> Dict[str, Dict[int, torch.export.Dim]]:
     """Convert dynamic_shapes to torch export dims.
+
+    torch.onnx.export takes the exported program (fx graph) from
+    torch.export.export, which requires the dynamic_shapes to be in the format
+    of using torch.export.Dim(name, min=min, max=max). This function converts
+    the dynamic_shapes to the format that torch.export.export requires.
+
+    For a single axis:
+
+    before: ["axis_name", min_value, max_value]
+    after: torch.export.Dim("axis_name", min=min_value, max=max_value)
+
+    # Please check `dynamic_shapes` in torch.export.export
+    # https://pytorch.org/docs/stable/export.html#torch.export.export
 
     :param dynamic_shapes: the dynamic_shapes to convert
     :return: the converted dynamic_shapes
@@ -583,11 +648,10 @@ def _convert_dynamic_shapes_to_torch_export_dims(
         if isinstance(data, dict):
             for key, value in data.items():
                 data[key] = _from_tuple_to_dim(value)
-        elif isinstance(data, list):
-            for i in range(len(data)):
-                data[i] = _from_tuple_to_dim(data[i])
-        elif isinstance(data, tuple):
-            # We assume the tuple is in the format of (name, min, max)
+        # TODO(titaiwang): Can we use `dummy_inputs` to align the dynamic_shapes format?
+        # JSON foramt does not accept tuple.
+        elif isinstance(data, (tuple, list)):
+            # We assume the tuple/list is in the format of (name, min, max)
             # TODO(titaiwang): This format could potentially be used as model
             # inputs (would string be used as model input?)
             if len(data) == 3 and isinstance(data[0], str) and isinstance(data[1], int) and isinstance(data[2], int):
@@ -603,8 +667,10 @@ def _convert_dynamic_shapes_to_torch_export_dims(
                 dim = torch.export.Dim(data[0], min=data[1], max=data[2])
                 torch_export_dim_farm[data[0]] = dim
                 return dim
-            else:
+            if isinstance(data, tuple):
                 return tuple(_from_tuple_to_dim(item) for item in data)
+            if isinstance(data, list):
+                return [_from_tuple_to_dim(item) for item in data]
         return data
 
     return _from_tuple_to_dim(dynamic_shapes)

@@ -263,16 +263,15 @@ def tensor_data_to_dtype(data, dtype):
 
     if isinstance(data, Tensor) and data.dtype in {torch.bfloat16, torch.float16, torch.float32, torch.float64}:
         return data.to(dtype)
-    elif isinstance(data, dict):
+    if isinstance(data, dict):
         return {k: tensor_data_to_dtype(v, dtype) for k, v in data.items()}
-    elif isinstance(data, list):
+    if isinstance(data, list):
         return [tensor_data_to_dtype(v, dtype) for v in data]
-    elif isinstance(data, tuple):
+    if isinstance(data, tuple):
         return tuple(tensor_data_to_dtype(v, dtype) for v in data)
-    elif isinstance(data, set):
+    if isinstance(data, set):
         return {tensor_data_to_dtype(v, dtype) for v in data}
-    else:
-        return data
+    return data
 
 
 def resolve_torch_dtype(dtype):
