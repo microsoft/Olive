@@ -132,24 +132,6 @@ class RemoveShapes(Surgeon):
         return model
 
 
-class ReorderInputs(Surgeon):
-    def __init__(self, permutation):
-        self.permutation = permutation
-
-    def __call__(self, model: ModelProto):
-        inputs = list(model.graph.input)
-        num_inputs = len(inputs)
-
-        if sorted(self.permutation) != list(range(num_inputs)):
-            raise ValueError("Invalid permutation: permutation must be a rearrangement of input indices.")
-
-        reordered_inputs = [inputs[idx] for idx in self.permutation]
-        del model.graph.input[:]
-        model.graph.input.extend(reordered_inputs)
-
-        return model
-
-
 class RemoveInitializerFromInputs(Surgeon):
     def __init__(self):
         pass

@@ -140,22 +140,6 @@ def test_infer_shapes(tmp_path):
             assert dims == [1]
 
 
-def test_reorder_inputs(tmp_path):
-    # setup
-    input_model = get_onnx_model(tmp_path / "model.onnx")
-    output_folder = str(tmp_path / "onnx")
-    p = create_pass_from_dict(
-        GraphSurgeries, {"surgeries": [{"surgeon": "ReorderInputs", "permutation": [1, 0]}]}, disable_search=True
-    )
-
-    # execute
-    onnx_model = p.run(input_model, output_folder)
-
-    # assert
-    model_def = onnx_model.load_model()
-    assert [graph_input.name for graph_input in model_def.graph.input] == ["input2", "input1"]
-
-
 def test_onnx_peephole_optimizer_pass_remove_unused_input(tmp_path):
     # setup
     model_path = tmp_path / "model.onnx"
