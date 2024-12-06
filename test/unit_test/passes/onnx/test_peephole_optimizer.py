@@ -245,7 +245,8 @@ def _get_onnx_model_with_constant(model_path, external_data_config):
         outputs=[output_tensor],
         initializer=[],
     )
-    model = helper.make_model(graph_def, producer_name="onnx-example")
+    opset_imports = [helper.make_operatorsetid("", 21)]
+    model = helper.make_model(graph_def, producer_name="onnx-example", opset_imports=opset_imports)
     return model_proto_to_olive_model(model, model_path, external_data_config)
 
 
