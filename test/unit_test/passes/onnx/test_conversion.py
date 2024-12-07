@@ -12,8 +12,10 @@ from unittest.mock import patch
 import pytest
 import torch
 
+from olive.common.config_utils import validate_config
 from olive.common.constants import OS
 from olive.model import HfModelHandler, PyTorchModelHandler
+from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 
@@ -178,3 +180,79 @@ def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_con
     p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
     _ = p.run(input_model, str(output_folder))
     assert "past_key_values" in dummy_inputs  # pylint: disable=unsupported-membership-test
+
+
+@pytest.mark.parametrize(
+    "dynamic_shapes",
+    [
+        [{"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024], "1": ["y_axis", 0, 6]}],
+        {
+            "input_x": {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
+            "input_y": {"0": ["axis_batch", 0, 1024], "1": ["y_axis", 0, 6]},
+        },
+    ],
+)
+def test_dynamic_shapes_passes_validate_io_config_with_both_list_and_dict_format(dynamic_shapes):
+    config = {"input_names": ["input_x", "input_y"], "output_names": ["logits"]}
+    config["dynamic_shapes"] = dynamic_shapes
+    io_config = validate_config(config, IoConfig)
+    assert io_config.dynamic_shapes == dynamic_shapes
+
+
+def _get_simulate_torch_float_tensor_inputs(return_tuple: bool = False):
+    if return_tuple:
+        return (
+            torch.ones(5),
+            (torch.zeros(5), torch.ones(5)),
+            {"a": torch.zeros(5), "b": torch.ones(5)},
+            torch.ones(4),
+        )
+    return {
+        "w": torch.ones(5),
+        "x": (torch.zeros(5), torch.ones(5)),
+        "y": {"a": torch.zeros(5), "b": torch.ones(5)},
+        "z": torch.ones(4),
+    }
+
+
+@pytest.mark.parametrize(
+    ("dynamic_shapes", "expected_dynamic_shapes", "inputs"),
+    [
+        (
+            [
+                {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
+                [{"1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024]}],
+                {"a": {"0": ["axis_batch", 0, 1024]}, "b": {"1": ["x_axis", 0, 8]}},
+                None,
+            ],
+            (
+                {0: ["axis_batch", 0, 1024], 1: ["x_axis", 0, 8]},
+                ({1: ["x_axis", 0, 8]}, {0: ["axis_batch", 0, 1024]}),
+                {"a": {0: ["axis_batch", 0, 1024]}, "b": {1: ["x_axis", 0, 8]}},
+                None,
+            ),
+            _get_simulate_torch_float_tensor_inputs(return_tuple=True),
+        ),
+        (
+            {
+                "w": {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
+                "x": [{"1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024]}],
+                "y": {"a": {"0": ["axis_batch", 0, 1024]}, "b": {"1": ["x_axis", 0, 8]}},
+                "z": None,
+            },
+            {
+                "w": {0: ["axis_batch", 0, 1024], 1: ["x_axis", 0, 8]},
+                "x": ({1: ["x_axis", 0, 8]}, {0: ["axis_batch", 0, 1024]}),
+                "y": {"a": {0: ["axis_batch", 0, 1024]}, "b": {1: ["x_axis", 0, 8]}},
+                "z": None,
+            },
+            _get_simulate_torch_float_tensor_inputs(return_tuple=False),
+        ),
+    ],
+    ids=["in_nested_tuple_inputs", "in_nested_dict_format"],
+)
+def test___validate_dynamic_shapes_follow_input_format(dynamic_shapes, expected_dynamic_shapes, inputs):
+    from olive.passes.onnx.conversion import _validate_dynamic_shapes
+
+    converted_dynamic_shapes = _validate_dynamic_shapes(dynamic_shapes, inputs)
+    assert converted_dynamic_shapes == expected_dynamic_shapes

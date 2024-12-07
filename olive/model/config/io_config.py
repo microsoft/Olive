@@ -35,6 +35,12 @@ class IoConfig(ConfigBase):
     output_shapes: List[List[int]] = None
     output_types: List[str] = None
     dynamic_axes: Dict[str, Dict[int, str]] = None
+    # Please check `dynamic_shapes` in torch.export.export
+    # https://pytorch.org/docs/stable/export.html#torch.export.export
+    # NOTE: JSON does not support torch.export.Dim, so we use List[str, int, int] here.
+    # for example, {"input_ids": {0: torch.export.Dim("batch", min=2, max=1024)}}
+    #           -> {"input_ids": {0: ["batch", 2, 1024]}}
+    dynamic_shapes: Union[List[Any], Dict[str, Any]] = None
     # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
     # even though we want the dimension to be a constant int.
     # We use a workaround here: first use dim_param like "1" to represent the dimension, and then
