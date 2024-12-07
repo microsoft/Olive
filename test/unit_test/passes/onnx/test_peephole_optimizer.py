@@ -5,6 +5,7 @@
 from pathlib import Path
 from test.unit_test.utils import get_onnx_model
 from typing import TYPE_CHECKING, Any, Dict
+from unittest.mock import patch
 
 import pytest
 from onnx import TensorProto, helper
@@ -186,6 +187,31 @@ def test_onnx_peephole_optimizer_pass_fuse_reshape_operations(tmp_path, external
 
     assert reshape_op_count == 1
     assert others_op_count == 0
+
+
+@patch("olive.passes.onnx.peephole_optimizer.model_proto_to_olive_model")
+@patch("onnxoptimizer.optimize")
+def test_onnxoptimizer(mock_optimize, mock_model_proto_to_olive_model, tmp_path):
+    # setup
+    input_model = get_onnx_model()
+    passes = ["pass"]
+    fixed_point = True
+    p = create_pass_from_dict(
+        OnnxPeepholeOptimizer,
+        {
+            "onnxoptimizer": True,
+            "passes": passes,
+            "fixed_point": fixed_point,
+        },
+        disable_search=True,
+    )
+    output_folder = str(tmp_path / "onnx")
+
+    # execute
+    p.run(input_model, output_folder)
+
+    # assert
+    mock_optimize.assert_called_once_with(input_model.load_model(), passes, fixed_point)
 
 
 def test_onnx_peephole_optimizer_pass_constant_folding(tmp_path, external_data_config):

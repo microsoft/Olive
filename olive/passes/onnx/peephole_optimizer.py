@@ -5,7 +5,7 @@
 import copy
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import numpy as np
 import onnx
@@ -353,7 +353,24 @@ class OnnxPeepholeOptimizer(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        return get_external_data_config()
+        return {
+            "onnxoptimizer": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to run the ONNX optimizer (https://github.com/onnx/optimizer/). Default is False.",
+            ),
+            "passes": PassConfigParam(
+                type_=List[str],
+                default_value=None,
+                description="List of passes of ONNX optimizer to run. Default is None.",
+            ),
+            "fixed_point": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to run the fixed-point optimization of ONNX optimizer. Default is False.",
+            ),
+            **get_external_data_config(),
+        }
 
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
@@ -366,6 +383,16 @@ class OnnxPeepholeOptimizer(Pass):
         peephole_optimizer.patch_unsupported_argmax_operator()
         peephole_optimizer.fuse_reshape_operations()
         peephole_optimizer.fold_constant()
+
+        if config["onnxoptimizer"]:
+            try:
+                from onnxoptimizer import optimize
+
+                peephole_optimizer.model = optimize(peephole_optimizer.model, config["passes"], config["fixed_point"])
+            except ImportError:
+                logger.warning(
+                    "Please install onnxoptimizer to use the ONNX optimizer feature. Skip onnxoptimizer optimization."
+                )
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(peephole_optimizer.model, output_model_path, config)
