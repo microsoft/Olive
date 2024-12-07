@@ -201,7 +201,7 @@ class OnnxConversion(Pass):
         assert io_config is not None, "Cannot get io_config for the model."
         io_config = validate_config(io_config, IoConfig)
         # If dynamic is False, set dynamic_axes and dynamic_shapes to None
-        if config["dynamic"]:
+        if not config["dynamic"]:
             io_config.dynamic_axes = None
             io_config.dynamic_shapes = None
 
@@ -243,7 +243,6 @@ class OnnxConversion(Pass):
                 # times like others, we validate it here.
                 io_config.dynamic_shapes = _validate_dynamic_shapes(io_config.dynamic_shapes, the_input)
                 io_config.dynamic_shapes = _convert_dynamic_shapes_to_torch_export_dims(io_config.dynamic_shapes)
-
                 onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
                     pytorch_model,
                     dummy_inputs,
