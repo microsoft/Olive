@@ -44,9 +44,9 @@ class CaptureSplitInfo(Pass):
                 category=ParamCategory.PATH,
                 description=(
                     "Path to the cost model csv file. One of num_splits or cost_model is required. Must be a csv with"
-                    " headers `module,num_params,num_bytes` where each row corresponds to the name or a module (with no"
-                    " children), the number of parameters, and the number of bytes the module uses when in the desired"
-                    " precision."
+                    " headers `module,num_params,num_bytes,num_flops` where each row corresponds to the name or a"
+                    " module (with no children), the number of parameters, the number of bytes, and the number of"
+                    " FLOPs(batch_size=1, seqlen=1) the module uses when in the desired precision."
                 ),
             ),
             "exclude_embeds": PassConfigParam(
@@ -136,11 +136,11 @@ class CaptureSplitInfo(Pass):
             raise ValueError("Accelerator memory is required to split using cost model.")
 
         # will only care about the number of bytes for now
-        module_to_bytes = {}
+        module_to_cost = {}
         with open(config["cost_model"]) as f:
             reader = csv.DictReader(f)
             for row in reader:
-                module_to_bytes[row["module"]] = int(row["num_bytes"])
+                module_to_cost[row["module"]] = (int(row["num_params"]), int(row["num_bytes"]), int(row["num_flops"]))
 
         modules_to_exclude = set()
         if config["exclude_embeds"]:
@@ -153,28 +153,31 @@ class CaptureSplitInfo(Pass):
         split_idx = 0
         split_bytes = 0
         node_idx = 0
+        mem_intensive = False
         for name, _ in model.load_model(cache_model=False).named_modules():
-            if name not in module_to_bytes or name in modules_to_exclude:
+            if name not in module_to_cost or name in modules_to_exclude or name.lower().endswith("dropout"):
                 continue
 
-            if node_idx == 0:
-                # always assign the first module to the first split
-                split_assignments[name] = split_idx
-                split_bytes += module_to_bytes[name]
-                node_idx += 1
-                continue
+            num_params, num_bytes, num_flops = module_to_cost[name]
 
-            num_bytes = module_to_bytes[name]
+            # TODO(jambayk): add num_bytes threshold
+            # maybe also a threshold for num_params/num_flops ratio
+            curr_mem_intensive = num_flops > 0 and num_params > num_flops
 
-            # check if the next module can be added to the current split
-            # if not, assign it to the next split
-            if split_bytes + num_bytes > self.accelerator_spec.memory:
+            # change split if:
+            #  switching from memory intensive to compute intensive or vice versa
+            #  size of split i exceeds the accelerator memory
+            # first node is always in split 0
+            if node_idx != 0 and (
+                (mem_intensive ^ curr_mem_intensive) or (split_bytes + num_bytes > self.accelerator_spec.memory)
+            ):
                 split_idx += 1
                 split_bytes = 0
 
             split_assignments[name] = split_idx
             split_bytes += num_bytes
             node_idx += 1
+            mem_intensive = curr_mem_intensive
         logger.info("Split the model into %d splits based on the cost model.", split_idx + 1)
 
         return split_assignments
