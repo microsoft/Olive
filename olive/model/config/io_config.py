@@ -23,6 +23,12 @@ class IoConfig(ConfigBase):
             "clip_input": { "0": "batch", "1": "channels", "2": "height", "3": "width" },
             "images": { "0": "batch", "1": "height", "2": "width", "3": "channels" }
         },
+        "dynamic_shapes": {
+            "clip_input": { "0": ["batch", 1, 512], "1": ["channels", 0, 3],
+                "2": ["height", 0, 512], "3": ["width", 0, 512] },
+            "images": { "0": ["batch", 1, 512], "1": ["height", 0, 512],
+                "2": ["width", 0, 512], "3": ["channels", 0, 3] }
+        },
         "kv_cache": None
     }
     """
@@ -169,7 +175,7 @@ def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
     output_names = kv_cache_config.get_output_names()
     dynamic_axes = deepcopy(io_config.dynamic_axes or {})
     dynamic_axes.update(kv_cache_config.get_dynamic_axes())
-    dynamic_shapes = deepcopy(io_config.dynamic_axes or {})
+    dynamic_shapes = deepcopy(io_config.dynamic_shapes or {})
     dynamic_shapes = kv_cache_config.get_dynamic_shapes(dynamic_shapes)
     return IoConfig(
         input_names=(io_config.input_names or []) + kv_names,

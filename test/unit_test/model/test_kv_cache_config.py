@@ -63,29 +63,30 @@ def test_kv_cache_dynamic_shapes(num_hidden_layers, shared_kv, sequence_length_i
     )
     dynamic_shapes = config.get_dynamic_shapes(io_config_dynamic_shapes)
 
-    if isinstance(dynamic_shapes, dict):
-        # input_ids and past_key_values
-        assert len(dynamic_shapes) == 2
-        past_sequence_length_name = "past_sequence_length" if not shared_kv else "max_sequence_length"
-        present_sequence_length_name = "past_sequence_lengthsequence_length" if not shared_kv else "max_sequence_length"
-        assert dynamic_shapes["past_key_value"][0] == {
-            "0": ["batch", 2, 99],
-            str(sequence_length_idx): [past_sequence_length_name, 0, 99999],
-        }
-        assert dynamic_shapes["past_key_value"][1] == {
-            "0": ["batch", 2, 99],
-            str(sequence_length_idx): [past_sequence_length_name, 0, 99999],
-        }
-        assert dynamic_shapes["past_key_value"][-1] == {
-            "0": ["batch", 2, 99],
-            str(sequence_length_idx): [present_sequence_length_name, 0, 99999],
-        }
-        assert dynamic_shapes["past_key_value"][-2] == {
-            "0": ["batch", 2, 99],
-            str(sequence_length_idx): [present_sequence_length_name, 0, 99999],
-        }
+    if isinstance(io_config_dynamic_shapes, dict):
+        past_key_value = dynamic_shapes["past_key_value"]
     else:
-        assert len(dynamic_shapes) == 2
+        past_key_value = dynamic_shapes[1]
+    # input_ids and past_key_values
+    assert len(dynamic_shapes) == 2
+    past_sequence_length_name = "past_sequence_length" if not shared_kv else "max_sequence_length"
+    present_sequence_length_name = "past_sequence_lengthsequence_length" if not shared_kv else "max_sequence_length"
+    assert past_key_value[0] == {
+        "0": ["batch", 2, 99],
+        str(sequence_length_idx): [past_sequence_length_name, 0, 99999],
+    }
+    assert past_key_value[1] == {
+        "0": ["batch", 2, 99],
+        str(sequence_length_idx): [past_sequence_length_name, 0, 99999],
+    }
+    assert past_key_value[-1] == {
+        "0": ["batch", 2, 99],
+        str(sequence_length_idx): [present_sequence_length_name, 0, 99999],
+    }
+    assert past_key_value[-2] == {
+        "0": ["batch", 2, 99],
+        str(sequence_length_idx): [present_sequence_length_name, 0, 99999],
+    }
 
 
 @pytest.mark.parametrize("num_hidden_layers", [16, 32])
