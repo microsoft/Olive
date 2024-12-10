@@ -486,17 +486,23 @@
 <p>See <a class="reference external" href="https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion">Float16 Conversion</a> for more detailed description of the available configuration parameters.</p>
 </section>
 </section>
-<section id="inputs-outputs-float16-to-float32-conversion">
-<h2>Inputs/Outputs Float16 to Float32 Conversion<a class="headerlink" href="#inputs-outputs-float16-to-float32-conversion" title="Link to this heading">#</a></h2>
-<p>Certain environments such as Onnxruntime WebGPU prefers Float32 logits. The <code class="docutils literal notranslate"><span class="pre">OnnxIOFloat16ToFloat32</span></code> pass converts the inputs and outputs to use Float32 instead of Float16.</p>
+<section id="inputs-outputs-datatype-conversion">
+<h2>Inputs/Outputs DataType Conversion<a class="headerlink" href="#inputs-outputs-datatype-conversion" title="Link to this heading">#</a></h2>
+<p>In certain environments, such as Onnxruntime WebGPU, Float32 logits are preferred. The <code class="docutils literal notranslate"><span class="pre">OnnxIODataTypeConverter</span></code> pass enables conversion of model inputs and outputs to a specified data type. This is particularly useful for converting between data types such as Float16 and Float32, or any other supported ONNX data types.</p>
 <section id="id3">
 <h3>Example Configuration<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
-<p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
+<p>The simplest configuration converts all inputs and outputs from Float16 (source_dtype = 10) to Float32 (target_dtype = 1), which is suitable for many models:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxIOFloat16ToFloat32&quot;</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxIODataTypeConverter&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;source_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;target_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="p">}</span>
 </pre></div>
 </div>
+</section>
+<section id="datatype-mapping">
+<h3>Datatype Mapping<a class="headerlink" href="#datatype-mapping" title="Link to this heading">#</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">source_dtype</span></code> and <code class="docutils literal notranslate"><span class="pre">target_dtype</span></code> are integers corresponding to ONNX data types. You can find the complete mapping in the ONNX protobuf definition <a class="reference external" href="https://github.com/onnx/onnx/blob/96a0ca4374d2198944ff882bd273e64222b59cb9/onnx/onnx.proto3#L503-L551">here</a>.</p>
 </section>
 </section>
 <section id="mixed-precision-conversion">
@@ -612,8 +618,9 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#inputs-outputs-float16-to-float32-conversion">Inputs/Outputs Float16 to Float32 Conversion</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#inputs-outputs-datatype-conversion">Inputs/Outputs DataType Conversion</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#datatype-mapping">Datatype Mapping</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mixed-precision-conversion">Mixed Precision Conversion</a><ul class="nav section-nav flex-column">

@@ -1135,9 +1135,9 @@
 </dd></dl>
 
 </section>
-<section id="onnxiofloat16tofloat32">
-<span id="onnx-io-float16-to-float32"></span><h2>OnnxIOFloat16ToFloat32<a class="headerlink" href="#onnxiofloat16tofloat32" title="Link to this heading">#</a></h2>
-<p>Converts float16 model inputs/outputs to float32.</p>
+<section id="onnxiodatatypeconverter">
+<span id="onnx-io-float16-to-float32"></span><h2>OnnxIODataTypeConverter<a class="headerlink" href="#onnxiodatatypeconverter" title="Link to this heading">#</a></h2>
+<p>Converts model inputs/outputs from a source dtype to a target dtype based on a name pattern.</p>
 <p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
 <p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
@@ -1146,6 +1146,24 @@
 <dd><p>Only convert inputs/outputs whose name matches this pattern. By defaultlooking for logits names</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> logits</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-source_dtype">
+<span class="sig-name descname"><span class="pre">source_dtype</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-source_dtype" title="Link to this definition">#</a></dt>
+<dd><p>Source data type int value to convert from (default: FLOAT16). Check <a class="github reference external" href="https://github.com/onnx/onnx/blob/96a0ca4374d2198944ff882bd273e64222b59cb9/onnx/onnx.proto3#L503-L551for">onnx/onnx</a> details.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 10</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-target_dtype">
+<span class="sig-name descname"><span class="pre">target_dtype</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-target_dtype" title="Link to this definition">#</a></dt>
+<dd><p>Target data type int value to convert to (default: FLOAT). Check <a class="github reference external" href="https://github.com/onnx/onnx/blob/96a0ca4374d2198944ff882bd273e64222b59cb9/onnx/onnx.proto3#L503-L551for">onnx/onnx</a> details.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 1</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
@@ -5936,7 +5954,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#orttransformersoptimization">OrtTransformersOptimization</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ortsessionparamstuning">OrtSessionParamsTuning</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#onnxfloattofloat16">OnnxFloatToFloat16</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#onnxiofloat16tofloat32">OnnxIOFloat16ToFloat32</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#onnxiodatatypeconverter">OnnxIODataTypeConverter</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ortmixedprecision">OrtMixedPrecision</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#qnnpreprocess">QNNPreprocess</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mixedprecisionoverrides">MixedPrecisionOverrides</a></li>
