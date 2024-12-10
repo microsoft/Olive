@@ -94,11 +94,11 @@
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "fp16" ]
         },
-        "OnnxIOFloat16ToFloat32": {
-            "module_path": "olive.passes.onnx.float32_conversion.OnnxIOFloat16ToFloat32",
-            "supported_providers": [ "CPUExecutionProvider" ],
-            "supported_accelerators": [ "cpu" ],
-            "supported_precisions": [ "fp32" ]
+        "OnnxIODataTypeConverter": {
+            "module_path": "olive.passes.onnx.io_datatype_converter.OnnxIODataTypeConverter",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ]
         },
         "OnnxMatMul4Quantizer": {
             "module_path": "olive.passes.onnx.quantization.OnnxMatMul4Quantizer",
