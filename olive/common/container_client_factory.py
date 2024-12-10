@@ -18,7 +18,7 @@ class AzureContainerClientFactory:
         self.client = ContainerClient(
             account_url=ACCOUNT_URL_TEMPLATE.format(account_name=account_name),
             container_name=container_name,
-            credential=get_credentials(**credential_kwargs),
+            credential=get_credentials(credential_kwargs),
         )
 
     def delete_blob(self, blob_name):

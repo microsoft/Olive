@@ -5,13 +5,11 @@
 
 import argparse
 import json
-import tempfile
 import time
 from pathlib import Path
 
 import onnxruntime_genai as og
 
-from olive.cli.base import save_output_model
 from olive.common.utils import unescaped_str
 from olive.workflows import run as olive_run
 
@@ -155,21 +153,14 @@ def main(raw_args=None):
     # Generate optimized model for specific target
     print("Generating optimized model for", args.target, "...\n")
     output_path = Path(args.output_dir)
-    with tempfile.TemporaryDirectory() as tempdir:
-        with open(config_file) as f:
-            run_config = json.load(f)
+    with open(config_file) as f:
+        run_config = json.load(f)
+        run_config["output_dir"] = args.output_dir
 
-            if args.quarot:
-                run_config["output_dir"] = args.output_dir
-            else:
-                run_config["output_dir"] = tempdir
+    olive_run(run_config)
 
-        olive_run(run_config)
-
-        if args.quarot:
-            return
-
-        save_output_model(run_config, output_path)
+    if args.quarot:
+        return
 
     if args.inference:
         if not args.chat_template:

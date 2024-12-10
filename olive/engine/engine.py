@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import shutil
 import time
 from collections import OrderedDict, defaultdict
 from contextlib import contextmanager
@@ -15,7 +16,7 @@ from olive.cache import CacheConfig, OliveCache
 from olive.common.config_utils import validate_config
 from olive.common.constants import DEFAULT_WORKFLOW_ID, LOCAL_INPUT_MODEL_ID
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS
-from olive.engine.footprint import Footprint, FootprintNodeMetric
+from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric, get_best_candidate_node
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
@@ -52,6 +53,7 @@ class Engine:
         evaluator: Optional[Union[Dict[str, Any], "OliveEvaluatorConfig"]] = None,
         cache_config: Optional[Union[Dict[str, Any], CacheConfig]] = None,
         plot_pareto_frontier: bool = False,
+        no_artifacts: bool = False,
         *,
         azureml_client_config=None,
     ):
@@ -75,6 +77,7 @@ class Engine:
         self.cache: OliveCache = self.cache_config.create_cache(workflow_id)
 
         self.plot_pareto_frontier = plot_pareto_frontier
+        self.skip_saving_artifacts = no_artifacts
         self.azureml_client_config = azureml_client_config
 
         # dictionary of passes
@@ -208,9 +211,11 @@ class Engine:
                     output_dir/pareto_frontier_footprints.json: pareto frontier footprints
                     output_dir/run_history.txt: run history
                     output_dir/input_model_metrics.json: evaluation results of the input model
+                    output_dir/...: output model files
 
                 2. Multiple accelerator specs:
                     output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec
+                    output_dir/...: output model files
 
             No search mode:
                 1. One accelerator spec
@@ -218,17 +223,15 @@ class Engine:
                     output_dir/run_history.txt: run history
                     output_dir/input_model_metrics.json: evaluation results of the input model
                     output_dir/output_footprints.json: footprint of the output models
+                    output_dir/...: output model files
 
                     A. One pass flow:
-                        output_dir/output_model/metrics.json: evaluation results of the output model
-                        output_dir/output_model/model_config.json: output model configuration
-                        output_dir/output_model/...: output model files
-
-                    B. Multiple pass flows:
-                        output_dir/output_model/{pass_flow}/...: Same as A but for each pass flow
+                        output_dir/metrics.json: evaluation results of the output model
+                        output_dir/...: output model files
 
                 2. Multiple accelerator specs
                     output_dir/{acclerator_spec}/...: Same as 1 but for each accelerator spec
+                    output_dir/...: output model files
 
         """
         if not accelerator_specs:
@@ -242,12 +245,14 @@ class Engine:
 
         outputs = {}
         output_subdirs = {}
+        accelerator_output_dir_list = []
         for accelerator_spec in accelerator_specs:
             logger.info("Running Olive on accelerator: %s", accelerator_spec)
             output_subdirs[accelerator_spec] = accelerator_output_dir = (
                 output_dir / str(accelerator_spec) if len(accelerator_specs) > 1 else output_dir
             )
             accelerator_output_dir.mkdir(parents=True, exist_ok=True)
+            accelerator_output_dir_list.append(accelerator_output_dir)
             with self._create_system(accelerator_spec):
                 run_result = self.run_accelerator(
                     input_model_config,
@@ -279,6 +284,16 @@ class Engine:
         else:
             logger.debug("No packaging config provided, skip packaging artifacts")
 
+        # TODO(team): refactor output structure
+        # Do not change condition order. For no search, values of outputs are MetricResult
+        # Consolidate the output structure for search and no search mode
+        if outputs and self.passes and not next(iter(outputs.values())).check_empty_nodes():
+            best_node: FootprintNode = get_best_candidate_node(outputs, self.footprints)
+            self.cache.save_model(model_id=best_node.model_id, output_dir=output_dir, overwrite=True)
+            if len(accelerator_output_dir_list) > 1 and self.skip_saving_artifacts:
+                [shutil.rmtree(folder) for folder in accelerator_output_dir_list if folder.exists()]
+            logger.info("Saved output model to %s", output_dir)
+
         return outputs
 
     def run_accelerator(
@@ -309,10 +324,11 @@ class Engine:
                     input_model_config, input_model_id, self.evaluator_config, accelerator_spec
                 )
                 logger.info("Input model evaluation results: %s", results)
-                results_path = output_dir / "input_model_metrics.json"
-                with results_path.open("w") as f:
-                    json.dump(results.to_json(), f, indent=4)
-                logger.info("Saved evaluation results of input model to %s", results_path)
+                if not self.skip_saving_artifacts:
+                    results_path = output_dir / "input_model_metrics.json"
+                    with results_path.open("w") as f:
+                        json.dump(results.to_json(), f, indent=4)
+                    logger.info("Saved evaluation results of input model to %s", results_path)
                 if not self.passes:
                     logger.debug("No passes registered, return input model evaluation results.")
                     return results
@@ -334,9 +350,10 @@ class Engine:
             logger.warning("Failed to run Olive on %s.", accelerator_spec, exc_info=True)
             return None
 
-        output_fp_path = output_dir / "footprints.json"
-        logger.info("Save footprint to %s.", output_fp_path)
-        self.footprints[accelerator_spec].to_file(output_fp_path)
+        if not self.skip_saving_artifacts:
+            output_fp_path = output_dir / "footprints.json"
+            logger.info("Save footprint to %s.", output_fp_path)
+            self.footprints[accelerator_spec].to_file(output_fp_path)
         logger.debug("run_accelerator done")
         return output_footprint
 
@@ -387,8 +404,7 @@ class Engine:
                 pass_name = pass_item["name"]
                 raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
 
-        # output models will be saved in output_dir/output_model
-        output_model_dir = Path(output_dir) / "output_model"
+        output_model_dir = Path(output_dir)
 
         output_model_ids = []
         for pass_flow in self.pass_flows:
@@ -416,19 +432,17 @@ class Engine:
             flow_output_dir = output_model_dir / "-".join(pass_flow) if len(self.pass_flows) > 1 else output_model_dir
             flow_output_dir.mkdir(parents=True, exist_ok=True)
 
-            if signal is not None:
+            if signal is not None and not self.skip_saving_artifacts:
                 results_path = flow_output_dir / "metrics.json"
                 with open(results_path, "w") as f:
                     json.dump(signal.to_json(), f, indent=4)
                 logger.info("Saved evaluation results of output model to %s", results_path)
 
-            self.cache.save_model(model_id=model_ids[-1], output_dir=flow_output_dir, overwrite=True)
-            logger.info("Saved output model to %s", flow_output_dir)
-
             output_model_ids.append(model_ids[-1])
 
         output_footprints = self.footprints[accelerator_spec].create_footprints_by_model_ids(output_model_ids)
-        output_footprints.to_file(output_dir / "output_footprints.json")
+        if not self.skip_saving_artifacts:
+            output_footprints.to_file(output_dir / "output_footprints.json")
         return output_footprints
 
     def run_search(
@@ -498,7 +512,8 @@ class Engine:
         pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier(output_model_num)
         if not pf_footprints:
             return None
-        pf_footprints.to_file(output_dir / "pareto_frontier_footprints.json")
+        if not self.skip_saving_artifacts:
+            pf_footprints.to_file(output_dir / "pareto_frontier_footprints.json")
 
         if self.plot_pareto_frontier:
             pf_footprints.plot_pareto_frontier_to_html(save_path=output_dir / "pareto_frontier_footprints_chart.html")
@@ -518,8 +533,9 @@ class Engine:
         except ImportError:
             logger.info("Please install tabulate for better run history output")
             formatted_rls = run_history
-        with Path(output_path).open("w") as f:
-            f.write(f"{formatted_rls}")
+        if not self.skip_saving_artifacts:
+            with Path(output_path).open("w") as f:
+                f.write(f"{formatted_rls}")
 
     def resolve_objectives(
         self,

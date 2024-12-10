@@ -115,22 +115,10 @@ def test_configure_qualcomm_sdk_command(mock_configure):
 
 
 @patch("olive.workflows.run")
-@patch("olive.cli.finetune.tempfile.TemporaryDirectory")
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_finetune_command(_, mock_tempdir, mock_run, tmp_path):
-    # some directories
-    tmpdir = tmp_path / "tmpdir"
-    tmpdir.mkdir()
-
-    output_dir = tmp_path / "output_dir"
-
+def test_finetune_command(_, mock_run, tmp_path):
     # setup
-    mock_tempdir.return_value = tmpdir.resolve()
-    workflow_output_dir = tmpdir / "output_model"
-    workflow_output_dir.mkdir(parents=True)
-    dummy_output = workflow_output_dir / "model_config.json"
-    with open(dummy_output, "w") as f:
-        json.dump({"dummy": "output"}, f)
+    output_dir = tmp_path / "output_dir"
 
     # setup
     model_id = "dummy-model-id"
@@ -151,7 +139,7 @@ def test_finetune_command(_, mock_tempdir, mock_run, tmp_path):
 
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_id
-    assert {el.name for el in output_dir.iterdir()} == {dummy_output.name}
+    assert mock_run.call_count == 1
 
 
 def test_session_params_tuning_command(tmp_path):
@@ -184,24 +172,11 @@ def test_session_params_tuning_command(tmp_path):
 
 
 @patch("olive.workflows.run")
-@patch("olive.cli.capture_onnx.tempfile.TemporaryDirectory")
 @patch("huggingface_hub.repo_exists", return_value=True)
 @pytest.mark.parametrize("use_model_builder", [True, False])
-def test_capture_onnx_command(_, mock_tempdir, mock_run, use_model_builder, tmp_path):
-    # some directories
-    tmpdir = tmp_path / "tmpdir"
-    tmpdir.mkdir()
-
-    output_dir = tmp_path / "output_dir"
-
+def test_capture_onnx_command(_, mock_run, use_model_builder, tmp_path):
     # setup
-    mock_tempdir.return_value = tmpdir.resolve()
-    workflow_output_dir = tmpdir / "output_model"
-    workflow_output_dir.mkdir(parents=True)
-    dummy_output = workflow_output_dir / "model_config.json"
-    with open(dummy_output, "w") as f:
-        json.dump({"config": {"inference_settings": {"dummy-key": "dummy-value"}}}, f)
-
+    output_dir = tmp_path / "output_dir"
     model_id = "dummy-model-id"
     command_args = [
         "capture-onnx-graph",
@@ -220,7 +195,7 @@ def test_capture_onnx_command(_, mock_tempdir, mock_run, use_model_builder, tmp_
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_id
     assert "m" in config["passes"] if use_model_builder else "c" in config["passes"]
-    assert {el.name for el in output_dir.iterdir()} == {dummy_output.name}
+    assert mock_run.call_count == 1
 
 
 @patch("olive.cli.shared_cache.AzureContainerClientFactory")
@@ -270,25 +245,10 @@ def test_shared_cache_delete_all_with_confirmation(mock_AzureContainerClientFact
 
 @pytest.mark.parametrize("algorithm_name", ["awq", "gptq", "rtn"])
 @patch("olive.workflows.run")
-@patch("olive.cli.finetune.tempfile.TemporaryDirectory")
 @patch("huggingface_hub.repo_exists")
-def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_name, tmp_path):
-    # some directories
-    tmpdir = tmp_path / "tmpdir"
-    tmpdir.mkdir()
-
-    output_dir = tmp_path / "output_dir"
-
+def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
     # setup
-    mock_repo_exists.return_value = True
-    mock_tempdir.return_value = tmpdir.resolve()
-    mock_run.return_value = {}
-
-    workflow_output_dir = tmpdir / "output_model" / algorithm_name
-    workflow_output_dir.mkdir(parents=True)
-    model_config_path = workflow_output_dir / "model_config.json"
-    with model_config_path.open("w") as f:
-        f.write("{}")
+    output_dir = tmp_path / "output_dir"
 
     # setup
     command_args = [
@@ -309,7 +269,7 @@ def test_quantize_command(mock_repo_exists, mock_tempdir, mock_run, algorithm_na
 
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == "dummy_model"
-    assert {el.name for el in output_dir.iterdir()} == {algorithm_name}
+    assert mock_run.call_count == 1
 
 
 # TODO(anyone): Add tests for ManageAMLComputeCommand

@@ -66,14 +66,28 @@ class SplitModel(Pass):
         node_order = dag.topological_sort()
         node_assignments = {}
         constant_nodes = set()
+        dq_nodes = set()
         for node_name in node_order:
+            op_type = dag.get_node_op_type(node_name)
+
             # will handle constant nodes laters
-            if dag.get_node_op_type(node_name) == "Constant":
+            if op_type == "Constant":
                 constant_nodes.add(node_name)
                 continue
 
+            # need to reassign dq nodes to child later
+            if op_type == "DequantizeLinear":
+                dq_nodes.add(node_name)
+
             # get the assignment for the node
-            split_id = self.get_assignment(node_name, split_assignments)
+            # will always assign Q,DQ to the parent split, this way node split only originates from base op
+            # Q,DQ will behave like pass through nodes
+            # Q always stays with the parent base op, DQ reassigned later to all children
+            split_id = (
+                self.get_assignment(node_name, split_assignments)
+                if op_type not in {"QuantizeLinear", "DequantizeLinear"}
+                else None
+            )
 
             # if not assigned: assign to parent split if any
             # if assigned: check the parent ids also, the child should not be lower than the parent
@@ -108,26 +122,31 @@ class SplitModel(Pass):
 
             node_assignments[node_name] = min(child_splits) if child_splits else 0
 
-        # handle constant nodes, will add a copy of the constant to each split
-        for node_name in constant_nodes:
+        # change all assignments to list for consistency
+        for node_name, split_id in node_assignments.items():
+            if not isinstance(split_id, list):
+                node_assignments[node_name] = [split_id]
+
+        # handle constant and DQ nodes, add a copy of each to all child splits
+        # do DQ first since it could be a child of a constant node
+        for node_name in list(dq_nodes) + list(constant_nodes):
             splits = set()
             for consumer in dag.get_consumers(node_name):
-                if consumer in node_assignments:
-                    splits.add(node_assignments[consumer])
+                splits.update(node_assignments[consumer])
             if splits:
+                # else condition could be when DQ node goes directly to output
                 node_assignments[node_name] = list(splits)
 
         # add the nodes to the split dags
         # keep track of missing value info for inputs to the split dags
         missing_vi = defaultdict(list)
         for node_name in node_order:
-            split_id = node_assignments.get(node_name)
-            if split_id is None:
+            split_ids = node_assignments.get(node_name)
+            if split_ids is None:
                 continue
 
-            if not isinstance(split_id, list):
-                # no need to worry about inputs for list split_id since it's only for constants
-                split_dag = split_dags[split_id]
+            for idx in split_ids:
+                split_dag = split_dags[idx]
                 # add the inputs to the nodes if not already present
                 for input_name in dag.get_node_inputs(node_name):
                     if not input_name:
@@ -142,16 +161,16 @@ class SplitModel(Pass):
                     # main graph inputs and/or initializers
                     if dag.is_input(input_name) or dag.is_initializer(input_name):
                         if dag.is_input(input_name):
-                            split_dags[split_id].add_input(io.proto[0], 0, True)
+                            split_dags[idx].add_input(io.proto[0], 0, True)
                         if dag.is_initializer(input_name):
-                            split_dags[split_id].add_initializer(io.proto[-1], 0, True)
+                            split_dags[idx].add_initializer(io.proto[-1], 0, True)
                         continue
 
                     # cross split inputs
                     proto = io.proto[0] if io.proto else None
                     if not proto:
                         # missing value info
-                        missing_vi[input_name].append(split_id)
+                        missing_vi[input_name].append(idx)
                         proto = onnx.helper.make_empty_tensor_value_info(input_name)
                     split_dag.add_input(proto, 0)
 
@@ -164,13 +183,15 @@ class SplitModel(Pass):
                         # optional output left as ""
                         continue
 
-                    # mark as output if any consumer is not in the split
-                    is_output = False
-                    for consumer in dag.get_consumers(output_name, True):
-                        if node_assignments.get(consumer) != split_id:
-                            split_dag.make_output(output_name)
-                            is_output = True
+                    # mark as output if model_output or any consumer is not in the splits
+                    is_output = dag.is_output(output_name)
+                    for consumer in dag.get_consumers(output_name):
+                        if is_output:
                             break
+                        if set(node_assignments.get(consumer, [])) - set(split_ids):
+                            is_output = True
+                    if is_output:
+                        split_dag.make_output(output_name)
 
                     # add vi for the outputs
                     io = dag.get_io(output_name)
@@ -178,11 +199,7 @@ class SplitModel(Pass):
                         split_dag.add_value_info(io.proto[0], 0)
                     elif is_output:
                         # missing value info
-                        missing_vi[output_name].append(split_id)
-            else:
-                # add the constant to each split
-                for idx in split_id:
-                    split_dags[idx].add_node(dag.get_node_proto(node_name), 0)
+                        missing_vi[output_name].append(idx)
 
         if missing_vi:
             logger.debug("Missing value info for some io. Using onnxruntime shape inference to infer them.")
@@ -196,7 +213,7 @@ class SplitModel(Pass):
             for input_name, split_ids in missing_vi.items():
                 io = shape_inferred_dag.get_io(input_name)
                 if not io.proto:
-                    raise ValueError(f"Missing value info for input {input_name} for split {split_id}")
+                    raise ValueError(f"Missing value info for input {input_name} for splits {split_ids}")
                 for idx in split_ids:
                     split_dags[idx].add_value_info(io.proto[0], 0, overwrite=True)
 

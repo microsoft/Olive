@@ -15,8 +15,6 @@ from olive.cli.base import (
     add_remote_options,
     add_shared_cache_options,
     get_input_model_config,
-    is_remote_run,
-    save_output_model,
     update_dataset_options,
     update_remote_options,
     update_shared_cache_options,
@@ -85,13 +83,7 @@ class FineTuneCommand(BaseOliveCLICommand):
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
-
             olive_run(run_config)
-
-            if is_remote_run(self.args):
-                return
-
-            save_output_model(run_config, self.args.output_path)
 
     def parse_training_args(self) -> Dict:
         if not self.unknown_args:
@@ -120,7 +112,7 @@ class FineTuneCommand(BaseOliveCLICommand):
             ((*finetune_key, "training_args"), self.parse_training_args()),
             ((*finetune_key, "lora_r"), self.args.lora_r),
             ((*finetune_key, "lora_alpha"), self.args.lora_alpha),
-            ("output_dir", tempdir),
+            ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
         ]
         if self.args.method == "lora" and self.args.target_modules:
@@ -170,4 +162,5 @@ TEMPLATE = {
     "passes": {"f": {"train_data_config": "train_data"}},
     "host": "local_system",
     "target": "local_system",
+    "no_artifacts": True,
 }
