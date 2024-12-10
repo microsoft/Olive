@@ -43,7 +43,7 @@ The following notebooks are available that demonstrate key optimization workflow
 
 | Title | Description | Time Required |Notebook Links 
 | -------- | ------------ | -------- | -------- 
-| Quickstart | *In this notebook you will use Olive's automatic optimizer to ONNX Runtime on a CPU Device and then inference the model using the ONNX Runtime Generate API* | 5mins  | [Download](examples/getting_started/olive_quickstart.ipynb)<br><br>[Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb) |
+| Quickstart | *In this notebook you will use Olive's automatic optimizer to ONNX Runtime on a CPU Device and then inference the model using the ONNX Runtime Generate API* | 5mins  | <a href="examples/getting_started/olive_quickstart.ipynb" target="_blank">Download</a><br><br><a href="https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb" target="_blank">Open in Colab</a> |
 | Quantize and Finetune | *In this notebook you will (1) quantize Llama-3.2-1B-Instruct using the AWQ algorithm, (2) fine-tune the quantized model, (3) Optimize the fine-tuned model for the ONNX Runtime, and (4) Inference the fine-tuned model using the ONNX runtime Generate API.* |15mins| [Download](examples/getting_started/olive-awq-ft-llama.ipynb)<br><br>[Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive-awq-ft-llama.ipynb) |
 
 ### ✨ Quickstart
