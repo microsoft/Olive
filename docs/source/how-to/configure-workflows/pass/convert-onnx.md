@@ -63,7 +63,7 @@ See [Float16 Conversion](https://onnxruntime.ai/docs/performance/model-optimizat
 
 ## Inputs/Outputs DataType Conversion
 
-In certain environments, such as Onnxruntime WebGPU, Float32 logits are preferred. The `OnnxIODataTypeConverte` pass enables conversion of model inputs and outputs to a specified data type. This is particularly useful for converting between data types such as Float16 and Float32, or any other supported ONNX data types.
+In certain environments, such as Onnxruntime WebGPU, Float32 logits are preferred. The `OnnxIODataTypeConverter` pass enables conversion of model inputs and outputs to a specified data type. This is particularly useful for converting between data types such as Float16 and Float32, or any other supported ONNX data types.
 
 ### Example Configuration
 
