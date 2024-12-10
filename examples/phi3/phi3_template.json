@@ -95,7 +95,7 @@
         "merge_adapter_weights": { "type": "MergeAdapterWeights" },
         "awq": { "type": "AutoAWQQuantizer" },
         "builder": { "type": "ModelBuilder", "precision": "<place_holder>" },
-        "fp32_logits": { "type": "OnnxIOFloat16ToFloat32" },
+        "fp32_logits": { "type": "OnnxIODataTypeConverter" },
         "tune_session_params": {
             "type": "OrtSessionParamsTuning",
             "data_config": "gqa_transformer_prompt_dummy_data",

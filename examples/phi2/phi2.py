@@ -156,7 +156,7 @@ def main(raw_args=None):
             template_json["systems"]["local_system"]["accelerators"] = [
                 {"device": "GPU", "execution_providers": ["JsExecutionProvider"]}
             ]
-            fl_type = {"type": "OnnxIOFloat16ToFloat32"}
+            fl_type = {"type": "OnnxIODataTypeConverter"}
             template_json["passes"]["fp32_logits"] = fl_type
         new_json_file = "phi2_web.json"
         with open(new_json_file, "w") as f:

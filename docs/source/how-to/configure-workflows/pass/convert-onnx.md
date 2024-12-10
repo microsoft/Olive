@@ -61,18 +61,25 @@ b. More fine-grained control of the conversion conditions is also possible:
 
 See [Float16 Conversion](https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion) for more detailed description of the available configuration parameters.
 
-## Inputs/Outputs Float16 to Float32 Conversion
+## Inputs/Outputs DataType Conversion
 
-Certain environments such as Onnxruntime WebGPU prefers Float32 logits. The `OnnxIOFloat16ToFloat32` pass converts the inputs and outputs to use Float32 instead of Float16.
+In certain environments, such as Onnxruntime WebGPU, Float32 logits are preferred. The `OnnxIODataTypeConverter` pass enables conversion of model inputs and outputs to a specified data type. This is particularly useful for converting between data types such as Float16 and Float32, or any other supported ONNX data types.
 
 ### Example Configuration
 
-a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:
+The simplest configuration converts all inputs and outputs from Float16 (source_dtype = 10) to Float32 (target_dtype = 1), which is suitable for many models:
+
 ```json
 {
-    "type": "OnnxIOFloat16ToFloat32"
+    "type": "OnnxIODataTypeConverter",
+    "source_dtype": 10,
+    "target_dtype": 1
 }
 ```
+
+### Datatype Mapping
+
+The `source_dtype` and `target_dtype` are integers corresponding to ONNX data types. You can find the complete mapping in the ONNX protobuf definition [here](https://github.com/onnx/onnx/blob/96a0ca4374d2198944ff882bd273e64222b59cb9/onnx/onnx.proto3#L503-L551).
 
 ## Mixed Precision Conversion
 Converting model to mixed precision.
