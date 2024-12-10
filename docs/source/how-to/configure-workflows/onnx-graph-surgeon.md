@@ -331,6 +331,60 @@ graph {
 }
 ```
 
+### `ReorderInputs`
+
+#### Description
+
+Reorders the inputs of the ONNX model according to a specified permutation.
+
+#### Configurations
+
+- `permutation`: A list specifying the new order of inputs, as a permutation of the original indices.
+
+#### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  input: "input1"
+  input: "input2"
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "ReorderInputs",
+            "permutation": [1, 0]
+        }
+    ]
+}
+```
+
+Transformed ONNX model graph:
+
+```
+graph {
+  input: "input2"
+  input: "input1"
+  node {
+    op_type: "Add"
+    input: ["input1", "input2"]
+    output: ["add_output"]
+  }
+}
+```
+
 ### `ZeroOutInput`
 
 #### Description
