@@ -169,6 +169,8 @@ def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
     output_names = kv_cache_config.get_output_names()
     dynamic_axes = deepcopy(io_config.dynamic_axes or {})
     dynamic_axes.update(kv_cache_config.get_dynamic_axes())
+    dynamic_shapes = deepcopy(io_config.dynamic_axes or {})
+    dynamic_shapes = kv_cache_config.get_dynamic_shapes(dynamic_shapes)
     return IoConfig(
         input_names=(io_config.input_names or []) + kv_names,
         input_shapes=(io_config.input_shapes or []) + kv_shapes,
@@ -177,6 +179,7 @@ def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
         output_shapes=io_config.output_shapes,  # ignore kv_cache output shapes
         output_types=io_config.output_types,  # ignore kv_cache output types
         dynamic_axes=dynamic_axes,
+        dynamic_shapes=dynamic_shapes,
         kv_cache=kv_cache_config,
     )
 

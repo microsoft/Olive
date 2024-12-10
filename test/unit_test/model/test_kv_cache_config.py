@@ -44,6 +44,51 @@ def test_kv_cache_dynamic_axes(num_hidden_layers, shared_kv, sequence_length_idx
 
 
 @pytest.mark.parametrize("num_hidden_layers", [16, 32])
+@pytest.mark.parametrize("shared_kv", [True, False])
+@pytest.mark.parametrize("sequence_length_idx", [1, 2])
+@pytest.mark.parametrize(
+    "io_config_dynamic_shapes", [{"input_ids": {"0": ["batch", 2, 99]}}, [{"0": ["batch", 2, 99]}]]
+)
+def test_kv_cache_dynamic_shapes(num_hidden_layers, shared_kv, sequence_length_idx, io_config_dynamic_shapes):
+    config = KVCacheConfig(
+        world_size=1,
+        num_hidden_layers=num_hidden_layers,
+        num_attention_heads=32,
+        hidden_size=2560,
+        past_sequence_length=128,
+        batch_size=2,
+        dtype="float32",
+        shared_kv=shared_kv,
+        sequence_length_idx=sequence_length_idx,
+    )
+    dynamic_shapes = config.get_dynamic_shapes(io_config_dynamic_shapes)
+
+    if isinstance(dynamic_shapes, dict):
+        # input_ids and past_key_values
+        assert len(dynamic_shapes) == 2
+        past_sequence_length_name = "past_sequence_length" if not shared_kv else "max_sequence_length"
+        present_sequence_length_name = "past_sequence_lengthsequence_length" if not shared_kv else "max_sequence_length"
+        assert dynamic_shapes["past_key_value"][0] == {
+            "0": ["batch", 2, 99],
+            str(sequence_length_idx): [past_sequence_length_name, 0, 99999],
+        }
+        assert dynamic_shapes["past_key_value"][1] == {
+            "0": ["batch", 2, 99],
+            str(sequence_length_idx): [past_sequence_length_name, 0, 99999],
+        }
+        assert dynamic_shapes["past_key_value"][-1] == {
+            "0": ["batch", 2, 99],
+            str(sequence_length_idx): [present_sequence_length_name, 0, 99999],
+        }
+        assert dynamic_shapes["past_key_value"][-2] == {
+            "0": ["batch", 2, 99],
+            str(sequence_length_idx): [present_sequence_length_name, 0, 99999],
+        }
+    else:
+        assert len(dynamic_shapes) == 2
+
+
+@pytest.mark.parametrize("num_hidden_layers", [16, 32])
 def test_kv_cache_output_names(num_hidden_layers):
     config = KVCacheConfig(
         world_size=1,
