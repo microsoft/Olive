@@ -13,25 +13,16 @@
 
 Given a model and targeted hardware, Olive (**O**nnx **Live**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferring on cloud or edge, while taking a set of constraints such as accuracy and latency into consideration. 
 
-### Benefits of using Olive
+### ➕ Benefits of using Olive
 
-<div>
-<style>
-    ul.ticks {
-        list-style-type: "✅  "; /* change bullets to green ticks */
-    }
-</style>
+- **Reduce frustration** of manual trial-and-error model optimization experimentation. Define your target and precision and let Olive automatically produce the best model for you.
+- **40+ built-in model optimization components** covering industry-leading techniques across model compression, optimization, finetuning, and compilation.
+- **Easy-to-use CLI** for common model optimization tasks.
+- **Workflows** to orchestrate model transformations and optimizations steps.
+- Support for compiling LoRA adapters for **MultiLoRA serving**.
+- Seamless integration with **Hugging Face** and **Azure AI**.
+- Built-in **caching** mechanism to **improve productivity**.
 
-<ul class="ticks">
-    <li> <b>Reduce frustration</b> of manual trial-and-error model optimization experimentation. Define your target and precision and let Olive automatically produce the best model for you.</li>
-    <li> <b>40+ built-in model optimization components</b> covering industry-leading techniques across model compression, optimization, finetuning, and compilation.</li>
-    <li> <b>Easy-to-use CLI</b> for common model optimization tasks.</li>
-    <li> <b>Workflows</b> to orchestrate model transformations and optimizations steps.</li>
-    <li> Support for compiling LoRA adapters for <b>MultiLoRA serving</b>.</li>
-    <li> Seamless integration with <b>Hugging Face</b> and <b>Azure AI</b>.</li>
-    <li> Built-in <b>caching</b> mechanism to <b>improve team’s productivity</b>.</li>
-</ul>
-</div>
 
 ## 📰 News Highlights
 Here are some recent videos, blog articles and labs that highlight Olive:
@@ -50,10 +41,10 @@ For a full list of news and blogs, read the [news archive](./NEWS.md).
 
 The following notebooks are available that demonstrate key optimization workflows with Olive:
 
-| Title | Description | Time Required |Notebook Download | Open in Colab |
-| -------- | ------------ | -------- | -------- | ----- |
-| Quickstart | *In this notebook you will use Olive's automatic optimizer to ONNX Runtime on a CPU Device and then inference the model using the ONNX Runtime Generate API* | 5mins  | [GitHub](examples/getting_started/olive_quickstart.ipynb)|<a target="_blank" href="https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> |
-| Quantize and Finetune | *In this notebook you will (1) quantize Llama-3.2-1B-Instruct using the AWQ algorithm, (2) fine-tune the quantized model, (3) Optimize the fine-tuned model for the ONNX Runtime, and (4) Inference the fine-tuned model using the ONNX runtime Generate API.* |15mins|[GitHub](examples/getting_started/olive_quickstart.ipynb)|<a target="_blank" href="https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>|
+| Title | Description | Time Required |Notebook Links 
+| -------- | ------------ | -------- | -------- 
+| Quickstart | *In this notebook you will use Olive's automatic optimizer to ONNX Runtime on a CPU Device and then inference the model using the ONNX Runtime Generate API* | 5mins  | [Download](examples/getting_started/olive_quickstart.ipynb)<br>[Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb) |
+| Quantize and Finetune | *In this notebook you will (1) quantize Llama-3.2-1B-Instruct using the AWQ algorithm, (2) fine-tune the quantized model, (3) Optimize the fine-tuned model for the ONNX Runtime, and (4) Inference the fine-tuned model using the ONNX runtime Generate API.* |15mins| [Download](examples/getting_started/olive-awq-ft-llama.ipynb)<br>[Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive-awq-ft-llama.ipynb) |
 
 ### ✨ Quickstart
 We recommend the [quickstart notebook](examples/getting_started/olive_quickstart.ipynb), however if you prefer not to use Jupyter notebooks then you can run through the following steps.
@@ -66,8 +57,7 @@ pip install olive-ai[ort-genai,auto-opt]
 pip install transformers==4.44.2
 ```
 > [!NOTE]
-> **Optional Dependencies** Olive has optional dependencies that can be installed to enable additional features. Please refer to
-[Olive package config](./olive/olive_config.json) for the list of extras and their dependencies.
+> Olive has optional dependencies that can be installed to enable additional features. Please refer to [Olive package config](./olive/olive_config.json) for the list of extras and their dependencies.
 
 #### 🪄 2. Automatic Optimizer
 
@@ -97,7 +87,8 @@ The automatic optimizer will:
 1. Optimize the ONNX Graph.
 1. Quantize the model to `int4` using RTN method.
 
-Olive can automatically optimize popular model *architectures* like Llama, Phi, Qwen, Gemma, etc out-of-the-box - [see detailed list here](https://huggingface.co/docs/optimum/en/exporters/onnx/overview). Also, you can optimize other model architectures by providing details on the input/outputs of the model (`io_config`).
+> [!NOTE]
+> Olive can automatically optimize popular model *architectures* like Llama, Phi, Qwen, Gemma, etc out-of-the-box - [see detailed list here](https://huggingface.co/docs/optimum/en/exporters/onnx/overview). Also, you can optimize other model architectures by providing details on the input/outputs of the model (`io_config`).
 
 
 #### 🧠 3. Inference on the ONNX Runtime
