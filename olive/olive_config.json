@@ -94,7 +94,7 @@
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "fp16" ]
         },
-        "OnnxIOFloat16ToFloat32": {
+        "OnnxIODataTypeConverter": {
             "module_path": "olive.passes.onnx.io_datatype_converter.OnnxIODataTypeConverter",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
