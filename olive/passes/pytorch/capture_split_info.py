@@ -162,7 +162,7 @@ class CaptureSplitInfo(Pass):
 
             # TODO(jambayk): add num_bytes threshold
             # maybe also a threshold for num_params/num_flops ratio
-            curr_mem_intensive = num_flops > 0 and num_params > num_flops
+            curr_mem_intensive = num_params > num_flops > 0
 
             # change split if:
             #  switching from memory intensive to compute intensive or vice versa
