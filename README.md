@@ -97,7 +97,7 @@ The ONNX Runtime (ORT) is a fast and light-weight cross-platform inference engin
 
 You'll be prompted to enter a message to the SLM - for example, you could ask *what is the golden ratio*, or *def print_hello_world():*. To exit type *exit* in the chat interface.
 
-##### Python
+##### Python Option
 Create a Python file called `app.py` and copy and paste the following code:
 ```python
 # app.py
@@ -154,7 +154,7 @@ while text != "exit":
 ```
 To run the code, execute `python app.py`.
 
-##### C#
+##### C# Option
 
 Create a new C# Console app and install the [Microsoft.ML.OnnxRuntimeGenAI](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntimeGenAI) Nuget package into your project:
 
