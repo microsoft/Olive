@@ -11,7 +11,7 @@
 ## AI Model Optimization Toolkit for the ONNX Runtime
 </div>
 
-Given a model and targeted hardware, Olive (abbreviation: **O**nnx **LIVE**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferring on cloud or edge, while taking a set of constraints such as accuracy and latency into consideration. 
+Given a model and targeted hardware, Olive (abbreviation of **O**nnx **LIVE**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferring on cloud or edge, while taking a set of constraints such as accuracy and latency into consideration. 
 
 ### ✅ Benefits of using Olive
 
