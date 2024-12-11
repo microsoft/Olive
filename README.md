@@ -67,7 +67,7 @@ In this quickstart you'll be optimizing [HuggingFaceTB/SmolLM2-135M-Instruct](ht
 huggingface-cli download HuggingFaceTB/SmolLM2-135M-Instruct *.json *.safetensors *.txt
 ```
 
-Next, run the automatic optimization using:
+Next, run the automatic optimization (tip: if you're using Powershell rather than bash replace `\` line continuations with `):
 
 ```bash
 olive auto-opt \
@@ -159,7 +159,7 @@ To run the code, execute `python app.py`.
 Create a new C# Console app and install the [Microsoft.ML.OnnxRuntimeGenAI](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntimeGenAI) Nuget package into your project:
 
 ```powershell
-New-Item -Name "ortapp" -ItemType "directory"
+mkdir ortapp
 cd ortapp
 dotnet new console
 dotnet add package Microsoft.ML.OnnxRuntimeGenAI --version 0.5.2
@@ -175,7 +175,7 @@ internal class Program
 {
     private static void Main(string[] args)
     {
-        string modelPath =@"models/smolm2/model";
+        string modelPath @"models/smolm2/model";
 
         Console.Write("Loading model from " + modelPath + "...");
         using Model model = new(modelPath);
