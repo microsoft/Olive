@@ -11,9 +11,9 @@
 ## AI Model Optimization Toolkit for the ONNX Runtime
 </div>
 
-Given a model and targeted hardware, Olive (**O**nnx **Live**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferring on cloud or edge, while taking a set of constraints such as accuracy and latency into consideration. 
+Given a model and targeted hardware, Olive (abbreviation: **O**nnx **LIVE**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferring on cloud or edge, while taking a set of constraints such as accuracy and latency into consideration. 
 
-### ➕ Benefits of using Olive
+### ✅ Benefits of using Olive
 
 - **Reduce frustration** of manual trial-and-error model optimization experimentation. Define your target and precision and let Olive automatically produce the best model for you.
 - **40+ built-in model optimization components** covering industry-leading techniques across model compression, optimization, finetuning, and compilation.
@@ -37,19 +37,19 @@ For a full list of news and blogs, read the [news archive](./NEWS.md).
 
 ## 🚀 Getting Started
 
-### 📓 Notebooks available!
+### Notebooks available!
 
 The following notebooks are available that demonstrate key optimization workflows with Olive:
 
 | Title | Description | Time Required |Notebook Links 
 | -------- | ------------ | -------- | -------- 
-| Quickstart | *In this notebook you will use Olive's automatic optimizer to ONNX Runtime on a CPU Device and then inference the model using the ONNX Runtime Generate API* | 5mins  | [Download](examples/getting_started/olive_quickstart.ipynb)<br><br>[Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb) |
-| Quantize and Finetune | *In this notebook you will (1) quantize Llama-3.2-1B-Instruct using the AWQ algorithm, (2) fine-tune the quantized model, (3) Optimize the fine-tuned model for the ONNX Runtime, and (4) Inference the fine-tuned model using the ONNX runtime Generate API.* |15mins| [Download](examples/getting_started/olive-awq-ft-llama.ipynb)<br><br>[Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive-awq-ft-llama.ipynb) |
+| Quickstart | *In this notebook you will use Olive's automatic optimizer to ONNX Runtime on a CPU Device and then inference the model using the ONNX Runtime Generate API* | 5mins  | [Download](examples/getting_started/olive_quickstart.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb) |
+| Quantize and Finetune | *In this notebook you will (1) quantize Llama-3.2-1B-Instruct using the AWQ algorithm, (2) fine-tune the quantized model, (3) Optimize the fine-tuned model for the ONNX Runtime, and (4) Inference the fine-tuned model using the ONNX runtime Generate API.* |15mins| [Download](examples/getting_started/olive-awq-ft-llama.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive-awq-ft-llama.ipynb) |
 
 ### ✨ Quickstart
-We recommend the [quickstart notebook](examples/getting_started/olive_quickstart.ipynb), however if you prefer not to use Jupyter notebooks then you can run through the following steps.
+If you prefer not to use Jupyter notebooks then you can run through the following steps.
 
-#### 💾 1. Install Olive CLI
+#### 1. Install Olive CLI
 We recommend installing Olive in a [virtual environment](https://docs.python.org/3/library/venv.html) or a [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
 
 ```
@@ -59,9 +59,9 @@ pip install transformers==4.44.2
 > [!NOTE]
 > Olive has optional dependencies that can be installed to enable additional features. Please refer to [Olive package config](./olive/olive_config.json) for the list of extras and their dependencies.
 
-#### 🪄 2. Automatic Optimizer
+#### 2. Automatic Optimizer
 
-You'll be optimizing the [HuggingFaceTB/SmolLM2-135M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct) model for CPU devices with the `auto-opt` command. To minimize the download you can cache just the safetensors and configuration files from the Hugging Face repo using:
+In this quickstart you'll be optimizing [HuggingFaceTB/SmolLM2-135M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct), which has many model files in the Hugging Face repo for different precisions that are not required by Olive. To minimize the download, cache the original Hugging Face model files (safetensors and configuration) in the main folder of the Hugging Face repo using:
 
 ```bash
 huggingface-cli download HuggingFaceTB/SmolLM2-135M-Instruct *.json *.safetensors *.txt
@@ -82,22 +82,25 @@ olive auto-opt \
 
 The automatic optimizer will:
 
-1. Acquire the model from either Hugging Face or the local cache.
+1. Acquire the model from the local cache (note: if you skipped the model download step then the entire contents of the Hugging Face model repo will be downloaded).
 1. Capture the ONNX Graph and store the weights in an ONNX data file.
 1. Optimize the ONNX Graph.
 1. Quantize the model to `int4` using RTN method.
 
-> [!NOTE]
+> [!TIP]
 > Olive can automatically optimize popular model *architectures* like Llama, Phi, Qwen, Gemma, etc out-of-the-box - [see detailed list here](https://huggingface.co/docs/optimum/en/exporters/onnx/overview). Also, you can optimize other model architectures by providing details on the input/outputs of the model (`io_config`).
 
 
-#### 🧠 3. Inference on the ONNX Runtime
+#### 3. Inference on the ONNX Runtime
 
-The ONNX Runtime (ORT) is a fast and light-weight package (available with many programming language bindings such as Python, C/C++, C#, Java, JavaScript, etc) that runs cross-platform. ORT enables you to infuse your AI models into your applications so that inference is handled on-device. The following code creates a simple console-based chat interface that inferences your optimized model.
+The ONNX Runtime (ORT) is a fast and light-weight cross-platform inference engine with binding for popular programming language such as Python, C/C++, C#, Java, JavaScript, etc. ORT enables you to infuse AI models into your applications so that inference is handled on-device. The following code creates a simple console-based chat interface that inferences your optimized model - you can choose between Python or C#.
 
 You'll be prompted to enter a message to the SLM - for example, you could ask *what is the golden ratio*, or *def print_hello_world():*. To exit type *exit* in the chat interface.
 
+##### Python
+Create a Python file called `app.py` and copy and paste the following code:
 ```python
+# app.py
 import onnxruntime_genai as og
 
 model_folder = "models/smolm2/model"
@@ -148,6 +151,73 @@ while text != "exit":
 
     print()
     text = input("Input: ")
+```
+To run the code, execute `python app.py`.
+
+##### C#
+
+Create a new C# Console app and install the [Microsoft.ML.OnnxRuntimeGenAI](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntimeGenAI) Nuget package into your project:
+
+```powershell
+New-Item -Name "ortapp" -ItemType "directory"
+cd ortapp
+dotnet new console
+dotnet add package Microsoft.ML.OnnxRuntimeGenAI --version 0.5.2
+```
+
+Next, copy-and-paste the following code into your `Program.cs` file and update `modelPath` variable to be the *absolute path* of where you stored your optimized model.
+
+```csharp
+// Program.cs
+using Microsoft.ML.OnnxRuntimeGenAI;
+
+internal class Program
+{
+    private static void Main(string[] args)
+    {
+        string modelPath =@"models/smolm2/model";
+
+        Console.Write("Loading model from " + modelPath + "...");
+        using Model model = new(modelPath);
+        Console.Write("Done\n");
+        using Tokenizer tokenizer = new(model);
+        using TokenizerStream tokenizerStream = tokenizer.CreateStream();
+
+
+        while (true)
+        {
+            Console.Write("User:");
+
+            string prompt = "<|im_start|>user\n" + 
+                            Console.ReadLine() + 
+                            "<|im_end|>\n<|im_start|>assistant\n";
+            var sequences = tokenizer.Encode(prompt);
+
+            using GeneratorParams gParams = new GeneratorParams(model);
+            gParams.SetSearchOption("max_length", 200);
+            gParams.SetInputSequences(sequences);
+            gParams.SetSearchOption("past_present_share_buffer", false);
+            Console.Out.Write("\nAI:");
+
+            using Generator generator = new(model, gParams);
+            while (!generator.IsDone())
+            {
+                generator.ComputeLogits();
+                generator.GenerateNextToken();
+                var token = generator.GetSequence(0)[^1];
+                Console.Out.Write(tokenizerStream.Decode(token));
+                Console.Out.Flush();
+            }
+            Console.WriteLine();
+        }
+    }
+}
+```
+
+Run the application:
+
+```powershell
+dotnet run
 ```
 
 ## 🎓 Learn more
