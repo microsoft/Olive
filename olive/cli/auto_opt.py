@@ -440,7 +440,7 @@ TEMPLATE = {
             ),
             ("peephole_optimizer", {"type": "OnnxPeepholeOptimizer"}),
             # change io types to fp32
-            ("fp16_to_fp32", {"type": "OnnxIOFloat16ToFloat32"}),
+            ("fp16_to_fp32", {"type": "OnnxIODataTypeConverter"}),
             # qnn preparation passes
             ("to_fixed_shape", {"type": "DynamicToFixedShape", "dim_param": None, "dim_value": None}),
             ("qnn_preprocess", {"type": "QNNPreprocess"}),
