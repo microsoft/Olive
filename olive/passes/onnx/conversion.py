@@ -243,21 +243,30 @@ class OnnxConversion(Pass):
                 # times like others, we validate it here.
                 io_config.dynamic_shapes = _validate_dynamic_shapes(io_config.dynamic_shapes, the_input)
                 io_config.dynamic_shapes = _convert_dynamic_shapes_to_torch_export_dims(io_config.dynamic_shapes)
-                onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
-                    pytorch_model,
-                    dummy_inputs,
-                    kwargs=dummy_kwargs,
-                    opset_version=config["target_opset"],
-                    input_names=io_config.input_names,
-                    output_names=io_config.output_names,
-                    dynamic_axes=io_config.dynamic_axes,
-                    dynamic_shapes=io_config.dynamic_shapes,
-                    dynamo=True,
-                    fallback=True,
-                    report=logger.isEnabledFor(logging.DEBUG),
-                )
-                assert onnx_program is not None
-                onnx_model = onnx_program.model_proto
+
+                # there might be multiple files created during export, so we need to track the dir
+                # if there are other processes writing to the same dir, we might end up deleting files created by
+                # other processes
+                with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
+                    tmp_dir_path = Path(tmp_dir)
+                    tmp_model_path = resolve_onnx_path(tmp_dir_path)
+
+                    onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
+                        pytorch_model,
+                        dummy_inputs,
+                        tmp_model_path,  # needed for fallback=True
+                        kwargs=dummy_kwargs,
+                        opset_version=config["target_opset"],
+                        input_names=io_config.input_names,
+                        output_names=io_config.output_names,
+                        dynamic_axes=io_config.dynamic_axes,
+                        dynamic_shapes=io_config.dynamic_shapes,
+                        dynamo=True,
+                        fallback=True,
+                        report=True,
+                    )
+                    assert onnx_program is not None
+                    onnx_model = onnx_program.model_proto
         else:
             # there might be multiple files created during export, so we need to track the dir
             # if there are other processes writing to the same dir, we might end up deleting files created by
@@ -599,7 +608,6 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs):
         )
 
     flat_dynamic_shapes, _ = _pytree.tree_flatten(dynamic_shapes, is_leaf=is_dict_axes)
-
     new_dynamic_shapes = []
     for axes in flat_dynamic_shapes:
         if axes is None:
@@ -611,7 +619,6 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs):
         new_dynamic_shapes.append(new_axes)
 
     _, tree_structure = _pytree.tree_flatten(dummy_inputs, is_leaf=is_dict_axes)
-
     return _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
 
 

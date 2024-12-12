@@ -20,12 +20,14 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 
 
-@pytest.mark.parametrize("input_model", [get_pytorch_model(), get_hf_model()])
-def test_onnx_conversion_pass(input_model, tmp_path):
+@pytest.mark.parametrize(
+    ("input_model", "use_dynamo_exporter"),
+    [(get_pytorch_model(), True), (get_hf_model(), True), (get_pytorch_model(), False), (get_hf_model(), False)],
+)
+def test_onnx_conversion_pass_n(input_model, use_dynamo_exporter, tmp_path):
     # setup
-    p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
+    p = create_pass_from_dict(OnnxConversion, {"use_dynamo_exporter": use_dynamo_exporter}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
-
     # The conversion need torch version > 1.13.1, otherwise, it will complain
     # Unsupported ONNX opset version: 18
     onnx_model = p.run(input_model, output_folder)
