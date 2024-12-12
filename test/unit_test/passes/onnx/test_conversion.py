@@ -11,7 +11,6 @@ from unittest.mock import patch
 
 import pytest
 import torch
-from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.constants import OS
@@ -33,14 +32,7 @@ def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, t
     # Unsupported ONNX opset version: 18
     onnx_model = p.run(input_model, output_folder)
 
-    # NOTE: torch <=2.6 does not support torch.onnx.export(dynamo=True)
-    torch_version = version.parse(torch.__version__).release
-    dynamo_supported_version = version.parse("2.6.0").release
-    if use_dynamo_exporter and torch_version < dynamo_supported_version:
-        with pytest.raises(AssertionError):
-            assert Path(onnx_model.model_path).exists()
-    else:
-        assert Path(onnx_model.model_path).exists()
+    assert Path(onnx_model.model_path).exists()
 
 
 @pytest.mark.skipif(
