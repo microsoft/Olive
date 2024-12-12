@@ -198,6 +198,7 @@ class ReplaceErfWithTanh(Surgeon):
                     logger.warning(
                         "Unsupported dtype %s for node %s. Skip replacing Erf with Tanh.", input_dtype, node.name
                     )
+                    idx += 1
                     continue
 
                 model.graph.node.remove(node)
