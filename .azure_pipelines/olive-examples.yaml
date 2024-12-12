@@ -21,6 +21,7 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     onnxruntime: onnxruntime
     python_version: '3.10'
+    docker_image: 'mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04'
     examples:
       bert_ptq_cpu_docker:
         exampleFolder: bert
@@ -58,6 +59,7 @@ jobs:
     pool: $(OLIVE_POOL_WIN2019)
     onnxruntime: onnxruntime
     python_version: '3.10'
+    docker_image: 'mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04'
     examples:
       bert_inc:
         exampleFolder: bert
@@ -93,6 +95,7 @@ jobs:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     onnxruntime: onnxruntime-gpu
+    docker_image: 'mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04'
     examples:
       mistral:
         exampleFolder: mistral
