@@ -19,6 +19,8 @@ Now, let's take a look at how you can use advance Python interface.
 Start by creating an instance of an OliveModelHandler to represent the model to be optimized. Depending on the model framework, the
 model can be loaded from file or using a model loader function. For a complete of available models and their initialization options, refer to [OliveModels api reference](models).
 
+Note: The `dynamic_shapes` field requires more than just a string. It should be a list in the format [str, int, int], representing [dim_name, min_value, max_value]. This will later be converted to torch.export.Dim(dim_name, min=min_value, max=max_value). For more details, refer to the documentation: https://pytorch.org/docs/stable/export.html#expressing-dynamism
+
 ```python
 from olive.models import Modelconfig
 
@@ -30,6 +32,7 @@ config = {
         "input_shapes": [[1, 3, 32, 32]],
         "output_names": ["output"],
         "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+        "dynamic_shapes": {"input": {0: ["batch_size", 0, 16]}}
     }
 }
 input_model = ModelConfig.parse_obj(config)

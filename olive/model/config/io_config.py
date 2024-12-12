@@ -23,6 +23,12 @@ class IoConfig(ConfigBase):
             "clip_input": { "0": "batch", "1": "channels", "2": "height", "3": "width" },
             "images": { "0": "batch", "1": "height", "2": "width", "3": "channels" }
         },
+        "dynamic_shapes": {
+            "clip_input": { "0": ["batch", 1, 512], "1": ["channels", 0, 3],
+                "2": ["height", 0, 512], "3": ["width", 0, 512] },
+            "images": { "0": ["batch", 1, 512], "1": ["height", 0, 512],
+                "2": ["width", 0, 512], "3": ["channels", 0, 3] }
+        },
         "kv_cache": None
     }
     """
@@ -35,6 +41,12 @@ class IoConfig(ConfigBase):
     output_shapes: List[List[int]] = None
     output_types: List[str] = None
     dynamic_axes: Dict[str, Dict[int, str]] = None
+    # Please check `dynamic_shapes` in torch.export.export
+    # https://pytorch.org/docs/stable/export.html#torch.export.export
+    # NOTE: JSON does not support torch.export.Dim, so we use List[str, int, int] here.
+    # for example, {"input_ids": {0: torch.export.Dim("batch", min=2, max=1024)}}
+    #           -> {"input_ids": {0: ["batch", 2, 1024]}}
+    dynamic_shapes: Union[List[Any], Dict[str, Any]] = None
     # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
     # even though we want the dimension to be a constant int.
     # We use a workaround here: first use dim_param like "1" to represent the dimension, and then
@@ -163,6 +175,8 @@ def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
     output_names = kv_cache_config.get_output_names()
     dynamic_axes = deepcopy(io_config.dynamic_axes or {})
     dynamic_axes.update(kv_cache_config.get_dynamic_axes())
+    dynamic_shapes = deepcopy(io_config.dynamic_shapes or {})
+    dynamic_shapes = kv_cache_config.get_dynamic_shapes(dynamic_shapes)
     return IoConfig(
         input_names=(io_config.input_names or []) + kv_names,
         input_shapes=(io_config.input_shapes or []) + kv_shapes,
@@ -171,6 +185,7 @@ def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
         output_shapes=io_config.output_shapes,  # ignore kv_cache output shapes
         output_types=io_config.output_types,  # ignore kv_cache output types
         dynamic_axes=dynamic_axes,
+        dynamic_shapes=dynamic_shapes,
         kv_cache=kv_cache_config,
     )
 

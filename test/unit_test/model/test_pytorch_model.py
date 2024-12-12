@@ -22,6 +22,11 @@ def io_config_fixture():
             "attention_mask": {"0": "batch_size", "1": "seq_length"},
             "token_type_ids": {"0": "batch_size", "1": "seq_length"},
         },
+        "dynamic_shapes": {
+            "input_ids": {"0": ["batch_size", 1, 32], "1": ["seq_length", 1, 256]},
+            "attention_mask": {"0": ["batch_size", 1, 32], "1": ["seq_length", 1, 256]},
+            "token_type_ids": {"0": ["batch_size", 1, 32], "1": ["seq_length", 1, 256]},
+        },
     }
 
 
