@@ -110,7 +110,8 @@
             "module_path": "olive.passes.onnx.peephole_optimizer.OnnxPeepholeOptimizer",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "extra_dependencies": [ "onnxoptimizer" ]
         },
         "OnnxOpVersionConversion": {
             "module_path": "olive.passes.onnx.conversion.OnnxOpVersionConversion",
