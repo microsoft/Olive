@@ -4,10 +4,10 @@ parameters:
   torch: torch
 
 steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: ${{ parameters.python_version }}
-  displayName: Use Python ${{ parameters.python_version }}
+- script: |
+    apt-get update
+    apt-get install -y python${{ parameters.python_version }} python${{ parameters.python_version }}-dev python3-pip
+  displayName: Install Python Version ${{ parameters.python_version }}
 
 - script: python -m pip install ${{ parameters.torch }}
   displayName: Install torch
