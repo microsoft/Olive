@@ -5,8 +5,8 @@ parameters:
 
 steps:
 - script: |
-    apt-get update
-    apt-get install -y python${{ parameters.python_version }} python${{ parameters.python_version }}-dev python3-pip
+    sudo apt-get update
+    sudo apt-get install -y python${{ parameters.python_version }} python${{ parameters.python_version }}-dev python3-pip
   displayName: Install Python Version ${{ parameters.python_version }}
 
 - script: python -m pip install ${{ parameters.torch }}
