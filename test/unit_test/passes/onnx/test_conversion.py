@@ -25,7 +25,7 @@ from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
     ("input_model", "use_dynamo_exporter"),
     [(get_pytorch_model(), True), (get_hf_model(), True), (get_pytorch_model(), False), (get_hf_model(), False)],
 )
-def test_onnx_conversion_pass_n(input_model, use_dynamo_exporter, tmp_path):
+def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, tmp_path):
     # setup
     p = create_pass_from_dict(OnnxConversion, {"use_dynamo_exporter": use_dynamo_exporter}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
