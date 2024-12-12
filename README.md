@@ -3,7 +3,7 @@
     <source media="(prefers-color-scheme: dark)" srcset="docs/source/images/olive-white-text.png">
     <source media="(prefers-color-scheme: light)" srcset="docs/source/images/olive-black-text.png">
     <img alt="olive text" src="docs/source/images/olive-black-text.png" height="100" style="max-width: 100%;">
-  </picture> 
+  </picture>
 
 [![PyPI release](https://img.shields.io/pypi/v/olive-ai)](https://pypi.org/project/olive-ai/)
 [![Documentation](https://img.shields.io/website/https/microsoft.github.io/Olive?down_color=red&down_message=offline&up_message=online)](https://microsoft.github.io/Olive/)
@@ -11,7 +11,7 @@
 ## AI Model Optimization Toolkit for the ONNX Runtime
 </div>
 
-Given a model and targeted hardware, Olive (abbreviation of **O**nnx **LIVE**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferring on cloud or edge, while taking a set of constraints such as accuracy and latency into consideration. 
+Given a model and targeted hardware, Olive (abbreviation of **O**nnx **LIVE**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferring on cloud or edge, while taking a set of constraints such as accuracy and latency into consideration.
 
 ### ✅ Benefits of using Olive
 
@@ -41,8 +41,8 @@ For a full list of news and blogs, read the [news archive](./NEWS.md).
 
 The following notebooks are available that demonstrate key optimization workflows with Olive:
 
-| Title | Description | Time Required |Notebook Links 
-| -------- | ------------ | -------- | -------- 
+| Title | Description | Time Required |Notebook Links
+| -------- | ------------ | -------- | -------- |
 | Quickstart | *In this notebook you will use Olive's automatic optimizer to ONNX Runtime on a CPU Device and then inference the model using the ONNX Runtime Generate API* | 5mins  | [Download](examples/getting_started/olive_quickstart.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb) |
 | Quantize and Finetune | *In this notebook you will (1) quantize Llama-3.2-1B-Instruct using the AWQ algorithm, (2) fine-tune the quantized model, (3) Optimize the fine-tuned model for the ONNX Runtime, and (4) Inference the fine-tuned model using the ONNX runtime Generate API.* |15mins| [Download](examples/getting_started/olive-awq-ft-llama.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive-awq-ft-llama.ipynb) |
 
@@ -188,8 +188,8 @@ internal class Program
         {
             Console.Write("User:");
 
-            string prompt = "<|im_start|>user\n" + 
-                            Console.ReadLine() + 
+            string prompt = "<|im_start|>user\n" +
+                            Console.ReadLine() +
                             "<|im_end|>\n<|im_start|>assistant\n";
             var sequences = tokenizer.Encode(prompt);
 
