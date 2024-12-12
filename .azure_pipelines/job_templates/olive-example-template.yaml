@@ -7,7 +7,7 @@ parameters:
   onnxruntime: 'onnxruntime'
   subfolder: 'local'
   torch: 'torch'
-  docker_image: '' # Add the Docker image parameter
+  docker_image: ''
 
 jobs:
   - job: ${{ parameters.name }}_Test_Examples
