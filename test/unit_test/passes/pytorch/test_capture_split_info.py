@@ -71,7 +71,8 @@ def get_cost_model(tmp_path, model_name) -> str:
 
 
 @pytest.mark.parametrize("include_embeds_lm_head", [True, False])
-def test_capture_split_info_cost_model(include_embeds_lm_head, tmp_path):
+@pytest.mark.parametrize(("memory", "expected_num_splits"), [(1e4, 4), (2e6, 2)])
+def test_capture_split_info_cost_model(memory, expected_num_splits, include_embeds_lm_head, tmp_path):
     model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
     cost_model_path = get_cost_model(tmp_path, model_name)
 
@@ -85,7 +86,7 @@ def test_capture_split_info_cost_model(include_embeds_lm_head, tmp_path):
         # 2 layers
         # each layer is around 10 kB in fp16
         # embed_tokens and lm_head are around 1 MB each in fp16
-        accelerator_spec=AcceleratorSpec(accelerator_type="cpu", memory=1e4),
+        accelerator_spec=AcceleratorSpec(accelerator_type="cpu", memory=memory),
         disable_search=True,
     )
     input_model = HfModelHandler(model_path=model_name)
@@ -96,9 +97,12 @@ def test_capture_split_info_cost_model(include_embeds_lm_head, tmp_path):
     if not include_embeds_lm_head:
         assert "model.embed_tokens" not in split_assignments
         assert "model.lm_head" not in split_assignments
-        expected_num_splits = 2
+        # 2 splits for embeddings and lm_head for 1e4 memory
+        # 1 split for embeddings for 2e6 memory
+        expected_num_splits = max(1, expected_num_splits - 2)
     else:
-        expected_num_splits = 4
+        first_split_members = [k for k, v in split_assignments.items() if v == 0]
+        assert first_split_members == ["model.embed_tokens"]
 
     assert len(set(split_assignments.values())) == expected_num_splits
 

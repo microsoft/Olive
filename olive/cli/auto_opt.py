@@ -144,9 +144,9 @@ class AutoOptCommand(BaseOliveCLICommand):
             type=str,
             help=(
                 "Path to the cost model csv file to use for model splitting. Mutually exclusive with num-splits. Must"
-                " be a csv with headers `module,num_params,num_bytes` where each row corresponds to the name or a"
-                " module (with no children), the number of parameters, and the number of bytes the module uses when in"
-                " the desired precision."
+                " be a csv with headers `module,num_params,num_bytes,num_flops` where each row corresponds to the name"
+                " or a module (with no children), the number of parameters, the number of bytes, and the number of"
+                " FLOPs(batch_size=1, seqlen=1) the module uses when in the desired precision."
             ),
         )
 
