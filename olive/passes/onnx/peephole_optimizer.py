@@ -307,10 +307,8 @@ class ModelOptimizer:
         return const_nodes
 
     def fold_constant(self):
-        model_copy = copy.deepcopy(self.model)
-
         while True:
-            const_nodes = self._get_constant_nodes(model_copy)
+            const_nodes = self._get_constant_nodes(self.model)
             if not const_nodes:
                 break
 
@@ -322,15 +320,15 @@ class ModelOptimizer:
                     continue
 
                 try:
-                    op_model = self._run_op(model_copy, node)
+                    op_model = self._run_op(self.model, node)
                     outputs = self._run_onnx_model(op_model)
                     for output_array, name in zip(outputs, node.output):
-                        if any(init.name == name for init in model_copy.graph.initializer):
+                        if any(init.name == name for init in self.model.graph.initializer):
                             continue
                         tensor = numpy_helper.from_array(output_array, name)
-                        model_copy.graph.initializer.append(tensor)
+                        self.model.graph.initializer.append(tensor)
                         vi = helper.make_tensor_value_info(name, tensor.data_type, tensor.dims)
-                        model_copy.graph.value_info.append(vi)
+                        self.model.graph.value_info.append(vi)
                     nodes_to_remove.append(node)
                 except Exception as e:
                     logger.warning("Failed to run %s op (name is %s): %s, skip...", node.op_type, node.name, e)
@@ -344,8 +342,7 @@ class ModelOptimizer:
                 break
 
             for node in nodes_to_remove:
-                model_copy.graph.node.remove(node)
-        self.model = model_copy
+                self.model.graph.node.remove(node)
 
 
 class OnnxPeepholeOptimizer(Pass):
