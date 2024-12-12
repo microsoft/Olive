@@ -385,6 +385,63 @@ graph {
 }
 ```
 
+### `ReplaceErfWithTanh`
+
+#### Description
+
+Replaces `Erf` nodes in the ONNX model with an equivalent computation using `Tanh`. The replacement involves scaling the input and applying the `Tanh` function to produce a result that approximates the `Erf` behavior.
+
+#### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  input: "input"
+  output: "erf_output"
+  node {
+    op_type: "Erf"
+    input: ["input"]
+    output: ["erf_output"]
+  }
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "ReplaceErfWithTanh"
+        }
+    ]
+}
+```
+
+Transformed ONNX model graph:
+
+```
+graph {
+  input: "input"
+  initializer: "scale_0" (FLOAT, value: 1.203)
+  node {
+    op_type: "Mul"
+    input: ["input", "scale_0"]
+    output: ["mul_0"]
+    name: "Sub_Mul_0"
+  }
+  node {
+    op_type: "Tanh"
+    input: ["mul_0"]
+    output: ["erf_output"]
+    name: "Sub_Tanh_0"
+  }
+  output: "erf_output"
+}
+```
+
 ### `ZeroOutInput`
 
 #### Description
