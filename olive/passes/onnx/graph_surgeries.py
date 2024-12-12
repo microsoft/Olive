@@ -2,13 +2,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+
+# ruff: noqa: RUF012
+
 import inspect
 import logging
 from typing import Any, ClassVar, Dict, List, Type
 
 import numpy as np
 import onnx
-from onnx import ModelProto
+from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
 
 from olive.hardware.accelerator import AcceleratorSpec
@@ -160,6 +163,83 @@ class ReorderInputs(Surgeon):
         model.graph.input.extend(reordered_inputs)
 
         return model
+
+
+class ReplaceErfWithTanh(Surgeon):
+
+    DTYPE_MAP = {
+        TensorProto.FLOAT: np.float32,
+        TensorProto.FLOAT16: np.float16,
+        TensorProto.DOUBLE: np.float64,
+        TensorProto.BFLOAT16: np.uint16,
+        TensorProto.INT8: np.int8,
+        TensorProto.INT16: np.int16,
+        TensorProto.INT32: np.int32,
+        TensorProto.INT64: np.int64,
+        TensorProto.UINT8: np.uint8,
+        TensorProto.UINT16: np.uint16,
+        TensorProto.UINT32: np.uint32,
+        TensorProto.UINT64: np.uint64,
+    }
+
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        idx = 0
+        while idx < len(model.graph.node):
+            node = model.graph.node[idx]
+            if node.op_type == "Erf":
+                inputs = node.input
+                outputs = node.output
+                input_dtype = self._get_input_dtype(model, inputs[0])
+                np_type = self.DTYPE_MAP.get(input_dtype)
+                if np_type is None:
+                    logger.warning(
+                        "Unsupported dtype %s for node %s. Skip replacing Erf with Tanh.", input_dtype, node.name
+                    )
+                    idx += 1
+                    continue
+
+                model.graph.node.remove(node)
+                name = f"scale_{idx}"
+                output_scale = f"mul_{idx}"
+
+                # scaling constant for tanh
+                value = np.array(605 / 503, dtype=np_type)
+                scale = onnx.helper.make_tensor(
+                    name=name,
+                    data_type=input_dtype,
+                    dims=value.shape,
+                    vals=value.flatten().tolist(),
+                )
+                model.graph.initializer.append(scale)
+
+                mul_node = onnx.helper.make_node(
+                    "Mul", inputs=[inputs[0], name], outputs=[output_scale], name=f"Sub_Mul_{idx}"
+                )
+                tanh_node = onnx.helper.make_node(
+                    "Tanh", inputs=[output_scale], outputs=outputs, name=f"Sub_Tanh_{idx}"
+                )
+
+                model.graph.node.insert(idx, mul_node)
+                model.graph.node.insert(idx + 1, tanh_node)
+                idx += 2
+            else:
+                idx += 1
+        return model
+
+    def _get_input_dtype(self, model, name):
+        for inp in model.graph.input:
+            if inp.name == name:
+                return inp.type.tensor_type.elem_type
+        for vi in model.graph.value_info:
+            if vi.name == name:
+                return vi.type.tensor_type.elem_type
+        for init in model.graph.initializer:
+            if init.name == name:
+                return init.data_type
+        raise ValueError(f"Cannot find dtype for {name}")
 
 
 class ZeroOutInput(Surgeon):

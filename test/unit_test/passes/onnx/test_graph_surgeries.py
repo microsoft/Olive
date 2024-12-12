@@ -195,6 +195,36 @@ def test_reorder_inputs(tmp_path):
     assert [graph_input.name for graph_input in model_def.graph.input] == ["input2", "input1"]
 
 
+def test_replace_erf_with_tanh(tmp_path):
+    # setup
+    model_path = tmp_path / "model.onnx"
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3])
+    output_tensor = helper.make_tensor_value_info("erf_output", TensorProto.FLOAT, [1, 3])
+    erf_node = helper.make_node("Erf", inputs=["input"], outputs=["erf_output"], name="ErfNode")
+    graph_def = helper.make_graph(nodes=[erf_node], name="ErfTestGraph", inputs=[input_tensor], outputs=[output_tensor])
+    model = helper.make_model(graph_def, producer_name="onnx-example")
+    onnx.save(model, model_path)
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "ReplaceErfWithTanh"}]},
+        disable_search=True,
+    )
+
+    # execute
+    onnx_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+    # assert
+    model_def = onnx_model.load_model()
+    tanh_node = next(node for node in model_def.graph.node if node.op_type == "Tanh")
+    mul_node = next(node for node in model_def.graph.node if node.op_type == "Mul")
+
+    scale_initializer = next(init for init in model_def.graph.initializer if init.name == mul_node.input[1])
+    scale_value = np.array(scale_initializer.float_data, dtype=np.float32)
+    assert np.isclose(scale_value, 605 / 503, atol=1e-6), "Scale value mismatch"
+    assert tanh_node.input[0] == mul_node.output[0], "Tanh input should match Mul output"
+    assert tanh_node.output[0] == "erf_output", "Tanh output should replace Erf output"
+
+
 def test_zero_out_input(tmp_path):
     # setup
     input_model_path = tmp_path / "model.onnx"
