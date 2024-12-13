@@ -25,6 +25,3 @@ steps:
   - script: |
       pip install ${{ parameters.onnxruntime }}
     displayName: Install ${{ parameters.onnxruntime }}
-
-- script: pip install onnxscript
-  displayName: Install onnxscript
