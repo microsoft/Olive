@@ -635,6 +635,33 @@
 <p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
 <p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-onnxoptimizer">
+<span class="sig-name descname"><span class="pre">onnxoptimizer</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-onnxoptimizer" title="Link to this definition">#</a></dt>
+<dd><p>Whether to run the ONNX optimizer (<a class="github reference external" href="https://github.com/onnx/optimizer/">onnx/optimizer</a>). Default is False.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-passes">
+<span class="sig-name descname"><span class="pre">passes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-passes" title="Link to this definition">#</a></dt>
+<dd><p>List of passes of ONNX optimizer to run. Default is None.</p>
+<p><strong>type:</strong> List[str]</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-fixed_point">
+<span class="sig-name descname"><span class="pre">fixed_point</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-fixed_point" title="Link to this definition">#</a></dt>
+<dd><p>Whether to run the fixed-point optimization of ONNX optimizer. Default is False.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-6">
 <span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-6" title="Link to this definition">#</a></dt>
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
