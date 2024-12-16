@@ -715,7 +715,7 @@
 <dd><p>Number of splits to use for model splitting. Input model must be an HfModel.</p>
 </dd>
 <dt><kbd>--cost-model</kbd></dt>
-<dd><p>Path to the cost model csv file to use for model splitting. Mutually exclusive with num-splits. Must be a csv with headers <cite>module,num_params,num_bytes</cite> where each row corresponds to the name or a module (with no children), the number of parameters, and the number of bytes the module uses when in the desired precision.</p>
+<dd><p>Path to the cost model csv file to use for model splitting. Mutually exclusive with num-splits. Must be a csv with headers <cite>module,num_params,num_bytes,num_flops</cite> where each row corresponds to the name or a module (with no children), the number of parameters, the number of bytes, and the number of FLOPs(batch_size=1, seqlen=1) the module uses when in the desired precision.</p>
 </dd>
 <dt><kbd>--mixed-precision-overrides-config</kbd></dt>
 <dd><p>Dictionary of name to precision. Has to be even number of entreis with even entries being the keys and odd entries being the values. Required only when output precision is “fp16” and MixedPrecisionOverrides pass is enabled.</p>

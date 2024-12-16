@@ -3960,7 +3960,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-cost_model">
 <span class="sig-name descname"><span class="pre">cost_model</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-cost_model" title="Link to this definition">#</a></dt>
-<dd><p>Path to the cost model csv file. One of num_splits or cost_model is required. Must be a csv with headers <cite>module,num_params,num_bytes</cite> where each row corresponds to the name or a module (with no children), the number of parameters, and the number of bytes the module uses when in the desired precision.</p>
+<dd><p>Path to the cost model csv file. One of num_splits or cost_model is required. Must be a csv with headers <cite>module,num_params,num_bytes,num_flops</cite> where each row corresponds to the name or a module (with no children), the number of parameters, the number of bytes, and the number of FLOPs(batch_size=1, seqlen=1) the module uses when in the desired precision.</p>
 <p><strong>type:</strong> str | pathlib.Path</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
