@@ -22,9 +22,6 @@ jobs:
     onnxruntime: onnxruntime
     python_version: '3.10'
     examples:
-      bert_ptq_cpu_docker:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu_docker
       bert_inc:
         exampleFolder: bert
         exampleName: bert_inc
@@ -34,12 +31,6 @@ jobs:
       resnet_qat:
         exampleFolder: resnet
         exampleName: resnet_qat
-      deberta:
-        exampleFolder: deberta
-        exampleName: deberta
-      ast:
-        exampleFolder: ast
-        exampleName: ast
       super_resolution:
         exampleFolder: super_resolution
         exampleName: super_resolution
@@ -71,12 +62,6 @@ jobs:
       resnet_qat:
         exampleFolder: resnet
         exampleName: resnet_qat
-      deberta:
-        exampleFolder: deberta
-        exampleName: deberta
-      ast:
-        exampleFolder: ast
-        exampleName: ast
       super_resolution:
         exampleFolder: super_resolution
         exampleName: super_resolution
