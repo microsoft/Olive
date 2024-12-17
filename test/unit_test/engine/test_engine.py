@@ -62,10 +62,10 @@ class TestEngine:
         engine.register(OnnxConversion, host=system, evaluator_config=evaluator_config)
 
         # assert
-        assert name in engine.pass_config
-        assert engine.pass_config[name]["type"] == OnnxConversion
-        assert engine.pass_config[name]["host"] == system
-        assert engine.pass_config[name]["evaluator"] == evaluator_config
+        assert name in engine.pass_configs
+        assert engine.pass_configs[name]["type"] == OnnxConversion
+        assert engine.pass_configs[name]["host"] == system
+        assert engine.pass_configs[name]["evaluator"] == evaluator_config
 
     def test_register_no_search(self, tmpdir):
         # setup
@@ -82,7 +82,7 @@ class TestEngine:
         engine.register(OnnxDynamicQuantization)
 
         # assert
-        assert "OnnxDynamicQuantization" in engine.pass_config
+        assert "OnnxDynamicQuantization" in engine.pass_configs
 
     def test_default_engine_run(self, tmpdir):
         # setup
@@ -143,16 +143,11 @@ class TestEngine:
         system_object.olive_managed_env = False
 
         engine = Engine(**options)
-        p1_name = "converter_13"
-        p2_name = "converter_14"
-        p1, p1_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
-        p2, p2_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=14)
-        engine.register(OnnxConversion, name=p1_name, config=p1_config)
-        engine.register(OnnxConversion, name=p2_name, config=p2_config)
-        engine.set_pass_flows([[p1_name], [p2_name]])
+        p_name = "converter_13"
+        p, p_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
+        engine.register(OnnxConversion, name=p_name, config=p_config)
         model_ids = [
-            engine.cache.get_output_model_id(p1.__class__.__name__, p1_config, input_model_id),
-            engine.cache.get_output_model_id(p2.__class__.__name__, p2_config, input_model_id),
+            engine.cache.get_output_model_id(p.__class__.__name__, p_config, input_model_id),
         ]
         expected_res = {
             model_id: {
@@ -183,10 +178,8 @@ class TestEngine:
         assert input_model_id not in actual_res.nodes
 
         # assert
-        assert len(actual_res.nodes) == 2
+        assert len(actual_res.nodes) == 1
         assert model_ids == list(actual_res.nodes.keys())
-
-        assert actual_res.nodes[model_ids[0]].model_id != actual_res.nodes[model_ids[1]].model_id
 
         for model_id, result in expected_res.items():
             # ensure two converted models are from the same input model
@@ -199,8 +192,8 @@ class TestEngine:
                 else:
                     assert getattr(actual_res.nodes[model_id], k) == v
 
-        assert system_object.run_pass.call_count == 2
-        assert system_object.evaluate_model.call_count == 3
+        assert system_object.run_pass.call_count == 1
+        assert system_object.evaluate_model.call_count == 2
         system_object.evaluate_model.assert_called_with(onnx_model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
 
     @patch("olive.systems.local.LocalSystem")
@@ -218,7 +211,6 @@ class TestEngine:
 
         engine = Engine(cache_config={"cache_dir": tmpdir})
         engine.register(OptimumConversion)
-        engine.set_pass_flows()
         # output model to output_dir
         output_dir = Path(tmpdir)
 
@@ -261,7 +253,6 @@ class TestEngine:
         engine = Engine(**options)
         _, p_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
         engine.register(OnnxConversion, config=p_config)
-        engine.set_pass_flows()
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
 
         output_model_id = engine.cache.get_output_model_id(
