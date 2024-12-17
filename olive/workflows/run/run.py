@@ -6,6 +6,7 @@ import importlib.metadata
 import logging
 import subprocess
 import sys
+from collections import OrderedDict
 from copy import deepcopy
 from pathlib import Path
 from typing import Generator, List, Optional, Union
@@ -199,27 +200,42 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
         engine.target_config, skip_supported_eps_check=target_not_used, is_ep_required=is_ep_required
     )
 
-    pass_list = []
-    acc_list = []
+    accelerators_passes_configs = []
     if auto_optimizer_enabled:
         # For auto optimizer, Olive generates passes and pass_flows for each accelerator
         # that means, the passes and pass_flows might be different for each accelerator
         for acc_spec in accelerator_specs:
-            _passes, pass_flows = AutoOptimizer(
+            passes, pass_flows = AutoOptimizer(
                 input_model,
                 engine.evaluator_config,
                 acc_spec,
                 run_config.auto_optimizer_config,
                 run_config.data_configs,
             ).suggest()
-            pass_list.append(({k: RunPassConfig.parse_obj(v) for k, v in _passes.items()}, pass_flows))
-            acc_list.append([acc_spec])
+            accelerators_passes_configs.append(
+                (
+                    [acc_spec],
+                    [
+                        OrderedDict(
+                            [(pass_name, RunPassConfig.parse_obj(passes[pass_name])) for pass_name in pass_flow]
+                        )
+                        for pass_flow in pass_flows
+                    ],
+                )
+            )
     else:
         # For non-auto-optimizer case, Olive uses the same passes and pass_flows for all accelerators
         # if user needs different passes and pass_flows for each accelerator, they need to write multiple
         # config files.
-        pass_list.append((run_config.passes, run_config.pass_flows))
-        acc_list.append(accelerator_specs)
+        accelerators_passes_configs.append(
+            (
+                accelerator_specs,
+                [
+                    OrderedDict([(pass_name, run_config.passes[pass_name]) for pass_name in pass_flow])
+                    for pass_flow in run_config.pass_flows
+                ],
+            )
+        )
 
     run_rls = {}
     # Note that, in Olive, there are two positions where the accelerator_specs are looped over:
@@ -229,21 +245,21 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     # TODO(anyone): refactor the code to remove the engine level loop if possible.
     # For time being, we are keeping both loops, but in future, we might want to refactor the code
     # to remove engine level loop and pass the accelerator_specs to the engine directly.
-    for accelerator_spec, (passes, pass_flows) in zip(acc_list, pass_list):
+    for accelerator_specs, passes_configs in accelerators_passes_configs:
         engine.reset_passes()
-        pass_flows_to_run = {p for ps in pass_flows for p in ps} if pass_flows else set(passes.keys())
+
         # First pass registers the necessary module implementation
-        for pass_name in pass_flows_to_run:
-            pass_config = passes[pass_name]
-            if pass_config.type.lower() in Pass.registry:
-                logger.debug("Pass %s already registered", pass_config.type)
-            else:
-                logger.debug("Registering pass %s", pass_config.type)
-                package_config.import_pass_module(pass_config.type)
+        for passes_config in passes_configs:
+            for pass_config in passes_config.values():
+                if pass_config.type.lower() in Pass.registry:
+                    logger.debug("Pass %s already registered", pass_config.type)
+                else:
+                    logger.debug("Registering pass %s", pass_config.type)
+                    package_config.import_pass_module(pass_config.type)
 
         # Second pass, initializes the pass and registers it with the engine
-        for pass_name, pass_config in passes.items():
-            if pass_name in pass_flows_to_run:
+        for passes_config in passes_configs:
+            for pass_name, pass_config in passes_config.items():
                 host = pass_config.host.create_system() if pass_config.host is not None else None
                 engine.register(
                     Pass.registry[pass_config.type.lower()],
@@ -252,13 +268,14 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
                     host=host,
                     evaluator_config=pass_config.evaluator,
                 )
-            engine.set_pass_flows(pass_flows)
+
+        engine.set_pass_flows(run_config.pass_flows)
 
         # run
         run_rls.update(
             engine.run(
                 input_model,
-                accelerator_spec,
+                accelerator_specs,
                 run_config.engine.packaging_config,
                 run_config.engine.output_dir,
                 run_config.engine.evaluate_input_model,
