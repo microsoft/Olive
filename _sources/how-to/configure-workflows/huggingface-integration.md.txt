@@ -73,6 +73,11 @@ You can also provide your own IO config which will override the automatically fe
             "input_ids": { "0": "batch_size", "1": "sequence_length" },
             "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
             "position_ids": { "0": "batch_size", "1": "sequence_length" }
+        },
+        "dynamic_shapes": {
+            "input_ids": { "0": ["batch_size", 0, 8], "1": ["sequence_length", 0, 2048] },
+            "attention_mask": { "0": ["batch_size", 0, 8], "1": ["total_sequence_length", 0, 3072] },
+            "position_ids": { "0": ["batch_size", 0, 8], "1": ["sequence_length", 0, 2048] }
         }
     }
 }
