@@ -124,6 +124,9 @@ def get_model_io_config(model_name: str, task: str, model: "PreTrainedModel", **
         for axis, axis_name in value.items():
             if axis_name == "past_sequence_length + 1":
                 value[axis] = "past_sequence_length + sequence_length"
+    # NOTE: Due to the complexity of dynamic_shapes, we don't provide it here.
+    # torch-onnx converter has a naive approach to auto-gen dynamic shapes based on input and
+    # dynamic_axes, so we don't need to provide dynamic shapes here.
     return {"input_names": input_names, "output_names": output_names, "dynamic_axes": dynamic_axes}
 
 

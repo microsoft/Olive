@@ -253,6 +253,27 @@ def tensor_data_to_device(data, device: str):
         return data
 
 
+def tensor_data_to_dtype(data, dtype):
+    import torch
+
+    if dtype is None:
+        return data
+
+    from torch import Tensor
+
+    if isinstance(data, Tensor) and data.dtype in {torch.bfloat16, torch.float16, torch.float32, torch.float64}:
+        return data.to(dtype)
+    if isinstance(data, dict):
+        return {k: tensor_data_to_dtype(v, dtype) for k, v in data.items()}
+    if isinstance(data, list):
+        return [tensor_data_to_dtype(v, dtype) for v in data]
+    if isinstance(data, tuple):
+        return tuple(tensor_data_to_dtype(v, dtype) for v in data)
+    if isinstance(data, set):
+        return {tensor_data_to_dtype(v, dtype) for v in data}
+    return data
+
+
 def resolve_torch_dtype(dtype):
     """Get torch dtype from string or torch dtype.
 

@@ -22,6 +22,8 @@ onnxconverter_common
 onnxmltools
 onnxoptimizer
 onnxruntime_extensions
+# TODO(titaiwai): Add onnxscript to requirements.txt once it's released
+onnxscript
 openvino==2023.2.0
 optimum>=1.17.0
 pandas
