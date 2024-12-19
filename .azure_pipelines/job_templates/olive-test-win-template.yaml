@@ -1,0 +1,95 @@
+# Example Windows test template for Olive pipeline
+
+parameters:
+  name: ''
+  pool: ''
+  test_type: ''
+  windows: False
+  device: 'cpu'
+  python_version: '3.10'
+  onnxruntime: 'onnxruntime'
+  torch: 'torch'
+  requirements_file: 'requirements-test.txt'
+
+jobs:
+- job: ${{parameters.name}}
+  timeoutInMinutes: 300
+  pool:
+    name: ${{ parameters.pool}}
+  variables:
+    WINDOWS: ${{ parameters.windows}}
+    testType: ${{ parameters.test_type }}
+    python_version: ${{ parameters.python_version }}
+    requirements_file: ${{ parameters.requirements_file }}
+    PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
+    HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
+    PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
+
+  steps:
+  - script: docker system df && docker system prune -a -f && docker system df
+    displayName: Clean docker images
+    continueOnError: true
+
+  - template: olive-setup-template.yaml
+    parameters:
+      python_version: ${{ parameters.python_version }}
+      onnxruntime: ${{ parameters.onnxruntime }}
+      torch: ${{ parameters.torch }}
+
+  - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
+    - script: |
+          call python -m pip install pytest
+          call curl --output openvino_toolkit.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0.1/windows/w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64.zip
+          call 7z x openvino_toolkit.zip
+          call w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64\\setupvars.bat
+          call python -m pip install numpy psutil coverage protobuf==3.20.3
+          call coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType) --basetemp $(PYTEST_BASETEMP)
+          call coverage xml
+      displayName: Test Olive
+      env:
+        WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
+        WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
+        WORKSPACE_NAME: $(workspace-name)
+        MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
+  - ${{ else }}:
+    - script: |
+          python -m pip install pytest
+          python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
+
+          coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType) --basetemp $(PYTEST_BASETEMP)
+          coverage xml
+      displayName: Test Olive
+      env:
+        WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
+        WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
+        WORKSPACE_NAME: $(workspace-name)
+        MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
+
+  - task: CredScan@3
+    displayName: 'Run CredScan'
+    inputs:
+      debugMode: false
+    continueOnError: true
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: '**/*TestOlive*.xml'
+      testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
+      failTaskOnFailedTests: true
+    displayName: Upload pipeline run test results
+
+  # Code coverage requires
+  - task: UseDotNet@2
+    displayName: 'Use .NET Core sdk 7.0.x'
+    inputs:
+      version: 7.0.x
+
+  - task: PublishCodeCoverageResults@2
+    inputs:
+      summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+    displayName: Publish code coverage results
+
+  - script: git clean -dfX
+    condition: always()
+    displayName: Clean remaining artifacts

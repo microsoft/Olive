@@ -51,31 +51,34 @@ variables:
 
 jobs:
 # Linux unit tests
-- template: job_templates/olive-test-template.yaml
+- template: job_templates/olive-test-linux-cpu-template.yaml
   parameters:
     name: Linux_CPU_CI_Unit_Test
     pool: $(OLIVE_POOL_UBUNTU2004)
+    onnxruntime: onnxruntime==1.19.2
     test_type: 'unit_test'
 
-- template: job_templates/olive-test-template.yaml
+- template: job_templates/olive-test-linux-gpu-template.yaml
   parameters:
     name: Linux_GPU_CI_Unit_Test
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     test_type: 'unit_test'
     device: 'gpu'
-    onnxruntime: onnxruntime-gpu
+    dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
+    onnxruntime: onnxruntime-gpu==1.19.2
     requirements_file: 'requirements-test-gpu.txt'
 
 # Windows unit tests
-- template: job_templates/olive-test-template.yaml
+- template: job_templates/olive-test-win-template.yaml
   parameters:
     name: Windows_CPU_CI_Unit_Test
     pool: $(OLIVE_POOL_WIN2019)
+    onnxruntime: onnxruntime==1.19.2
     test_type: 'unit_test'
     windows: True
 
 # Linux examples test
-- template: job_templates/olive-example-template.yaml
+- template: job_templates/olive-example-linux-template.yaml
   parameters:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
@@ -95,7 +98,7 @@ jobs:
         exampleName: mobilenet_qnn_ep
 
 # Windows examples test
-- template: job_templates/olive-example-template.yaml
+- template: job_templates/olive-example-win-template.yaml
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
@@ -115,11 +118,13 @@ jobs:
         exampleName: mobilenet_qnn_ep
 
 # Linux GPU examples testing.
-- template: job_templates/olive-example-template.yaml
+- template: job_templates/olive-example-linux-gpu-template.yaml
   parameters:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    device: 'gpu'
     onnxruntime: onnxruntime-gpu
+    dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
     examples:
       bert_cuda_gpu:
         exampleFolder: bert
@@ -128,21 +133,17 @@ jobs:
         exampleFolder: stable_diffusion
         exampleName: stable_diffusion_cuda_gpu
         exampleRequirements: requirements-common.txt
-      llama2:
-        exampleFolder: llama2
-        exampleName: llama2
-        exampleRequirements: requirements-pipeline.txt
 
 # these jobs need secrets not available in forks
 - ${{ if ne(variables['System.PullRequest.IsFork'], 'True') }}:
   # integration tests
-  - template: job_templates/olive-test-template.yaml
+  - template: job_templates/olive-test-linux-cpu-template.yaml
     parameters:
       name: Linux_CPU_CI_Integration_Test
       pool: $(OLIVE_POOL_UBUNTU2004)
       test_type: 'integ_test'
 
-  - template: job_templates/olive-test-template.yaml
+  - template: job_templates/olive-test-win-template.yaml
     parameters:
       name: Windows_CPU_CI_Integration_Test
       pool: $(OLIVE_POOL_WIN2019)
@@ -150,7 +151,7 @@ jobs:
       windows: True
 
   # Multiple EP Linux testing
-  - template: job_templates/olive-test-template.yaml
+  - template: job_templates/olive-test-linux-cpu-template.yaml
     parameters:
       name: Linux_CI_Multiple_EP_Test
       pool: $(OLIVE_POOL_UBUNTU2004)

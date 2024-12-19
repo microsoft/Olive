@@ -15,12 +15,11 @@ variables:
 
 jobs:
 # Linux examples test
-- template: job_templates/olive-example-template.yaml
+- template: job_templates/olive-example-linux-template.yaml
   parameters:
-    name: Linux_CI
+    name: Linux_Examples
     pool: $(OLIVE_POOL_UBUNTU2004)
     onnxruntime: onnxruntime
-    python_version: '3.10'
     examples:
       bert_inc:
         exampleFolder: bert
@@ -43,12 +42,11 @@ jobs:
 
 
 # Windows examples test
-- template: job_templates/olive-example-template.yaml
+- template: job_templates/olive-example-win-template.yaml
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     onnxruntime: onnxruntime
-    python_version: '3.10'
     examples:
       bert_inc:
         exampleFolder: bert
@@ -73,11 +71,13 @@ jobs:
         exampleName: snpe_toolkit
 
 # Linux GPU examples testing.
-- template: job_templates/olive-example-template.yaml
+- template: job_templates/olive-example-linux-template.yaml
   parameters:
-    name: Linux_GPU_CI
+    name: Linux_GPU_Examples
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    device: 'gpu'
     onnxruntime: onnxruntime-gpu
+    dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
     examples:
       mistral:
         exampleFolder: mistral

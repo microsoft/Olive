@@ -2,5 +2,6 @@ evaluate
 librosa
 optimum
 psutil
-scikit-learn
+# https://github.com/huggingface/evaluate/issues/655
+scikit-learn==1.5.2
 soundfile

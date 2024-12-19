@@ -13,7 +13,6 @@ CONDA_CONFIG = {
                 "accelerate",
                 "bitsandbytes",
                 "peft",
-                "scikit-learn",
                 "sentencepiece",
                 "datasets",
                 "evaluate",
