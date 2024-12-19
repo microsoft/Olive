@@ -7,9 +7,8 @@ evaluate
 neural-compressor
 optimum
 pytorch_lightning
-scikit-learn
+# https://github.com/huggingface/evaluate/issues/655
+scikit-learn==1.5.2
 scipy
 tabulate
-# 4.46.0 is broken https://github.com/huggingface/transformers/issues/34370
-# TODO(anyone): remove when the issue is fixed or CI migrates to python 3.9
-transformers<4.46.0
+transformers

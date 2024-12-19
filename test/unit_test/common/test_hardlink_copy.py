@@ -12,7 +12,7 @@ randbytes = (
 
 
 def _randstr(start, stop):
-    return randbytes(random.randint(start, stop))
+    return str(randbytes(random.randint(start, stop)))
 
 
 @pytest.fixture(name="create_dir")
