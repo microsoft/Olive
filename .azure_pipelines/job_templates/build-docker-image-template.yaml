@@ -1,0 +1,19 @@
+# Docker image build template
+
+parameters:
+  dockerfile: ''
+  python_version: ''
+  docker_image: ''
+
+steps:
+- script: |
+    docker login -u $(docker-username) -p $(docker-password)
+    docker build --build-arg PYTHON_VERSION=${{ parameters.python_version }} -t ${{ parameters.docker_image }} -f $(Build.SourcesDirectory)/${{ parameters.dockerfile }} .
+  displayName: Build Docker Image
+
+- script: |
+    docker version
+    docker image ls
+    docker system df
+    df -h
+  displayName: Check Docker Images
