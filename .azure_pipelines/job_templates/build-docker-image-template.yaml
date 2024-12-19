@@ -1,4 +1,4 @@
-# calls tools/ci_build/get_docker_image.py
+# Docker image build template
 
 parameters:
   dockerfile: ''

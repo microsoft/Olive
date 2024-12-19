@@ -1,3 +1,5 @@
+# Example Linux test template for Olive pipeline
+
 parameters:
   name: ''
   pool: ''
