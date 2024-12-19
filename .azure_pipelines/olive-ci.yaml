@@ -118,7 +118,7 @@ jobs:
         exampleName: mobilenet_qnn_ep
 
 # Linux GPU examples testing.
-- template: job_templates/olive-example-linux-gpu-template.yaml
+- template: job_templates/olive-example-linux-template.yaml
   parameters:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
