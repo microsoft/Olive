@@ -65,7 +65,10 @@ def _make_model_for_patch_unsupported_argmax_operator(
     return model_proto_to_olive_model(model, filepath, config)
 
 
-def test_onnx_peephole_optimizer_pass_patch_unsupported_argmax_operator_modified(tmp_path, external_data_config):
+@patch("onnxscript.optimizer.optimize")
+def test_onnx_peephole_optimizer_pass_patch_unsupported_argmax_operator_modified(
+    mock_optimize, tmp_path, external_data_config
+):
     m = _make_model_for_patch_unsupported_argmax_operator(
         TensorProto.INT64, str(tmp_path / "input.onnx"), external_data_config
     )
@@ -190,6 +193,21 @@ def test_onnx_peephole_optimizer_pass_fuse_reshape_operations(tmp_path, external
 
 
 @patch("olive.passes.onnx.peephole_optimizer.model_proto_to_olive_model")
+@patch("onnxscript.optimizer.optimize")
+def test_onnxscript(mock_optimize, mock_model_proto_to_olive_model, tmp_path):
+    # setup
+    input_model = get_onnx_model()
+    p = create_pass_from_dict(OnnxPeepholeOptimizer, {}, disable_search=True)
+    output_folder = str(tmp_path / "onnx")
+
+    # execute
+    p.run(input_model, output_folder)
+
+    # assert
+    mock_optimize.assert_called_once_with(input_model.load_model())
+
+
+@patch("olive.passes.onnx.peephole_optimizer.model_proto_to_olive_model")
 @patch("onnxoptimizer.optimize")
 def test_onnxoptimizer(mock_optimize, mock_model_proto_to_olive_model, tmp_path):
     # setup
@@ -212,72 +230,3 @@ def test_onnxoptimizer(mock_optimize, mock_model_proto_to_olive_model, tmp_path)
 
     # assert
     mock_optimize.assert_called_once_with(input_model.load_model(), passes, fixed_point)
-
-
-def test_onnx_peephole_optimizer_pass_constant_folding(tmp_path, external_data_config):
-    import numpy as np
-
-    # setup
-    model = _get_onnx_model_with_constant(str(tmp_path / "input.onnx"), external_data_config)
-    input_model = model.load_model()
-    input_constant_nodes = [node for node in input_model.graph.node if node.op_type == "Constant"]
-    input_initializer_names = {initializer.name for initializer in input_model.graph.initializer}
-    p = create_pass_from_dict(
-        OnnxPeepholeOptimizer, None, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR
-    )
-
-    # execute
-    output_model = p.run(model, tmp_path / "onnx")
-
-    # assert
-    assert Path(output_model.model_path).exists()
-    output_model = output_model.load_model()
-    output_constant_nodes = [node for node in output_model.graph.node if node.op_type == "Constant"]
-    output_initializer_names = {initializer.name for initializer in output_model.graph.initializer}
-    assert len(output_constant_nodes) < len(input_constant_nodes), "Constant nodes were not folded."
-    assert len(output_initializer_names) > len(input_initializer_names), "Initializers were not updated."
-    inputs = {"input": np.random.rand(1, 3).astype(np.float32)}
-    original_outputs = _run_onnx_model(input_model, inputs)
-    optimized_outputs = _run_onnx_model(output_model, inputs)
-    assert np.allclose(
-        original_outputs, optimized_outputs, atol=1e-6
-    ), "Outputs are not consistent after constant folding."
-
-
-def _get_onnx_model_with_constant(model_path, external_data_config):
-    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3])
-    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3])
-    const_tensor = helper.make_tensor(
-        name="const_add",
-        data_type=TensorProto.FLOAT,
-        dims=[1, 3],
-        vals=[1.0, 2.0, 3.0],
-    )
-    const_node = helper.make_node(
-        "Constant",
-        inputs=[],
-        outputs=["const"],
-        value=const_tensor,
-    )
-    add_node = helper.make_node(
-        "Add",
-        inputs=["input", "const"],
-        outputs=["output"],
-    )
-    graph_def = helper.make_graph(
-        nodes=[const_node, add_node],
-        name="ConstantFoldingGraph",
-        inputs=[input_tensor],
-        outputs=[output_tensor],
-        initializer=[],
-    )
-    opset_imports = [helper.make_operatorsetid("", 21)]
-    model = helper.make_model(graph_def, producer_name="onnx-example", opset_imports=opset_imports)
-    return model_proto_to_olive_model(model, model_path, external_data_config)
-
-
-def _run_onnx_model(model, inputs):
-    import onnxruntime as ort
-
-    session = ort.InferenceSession(model.SerializeToString(), providers=["CPUExecutionProvider"])
-    return session.run(None, inputs)

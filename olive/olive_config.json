@@ -111,7 +111,7 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "extra_dependencies": [ "onnxoptimizer" ]
+            "extra_dependencies": [ "onnxoptimizer", "onnxscript" ]
         },
         "OnnxOpVersionConversion": {
             "module_path": "olive.passes.onnx.conversion.OnnxOpVersionConversion",
