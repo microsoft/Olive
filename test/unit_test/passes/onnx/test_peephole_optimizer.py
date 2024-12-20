@@ -66,7 +66,9 @@ def _make_model_for_patch_unsupported_argmax_operator(
 
 
 @patch("onnxscript.optimizer.optimize")
-def test_onnx_peephole_optimizer_pass_patch_unsupported_argmax_operator_modified(mock_optimize, tmp_path, external_data_config):
+def test_onnx_peephole_optimizer_pass_patch_unsupported_argmax_operator_modified(
+    mock_optimize, tmp_path, external_data_config
+):
     m = _make_model_for_patch_unsupported_argmax_operator(
         TensorProto.INT64, str(tmp_path / "input.onnx"), external_data_config
     )
