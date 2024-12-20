@@ -106,7 +106,7 @@ def get_aml_target():
     conda_file_location = current_path / "conda.yaml"
     azureml_client_config = AzureMLClientConfig(**get_olive_workspace_config())
     docker_config = AzureMLDockerConfig(
-        base_image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+        base_image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04",
         conda_file_path=conda_file_location,
     )
     return AzureMLSystem(

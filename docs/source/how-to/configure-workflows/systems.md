@@ -290,7 +290,7 @@ There are some readymade systems available for AzureML. These systems are pre-co
     ],
     "aml_compute": "gpu-cluster",
     "aml_docker_config": {
-        "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+        "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04",
         "conda_file_path": "conda.yaml"
     }
 }

@@ -22,7 +22,7 @@ def test_aml_model_pass_run(tmp_path):
     workspace_config = get_olive_workspace_config()
     azureml_client_config = AzureMLClientConfig(**workspace_config)
     docker_config = AzureMLDockerConfig(
-        base_image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+        base_image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04",
         conda_file_path=conda_file_location,
     )
     aml_system = AzureMLSystem(

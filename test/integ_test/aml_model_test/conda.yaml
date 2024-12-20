@@ -2,7 +2,7 @@ name: project_environment
 channels:
   - defaults
 dependencies:
-  - python=3.8.13
+  - python=3.10.16
   - pip=22.3.1
   - pip:
       - azure-ai-ml
@@ -11,6 +11,6 @@ dependencies:
       - onnxruntime
       - datasets
       - scipy
-      - transformers
+      - transformers==4.31.0 # TODO(team): 55036 Fixed error and update to latest version
       - onnxconverter_common
       - git+https://github.com/microsoft/Olive.git
