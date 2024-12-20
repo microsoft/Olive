@@ -25,7 +25,7 @@ def test_system_alias(accelerators, expected_accelerators):
         "config": {
             "aml_compute": "gpu-cluster",
             "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04",
                 "conda_file_path": "conda.yaml",
             },
         },
@@ -34,7 +34,7 @@ def test_system_alias(accelerators, expected_accelerators):
     system_config = SystemConfig.parse_obj(config)
     assert system_config.type == "AzureML"
     assert system_config.config.aml_compute == "gpu-cluster"
-    assert system_config.config.aml_docker_config.base_image == "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04"
+    assert system_config.config.aml_docker_config.base_image == "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04"
     assert system_config.config.accelerators == expected_accelerators
 
 
@@ -44,7 +44,7 @@ def test_system_alias_no_accelerators():
         "config": {
             "aml_compute": "gpu-cluster",
             "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04",
                 "conda_file_path": "conda.yaml",
             },
         },

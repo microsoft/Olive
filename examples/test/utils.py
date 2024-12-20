@@ -143,7 +143,7 @@ def get_cpu_compute(hf_token):
         "accelerators": [{"device": "CPU", "execution_providers": ["CPUExecutionProvider"]}],
         "aml_compute": "cpu-cluster",
         "aml_docker_config": {
-            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04",
             "conda_file_path": "conda.yaml",
         },
         "is_dev": True,

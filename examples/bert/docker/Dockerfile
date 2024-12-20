@@ -5,7 +5,7 @@
 
 # mcr image https://github.com/microsoft/mcr
 # tag list https://mcr.microsoft.com/v2/azureml/openmpi4.1.0-ubuntu20.04/tags/list
-FROM mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04
+FROM mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04
 
 ARG OPENVINO_VERSION=2023.3.0
 
