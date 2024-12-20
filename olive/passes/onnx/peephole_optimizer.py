@@ -2,16 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import copy
 import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
 import numpy as np
 import onnx
-import onnxruntime as ort
 from google.protobuf.message import Message
-from onnx import TensorProto, helper, numpy_helper
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -235,114 +232,14 @@ class ModelOptimizer:
             logger.debug("Fused %d redundant Reshape operators", num_changed)
             o_model.prune_graph()
 
-    def _find_initializer_by_name(self, model, name):
-        for initializer in model.graph.initializer:
-            if initializer.name == name:
-                return initializer
-        raise ValueError(f"No initializer named {name}")
+    def onnxscript_optimize(self):
+        try:
+            import onnxscript
+        except ImportError:
+            logger.warning("Please install onnxscript to use the ONNX optimizer feature. Skip onnxscript optimization.")
+            return
 
-    def _find_value_info_proto_by_name(self, model, name):
-        """Find the ValueInfoProto with the name name in the model's value_info."""
-        for vi in model.graph.value_info:
-            if vi.name == name:
-                return vi
-
-        for initializer in model.graph.initializer:
-            if initializer.name == name:
-                return helper.make_tensor_value_info(name, initializer.data_type, initializer.dims)
-
-        for graph_input in model.graph.input:
-            if graph_input.name == name:
-                return graph_input
-
-        raise ValueError(f"No value info proto named {name}")
-
-    def _run_op(self, model, op):
-        input_names = set()
-
-        op_model = onnx.ModelProto()
-        op_model.ir_version = model.ir_version
-        op_model.producer_name = "constant_folding"
-        op_model.opset_import.extend(model.opset_import)
-        op_model.graph.name = "ConstantFoldingGraph"
-        op_model.graph.node.extend([copy.deepcopy(op)])
-
-        for input_name in op.input:
-            if input_name and input_name not in input_names:
-                try:
-                    initializer = self._find_initializer_by_name(model, input_name)
-                    op_model.graph.initializer.append(copy.deepcopy(initializer))
-                    vi = helper.make_tensor_value_info(initializer.name, initializer.data_type, initializer.dims)
-                    op_model.graph.input.append(vi)
-                except ValueError:
-                    vi = self._find_value_info_proto_by_name(model, input_name)
-                    op_model.graph.input.append(copy.deepcopy(vi))
-                input_names.add(input_name)
-
-        for output_name in op.output:
-            vi = helper.make_tensor_value_info(output_name, TensorProto.UNDEFINED, [])
-            op_model.graph.output.append(vi)
-
-        return op_model
-
-    def _run_onnx_model(self, model):
-        session = ort.InferenceSession(model.SerializeToString(), providers=["CPUExecutionProvider"])
-        input_dict = {}
-        for model_input in session.get_inputs():
-            name = model_input.name
-            tensor = self._find_initializer_by_name(model, name)
-            input_dict[name] = numpy_helper.to_array(tensor)
-        return session.run(None, input_dict)
-
-    def _get_constant_nodes(self, model):
-        dynamic_inputs = {graph_input.name for graph_input in model.graph.input}
-        const_inputs = {
-            initializer.name for initializer in model.graph.initializer if initializer.name not in dynamic_inputs
-        }
-        const_nodes = []
-        for node in model.graph.node:
-            if all(node_input == "" or node_input in const_inputs for node_input in node.input):
-                const_nodes.append(node)
-                const_inputs.update(node.output)
-        return const_nodes
-
-    def fold_constant(self):
-        while True:
-            const_nodes = self._get_constant_nodes(self.model)
-            if not const_nodes:
-                break
-
-            nodes_to_remove = []
-            failed_nodes = set()
-
-            for node in const_nodes:
-                if node.name in failed_nodes:
-                    continue
-
-                try:
-                    op_model = self._run_op(self.model, node)
-                    outputs = self._run_onnx_model(op_model)
-                    for output_array, name in zip(outputs, node.output):
-                        if any(init.name == name for init in self.model.graph.initializer):
-                            continue
-                        tensor = numpy_helper.from_array(output_array, name)
-                        self.model.graph.initializer.append(tensor)
-                        vi = helper.make_tensor_value_info(name, tensor.data_type, tensor.dims)
-                        self.model.graph.value_info.append(vi)
-                    nodes_to_remove.append(node)
-                except Exception as e:
-                    logger.warning("Failed to run %s op (name is %s): %s, skip...", node.op_type, node.name, e)
-                    failed_nodes.add(node.name)
-
-            if not nodes_to_remove and const_nodes:
-                logger.warning(
-                    "Failed to fold constants for the following nodes: %s",
-                    ", ".join(node.name for node in const_nodes),
-                )
-                break
-
-            for node in nodes_to_remove:
-                self.model.graph.node.remove(node)
+        onnxscript.optimizer.optimize(self.model)
 
 
 class OnnxPeepholeOptimizer(Pass):
@@ -379,7 +276,7 @@ class OnnxPeepholeOptimizer(Pass):
         peephole_optimizer.fuse_transpose_qat()
         peephole_optimizer.patch_unsupported_argmax_operator()
         peephole_optimizer.fuse_reshape_operations()
-        peephole_optimizer.fold_constant()
+        peephole_optimizer.onnxscript_optimize()
 
         if config["onnxoptimizer"]:
             try:
