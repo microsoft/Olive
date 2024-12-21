@@ -12,6 +12,15 @@ RUN apt-get update && \
     python${PYTHON_VERSION}-dev \
     python${PYTHON_VERSION}-venv \
     python3-pip \
+    libnvinfer-lean10 \
+    python3-libnvinfer-lean \
+    libnvinfer-dispatch10 \
+    python3-libnvinfer-dispatch \
+    tensorrt-libs \
+    tensorrt-dev \
+    libnvinfer-lean-dev \
+    libnvinfer-dispatch-dev \
+    python3-libnvinfer \
     unzip \
     docker.io
 RUN ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
