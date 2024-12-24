@@ -20,7 +20,7 @@ from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuantization, IncStaticQuantization
 
 
-# TODO(team), 55133 Linux GPU CI is failing with the following test. Need to investigate and fix it.
+# TODO(team): 55133 Linux GPU CI is failing with the following test. Need to investigate and fix it.
 @pytest.mark.skipif(
     platform.system() == OS.WINDOWS or torch.cuda.is_available(),
     reason="Skip test on Windows. neural-compressor import is hanging on Windows.",
