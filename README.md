@@ -111,11 +111,13 @@ Olive can automatically optimize popular model *architectures* like Llama, Phi, 
 
 #### 3. Inference on the ONNX Runtime
 
-The ONNX Runtime (ORT) is a fast and light-weight cross-platform inference engine with bindings for popular programming language such as Python, C/C++, C#, Java, JavaScript, etc. ORT enables you to infuse AI models into your applications so that inference is handled on-device. The following code creates a simple console-based chat interface that inferences your optimized model - you can choose between Python or C#.
+The ONNX Runtime (ORT) is a fast and light-weight cross-platform inference engine with bindings for popular programming language such as Python, C/C++, C#, Java, JavaScript, etc. ORT enables you to infuse AI models into your applications so that inference is handled on-device. 
 
-You'll be prompted to enter a message to the SLM - for example, you could ask *what is the golden ratio*, or *def print_hello_world():*. To exit type *exit* in the chat interface.
+The following code creates a simple console-based chat interface that inferences your optimized model - **you can choose between Python or C#**.
 
-##### Python Option
+<details>
+<summary><b>Python</b></summary
+
 Create a Python file called `app.py` and copy and paste the following code:
 ```python
 # app.py
@@ -170,9 +172,12 @@ while text != "exit":
     print()
     text = input("Input: ")
 ```
-To run the code, execute `python app.py`.
+To run the code, execute `python app.py`. You'll be prompted to enter a message to the SLM - for example, you could ask *what is the golden ratio*, or *def print_hello_world():*. To exit type *exit* in the chat interface.
 
-##### C# Option
+</details>
+<br>
+<details>
+<summary><b>C#</b></summary>
 
 Create a new C# Console app and install the [Microsoft.ML.OnnxRuntimeGenAI](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntimeGenAI) Nuget package into your project:
 
@@ -237,6 +242,10 @@ Run the application:
 ```powershell
 dotnet run
 ```
+
+You'll be prompted to enter a message to the SLM - for example, you could ask *what is the golden ratio*, or *def print_hello_world():*. To exit type *exit* in the chat interface.
+
+</details>
 
 ## 🎓 Learn more
 
