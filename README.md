@@ -175,7 +175,7 @@ while text != "exit":
 To run the code, execute `python app.py`. You'll be prompted to enter a message to the SLM - for example, you could ask *what is the golden ratio*, or *def print_hello_world():*. To exit type *exit* in the chat interface.
 
 </details>
-<br>
+
 <details>
 <summary><b>C#</b></summary>
 
