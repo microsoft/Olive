@@ -111,7 +111,7 @@ Olive can automatically optimize popular model *architectures* like Llama, Phi, 
 
 #### 3. Inference on the ONNX Runtime
 
-The ONNX Runtime (ORT) is a fast and light-weight cross-platform inference engine with bindings for popular programming language such as Python, C/C++, C#, Java, JavaScript, etc. ORT enables you to infuse AI models into your applications so that inference is handled on-device. 
+The ONNX Runtime (ORT) is a fast and light-weight cross-platform inference engine with bindings for popular programming language such as Python, C/C++, C#, Java, JavaScript, etc. ORT enables you to infuse AI models into your applications so that inference is handled on-device.
 
 The following code creates a simple console-based chat interface that inferences your optimized model - **select Python and/or C# to expand the code:**
 
