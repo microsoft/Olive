@@ -83,8 +83,8 @@ olive auto-opt \
 
 >[!TIP]
 ><details>
-><summary>Powershell Users</summary>
->Line continuation between Bash and Powershell are not interchangable. If you are using Powershell, then you can copy-and-paste the following command that uses compatible line continuation.
+><summary>PowerShell Users</summary>
+>Line continuation between Bash and PowerShell are not interchangable. If you are using PowerShell, then you can copy-and-paste the following command that uses compatible line continuation.
 >
 >```powershell
 >olive auto-opt `
