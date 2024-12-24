@@ -11,7 +11,7 @@
 ## AI Model Optimization Toolkit for the ONNX Runtime
 </div>
 
-Given a model and targeted hardware, Olive (abbreviation of **O**nnx **LIVE**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferring on cloud or edge, while taking a set of constraints such as accuracy and latency into consideration.
+Given a model and targeted hardware, Olive (abbreviation of **O**nnx **LIVE**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferencing on the cloud or edge, while taking a set of constraints such as accuracy and latency into consideration.
 
 ### ✅ Benefits of using Olive
 
@@ -39,15 +39,16 @@ For a full list of news and blogs, read the [news archive](./NEWS.md).
 
 ### Notebooks available!
 
-The following notebooks are available that demonstrate key optimization workflows with Olive:
+The following notebooks are available that demonstrate key optimization workflows with Olive and include the application code to inference the optimized models on the ONNX Runtime.
 
-| Title | Description | Time Required |Notebook Links
-| -------- | ------------ | -------- | -------- |
-| Quickstart | *In this notebook you will use Olive's automatic optimizer to ONNX Runtime on a CPU Device and then inference the model using the ONNX Runtime Generate API* | 5mins  | [Download](examples/getting_started/olive_quickstart.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb) |
-| Quantize and Finetune | *In this notebook you will (1) quantize Llama-3.2-1B-Instruct using the AWQ algorithm, (2) fine-tune the quantized model, (3) Optimize the fine-tuned model for the ONNX Runtime, and (4) Inference the fine-tuned model using the ONNX runtime Generate API.* |15mins| [Download](examples/getting_started/olive-awq-ft-llama.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive-awq-ft-llama.ipynb) |
+| Title | Task | Description | Time Required |Notebook Links
+| -------- | ------------ | ------------ |-------- | -------- |
+| **Quickstart** | Text Generation | *Learn how to quantize & optimize an SLM for the ONNX Runtime using a single Olive command.* | 5mins  | [Download](examples/getting_started/olive_quickstart.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb) |
+| **Optimizing popular SLMs** | Text Generation | *Choose from a curated list of over 20 popular SLMs to quantize & optimize for the ONNX runtime.* | 5mins  | [Download](examples/getting_started/text-gen-optimized-slms.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/text-gen-optimized-slms.ipynb) |
+| **How to finetune models for on-device inference** | Text Generation | *Learn how to Quantize (using AWQ method), fine-tune, and optimize an SLM for on-device inference.* |15mins| [Download](examples/getting_started/olive-awq-ft-llama.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive-awq-ft-llama.ipynb) |
 
 ### ✨ Quickstart
-If you prefer not to use Jupyter notebooks then you can run through the following steps.
+If you prefer using the command line directly instead of Jupyter notebooks, we've outlined the quickstart commands here.
 
 #### 1. Install Olive CLI
 We recommend installing Olive in a [virtual environment](https://docs.python.org/3/library/venv.html) or a [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
@@ -67,7 +68,7 @@ In this quickstart you'll be optimizing [HuggingFaceTB/SmolLM2-135M-Instruct](ht
 huggingface-cli download HuggingFaceTB/SmolLM2-135M-Instruct *.json *.safetensors *.txt
 ```
 
-Next, run the automatic optimization (tip: if you're using Powershell rather than bash replace `\` line continuations with `):
+Next, run the automatic optimization:
 
 ```bash
 olive auto-opt \
@@ -80,6 +81,24 @@ olive auto-opt \
     --log_level 1
 ```
 
+>[!TIP]
+><details>
+><summary>Powershell Users</summary>
+>Line continuation between Bash and Powershell are not interchangable. If you are using Powershell, then you can copy-and-paste the following command that uses compatible line continuation.
+>
+>```powershell
+>olive auto-opt `
+>    --model_name_or_path HuggingFaceTB/SmolLM2-135M-Instruct `
+>    --output_path models/smolm2 `
+>    --device cpu `
+>    --provider CPUExecutionProvider `
+>    --use_ort_genai `
+>    --precision int4 `
+>    --log_level 1
+>```
+</details>
+<br>
+
 The automatic optimizer will:
 
 1. Acquire the model from the local cache (note: if you skipped the model download step then the entire contents of the Hugging Face model repo will be downloaded).
@@ -87,8 +106,7 @@ The automatic optimizer will:
 1. Optimize the ONNX Graph.
 1. Quantize the model to `int4` using RTN method.
 
-> [!TIP]
-> Olive can automatically optimize popular model *architectures* like Llama, Phi, Qwen, Gemma, etc out-of-the-box - [see detailed list here](https://huggingface.co/docs/optimum/en/exporters/onnx/overview). Also, you can optimize other model architectures by providing details on the input/outputs of the model (`io_config`).
+Olive can automatically optimize popular model *architectures* like Llama, Phi, Qwen, Gemma, etc out-of-the-box - [see detailed list here](https://huggingface.co/docs/optimum/en/exporters/onnx/overview). Also, you can optimize other model architectures by providing details on the input/outputs of the model (`io_config`).
 
 
 #### 3. Inference on the ONNX Runtime
