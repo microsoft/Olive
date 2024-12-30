@@ -38,6 +38,4 @@ pytorch_lightning
 sentencepiece
 tabulate
 torchvision
-# num_logits_to_keep is causing extra input.
-# TODO(anyone): Remove this once the issue is resolved
-transformers<4.45.0
+transformers
