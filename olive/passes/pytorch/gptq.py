@@ -158,6 +158,10 @@ class GptqQuantizer(Pass):
         model_type = pytorch_model.config.model_type if hasattr(pytorch_model, "config") else ""
         model_class = GPTQ_CAUSAL_LM_MODEL_MAP.get(model_type, BaseGPTQForCausalLM)
         quantized_model: BaseGPTQForCausalLM = model_class(pytorch_model, False, quantize_config)
+        
+        # explicitly move quantized model to CUDA device to avoid the "Expected all tensors to be
+        # on the same device" error in auto-gptq
+        quantized_model.to("cuda")
 
         fields_to_set = {
             "outside_layer_modules": MODEL_OUTSIDE_LAYER_MODULES,
