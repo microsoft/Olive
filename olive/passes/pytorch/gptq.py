@@ -102,9 +102,9 @@ class GptqQuantizer(Pass):
     def _run_for_config(
         self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
-        from auto_gptq import BaseQuantizeConfig, __version__
-        from auto_gptq.modeling import BaseGPTQForCausalLM
-        from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
+        from gptqmodel import GPTQModel as AutoGPTQForCausalLM
+        from gptqmodel import QuantizeConfig
+        from gptqmodel.models.auto import MODEL_MAP
 
         if not torch.cuda.is_available():
             # Autogpq quantize_model currently only support cuda device. It accepts model on cpu but
@@ -143,7 +143,7 @@ class GptqQuantizer(Pass):
             model.set_resource("adapter_path", None)
 
         pytorch_model = model.load_model(cache_model=False)
-        quantize_config = BaseQuantizeConfig(
+        quantize_config = QuantizeConfig(
             bits=config["bits"],
             group_size=config["group_size"],
             damp_percent=config["damp_percent"],
@@ -151,13 +151,15 @@ class GptqQuantizer(Pass):
             true_sequential=config["true_sequential"],
             desc_act=config["desc_act"],
             sym=config["sym"],
-            # this is so that the weight gets saved as "model.safetensors"
-            model_file_base_name="model",
         )
 
         model_type = pytorch_model.config.model_type if hasattr(pytorch_model, "config") else ""
-        model_class = GPTQ_CAUSAL_LM_MODEL_MAP.get(model_type, BaseGPTQForCausalLM)
-        quantized_model: BaseGPTQForCausalLM = model_class(pytorch_model, False, quantize_config)
+        model_class = MODEL_MAP.get(model_type, AutoGPTQForCausalLM)
+        quantized_model: AutoGPTQForCausalLM = model_class(pytorch_model, False, quantize_config)
+        
+        # Set the model_local_path to the original un-quantized model. This is used by AutoGPTQ to calculate
+        # the size difference (in MB/GB) between the quantized and un-quantized model variants.
+        quantized_model.model_local_path = model.model_name_or_path
 
         fields_to_set = {
             "outside_layer_modules": MODEL_OUTSIDE_LAYER_MODULES,
@@ -167,34 +169,13 @@ class GptqQuantizer(Pass):
         for key, value in fields_to_set.items():
             if config[key]:
                 setattr(quantized_model, key, config[key])
-            elif model_type not in GPTQ_CAUSAL_LM_MODEL_MAP:
+            elif model_type not in MODEL_MAP:
                 if model_type in value:
                     setattr(quantized_model, key, value[model_type])
                 else:
                     raise ValueError(f"Can't get {key} to quantize automatically, please provide it in config.")
 
         quantized_model.quantize(dataset)
-
-        # until https://github.com/AutoGPTQ/AutoGPTQ/pull/602, bias was always present
-        # in the quantized model, so we need to remove it
-        if version.parse(__version__) < version.parse("0.8.0"):
-            from auto_gptq.utils.import_utils import dynamically_import_QuantLinear
-
-            qlinear_class = dynamically_import_QuantLinear(
-                use_triton=False,
-                desc_act=config["desc_act"],
-                group_size=config["group_size"],
-                bits=config["bits"],
-                disable_exllama=False,
-                disable_exllamav2=True,
-            )
-
-            for module in quantized_model.modules():
-                if not isinstance(module, qlinear_class) or module.bias is None:
-                    continue
-
-                if all(module.bias == 0):
-                    module.bias = None
 
         # TODO(anyone): Is pytorch model support needed? auto-awq only works with transformers like models
         if isinstance(model, PyTorchModelHandler):

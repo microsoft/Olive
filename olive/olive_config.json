@@ -226,7 +226,7 @@
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int4", "int8", "int16", "uint4", "uint8", "uint16" ],
-            "module_dependencies": [ "auto-gptq", "optimum" ]
+            "module_dependencies": [ "gptqmodel", "optimum" ]
         },
         "CaptureSplitInfo": {
             "module_path": "olive.passes.pytorch.capture_split_info.CaptureSplitInfo",

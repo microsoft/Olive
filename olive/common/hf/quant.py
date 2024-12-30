@@ -39,15 +39,18 @@ def get_auto_awq_qlinear_cls(quantization_config):
     return None
 
 
-# copied from https://github.com/huggingface/peft/blob/v0.13.0/src/peft/utils/other.py#L579
 def get_auto_gptq_qlinear_cls(quantization_config):
     """Get the right AutoGPTQQuantLinear class based on the quantization config."""
     if transformers.utils.import_utils.is_auto_gptq_available():
-        from auto_gptq.utils.import_utils import dynamically_import_QuantLinear
+        from gptqmodel.utils.backend import BACKEND
+        from gptqmodel.utils.importer import hf_select_quant_linear
 
         desc_act = quantization_config.desc_act
         group_size = quantization_config.group_size
         bits = quantization_config.bits
+        sym = quantization_config.sym
+        checkpoint_format = quantization_config.checkpoint_format
+        
         if hasattr(quantization_config, "use_exllama"):
             use_exllama = quantization_config.use_exllama
         else:
@@ -56,13 +59,20 @@ def get_auto_gptq_qlinear_cls(quantization_config):
             exllama_version = quantization_config.exllama_config["version"]
         else:
             exllama_version = 1
-        return dynamically_import_QuantLinear(
-            use_triton=False,
-            desc_act=desc_act,
+        
+        backend = None
+        if use_exllama and exllama_version == 1:
+            backend = BACKEND.EXLLAMA_V1
+        elif use_exllama and exllama_version == 2:
+            backend = BACKEND.EXLLAMA_V2
+        
+        return hf_select_quant_linear(
+            bit=bits,
             group_size=group_size,
-            bits=bits,
-            disable_exllama=not (use_exllama and exllama_version == 1),
-            disable_exllamav2=not (use_exllama and exllama_version == 2),
+            desc_act=desc_act,
+            sym=sym,
+            checkpoint_format=checkpoint_format,
+            backend=backend,            
         )
     return None
 
