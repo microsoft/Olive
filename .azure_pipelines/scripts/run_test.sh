@@ -1,3 +1,4 @@
+#!/bin/bash
 # Script to install dependencies and run tests
 # $1: PyTorch package name or version (e.g., torch or torch==1.12.0)
 # $2: ONNX Runtime package name or version (e.g., onnxruntime or onnxruntime==1.20.1)
