@@ -41,7 +41,7 @@ def get_auto_awq_qlinear_cls(quantization_config):
 
 def get_auto_gptq_qlinear_cls(quantization_config):
     """Get the right AutoGPTQQuantLinear class based on the quantization config."""
-    if transformers.utils.import_utils.is_auto_gptq_available():
+    if transformers.utils.import_utils.is_gptqmodel_available():
         from gptqmodel.utils.backend import BACKEND
         from gptqmodel.utils.importer import hf_select_quant_linear
 
@@ -291,7 +291,7 @@ def make_auto_gptq_qlinear4bit(qlinear):
     if qlinear.bits != 4:
         return qlinear
 
-    from auto_gptq.nn_modules.qlinear.qlinear_marlin import unpack_4bit_to_32bit_signed
+    from gptqmodel.nn_modules.qlinear.marlin import unpack_4bit_to_32bit_signed
 
     # shapes are KxN, dtypes is int8
     iweight, izeros = unpack_4bit_to_32bit_signed(qlinear.qweight, qlinear.qzeros)
