@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+  <Identity Name="Microsoft.Olive" Version="1.0.0.0" Publisher="CN=MyCompany, O=MyCompany, L=MyCity, S=MyState, C=MyCountry" ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>Olive</DisplayName>
+    <PublisherDisplayName>Microsoft</PublisherDisplayName>
+    <Logo>olive-black-text.png</Logo>
+  </Properties>
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.14316.0" MaxVersionTested="10.0.15063.0" />
+    </Dependencies>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust"/>
+  </Capabilities>
+  <Applications>
+    <Application Id="Olive" Executable="Olive.exe" EntryPoint="Windows.FullTrustApplication"
+      uap10:RuntimeBehavior="packagedClassicApp"
+      uap10:TrustLevel="mediumIL">
+      <uap:VisualElements DisplayName="Olive" Description="Olive"	Square150x150Logo="olive-black-text.png"
+        Square44x44Logo="olive-black-text.png" BackgroundColor="#000000" />
+    </Application>
+  </Applications>
+</Package>
