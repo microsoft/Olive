@@ -23,7 +23,7 @@ RUN pip install pandas \
             onnxruntime-openvino \
             "numpy<2.0" \
             evaluate \
-            scikit-learn \
+            scikit-learn==1.5.2 \
             git+https://github.com/microsoft/Olive.git \
             --no-cache-dir
 
