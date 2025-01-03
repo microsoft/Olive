@@ -2,8 +2,7 @@ accelerate
 azure-ai-ml
 azure-identity
 azure-storage-blob
-# azureml-evaluate-mlflow>=0.0.14 will pin mlflow/mlflow-skinny to 2.3.1
-azureml-evaluate-mlflow>=0.0.14
+azureml-evaluate-mlflow
 azureml-fsspec
 # Pin azureml-metrics[all] greater than 0.0.26 to avoid breaking change in azureml-evaluate-mlflow
 azureml-metrics[all]>=0.0.26
@@ -27,9 +26,7 @@ onnxscript
 openvino==2023.2.0
 optimum>=1.17.0
 pandas
-# TODO(anyone): Unpin peft once the issue is resolved
-# occasional import error on Windows with peft 0.11.1
-peft==0.10.0
+peft
 plotly
 protobuf==3.20.3
 psutil
@@ -38,6 +35,4 @@ pytorch_lightning
 sentencepiece
 tabulate
 torchvision
-# num_logits_to_keep is causing extra input.
-# TODO(anyone): Remove this once the issue is resolved
-transformers>=4.42.0,<4.45.0
+transformers
