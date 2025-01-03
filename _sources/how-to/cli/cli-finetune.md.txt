@@ -49,7 +49,7 @@ olive finetune \
 You can download the model artifact using the Azure ML CLI:
 
 ```bash
-az ml job download --name {JOB_ID} --resource-group {RESOURCE_GROUP_NAME} --workspace-name {WORKSPACE_NAME} -all
+az ml job download --name {JOB_ID} --resource-group {RESOURCE_GROUP_NAME} --workspace-name {WORKSPACE_NAME} --all
 ```
 :::
 
