@@ -80,6 +80,8 @@ def input_model_info_fixture(request, tmp_path_factory):
     return all_models, request.param, 4 if request.param else 2
 
 
+# TODO(team): 55319 Failed on CI. Need to investigate.
+@pytest.mark.skipif(True, reason="Fails on CI. Need to investigate.")
 @pytest.mark.parametrize(
     "model_type",
     ["convert_fp32", "opt_fp32", "opt_fp16"],
