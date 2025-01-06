@@ -29,7 +29,7 @@
   <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,26 +440,26 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
-<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model.config.registry</span> <span class="kn">import</span> <span class="n">model_handler_registry</span>
-<span class="kn">from</span> <span class="nn">olive.model.handler.base</span> <span class="kn">import</span> <span class="n">OliveModelHandler</span>
-<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">create_resource_path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware.accelerator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.config.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">model_handler_registry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.handler.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveModelHandler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.resource_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">create_resource_path</span>
 
 
 <div class="viewcode-block" id="OpenVINOModelHandler">
 <a class="viewcode-back" href="../../../../reference/model.html#olive.model.OpenVINOModelHandler">[docs]</a>
 <span class="nd">@model_handler_registry</span><span class="p">(</span><span class="s2">&quot;OpenVINOModel&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">OpenVINOModelHandler</span><span class="p">(</span><span class="n">OliveModelHandler</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">OpenVINOModelHandler</span><span class="p">(</span><span class="n">OliveModelHandler</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;OpenVINO model handler.</span>
 
 <span class="sd">    The main responsibility of OpenVINOModelHandler is to provide the model loading for OpenVINO model.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
             <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">OPENVINO</span><span class="p">,</span>
@@ -472,7 +472,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_config</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">model_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">model_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model configuration for OpenVINO model.&quot;&quot;&quot;</span>
         <span class="n">model_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_path</span>
         <span class="k">assert</span> <span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_dir</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">&quot;OpenVINO model path </span><span class="si">{</span><span class="n">model_path</span><span class="si">}</span><span class="s2"> is not a directory&quot;</span>
@@ -493,15 +493,15 @@ window.addEventListener("load", () => mermaid.run());
             <span class="s2">&quot;weights&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">ov_weights</span><span class="o">.</span><span class="n">resolve</span><span class="p">()),</span>
         <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">import</span> <span class="nn">openvino</span> <span class="k">as</span> <span class="nn">ov</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">openvino</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ov</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive-ai[openvino] to use OpenVINO model&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive-ai[openvino] to use OpenVINO model&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
         <span class="n">core</span> <span class="o">=</span> <span class="n">ov</span><span class="o">.</span><span class="n">Core</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">core</span><span class="o">.</span><span class="n">read_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">])</span>
 
-    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
@@ -509,9 +509,9 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">import</span> <span class="nn">openvino</span> <span class="k">as</span> <span class="nn">ov</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">openvino</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ov</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive-ai[openvino] to use OpenVINO model&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive-ai[openvino] to use OpenVINO model&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
         <span class="n">core</span> <span class="o">=</span> <span class="n">ov</span><span class="o">.</span><span class="n">Core</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">inference_settings</span> <span class="ow">and</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;device_name&quot;</span><span class="p">):</span>
             <span class="n">device</span> <span class="o">=</span> <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;device_name&quot;</span><span class="p">]</span>
@@ -520,7 +520,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">compiled_model</span> <span class="o">=</span> <span class="n">core</span><span class="o">.</span><span class="n">compile_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">],</span> <span class="n">device</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">compiled_model</span><span class="o">.</span><span class="n">create_infer_request</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">run_session</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">session</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>

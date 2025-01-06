@@ -29,7 +29,7 @@
   <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,25 +440,25 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
 
-<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span><span class="p">,</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
-<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
-<span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware.accelerator</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcceleratorSpec</span><span class="p">,</span> <span class="n">Device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">SystemType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.olive_system</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveSystem</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">olive.evaluator.metric_result</span> <span class="kn">import</span> <span class="n">MetricResult</span>
-    <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">OliveEvaluatorConfig</span>
-    <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.metric_result</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricResult</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.olive_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">OliveEvaluatorConfig</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.passes.olive_pass</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pass</span>
 
 
 <div class="viewcode-block" id="LocalSystem">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.local.LocalSystem">[docs]</a>
-<span class="k">class</span> <span class="nc">LocalSystem</span><span class="p">(</span><span class="n">OliveSystem</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">LocalSystem</span><span class="p">(</span><span class="n">OliveSystem</span><span class="p">):</span>
     <span class="n">system_type</span> <span class="o">=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span>
 
-    <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
@@ -470,7 +470,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">output_model</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">point</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">output_model</span><span class="o">.</span><span class="n">to_json</span><span class="p">())</span>
 
-    <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">:</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;MetricResult&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the model.&quot;&quot;&quot;</span>
@@ -486,13 +486,13 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">model</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="o">=</span><span class="n">execution_providers</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">get_supported_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_supported_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the available execution providers.&quot;&quot;&quot;</span>
-        <span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ort</span>
 
         <span class="k">return</span> <span class="n">ort</span><span class="o">.</span><span class="n">get_available_providers</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Local system does not support system removal&quot;</span><span class="p">)</span></div>
 
 </pre></div>

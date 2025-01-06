@@ -29,7 +29,7 @@
   <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,16 +440,16 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">importlib</span>
-<span class="kn">import</span> <span class="nn">shutil</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">olive.systems.system_alias</span> <span class="k">as</span> <span class="nn">system_alias</span>
-<span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">NestedConfig</span><span class="p">,</span> <span class="n">validate_config</span>
-<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">root_validator</span><span class="p">,</span> <span class="n">validator</span>
-<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">olive.systems.system_alias</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">system_alias</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.azureml.azureml_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">NestedConfig</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.pydantic_v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">root_validator</span><span class="p">,</span> <span class="n">validator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">AcceleratorConfig</span><span class="p">,</span>
     <span class="n">AzureMLDockerConfig</span><span class="p">,</span>
     <span class="n">AzureMLEnvironmentConfig</span><span class="p">,</span>
@@ -458,24 +458,24 @@ window.addEventListener("load", () => mermaid.run());
 <span class="p">)</span>
 
 
-<span class="k">class</span> <span class="nc">TargetUserConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TargetUserConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
     <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AcceleratorConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">hf_token</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">class</span> <span class="nc">Config</span><span class="p">:</span>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Config</span><span class="p">:</span>
         <span class="n">validate_assignment</span> <span class="o">=</span> <span class="kc">True</span>
 
 
 <div class="viewcode-block" id="LocalTargetUserConfig">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_config.LocalTargetUserConfig">[docs]</a>
-<span class="k">class</span> <span class="nc">LocalTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">LocalTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
     <span class="k">pass</span></div>
 
 
 
 <div class="viewcode-block" id="DockerTargetUserConfig">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_config.DockerTargetUserConfig">[docs]</a>
-<span class="k">class</span> <span class="nc">DockerTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DockerTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
     <span class="c1"># the local_docker_config is optional for managed environments and required for normal docker system</span>
     <span class="n">local_docker_config</span><span class="p">:</span> <span class="n">LocalDockerConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
@@ -486,7 +486,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="AzureMLTargetUserConfig">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_config.AzureMLTargetUserConfig">[docs]</a>
-<span class="k">class</span> <span class="nc">AzureMLTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AzureMLTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
     <span class="n">azureml_client_config</span><span class="p">:</span> <span class="n">AzureMLClientConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">aml_compute</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">aml_docker_config</span><span class="p">:</span> <span class="n">AzureMLDockerConfig</span> <span class="o">=</span> <span class="kc">None</span>
@@ -501,25 +501,25 @@ window.addEventListener("load", () => mermaid.run());
 
 
 
-<span class="k">class</span> <span class="nc">CommonPythonEnvTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CommonPythonEnvTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
     <span class="c1"># path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/</span>
     <span class="n">python_environment_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">environment_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># os.environ will be updated with these variables</span>
     <span class="n">prepend_to_path</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># paths to prepend to os.environ[&quot;PATH&quot;]</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;python_environment_path&quot;</span><span class="p">,</span> <span class="s2">&quot;prepend_to_path&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">each_item</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">_get_abspath</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_abspath</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span> <span class="k">if</span> <span class="n">v</span> <span class="k">else</span> <span class="kc">None</span>
 
 
 <div class="viewcode-block" id="PythonEnvironmentTargetUserConfig">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_config.PythonEnvironmentTargetUserConfig">[docs]</a>
-<span class="k">class</span> <span class="nc">PythonEnvironmentTargetUserConfig</span><span class="p">(</span><span class="n">CommonPythonEnvTargetUserConfig</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PythonEnvironmentTargetUserConfig</span><span class="p">(</span><span class="n">CommonPythonEnvTargetUserConfig</span><span class="p">):</span>
     <span class="n">olive_managed_env</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># if True, the environment will be created and managed by Olive</span>
     <span class="n">requirements_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># path to the requirements.txt file</span>
 
     <span class="nd">@root_validator</span><span class="p">(</span><span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">_validate_python_environment_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_python_environment_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
         <span class="c1"># if olive_managed_env is True, python_environment_path is not required</span>
         <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;olive_managed_env&quot;</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">values</span>
@@ -542,7 +542,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="IsolatedORTTargetUserConfig">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_config.IsolatedORTTargetUserConfig">[docs]</a>
-<span class="k">class</span> <span class="nc">IsolatedORTTargetUserConfig</span><span class="p">(</span><span class="n">CommonPythonEnvTargetUserConfig</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">IsolatedORTTargetUserConfig</span><span class="p">(</span><span class="n">CommonPythonEnvTargetUserConfig</span><span class="p">):</span>
     <span class="c1"># Please refer to https://github.com/pydantic/pydantic/issues/1223</span>
     <span class="c1"># In Pydantic v1, missing a optional field will skip the validation. But if the field is specified as None</span>
     <span class="c1"># The validation will be triggered. As the result, we cannot use the following line to make the field as required</span>
@@ -550,7 +550,7 @@ window.addEventListener("load", () => mermaid.run());
     <span class="c1"># A better approach is to use always=True to check it is required.</span>
     <span class="c1"># python_environment_path: Union[Path, str]</span>
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;python_environment_path&quot;</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">_validate_python_environment_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_python_environment_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;python_environment_path is required for IsolatedORTSystem&quot;</span><span class="p">)</span>
 
@@ -583,7 +583,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="p">}</span>
 
 
-<span class="k">def</span> <span class="nf">import_system_from_type</span><span class="p">(</span><span class="n">system_type</span><span class="p">:</span> <span class="n">SystemType</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">import_system_from_type</span><span class="p">(</span><span class="n">system_type</span><span class="p">:</span> <span class="n">SystemType</span><span class="p">):</span>
     <span class="n">system_path</span> <span class="o">=</span> <span class="n">_type_to_system_path</span><span class="p">[</span><span class="n">system_type</span><span class="p">]</span>
     <span class="n">module_path</span><span class="p">,</span> <span class="n">class_name</span> <span class="o">=</span> <span class="n">system_path</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_path</span><span class="p">)</span>
@@ -592,12 +592,12 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="SystemConfig">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_config.SystemConfig">[docs]</a>
-<span class="k">class</span> <span class="nc">SystemConfig</span><span class="p">(</span><span class="n">NestedConfig</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SystemConfig</span><span class="p">(</span><span class="n">NestedConfig</span><span class="p">):</span>
     <span class="nb">type</span><span class="p">:</span> <span class="n">SystemType</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">TargetUserConfig</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="nd">@root_validator</span><span class="p">(</span><span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">validate_config_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_config_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
         <span class="n">type_name</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
         <span class="n">system_alias_class</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">system_alias</span><span class="p">,</span> <span class="n">type_name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">system_alias_class</span><span class="p">:</span>
@@ -628,7 +628,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">values</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;config&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">validate_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
         <span class="k">if</span> <span class="s2">&quot;type&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid type&quot;</span><span class="p">)</span>
 
@@ -638,7 +638,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="SystemConfig.create_system">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_config.SystemConfig.create_system">[docs]</a>
-    <span class="k">def</span> <span class="nf">create_system</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_system</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">system_class</span> <span class="o">=</span> <span class="n">import_system_from_type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">system_class</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;azureml_client is required for AzureML system&quot;</span><span class="p">)</span>
@@ -646,7 +646,7 @@ window.addEventListener("load", () => mermaid.run());
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">olive_managed_env</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">olive_managed_env</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;olive_managed_env&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
 
     <span class="c1"># the __hash__ is needed so to create_managed_system_with_cache, otherwise the following error will be raised:</span>

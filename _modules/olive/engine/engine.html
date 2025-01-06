@@ -29,7 +29,7 @@
   <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,51 +440,51 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">shutil</span>
-<span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">defaultdict</span>
-<span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">defaultdict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">olive.cache</span> <span class="kn">import</span> <span class="n">CacheConfig</span><span class="p">,</span> <span class="n">OliveCache</span>
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
-<span class="kn">from</span> <span class="nn">olive.common.constants</span> <span class="kn">import</span> <span class="n">DEFAULT_WORKFLOW_ID</span><span class="p">,</span> <span class="n">LOCAL_INPUT_MODEL_ID</span>
-<span class="kn">from</span> <span class="nn">olive.engine.config</span> <span class="kn">import</span> <span class="n">FAILED_CONFIG</span><span class="p">,</span> <span class="n">INVALID_CONFIG</span><span class="p">,</span> <span class="n">PRUNED_CONFIGS</span>
-<span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNode</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span><span class="p">,</span> <span class="n">get_best_candidate_node</span>
-<span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric_result</span> <span class="kn">import</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">joint_metric_key</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
-<span class="kn">from</span> <span class="nn">olive.exception</span> <span class="kn">import</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">,</span> <span class="n">OlivePassError</span>
-<span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
-<span class="kn">from</span> <span class="nn">olive.logging</span> <span class="kn">import</span> <span class="n">enable_filelog</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
-<span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span><span class="p">,</span> <span class="n">SearchStrategyConfig</span>
-<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
-<span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">SystemConfig</span>
-<span class="kn">from</span> <span class="nn">olive.systems.utils</span> <span class="kn">import</span> <span class="n">create_managed_system_with_cache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheConfig</span><span class="p">,</span> <span class="n">OliveCache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_WORKFLOW_ID</span><span class="p">,</span> <span class="n">LOCAL_INPUT_MODEL_ID</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.engine.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">FAILED_CONFIG</span><span class="p">,</span> <span class="n">INVALID_CONFIG</span><span class="p">,</span> <span class="n">PRUNED_CONFIGS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.engine.footprint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNode</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span><span class="p">,</span> <span class="n">get_best_candidate_node</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.engine.packaging.packaging_generator</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_output_artifacts</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.metric</span><span class="w"> </span><span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.metric_result</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">joint_metric_key</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.olive_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.exception</span><span class="w"> </span><span class="kn">import</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">,</span> <span class="n">OlivePassError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcceleratorSpec</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">enable_filelog</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.strategy.search_strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">SearchStrategy</span><span class="p">,</span> <span class="n">SearchStrategyConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">SystemType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.system_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SystemConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_managed_system_with_cache</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_config</span> <span class="kn">import</span> <span class="n">PackagingConfig</span>
-    <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
-    <span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.engine.packaging.packaging_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PackagingConfig</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.passes.olive_pass</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pass</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.olive_system</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveSystem</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="Engine">
 <a class="viewcode-back" href="../../../reference/engine.html#olive.engine.Engine">[docs]</a>
-<span class="k">class</span> <span class="nc">Engine</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Engine</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;The engine executes the registered Olive Steps.</span>
 
 <span class="sd">    It facilitate evaluation of the output models using provided evaluation criteria and produces output model(s).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">workflow_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_WORKFLOW_ID</span><span class="p">,</span>
         <span class="n">search_strategy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">SearchStrategyConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -532,7 +532,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">False</span>
 
-    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log_to_file</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">log_severity_level</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log_to_file</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">log_severity_level</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize engine state. This should be done before running the registered passes.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">log_to_file</span><span class="p">:</span>
             <span class="n">enable_filelog</span><span class="p">(</span><span class="n">log_severity_level</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">workflow_id</span><span class="p">)</span>
@@ -563,7 +563,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="Engine.register">
 <a class="viewcode-back" href="../../../reference/engine.html#olive.engine.Engine.register">[docs]</a>
-    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">pass_type</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="s2">&quot;Pass&quot;</span><span class="p">],</span>
         <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -592,7 +592,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">}</span></div>
 
 
-    <span class="k">def</span> <span class="nf">register_pass</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">host</span><span class="p">:</span> <span class="s2">&quot;OliveSystem&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">:</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Register a pass instance.&quot;&quot;&quot;</span>
@@ -613,7 +613,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pass&quot;</span><span class="p">:</span> <span class="n">p</span><span class="p">,</span> <span class="s2">&quot;host&quot;</span><span class="p">:</span> <span class="n">host</span><span class="p">,</span> <span class="s2">&quot;evaluator&quot;</span><span class="p">:</span> <span class="n">evaluator_config</span><span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">set_pass_flows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_flows</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_pass_flows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_flows</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct pass flows from a list of pass names.</span>
 
 <span class="sd">        Args:</span>
@@ -627,7 +627,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="Engine.run">
 <a class="viewcode-back" href="../../../reference/engine.html#olive.engine.Engine.run">[docs]</a>
-    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">accelerator_specs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">],</span>
@@ -742,7 +742,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">outputs</span></div>
 
 
-    <span class="k">def</span> <span class="nf">run_accelerator</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_accelerator</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
@@ -803,14 +803,14 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;run_accelerator done&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">output_footprint</span>
 
-    <span class="k">def</span> <span class="nf">get_host_device</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_host_device</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">accelerators</span><span class="p">:</span>
             <span class="c1"># for host device, we will always use the first accelerator device</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">accelerators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">device</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">setup_passes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">setup_passes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">):</span>
         <span class="n">host_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_host_device</span><span class="p">()</span>
         <span class="c1"># clean the passes</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
@@ -831,13 +831,13 @@ window.addEventListener("load", () => mermaid.run());
                 <span class="n">pass_search_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">search_space</span><span class="p">))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pass_search_spaces</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">reset_passes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_passes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Cleanup the passes.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pass_config</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="k">def</span> <span class="nf">run_no_search</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_no_search</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -891,7 +891,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">output_footprints</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;output_footprints.json&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">output_footprints</span>
 
-    <span class="k">def</span> <span class="nf">run_search</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_search</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -952,7 +952,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_pareto_frontier_footprints</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">create_pareto_frontier_footprints</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_pareto_frontier_footprints</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span>
     <span class="p">):</span>
         <span class="n">pf_footprints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">create_pareto_frontier</span><span class="p">(</span><span class="n">output_model_num</span><span class="p">)</span>
@@ -966,13 +966,13 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">pf_footprints</span>
 
-    <span class="k">def</span> <span class="nf">dump_run_history</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_history</span><span class="p">,</span> <span class="n">output_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dump_run_history</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_history</span><span class="p">,</span> <span class="n">output_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">run_history</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No run history to dump!&quot;</span><span class="p">)</span>
             <span class="k">return</span>
         <span class="n">headers</span> <span class="o">=</span> <span class="n">run_history</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_fields</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">tabulate</span> <span class="kn">import</span> <span class="n">tabulate</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">tabulate</span><span class="w"> </span><span class="kn">import</span> <span class="n">tabulate</span>
 
             <span class="n">formatted_rls</span> <span class="o">=</span> <span class="n">tabulate</span><span class="p">([</span><span class="nb">tuple</span><span class="p">(</span><span class="n">rh</span><span class="p">)</span> <span class="k">for</span> <span class="n">rh</span> <span class="ow">in</span> <span class="n">run_history</span><span class="p">],</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">tablefmt</span><span class="o">=</span><span class="s2">&quot;grid&quot;</span><span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;run history:</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">formatted_rls</span><span class="p">)</span>
@@ -983,7 +983,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="k">with</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">formatted_rls</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">resolve_objectives</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resolve_objectives</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -1008,7 +1008,7 @@ window.addEventListener("load", () => mermaid.run());
                 <span class="p">}</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">objective_dict</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">&quot;priority&quot;</span><span class="p">]))</span>
 
-    <span class="k">def</span> <span class="nf">resolve_goals</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resolve_goals</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -1078,25 +1078,25 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">resolved_goals</span>
 
-    <span class="k">def</span> <span class="nf">host_for_pass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">host_for_pass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="n">host</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_id</span><span class="p">][</span><span class="s2">&quot;host&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">host</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">host</span>
         <span class="k">return</span> <span class="n">host</span>
 
-    <span class="k">def</span> <span class="nf">evaluator_for_pass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluator_for_pass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return evaluator for the given pass.&quot;&quot;&quot;</span>
         <span class="n">e</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_id</span><span class="p">][</span><span class="s2">&quot;evaluator&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span>
         <span class="k">return</span> <span class="n">e</span>
 
-    <span class="k">def</span> <span class="nf">_cache_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ModelConfig</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_cache_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ModelConfig</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
         <span class="c1"># TODO(trajep): move model/pass run/evaluation cache into footprints</span>
         <span class="n">model_json</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="n">FAILED_CONFIG</span> <span class="k">else</span> <span class="n">model</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="n">check_object</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">cache_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">,</span> <span class="n">model_json</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">ModelConfig</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">ModelConfig</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
         <span class="n">model_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">model_json</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -1106,7 +1106,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">model_json</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_run_passes</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_passes</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">passes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]],</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
@@ -1155,7 +1155,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">should_prune</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="n">model_ids</span>
 
-    <span class="k">def</span> <span class="nf">_run_pass</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">pass_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">pass_search_point</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
@@ -1261,7 +1261,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span>
 
-    <span class="k">def</span> <span class="nf">_cache_evaluation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">signal</span><span class="p">:</span> <span class="n">MetricResult</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_cache_evaluation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">signal</span><span class="p">:</span> <span class="n">MetricResult</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Cache the evaluation in the cache directory.&quot;&quot;&quot;</span>
         <span class="n">evaluation_json</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;model_id&quot;</span><span class="p">:</span> <span class="n">model_id</span><span class="p">,</span>
@@ -1269,7 +1269,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">cache_evaluation</span><span class="p">(</span><span class="n">model_id</span><span class="p">,</span> <span class="n">evaluation_json</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_load_evaluation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_evaluation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load the evaluation from the cache directory.&quot;&quot;&quot;</span>
         <span class="n">evaluation_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get_evaluation_json_path</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">evaluation_json_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
@@ -1285,7 +1285,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_model</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -1334,8 +1334,8 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">signal</span>
 
     <span class="nd">@contextmanager</span>
-    <span class="k">def</span> <span class="nf">_create_system</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">):</span>
-        <span class="k">def</span> <span class="nf">create_system</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="s2">&quot;SystemConfig&quot;</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_system</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">create_system</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="s2">&quot;SystemConfig&quot;</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">):</span>
             <span class="k">assert</span> <span class="n">config</span><span class="p">,</span> <span class="s2">&quot;System config is not provided&quot;</span>
             <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">olive_managed_env</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>

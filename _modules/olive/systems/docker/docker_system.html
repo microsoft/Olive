@@ -29,7 +29,7 @@
   <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,43 +440,43 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">copy</span>
-<span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">shutil</span>
-<span class="kn">import</span> <span class="nn">tempfile</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">docker</span>
-<span class="kn">from</span> <span class="nn">docker.errors</span> <span class="kn">import</span> <span class="n">BuildError</span><span class="p">,</span> <span class="n">ContainerError</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">docker</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">docker.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuildError</span><span class="p">,</span> <span class="n">ContainerError</span>
 
-<span class="kn">import</span> <span class="nn">olive.systems.docker.utils</span> <span class="k">as</span> <span class="nn">docker_utils</span>
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ParamCategory</span><span class="p">,</span> <span class="n">validate_config</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric_result</span> <span class="kn">import</span> <span class="n">MetricResult</span>
-<span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
-<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AcceleratorConfig</span><span class="p">,</span> <span class="n">LocalDockerConfig</span><span class="p">,</span> <span class="n">SystemType</span>
-<span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
-<span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">DockerTargetUserConfig</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">olive.systems.docker.utils</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">docker_utils</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParamCategory</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.metric_result</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcceleratorConfig</span><span class="p">,</span> <span class="n">LocalDockerConfig</span><span class="p">,</span> <span class="n">SystemType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.olive_system</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveSystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.system_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">DockerTargetUserConfig</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
-    <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
-    <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
-    <span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.metric</span><span class="w"> </span><span class="kn">import</span> <span class="n">Metric</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.olive_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware.accelerator</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcceleratorSpec</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.passes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pass</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="DockerSystem">
 <a class="viewcode-back" href="../../../../reference/system.html#olive.systems.docker.DockerSystem">[docs]</a>
-<span class="k">class</span> <span class="nc">DockerSystem</span><span class="p">(</span><span class="n">OliveSystem</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DockerSystem</span><span class="p">(</span><span class="n">OliveSystem</span><span class="p">):</span>
     <span class="n">system_type</span> <span class="o">=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">Docker</span>
 
     <span class="n">BASE_DOCKERFILE</span> <span class="o">=</span> <span class="s2">&quot;Dockerfile&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">local_docker_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">LocalDockerConfig</span><span class="p">],</span>
         <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AcceleratorConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -543,7 +543,7 @@ window.addEventListener("load", () => mermaid.run());
                     <span class="n">_print_docker_logs</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">build_log</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
                     <span class="k">raise</span>
 
-    <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span>
@@ -554,7 +554,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pass_container</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">tempdir</span><span class="p">),</span> <span class="n">the_pass</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">point</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_run_pass_container</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_pass_container</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">workdir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
         <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">,</span>
@@ -654,7 +654,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Model output file </span><span class="si">%s</span><span class="s2"> not found.&quot;</span><span class="p">,</span> <span class="n">model_output_json_file</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">:</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="n">container_root_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/olive-ws/&quot;</span><span class="p">)</span>
@@ -670,7 +670,7 @@ window.addEventListener("load", () => mermaid.run());
                 <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Metric result file </span><span class="si">%s</span><span class="s2"> not found.&quot;</span><span class="p">,</span> <span class="n">metric_json</span><span class="p">)</span>
                 <span class="k">return</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">_run_eval_container</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_eval_container</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">workdir</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span>
@@ -734,7 +734,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_container</span><span class="p">(</span><span class="n">eval_command</span><span class="p">,</span> <span class="n">volumes_list</span><span class="p">,</span> <span class="n">output_local_path</span><span class="p">,</span> <span class="n">eval_output_name</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_create_eval_config</span><span class="p">(</span><span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;Metric&quot;</span><span class="p">],</span> <span class="n">model_mounts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_eval_config</span><span class="p">(</span><span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;Metric&quot;</span><span class="p">],</span> <span class="n">model_mounts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
         <span class="n">model_json</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">model_mounts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
@@ -742,7 +742,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">k</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">],</span> <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model_json</span><span class="p">}</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_create_runner_config</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_runner_config</span><span class="p">(</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span>
         <span class="n">pass_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">model_mounts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
@@ -758,7 +758,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model_json</span><span class="p">,</span> <span class="s2">&quot;pass&quot;</span><span class="p">:</span> <span class="n">pass_config_copy</span><span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">_run_container</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_container</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">command</span><span class="p">,</span>
         <span class="n">volumes_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
@@ -813,7 +813,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_local_path</span><span class="p">)</span> <span class="o">/</span> <span class="n">output_name</span>
 
-    <span class="k">def</span> <span class="nf">_create_data_mounts_for_pass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">container_root_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_data_mounts_for_pass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">container_root_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">):</span>
         <span class="n">mounts</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">mount_strs</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">path_params</span><span class="p">:</span>
@@ -825,13 +825,13 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">mounts</span><span class="p">,</span> <span class="n">mount_strs</span>
 
-    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Image </span><span class="si">%s</span><span class="s2"> removed successfully.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
 
 
 
-<span class="k">def</span> <span class="nf">_print_docker_logs</span><span class="p">(</span><span class="n">logs</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_print_docker_logs</span><span class="p">(</span><span class="n">logs</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
     <span class="n">msgs</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">log</span> <span class="ow">in</span> <span class="n">logs</span><span class="p">:</span>
         <span class="k">if</span> <span class="s2">&quot;stream&quot;</span> <span class="ow">in</span> <span class="n">log</span><span class="p">:</span>
@@ -843,9 +843,9 @@ window.addEventListener("load", () => mermaid.run());
     <span class="n">logger</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">level</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">get_huggingface_token</span><span class="p">():</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_huggingface_token</span><span class="p">():</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get huggingface token from environment variable or token file.&quot;&quot;&quot;</span>
-    <span class="kn">import</span> <span class="nn">os</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 
     <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;HF_TOKEN&quot;</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;HF_TOKEN&quot;</span><span class="p">)</span>

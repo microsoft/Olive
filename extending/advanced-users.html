@@ -30,7 +30,7 @@
   <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -437,7 +437,7 @@
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>user_provided_info.json
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.workflows</span> <span class="kn">import</span> <span class="n">run</span> <span class="k">as</span> <span class="n">olive_run</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive.workflows</span><span class="w"> </span><span class="kn">import</span> <span class="n">run</span> <span class="k">as</span> <span class="n">olive_run</span>
 <span class="n">olive_run</span><span class="p">(</span><span class="n">user_provided_info_json_file</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -449,7 +449,7 @@ approach may not take advantage of all the features supported by standard Olive 
 <p>Start by creating an instance of an OliveModelHandler to represent the model to be optimized. Depending on the model framework, the
 model can be loaded from file or using a model loader function. For a complete of available models and their initialization options, refer to <a class="reference internal" href="#models"><span class="xref myst">OliveModels api reference</span></a>.</p>
 <p>Note: The <code class="docutils literal notranslate"><span class="pre">dynamic_shapes</span></code> field requires more than just a string. It should be a list in the format [str, int, int], representing [dim_name, min_value, max_value]. This will later be converted to torch.export.Dim(dim_name, min=min_value, max=max_value). For more details, refer to the documentation: https://pytorch.org/docs/stable/export.html#expressing-dynamism</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.models</span> <span class="kn">import</span> <span class="n">Modelconfig</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Modelconfig</span>
 
 <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
@@ -471,7 +471,7 @@ model can be loaded from file or using a model loader function. For a complete o
 <p>An optimization technique, which we call a Pass, can be run on a variety of <strong>host</strong> systems and the resulting model evaluated
 on desired <strong>target</strong> systems. More details for the available systems can be found at <a class="reference internal" href="#systems"><span class="xref myst">OliveSystems api reference</span></a>.</p>
 <p>In this guide, you will use your local system as both the hosts for passes and target for evaluation.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.local</span> <span class="kn">import</span> <span class="n">LocalSystem</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.local</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocalSystem</span>
 
 <span class="n">local_system</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">()</span>
 </pre></div>
@@ -481,8 +481,8 @@ on desired <strong>target</strong> systems. More details for the available syste
 <h2>Evaluator<a class="headerlink" href="#evaluator" title="Link to this heading">#</a></h2>
 <p>In order to chose the set of Pass configuration parameters that lead to the “best” model, Olive requires an evaluator that
 returns metrics values for each output model.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">LatencySubType</span><span class="p">,</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricType</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.metric</span><span class="w"> </span><span class="kn">import</span> <span class="n">LatencySubType</span><span class="p">,</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.olive_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
 
 <span class="c1"># create latency metric instance</span>
 <span class="n">latency_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span>
@@ -508,7 +508,7 @@ has an example of how to write user scripts.</p>
 <section id="engine">
 <h2>Engine<a class="headerlink" href="#engine" title="Link to this heading">#</a></h2>
 <p>You are now ready create the engine which handles the auto-tuning process.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.engine</span> <span class="kn">import</span> <span class="n">Engine</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">Engine</span>
 
 <span class="c1"># configuration options for engine</span>
 <span class="n">engine_config</span> <span class="o">=</span> <span class="p">{</span>
@@ -528,7 +528,7 @@ has an example of how to write user scripts.</p>
 <p>The engine has now been created. You need to register the Passes that you want to apply on the input model. In this example,
 let us first convert the pytorch model to ONNX and quantize it. More information about the
 Passes available in Olive can be found at …</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">OnnxConversion</span><span class="p">,</span> <span class="n">OnnxQuantization</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive.passes</span><span class="w"> </span><span class="kn">import</span> <span class="n">OnnxConversion</span><span class="p">,</span> <span class="n">OnnxQuantization</span>
 
 <span class="c1"># Onnx conversion pass</span>
 <span class="n">onnx_conversion_config</span> <span class="o">=</span> <span class="p">{</span>

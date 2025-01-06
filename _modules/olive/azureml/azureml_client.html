@@ -29,7 +29,7 @@
   <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,21 +440,21 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span>
-<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
-<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">get_credentials</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.pydantic_v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_credentials</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="AzureMLClientConfig">
 <a class="viewcode-back" href="../../../reference/resource-path.html#olive.azureml.azureml_client.AzureMLClientConfig">[docs]</a>
-<span class="k">class</span> <span class="nc">AzureMLClientConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AzureMLClientConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for AzureMLClient.</span>
 
 <span class="sd">    This class is used to create an MLClient instance for AzureML operations.</span>
@@ -502,7 +502,7 @@ window.addEventListener("load", () => mermaid.run());
     <span class="p">)</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;aml_config_path&quot;</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">validate_aml_config_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_aml_config_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;aml_config_path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> does not exist&quot;</span><span class="p">)</span>
@@ -512,7 +512,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="AzureMLClientConfig.get_workspace_config">
 <a class="viewcode-back" href="../../../reference/resource-path.html#olive.azureml.azureml_client.AzureMLClientConfig.get_workspace_config">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_workspace_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_workspace_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the workspace config as a dict.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span><span class="p">:</span>
             <span class="c1"># If aml_config_path is provided, load the config from the file.</span>
@@ -529,9 +529,9 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="AzureMLClientConfig.create_client">
 <a class="viewcode-back" href="../../../reference/resource-path.html#olive.azureml.azureml_client.AzureMLClientConfig.create_client">[docs]</a>
-    <span class="k">def</span> <span class="nf">create_client</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_client</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create an MLClient instance.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">MLClient</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">azure.ai.ml</span><span class="w"> </span><span class="kn">import</span> <span class="n">MLClient</span>
 
         <span class="n">set_azure_logging_if_noset</span><span class="p">()</span>
 
@@ -559,9 +559,9 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="AzureMLClientConfig.create_registry_client">
 <a class="viewcode-back" href="../../../reference/resource-path.html#olive.azureml.azureml_client.AzureMLClientConfig.create_registry_client">[docs]</a>
-    <span class="k">def</span> <span class="nf">create_registry_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">registry_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_registry_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">registry_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create an MLClient instance.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">MLClient</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">azure.ai.ml</span><span class="w"> </span><span class="kn">import</span> <span class="n">MLClient</span>
 
         <span class="n">set_azure_logging_if_noset</span><span class="p">()</span>
 
@@ -570,7 +570,7 @@ window.addEventListener("load", () => mermaid.run());
 
 
 
-<span class="k">def</span> <span class="nf">set_azure_logging_if_noset</span><span class="p">():</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_azure_logging_if_noset</span><span class="p">():</span>
     <span class="c1"># set logger level to error to avoid too many logs from azure sdk</span>
     <span class="n">azure_ml_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;azure.ai.ml&quot;</span><span class="p">)</span>
     <span class="c1"># only set the level if it is not set, to avoid changing the level set by the user</span>

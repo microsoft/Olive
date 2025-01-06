@@ -29,7 +29,7 @@
   <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,12 +440,12 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">ConfigParam</span><span class="p">,</span> <span class="n">ParamCategory</span><span class="p">,</span> <span class="n">create_config_class</span>
-<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">validator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">ConfigParam</span><span class="p">,</span> <span class="n">ParamCategory</span><span class="p">,</span> <span class="n">create_config_class</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.pydantic_v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">validator</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -476,7 +476,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="n">_type_to_user_config_validators</span> <span class="o">=</span> <span class="p">{}</span>
 
 
-<span class="k">def</span> <span class="nf">get_user_config_class</span><span class="p">(</span><span class="n">metric_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_user_config_class</span><span class="p">(</span><span class="n">metric_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
     <span class="n">default_config</span> <span class="o">=</span> <span class="n">_common_user_config</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">default_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_type_to_user_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_type</span><span class="p">,</span> <span class="p">{}))</span>
     <span class="n">validators</span> <span class="o">=</span> <span class="n">_common_user_config_validators</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -485,13 +485,13 @@ window.addEventListener("load", () => mermaid.run());
 
 
 <span class="c1"># TODO(jambayk): automate latency metric config also we standardize accuracy metric config</span>
-<span class="k">class</span> <span class="nc">LatencyMetricConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">LatencyMetricConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
     <span class="n">warmup_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">WARMUP_NUM</span>
     <span class="n">repeat_test_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">REPEAT_TEST_NUM</span>
     <span class="n">sleep_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">SLEEP_NUM</span>
 
 
-<span class="k">class</span> <span class="nc">ThroughputMetricConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ThroughputMetricConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
     <span class="n">warmup_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">WARMUP_NUM</span>
     <span class="n">repeat_test_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">REPEAT_TEST_NUM</span>
     <span class="n">sleep_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">SLEEP_NUM</span>
@@ -499,12 +499,12 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="MetricGoal">
 <a class="viewcode-back" href="../../../reference/metric.html#olive.evaluator.metric.MetricGoal">[docs]</a>
-<span class="k">class</span> <span class="nc">MetricGoal</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MetricGoal</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
     <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># threshold , deviation, percent-deviation</span>
     <span class="n">value</span><span class="p">:</span> <span class="nb">float</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">check_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
         <span class="n">allowed_types</span> <span class="o">=</span> <span class="p">[</span>
             <span class="s2">&quot;threshold&quot;</span><span class="p">,</span>
             <span class="s2">&quot;min-improvement&quot;</span><span class="p">,</span>
@@ -517,7 +517,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">v</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;value&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">check_value</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_value</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
         <span class="k">if</span> <span class="s2">&quot;type&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid type&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span>
@@ -530,7 +530,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="MetricGoal.has_regression_goal">
 <a class="viewcode-back" href="../../../reference/metric.html#olive.evaluator.metric.MetricGoal.has_regression_goal">[docs]</a>
-    <span class="k">def</span> <span class="nf">has_regression_goal</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">has_regression_goal</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;min-improvement&quot;</span><span class="p">,</span> <span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">}:</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span> <span class="s2">&quot;percent-max-degradation&quot;</span><span class="p">}:</span>

@@ -29,7 +29,7 @@
   <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,32 +440,32 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">serialize_to_json</span><span class="p">,</span> <span class="n">validate_config</span>
-<span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
-<span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
-<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model.config</span> <span class="kn">import</span> <span class="n">IoConfig</span><span class="p">,</span> <span class="n">complete_kv_cache_with_model_attributes</span><span class="p">,</span> <span class="n">extend_io_config_with_kv_cache</span>
-<span class="kn">from</span> <span class="nn">olive.model.config.registry</span> <span class="kn">import</span> <span class="n">model_handler_registry</span>
-<span class="kn">from</span> <span class="nn">olive.model.handler.base</span> <span class="kn">import</span> <span class="n">OliveModelHandler</span>
-<span class="kn">from</span> <span class="nn">olive.model.handler.mixin</span> <span class="kn">import</span> <span class="n">DummyInputsMixin</span><span class="p">,</span> <span class="n">PytorchKvCacheMixin</span>
-<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">ResourceType</span><span class="p">,</span> <span class="n">create_resource_path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">serialize_to_json</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.user_module_loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">UserModuleLoader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware.accelerator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">IoConfig</span><span class="p">,</span> <span class="n">complete_kv_cache_with_model_attributes</span><span class="p">,</span> <span class="n">extend_io_config_with_kv_cache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.config.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">model_handler_registry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.handler.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveModelHandler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.handler.mixin</span><span class="w"> </span><span class="kn">import</span> <span class="n">DummyInputsMixin</span><span class="p">,</span> <span class="n">PytorchKvCacheMixin</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.resource_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">ResourceType</span><span class="p">,</span> <span class="n">create_resource_path</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">import</span> <span class="nn">torch</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<span class="k">class</span> <span class="nc">PyTorchModelHandlerBase</span><span class="p">(</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PyTorchModelHandlerBase</span><span class="p">(</span>
     <span class="n">OliveModelHandler</span><span class="p">,</span> <span class="n">DummyInputsMixin</span><span class="p">,</span> <span class="n">PytorchKvCacheMixin</span>
 <span class="p">):</span>  <span class="c1"># pylint: disable=too-many-ancestors</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for PyTorch model handler.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
@@ -474,7 +474,7 @@ window.addEventListener("load", () => mermaid.run());
     <span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">run_session</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">session</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -487,7 +487,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">results</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_resolved_io_config</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_resolved_io_config</span><span class="p">(</span>
         <span class="n">io_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">IoConfig</span><span class="p">],</span>
         <span class="n">force_kv_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -507,7 +507,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">io_config_obj</span> <span class="o">=</span> <span class="n">extend_io_config_with_kv_cache</span><span class="p">(</span><span class="n">io_config_obj</span><span class="p">,</span> <span class="n">kv_cache_config</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">io_config_obj</span><span class="o">.</span><span class="n">dict</span><span class="p">(</span><span class="n">exclude_none</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
         <span class="c1"># add _io_config to config to keep what was provided at init</span>
         <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;io_config&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span>
@@ -517,7 +517,7 @@ window.addEventListener("load", () => mermaid.run());
 <div class="viewcode-block" id="PyTorchModelHandler">
 <a class="viewcode-back" href="../../../../reference/model.html#olive.model.PyTorchModelHandler">[docs]</a>
 <span class="nd">@model_handler_registry</span><span class="p">(</span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">PyTorchModelHandler</span><span class="p">(</span><span class="n">PyTorchModelHandlerBase</span><span class="p">):</span>  <span class="c1"># pylint: disable=too-many-ancestors</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PyTorchModelHandler</span><span class="p">(</span><span class="n">PyTorchModelHandlerBase</span><span class="p">):</span>  <span class="c1"># pylint: disable=too-many-ancestors</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;PyTorch model handler.</span>
 
 <span class="sd">    Besides the model loading for PyTorch model, the model handler also provides the following functionalities:</span>
@@ -528,7 +528,7 @@ window.addEventListener("load", () => mermaid.run());
     <span class="n">resource_keys</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">,</span> <span class="s2">&quot;script_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;model_script&quot;</span><span class="p">)</span>
     <span class="n">json_config_keys</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;model_file_format&quot;</span><span class="p">,</span> <span class="s2">&quot;model_loader&quot;</span><span class="p">,</span> <span class="s2">&quot;dummy_inputs_func&quot;</span><span class="p">,</span> <span class="s2">&quot;generative&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">model_file_format</span><span class="p">:</span> <span class="n">ModelFileFormat</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_ENTIRE_MODEL</span><span class="p">,</span>
@@ -569,15 +569,15 @@ window.addEventListener("load", () => mermaid.run());
         <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">script_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">script_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;script_dir&quot;</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">model_script</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">model_script</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;model_script&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;torch.nn.Module&quot;</span><span class="p">:</span>
-        <span class="kn">import</span> <span class="nn">torch</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;torch.nn.Module&quot;</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span>
             <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span>
@@ -603,8 +603,8 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">model</span>
 
-    <span class="k">def</span> <span class="nf">_load_slicegpt_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">slicgpt.hf_utils</span> <span class="kn">import</span> <span class="n">load_sliced_model</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_slicegpt_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">slicgpt.hf_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_sliced_model</span>
 
         <span class="n">model_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_name&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">model_name</span><span class="p">:</span>
@@ -615,7 +615,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">loaded_model</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return io config of the model.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -627,7 +627,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resolved_io_config</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="n">model_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">get_dummy_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filter_hook</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filter_hook_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_dummy_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filter_hook</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filter_hook_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a dummy input for the model.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span>

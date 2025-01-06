@@ -29,7 +29,7 @@
   <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,19 +440,19 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">ClassVar</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span>
 
-<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">SystemType</span>
 
 
-<span class="k">class</span> <span class="nc">AzureMLSystemAlias</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AzureMLSystemAlias</span><span class="p">:</span>
     <span class="n">system_type</span> <span class="o">=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span>
     <span class="n">accelerators</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;GPU&quot;</span><span class="p">]</span>
 
 
 <div class="viewcode-block" id="AzureND12SSystem">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_alias.AzureND12SSystem">[docs]</a>
-<span class="k">class</span> <span class="nc">AzureND12SSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AzureND12SSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
     <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND12S&quot;</span>
     <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">12</span>
     <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">2</span></div>
@@ -463,7 +463,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="AzureND24RSSystem">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_alias.AzureND24RSSystem">[docs]</a>
-<span class="k">class</span> <span class="nc">AzureND24RSSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AzureND24RSSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
     <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND24RS&quot;</span>
     <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">24</span>
     <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">4</span></div>
@@ -472,7 +472,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="AzureND24SSystem">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_alias.AzureND24SSystem">[docs]</a>
-<span class="k">class</span> <span class="nc">AzureND24SSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AzureND24SSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
     <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND24S&quot;</span>
     <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">24</span>
     <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">4</span></div>
@@ -481,7 +481,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="AzureNDV2System">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_alias.AzureNDV2System">[docs]</a>
-<span class="k">class</span> <span class="nc">AzureNDV2System</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AzureNDV2System</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
     <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND40RS_V2&quot;</span>
     <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">40</span>
     <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">8</span></div>
@@ -491,7 +491,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="AzureND6SSystem">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_alias.AzureND6SSystem">[docs]</a>
-<span class="k">class</span> <span class="nc">AzureND6SSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AzureND6SSystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
     <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND6S&quot;</span>
     <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">6</span>
     <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">1</span></div>
@@ -501,7 +501,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="AzureND96A100System">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_alias.AzureND96A100System">[docs]</a>
-<span class="k">class</span> <span class="nc">AzureND96A100System</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AzureND96A100System</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
     <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND96AMSR_A100_V4&quot;</span>
     <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">96</span>
     <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">8</span></div>
@@ -511,7 +511,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="AzureND96ASystem">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_alias.AzureND96ASystem">[docs]</a>
-<span class="k">class</span> <span class="nc">AzureND96ASystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AzureND96ASystem</span><span class="p">(</span><span class="n">AzureMLSystemAlias</span><span class="p">):</span>
     <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;STANDARD_ND96ASR_V4&quot;</span>
     <span class="n">num_cpus</span> <span class="o">=</span> <span class="mi">96</span>
     <span class="n">num_gpus</span> <span class="o">=</span> <span class="mi">8</span></div>
@@ -560,14 +560,14 @@ window.addEventListener("load", () => mermaid.run());
 
 
 <span class="c1"># Please add surface readymade system alias from https://learn.microsoft.com/en-us/surface/surface-system-sku-reference</span>
-<span class="k">class</span> <span class="nc">SurfaceSystemAlias</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SurfaceSystemAlias</span><span class="p">:</span>
     <span class="n">system_type</span> <span class="o">=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span>
     <span class="n">accelerators</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;GPU&quot;</span><span class="p">]</span>
 
 
 <div class="viewcode-block" id="SurfaceProSystem1796">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_alias.SurfaceProSystem1796">[docs]</a>
-<span class="k">class</span> <span class="nc">SurfaceProSystem1796</span><span class="p">(</span><span class="n">SurfaceSystemAlias</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SurfaceProSystem1796</span><span class="p">(</span><span class="n">SurfaceSystemAlias</span><span class="p">):</span>
     <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;Surface_Pro_1796&quot;</span></div>
 
     <span class="c1"># we could add the num_cpus and num_gpus if we don&#39;t want query locally and</span>
@@ -576,7 +576,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="SurfaceProSystem1807">
 <a class="viewcode-back" href="../../../reference/system.html#olive.systems.system_alias.SurfaceProSystem1807">[docs]</a>
-<span class="k">class</span> <span class="nc">SurfaceProSystem1807</span><span class="p">(</span><span class="n">SurfaceSystemAlias</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SurfaceProSystem1807</span><span class="p">(</span><span class="n">SurfaceSystemAlias</span><span class="p">):</span>
     <span class="n">sku</span> <span class="o">=</span> <span class="s2">&quot;Surface_Pro_1807&quot;</span></div>
 
 </pre></div>

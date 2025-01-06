@@ -29,7 +29,7 @@
   <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,19 +440,19 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">StrEnumBase</span>
-<span class="kn">from</span> <span class="nn">olive.hardware.constants</span> <span class="kn">import</span> <span class="n">DEVICE_TO_EXECUTION_PROVIDERS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrEnumBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEVICE_TO_EXECUTION_PROVIDERS</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="Device">
 <a class="viewcode-back" href="../../../reference/system.html#olive.hardware.accelerator.Device">[docs]</a>
-<span class="k">class</span> <span class="nc">Device</span><span class="p">(</span><span class="n">StrEnumBase</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Device</span><span class="p">(</span><span class="n">StrEnumBase</span><span class="p">):</span>
     <span class="n">CPU</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span>
     <span class="n">CPU_SPR</span> <span class="o">=</span> <span class="s2">&quot;cpu_spr&quot;</span>
     <span class="n">GPU</span> <span class="o">=</span> <span class="s2">&quot;gpu&quot;</span>
@@ -466,14 +466,14 @@ window.addEventListener("load", () => mermaid.run());
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">eq</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">AcceleratorSpec</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AcceleratorSpec</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Accelerator specification is the concept of a hardware device that be used to optimize or evaluate a model.&quot;&quot;&quot;</span>
 
     <span class="n">accelerator_type</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Device</span><span class="p">]</span>
     <span class="n">execution_provider</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">str_rep</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accelerator_type</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_provider</span><span class="p">:</span>
             <span class="n">str_rep</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_provider</span><span class="p">[:</span><span class="o">-</span><span class="mi">17</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -481,7 +481,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">str_rep</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;-memory=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">return</span> <span class="n">str_rep</span>
 
-    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">json_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;accelerator_type&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accelerator_type</span><span class="p">)}</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_provider</span><span class="p">:</span>
             <span class="n">json_data</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_provider</span>
@@ -491,7 +491,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">json_data</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">str_to_int_memory</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">str_to_int_memory</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">v</span>
 
@@ -512,31 +512,31 @@ window.addEventListener("load", () => mermaid.run());
 <span class="p">)</span>
 
 
-<span class="k">class</span> <span class="nc">AcceleratorLookup</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AcceleratorLookup</span><span class="p">:</span>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_managed_supported_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_managed_supported_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">[</span><span class="o">*</span><span class="n">DEVICE_TO_EXECUTION_PROVIDERS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_execution_providers_for_device</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
-        <span class="kn">import</span> <span class="nn">onnxruntime</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_execution_providers_for_device</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime</span>
 
         <span class="k">return</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device_by_available_providers</span><span class="p">(</span>
             <span class="n">device</span><span class="p">,</span> <span class="n">onnxruntime</span><span class="o">.</span><span class="n">get_available_providers</span><span class="p">()</span>
         <span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_execution_providers_for_device_by_available_providers</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_execution_providers_for_device_by_available_providers</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">):</span>
         <span class="n">eps_per_device</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_managed_supported_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers</span><span class="p">(</span><span class="n">eps_per_device</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">):</span>
         <span class="n">eps</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">filter_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">eps</span> <span class="ow">or</span> <span class="n">available_providers</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">filter_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">filter_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_providers</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">execution_providers</span>
 
@@ -546,7 +546,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="p">[</span><span class="n">ep</span> <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span> <span class="k">if</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">execution_providers</span><span class="p">]</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">infer_devices_from_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">infer_devices_from_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Infer the device from the execution provider name.</span>
 
 <span class="sd">        If all the execution provider is uniquely mapped to a device, return the device list.</span>
@@ -601,7 +601,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">mapped_devices</span> <span class="k">if</span> <span class="n">mapped_devices</span> <span class="k">else</span> <span class="kc">None</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">infer_single_device_from_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">infer_single_device_from_execution_providers</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_providers</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 

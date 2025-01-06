@@ -29,7 +29,7 @@
   <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,24 +440,24 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">serialize_to_json</span>
-<span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
-<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model.config.registry</span> <span class="kn">import</span> <span class="n">model_handler_registry</span>
-<span class="kn">from</span> <span class="nn">olive.model.handler.base</span> <span class="kn">import</span> <span class="n">OliveModelHandler</span>
-<span class="kn">from</span> <span class="nn">olive.platform_sdk.qualcomm.constants</span> <span class="kn">import</span> <span class="n">SNPEDevice</span>
-<span class="kn">from</span> <span class="nn">olive.platform_sdk.qualcomm.snpe</span> <span class="kn">import</span> <span class="n">SNPEInferenceSession</span><span class="p">,</span> <span class="n">SNPESessionOptions</span>
-<span class="kn">from</span> <span class="nn">olive.platform_sdk.qualcomm.snpe.tools.dev</span> <span class="kn">import</span> <span class="n">get_dlc_metrics</span>
-<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">serialize_to_json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware.accelerator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.config.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">model_handler_registry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.handler.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveModelHandler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.platform_sdk.qualcomm.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">SNPEDevice</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.platform_sdk.qualcomm.snpe</span><span class="w"> </span><span class="kn">import</span> <span class="n">SNPEInferenceSession</span><span class="p">,</span> <span class="n">SNPESessionOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.platform_sdk.qualcomm.snpe.tools.dev</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_dlc_metrics</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.resource_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span>
 
 
 <div class="viewcode-block" id="SNPEModelHandler">
 <a class="viewcode-back" href="../../../../reference/model.html#olive.model.SNPEModelHandler">[docs]</a>
 <span class="nd">@model_handler_registry</span><span class="p">(</span><span class="s2">&quot;SNPEModel&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">SNPEModelHandler</span><span class="p">(</span><span class="n">OliveModelHandler</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SNPEModelHandler</span><span class="p">(</span><span class="n">OliveModelHandler</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">input_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
         <span class="n">input_shapes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
@@ -480,16 +480,16 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span><span class="p">,</span> <span class="s2">&quot;SNPEModelHandler: io_config is not set&quot;</span>
 
         <span class="n">keys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;input_names&quot;</span><span class="p">,</span> <span class="s2">&quot;input_shapes&quot;</span><span class="p">,</span> <span class="s2">&quot;output_names&quot;</span><span class="p">,</span> <span class="s2">&quot;output_shapes&quot;</span><span class="p">}</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
-    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
@@ -503,7 +503,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">session_options</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
         <span class="k">return</span> <span class="n">SNPEInferenceSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">,</span> <span class="n">session_options</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">run_session</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">session</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -511,12 +511,12 @@ window.addEventListener("load", () => mermaid.run());
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">session</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
         <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">get_dlc_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_dlc_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">get_dlc_metrics</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span></div>
 
 </pre></div>

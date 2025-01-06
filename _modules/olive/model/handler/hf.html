@@ -29,7 +29,7 @@
   <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,25 +440,25 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">serialize_to_json</span><span class="p">,</span> <span class="n">validate_config</span>
-<span class="kn">from</span> <span class="nn">olive.common.constants</span> <span class="kn">import</span> <span class="n">DEFAULT_HF_TASK</span>
-<span class="kn">from</span> <span class="nn">olive.common.hf.utils</span> <span class="kn">import</span> <span class="n">load_model_from_task</span>
-<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">dict_diff</span>
-<span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span>
-<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model.config</span> <span class="kn">import</span> <span class="n">HfLoadKwargs</span><span class="p">,</span> <span class="n">IoConfig</span>
-<span class="kn">from</span> <span class="nn">olive.model.config.registry</span> <span class="kn">import</span> <span class="n">model_handler_registry</span>
-<span class="kn">from</span> <span class="nn">olive.model.handler.base</span> <span class="kn">import</span> <span class="n">OliveModelHandler</span>
-<span class="kn">from</span> <span class="nn">olive.model.handler.mixin</span> <span class="kn">import</span> <span class="n">HfMixin</span><span class="p">,</span> <span class="n">MLFlowTransformersMixin</span>
-<span class="kn">from</span> <span class="nn">olive.model.handler.pytorch</span> <span class="kn">import</span> <span class="n">PyTorchModelHandlerBase</span>
-<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">serialize_to_json</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_HF_TASK</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.hf.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_model_from_task</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">dict_diff</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">Framework</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware.accelerator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">HfLoadKwargs</span><span class="p">,</span> <span class="n">IoConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.config.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">model_handler_registry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.handler.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveModelHandler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.handler.mixin</span><span class="w"> </span><span class="kn">import</span> <span class="n">HfMixin</span><span class="p">,</span> <span class="n">MLFlowTransformersMixin</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.handler.pytorch</span><span class="w"> </span><span class="kn">import</span> <span class="n">PyTorchModelHandlerBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.resource_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">import</span> <span class="nn">torch</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -466,11 +466,11 @@ window.addEventListener("load", () => mermaid.run());
 <div class="viewcode-block" id="HfModelHandler">
 <a class="viewcode-back" href="../../../../reference/model.html#olive.model.HfModelHandler">[docs]</a>
 <span class="nd">@model_handler_registry</span><span class="p">(</span><span class="s2">&quot;HFModel&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">HfModelHandler</span><span class="p">(</span><span class="n">PyTorchModelHandlerBase</span><span class="p">,</span> <span class="n">MLFlowTransformersMixin</span><span class="p">,</span> <span class="n">HfMixin</span><span class="p">):</span>  <span class="c1"># pylint: disable=too-many-ancestors</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">HfModelHandler</span><span class="p">(</span><span class="n">PyTorchModelHandlerBase</span><span class="p">,</span> <span class="n">MLFlowTransformersMixin</span><span class="p">,</span> <span class="n">HfMixin</span><span class="p">):</span>  <span class="c1"># pylint: disable=too-many-ancestors</span>
     <span class="n">resource_keys</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">,</span> <span class="s2">&quot;adapter_path&quot;</span><span class="p">)</span>
     <span class="n">json_config_keys</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;task&quot;</span><span class="p">,</span> <span class="s2">&quot;load_kwargs&quot;</span><span class="p">,</span> <span class="s2">&quot;generative&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span>
         <span class="n">task</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_HF_TASK</span><span class="p">,</span>
@@ -498,7 +498,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">model_name_or_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">model_name_or_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the path to valid hf transformers checkpoint.</span>
 
 <span class="sd">        Call this instead of model_path if you expect a checkpoint path.</span>
@@ -506,11 +506,11 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_mlflow_transformers_path</span><span class="p">()</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_path</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">adapter_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">adapter_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the path to the peft adapter.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;torch.nn.Module&quot;</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;torch.nn.Module&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load the model from the model path.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span>
             <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span>
@@ -519,7 +519,7 @@ window.addEventListener("load", () => mermaid.run());
 
             <span class="c1"># we only have peft adapters for now</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">adapter_path</span><span class="p">:</span>
-                <span class="kn">from</span> <span class="nn">peft</span> <span class="kn">import</span> <span class="n">PeftModel</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">peft</span><span class="w"> </span><span class="kn">import</span> <span class="n">PeftModel</span>
 
                 <span class="n">model</span> <span class="o">=</span> <span class="n">PeftModel</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">adapter_path</span><span class="p">)</span>
 
@@ -528,7 +528,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">model</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return io config of the model.</span>
 
 <span class="sd">        Priority: io_config &gt; hf onnx_config</span>
@@ -547,7 +547,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">io_config</span>
 
-    <span class="k">def</span> <span class="nf">get_dummy_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filter_hook</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filter_hook_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_dummy_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filter_hook</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filter_hook_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a dummy input for the model.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span>
@@ -573,7 +573,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">dummy_inputs</span>
 
-    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
         <span class="c1"># only keep model_attributes that are not in hf model config</span>
         <span class="n">hf_model_config_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hf_model_config</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
@@ -585,7 +585,7 @@ window.addEventListener("load", () => mermaid.run());
 <div class="viewcode-block" id="DistributedHfModelHandler">
 <a class="viewcode-back" href="../../../../reference/model.html#olive.model.DistributedHfModelHandler">[docs]</a>
 <span class="nd">@model_handler_registry</span><span class="p">(</span><span class="s2">&quot;DistributedHfModel&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">DistributedHfModelHandler</span><span class="p">(</span><span class="n">OliveModelHandler</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DistributedHfModelHandler</span><span class="p">(</span><span class="n">OliveModelHandler</span><span class="p">):</span>
     <span class="n">json_config_keys</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
         <span class="s2">&quot;model_name_pattern&quot;</span><span class="p">,</span>
         <span class="s2">&quot;num_ranks&quot;</span><span class="p">,</span>
@@ -597,7 +597,7 @@ window.addEventListener("load", () => mermaid.run());
 
     <span class="n">DEFAULT_RANKED_MODEL_NAME_FORMAT</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;model_</span><span class="si">{:02d}</span><span class="s2">&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span>
         <span class="n">model_name_pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -624,13 +624,13 @@ window.addEventListener("load", () => mermaid.run());
         <span class="bp">self</span><span class="o">.</span><span class="n">task</span> <span class="o">=</span> <span class="n">task</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">load_kwargs</span> <span class="o">=</span> <span class="n">load_kwargs</span>
 
-    <span class="k">def</span> <span class="nf">ranked_model_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ranked_model_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name_pattern</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">ranked_model_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ranked_model_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
         <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ranked_model_name</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cache_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">HfModelHandler</span><span class="p">(</span>
             <span class="n">model_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ranked_model_path</span><span class="p">(</span><span class="n">rank</span><span class="p">),</span>
             <span class="n">task</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">,</span>
@@ -640,7 +640,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">generative</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">generative</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">,</span>  <span class="c1"># pylint: disable=signature-differs</span>
@@ -649,7 +649,7 @@ window.addEventListener("load", () => mermaid.run());
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;torch.nn.Module&quot;</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">run_session</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">session</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">inputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>

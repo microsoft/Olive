@@ -30,7 +30,7 @@
   <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -505,7 +505,7 @@ specify its name in <code class="docutils literal notranslate"><span class="pre"
 </pre></div>
 </div>
 <p>In your <code class="docutils literal notranslate"><span class="pre">user_script.py</span></code>, you need to define a function that takes in an Olive model, the data directory, and the batch size, and returns a metric value:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">eval_accuracy</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">eval_accuracy</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">):</span>
     <span class="c1"># load data</span>
     <span class="c1"># evaluate model</span>
     <span class="c1"># return metric value</span>
@@ -517,7 +517,7 @@ specify its name in <code class="docutils literal notranslate"><span class="pre"
 </div>
 <p>Alternatively, if you only need Olive to run the inference and you will calculate the metric by yourself, you can specify <code class="docutils literal notranslate"><span class="pre">metric_func:</span> <span class="pre">&quot;None&quot;</span></code> in the metric configuration.
 Olive will run inference with the data you provided, and return the inference results to you. You can then calculate the metric by yourself:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">metric_func</span><span class="p">(</span><span class="n">model_output</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">metric_func</span><span class="p">(</span><span class="n">model_output</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
     <span class="c1"># model_output[0]: preds, model_output[1]: logits</span>
     <span class="c1"># calculate metric</span>
     <span class="c1"># return metric value</span>

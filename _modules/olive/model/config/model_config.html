@@ -29,7 +29,7 @@
   <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,49 +440,49 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">NestedConfig</span>
-<span class="kn">from</span> <span class="nn">olive.common.constants</span> <span class="kn">import</span> <span class="n">LOCAL_INPUT_MODEL_ID</span>
-<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
-<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">hash_dict</span><span class="p">,</span> <span class="n">hash_file</span><span class="p">,</span> <span class="n">hash_string</span>
-<span class="kn">from</span> <span class="nn">olive.model.config.registry</span> <span class="kn">import</span> <span class="n">get_model_handler</span><span class="p">,</span> <span class="n">is_valid_model_type</span>
-<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">create_resource_path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">NestedConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">LOCAL_INPUT_MODEL_ID</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.pydantic_v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">hash_dict</span><span class="p">,</span> <span class="n">hash_file</span><span class="p">,</span> <span class="n">hash_string</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.config.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_model_handler</span><span class="p">,</span> <span class="n">is_valid_model_type</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.resource_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_resource_path</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="ModelConfig">
 <a class="viewcode-back" href="../../../../reference/model.html#olive.model.ModelConfig">[docs]</a>
-<span class="k">class</span> <span class="nc">ModelConfig</span><span class="p">(</span><span class="n">NestedConfig</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ModelConfig</span><span class="p">(</span><span class="n">NestedConfig</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Input model config which will be used to create the model handler.&quot;&quot;&quot;</span>
 
     <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;The type of the model handler.&quot;</span><span class="p">)</span>
     <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;The config for the model handler. Used to initialize the model handler.&quot;</span><span class="p">)</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">validate_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_valid_model_type</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown model type </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">v</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">get_resource_strings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_resource_strings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">cls</span> <span class="o">=</span> <span class="n">get_model_handler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
         <span class="n">resource_keys</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_resource_keys</span><span class="p">()</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">resource_keys</span><span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">get_resource_paths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_resource_paths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">resources</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource_strings</span><span class="p">()</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">resources</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
-    <span class="k">def</span> <span class="nf">create_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">cls</span> <span class="o">=</span> <span class="n">get_model_handler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">get_model_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_model_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">LOCAL_INPUT_MODEL_ID</span>
@@ -496,7 +496,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">model_config</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model_attributes&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;_name_or_path&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">hash_dict</span><span class="p">({</span><span class="s2">&quot;model_identifier&quot;</span><span class="p">:</span> <span class="n">model_identifier</span><span class="p">,</span> <span class="s2">&quot;model_config&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">dict</span><span class="p">()})[:</span><span class="mi">8</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">get_model_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_model_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">model_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">model_path</span><span class="p">:</span>
             <span class="n">model_path_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span>
@@ -507,13 +507,13 @@ window.addEventListener("load", () => mermaid.run());
             <span class="p">):</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="c1"># huggingface_hub is a dependency of transformers</span>
-                    <span class="kn">from</span> <span class="nn">huggingface_hub</span> <span class="kn">import</span> <span class="n">repo_info</span>
+                    <span class="kn">from</span><span class="w"> </span><span class="nn">huggingface_hub</span><span class="w"> </span><span class="kn">import</span> <span class="n">repo_info</span>
                 <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
                         <span class="s2">&quot;huggingface_hub is not installed. &quot;</span>
                         <span class="s2">&quot;Please install huggingface_hub for supporting Huggingface model.&quot;</span>
                     <span class="p">)</span>
-                    <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;huggingface_hub is not installed.&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+                    <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;huggingface_hub is not installed.&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
                 <span class="k">return</span> <span class="n">repo_info</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">sha</span>
 
             <span class="k">if</span> <span class="n">model_path_resource_path</span><span class="o">.</span><span class="n">is_azureml_resource</span><span class="p">():</span>
@@ -523,7 +523,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">sorted_file_hashes</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">file_hashes</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">hash_string</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sorted_file_hashes</span><span class="p">))</span>
 
-    <span class="k">def</span> <span class="nf">_get_model_files_hash</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_model_files_hash</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">):</span>
         <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">,</span> <span class="s2">&quot;adapter_path&quot;</span><span class="p">,</span> <span class="s2">&quot;model_script&quot;</span><span class="p">,</span> <span class="s2">&quot;script_dir&quot;</span><span class="p">]</span>
         <span class="n">local_resource_paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">])</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)]</span>
 
@@ -534,7 +534,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">file_hashes</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_file_hash</span><span class="p">(</span><span class="n">local_resource_path</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">file_hashes</span>
 
-    <span class="k">def</span> <span class="nf">_get_file_hash</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_file_hash</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
         <span class="n">file_hashes</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="n">file_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
             <span class="n">file_hashes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hash_file</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">block_size</span><span class="o">=</span><span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)[:</span><span class="mi">8</span><span class="p">])</span>

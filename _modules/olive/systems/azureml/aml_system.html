@@ -29,7 +29,7 @@
   <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,29 +440,29 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">shutil</span>
-<span class="kn">import</span> <span class="nn">tempfile</span>
-<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">Input</span><span class="p">,</span> <span class="n">Output</span><span class="p">,</span> <span class="n">command</span>
-<span class="kn">from</span> <span class="nn">azure.ai.ml.constants</span> <span class="kn">import</span> <span class="n">AssetTypes</span>
-<span class="kn">from</span> <span class="nn">azure.ai.ml.dsl</span> <span class="kn">import</span> <span class="n">pipeline</span>
-<span class="kn">from</span> <span class="nn">azure.ai.ml.entities</span> <span class="kn">import</span> <span class="n">BuildContext</span><span class="p">,</span> <span class="n">Environment</span><span class="p">,</span> <span class="n">Model</span><span class="p">,</span> <span class="n">UserIdentityConfiguration</span>
-<span class="kn">from</span> <span class="nn">azure.ai.ml.exceptions</span> <span class="kn">import</span> <span class="n">JobException</span>
-<span class="kn">from</span> <span class="nn">azure.core.exceptions</span> <span class="kn">import</span> <span class="n">HttpResponseError</span><span class="p">,</span> <span class="n">ServiceResponseError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">azure.ai.ml</span><span class="w"> </span><span class="kn">import</span> <span class="n">Input</span><span class="p">,</span> <span class="n">Output</span><span class="p">,</span> <span class="n">command</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">azure.ai.ml.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssetTypes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">azure.ai.ml.dsl</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">azure.ai.ml.entities</span><span class="w"> </span><span class="kn">import</span> <span class="n">BuildContext</span><span class="p">,</span> <span class="n">Environment</span><span class="p">,</span> <span class="n">Model</span><span class="p">,</span> <span class="n">UserIdentityConfiguration</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">azure.ai.ml.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">JobException</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">azure.core.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">HttpResponseError</span><span class="p">,</span> <span class="n">ServiceResponseError</span>
 
-<span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
-<span class="kn">from</span> <span class="nn">olive.common.constants</span> <span class="kn">import</span> <span class="n">HF_LOGIN</span><span class="p">,</span> <span class="n">KEYVAULT_NAME</span><span class="p">,</span> <span class="n">WORKFLOW_ARTIFACTS</span><span class="p">,</span> <span class="n">WORKFLOW_CONFIG</span>
-<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">copy_dir</span><span class="p">,</span> <span class="n">get_nested_dict_value</span><span class="p">,</span> <span class="n">retry_func</span><span class="p">,</span> <span class="n">set_nested_dict_value</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric_result</span> <span class="kn">import</span> <span class="n">MetricResult</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
-<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.azureml.azureml_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">HF_LOGIN</span><span class="p">,</span> <span class="n">KEYVAULT_NAME</span><span class="p">,</span> <span class="n">WORKFLOW_ARTIFACTS</span><span class="p">,</span> <span class="n">WORKFLOW_CONFIG</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">copy_dir</span><span class="p">,</span> <span class="n">get_nested_dict_value</span><span class="p">,</span> <span class="n">retry_func</span><span class="p">,</span> <span class="n">set_nested_dict_value</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.metric_result</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.olive_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.resource_path</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">AZUREML_RESOURCE_TYPES</span><span class="p">,</span>
     <span class="n">LOCAL_RESOURCE_TYPES</span><span class="p">,</span>
     <span class="n">AzureMLModel</span><span class="p">,</span>
@@ -471,14 +471,14 @@ window.addEventListener("load", () => mermaid.run());
     <span class="n">create_resource_path</span><span class="p">,</span>
     <span class="n">find_all_resources</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AcceleratorConfig</span><span class="p">,</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">,</span> <span class="n">SystemType</span>
-<span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
-<span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">AzureMLTargetUserConfig</span>
-<span class="kn">from</span> <span class="nn">olive.workflows.run.config</span> <span class="kn">import</span> <span class="n">RunConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcceleratorConfig</span><span class="p">,</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">,</span> <span class="n">SystemType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.olive_system</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveSystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.system_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">AzureMLTargetUserConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.workflows.run.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">RunConfig</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
-    <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware.accelerator</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcceleratorSpec</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.passes.olive_pass</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pass</span>
 
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -494,7 +494,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="p">}</span>
 
 
-<span class="k">def</span> <span class="nf">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">:</span> <span class="n">ResourcePath</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">:</span> <span class="n">ResourcePath</span><span class="p">):</span>
     <span class="n">resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span>  <span class="c1"># just in case</span>
 
     <span class="k">if</span> <span class="n">RESOURCE_TYPE_TO_ASSET_TYPE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">resource_path</span><span class="o">.</span><span class="n">type</span><span class="p">):</span>
@@ -509,11 +509,11 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="AzureMLSystem">
 <a class="viewcode-back" href="../../../../reference/system.html#olive.systems.azureml.AzureMLSystem">[docs]</a>
-<span class="k">class</span> <span class="nc">AzureMLSystem</span><span class="p">(</span><span class="n">OliveSystem</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AzureMLSystem</span><span class="p">(</span><span class="n">OliveSystem</span><span class="p">):</span>
     <span class="n">system_type</span> <span class="o">=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span>
     <span class="n">olive_config</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">azureml_client_config</span><span class="p">:</span> <span class="n">AzureMLClientConfig</span><span class="p">,</span>
         <span class="n">aml_compute</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -542,7 +542,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">aml_environment_config</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">azure.core.exceptions</span> <span class="kn">import</span> <span class="n">ResourceNotFoundError</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">azure.core.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ResourceNotFoundError</span>
 
             <span class="n">aml_environment_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">aml_environment_config</span><span class="p">,</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
@@ -557,7 +557,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_hf_token_env</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">keyvault_name</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_token</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="k">def</span> <span class="nf">submit_workflow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_config</span><span class="p">:</span> <span class="n">RunConfig</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">submit_workflow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_config</span><span class="p">:</span> <span class="n">RunConfig</span><span class="p">):</span>
         <span class="n">workflow_id</span> <span class="o">=</span> <span class="n">run_config</span><span class="o">.</span><span class="n">workflow_id</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Submitting workflow </span><span class="si">%s</span><span class="s2"> to the AzureML system.&quot;</span><span class="p">,</span> <span class="n">workflow_id</span><span class="p">)</span>
         <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
@@ -585,7 +585,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Workflow run succeed. Please check the job details for logs and outputs.&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_create_pipeline_for_workflow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_config</span><span class="p">:</span> <span class="n">RunConfig</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_pipeline_for_workflow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_config</span><span class="p">:</span> <span class="n">RunConfig</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">):</span>
         <span class="n">workflow_id</span> <span class="o">=</span> <span class="n">run_config</span><span class="o">.</span><span class="n">workflow_id</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Creating pipeline for workflow </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">workflow_id</span><span class="p">)</span>
         <span class="n">script_name</span> <span class="o">=</span> <span class="s2">&quot;aml_workflow_runner.py&quot;</span>
@@ -635,7 +635,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">)</span>
 
         <span class="nd">@pipeline</span><span class="p">()</span>
-        <span class="k">def</span> <span class="nf">workflow_runner_pipeline</span><span class="p">():</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">workflow_runner_pipeline</span><span class="p">():</span>
             <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="n">component</span> <span class="o">=</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
             <span class="n">outputs</span><span class="p">[</span><span class="n">WORKFLOW_ARTIFACTS</span><span class="p">]</span> <span class="o">=</span> <span class="n">component</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">workflow_artifacts</span>
@@ -643,7 +643,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">workflow_runner_pipeline</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_get_hf_token_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyvault_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_hf_token_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyvault_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
         <span class="k">if</span> <span class="n">keyvault_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;hf_token is set to True but keyvault name is not provided. &quot;</span>
@@ -653,7 +653,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">env_vars</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">KEYVAULT_NAME</span><span class="p">:</span> <span class="n">keyvault_name</span><span class="p">})</span>
         <span class="k">return</span> <span class="n">env_vars</span>
 
-    <span class="k">def</span> <span class="nf">_get_environment_from_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">aml_environment_config</span><span class="p">:</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_environment_from_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">aml_environment_config</span><span class="p">:</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">):</span>
         <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">retry_func</span><span class="p">(</span>
             <span class="n">ml_client</span><span class="o">.</span><span class="n">environments</span><span class="o">.</span><span class="n">get</span><span class="p">,</span>
@@ -663,7 +663,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">exceptions</span><span class="o">=</span><span class="n">ServiceResponseError</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_create_environment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">docker_config</span><span class="p">:</span> <span class="n">AzureMLDockerConfig</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_environment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">docker_config</span><span class="p">:</span> <span class="n">AzureMLDockerConfig</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">docker_config</span><span class="o">.</span><span class="n">build_context_path</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Environment</span><span class="p">(</span>
                 <span class="n">name</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
@@ -679,11 +679,11 @@ window.addEventListener("load", () => mermaid.run());
             <span class="p">)</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Please specify DockerConfig.&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_assert_not_none</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assert_not_none</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">obj</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> is missing in the inputs!&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
@@ -715,7 +715,7 @@ window.addEventListener("load", () => mermaid.run());
 
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pipeline_output_path</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">create_inputs_and_args</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_inputs_and_args</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">all_configs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">],</span>
         <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
@@ -774,7 +774,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="o">**</span><span class="n">resource_args</span><span class="p">,</span>
         <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">_create_arg_and_input_from_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">:</span> <span class="n">ResourcePath</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_arg_and_input_from_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">:</span> <span class="n">ResourcePath</span><span class="p">):</span>
         <span class="n">asset_type</span> <span class="o">=</span> <span class="n">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">AZUREML_RESOURCE_TYPES</span><span class="p">:</span>
@@ -822,7 +822,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">asset_type</span><span class="p">),</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">asset_type</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">())</span>
 
-    <span class="k">def</span> <span class="nf">_create_olive_config_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">olive_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_olive_config_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">olive_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">olive_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
@@ -831,7 +831,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">olive_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">olive_config_path</span>
 
-    <span class="k">def</span> <span class="nf">_create_step</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_step</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">name</span><span class="p">,</span>
         <span class="n">display_name</span><span class="p">,</span>
@@ -878,7 +878,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">identity</span><span class="o">=</span><span class="n">UserIdentityConfiguration</span><span class="p">(),</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_create_pipeline_for_pass</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_pipeline_for_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">tmp_dir</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -928,7 +928,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">)</span>
 
         <span class="nd">@pipeline</span><span class="p">()</span>
-        <span class="k">def</span> <span class="nf">pass_runner_pipeline</span><span class="p">():</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">pass_runner_pipeline</span><span class="p">():</span>
             <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="n">component</span> <span class="o">=</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
             <span class="n">outputs</span><span class="p">[</span><span class="s2">&quot;pipeline_output&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">component</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">pipeline_output</span>
@@ -936,7 +936,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">pass_runner_pipeline</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_run_job</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_job</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">ml_client</span><span class="p">,</span>
         <span class="n">pipeline_job</span><span class="p">,</span>
@@ -986,7 +986,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="k">return</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;named-outputs&quot;</span>
         <span class="k">return</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pipeline_output_path</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pipeline_output_path</span><span class="p">):</span>
         <span class="n">model_json_path</span> <span class="o">=</span> <span class="n">pipeline_output_path</span> <span class="o">/</span> <span class="s2">&quot;output_model_config.json&quot;</span>
         <span class="k">with</span> <span class="n">model_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">model_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
@@ -1026,7 +1026,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">ModelConfig</span><span class="p">(</span><span class="o">**</span><span class="n">model_json</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">:</span> <span class="n">OliveEvaluatorConfig</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">model_config</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;SNPEModel&quot;</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
@@ -1052,7 +1052,7 @@ window.addEventListener("load", () => mermaid.run());
 
             <span class="k">return</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">metric_results</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_create_pipeline_for_evaluation</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_pipeline_for_evaluation</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">tmp_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -1062,7 +1062,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
 
         <span class="nd">@pipeline</span>
-        <span class="k">def</span> <span class="nf">evaluate_pipeline</span><span class="p">():</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">evaluate_pipeline</span><span class="p">():</span>
             <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">evaluator_config</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
                 <span class="n">metric_tmp_dir</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span>
@@ -1085,7 +1085,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">pipeline_job</span>
 
-    <span class="k">def</span> <span class="nf">_create_metric_component</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_metric_component</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -1143,7 +1143,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="c1"># metric component</span>
         <span class="k">return</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">copy_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code_files</span><span class="p">:</span> <span class="n">List</span><span class="p">,</span> <span class="n">target_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code_files</span><span class="p">:</span> <span class="n">List</span><span class="p">,</span> <span class="n">target_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
         <span class="n">target_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">code_file</span> <span class="ow">in</span> <span class="n">code_files</span><span class="p">:</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">code_file</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">target_path</span><span class="p">))</span>
@@ -1157,7 +1157,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">project_folder</span> <span class="o">=</span> <span class="n">cur_dir</span><span class="o">.</span><span class="n">parents</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
             <span class="n">copy_dir</span><span class="p">(</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">target_path</span> <span class="o">/</span> <span class="s2">&quot;olive&quot;</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="n">shutil</span><span class="o">.</span><span class="n">ignore_patterns</span><span class="p">(</span><span class="s2">&quot;__pycache__&quot;</span><span class="p">))</span>
 
-    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;AzureML system cleanup temp dirs.&quot;</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">temp_dir</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span><span class="p">:</span>

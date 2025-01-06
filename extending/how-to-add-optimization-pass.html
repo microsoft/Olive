@@ -30,7 +30,7 @@
   <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,9 +440,9 @@ represented as a Pass in Olive.</p>
 <section id="define-a-new-class">
 <h2>1. Define a new class<a class="headerlink" href="#define-a-new-class" title="Link to this heading">#</a></h2>
 <p>Define a new class using Pass as the base class. For example</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive.passes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pass</span>
 
-<span class="k">class</span> <span class="nc">NewOptimizationTrick</span><span class="p">(</span><span class="n">Pass</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">NewOptimizationTrick</span><span class="p">(</span><span class="n">Pass</span><span class="p">):</span>
     <span class="c1"># Add any required data members to the class</span>
 </pre></div>
 </div>
@@ -480,7 +480,7 @@ Must be a Categorical or Conditional SearchParameter.</p></li>
 <section id="example">
 <h3>Example<a class="headerlink" href="#example" title="Link to this heading">#</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="c1"># required parameter</span>
             <span class="s2">&quot;param1&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param1 description&quot;</span><span class="p">),</span>
@@ -528,7 +528,7 @@ Must be a Categorical or Conditional SearchParameter.</p></li>
 method while auto tuning the model. This method will also receive a search point (one set of configuration option from
 the search space created based on the options defined in <code class="docutils literal notranslate"><span class="pre">_default_config(cls,</span> <span class="pre">accelerator_spec:</span> <span class="pre">AcceleratorSpec)</span></code>) along
 with output path. The method should return a valid OliveModelHandler which can be used as an input for the next Pass.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="k">def</span> <span class="nf">_run_for_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ONNXModelHandler</span><span class="p">:</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="k">def</span><span class="w"> </span><span class="nf">_run_for_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ONNXModelHandler</span><span class="p">:</span>
 </pre></div>
 </div>
 </section>

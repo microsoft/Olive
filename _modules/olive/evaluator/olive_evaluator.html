@@ -29,7 +29,7 @@
   <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,43 +440,43 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">collections</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
-<span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">collections</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numbers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Number</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">NestedConfig</span><span class="p">,</span> <span class="n">validate_config</span>
-<span class="kn">from</span> <span class="nn">olive.common.import_lib</span> <span class="kn">import</span> <span class="n">import_user_module</span>
-<span class="kn">from</span> <span class="nn">olive.common.ort_inference</span> <span class="kn">import</span> <span class="n">OrtInferenceSession</span><span class="p">,</span> <span class="n">prepare_io_bindings</span>
-<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">root_validator</span><span class="p">,</span> <span class="n">validator</span>
-<span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
-<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">load_weights</span><span class="p">,</span> <span class="n">tensor_data_to_device</span>
-<span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span>
-<span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
-<span class="kn">from</span> <span class="nn">olive.data.container.dummy_data_container</span> <span class="kn">import</span> <span class="n">TRANSFORMER_DUMMY_DATA_CONTAINER</span>
-<span class="kn">from</span> <span class="nn">olive.data.template</span> <span class="kn">import</span> <span class="n">dummy_data_config_template</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">LatencySubType</span><span class="p">,</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricType</span><span class="p">,</span> <span class="n">ThroughputSubType</span><span class="p">,</span> <span class="n">get_latency_config_from_metric</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric_backend</span> <span class="kn">import</span> <span class="n">MetricBackend</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric_result</span> <span class="kn">import</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">SubMetricResult</span><span class="p">,</span> <span class="n">flatten_metric_result</span><span class="p">,</span> <span class="n">joint_metric_key</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.registry</span> <span class="kn">import</span> <span class="n">Registry</span>
-<span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">DistributedOnnxModelHandler</span><span class="p">,</span> <span class="n">ONNXModelHandler</span>
-<span class="kn">from</span> <span class="nn">olive.model.config.io_config</span> <span class="kn">import</span> <span class="n">is_io_config_static</span>
-<span class="kn">from</span> <span class="nn">olive.model.utils.onnx_utils</span> <span class="kn">import</span> <span class="n">dump_tuning_result</span>
-<span class="kn">from</span> <span class="nn">olive.platform_sdk.qualcomm.utils.data_loader</span> <span class="kn">import</span> <span class="n">FileListCommonDataLoader</span><span class="p">,</span> <span class="n">FileListDataLoader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">NestedConfig</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.import_lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">import_user_module</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.ort_inference</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrtInferenceSession</span><span class="p">,</span> <span class="n">prepare_io_bindings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.pydantic_v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">root_validator</span><span class="p">,</span> <span class="n">validator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.user_module_loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">UserModuleLoader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_weights</span><span class="p">,</span> <span class="n">tensor_data_to_device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">Framework</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.data.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.data.container.dummy_data_container</span><span class="w"> </span><span class="kn">import</span> <span class="n">TRANSFORMER_DUMMY_DATA_CONTAINER</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.data.template</span><span class="w"> </span><span class="kn">import</span> <span class="n">dummy_data_config_template</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.metric</span><span class="w"> </span><span class="kn">import</span> <span class="n">LatencySubType</span><span class="p">,</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricType</span><span class="p">,</span> <span class="n">ThroughputSubType</span><span class="p">,</span> <span class="n">get_latency_config_from_metric</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.metric_backend</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.metric_result</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">SubMetricResult</span><span class="p">,</span> <span class="n">flatten_metric_result</span><span class="p">,</span> <span class="n">joint_metric_key</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Registry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">DistributedOnnxModelHandler</span><span class="p">,</span> <span class="n">ONNXModelHandler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.config.io_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_io_config_static</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.utils.onnx_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">dump_tuning_result</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.platform_sdk.qualcomm.utils.data_loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileListCommonDataLoader</span><span class="p">,</span> <span class="n">FileListDataLoader</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">DataLoader</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
 
-    <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.model</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
         <span class="n">OliveModelHandler</span><span class="p">,</span>
         <span class="n">OpenVINOModelHandler</span><span class="p">,</span>
         <span class="n">PyTorchModelHandler</span><span class="p">,</span>
@@ -489,19 +489,19 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># pylint: disable=useless-parent-delegation</span>
 
 
-<span class="k">class</span> <span class="nc">OliveModelOutput</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">OliveModelOutput</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
     <span class="n">preds</span><span class="p">:</span> <span class="n">Any</span>
     <span class="n">logits</span><span class="p">:</span> <span class="n">Any</span>
 
 
 <div class="viewcode-block" id="OliveEvaluator">
 <a class="viewcode-back" href="../../../reference/evaluator.html#olive.evaluator.olive_evaluator.OliveEvaluator">[docs]</a>
-<span class="k">class</span> <span class="nc">OliveEvaluator</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">OliveEvaluator</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
@@ -511,7 +511,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">generate_metric_user_config_with_model_io</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_metric_user_config_with_model_io</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">):</span>
         <span class="c1"># if the io_config is not specified in the data config, use the one in the model</span>
         <span class="c1"># should not change the original metric object which is created from config jsons</span>
         <span class="c1"># otherwise, if affects hashing + caching of the olive restoring.</span>
@@ -543,7 +543,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">metric</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_user_config</span><span class="p">(</span><span class="n">framework</span><span class="p">:</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_user_config</span><span class="p">(</span><span class="n">framework</span><span class="p">:</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">):</span>
         <span class="k">assert</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;user_config is not specified in the metric config&quot;</span>
 
         <span class="n">dataloader</span> <span class="o">=</span> <span class="kc">None</span>
@@ -579,13 +579,13 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">eval_func</span><span class="p">,</span> <span class="n">post_func</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">compute_accuracy</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">model_outputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">],</span> <span class="n">targets</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_accuracy</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">model_outputs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">],</span> <span class="n">targets</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute accuracy metrics.&quot;&quot;&quot;</span>
         <span class="n">evaluate_backend_cls</span> <span class="o">=</span> <span class="n">MetricBackend</span><span class="o">.</span><span class="n">registry</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">backend</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">evaluate_backend_cls</span><span class="p">()</span><span class="o">.</span><span class="n">measure</span><span class="p">(</span><span class="n">model_outputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span> <span class="n">metric</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">latency_helper</span><span class="p">(</span><span class="n">latencies</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">latency_helper</span><span class="p">(</span><span class="n">latencies</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="n">LatencySubType</span><span class="o">.</span><span class="n">AVG</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">latencies</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">latencies</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
             <span class="n">LatencySubType</span><span class="o">.</span><span class="n">MAX</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">latencies</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
@@ -599,7 +599,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">}</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">compute_latency</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">latencies</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_latency</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">latencies</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute latency metrics.&quot;&quot;&quot;</span>
         <span class="n">latency_metrics</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">latency_helper</span><span class="p">(</span><span class="n">latencies</span><span class="p">)</span>
         <span class="n">metric_res</span> <span class="o">=</span> <span class="p">{}</span>
@@ -612,7 +612,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">metric_res</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">compute_throughput</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">latencies</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_throughput</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">latencies</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute throughput metrics.&quot;&quot;&quot;</span>
         <span class="n">latency_metrics</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">latency_helper</span><span class="p">(</span><span class="n">latencies</span><span class="p">)</span>
         <span class="n">metric_res</span> <span class="o">=</span> <span class="p">{}</span>
@@ -634,20 +634,20 @@ window.addEventListener("load", () => mermaid.run());
 
 
 
-<span class="k">class</span> <span class="nc">_OliveEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_OliveEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">):</span>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">io_bind_enabled</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">io_bind_enabled</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">io_bind</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
 
         <span class="k">return</span> <span class="n">inference_settings</span> <span class="ow">and</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;io_bind&quot;</span><span class="p">)</span>
 
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -659,7 +659,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -671,7 +671,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -683,7 +683,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;For given repeat_test_num, return a list of latencies(ms).&quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_latency</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -695,7 +695,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">latencies</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_raw_latency</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_latency</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">latencies</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_throughput</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_throughput</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -707,7 +707,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">latencies</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_raw_latency</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_throughput</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">latencies</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_custom</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_custom</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -742,7 +742,7 @@ window.addEventListener("load", () => mermaid.run());
                 <span class="p">)</span>
         <span class="k">return</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">metric_res</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
@@ -775,10 +775,10 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">flatten_metric_result</span><span class="p">(</span><span class="n">metrics_res</span><span class="p">)</span>
 
 
-<span class="k">class</span> <span class="nc">OnnxEvaluatorMixin</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">OnnxEvaluatorMixin</span><span class="p">:</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">format_input</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">io_config</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_input</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">io_config</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Format input data to ONNX input format.&quot;&quot;&quot;</span>
         <span class="n">input_names</span> <span class="o">=</span> <span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_names&quot;</span><span class="p">]</span>
         <span class="n">name_to_type</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_names&quot;</span><span class="p">],</span> <span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_types&quot;</span><span class="p">]))</span>
@@ -796,7 +796,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">}</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="c1"># user.config.inference_settings &gt; model.inference_settings &gt; default inference_settings</span>
         <span class="c1"># when user.config.inference_settings is None, the model.inference_settings</span>
         <span class="c1"># will be used in model.prepare_session(..)</span>
@@ -814,10 +814,10 @@ window.addEventListener("load", () => mermaid.run());
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Framework</span><span class="o">.</span><span class="n">ONNX</span><span class="p">))</span>
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;OnnxEvaluator&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">OnnxEvaluator</span><span class="p">(</span><span class="n">_OliveEvaluator</span><span class="p">,</span> <span class="n">OnnxEvaluatorMixin</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">OnnxEvaluator</span><span class="p">(</span><span class="n">_OliveEvaluator</span><span class="p">,</span> <span class="n">OnnxEvaluatorMixin</span><span class="p">):</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_session_wrapper</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_session_wrapper</span><span class="p">(</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
         <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
@@ -860,7 +860,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">session_wrapper</span><span class="p">,</span> <span class="n">inference_settings</span>
 
-    <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -910,7 +910,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">dump_tuning_result</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">session</span><span class="p">,</span> <span class="n">tuning_result_file</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OliveModelOutput</span><span class="p">(</span><span class="n">preds</span><span class="o">=</span><span class="n">preds</span><span class="p">,</span> <span class="n">logits</span><span class="o">=</span><span class="n">logits</span><span class="p">),</span> <span class="n">targets</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_onnx_accuracy</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_onnx_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -922,7 +922,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inference</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_accuracy</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_onnx_latency</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_onnx_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -953,7 +953,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">latencies</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_evaluate_distributed_accuracy_worker</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_distributed_accuracy_worker</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]]:</span>
         <span class="n">model_path</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span>
         <span class="n">local_rank</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;local_rank&quot;</span><span class="p">]</span>
         <span class="n">world_size</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;world_size&quot;</span><span class="p">]</span>
@@ -961,12 +961,12 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">execution_providers</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;providers&quot;</span><span class="p">]</span>
         <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;metric&quot;</span><span class="p">])</span>
 
-        <span class="kn">import</span> <span class="nn">os</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 
         <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;OMPI_COMM_WORLD_RANK&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">local_rank</span><span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;OMPI_COMM_WORLD_SIZE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">world_size</span><span class="p">)</span>
 
-        <span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
 
         <span class="n">local_rank</span> <span class="o">=</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span>
 
@@ -999,14 +999,14 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">model_output</span> <span class="o">=</span> <span class="n">OliveModelOutput</span><span class="p">(</span><span class="n">preds</span><span class="o">=</span><span class="n">preds</span><span class="p">,</span> <span class="n">logits</span><span class="o">=</span><span class="n">logits</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">model_output</span><span class="p">,</span> <span class="n">targets</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_distributed_accuracy</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_distributed_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">DistributedOnnxModelHandler</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
-        <span class="kn">from</span> <span class="nn">mpi4py.futures</span> <span class="kn">import</span> <span class="n">MPIPoolExecutor</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPIPoolExecutor</span>
 
         <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
@@ -1036,7 +1036,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_accuracy</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">model_output</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_evaluate_distributed_latency_worker</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_distributed_latency_worker</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="n">model_path</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span>
         <span class="n">local_rank</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;local_rank&quot;</span><span class="p">]</span>
         <span class="n">world_size</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;world_size&quot;</span><span class="p">]</span>
@@ -1044,12 +1044,12 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">execution_providers</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;providers&quot;</span><span class="p">]</span>
         <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;metric&quot;</span><span class="p">])</span>
 
-        <span class="kn">import</span> <span class="nn">os</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 
         <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;OMPI_COMM_WORLD_RANK&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">local_rank</span><span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;OMPI_COMM_WORLD_SIZE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">world_size</span><span class="p">)</span>
 
-        <span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
 
         <span class="n">local_rank</span> <span class="o">=</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span>
         <span class="n">warmup_num</span><span class="p">,</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="n">sleep_num</span> <span class="o">=</span> <span class="n">get_latency_config_from_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
@@ -1091,14 +1091,14 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">latencies</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_distributed_latency</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_distributed_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">DistributedOnnxModelHandler</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
         <span class="n">device</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-        <span class="kn">from</span> <span class="nn">mpi4py.futures</span> <span class="kn">import</span> <span class="n">MPIPoolExecutor</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPIPoolExecutor</span>
 
         <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
@@ -1123,7 +1123,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">r</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1141,7 +1141,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot evaluate accuracy for model of type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1162,9 +1162,9 @@ window.addEventListener("load", () => mermaid.run());
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Framework</span><span class="o">.</span><span class="n">PYTORCH</span><span class="p">))</span>
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;PyTorchEvaluator&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">PyTorchEvaluator</span><span class="p">(</span><span class="n">_OliveEvaluator</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PyTorchEvaluator</span><span class="p">(</span><span class="n">_OliveEvaluator</span><span class="p">):</span>
     <span class="nd">@torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">()</span>
-    <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PyTorchModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1206,7 +1206,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">OliveModelOutput</span><span class="p">(</span><span class="n">preds</span><span class="o">=</span><span class="n">preds</span><span class="p">,</span> <span class="n">logits</span><span class="o">=</span><span class="n">logits</span><span class="p">),</span> <span class="n">targets</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PyTorchModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1219,7 +1219,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_accuracy</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
 
     <span class="nd">@torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">()</span>
-    <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PyTorchModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1283,9 +1283,9 @@ window.addEventListener("load", () => mermaid.run());
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Framework</span><span class="o">.</span><span class="n">SNPE</span><span class="p">))</span>
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;SNPEEvaluator&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">SNPEEvaluator</span><span class="p">(</span><span class="n">_OliveEvaluator</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SNPEEvaluator</span><span class="p">(</span><span class="n">_OliveEvaluator</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;SNPEModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1326,7 +1326,7 @@ window.addEventListener("load", () => mermaid.run());
                 <span class="n">logits</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;logits&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]))</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">OliveModelOutput</span><span class="p">(</span><span class="n">preds</span><span class="o">=</span><span class="n">preds</span><span class="p">,</span> <span class="n">logits</span><span class="o">=</span><span class="n">logits</span><span class="p">),</span> <span class="n">targets</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;SNPEModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1338,7 +1338,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inference</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_accuracy</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;SNPEModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1363,7 +1363,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">run_session</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">input_data</span><span class="p">,</span> <span class="o">**</span><span class="n">run_kwargs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;latencies&quot;</span><span class="p">][</span><span class="s2">&quot;total_inference_time&quot;</span><span class="p">][</span><span class="n">warmup_num</span><span class="p">:]</span>
 
-    <span class="k">def</span> <span class="nf">_prepare_dataloader</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_dataloader</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span> <span class="n">FileListDataLoader</span><span class="p">],</span> <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;SNPEModelHandler&quot;</span><span class="p">,</span> <span class="n">file_chunk_size</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FileListDataLoader</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">FileListDataLoader</span><span class="p">):</span>
@@ -1373,9 +1373,9 @@ window.addEventListener("load", () => mermaid.run());
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Framework</span><span class="o">.</span><span class="n">OPENVINO</span><span class="p">))</span>
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;OpenVINOEvaluator&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">OpenVINOEvaluator</span><span class="p">(</span><span class="n">_OliveEvaluator</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">OpenVINOEvaluator</span><span class="p">(</span><span class="n">_OliveEvaluator</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OpenVINOModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1401,7 +1401,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">logits</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OliveModelOutput</span><span class="p">(</span><span class="n">preds</span><span class="o">=</span><span class="n">preds</span><span class="p">,</span> <span class="n">logits</span><span class="o">=</span><span class="n">logits</span><span class="p">),</span> <span class="n">targets</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OpenVINOModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1413,7 +1413,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inference</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_accuracy</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OpenVINOModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1437,9 +1437,9 @@ window.addEventListener("load", () => mermaid.run());
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Framework</span><span class="o">.</span><span class="n">QNN</span><span class="p">))</span>
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;QNNEvaluator&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">QNNEvaluator</span><span class="p">(</span><span class="n">_OliveEvaluator</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">QNNEvaluator</span><span class="p">(</span><span class="n">_OliveEvaluator</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;QNNModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1473,7 +1473,7 @@ window.addEventListener("load", () => mermaid.run());
                 <span class="n">logits</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">OliveModelOutput</span><span class="p">(</span><span class="n">preds</span><span class="o">=</span><span class="n">preds</span><span class="p">,</span> <span class="n">logits</span><span class="o">=</span><span class="n">logits</span><span class="p">),</span> <span class="n">targets</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;QNNModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1485,7 +1485,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inference</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_accuracy</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;QNNModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
@@ -1510,7 +1510,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">run_session</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">input_data</span><span class="p">,</span> <span class="o">**</span><span class="n">run_kwargs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;latencies&quot;</span><span class="p">][</span><span class="s2">&quot;net_run&quot;</span><span class="p">][</span><span class="n">warmup_num</span><span class="p">:]</span>
 
-    <span class="k">def</span> <span class="nf">_prepare_dataloader</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_dataloader</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;QNNModelHandler&quot;</span><span class="p">,</span> <span class="n">file_chunk_size</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FileListDataLoader</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">FileListDataLoader</span><span class="p">):</span>
@@ -1519,8 +1519,8 @@ window.addEventListener("load", () => mermaid.run());
 
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;LMEvaluator&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">LMEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_class</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tasks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">LMEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_class</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tasks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span> <span class="o">=</span> <span class="n">model_class</span>
@@ -1529,14 +1529,14 @@ window.addEventListener("load", () => mermaid.run());
         <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_gen_toks</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_gen_toks&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
-        <span class="kn">import</span> <span class="nn">lm_eval</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">lm_eval</span>
 
         <span class="n">device</span> <span class="o">=</span> <span class="n">_OliveEvaluator</span><span class="o">.</span><span class="n">device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="c1"># device = torch.device(&quot;cuda:5&quot;)</span>
@@ -1581,7 +1581,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="OliveEvaluatorConfig">
 <a class="viewcode-back" href="../../../reference/engine.html#olive.evaluator.olive_evaluator.OliveEvaluatorConfig">[docs]</a>
-<span class="k">class</span> <span class="nc">OliveEvaluatorConfig</span><span class="p">(</span><span class="n">NestedConfig</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">OliveEvaluatorConfig</span><span class="p">(</span><span class="n">NestedConfig</span><span class="p">):</span>
     <span class="n">_nested_field_name</span> <span class="o">=</span> <span class="s2">&quot;type_args&quot;</span>
 
     <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1593,14 +1593,14 @@ window.addEventListener("load", () => mermaid.run());
 
     <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># noqa: RUF012</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="c1"># call import_user_module to load the user script once and register the evaluator</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_script</span><span class="p">:</span>
             <span class="n">import_user_module</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">user_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">is_accuracy_drop_tolerance</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_accuracy_drop_tolerance</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">sub_metric</span> <span class="ow">in</span> <span class="n">metric</span><span class="o">.</span><span class="n">sub_types</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">ACCURACY</span> <span class="ow">and</span> <span class="n">sub_metric</span><span class="o">.</span><span class="n">higher_is_better</span><span class="p">:</span>
@@ -1608,7 +1608,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="kc">False</span>
 
     <span class="nd">@root_validator</span><span class="p">(</span><span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">validate_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;user_script&quot;</span><span class="p">):</span>
             <span class="n">import_user_module</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;user_script&quot;</span><span class="p">],</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;script_dir&quot;</span><span class="p">))</span>
 
@@ -1619,7 +1619,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">values</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;metrics&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">validate_metrics</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_metrics</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
         <span class="n">metric_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
 
         <span class="n">metric_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">v</span><span class="p">}</span>
@@ -1657,7 +1657,7 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="OliveEvaluatorConfig.create_evaluator">
 <a class="viewcode-back" href="../../../reference/engine.html#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.create_evaluator">[docs]</a>
-    <span class="k">def</span> <span class="nf">create_evaluator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OliveEvaluator</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_evaluator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OliveEvaluator</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">Registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">framework</span><span class="p">))(</span><span class="o">**</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type_args</span> <span class="ow">or</span> <span class="p">{}))</span></div>
 </div>
 

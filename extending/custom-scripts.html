@@ -30,7 +30,7 @@
   <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -450,24 +450,24 @@
 <p>You can create your own <code class="docutils literal notranslate"><span class="pre">my_script.py</span></code> with <code class="docutils literal notranslate"><span class="pre">dataloader</span></code> and <code class="docutils literal notranslate"><span class="pre">post_process</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
 
-<span class="kn">from</span> <span class="nn">olive.data.registry</span> <span class="kn">import</span> <span class="n">Registry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.data.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Registry</span>
 
-<span class="k">class</span> <span class="nc">MyDataLoader</span><span class="p">:</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyDataLoader</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
         <span class="o">...</span>
 
-    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="o">...</span>
 
-    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="o">...</span>
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register_dataloader</span><span class="p">()</span>
-<span class="k">def</span> <span class="nf">my_dataloader</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">my_dataloader</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">MyDataloader</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">)</span>
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register_post_process</span><span class="p">()</span>
-<span class="k">def</span> <span class="nf">my_post_process</span><span class="p">(</span><span class="n">output</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">my_post_process</span><span class="p">(</span><span class="n">output</span><span class="p">):</span>
     <span class="c1"># your post processing logic here</span>
     <span class="o">...</span>
 </pre></div>
@@ -515,7 +515,7 @@
 <p>Your script can use this module directly when specifying <code class="docutils literal notranslate"><span class="pre">script_dir</span></code> in configuration:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
 
-<span class="kn">import</span> <span class="nn">file</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">file</span>
 
 <span class="c1"># You can use file module here</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">my_val</span><span class="p">)</span>

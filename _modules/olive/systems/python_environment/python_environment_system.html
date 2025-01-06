@@ -29,7 +29,7 @@
   <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -440,28 +440,28 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">platform</span>
-<span class="kn">import</span> <span class="nn">shutil</span>
-<span class="kn">import</span> <span class="nn">tempfile</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">platform</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.constants</span> <span class="kn">import</span> <span class="n">OS</span>
-<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">run_subprocess</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric_result</span> <span class="kn">import</span> <span class="n">MetricResult</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
-<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AcceleratorConfig</span><span class="p">,</span> <span class="n">SystemType</span>
-<span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
-<span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">PythonEnvironmentTargetUserConfig</span>
-<span class="kn">from</span> <span class="nn">olive.systems.utils</span> <span class="kn">import</span> <span class="n">create_new_environ</span><span class="p">,</span> <span class="n">get_package_name_from_ep</span><span class="p">,</span> <span class="n">run_available_providers_runner</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">OS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_subprocess</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.metric_result</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcceleratorConfig</span><span class="p">,</span> <span class="n">SystemType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.olive_system</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveSystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.system_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PythonEnvironmentTargetUserConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.systems.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_new_environ</span><span class="p">,</span> <span class="n">get_package_name_from_ep</span><span class="p">,</span> <span class="n">run_available_providers_runner</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
-    <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
-    <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.olive_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware.accelerator</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcceleratorSpec</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">olive.passes.olive_pass</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pass</span>
 
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -469,10 +469,10 @@ window.addEventListener("load", () => mermaid.run());
 
 <div class="viewcode-block" id="PythonEnvironmentSystem">
 <a class="viewcode-back" href="../../../../reference/system.html#olive.systems.python_environment.PythonEnvironmentSystem">[docs]</a>
-<span class="k">class</span> <span class="nc">PythonEnvironmentSystem</span><span class="p">(</span><span class="n">OliveSystem</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PythonEnvironmentSystem</span><span class="p">(</span><span class="n">OliveSystem</span><span class="p">):</span>
     <span class="n">system_type</span> <span class="o">=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">PythonEnvironment</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">python_environment_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">environment_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -511,7 +511,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="bp">self</span><span class="o">.</span><span class="n">pass_runner_path</span> <span class="o">=</span> <span class="n">parent_dir</span> <span class="o">/</span> <span class="s2">&quot;pass_runner.py&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_runner_path</span> <span class="o">=</span> <span class="n">parent_dir</span> <span class="o">/</span> <span class="s2">&quot;evaluation_runner.py&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_run_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">script_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">config_jsons</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">script_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">config_jsons</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run a script with the given config jsons and return the output json.&quot;&quot;&quot;</span>
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp_dir</span><span class="p">:</span>
             <span class="n">tmp_dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
@@ -545,7 +545,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">return</span> <span class="n">output</span>
 
-    <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
@@ -569,7 +569,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">output_model_json</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">:</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the model.&quot;&quot;&quot;</span>
@@ -581,7 +581,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">metric_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_command</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluation_runner_path</span><span class="p">,</span> <span class="n">config_jsons</span><span class="p">,</span> <span class="n">tempdir</span><span class="o">=</span><span class="n">tempfile</span><span class="o">.</span><span class="n">tempdir</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">metric_results</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">get_supported_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_supported_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the available execution providers.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">available_eps</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">available_eps</span>
@@ -589,7 +589,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="bp">self</span><span class="o">.</span><span class="n">available_eps</span> <span class="o">=</span> <span class="n">run_available_providers_runner</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">available_eps</span>
 
-    <span class="k">def</span> <span class="nf">install_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">install_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Install required packages.&quot;&quot;&quot;</span>
         <span class="c1"># install common packages</span>
         <span class="n">common_requirements_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;common_requirements.txt&quot;</span>
@@ -617,7 +617,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">)</span>
         <span class="n">log_stdout</span><span class="p">(</span><span class="n">stdout</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">vitual_env_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">python_environment_path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
 
         <span class="k">try</span><span class="p">:</span>
@@ -635,7 +635,7 @@ window.addEventListener("load", () => mermaid.run());
 
 
 
-<span class="k">def</span> <span class="nf">log_stdout</span><span class="p">(</span><span class="n">stdout</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">log_stdout</span><span class="p">(</span><span class="n">stdout</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
     <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">stdout</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
 </pre></div>

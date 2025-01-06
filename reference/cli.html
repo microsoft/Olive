@@ -30,7 +30,7 @@
   <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
@@ -1454,7 +1454,7 @@ These functions should be defined in your model script you provide.</p>
 <ul>
 <li><p><strong>Model Loader Function (`_model_loader`)</strong>:
 Loads the PyTorch model. If the model file path is provided using the <cite>-m</cite> option, it takes higher priority than the model loader function.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_model_loader</span><span class="p">():</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">_model_loader</span><span class="p">():</span>
     <span class="o">...</span>
     <span class="k">return</span> <span class="n">model</span>
 </pre></div>
@@ -1462,7 +1462,7 @@ Loads the PyTorch model. If the model file path is provided using the <cite>-m</
 </li>
 <li><p><strong>IO Config Function (`_io_config`)</strong>:
 Returns the IO configuration for the model. Either <cite>_io_config</cite> or <cite>_dummy_inputs</cite> is required for the <cite>capture-onnx-graph</cite> CLI command.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_io_config</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">_io_config</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">):</span>
     <span class="o">...</span>
     <span class="k">return</span> <span class="n">io_config</span>
 </pre></div>
@@ -1470,7 +1470,7 @@ Returns the IO configuration for the model. Either <cite>_io_config</cite> or <c
 </li>
 <li><p><strong>Dummy Inputs Function (`_dummy_inputs`)</strong>:
 Provides dummy input tensors for the model. Either <cite>_io_config</cite> or <cite>_dummy_inputs</cite> is required for the <cite>capture-onnx-graph</cite> CLI command.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_dummy_inputs</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">_dummy_inputs</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">):</span>
     <span class="o">...</span>
     <span class="k">return</span> <span class="n">dummy_inputs</span>
 </pre></div>
@@ -1478,7 +1478,7 @@ Provides dummy input tensors for the model. Either <cite>_io_config</cite> or <c
 </li>
 <li><p><strong>Model Format Function (`_model_file_format`)</strong>:
 Specifies the format of the model. The default value is <cite>PyTorch.EntireModel</cite>. For more available options, refer to <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/constants.py#L23-L26">this</a>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">_model_file_format</span><span class="p">():</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">_model_file_format</span><span class="p">():</span>
     <span class="o">...</span>
     <span class="k">return</span> <span class="n">model_file_format</span>
 </pre></div>
