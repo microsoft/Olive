@@ -6,18 +6,13 @@ datas = [*collect_data_files("olive", include_py_files=True)]
 binaries = []
 hiddenimports = []
 
-tmp_ret = collect_all('optimum')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-
-tmp_ret = collect_all('onnx')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-
-tmp_ret = collect_all('onnxruntime_genai')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+for m in ['optimum', 'onnx', 'onnxruntime', 'onnxruntime_genai']:
+    tmp_ret = collect_all(m)
+    datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 a = Analysis(
     ['../olive/__main__.py'],
-    pathex=['olive'],
+    pathex=[],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
@@ -25,7 +20,7 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
-    noarchive=False,
+    noarchive=True,
     optimize=0,
 )
 pyz = PYZ(a.pure)

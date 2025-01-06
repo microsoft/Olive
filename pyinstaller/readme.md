@@ -14,6 +14,7 @@ virtualenv olive-venv
     * olive uses `from optimum.exporters.tasks import TasksManager`
     * olive uses `from onnxruntime_genai.models.builder import create_model`
     * optimum uses `_onnx_available = _is_package_available("onnx")`
+    * File "onnxruntime\transformers\onnx_utils.py", line 5, in <module> ModuleNotFoundError: No module named 'fusion_utils'
 
 ```
 pip install olive-ai[ort-genai,auto-opt]
@@ -30,7 +31,7 @@ pip install pyinstaller
 
 
 ```
-pyinstaller pyinstaller/olive.spec --workpath pyinstaller/build --distpath pyinstaller/dist
+pyinstaller pyinstaller/olive.spec --workpath pyinstaller/build --distpath pyinstaller/dist --noconfirm
 ```
 
 # Test
