@@ -5,7 +5,7 @@ parameters:
   pool: ''
   test_type: ''
   device: 'cpu'
-  dockerfile: '.azure_pipelines/dockerfiles/linux-cpu.dockerfile'
+  dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
   docker_image: 'olive-pipeline:latest'
   python_version: '3.10'
   onnxruntime: 'onnxruntime'
@@ -39,7 +39,7 @@ jobs:
 
   - script: |
       docker run \
-      --privileged \
+      --gpus=all \
       -v /var/run/docker.sock:/var/run/docker.sock \
       -v $(Build.SourcesDirectory)/logs:/logs \
       -e WORKSPACE_SUBSCRIPTION_ID=$(workspace-subscription-id) \
