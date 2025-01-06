@@ -5,6 +5,9 @@ azure-ai-ml>=1.11.1
 azure-identity
 azureml-fsspec
 docker
+# latest 3.24.0 will break the pipeline
+# TODO(team): 55399 Switch back to the latest version once it's compatible with the pipeline
+marshmallow<3.24.0
 myst_parser
 onnxconverter_common
 psutil
