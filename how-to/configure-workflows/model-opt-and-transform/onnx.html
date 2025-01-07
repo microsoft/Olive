@@ -444,7 +444,163 @@
 <p><code class="docutils literal notranslate"><span class="pre">OnnxPeepholeOptimizer</span></code> optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
 reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.</p>
 <p>Also, inserts a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operation for cases where <code class="docutils literal notranslate"><span class="pre">ArgMax</span></code> input. For example, before ONNXRuntime 1.20, TensorProto.INT64 isn’t supported on CPU or CUDA EP so a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operator inserted to cast the inputs to TensorProto.INT32.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">OnnxPeepholeOptimizer</span></code> integrates <code class="docutils literal notranslate"><span class="pre">onnxscript</span></code> and <code class="docutils literal notranslate"><span class="pre">onnxoptimizer</span></code> to optimize ONNX models. By default, <a class="reference external" href="https://onnxscript.ai/tutorial/optimizer/optimize.html"><code class="docutils literal notranslate"><span class="pre">onnxscript.optimizer.optimize</span></code></a> will run automatically. To enable <a class="reference external" href="https://github.com/onnx/optimizer"><code class="docutils literal notranslate"><span class="pre">onnxoptimizer.optimize</span></code></a>, set <code class="docutils literal notranslate"><span class="pre">&quot;onnxoptimizer&quot;:</span> <span class="pre">true</span></code> in the pass configuration.</p>
+<section id="onnxscript-optimizer-optimize">
+<h3>onnxscript.optimizer.optimize<a class="headerlink" href="#onnxscript-optimizer-optimize" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Optimization</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Constant Folding</strong></p></td>
+<td><p>Applies constant folding optimization to the model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Constant Propagation</strong></p></td>
+<td><p>Applies constant propagation optimization to the model. Applied as part of constant folding.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Sequence Simplification</strong></p></td>
+<td><p>Simplifies Sequence-based ops (e.g., SequenceConstruct, ConcatFromSequence). Part of constant folding.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Remove Unused Nodes</strong></p></td>
+<td><p>Removes unused nodes from the model.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Remove Unused Functions</strong></p></td>
+<td><p>Removes unused function protos from the model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Inline Functions with Unused Outputs</strong></p></td>
+<td><p>Inlines function nodes with unused outputs.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Inline Simple Functions</strong></p></td>
+<td><p>Inlines simple functions based on a node count threshold.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="onnxoptimizer">
+<h3>onnxoptimizer<a class="headerlink" href="#onnxoptimizer" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Optimization</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Eliminate Nop Cast</strong></p></td>
+<td><p>Eliminates no-operation (nop) Casts.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Nop Dropout</strong></p></td>
+<td><p>Eliminates no-operation Dropouts.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Nop Flatten</strong></p></td>
+<td><p>Eliminates no-operation Flattens.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Extract Constant to Initializer</strong></p></td>
+<td><p>Extracts constants to initializers.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate If with Const Cond</strong></p></td>
+<td><p>Eliminates If nodes with constant conditions.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Nop Monotone ArgMax</strong></p></td>
+<td><p>Eliminates nop monotone ArgMax.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Nop Pad</strong></p></td>
+<td><p>Eliminates no-operation Pads.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Nop Concat</strong></p></td>
+<td><p>Eliminates no-operation Concats.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Nop Split</strong></p></td>
+<td><p>Eliminates no-operation Splits.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Nop Expand</strong></p></td>
+<td><p>Eliminates no-operation Expands.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Shape Gather</strong></p></td>
+<td><p>Eliminates Shape Gather operations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Slice after Shape</strong></p></td>
+<td><p>Eliminates Slice nodes that occur after Shape nodes.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Nop Transpose</strong></p></td>
+<td><p>Eliminates no-operation Transposes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Add Bias into Conv</strong></p></td>
+<td><p>Fuses Add operations as biases into Conv layers.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse BN into Conv</strong></p></td>
+<td><p>Fuses BatchNormalization into Conv layers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Consecutive Concats</strong></p></td>
+<td><p>Fuses consecutive Concat operations.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Consecutive LogSoftmax</strong></p></td>
+<td><p>Fuses consecutive LogSoftmax operations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Consecutive Reduce+Unsqueeze</strong></p></td>
+<td><p>Fuses consecutive Reduce and Unsqueeze operations.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Consecutive Squeezes</strong></p></td>
+<td><p>Fuses consecutive Squeeze operations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Consecutive Transposes</strong></p></td>
+<td><p>Fuses consecutive Transpose operations.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse MatMul+Add Bias into GEMM</strong></p></td>
+<td><p>Fuses MatMul and Add operations into GEMM layers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Pad into Conv</strong></p></td>
+<td><p>Fuses Pad operations into Conv layers.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Pad into Pool</strong></p></td>
+<td><p>Fuses Pad operations into Pool layers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Transpose into GEMM</strong></p></td>
+<td><p>Fuses Transpose operations into GEMM layers.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Concat into Reshape</strong></p></td>
+<td><p>Fuses Concat operations into Reshape layers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Nop Reshape</strong></p></td>
+<td><p>Eliminates no-operation Reshapes.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Nop with Unit</strong></p></td>
+<td><p>Eliminates no-operation nodes with unit values.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Common Subexpression</strong></p></td>
+<td><p>Eliminates common sub-expressions.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse QKV</strong></p></td>
+<td><p>Fuses query, key, and value layers in transformer models.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Consecutive Unsqueezes</strong></p></td>
+<td><p>Fuses consecutive Unsqueeze operations.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Deadend Nodes</strong></p></td>
+<td><p>Eliminates dead-end nodes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Identity Nodes</strong></p></td>
+<td><p>Eliminates Identity nodes.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Shape Ops</strong></p></td>
+<td><p>Eliminates Shape operations where possible.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Consecutive Slices</strong></p></td>
+<td><p>Fuses consecutive Slice operations.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Unused Initializer</strong></p></td>
+<td><p>Eliminates unused initializers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Duplicate Initializer</strong></p></td>
+<td><p>Eliminates duplicate initializers.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 <p>Please refer to <a class="reference internal" href="../../../reference/pass.html#onnx_peephole_optimizer"><span class="std std-ref">OnnxPeepholeOptimizer</span></a> for more details about the pass and its config parameters.</p>
+</section>
 <section id="example-configuration">
 <h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -725,6 +881,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-optimizer">Model Optimizer</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#onnxscript-optimizer-optimize">onnxscript.optimizer.optimize</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#onnxoptimizer">onnxoptimizer</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-configuration">Example Configuration</a></li>
 </ul>
 </li>

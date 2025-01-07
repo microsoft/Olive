@@ -5,14 +5,71 @@
 Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.
 
 ## Model Optimizer
+
 `OnnxPeepholeOptimizer` optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
 reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.
 
 Also, inserts a `Cast` operation for cases where `ArgMax` input. For example, before ONNXRuntime 1.20, TensorProto.INT64 isn't supported on CPU or CUDA EP so a `Cast` operator inserted to cast the inputs to TensorProto.INT32.
 
+The `OnnxPeepholeOptimizer` integrates `onnxscript` and `onnxoptimizer` to optimize ONNX models. By default, [`onnxscript.optimizer.optimize`](https://onnxscript.ai/tutorial/optimizer/optimize.html) will run automatically. To enable [`onnxoptimizer.optimize`](https://github.com/onnx/optimizer), set `"onnxoptimizer": true` in the pass configuration.
+
+### onnxscript.optimizer.optimize
+
+| Optimization                      | Description                                                                 |
+|------------------------------------|-----------------------------------------------------------------------------|
+| **Constant Folding**              | Applies constant folding optimization to the model.                        |
+| **Constant Propagation**          | Applies constant propagation optimization to the model. Applied as part of constant folding. |
+| **Sequence Simplification**       | Simplifies Sequence-based ops (e.g., SequenceConstruct, ConcatFromSequence). Part of constant folding. |
+| **Remove Unused Nodes**           | Removes unused nodes from the model.                                       |
+| **Remove Unused Functions**       | Removes unused function protos from the model.                             |
+| **Inline Functions with Unused Outputs** | Inlines function nodes with unused outputs.                                |
+| **Inline Simple Functions**       | Inlines simple functions based on a node count threshold.                  |
+
+### onnxoptimizer
+
+| Optimization                      | Description                                                                          |
+|------------------------------------|--------------------------------------------------------------------------------------|
+| **Eliminate Nop Cast**            | Eliminates no-operation (nop) Casts.                                                |
+| **Eliminate Nop Dropout**         | Eliminates no-operation Dropouts.                                                   |
+| **Eliminate Nop Flatten**         | Eliminates no-operation Flattens.                                                   |
+| **Extract Constant to Initializer** | Extracts constants to initializers.                                                 |
+| **Eliminate If with Const Cond**  | Eliminates If nodes with constant conditions.                                       |
+| **Eliminate Nop Monotone ArgMax** | Eliminates nop monotone ArgMax.                                                     |
+| **Eliminate Nop Pad**             | Eliminates no-operation Pads.                                                       |
+| **Eliminate Nop Concat**          | Eliminates no-operation Concats.                                                    |
+| **Eliminate Nop Split**           | Eliminates no-operation Splits.                                                     |
+| **Eliminate Nop Expand**          | Eliminates no-operation Expands.                                                    |
+| **Eliminate Shape Gather**        | Eliminates Shape Gather operations.                                                 |
+| **Eliminate Slice after Shape**   | Eliminates Slice nodes that occur after Shape nodes.                                |
+| **Eliminate Nop Transpose**       | Eliminates no-operation Transposes.                                                |
+| **Fuse Add Bias into Conv**       | Fuses Add operations as biases into Conv layers.                                    |
+| **Fuse BN into Conv**             | Fuses BatchNormalization into Conv layers.                                          |
+| **Fuse Consecutive Concats**      | Fuses consecutive Concat operations.                                                |
+| **Fuse Consecutive LogSoftmax**   | Fuses consecutive LogSoftmax operations.                                            |
+| **Fuse Consecutive Reduce+Unsqueeze** | Fuses consecutive Reduce and Unsqueeze operations.                                 |
+| **Fuse Consecutive Squeezes**     | Fuses consecutive Squeeze operations.                                               |
+| **Fuse Consecutive Transposes**   | Fuses consecutive Transpose operations.                                             |
+| **Fuse MatMul+Add Bias into GEMM** | Fuses MatMul and Add operations into GEMM layers.                                   |
+| **Fuse Pad into Conv**            | Fuses Pad operations into Conv layers.                                              |
+| **Fuse Pad into Pool**            | Fuses Pad operations into Pool layers.                                              |
+| **Fuse Transpose into GEMM**      | Fuses Transpose operations into GEMM layers.                                        |
+| **Fuse Concat into Reshape**      | Fuses Concat operations into Reshape layers.                                        |
+| **Eliminate Nop Reshape**         | Eliminates no-operation Reshapes.                                                   |
+| **Eliminate Nop with Unit**       | Eliminates no-operation nodes with unit values.                                     |
+| **Eliminate Common Subexpression** | Eliminates common sub-expressions.                                                 |
+| **Fuse QKV**                      | Fuses query, key, and value layers in transformer models.                          |
+| **Fuse Consecutive Unsqueezes**   | Fuses consecutive Unsqueeze operations.                                             |
+| **Eliminate Deadend Nodes**       | Eliminates dead-end nodes.                                                          |
+| **Eliminate Identity Nodes**      | Eliminates Identity nodes.                                                          |
+| **Eliminate Shape Ops**           | Eliminates Shape operations where possible.                                         |
+| **Fuse Consecutive Slices**       | Fuses consecutive Slice operations.                                                 |
+| **Eliminate Unused Initializer**  | Eliminates unused initializers.                                                     |
+| **Eliminate Duplicate Initializer** | Eliminates duplicate initializers.                                  |
+
 Please refer to [OnnxPeepholeOptimizer](../../../reference/pass.rst#onnx_peephole_optimizer) for more details about the pass and its config parameters.
 
 ### Example Configuration
+
 ```json
 {
     "type": "OnnxPeepholeOptimizer"
@@ -20,6 +77,7 @@ Please refer to [OnnxPeepholeOptimizer](../../../reference/pass.rst#onnx_peephol
 ```
 
 ## ORT Transformers Optimization
+
 While ONNX Runtime automatically applies most optimizations while loading transformer models, some of the latest optimizations that have not
 yet been integrated into ONNX Runtime.
 `OrtTransformersOptimization` provides an offline capability to optimize [transformers](https://huggingface.co/docs/transformers/index) models
@@ -32,16 +90,20 @@ for more details on the optimizations done by this tool.
 Please refer to [OrtTransformersOptimization](../../../reference/pass.rst#ort_transformers_optimization) for more details about the pass and its config parameters.
 
 ### Example Configuration
+
 ```json
 {
     "type": "OrtTransformersOptimization",
     "model_type": "bert"
 }
 ```
+
 ## Append Pre/Post Processing Ops
+
 `AppendPrePostProcessingOps` inserts pre and post processing ops into the ONNX graph.
 
 ### Example Configuration
+
 ```json
 {
     "type": "AppendPrePostProcessingOps",
@@ -51,6 +113,7 @@ Please refer to [OrtTransformersOptimization](../../../reference/pass.rst#ort_tr
     }
 }
 ```
+
 ```json
 {
     "type": "AppendPrePostProcessingOps",
@@ -66,6 +129,7 @@ You can refer to [here](https://github.com/microsoft/onnxruntime-extensions/blob
 
 * Olive introduces two placeholders to represent the model input/output shape dimension value: `__model_input__` and `__model_output__`.
 * To support the IoMapEntry, the step need choose use the full form. For example:
+
 ```json
     "YCbCrToPixels": {
         "params": {
@@ -78,6 +142,7 @@ You can refer to [here](https://github.com/microsoft/onnxruntime-extensions/blob
         ],
     }
 ```
+
 * The `tool_command_args` will be used to describe the input parameters to create the `PrePostProcessor` instance. It is list of `PrePostProcessorInput`.
   The `name` is the tensor name. The `data_type` and `shape` will be used to create the tensor type. The `shape` can be a list of integers or a list of string.
 
@@ -167,6 +232,7 @@ Here are some examples to describe the pre/post processing which is exactly same
 `InsertBeamSearch` chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.
 
 ### Example Configuration
+
 ```json
 {
     "type": "InsertBeamSearch",
@@ -175,6 +241,7 @@ Here are some examples to describe the pre/post processing which is exactly same
 ```
 
 ## ORT Performance Tuning
+
 ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
 environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
@@ -182,6 +249,7 @@ improve performance.
 `OrtSessionParamsTuning` covers basic knobs that can be leveraged to find the best performance for your model and hardware.
 
 ### Example Configuration
+
 ```json
 {
     "type": "OrtSessionParamsTuning",
@@ -220,6 +288,7 @@ LoRA, QLoRA and related techniques allow us to fine-tune a pre-trained model by 
 ### Example Configuration
 
 a. As external initializers
+
 ```json
 {
     "type": "ExtractAdapters",
@@ -228,6 +297,7 @@ a. As external initializers
 ```
 
 b. As constant inputs with packed weights
+
 ```json
 {
     "type": "ExtractAdapters",
