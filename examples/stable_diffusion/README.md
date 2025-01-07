@@ -61,7 +61,7 @@ pip uninstall -y onnxruntime onnxruntime-gpu onnxruntime-directml ort-nightly or
 
 # install onnxruntime-gpu nightly build
 pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
-pip install onnxruntime --pre --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+pip install onnxruntime-gpu --pre --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
 ##### Install other dependencies
