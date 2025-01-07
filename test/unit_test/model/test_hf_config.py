@@ -41,23 +41,22 @@ class TestHfLoadKwargs:
         assert args.device_map == {"": inner}
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="No GPU available")
-    class TestHfLoadKwargsGPU:
-        @pytest.mark.parametrize(
-            ("inputs", "inner"),
-            [
-                ("cuda:0", "cuda:0"),
-                ("0", "cuda:0"),
-            ],
-        )
-        def test_device_map_cpu(self, inputs, inner):
-            if inputs == "0":
-                inputs = torch.device(0)
+    @pytest.mark.parametrize(
+        ("inputs", "inner"),
+        [
+            ("cuda:0", "cuda:0"),
+            ("0", "cuda:0"),
+        ],
+    )
+    def test_device_map_cpu(self, inputs, inner):
+        if inputs == "0":
+            inputs = torch.device(0)
 
-            args = HfLoadKwargs(device_map=inputs)
-            assert args.device_map == inner
+        args = HfLoadKwargs(device_map=inputs)
+        assert args.device_map == inner
 
-            args = HfLoadKwargs(device_map={"": inputs})
-            assert args.device_map == {"": inner}
+        args = HfLoadKwargs(device_map={"": inputs})
+        assert args.device_map == {"": inner}
 
     @pytest.mark.parametrize(
         ("quantization_method", "quantization_config", "valid"),
