@@ -11,10 +11,7 @@ from typing import Optional, Union
 
 @functools.lru_cache
 def import_module_from_file(module_path: Union[Path, str], module_name: Optional[str] = None):
-    module_path = Path(module_path).resolve()
-    if not module_path.exists():
-        raise ValueError(f"{module_path} doesn't exist")
-
+    module_path = Path(module_path)
     if module_name is None:
         if module_path.is_dir():
             module_name = module_path.name
@@ -24,7 +21,18 @@ def import_module_from_file(module_path: Union[Path, str], module_name: Optional
         else:
             module_name = module_path.stem
 
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    # Try to find the module in sys.path
+    spec = importlib.util.find_spec(module_name)
+    if not spec:
+        # If not found, try to load the module from the file
+        module_path = module_path.resolve()
+        if not module_path.exists():
+            raise ValueError(f"{module_path} doesn't exist")
+
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
+        if not spec:
+            raise ValueError(f"Could not load module at {module_path}")
+
     new_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(new_module)
     return new_module
