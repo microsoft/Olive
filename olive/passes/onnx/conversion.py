@@ -106,6 +106,14 @@ class OnnxConversion(Pass):
             "dynamic": PassConfigParam(
                 type_=bool, default_value=True, description=("Whether to export the model with dynamic axes/shapes.")
             ),
+            "optimization": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=(
+                    "Whether to optimize the model with constant folding and "
+                    "elimination of redundant operators after conversion."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -266,6 +274,8 @@ class OnnxConversion(Pass):
                         report=logger.isEnabledFor(logging.DEBUG),
                     )
                     assert onnx_program is not None
+                    if config["optimization"]:
+                        onnx_program.optimize()
                     onnx_model = onnx_program.model_proto
         else:
             # there might be multiple files created during export, so we need to track the dir
