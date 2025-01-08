@@ -33,6 +33,14 @@ jobs:
       super_resolution:
         exampleFolder: super_resolution
         exampleName: super_resolution
+
+- template: job_templates/olive-example-linux-template.yaml
+  parameters:
+    name: Linux_Examples_Py38
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    onnxruntime: onnxruntime
+    python_version: '3.8'
+    examples:
       mobilenet_qnn_toolkit:
         exampleFolder: mobilenet
         exampleName: qnn_tooklit

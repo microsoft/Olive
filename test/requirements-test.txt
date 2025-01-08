@@ -43,4 +43,6 @@ pytorch_lightning
 sentencepiece
 tabulate
 torchvision
-transformers>=4.42.0
+# num_logits_to_keep is causing extra input.
+# TODO(anyone): Remove this once the issue is resolved
+transformers>=4.42.0, <4.45.0

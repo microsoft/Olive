@@ -38,14 +38,15 @@ jobs:
     requirements_file: 'requirements-test-gpu.txt'
 
 # Windows unit test
-- template: job_templates/olive-test-win-template.yaml
+- template: job_templates/olive-test-cpu-template.yaml
   parameters:
     name: Windows_CI_Unit_Test_Olive
     pool: $(OLIVE_POOL_WIN2019)
     device: 'cpu'
     windows: True
     test_type: 'unit_test'
-    onnxruntime: ort-nightly
+    onnxruntime: onnxruntime-gpu
+    onnxruntime_nightly: true
 
 # Linux examples test
 - template: job_templates/olive-example-linux-template.yaml

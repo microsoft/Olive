@@ -51,7 +51,7 @@ variables:
 
 jobs:
 # Linux unit tests
-- template: job_templates/olive-test-linux-cpu-template.yaml
+- template: job_templates/olive-test-cpu-template.yaml
   parameters:
     name: Linux_CPU_CI_Unit_Test
     pool: $(OLIVE_POOL_UBUNTU2004)
@@ -69,7 +69,7 @@ jobs:
     requirements_file: 'requirements-test-gpu.txt'
 
 # Windows unit tests
-- template: job_templates/olive-test-win-template.yaml
+- template: job_templates/olive-test-cpu-template.yaml
   parameters:
     name: Windows_CPU_CI_Unit_Test
     pool: $(OLIVE_POOL_WIN2019)
@@ -137,13 +137,13 @@ jobs:
 # these jobs need secrets not available in forks
 - ${{ if ne(variables['System.PullRequest.IsFork'], 'True') }}:
   # integration tests
-  - template: job_templates/olive-test-linux-cpu-template.yaml
+  - template: job_templates/olive-test-cpu-template.yaml
     parameters:
       name: Linux_CPU_CI_Integration_Test
       pool: $(OLIVE_POOL_UBUNTU2004)
       test_type: 'integ_test'
 
-  - template: job_templates/olive-test-win-template.yaml
+  - template: job_templates/olive-test-cpu-template.yaml
     parameters:
       name: Windows_CPU_CI_Integration_Test
       pool: $(OLIVE_POOL_WIN2019)
@@ -151,7 +151,7 @@ jobs:
       windows: True
 
   # Multiple EP Linux testing
-  - template: job_templates/olive-test-linux-cpu-template.yaml
+  - template: job_templates/olive-test-cpu-template.yaml
     parameters:
       name: Linux_CI_Multiple_EP_Test
       pool: $(OLIVE_POOL_UBUNTU2004)

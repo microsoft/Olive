@@ -1,11 +1,8 @@
-# Example Windows test template for Olive pipeline
-
 parameters:
   name: ''
   pool: ''
   test_type: ''
   windows: False
-  device: 'cpu'
   python_version: '3.10'
   onnxruntime: 'onnxruntime'
   torch: 'torch'
