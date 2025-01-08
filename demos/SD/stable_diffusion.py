@@ -242,7 +242,7 @@ def optimize(
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
-        with (script_dir / f"config_{submodel_name}.json").open() as fin:
+        with (script_dir / (f"config_{submodel_name}" + (".qnn" if config.qnn else "") + ".json")).open() as fin:
             olive_config = json.load(fin)
         olive_config = update_config_with_provider(olive_config, provider)
 
@@ -272,9 +272,9 @@ def optimize(
     else:
         from sd_utils.ort import save_onnx_pipeline
 
-        save_onnx_pipeline(
-            has_safety_checker, model_info, optimized_model_dir, unoptimized_model_dir, pipeline, submodel_names
-        )
+        #save_onnx_pipeline(
+        #    has_safety_checker, model_info, optimized_model_dir, unoptimized_model_dir, pipeline, submodel_names
+        #)
 
     return model_info
 

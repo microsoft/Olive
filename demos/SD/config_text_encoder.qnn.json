@@ -1,0 +1,36 @@
+{
+    "input_model": {
+        "type": "OnnxModel",
+        "model_path": "footprints/text_encoder/output_model/model.onnx"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ]
+        }
+    },
+    "data_configs": [
+        {
+            "name": "quant_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "local_dataset" },
+            "dataloader_config": { "type": "text_encoder_data_loader", "batch_size": 1 }
+        }
+    ],
+    "passes": {
+        "qnn_preprocess": {
+            "type": "QNNPreprocess"
+        },
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "data_config": "quant_data_config",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8"
+        }
+    },
+    "log_severity_level": 0,
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "footprints_qnn/text_encoder"
+}

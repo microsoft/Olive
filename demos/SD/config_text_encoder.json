@@ -26,7 +26,12 @@
         }
     ],
     "passes": {
-        "convert": { "type": "OnnxConversion", "target_opset": 14 }
+        "convert": { "type": "OnnxConversion", "target_opset": 14 },
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [ "batch", "sequence" ],
+            "dim_value": [ 1, 77 ]
+        }
     },
     "pass_flows": [ [ "convert" ] ],
     "log_severity_level": 0,

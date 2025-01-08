@@ -54,7 +54,7 @@ def validate_ort_version(provider: str):
 
 
 def save_optimized_onnx_submodel(submodel_name, provider, model_info):
-    footprints_file_path = Path(__file__).resolve().parents[1] / "footprints" / submodel_name / "footprints.json"
+    footprints_file_path = Path(__file__).resolve().parents[1] / ("footprints_qnn" if config.qnn else "footprints") / submodel_name / "footprints.json"
     with footprints_file_path.open("r") as footprint_file:
         footprints = json.load(footprint_file)
 
