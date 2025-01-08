@@ -168,7 +168,6 @@ def test_import_user_module_script_dir_none_and_user_script_not_exists(mock_impo
     """
     # setup
     user_script = "nonexistent_script.py"
-    user_script_path = Path(user_script)
 
     # mock
     mock_importlib_util.find_spec.return_value = None
@@ -178,8 +177,7 @@ def test_import_user_module_script_dir_none_and_user_script_not_exists(mock_impo
         import_user_module(user_script, script_dir=None)
 
     # assert
-    user_script_path = Path(user_script).resolve()
-    assert str(errinfo.value) == f"{user_script_path} doesn't exist"
+    assert str(errinfo.value) == f"{Path(user_script).resolve()} doesn't exist"
     mock_sys_path.append.assert_not_called()
     mock_importlib_util.find_spec.assert_called_once_with("nonexistent_script")
     mock_importlib_util.spec_from_file_location.assert_not_called()
