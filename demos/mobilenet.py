@@ -22,7 +22,17 @@ def preprocess_image(image_path, height, width, channels=3):
 with open("./imagenet_classes.txt", "r") as f:
     categories = [s.strip() for s in f.readlines()]
 
-session_fp32 = onnxruntime.InferenceSession("../examples/mobilenet/models/mobilenetv2-12.onnx")
+if True:
+    options = onnxruntime.SessionOptions()
+    options.add_session_config_entry("session.disable_cpu_ep_fallback", "0")
+    #options.log_severity_level = 0
+
+    session = onnxruntime.InferenceSession("./mobilenet-qnn.onnx",
+                                        sess_options=options,
+                                        providers=["QNNExecutionProvider"],
+                                        provider_options=[{"backend_path": "QnnHtp.dll"}])
+else:
+    session = onnxruntime.InferenceSession("../examples/mobilenet/models/mobilenetv2-12.onnx")
 
 def softmax(x):
     """Compute softmax values for each sets of scores in x."""
@@ -37,4 +47,4 @@ def run_sample(session, image_file, categories):
     for catid in top5_catid:
         print(categories[catid], output[catid])
 
-run_sample(session_fp32, 'cat.jpg', categories)
+run_sample(session, 'cat.jpg', categories)
