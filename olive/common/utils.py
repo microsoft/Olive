@@ -468,16 +468,18 @@ def exclude_keys(original_dict: Dict, keys_to_exclude):
     return {k: v for k, v in original_dict.items() if k not in keys_to_exclude}
 
 
-def find_first_matched_value(original_dict: Dict, keys: Union[str, Tuple, List[str]], raise_key_error=False):
+def find_first_matched_value(original, keys: Union[str, Tuple, List[str]], raise_key_error=False):
     if isinstance(keys, str):
         keys = [keys]
 
     for possible_name in keys:
-        if possible_name in original_dict:
-            return original_dict[possible_name]
+        if isinstance(original, dict) and possible_name in original:
+            return original[possible_name]
+        elif hasattr(original, possible_name):
+            return getattr(original, possible_name)
 
     if raise_key_error:
-        raise KeyError(f"Keys {keys} not found in {original_dict}")
+        raise KeyError(f"Keys {keys} not found in {original}")
     return None
 
 

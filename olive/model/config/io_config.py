@@ -6,9 +6,8 @@ from copy import deepcopy
 from typing import Any, Dict, List, Union
 
 from olive.common.config_utils import ConfigBase
-from olive.common.hf.mappings import HIDDEN_SIZE_NAMES, NUM_HEADS_NAMES, NUM_HIDDEN_LAYER_NAMES
+from olive.common.hf.adapter import ModelAdapter
 from olive.common.pydantic_v1 import validator
-from olive.common.utils import find_first_matched_value
 from olive.model.config.kv_cache_config import KVCacheConfig
 
 
@@ -131,25 +130,23 @@ class IoConfig(ConfigBase):
 
 
 def complete_kv_cache_with_model_attributes(kv_cache, model_attributes):
-    num_hidden_layers = find_first_matched_value(model_attributes, NUM_HIDDEN_LAYER_NAMES)
-    num_attention_heads = find_first_matched_value(model_attributes, NUM_HEADS_NAMES)
-    hidden_size = find_first_matched_value(model_attributes, HIDDEN_SIZE_NAMES)
+    model_adapter = ModelAdapter(model_attributes)
     world_size = model_attributes.get("world_size", 1)
     kv_cache_obj = None
     if isinstance(kv_cache, bool) and kv_cache:
         kv_cache_obj = KVCacheConfig(
-            num_hidden_layers=num_hidden_layers,
-            num_attention_heads=num_attention_heads,
-            hidden_size=hidden_size,
+            num_hidden_layers=model_adapter.num_hidden_layers,
+            num_attention_heads=model_adapter.num_attention_heads,
+            hidden_size=model_adapter.hidden_size,
             world_size=world_size,
         )
     elif isinstance(kv_cache, dict):
         kv_cache_dict = deepcopy(kv_cache)
         kv_cache_dict.update(
             {
-                "num_hidden_layers": kv_cache.get("num_hidden_layers") or num_hidden_layers,
-                "num_attention_heads": kv_cache.get("num_attention_heads") or num_attention_heads,
-                "hidden_size": kv_cache.get("hidden_size") or hidden_size,
+                "num_hidden_layers": kv_cache.get("num_hidden_layers") or model_adapter.num_hidden_layers,
+                "num_attention_heads": kv_cache.get("num_attention_heads") or model_adapter.num_attention_heads,
+                "hidden_size": kv_cache.get("hidden_size") or model_adapter.hidden_size,
                 "world_size": kv_cache.get("world_size") or world_size,
             }
         )
