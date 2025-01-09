@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-# ruff: noqa: RUF012
 
 import logging
 from typing import TYPE_CHECKING, Dict, List, Union
@@ -18,6 +17,8 @@ if TYPE_CHECKING:
     from transformers import PreTrainedModel
 
 logger = logging.getLogger(__name__)
+
+# ruff: noqa: RUF012
 
 
 def get_submodules(module: Module, mapping: Dict, key: str) -> Union[Module, List[Module]]:
