@@ -67,22 +67,22 @@ def save_optimized_onnx_submodel(submodel_name, provider, model_info):
                 optimizer_footprint = footprint
 
         assert conversion_footprint
-        #assert optimizer_footprint
+        assert optimizer_footprint
 
         unoptimized_olive_model = ONNXModelHandler(**conversion_footprint["model_config"]["config"])
-        #optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])
+        optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])
 
         model_info[submodel_name] = {
             "unoptimized": {
                 "path": Path(unoptimized_olive_model.model_path),
             },
             "optimized": {
-                #"path": Path(optimized_olive_model.model_path),
+                "path": Path(optimized_olive_model.model_path),
             },
         }
 
         print(f"Unoptimized Model : {model_info[submodel_name]['unoptimized']['path']}")
-        #print(f"Optimized Model   : {model_info[submodel_name]['optimized']['path']}")
+        print(f"Optimized Model   : {model_info[submodel_name]['optimized']['path']}")
 
 
 def save_onnx_pipeline(

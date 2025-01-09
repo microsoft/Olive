@@ -209,9 +209,9 @@ def optimize(
     script_dir = Path(__file__).resolve().parent
 
     # Clean up previously optimized models, if any.
-    shutil.rmtree(script_dir / "footprints", ignore_errors=True)
-    shutil.rmtree(unoptimized_model_dir, ignore_errors=True)
-    shutil.rmtree(optimized_model_dir, ignore_errors=True)
+    #shutil.rmtree(script_dir / "footprints", ignore_errors=True)
+    #shutil.rmtree(unoptimized_model_dir, ignore_errors=True)
+    #shutil.rmtree(optimized_model_dir, ignore_errors=True)
 
     # The model_id and base_model_id are identical when optimizing a standard stable diffusion model like
     # CompVis/stable-diffusion-v1-4. These variables are only different when optimizing a LoRA variant.
@@ -246,13 +246,13 @@ def optimize(
             olive_config = json.load(fin)
         olive_config = update_config_with_provider(olive_config, provider)
 
-        if submodel_name in ("unet", "text_encoder"):
-            olive_config["input_model"]["model_path"] = model_id
-        else:
-            # Only the unet & text encoder are affected by LoRA, so it's better to use the base model ID for
-            # other models: the Olive cache is based on the JSON config, and two LoRA variants with the same
-            # base model ID should be able to reuse previously optimized copies.
-            olive_config["input_model"]["model_path"] = base_model_id
+        # if submodel_name in ("unet", "text_encoder"):
+        #     olive_config["input_model"]["model_path"] = model_id
+        # else:
+        #     # Only the unet & text encoder are affected by LoRA, so it's better to use the base model ID for
+        #     # other models: the Olive cache is based on the JSON config, and two LoRA variants with the same
+        #     # base model ID should be able to reuse previously optimized copies.
+        #     olive_config["input_model"]["model_path"] = base_model_id
 
         run_res = olive_run(olive_config)
 
@@ -263,7 +263,7 @@ def optimize(
         else:
             from sd_utils.ort import save_optimized_onnx_submodel
 
-            save_optimized_onnx_submodel(submodel_name, provider, model_info)
+            #save_optimized_onnx_submodel(submodel_name, provider, model_info)
 
     if provider == "openvino":
         from sd_utils.ov import save_ov_model_info

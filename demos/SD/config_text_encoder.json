@@ -1,12 +1,12 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "model_path": "CompVis/stable-diffusion-v1-4",
+        "model_path": "stabilityai/stable-diffusion-2-1-base",
         "model_loader": "text_encoder_load",
         "model_script": "user_script.py",
         "io_config": {
-            "input_names": [ "input_ids" ],
-            "output_names": [ "last_hidden_state", "pooler_output" ],
+            "input_names": [ "tokens" ],
+            "output_names": [ "text_feature", "pooler_output" ],
             "dynamic_axes": { "input_ids": { "0": "batch", "1": "sequence" } }
         },
         "dummy_inputs_func": "text_encoder_conversion_inputs"
@@ -33,7 +33,6 @@
             "dim_value": [ 1, 77 ]
         }
     },
-    "pass_flows": [ [ "convert" ] ],
     "log_severity_level": 0,
     "host": "local_system",
     "target": "local_system",

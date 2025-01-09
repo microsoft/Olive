@@ -32,5 +32,6 @@
     "host": "local_system",
     "target": "local_system",
     "cache_dir": "cache",
+    "clean_cache": true,
     "output_dir": "footprints_qnn/text_encoder"
 }

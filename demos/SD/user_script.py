@@ -19,8 +19,10 @@ class RandomDataLoader:
         self.torch_dtype = torch_dtype
 
     def __getitem__(self, idx):
+        print(idx)
+        if idx > 0: return None
         label = None
-        return self.create_input_func(self.batch_size, self.torch_dtype), label
+        return self.create_input_func(self.batch_size, self.torch_dtype) #, label
 
 
 def get_base_model_name(model_name):
@@ -122,7 +124,7 @@ def merge_lora_weights(base_model, lora_model_id, submodel_name="unet", scale=1.
 
 
 def text_encoder_inputs(batch_size, torch_dtype):
-    return torch.zeros((batch_size, 77), dtype=torch_dtype)
+    return {"tokens": torch.zeros((batch_size, 77), dtype=torch_dtype)}
 
 
 def text_encoder_load(model_name):
