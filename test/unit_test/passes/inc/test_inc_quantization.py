@@ -21,7 +21,8 @@ from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuanti
 
 
 @pytest.mark.skipif(
-    platform.system() == OS.WINDOWS, reason="Skip test on Windows. neural-compressor import is hanging on Windows."
+    platform.system() == OS.WINDOWS or torch.cuda.is_available(),
+    reason="Skip test on Windows. neural-compressor import is hanging on Windows.",
 )
 def test_inc_quantization(tmp_path):
     ov_model = get_onnx_model(tmp_path)

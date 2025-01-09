@@ -2,7 +2,7 @@ name: project_environment
 channels:
   - defaults
 dependencies:
-  - python=3.8.13
+  - python=3.10.16
   - pip=22.3.1
   - pip:
       - datasets
@@ -10,7 +10,7 @@ dependencies:
       - optimum
       - psutil
       - scipy
-      - scikit-learn
+      - scikit-learn==1.5.2 # https://github.com/huggingface/evaluate/issues/655
       - torch
       - --extra-index-url https://download.pytorch.org/whl/cu118
       - transformers>=4.41.1

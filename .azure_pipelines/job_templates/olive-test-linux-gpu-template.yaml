@@ -1,0 +1,81 @@
+# Example Linux test template for Olive pipeline
+
+parameters:
+  name: ''
+  pool: ''
+  test_type: ''
+  device: 'cpu'
+  dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
+  docker_image: 'olive-pipeline:latest'
+  python_version: '3.10'
+  onnxruntime: 'onnxruntime'
+  torch: 'torch'
+  requirements_file: 'requirements-test.txt'
+  test_script: 'run_test.sh'
+  onnxruntime_nightly: false
+
+jobs:
+- job: ${{parameters.name}}
+  timeoutInMinutes: 300
+  pool:
+    name: ${{ parameters.pool}}
+  variables:
+    testType: ${{ parameters.test_type }}
+    python_version: ${{ parameters.python_version }}
+    requirements_file: ${{ parameters.requirements_file }}
+    PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
+    HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
+
+  steps:
+  - template: build-docker-image-template.yaml
+    parameters:
+      python_version: ${{ parameters.python_version }}
+      dockerfile: ${{ parameters.dockerfile }}
+      docker_image: ${{ parameters.docker_image }}
+
+  - script: |
+      docker run \
+      --gpus=all \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v $(Build.SourcesDirectory)/logs:/logs \
+      -e WORKSPACE_SUBSCRIPTION_ID=$(workspace-subscription-id) \
+      -e WORKSPACE_RESOURCE_GROUP=$(workspace-resource-group) \
+      -e WORKSPACE_NAME=$(workspace-name) \
+      -e MANAGED_IDENTITY_CLIENT_ID=$(olive-1es-identity-client-id) \
+      ${{ parameters.docker_image }} \
+      bash .azure_pipelines/scripts/${{ parameters.test_script }} \
+      ${{ parameters.torch }} \
+      ${{ parameters.onnxruntime }} \
+      ${{ parameters.onnxruntime_nightly }} \
+      test/$(requirements_file) \
+      test/$(testType)
+    displayName: Run Tests in Docker
+
+  - task: CredScan@3
+    displayName: 'Run CredScan'
+    inputs:
+      debugMode: false
+    continueOnError: true
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: '**/*TestOlive*.xml'
+      testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
+      failTaskOnFailedTests: true
+    displayName: Upload pipeline run test results
+
+  # Code coverage requires
+  - task: UseDotNet@2
+    displayName: 'Use .NET Core sdk 7.0.x'
+    inputs:
+      version: 7.0.x
+
+  - task: PublishCodeCoverageResults@2
+    inputs:
+      summaryFileLocation: '**/coverage.xml'
+    displayName: Publish code coverage results
+
+  - script: sudo git clean -dfX
+    condition: always()
+    displayName: Clean remaining artifacts

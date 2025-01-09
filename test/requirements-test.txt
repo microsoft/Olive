@@ -2,8 +2,7 @@ accelerate
 azure-ai-ml
 azure-identity
 azure-storage-blob
-# azureml-evaluate-mlflow>=0.0.14 will pin mlflow/mlflow-skinny to 2.3.1
-azureml-evaluate-mlflow>=0.0.14
+azureml-evaluate-mlflow>=0.0.60
 azureml-fsspec
 # Pin azureml-metrics[all] greater than 0.0.26 to avoid breaking change in azureml-evaluate-mlflow
 azureml-metrics[all]>=0.0.26
@@ -12,7 +11,15 @@ cppimport
 datasets
 docker>=7.1.0
 evaluate
-git+https://github.com/microsoft/TransformerCompression.git ; python_version >= "3.10"
+# microsoft/TransformerCompression has dependency on transformers==4.41.0
+# and it's not compatible with transformers>=4.42.0.
+# Use the forked version of TransformerCompression for now.
+# https://github.com/microsoft/TransformerCompression/issues/183
+# TODO(team): Switch back to the original version once it's compatible with transformers>=4.42.0
+git+https://github.com/xiaoyu-work/TransformerCompression.git ; python_version >= "3.10"
+# latest 3.24.0 will break the pipeline
+# TODO(team): 55399 Switch back to the latest version once it's compatible with the pipeline
+marshmallow<3.24.0
 mlflow>=2.4.0
 neural-compressor
 nncf==2.7.0
@@ -27,9 +34,7 @@ onnxscript
 openvino==2023.2.0
 optimum>=1.17.0
 pandas
-# TODO(anyone): Unpin peft once the issue is resolved
-# occasional import error on Windows with peft 0.11.1
-peft==0.10.0
+peft
 plotly
 protobuf==3.20.3
 psutil
@@ -40,4 +45,4 @@ tabulate
 torchvision
 # num_logits_to_keep is causing extra input.
 # TODO(anyone): Remove this once the issue is resolved
-transformers<4.45.0
+transformers>=4.42.0, <4.45.0
