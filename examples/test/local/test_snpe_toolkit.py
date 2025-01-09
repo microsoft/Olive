@@ -71,7 +71,6 @@ class TestSnpeToolkit:
         retry_func(run_subprocess, kwargs={"cmd": "python download_files.py", "check": True})
 
     @pytest.mark.parametrize("use_olive_env", [True])
-    @pytest.mark.skipif(sys.version_info > (3, 8), reason="requires python3.8")
     def test_inception_snpe(self, use_olive_env):
         from olive.workflows import run as olive_run
 
