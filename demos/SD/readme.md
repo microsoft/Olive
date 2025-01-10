@@ -15,19 +15,29 @@ Need this version for textencoder
 
 ## Bugs
 
-### 1 debug shape infer
+### 1 shape infer does not support > 2GB
+
+https://github.com/onnx/onnx/issues/6150
 
 D:\Olive\olive-venv\Lib\site-packages\onnxruntime\quantization\quant_utils.py: load_model_with_shape_infer
 
 ```
-    # Reload model instead
+    # Use model without data instead
     if not model.opset_import or not model.ir_version:
         print("-"*20)
         print(inferred_model_path)
-        print(model.opset_import)
-        print(model.ir_version)
-        print(len(model.graph.node))
+
         model = onnx.load(model_path.as_posix())
+        ext_model_path = generate_identified_filename(model_path, "-ext")
+        onnx.save_model(model, ext_model_path.as_posix(), save_as_external_data=True)
+
+        model = onnx.load(ext_model_path.as_posix(), load_external_data=False)
+        onnx_infer = onnx.shape_inference.infer_shapes(model)
+        onnx.save(onnx_infer, inferred_model_path)
+
+        model = onnx.load(inferred_model_path.as_posix())
+        add_infer_metadata(model)
+        print(len(model.graph.node))
     else:
         inferred_model_path.unlink()
 ```

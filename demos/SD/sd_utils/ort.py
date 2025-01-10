@@ -53,38 +53,6 @@ def validate_ort_version(provider: str):
         )
 
 
-def save_optimized_onnx_submodel(submodel_name, provider, model_info):
-    footprints_file_path = Path(__file__).resolve().parents[1] / ("footprints_qnn" if config.qnn else "footprints") / submodel_name / "footprints.json"
-    with footprints_file_path.open("r") as footprint_file:
-        footprints = json.load(footprint_file)
-
-        conversion_footprint = None
-        optimizer_footprint = None
-        for footprint in footprints.values():
-            if footprint["from_pass"] == "OnnxConversion":
-                conversion_footprint = footprint
-            elif footprint["from_pass"] == "OrtTransformersOptimization":
-                optimizer_footprint = footprint
-
-        assert conversion_footprint
-        assert optimizer_footprint
-
-        unoptimized_olive_model = ONNXModelHandler(**conversion_footprint["model_config"]["config"])
-        optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])
-
-        model_info[submodel_name] = {
-            "unoptimized": {
-                "path": Path(unoptimized_olive_model.model_path),
-            },
-            "optimized": {
-                "path": Path(optimized_olive_model.model_path),
-            },
-        }
-
-        print(f"Unoptimized Model : {model_info[submodel_name]['unoptimized']['path']}")
-        print(f"Optimized Model   : {model_info[submodel_name]['optimized']['path']}")
-
-
 def save_onnx_pipeline(
     has_safety_checker, model_info, optimized_model_dir, unoptimized_model_dir, pipeline, submodel_names
 ):

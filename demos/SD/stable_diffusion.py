@@ -198,6 +198,7 @@ def optimize(
     provider: str,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
+    qnn: bool,
 ):
     from google.protobuf import __version__ as protobuf_version
 
@@ -242,7 +243,7 @@ def optimize(
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
-        with (script_dir / (f"config_{submodel_name}" + (".qnn" if config.qnn else "") + ".json")).open() as fin:
+        with (script_dir / (f"config_{submodel_name}" + (".qnn" if qnn else "") + ".json")).open() as fin:
             olive_config = json.load(fin)
         olive_config = update_config_with_provider(olive_config, provider)
 
@@ -261,9 +262,10 @@ def optimize(
 
             save_optimized_ov_submodel(run_res, submodel_name, optimized_model_dir, model_info)
         else:
-            from sd_utils.ort import save_optimized_onnx_submodel
+            #from sd_utils.ort import save_optimized_onnx_submodel
 
             #save_optimized_onnx_submodel(submodel_name, provider, model_info)
+            pass
 
     if provider == "openvino":
         from sd_utils.ov import save_ov_model_info
@@ -286,7 +288,8 @@ def parse_common_args(raw_args):
     parser.add_argument(
         "--provider", default="dml", type=str, choices=["dml", "cuda", "openvino"], help="Execution provider to use"
     )
-    parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
+    parser.add_argument("--optimize", action="store_false", help="Runs the optimization step")
+    parser.add_argument("--qnn", action="store_true", help="Runs the qnn step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
@@ -388,7 +391,7 @@ def main(raw_args=None):
                 from sd_utils.ort import validate_args
 
                 validate_args(ort_args, common_args.provider)
-            optimize(common_args.model_id, common_args.provider, unoptimized_model_dir, optimized_model_dir)
+            optimize(common_args.model_id, common_args.provider, unoptimized_model_dir, optimized_model_dir, common_args.qnn)
 
     generator = None if common_args.seed is None else np.random.RandomState(seed=common_args.seed)
 

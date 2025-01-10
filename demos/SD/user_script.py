@@ -19,7 +19,7 @@ class RandomDataLoader:
         self.torch_dtype = torch_dtype
 
     def __getitem__(self, idx):
-        print(idx)
+        print("getitem: " + idx)
         if idx > 0: return None
         label = None
         return self.create_input_func(self.batch_size, self.torch_dtype) #, label
@@ -79,6 +79,8 @@ def get_unet_ov_example_input():
 
 def unet_load(model_name):
     base_model_id = get_base_model_name(model_name)
+    print("base_model_id: " + base_model_id)
+    # variant="fp16" also produces a model > 2GB
     model = UNet2DConditionModel.from_pretrained(base_model_id, subfolder="unet")
     return model
 
