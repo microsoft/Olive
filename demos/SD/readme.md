@@ -44,6 +44,8 @@ D:\Olive\olive-venv\Lib\site-packages\onnxruntime\quantization\quant_utils.py: l
 
 ### 2 debug aug model
 
+not needed, but useful to show how many tensors are quantized
+
 D:\Olive\olive-venv\Lib\site-packages\onnxruntime\quantization\calibrate.py: MinMaxCalibrater: augment_graph
 
 ```

@@ -19,7 +19,7 @@ class RandomDataLoader:
         self.torch_dtype = torch_dtype
 
     def __getitem__(self, idx):
-        print("getitem: " + idx)
+        print("getitem: " + str(idx))
         if idx > 0: return None
         label = None
         return self.create_input_func(self.batch_size, self.torch_dtype) #, label
@@ -126,7 +126,7 @@ def vae_encoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 def vae_decoder_inputs(batch_size, torch_dtype):
     return {
-        "latent_sample": torch.rand(
+        "latent": torch.rand(
             (batch_size, 4, config.unet_sample_size, config.unet_sample_size), dtype=torch_dtype
         )
     }

@@ -199,6 +199,7 @@ def optimize(
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
     qnn: bool,
+    submodel: str,
 ):
     from google.protobuf import __version__ as protobuf_version
 
@@ -229,7 +230,7 @@ def optimize(
 
     model_info = {}
 
-    submodel_names = ["unet"] # ["vae_encoder", "vae_decoder", "unet", "text_encoder"]
+    submodel_names = [submodel] # ["vae_encoder", "vae_decoder", "unet", "text_encoder"]
 
     has_safety_checker = False # getattr(pipeline, "safety_checker", None) is not None
 
@@ -285,6 +286,7 @@ def parse_common_args(raw_args):
     parser = argparse.ArgumentParser("Common arguments")
 
     parser.add_argument("--model_id", default="stabilityai/stable-diffusion-2-1-base", type=str)
+    parser.add_argument("--model", default="text_encoder", type=str, choices=["text_encoder", "unet", "vae_decoder"])
     parser.add_argument(
         "--provider", default="dml", type=str, choices=["dml", "cuda", "openvino"], help="Execution provider to use"
     )
@@ -391,7 +393,7 @@ def main(raw_args=None):
                 from sd_utils.ort import validate_args
 
                 validate_args(ort_args, common_args.provider)
-            optimize(common_args.model_id, common_args.provider, unoptimized_model_dir, optimized_model_dir, common_args.qnn)
+            optimize(common_args.model_id, common_args.provider, unoptimized_model_dir, optimized_model_dir, common_args.qnn, common_args.model)
 
     generator = None if common_args.seed is None else np.random.RandomState(seed=common_args.seed)
 
