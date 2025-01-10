@@ -66,6 +66,9 @@ code = 'BLACK-ISORT'
 include_patterns = [
   '**/*.py'
 ]
+exclude_patterns = [
+  '**/hadamard_tensors.py'
+]
 command = [
   'python',
   '-m',
@@ -90,6 +93,9 @@ is_formatter = true
 code = 'PYLINT'
 include_patterns = [
   '**/*.py'
+]
+exclude_patterns = [
+  '**/hadamard_tensors.py'
 ]
 command = [
   'python',

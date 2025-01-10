@@ -8,7 +8,7 @@ import logging
 from typing import TYPE_CHECKING, Dict, List, Union
 
 import torch
-from torch.nn import Module
+from torch import nn
 from transformers import PretrainedConfig
 
 from olive.common.utils import find_first_matched_value, get_attr, set_attr
@@ -21,26 +21,24 @@ logger = logging.getLogger(__name__)
 # ruff: noqa: RUF012
 
 
-def get_submodules(module: Module, mapping: Dict, key: str) -> Union[Module, List[Module]]:
+def get_submodules(module: nn.Module, mapping: Dict, key: str) -> Union[nn.Module, List[nn.Module]]:
     names = mapping.get(key, mapping["default"])
     if isinstance(names, str):
         return get_attr(module, names, fail_on_not_found=True)
     return [get_attr(module, name, fail_on_not_found=True) for name in names]
 
 
-class UnpackedQKV(Module):
-    def __init__(self, qkv: Module, num_attn_heads: int, num_key_value_heads: int, head_size: int):
+class UnpackedQKV(nn.Module):
+    def __init__(self, qkv: nn.Module, num_attn_heads: int, num_key_value_heads: int, head_dim: int):
         super().__init__()
-        q_size = num_attn_heads * head_size
-        kv_size = num_key_value_heads * head_size
+        q_size = num_attn_heads * head_dim
+        kv_size = num_key_value_heads * head_dim
 
         def create_proj(start, end):
-            proj = torch.nn.Linear(q_size, end - start)
-            proj.weight = torch.nn.Parameter(qkv.weight[start:end], requires_grad=qkv.weight.requires_grad)
+            proj = nn.Linear(q_size, end - start)
+            proj.weight = nn.Parameter(qkv.weight[start:end], requires_grad=qkv.weight.requires_grad)
             proj.bias = (
-                None
-                if qkv.bias is None
-                else torch.nn.Parameter(qkv.bias[start:end], requires_grad=qkv.bias.requires_grad)
+                None if qkv.bias is None else nn.Parameter(qkv.bias[start:end], requires_grad=qkv.bias.requires_grad)
             )
             return proj
 
@@ -51,19 +49,19 @@ class UnpackedQKV(Module):
     def forward(self, hidden_states):
         return torch.cat(self.q_proj(hidden_states), self.k_proj(hidden_states), self.v_proj(hidden_states))
 
-    def create_packed(self) -> torch.nn.Linear:
-        qkv = torch.nn.Linear(
+    def create_packed(self) -> nn.Linear:
+        qkv = nn.Linear(
             self.q_proj.in_features + self.k_proj.in_features + self.v_proj.in_features,
             self.q_proj.out_features,
         )
-        qkv.weight = torch.nn.Parameter(
+        qkv.weight = nn.Parameter(
             torch.cat([self.q_proj.weight, self.k_proj.weight, self.v_proj.weight], dim=1),
             requires_grad=self.q_proj.weight.requires_grad,
         )
         qkv.bias = (
             None
             if self.q_proj.bias is None
-            else torch.nn.Parameter(
+            else nn.Parameter(
                 torch.cat([self.q_proj.bias, self.k_proj.bias, self.v_proj.bias]),
                 requires_grad=self.q_proj.bias.requires_grad,
             )
@@ -97,13 +95,13 @@ class LayerAdapter:
     }
     MLP_OUTPUTS = {"default": ["down_proj"], "bloom": ["dense_4h_to_h"], "opt": ["fc2"], "qwen": ["c_proj"]}
 
-    def __init__(self, layer: Module, model_type: str, num_attn_heads: int, num_key_value_heads: int, head_size: int):
+    def __init__(self, layer: nn.Module, model_type: str, num_attn_heads: int, num_key_value_heads: int, head_dim: int):
         # TODO(jambayk): use _layer and property to get the layer?
         self.layer = layer
         self.model_type = model_type
         self.num_attn_heads = num_attn_heads
         self.num_key_value_heads = num_key_value_heads
-        self.head_size = head_size
+        self.head_dim = head_dim
 
         self.attn = get_submodules(layer, self.ATTENTION, self.model_type)
         self.mlp = get_submodules(layer, self.MLP, self.model_type)
@@ -111,25 +109,25 @@ class LayerAdapter:
         self._qkv_unpacked = False
         self._qkv_name = None
 
-    def get_first_layer_norm(self) -> Module:
+    def get_first_layer_norm(self) -> nn.Module:
         return get_submodules(self.layer, self.FIRST_LAYER_NORM, self.model_type)
 
-    def get_second_layer_norm(self) -> Module:
+    def get_second_layer_norm(self) -> nn.Module:
         return get_submodules(self.layer, self.SECOND_LAYER_NORM, self.model_type)
 
-    def get_attention_inputs(self) -> List[Module]:
+    def get_attention_inputs(self) -> List[nn.Module]:
         attention_inputs = get_submodules(self.attn, self.ATTENTION_INPUTS, self.model_type)
         if self._qkv_unpacked:
             return attention_inputs[0].q_proj, attention_inputs[0].k_proj, attention_inputs[0].v_proj
         return attention_inputs
 
-    def get_attention_outputs(self) -> List[Module]:
+    def get_attention_outputs(self) -> List[nn.Module]:
         return get_submodules(self.attn, self.ATTENTION_OUTPUTS, self.model_type)
 
-    def get_mlp_inputs(self) -> List[Module]:
+    def get_mlp_inputs(self) -> List[nn.Module]:
         return get_submodules(self.mlp, self.MLP_INPUTS, self.model_type)
 
-    def get_mlp_outputs(self) -> List[Module]:
+    def get_mlp_outputs(self) -> List[nn.Module]:
         return get_submodules(self.mlp, self.MLP_OUTPUTS, self.model_type)
 
     def maybe_unpack_qkv(self):
@@ -147,7 +145,7 @@ class LayerAdapter:
                 get_attr(self.attn, attn_input_names[0], fail_on_not_found=True),
                 self.num_attn_heads,
                 self.num_key_value_heads,
-                self.head_size,
+                self.head_dim,
             ),
         )
         self._qkv_unpacked = True
@@ -214,7 +212,7 @@ class ModelAdapter:
         self.num_hidden_layers = find_first_matched_value(self.config, self.NUM_HIDDEN_LAYER_NAMES)
 
         self._model = None
-        self._decoder_layer_adapters = None
+        self._layer_adapters = None
 
     @property
     def model(self) -> "PreTrainedModel":
@@ -230,16 +228,16 @@ class ModelAdapter:
             for layer in self.get_layers()
         ]
 
-    def get_embeds(self) -> List[Module]:
+    def get_embeds(self) -> List[nn.Module]:
         return get_submodules(self.model, self.EMBEDDINGS, self.model_type)
 
-    def get_lm_head(self) -> Module:
+    def get_lm_head(self) -> nn.Module:
         return get_submodules(self.model, self.LM_HEAD, self.model_type)
 
-    def get_pre_head_layernorm(self) -> Module:
+    def get_pre_head_layernorm(self) -> nn.Module:
         return get_submodules(self.model, self.PRE_HEAD_LAYERNORM, self.model_type)
 
-    def get_layers(self) -> List[Module]:
+    def get_layers(self) -> List[nn.Module]:
         return get_submodules(self.model, self.LAYERS, self.model_type)
 
     def get_layer_adapters(self) -> List[LayerAdapter]:
@@ -252,5 +250,5 @@ class ModelAdapter:
         if self.config.tie_word_embeddings:
             self.config.tie_word_embeddings = False
 
-            self.get_lm_head[0].weight.data = self.get_embeds()[0].weight.data.clone()
+            self.get_lm_head().weight.data = self.get_embeds()[0].weight.data.clone()
             logger.debug("Untied word embeddings.")
