@@ -5,18 +5,8 @@
         "model_loader": "unet_load",
         "model_script": "user_script.py",
         "io_config": {
-            "input_names": [ "sample", "timestep", "encoder_hidden_states", "return_dict" ],
-            "output_names": [ "out_sample" ],
-            "dynamic_axes": {
-                "sample": {
-                    "0": "unet_sample_batch",
-                    "1": "unet_sample_channels",
-                    "2": "unet_sample_height",
-                    "3": "unet_sample_width"
-                },
-                "timestep": { "0": "unet_time_batch" },
-                "encoder_hidden_states": { "0": "unet_hidden_batch", "1": "unet_hidden_sequence" }
-            }
+            "input_names": [ "latent", "time_emb", "text_emb" ],
+            "output_names": [ "output_latent" ]
         },
         "dummy_inputs_func": "unet_conversion_inputs"
     },
@@ -37,7 +27,10 @@
     "passes": {
         "convert": {
             "type": "OnnxConversion",
-            "target_opset": 14
+            "target_opset": 14,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "external_data_name": "weights.pb"
         }
     },
     "log_severity_level": 0,

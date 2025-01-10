@@ -7,7 +7,7 @@
         "io_config": {
             "input_names": [ "tokens" ],
             "output_names": [ "text_feature", "pooler_output" ],
-            "dynamic_axes": { "input_ids": { "0": "batch", "1": "sequence" } }
+            "dynamic_axes": { "tokens": { "0": "batch", "1": "sequence" } }
         },
         "dummy_inputs_func": "text_encoder_conversion_inputs"
     },
