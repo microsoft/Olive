@@ -145,7 +145,7 @@ def vae_decoder_conversion_inputs(model=None):
 
 @Registry.register_dataloader()
 def vae_decoder_data_loader(dataset, batch_size, *args, **kwargs):
-    return RandomDataLoader(vae_decoder_inputs, batch_size, torch.float16)
+    return RandomDataLoader(vae_decoder_inputs, batch_size, torch.float32)
 
 
 # -----------------------------------------------------------------------------
