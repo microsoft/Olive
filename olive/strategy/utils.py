@@ -54,7 +54,11 @@ class DirectedGraph:
         visited = set()
         order = []
 
-        for v in self.vertices:
+        # Since the dependee vertex is inserted in front, iterate the vertices in
+        # reverse order to retain the relative order of vertices in the graph.
+        # Without it the graph vertices are reversed even in cases where no
+        # dependency exist.
+        for v in reversed(self.vertices):
             if v not in visited:
                 self._topological_sort_util(v, visited, order)
 
