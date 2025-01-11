@@ -30,21 +30,24 @@
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int4", "int8" ],
-            "extra_dependencies": [ "inc" ]
+            "extra_dependencies": [ "inc" ],
+            "run_on_target": true
         },
         "IncQuantization": {
             "module_path": "olive.passes.onnx.inc_quantization.IncQuantization",
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int4", "int8" ],
-            "extra_dependencies": [ "inc" ]
+            "extra_dependencies": [ "inc" ],
+            "run_on_target": true
         },
         "IncStaticQuantization": {
             "module_path": "olive.passes.onnx.inc_quantization.IncStaticQuantization",
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int4", "int8" ],
-            "extra_dependencies": [ "inc" ]
+            "extra_dependencies": [ "inc" ],
+            "run_on_target": true
         },
         "InsertBeamSearch": {
             "module_path": "olive.passes.onnx.insert_beam_search.InsertBeamSearch",
@@ -143,7 +146,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "extra_dependencies": [ "optimum" ]
+            "extra_dependencies": [ "optimum" ],
+            "run_on_target": true
         },
         "OrtMixedPrecision": {
             "module_path": "olive.passes.onnx.mixed_precision.OrtMixedPrecision",
@@ -156,7 +160,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "module_dependencies": [ "psutil" ]
+            "module_dependencies": [ "psutil" ],
+            "run_on_target": true
         },
         "OrtTransformersOptimization": {
             "module_path": "olive.passes.onnx.transformer_optimization.OrtTransformersOptimization",
@@ -174,7 +179,8 @@
             "module_path": "olive.passes.onnx.vitis_ai_quantization.VitisAIQuantization",
             "supported_providers": [ "VitisAIExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
-            "supported_precisions": [ "int8" ]
+            "supported_precisions": [ "int8" ],
+            "run_on_target": true
         },
         "VitisQDQQuantizer": {
             "module_path": "olive.passes.onnx.vitis_ai.quantizer.VitisQDQQuantizer",

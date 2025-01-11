@@ -74,7 +74,7 @@ class RunEngineConfig(EngineConfig):
     ort_py_log_severity_level: int = 3
     log_to_file: bool = False
 
-    def create_engine(self, azureml_client_config, workflow_id):
+    def create_engine(self, olive_config, azureml_client_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
         if self.cache_config:
             cache_config = validate_config(self.cache_config, CacheConfig)
@@ -86,7 +86,11 @@ class RunEngineConfig(EngineConfig):
                 enable_shared_cache=self.enable_shared_cache,
             )
         return Engine(
-            **config, cache_config=cache_config, azureml_client_config=azureml_client_config, workflow_id=workflow_id
+            **config,
+            olive_config=olive_config,
+            cache_config=cache_config,
+            azureml_client_config=azureml_client_config,
+            workflow_id=workflow_id,
         )
 
 
