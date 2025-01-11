@@ -3,9 +3,16 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, List, Optional, Set, Type, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Set, Type, Union
 
-from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object
+from olive.common.config_utils import (
+    ConfigBase,
+    ConfigParam,
+    NestedConfig,
+    ParamCategory,
+    validate_lowercase,
+    validate_object,
+)
 from olive.common.pydantic_v1 import Field, create_model, validator
 from olive.common.utils import StrEnumBase
 from olive.hardware.accelerator import Device
@@ -85,7 +92,25 @@ def get_user_script_data_config(
 DEFAULT_SET = set(PassParamDefault)
 
 
-class PassConfigBase(ConfigBase):
+class AbstractPassConfig(NestedConfig):
+    """Base class for pass configuration."""
+
+    type: str = Field(description="The type of the pass.")
+    config: Dict[str, Any] = Field(
+        None,
+        description=(
+            "The configuration of the pass. Values for required parameters must be provided. For optional parameters,"
+            " default values or searchable values (if available and search is not disabled) will be used if not"
+            " provided."
+        ),
+    )
+
+    @validator("type", pre=True)
+    def validate_type(cls, v):
+        return validate_lowercase(v)
+
+
+class BasePassConfig(ConfigBase):
 
     @validator("*", pre=True)
     def _validate_default_str(cls, v, field):
@@ -109,7 +134,7 @@ def create_config_class(
     default_config: Dict[str, PassConfigParam],
     disable_search: Optional[bool] = False,
     validators: Dict[str, Callable] = None,
-) -> Type[PassConfigBase]:
+) -> Type[BasePassConfig]:
     """Create a Pydantic model class from a configuration dictionary."""
     config = {}
     validators = validators.copy() if validators else {}
@@ -137,7 +162,7 @@ def create_config_class(
         else:
             config[param] = (type_, param_config.default_value)
 
-    return create_model(f"{pass_type}Config", **config, __base__=PassConfigBase, __validators__=validators)
+    return create_model(f"{pass_type}Config", **config, __base__=BasePassConfig, __validators__=validators)
 
 
 class PassModuleConfig(ConfigBase):
