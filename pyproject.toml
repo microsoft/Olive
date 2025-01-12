@@ -130,6 +130,7 @@ select = [
 # NOTE: Refrain from growing the ignore list unless for exceptional cases.
 # Always include a comment to explain why.
 ignore = [
+  "A005", # Ignore modules using the same names as Python standard-library modules
   "B028", # FIXME: Add stacklevel to warnings
   "B905", # keep using less than Python 3.10. The strict is added in Python 3.10
   "D100", # Ignore missing docstring in public module
