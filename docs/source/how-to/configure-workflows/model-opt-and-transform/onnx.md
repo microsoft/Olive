@@ -6,14 +6,9 @@ Olive provides multiple transformations and optimizations based on various ONNX 
 
 ## Model Optimizer
 
-`OnnxPeepholeOptimizer` optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
-reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.
+`OnnxPeepholeOptimizer` optimizes an ONNX model. The optimization process involves analyzing the structure of the ONNX model and identifying opportunities.
 
-Also, inserts a `Cast` operation for cases where `ArgMax` input. For example, before ONNXRuntime 1.20, TensorProto.INT64 isn't supported on CPU or CUDA EP so a `Cast` operator inserted to cast the inputs to TensorProto.INT32.
-
-The `OnnxPeepholeOptimizer` integrates `onnxscript` and `onnxoptimizer` to optimize ONNX models. By default, [`onnxscript.optimizer.optimize`](https://onnxscript.ai/tutorial/optimizer/optimize.html) will run automatically. To enable [`onnxoptimizer.optimize`](https://github.com/onnx/optimizer), set `"onnxoptimizer": true` in the pass configuration.
-
-### onnxscript.optimizer.optimize
+The `OnnxPeepholeOptimizer` leverages `onnxscript` (https://onnxscript.ai/tutorial/optimizer/optimize.html) and `onnxoptimizer`(https://github.com/onnx/optimizer) underneath.
 
 | Optimization                      | Description                                                                 |
 |------------------------------------|-----------------------------------------------------------------------------|
@@ -24,11 +19,6 @@ The `OnnxPeepholeOptimizer` integrates `onnxscript` and `onnxoptimizer` to optim
 | **Remove Unused Functions**       | Removes unused function protos from the model.                             |
 | **Inline Functions with Unused Outputs** | Inlines function nodes with unused outputs.                                |
 | **Inline Simple Functions**       | Inlines simple functions based on a node count threshold.                  |
-
-### onnxoptimizer
-
-| Optimization                      | Description                                                                          |
-|------------------------------------|--------------------------------------------------------------------------------------|
 | **Eliminate Nop Cast**            | Eliminates no-operation (nop) Casts.                                                |
 | **Eliminate Nop Dropout**         | Eliminates no-operation Dropouts.                                                   |
 | **Eliminate Nop Flatten**         | Eliminates no-operation Flattens.                                                   |
