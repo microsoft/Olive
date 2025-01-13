@@ -286,7 +286,7 @@
             "supported_precisions": [ "*" ]
         },
         "QuaRot": {
-            "module_path": "olive.passes.pytorch.quarot.QuaRot",
+            "module_path": "olive.passes.pytorch.rotate.QuaRot",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ]

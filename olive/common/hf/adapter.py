@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # ruff: noqa: RUF012
 
 
+# TODO(jambayk): consider always returning the name of the submodule
 def get_submodules(module: nn.Module, mapping: Dict, key: str, return_name: bool = False, return_name_prefix: str = ""):
     names = mapping.get(key, mapping["default"])
 
@@ -258,6 +259,7 @@ class ModelAdapter:
         replacements.append([UnpackedQKV, lambda module: module.create_packed()])
 
         for submodule_type, replacement_fn in replacements:
+            logger.debug("Replacing %s with %s", submodule_type, replacement_fn)
             replace_submodules(self.model, submodule_type, replacement_fn)
 
         self.model.save_pretrained(output_model_path)
