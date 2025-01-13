@@ -6,7 +6,7 @@
 # Licensed under Apache License 2.0.
 
 import logging
-from typing import Iterable
+from typing import Iterable, Optional, Union
 
 import torch
 from torch import nn
@@ -65,65 +65,76 @@ def fuse_layer_norms(model_adapter: ModelAdapter):
     fuse_ln_linear(model_adapter.get_pre_head_layernorm(), [model_adapter.get_lm_head()])
 
 
+def rotate_weight(
+    weight: Union[torch.Tensor, nn.Parameter],
+    Q: Union[torch.Tensor, nn.Parameter],
+    pre: bool = True,
+    device: Optional[torch.device] = None,
+) -> Union[torch.Tensor, nn.Parameter]:
+    """Rotate the weight matrix by Q.
+
+    :param weight: weight matrix. Shape is (out_features, in_features). Equivalent to W^T in y = xW + b
+    :param Q: rotation matrix. If the Q dimension is different from the weight dimension, head-wise rotation
+        is performed.
+    :pre: whether to apply the rotation before the linear operation.
+        True for pre-rotation: y' = (xQ^-1)W + b = x(Q^TW) + b
+        False for post-rotation: y' = yQ = x(WQ) + bQ
+    :param device: device to use for the computation.
+    """
+    dtype = weight.dtype
+    original_device = weight.device
+    out_features, in_features = weight.shape
+    q_features = Q.shape[0]
+
+    head_wise = (in_features != q_features) if pre else (out_features != q_features)
+
+    # Convert to double precision, optionally move to device
+    to_kwargs = {"dtype": torch.float64}
+    if device is not None:
+        to_kwargs["device"] = device
+    weight = weight.to(**to_kwargs)
+    Q = Q.to(**to_kwargs)
+
+    if pre:
+        # Q^T @ W = (W^T @ Q)^T = (weight @ Q)^T
+        if head_wise:
+            weight = weight.reshape(out_features, -1, q_features)
+            weight = torch.matmul(weight, Q).reshape(out_features, -1)
+        else:
+            weight = torch.matmul(weight, Q)
+    else:
+        # W @ Q = (Q^T @ W^T)^T = (Q^T @ weight)^T
+        if head_wise:
+            weight = weight.t().reshape(in_features, -1, q_features)
+            weight = torch.matmul(weight, Q).reshape(in_features, -1).t()
+        else:
+            weight = torch.matmul(Q.t(), weight)
+
+    # Convert back to original precision and device
+    to_kwargs = {"dtype": dtype}
+    if device is not None:
+        to_kwargs["device"] = original_device
+    return weight.to(**to_kwargs)
+
+
 def rotate_embed(embedding: nn.Embedding, Q: torch.Tensor, device: torch.device):
     """Rotate the embedding matrix by Q."""
-    w_device = embedding.weight.data.device
-    w_dtype = embedding.weight.dtype
-
-    W = embedding.weight.data.to(device=device, dtype=torch.float64)
-    embedding.weight.data = torch.matmul(W, Q).to(device=w_device, dtype=w_dtype)
+    embedding.weight.data = rotate_weight(embedding.weight.data, Q, pre=True, device=device)
 
 
 def rotate_pre_linear(linear: nn.Linear, Q: torch.Tensor, device: torch.device):
     """Rotate the input linear layer by Q."""
-    w_device = linear.weight.device
-    w_dtype = linear.weight.data.dtype
-
-    out_features, in_features = linear.weight.data.shape
-    q_features = Q.shape[0]
-
-    headwise = False
-    if in_features != q_features:
-        assert in_features % q_features == 0, "Input features should be divisible by Q features"
-        headwise = True
-
-    W = linear.weight.data.to(device=device, dtype=torch.float64)
-    if headwise:
-        W = W.reshape(out_features, -1, q_features)
-        linear.weight.data = torch.matmul(W, Q).reshape(out_features, -1).to(device=w_device, dtype=w_dtype)
-    else:
-        linear.weight.data = torch.matmul(W, Q).to(device=w_device, dtype=w_dtype)
+    linear.weight.data = rotate_weight(linear.weight.data, Q, pre=True, device=device)
 
 
 def rotate_post_linear(linear: nn.Linear, Q: torch.Tensor, device: torch.device):
     """Rotate the output linear layer by Q."""
-    w_device = linear.weight.device
-    w_dtype = linear.weight.data.dtype
-
-    out_features, in_features = linear.weight.data.shape
-    q_features = Q.shape[0]
-
-    headwise = False
-    if out_features != q_features:
-        assert out_features % q_features == 0, "Output features should be divisible by Q features"
-        headwise = True
-
-    W = linear.weight.data.to(device=device, dtype=torch.float64)
-    if headwise:
-        W = W.t().reshape(in_features, -1, q_features)
-        linear.weight.data = (
-            torch.matmul(W, Q).reshape(in_features, -1).t().contiguous().to(device=w_device, dtype=w_dtype)
-        )
-    else:
-        linear.weight.data = torch.matmul(Q.T, W).to(device=w_device, dtype=w_dtype)
-
+    # transpose and reshape during headwise rotation might make the weight matrix non-contiguous
+    linear.weight.data = rotate_weight(linear.weight.data, Q, pre=False, device=device).contiguous()
     if hasattr(linear, "bias") and linear.bias is not None:
-        b = linear.bias.data.to(device=device, dtype=torch.float64)
-        if headwise:
-            b = b.reshape(-1, q_features)
-            linear.bias.data = torch.matmul(b, Q).reshape(-1).to(device=w_device, dtype=w_dtype)
-        else:
-            linear.bias.data = torch.matmul(Q.T, b).to(device=w_device, dtype=w_dtype)
+        linear.bias.data = (
+            rotate_weight(linear.bias.data.unsqueeze(1), Q, pre=False, device=device).squeeze(1).contiguous()
+        )
 
 
 def random_orthogonal_matrix(size: int, device: torch.device) -> torch.Tensor:
