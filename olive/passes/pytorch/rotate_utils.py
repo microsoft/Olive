@@ -5,6 +5,7 @@
 # This code is based on QuaRot(https://github.com/spcl/QuaRot/tree/main/quarot).
 # Licensed under Apache License 2.0.
 
+import logging
 from typing import Iterable
 
 import torch
@@ -13,6 +14,8 @@ from torch import nn
 from olive.common.hf.adapter import ModelAdapter
 from olive.common.utils import cleanup_memory
 from olive.passes.pytorch.hadamard_utils import random_hadamard_matrix
+
+logger = logging.getLogger(__name__)
 
 # ruff: noqa: N806
 
@@ -45,6 +48,10 @@ def fuse_layer_norms(model_adapter: ModelAdapter):
     # - baking mean into output layers
     # - replacing layernorm with RMSNorm
     # Model architecture changes are required
+    if isinstance(model_adapter.get_pre_head_layernorm(), nn.LayerNorm):
+        raise ValueError("Model uses LayerNorm. Only RMSNorm fusion is supported.")
+
+    logger.debug("Fusing layernorms into adjacent linear layers")
 
     # untie embedding and lm head
     model_adapter.maybe_untie_word_embeddings()
@@ -104,7 +111,9 @@ def rotate_post_linear(linear: nn.Linear, Q: torch.Tensor, device: torch.device)
     W = linear.weight.data.to(device=device, dtype=torch.float64)
     if headwise:
         W = W.t().reshape(in_features, -1, q_features)
-        linear.weight.data = torch.matmul(W, Q).reshape(in_features, -1).t().to(device=w_device, dtype=w_dtype)
+        linear.weight.data = (
+            torch.matmul(W, Q).reshape(in_features, -1).t().contiguous().to(device=w_device, dtype=w_dtype)
+        )
     else:
         linear.weight.data = torch.matmul(Q.T, W).to(device=w_device, dtype=w_dtype)
 

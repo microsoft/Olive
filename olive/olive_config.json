@@ -287,10 +287,9 @@
         },
         "QuaRot": {
             "module_path": "olive.passes.pytorch.quarot.QuaRot",
-            "supported_providers": [ "CPUExecutionProvider" ],
-            "supported_accelerators": [ "cpu" ],
-            "supported_precisions": [ "int4", "int8", "int16", "uint4", "uint8", "uint16" ],
-            "extra_dependencies": [ "flash-attn" ]
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ]
         },
         "TorchTRTConversion": {
             "module_path": "olive.passes.pytorch.torch_trt_conversion.TorchTRTConversion",

@@ -55,7 +55,7 @@ class UnpackedQKV(nn.Module):
             self.q_proj.out_features,
         )
         qkv.weight = nn.Parameter(
-            torch.cat([self.q_proj.weight, self.k_proj.weight, self.v_proj.weight], dim=1),
+            torch.cat([self.q_proj.weight, self.k_proj.weight, self.v_proj.weight], dim=0),
             requires_grad=self.q_proj.weight.requires_grad,
         )
         qkv.bias = (

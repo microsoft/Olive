@@ -41,7 +41,7 @@ You can use Olive CLI command to export, fine-tune, and optimize the model for a
 olive auto-opt -m microsoft/Phi-3-mini-4k-instruct --precision int8
 
 # To quantize the model
-olive quantize -m microsoft/Phi-3-mini-4k-instruct --trust_remote_code --precision fp16 --implementation quarot
+olive quantize -m microsoft/Phi-3-mini-4k-instruct --implementation gptq
 
 # To tune ONNX session params
 olive tune-session-params -m microsoft/Phi-3-mini-4k-instruct --io_bind --enable_cuda_graph
@@ -92,17 +92,6 @@ olive run [--config CONFIGURATION_FILE]
 
 # Examples
 olive run --config phi3_run_mobile_int4.json
-```
-
-We also introduce QuaRot, a new Quantization scheme based on Rotations, which is able to quantize LLMs end-to-end.
-Specific details about the algorithm can be found in the linked [paper](https://arxiv.org/pdf/2404.00456).
-
-## Prerequisites
-[QuaRot](https://github.com/microsoft/TransformerCompression/tree/quarot-main)
-
-To run the workflow,
-```bash
-python phi3.py --quarot
 ```
 
 ### Get access to fine-tuning dataset
