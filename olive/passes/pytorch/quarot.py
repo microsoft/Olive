@@ -92,6 +92,9 @@ class QuaRot(Pass):
         rotate_pre_linear(model_adapter.get_lm_head(), R1, device)
         cleanup_memory()
 
+        # need v_proj to be rotated separately, so unpack if necessary
+        model_adapter.maybe_unpack_qkv()
+
         # rotate the hidden layers
         for i, layer_adapter in enumerate(model_adapter.get_layer_adapters()):
             logger.debug("Rotating layer %d/%d", i + 1, model_adapter.num_hidden_layers)
@@ -104,9 +107,6 @@ class QuaRot(Pass):
             for linear in layer_adapter.get_attention_outputs() + layer_adapter.get_mlp_outputs():
                 # Wo @ R1, Wdown @ R1
                 rotate_post_linear(linear, R1, device)
-
-            # need v_proj to be rotated separately, so unpack if necessary
-            layer_adapter.maybe_unpack_qkv()
 
             v_proj = layer_adapter.get_attention_inputs()[2]
             if hasattr(v_proj, "bias") and v_proj.bias is not None:
@@ -122,13 +122,10 @@ class QuaRot(Pass):
             # R2^-1 @ Wo
             rotate_pre_linear(layer_adapter.get_attention_outputs()[0], R2, device)
 
-            # TODO(jambayk): consider adding a save_model method to ModelAdapter which does the repacking and
-            # removing other wrappers
-            layer_adapter.maybe_pack_qkv()
         cleanup_memory()
 
         # save the model
-        model_adapter.model.save_pretrained(output_model_path)
+        model_adapter.save_model(output_model_path)
         model.save_metadata(output_model_path)
 
         return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path)

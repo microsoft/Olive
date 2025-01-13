@@ -5,13 +5,13 @@
 
 
 import logging
-from typing import TYPE_CHECKING, Dict, List, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Tuple, Union
 
 import torch
 from torch import nn
 from transformers import PretrainedConfig
 
-from olive.common.utils import find_first_matched_value, get_attr, set_attr
+from olive.common.utils import find_first_matched_value, get_attr, replace_submodules, set_attr
 
 if TYPE_CHECKING:
     from transformers import PreTrainedModel
@@ -21,11 +21,17 @@ logger = logging.getLogger(__name__)
 # ruff: noqa: RUF012
 
 
-def get_submodules(module: nn.Module, mapping: Dict, key: str) -> Union[nn.Module, List[nn.Module]]:
+def get_submodules(module: nn.Module, mapping: Dict, key: str, return_name: bool = False, return_name_prefix: str = ""):
     names = mapping.get(key, mapping["default"])
+
     if isinstance(names, str):
-        return get_attr(module, names, fail_on_not_found=True)
-    return [get_attr(module, name, fail_on_not_found=True) for name in names]
+        submodules = get_attr(module, names, fail_on_not_found=True)
+        names = f"{return_name_prefix}{names}"
+    else:
+        submodules = [get_attr(module, name, fail_on_not_found=True) for name in names]
+        names = [f"{return_name_prefix}{name}" for name in names]
+
+    return submodules if not return_name else (submodules, names)
 
 
 class UnpackedQKV(nn.Module):
@@ -47,8 +53,9 @@ class UnpackedQKV(nn.Module):
         self.v_proj = create_proj(q_size + kv_size, q_size + 2 * kv_size)
 
     def forward(self, hidden_states):
-        return torch.cat(self.q_proj(hidden_states), self.k_proj(hidden_states), self.v_proj(hidden_states))
+        return torch.cat([self.q_proj(hidden_states), self.k_proj(hidden_states), self.v_proj(hidden_states)], dim=-1)
 
+    @torch.no_grad()
     def create_packed(self) -> nn.Linear:
         qkv = nn.Linear(
             self.q_proj.in_features + self.k_proj.in_features + self.v_proj.in_features,
@@ -95,69 +102,47 @@ class LayerAdapter:
     }
     MLP_OUTPUTS = {"default": ["down_proj"], "bloom": ["dense_4h_to_h"], "opt": ["fc2"], "qwen": ["c_proj"]}
 
-    def __init__(self, layer: nn.Module, model_type: str, num_attn_heads: int, num_key_value_heads: int, head_dim: int):
+    def __init__(self, layer: nn.Module, model_type: str):
         # TODO(jambayk): use _layer and property to get the layer?
         self.layer = layer
         self.model_type = model_type
-        self.num_attn_heads = num_attn_heads
-        self.num_key_value_heads = num_key_value_heads
-        self.head_dim = head_dim
 
-        self.attn = get_submodules(layer, self.ATTENTION, self.model_type)
-        self.mlp = get_submodules(layer, self.MLP, self.model_type)
+        self.attn, self.attn_name = get_submodules(layer, self.ATTENTION, self.model_type, return_name=True)
+        self.mlp, self.mlp_name = get_submodules(layer, self.MLP, self.model_type, return_name=True)
 
-        self._qkv_unpacked = False
-        self._qkv_name = None
+    def get_first_layer_norm(self, return_name: bool = False):
+        return get_submodules(self.layer, self.FIRST_LAYER_NORM, self.model_type, return_name=return_name)
 
-    def get_first_layer_norm(self) -> nn.Module:
-        return get_submodules(self.layer, self.FIRST_LAYER_NORM, self.model_type)
+    def get_second_layer_norm(self, return_name: bool = False):
+        return get_submodules(self.layer, self.SECOND_LAYER_NORM, self.model_type, return_name=return_name)
 
-    def get_second_layer_norm(self) -> nn.Module:
-        return get_submodules(self.layer, self.SECOND_LAYER_NORM, self.model_type)
-
-    def get_attention_inputs(self) -> List[nn.Module]:
-        attention_inputs = get_submodules(self.attn, self.ATTENTION_INPUTS, self.model_type)
-        if self._qkv_unpacked:
-            return attention_inputs[0].q_proj, attention_inputs[0].k_proj, attention_inputs[0].v_proj
-        return attention_inputs
-
-    def get_attention_outputs(self) -> List[nn.Module]:
-        return get_submodules(self.attn, self.ATTENTION_OUTPUTS, self.model_type)
-
-    def get_mlp_inputs(self) -> List[nn.Module]:
-        return get_submodules(self.mlp, self.MLP_INPUTS, self.model_type)
-
-    def get_mlp_outputs(self) -> List[nn.Module]:
-        return get_submodules(self.mlp, self.MLP_OUTPUTS, self.model_type)
-
-    def maybe_unpack_qkv(self):
-        if self._qkv_unpacked:
-            return
-
-        attn_input_names = self.ATTENTION_INPUTS.get(self.model_type, self.ATTENTION_INPUTS["default"])
-        if len(attn_input_names) != 1:
-            return
-
-        set_attr(
-            self.attn,
-            attn_input_names[0],
-            UnpackedQKV(
-                get_attr(self.attn, attn_input_names[0], fail_on_not_found=True),
-                self.num_attn_heads,
-                self.num_key_value_heads,
-                self.head_dim,
-            ),
+    def get_attention_inputs(self, return_name: bool = False):
+        attention_inputs, names = get_submodules(
+            self.attn, self.ATTENTION_INPUTS, self.model_type, return_name=True, return_name_prefix=f"{self.attn_name}."
         )
-        self._qkv_unpacked = True
-        self._qkv_name = attn_input_names[0]
+        if isinstance(attention_inputs[0], UnpackedQKV):
+            names = [f"{names[0]}.{part}" for part in ["q_proj", "k_proj", "v_proj"]]
+            attention_inputs = [attention_inputs[0].q_proj, attention_inputs[0].k_proj, attention_inputs[0].v_proj]
+        return attention_inputs if not return_name else (attention_inputs, names)
 
-    def maybe_pack_qkv(self):
-        if not self._qkv_unpacked:
-            return
+    def get_attention_outputs(self, return_name: bool = False):
+        return get_submodules(
+            self.attn,
+            self.ATTENTION_OUTPUTS,
+            self.model_type,
+            return_name=return_name,
+            return_name_prefix=f"{self.attn_name}.",
+        )
 
-        set_attr(self.attn, self._qkv_name, get_attr(self.attn, self._qkv_name, fail_on_not_found=True).create_packed())
-        self._qkv_unpacked = False
-        self._qkv_name = None
+    def get_mlp_inputs(self, return_name: bool = False):
+        return get_submodules(
+            self.mlp, self.MLP_INPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
+        )
+
+    def get_mlp_outputs(self, return_name: bool = False):
+        return get_submodules(
+            self.mlp, self.MLP_OUTPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
+        )
 
 
 class ModelAdapter:
@@ -223,24 +208,21 @@ class ModelAdapter:
 
     def set_model(self, model: "PreTrainedModel"):
         self._model = model
-        self._layer_adapters = [
-            LayerAdapter(layer, self.model_type, self.num_attention_heads, self.num_key_value_heads, self.head_dim)
-            for layer in self.get_layers()
-        ]
+        self._layer_adapters = [LayerAdapter(layer, self.model_type) for layer in self.get_layers()]
 
-    def get_embeds(self) -> List[nn.Module]:
-        return get_submodules(self.model, self.EMBEDDINGS, self.model_type)
+    def get_embeds(self, return_name: bool = False):
+        return get_submodules(self.model, self.EMBEDDINGS, self.model_type, return_name=return_name)
 
-    def get_lm_head(self) -> nn.Module:
-        return get_submodules(self.model, self.LM_HEAD, self.model_type)
+    def get_lm_head(self, return_name: bool = False):
+        return get_submodules(self.model, self.LM_HEAD, self.model_type, return_name=return_name)
 
-    def get_pre_head_layernorm(self) -> nn.Module:
-        return get_submodules(self.model, self.PRE_HEAD_LAYERNORM, self.model_type)
+    def get_pre_head_layernorm(self, return_name: bool = False):
+        return get_submodules(self.model, self.PRE_HEAD_LAYERNORM, self.model_type, return_name=return_name)
 
-    def get_layers(self) -> List[nn.Module]:
-        return get_submodules(self.model, self.LAYERS, self.model_type)
+    def get_layers(self, return_name: bool = False):
+        return get_submodules(self.model, self.LAYERS, self.model_type, return_name=return_name)
 
-    def get_layer_adapters(self) -> List[LayerAdapter]:
+    def get_layer_adapters(self):
         if self._layer_adapters is None:
             raise ValueError("Layer adapters are not set. Please set the model using set_model method.")
 
@@ -252,3 +234,30 @@ class ModelAdapter:
 
             self.get_lm_head().weight.data = self.get_embeds()[0].weight.data.clone()
             logger.debug("Untied word embeddings.")
+
+    def maybe_unpack_qkv(self):
+        for layer_adapter in self.get_layer_adapters():
+            attn_inputs, attn_input_names = layer_adapter.get_attention_inputs(return_name=True)
+
+            if len(attn_inputs) != 1 or not isinstance(attn_inputs[0], nn.Linear):
+                return
+
+            set_attr(
+                layer_adapter.layer,
+                attn_input_names[0],
+                UnpackedQKV(
+                    attn_inputs[0],
+                    self.num_attention_heads,
+                    self.num_key_value_heads,
+                    self.head_dim,
+                ),
+            )
+
+    def save_model(self, output_model_path: str, replacements: List[Tuple[nn.Module, Callable]] = None):
+        replacements = replacements or []
+        replacements.append([UnpackedQKV, lambda module: module.create_packed()])
+
+        for submodule_type, replacement_fn in replacements:
+            replace_submodules(self.model, submodule_type, replacement_fn)
+
+        self.model.save_pretrained(output_model_path)

@@ -352,6 +352,18 @@ def find_submodules(module, submodule_types, full_name=False):
     return list(submodules) if submodules else None
 
 
+def replace_submodules(module, submodule_types, new_submodule_func):
+    """Replace all submodules of a given type in a module.
+
+    :param module: module to search.
+    :param submodule_type: type of submodule to search for. Can be a single type or a tuple of types.
+    :param new_submodule_func: function to create new submodule. Should take old submodule as input.
+    """
+    for name, submodule in module.named_modules():
+        if isinstance(submodule, submodule_types):
+            set_attr(module, name, new_submodule_func(submodule))
+
+
 def all_files(path, ignore=None):
     """Find all files in a directory recursively, optionally ignoring some paths.
 

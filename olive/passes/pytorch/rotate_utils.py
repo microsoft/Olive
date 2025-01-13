@@ -65,6 +65,35 @@ def fuse_layer_norms(model_adapter: ModelAdapter):
     fuse_ln_linear(model_adapter.get_pre_head_layernorm(), [model_adapter.get_lm_head()])
 
 
+def random_orthogonal_matrix(size: int, device: torch.device) -> torch.Tensor:
+    """Generate a random orthogonal matrix of the specified size.
+
+    First, we generate a random matrix with entries from a standard distribution.
+    Then, we use QR decomposition to obtain an orthogonal matrix.
+    Finally, we multiply by a diagonal matrix with diag r to adjust the signs.
+    """
+    cleanup_memory()
+    random_matrix = torch.randn(size, size, dtype=torch.float64).to(device)
+    q, r = torch.linalg.qr(random_matrix)  # pylint: disable=not-callable
+    q *= torch.sign(torch.diag(r)).unsqueeze(0)
+    return q
+
+
+def get_orthogonal_matrix(size: int, mode: str, device: torch.device) -> torch.Tensor:
+    """Get an orthogonal matrix of the specified size.
+
+    Supported modes:
+    - random: generate a random orthogonal matrix
+    - hadamard: generate a random Hadamard matrix
+    """
+    if mode == "random":
+        return random_orthogonal_matrix(size, device)
+    elif mode == "hadamard":
+        return random_hadamard_matrix(size, device)
+    else:
+        raise ValueError(f"Unknown mode {mode}")
+
+
 def rotate_weight(
     weight: Union[torch.Tensor, nn.Parameter],
     Q: Union[torch.Tensor, nn.Parameter],
@@ -137,30 +166,62 @@ def rotate_post_linear(linear: nn.Linear, Q: torch.Tensor, device: torch.device)
         )
 
 
-def random_orthogonal_matrix(size: int, device: torch.device) -> torch.Tensor:
-    """Generate a random orthogonal matrix of the specified size.
+class RotateEmbed(nn.Module):
+    """Embedding layer with pre-rotation."""
 
-    First, we generate a random matrix with entries from a standard distribution.
-    Then, we use QR decomposition to obtain an orthogonal matrix.
-    Finally, we multiply by a diagonal matrix with diag r to adjust the signs.
-    """
-    cleanup_memory()
-    random_matrix = torch.randn(size, size, dtype=torch.float64).to(device)
-    q, r = torch.linalg.qr(random_matrix)  # pylint: disable=not-callable
-    q *= torch.sign(torch.diag(r)).unsqueeze(0)
-    return q
+    def __init__(self, embedding: nn.Embedding, Q: nn.Parameter):
+        super().__init__()
+        self.embedding = embedding
+        self.Q = Q
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return (torch.matmul(self.embedding(x).to(torch.float64), self.Q.to(torch.float64))).to(
+            self.embedding.weight.dtype
+        )
+
+    @torch.no_grad()
+    def create_merged(self, device) -> nn.Embedding:
+        """Create a merged embedding layer with the rotation matrix."""
+        embed = nn.Embedding.from_pretrained(
+            rotate_weight(self.embedding.weight.data, self.Q, pre=True, device=device).contiguous(),
+        )
+        cleanup_memory()
+        return embed
 
 
-def get_orthogonal_matrix(size: int, mode: str, device: torch.device) -> torch.Tensor:
-    """Get an orthogonal matrix of the specified size.
+class RotateLinear(nn.Module):
+    """Linear layer with pre/post rotations."""
 
-    Supported modes:
-    - random: generate a random orthogonal matrix
-    - hadamard: generate a random Hadamard matrix
-    """
-    if mode == "random":
-        return random_orthogonal_matrix(size, device)
-    elif mode == "hadamard":
-        return random_hadamard_matrix(size, device)
-    else:
-        raise ValueError(f"Unknown mode {mode}")
+    def __init__(self, linear: nn.Linear, Q_pre: Optional[nn.Parameter] = None, Q_post: Optional[nn.Parameter] = None):
+        super().__init__()
+        self.linear = linear
+        self.Q_pre = Q_pre
+        self.Q_post = Q_post
+
+    def get_rotated_weights(self, device: Optional[torch.device] = None) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
+        weight = self.linear.weight
+        bias = self.linear.bias if hasattr(self.linear, "bias") and self.linear.bias is not None else None
+
+        if self.Q_pre is not None:
+            weight = rotate_weight(weight, self.Q_pre, pre=True, device=device)
+        if self.Q_post is not None:
+            weight = rotate_weight(weight, self.Q_post, pre=False, device=device)
+            if bias is not None:
+                bias = rotate_weight(bias.unsqueeze(1), self.Q_post, pre=False, device=device).squeeze(1)
+
+        return weight, bias
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return nn.functional.linear(x, *self.get_rotated_weights())
+
+    @torch.no_grad()
+    def create_merged(self, device) -> nn.Linear:
+        """Create a merged linear layer with the rotation matrices."""
+        weight, bias = self.get_rotated_weights(device)
+
+        linear = nn.Linear(weight.size(1), weight.size(0), bias is not None)
+        linear.weight = nn.Parameter(weight.contiguous())
+        if bias is not None:
+            linear.bias = nn.Parameter(bias.contiguous())
+
+        return linear
