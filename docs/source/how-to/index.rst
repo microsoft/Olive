@@ -107,7 +107,7 @@ For more complex scenarios, you can create fully customize workflows where you c
 
       **How to configure models**
 
-      Learn how to configure models.
+      Learn how to configure and optimize models.
 
       :octicon:`arrow-right;1em;sd-text-info` `Configure models <configure-workflows/model-opt-and-transform/index.html>`_
 

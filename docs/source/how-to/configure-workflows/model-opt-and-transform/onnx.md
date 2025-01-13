@@ -4,7 +4,7 @@
 
 Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.
 
-## Model Optimizer
+## Peeophole Optimizer
 
 `OnnxPeepholeOptimizer` optimizes an ONNX model. The optimization process involves analyzing the structure of the ONNX model and identifying opportunities.
 
