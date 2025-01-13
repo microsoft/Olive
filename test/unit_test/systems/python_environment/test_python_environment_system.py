@@ -151,13 +151,10 @@ class TestPythonEnvironmentSystem:
                 "dummy_param_2": "dummy_param_2_value",
             },
         }
-        full_config = {
-            "dummy_param_1": "dummy_param_1_value",
-            "dummy_param_2": "dummy_param_2_value2",
-        }
-        expected_pass_config = {"type": "DummyPass", "config": full_config}
+        dummy_config = dummy_pass_config["config"]
+        expected_pass_config = {"type": "DummyPass", "config": dummy_config}
         the_pass.to_json.return_value = dummy_pass_config
-        the_pass.serialize_config.return_value = full_config
+        the_pass.serialize_config.return_value = dummy_config
 
         # mock return value
         mock_return_value = {"dummy_output_model_key": "dummy_output_model_value"}
@@ -233,9 +230,8 @@ class TestPythonEnvironmentSystem:
 
         # create pass_config.json
         the_pass = get_onnxconversion_pass()
-        config = the_pass.config_at_search_point({})
         pass_config = the_pass.to_json(check_object=True)
-        pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
+
         with (tmp_path / "pass_config.json").open("w") as f:
             json.dump(pass_config, f)
 

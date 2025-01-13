@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import onnx
 import torch
@@ -73,47 +73,49 @@ class NVModelOptQuantization(Pass):
             ),
         }
 
-    def validate_search_point(
-        self,
-        search_point: Dict[str, Any],
+    @classmethod
+    def validate_config(
+        cls,
+        config: Dict[str, Any],
         accelerator_spec: AcceleratorSpec,
-        with_fixed_value: bool = False,
+        disable_search: Optional[bool] = False,
     ) -> bool:
-        if with_fixed_value:
-            search_point = self.config_at_search_point(search_point or {})
+        if not super().validate_config(config, accelerator_spec, disable_search):
+            return False
+
+        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
+        config = config_cls(**config)
 
         # Validate Precision
-        if search_point.get("precision") != NVModelOptQuantization.Precision.INT4:
+        if config.precision != NVModelOptQuantization.Precision.INT4:
             logger.error("Only INT4 quantization is supported.")
             return False
 
         # Validate Algorithm
-        if search_point.get("algorithm") not in [
-            NVModelOptQuantization.Algorithm.AWQ.value,
-        ]:
+        if config.algorithm not in [NVModelOptQuantization.Algorithm.AWQ.value]:
             logger.error("Only 'AWQ' algorithm is supported.")
             return False
 
         # Validate Calibration
-        if search_point.get("calibration") not in [
+        if config.calibration not in [
             NVModelOptQuantization.Calibration.AWQ_LITE.value,
             NVModelOptQuantization.Calibration.AWQ_CLIP.value,
         ]:
             logger.error("Calibration method must be either 'awq_lite' or 'awq_clip'.")
             return False
 
-        random_calib = search_point.get("random_calib_data", False)
+        random_calib = config.random_calib_data or False
         if not isinstance(random_calib, bool):
             logger.error("'random_calib_data' must be a boolean value.")
             return False
 
-        tokenizer_dir = search_point.get("tokenizer_dir", "")
+        tokenizer_dir = config.tokenizer_dir or ""
         if not random_calib and not tokenizer_dir:
             logger.error("'tokenizer_dir' must be specified when 'random_calib_data' is False.")
             return False
 
         # Optional: Validate 'tokenizer_dir' if necessary
-        if not search_point.get("tokenizer_dir"):
+        if not config.tokenizer_dir:
             logger.warning("Tokenizer directory 'tokenizer_dir' is not specified.")
 
         return True

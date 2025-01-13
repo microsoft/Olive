@@ -26,6 +26,7 @@ from olive.hardware import AcceleratorSpec
 from olive.logging import enable_filelog
 from olive.model import ModelConfig
 from olive.package_config import OlivePackageConfig
+from olive.strategy.search_parameter import SearchParameter
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
 from olive.systems.system_config import SystemConfig
@@ -52,7 +53,7 @@ class Engine:
         search_strategy: Optional[Union[Dict[str, Any], SearchStrategyConfig]] = None,
         host: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
         target: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
-        evaluator: Optional[Union[Dict[str, Any], "OliveEvaluatorConfig"]] = None,
+        evaluator: Optional[Union[Dict[str, Any], OliveEvaluatorConfig]] = None,
         cache_config: Optional[Union[Dict[str, Any], CacheConfig]] = None,
         plot_pareto_frontier: bool = False,
         no_artifacts: bool = False,
@@ -83,14 +84,9 @@ class Engine:
         self.skip_saving_artifacts = no_artifacts
         self.azureml_client_config = azureml_client_config
 
-        # dictionary of passes
-        self.pass_config = OrderedDict()
-
-        # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator}
-        self.passes = OrderedDict()
-        self.pass_flows = None
-        self.pass_flows_search_spaces = None
-
+        self.pass_run_configs: Dict[str, Dict[str, Any]] = OrderedDict()
+        self.pass_flows: List[List[str]] = []
+        self.search_spaces: List[List[Tuple[str, Dict[str, SearchParameter]]]] = []
         self.footprints = defaultdict(Footprint)
 
         self._initialized = False
@@ -111,15 +107,17 @@ class Engine:
         if self.target_config.type != SystemType.AzureML:
             if self.evaluator_config:
                 self.evaluator_config = self.cache.prepare_resources_for_local(self.evaluator_config)
-            for pass_config in self.pass_config.values():
-                if pass_config["evaluator"]:
-                    pass_config["evaluator"] = self.cache.prepare_resources_for_local(pass_config["evaluator"])
 
-        for pass_config in self.pass_config.values():
-            host_type = pass_config["host"].system_type if pass_config["host"] else self.host_config.type
-            if host_type == SystemType.AzureML:
-                continue
-            pass_config["config"] = self.cache.prepare_resources_for_local(pass_config["config"])
+            for pass_run_config in self.pass_run_configs.values():
+                if pass_run_config["evaluator"]:
+                    pass_run_config["evaluator"] = self.cache.prepare_resources_for_local(pass_run_config["evaluator"])
+
+        for pass_run_config in self.pass_run_configs.values():
+            host_type = pass_run_config["host"].system_type if pass_run_config["host"] else self.host_config.type
+            if host_type != SystemType.AzureML:
+                pass_run_config["input_config"] = self.cache.prepare_resources_for_local(
+                    pass_run_config["input_config"]
+                )
 
         self.set_pass_flows(self.pass_flows)
         self._initialized = True
@@ -130,11 +128,11 @@ class Engine:
         config: Dict[str, Any] = None,
         name: str = None,
         host: "OliveSystem" = None,
-        evaluator_config: "OliveEvaluatorConfig" = None,
+        evaluator_config: OliveEvaluatorConfig = None,
     ):
         """Register a pass configuration so that it could be instantiated and executed later."""
-        if name is not None:
-            assert name not in self.passes, f"Pass with name {name} already registered"
+        if name:
+            assert name not in self.pass_run_configs, f"Pass with name {name} already registered"
         else:
             idx = 0
             while True:
@@ -142,40 +140,17 @@ class Engine:
                 if idx > 0:
                     name = f"{name}_{idx}"
                 idx += 1
-                if name not in self.pass_config:
+                if name not in self.pass_run_configs:
                     break
 
         pass_type_name = pass_type if isinstance(pass_type, str) else pass_type.__name__
         logger.debug("Registering pass %s", pass_type_name)
-        pass_type = self.olive_config.import_pass_module(pass_type_name)
-
-        self.pass_config[name] = {
-            "type": pass_type,
-            "config": config or {},
+        self.pass_run_configs[name] = {
+            "type": pass_type_name,
+            "input_config": config or {},
             "host": host,
             "evaluator": evaluator_config,
         }
-
-    def register_pass(
-        self, p: "Pass", name: str = None, host: "OliveSystem" = None, evaluator_config: "OliveEvaluatorConfig" = None
-    ):
-        """Register a pass instance."""
-        if name is not None:
-            assert name not in self.passes, f"Pass with name {name} already registered"
-        else:
-            idx = 0
-            while True:
-                name = p.__class__.__name__
-                if idx > 0:
-                    name = f"{name}_{idx}"
-                idx += 1
-                if name not in self.passes:
-                    break
-
-        if not self.search_strategy and len(p.search_space) > 0:
-            raise ValueError(f"Search strategy is None but pass {name} has search space")
-
-        self.passes[name] = {"pass": p, "host": host, "evaluator": evaluator_config}
 
     def set_pass_flows(self, pass_flows: List[List[str]] = None):
         """Construct pass flows from a list of pass names.
@@ -184,10 +159,7 @@ class Engine:
             pass_flows: a list of pass names, each pass name is a string.
 
         """
-        if not pass_flows:
-            self.pass_flows = [list(self.pass_config.keys())] if self.pass_config else []
-        else:
-            self.pass_flows = pass_flows
+        self.pass_flows = pass_flows or [list(self.pass_run_configs.keys())]
 
     def run(
         self,
@@ -268,17 +240,15 @@ class Engine:
                     accelerator_spec,
                 )
 
-                if run_result is None:
-                    continue
-
-                outputs[accelerator_spec] = run_result
+                if run_result:
+                    outputs[accelerator_spec] = run_result
 
         for accelerator_spec in self.footprints:
             logger.info("Run history for %s:", accelerator_spec)
             run_history = self.footprints[accelerator_spec].summarize_run_history()
             self.dump_run_history(run_history, output_subdirs[accelerator_spec] / "run_history.txt")
 
-        if packaging_config and self.passes:
+        if packaging_config and self.pass_run_configs:
             # TODO(trajep): should we support packaging pytorch model?
             logger.info("Package top ranked %d models as artifacts", sum(len(f.nodes) for f in outputs.values()))
             generate_output_artifacts(
@@ -294,7 +264,7 @@ class Engine:
         # TODO(team): refactor output structure
         # Do not change condition order. For no search, values of outputs are MetricResult
         # Consolidate the output structure for search and no search mode
-        if outputs and self.passes and not next(iter(outputs.values())).check_empty_nodes():
+        if outputs and self.pass_run_configs and not next(iter(outputs.values())).check_empty_nodes():
             best_node: FootprintNode = get_best_candidate_node(outputs, self.footprints)
             self.cache.save_model(model_id=best_node.model_id, output_dir=output_dir, overwrite=True)
             if len(accelerator_output_dir_list) > 1 and self.skip_saving_artifacts:
@@ -310,8 +280,12 @@ class Engine:
         evaluate_input_model: bool,
         accelerator_spec: "AcceleratorSpec",
     ):
-        # generate search space and initialize the passes for each hardware accelerator
-        self.setup_passes(accelerator_spec)
+        # Setup pass configs
+        self._setup_pass_configs(accelerator_spec)
+
+        # generate search space
+        self._setup_search_spaces(accelerator_spec)
+
         # hash the input model
         input_model_id = input_model_config.get_model_id()
         if input_model_id == LOCAL_INPUT_MODEL_ID and self.cache.enable_shared_cache:
@@ -336,7 +310,8 @@ class Engine:
                     with results_path.open("w") as f:
                         json.dump(results.to_json(), f, indent=4)
                     logger.info("Saved evaluation results of input model to %s", results_path)
-                if not self.passes:
+
+                if not self.pass_run_configs:
                     logger.debug("No passes registered, return input model evaluation results.")
                     return results
 
@@ -365,38 +340,30 @@ class Engine:
         return output_footprint
 
     def get_host_device(self):
-        if self.host_config.config.accelerators:
-            # for host device, we will always use the first accelerator device
-            return self.host_config.config.accelerators[0].device
-        else:
-            return None
+        # for host device, we will always use the first accelerator device
+        return self.host_config.config.accelerators[0].device if self.host_config.config.accelerators else None
 
-    def setup_passes(self, accelerator_spec: "AcceleratorSpec"):
-        host_device = self.get_host_device()
-        # clean the passes
-        self.passes.clear()
-        for name, config in self.pass_config.items():
-            pass_cls: Type[Pass] = config["type"]
-            pass_cfg = config["config"]
-            pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, self.search_strategy is None)
-            p = pass_cls(accelerator_spec, pass_cfg, host_device)
-            self.register_pass(p, name=name, host=config["host"], evaluator_config=config["evaluator"])
+    def _setup_pass_configs(self, accelerator_spec: "AcceleratorSpec"):
+        disable_search = self.search_strategy is None
+        for pass_run_config in self.pass_run_configs.values():
+            pass_cls: Type[Pass] = self.olive_config.import_pass_module(pass_run_config["type"])
+            pass_run_config["config"] = pass_cls.generate_config(
+                accelerator_spec, pass_run_config["input_config"], disable_search
+            )
 
-        # list of passes starting from the first pass with non-empty search space
-        # These passes will be added to the search space
-        self.pass_flows_search_spaces = []
+    def _setup_search_spaces(self, accelerator_spec: "AcceleratorSpec"):
+        self.search_spaces.clear()
+        if self.search_strategy is None:
+            return
+
         for pass_flow in self.pass_flows:
-            pass_search_spaces = []
+            pass_search_spaces: List[Tuple[str, Dict[str, SearchParameter]]] = []
             for pass_name in pass_flow:
-                p: Pass = self.passes[pass_name]["pass"]
-                pass_search_spaces.append((pass_name, p.search_space))
-            self.pass_flows_search_spaces.append(pass_search_spaces)
-
-    def reset_passes(self):
-        """Cleanup the passes."""
-        self.passes.clear()
-        self.pass_config.clear()
-        self.pass_flows = []
+                pass_run_config = self.pass_run_configs[pass_name]
+                pass_search_spaces.append(
+                    (pass_name, {k: v for k, v in pass_run_config["config"].items() if isinstance(v, SearchParameter)})
+                )
+            self.search_spaces.append(pass_search_spaces)
 
     def run_no_search(
         self,
@@ -406,17 +373,12 @@ class Engine:
         output_dir: Path,
     ):
         """Run all the registered Olive pass flows in no-search mode."""
-        for pass_item in self.passes.values():
-            if len(pass_item["pass"].search_space) > 0:
-                pass_name = pass_item["name"]
-                raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
-
         output_model_dir = Path(output_dir)
 
         output_model_ids = []
         for pass_flow in self.pass_flows:
             # search point is empty since there is no search
-            passes_to_run = [(pass_id, {}) for pass_id in pass_flow]
+            passes_to_run = [(pass_name, {}) for pass_name in pass_flow]
 
             # run all the passes in the pass flow
             logger.debug("Running %s with no search ...", pass_flow)
@@ -461,7 +423,7 @@ class Engine:
     ):
         """Run all the registered Olive passes in search model where search strategy is not None."""
         # get objective_dict
-        evaluator_config = self.evaluator_for_pass(list(self.passes.keys())[-1])
+        evaluator_config = self.evaluator_for_pass(list(self.pass_run_configs.keys())[-1])
 
         if evaluator_config is None:
             raise ValueError("No evaluator provided for the last pass")
@@ -472,7 +434,7 @@ class Engine:
             self.footprints[accelerator_spec].record_objective_dict(objective_dict)
 
         # initialize the search strategy
-        self.search_strategy.initialize(self.pass_flows_search_spaces, input_model_id, objective_dict)
+        self.search_strategy.initialize(self.search_spaces, input_model_id, objective_dict)
         output_model_num = self.search_strategy.get_output_model_num()
 
         # record start time
@@ -490,10 +452,7 @@ class Engine:
 
             # get the model id of the first input model
             model_id = next_step["model_id"]
-            if model_id == input_model_id:
-                model_config = input_model_config
-            else:
-                model_config = self._load_model(model_id)
+            model_config = input_model_config if model_id == input_model_id else self._load_model(model_id)
 
             logger.debug("Step %d with search point %s ...", iter_num, next_step["search_point"])
 
@@ -639,18 +598,13 @@ class Engine:
 
         return resolved_goals
 
-    def host_for_pass(self, pass_id: str):
-        host = self.passes[pass_id]["host"]
-        if host is None:
-            return self.host
-        return host
+    def host_for_pass(self, pass_name: str) -> "OliveSystem":
+        host: SystemConfig = self.pass_run_configs[pass_name]["host"]
+        return host or self.host
 
-    def evaluator_for_pass(self, pass_id: str):
+    def evaluator_for_pass(self, pass_name: str) -> OliveEvaluatorConfig:
         """Return evaluator for the given pass."""
-        e = self.passes[pass_id]["evaluator"]
-        if e is None:
-            return self.evaluator_config
-        return e
+        return self.pass_run_configs[pass_name]["evaluator"] or self.evaluator_config
 
     def _cache_model(self, model_id: str, model: Union[ModelConfig, str], check_object: bool = True):
         # TODO(trajep): move model/pass run/evaluation cache into footprints
@@ -681,11 +635,11 @@ class Engine:
         should_prune = False
         # run all the passes in the step
         model_ids = []
-        pass_id = None
+        pass_name = None
 
-        for pass_id, pass_search_point in passes:
+        for pass_name, pass_search_point in passes:
             model_config, model_id = self._run_pass(
-                pass_id,
+                pass_name,
                 pass_search_point,
                 model_config,
                 model_id,
@@ -693,7 +647,7 @@ class Engine:
             )
             if model_config in PRUNED_CONFIGS:
                 should_prune = True
-                logger.debug("Pruned for pass %s", pass_id)
+                logger.debug("Pruned for pass %s", pass_name)
                 break
             model_ids.append(model_id)
 
@@ -702,7 +656,7 @@ class Engine:
 
         if not should_prune:
             # evaluate the model
-            evaluator_config = self.evaluator_for_pass(pass_id)
+            evaluator_config = self.evaluator_for_pass(pass_name)
             if not self.search_strategy and evaluator_config is None:
                 # skip evaluation if no search and no evaluator
                 signal = None
@@ -718,35 +672,38 @@ class Engine:
 
     def _run_pass(
         self,
-        pass_id: str,
+        pass_name: str,
         pass_search_point: Dict[str, Any],
         input_model_config: ModelConfig,
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
     ):
         """Run a pass on the input model."""
-        # pass
         run_start_time = datetime.now().timestamp()
-        p: Pass = self.passes[pass_id]["pass"]
-        pass_name = p.__class__.__name__
-        logger.info("Running pass %s:%s %s", pass_id, pass_name, pass_search_point)
-        pass_config = p.config_at_search_point(pass_search_point)
-        pass_config = p.serialize_config(pass_config)
-        output_model_config = None
+        pass_run_config: Dict[str, Any] = self.pass_run_configs[pass_name]
+        pass_type_name = pass_run_config["type"]
+
+        logger.info("Running pass %s:%s %s", pass_name, pass_type_name, pass_search_point)
 
         # check whether the config is valid
-        if not p.validate_search_point(pass_search_point, accelerator_spec, with_fixed_value=True):
-            logger.warning("Invalid search point, prune")
-            output_model_config = INVALID_CONFIG
+        pass_cls: Type[Pass] = self.olive_config.import_pass_module(pass_run_config["type"])
+        pass_config = pass_cls.config_at_search_point(pass_search_point, accelerator_spec, pass_run_config["config"])
+        if not pass_cls.validate_config(pass_config, accelerator_spec, self.search_strategy is None):
+            logger.warning("Invalid config, pruned.")
+            logger.debug(pass_config)
             # no need to record in footprint since there was no run and thus no valid/failed model
             # invalid configs are also not cached since the same config can be valid for other accelerator specs
             # a pass can be accelerator agnostic but still have accelerator specific invalid configs
             # this helps reusing cached models for different accelerator specs
-            return output_model_config, None
+            return INVALID_CONFIG, None
+
+        p: Pass = pass_cls(accelerator_spec, pass_config, self.get_host_device())
+        pass_config = p.serialize_config(pass_config, check_object=True)
+        output_model_config = None
 
         # load run from cache if it exists
         run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
-        output_model_id = self.cache.get_output_model_id(pass_name, pass_config, input_model_id, run_accel)
+        output_model_id = self.cache.get_output_model_id(pass_type_name, pass_config, input_model_id, run_accel)
         run_cache = self.cache.load_run_from_model_id(output_model_id)
         if run_cache:
             logger.debug("Loading model from cache ...")
@@ -759,7 +716,7 @@ class Engine:
                         output_model_config.to_json() if output_model_config != FAILED_CONFIG else {"is_pruned": True}
                     ),
                     parent_model_id=input_model_id,
-                    from_pass=pass_name,
+                    from_pass=pass_type_name,
                     pass_run_config=pass_config,
                     start_time=run_start_time,
                     end_time=datetime.now().timestamp(),
@@ -771,7 +728,7 @@ class Engine:
         if input_model_config.config.get("shared_cache", False):
             input_model_config = self.cache.download_shared_cache_model(input_model_config, input_model_id)
 
-        host = self.host_for_pass(pass_id)
+        host = self.host_for_pass(pass_name)
         if host.system_type != SystemType.AzureML:
             input_model_config = self.cache.prepare_resources_for_local(input_model_config)
 
@@ -779,12 +736,12 @@ class Engine:
             if p.run_on_target:
                 if self.target.system_type == SystemType.IsolatedORT:
                     logger.warning(
-                        "Cannot run pass %s on IsolatedORT target, will use the host to run the pass.", pass_id
+                        "Cannot run pass %s on IsolatedORT target, will use the host to run the pass.", pass_name
                     )
                 else:
                     host = self.target
 
-            output_model_config = host.run_pass(p, input_model_config, output_model_path, pass_search_point)
+            output_model_config = host.run_pass(p, input_model_config, output_model_path)
         except OlivePassError:
             logger.exception("Pass run_pass failed")
             output_model_config = FAILED_CONFIG
@@ -801,20 +758,20 @@ class Engine:
                 raise  # rethrow the exception if no search is performed
 
         run_end_time = datetime.now().timestamp()
-        logger.info("Pass %s:%s finished in %f seconds", pass_id, pass_name, run_end_time - run_start_time)
+        logger.info("Pass %s:%s finished in %f seconds", pass_name, pass_type_name, run_end_time - run_start_time)
 
         # cache model
         self._cache_model(output_model_id, output_model_config)
 
         # cache run
-        self.cache.cache_run(pass_name, pass_config, input_model_id, output_model_id, run_accel)
+        self.cache.cache_run(pass_type_name, pass_config, input_model_id, output_model_id, run_accel)
 
         # footprint model and run
         self.footprints[accelerator_spec].record(
             model_id=output_model_id,
             model_config=output_model_config.to_json() if output_model_config != FAILED_CONFIG else {"is_pruned": True},
             parent_model_id=input_model_id,
-            from_pass=pass_name,
+            from_pass=pass_type_name,
             pass_run_config=pass_config,
             start_time=run_start_time,
             end_time=run_end_time,
@@ -850,7 +807,7 @@ class Engine:
         self,
         model_config: ModelConfig,
         model_id: str,
-        evaluator_config: "OliveEvaluatorConfig",
+        evaluator_config: OliveEvaluatorConfig,
         accelerator_spec: "AcceleratorSpec",
     ):
         """Evaluate a model."""

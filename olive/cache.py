@@ -11,7 +11,7 @@ import shutil
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
@@ -274,7 +274,11 @@ class OliveCache:
             logger.exception("Failed to cache olive config")
 
     def get_output_model_id(
-        self, pass_name: int, pass_config: dict, input_model_id: str, accelerator_spec: "AcceleratorSpec" = None
+        self,
+        pass_name: str,
+        pass_config: Dict[str, Any],
+        input_model_id: str,
+        accelerator_spec: "AcceleratorSpec" = None,
     ):
         run_json = self.get_run_json(pass_name, pass_config, input_model_id, accelerator_spec)
         return hash_dict(run_json)[:8]

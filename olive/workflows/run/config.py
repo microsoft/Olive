@@ -270,6 +270,10 @@ class RunConfig(NestedConfig):
             )
         return v
 
+    @validator("pass_flows", pre=True)
+    def validate_pass_flows(cls, v, values):
+        return v or []
+
     @validator("workflow_host", pre=True)
     def validate_workflow_host(cls, v, values):
         if v is None:

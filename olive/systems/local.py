@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, List
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ModelConfig
@@ -23,11 +23,10 @@ class LocalSystem(OliveSystem):
         the_pass: "Pass",
         model_config: ModelConfig,
         output_model_path: str,
-        point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
-        """Run the pass on the model at a specific point in the search space."""
+        """Run the pass on the model."""
         model = model_config.create_model()
-        output_model = the_pass.run(model, output_model_path, point)
+        output_model = the_pass.run(model, output_model_path)
         return ModelConfig.from_json(output_model.to_json())
 
     def evaluate_model(

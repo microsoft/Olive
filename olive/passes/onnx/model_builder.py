@@ -8,7 +8,7 @@ import copy
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import onnx
 import transformers
@@ -92,15 +92,21 @@ class ModelBuilder(Pass):
             ),
         }
 
-    def validate_search_point(
-        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    @classmethod
+    def validate_config(
+        cls,
+        config: Dict[str, Any],
+        accelerator_spec: AcceleratorSpec,
+        disable_search: Optional[bool] = False,
     ) -> bool:
-        if with_fixed_value:
-            search_point = self.config_at_search_point(search_point or {})
-        precision = search_point.get("precision")
+        if not super().validate_config(config, accelerator_spec, disable_search):
+            return False
+
+        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
+        config = config_cls(**config)
 
         # if device is GPU, but user choose CPU EP, the is_cpu should be True
-        if (precision == ModelBuilder.Precision.FP16) and not (
+        if (config.precision == ModelBuilder.Precision.FP16) and not (
             accelerator_spec.accelerator_type == Device.GPU
             and accelerator_spec.execution_provider != "CPUExecutionProvider"
         ):

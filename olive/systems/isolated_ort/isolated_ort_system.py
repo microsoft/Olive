@@ -8,7 +8,7 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple, Union
 
 import numpy as np
 
@@ -66,9 +66,8 @@ class IsolatedORTSystem(OliveSystem):
         the_pass: "Pass",
         model_config: "ModelConfig",
         output_model_path: str,
-        point: Optional[Dict[str, Any]] = None,
     ) -> "ModelConfig":
-        """Run the pass on the model at a specific point in the search space."""
+        """Run the pass on the model."""
         logger.warning("IsolatedORTSystem does not support running passes.")
         raise NotImplementedError
 

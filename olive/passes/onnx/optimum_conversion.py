@@ -5,7 +5,7 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
@@ -48,13 +48,20 @@ class OptimumConversion(Pass):
             ),
         }
 
-    def validate_search_point(
-        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    @classmethod
+    def validate_config(
+        cls,
+        config: Dict[str, Any],
+        accelerator_spec: AcceleratorSpec,
+        disable_search: Optional[bool] = False,
     ) -> bool:
-        if with_fixed_value:
-            search_point = self.config_at_search_point(search_point or {})
+        if not super().validate_config(config, accelerator_spec, disable_search):
+            return False
 
-        if search_point.get("fp16") and search_point.get("device") != "cuda":
+        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
+        config = config_cls(**config)
+
+        if config.fp16 and config.device != "cuda":
             logger.info("OptimumConversion: fp16 is set to True, but device is not set to cuda.")
             return False
 

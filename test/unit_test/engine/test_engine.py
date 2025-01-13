@@ -62,10 +62,10 @@ class TestEngine:
         engine.register(OnnxConversion, host=system, evaluator_config=evaluator_config)
 
         # assert
-        assert name in engine.pass_config
-        assert engine.pass_config[name]["type"] == OnnxConversion
-        assert engine.pass_config[name]["host"] == system
-        assert engine.pass_config[name]["evaluator"] == evaluator_config
+        assert name in engine.pass_run_configs
+        assert engine.pass_run_configs[name]["type"] == OnnxConversion.__name__
+        assert engine.pass_run_configs[name]["host"] == system
+        assert engine.pass_run_configs[name]["evaluator"] == evaluator_config
 
     def test_register_no_search(self, tmpdir):
         # setup
@@ -82,7 +82,7 @@ class TestEngine:
         engine.register(OnnxDynamicQuantization)
 
         # assert
-        assert "OnnxDynamicQuantization" in engine.pass_config
+        assert "OnnxDynamicQuantization" in engine.pass_run_configs
 
     def test_default_engine_run(self, tmpdir):
         # setup
@@ -169,11 +169,7 @@ class TestEngine:
 
         # execute
         output_dir = Path(tmp_path)
-        actual_res = engine.run(
-            model_config,
-            [DEFAULT_CPU_ACCELERATOR],
-            output_dir=output_dir,
-        )
+        actual_res = engine.run(model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=output_dir)
         actual_res = actual_res[DEFAULT_CPU_ACCELERATOR]
 
         # make sure the input model always be in engine.footprints

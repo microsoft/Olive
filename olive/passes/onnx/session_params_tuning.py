@@ -7,7 +7,7 @@ import json
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import onnxruntime as ort
 
@@ -170,15 +170,22 @@ class OrtSessionParamsTuning(Pass):
             ),
         }
 
-    def validate_search_point(
-        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    @classmethod
+    def validate_config(
+        cls,
+        config: Dict[str, Any],
+        accelerator_spec: AcceleratorSpec,
+        disable_search: Optional[bool] = False,
     ) -> bool:
         """Validate the search point for the pass."""
-        config = self.config_at_search_point(search_point or {})
+        if not super().validate_config(config, accelerator_spec, disable_search):
+            return False
+
+        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
+        config_cls.__config__.extra = Extra.allow
+        config = config_cls(**config)
 
         # Rename the search parameters with atomic/singular names for clarity
-        self._config_class.__config__.extra = Extra.allow
-        config = self._config_class(**config)
         config.execution_provider = config.providers_list
         config.provider_options = config.provider_options_list
         config.execution_mode = config.execution_mode_list
@@ -246,14 +253,11 @@ class OrtSessionParamsTuning(Pass):
             return False
 
         # TODO(myguo): we need disable the following check when we enable cache in perf tuning.
-        if (
-            config.execution_provider != self.accelerator_spec.execution_provider
-            and not config.force_evaluate_other_eps
-        ):
+        if config.execution_provider != accelerator_spec.execution_provider and not config.force_evaluate_other_eps:
             logger.warning(
                 "Ignore perf tuning for EP %s since current pass EP is %s",
                 config.execution_provider,
-                self.accelerator_spec.execution_provider,
+                accelerator_spec.execution_provider,
             )
             return False
 

@@ -240,11 +240,7 @@ def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
 
     onnx_conversion_config = {"target_opset": target_opset}
     p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
-    if ignore_pass_config:
-        return p
-    pass_config = p.config_at_search_point({})
-    pass_config = p.serialize_config(pass_config)
-    return p, pass_config
+    return p if ignore_pass_config else (p, p.to_json(check_object=True)["config"])
 
 
 def get_onnx_dynamic_quantization_pass(disable_search=False):

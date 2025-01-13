@@ -92,24 +92,6 @@ def get_user_script_data_config(
 DEFAULT_SET = set(PassParamDefault)
 
 
-class AbstractPassConfig(NestedConfig):
-    """Base class for pass configuration."""
-
-    type: str = Field(description="The type of the pass.")
-    config: Dict[str, Any] = Field(
-        None,
-        description=(
-            "The configuration of the pass. Values for required parameters must be provided. For optional parameters,"
-            " default values or searchable values (if available and search is not disabled) will be used if not"
-            " provided."
-        ),
-    )
-
-    @validator("type", pre=True)
-    def validate_type(cls, v):
-        return validate_lowercase(v)
-
-
 class BasePassConfig(ConfigBase):
 
     @validator("*", pre=True)
@@ -127,6 +109,24 @@ class BasePassConfig(ConfigBase):
         if isinstance(v, dict) and v.get("olive_parameter_type") == "SearchParameter":
             return json_to_search_parameter(v)
         return v
+
+
+class AbstractPassConfig(NestedConfig):
+    """Base class for pass configuration."""
+
+    type: str = Field(description="The type of the pass.")
+    config: Dict[str, Any] = Field(
+        None,
+        description=(
+            "The configuration of the pass. Values for required parameters must be provided. For optional parameters,"
+            " default values or searchable values (if available and search is not disabled) will be used if not"
+            " provided."
+        ),
+    )
+
+    @validator("type", pre=True)
+    def validate_type(cls, v):
+        return validate_lowercase(v)
 
 
 def create_config_class(
