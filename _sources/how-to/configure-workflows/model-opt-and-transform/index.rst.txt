@@ -1,4 +1,4 @@
-Model optimization
+Model Configuration
 ========================
 
 .. grid:: 2 2 2 3
@@ -8,6 +8,13 @@ Model optimization
       **Configure model path**
 
       :octicon:`arrow-right;1em;sd-text-info` `Configure model path <configure-model-path.html>`_
+
+
+Model Optimization
+========================
+
+.. grid:: 2 2 2 3
+   :class-container: cards
 
    .. grid-item-card::
       **ONNX**
