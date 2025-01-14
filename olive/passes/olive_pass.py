@@ -43,9 +43,6 @@ class Pass(ABC):
     # composite model will be processed individually.
     _accepts_composite_model: bool = False
 
-    # Flag indicate whether the pass need to be run in target instead of host
-    run_on_target: bool = False
-
     @classmethod
     def __init_subclass__(cls, **kwargs) -> None:
         """Register the Pass."""

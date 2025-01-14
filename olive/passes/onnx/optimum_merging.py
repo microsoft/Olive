@@ -18,7 +18,6 @@ class OptimumMerging(Pass):
     """Merges a decoder_model with its decoder_with_past_model via the Optimum library."""
 
     _accepts_composite_model = True
-    run_on_target = True
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:

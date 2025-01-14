@@ -132,8 +132,6 @@ def is_execution_provider_required(run_config: RunConfig, package_config: OliveP
 
 
 def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
-    from olive.passes import Pass
-
     workflow_id = run_config.workflow_id
     logger.info("Running workflow %s", workflow_id)
 
@@ -153,9 +151,8 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     input_model = run_config.input_model
 
     # Azure ML Client
-    engine = run_config.engine.create_engine(run_config.azureml_client, workflow_id)
-
     olive_config = run_config.to_json()
+    engine = run_config.engine.create_engine(package_config, run_config.azureml_client, workflow_id)
     engine.cache.cache_olive_config(olive_config)
 
     # run_config file will be uploaded to AML job
@@ -191,7 +188,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
         # no pass specific evaluator
         # no pass needs to run on target
         and all(
-            pass_config.evaluator is None and Pass.registry[pass_config.type.lower()].run_on_target is False
+            pass_config.evaluator is None and not get_run_on_target(package_config, pass_config)
             for pass_config in used_passes
         )
     )
@@ -232,21 +229,13 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     for accelerator_spec, (passes, pass_flows) in zip(acc_list, pass_list):
         engine.reset_passes()
         pass_flows_to_run = {p for ps in pass_flows for p in ps} if pass_flows else set(passes.keys())
-        # First pass registers the necessary module implementation
-        for pass_name in pass_flows_to_run:
-            pass_config = passes[pass_name]
-            if pass_config.type.lower() in Pass.registry:
-                logger.debug("Pass %s already registered", pass_config.type)
-            else:
-                logger.debug("Registering pass %s", pass_config.type)
-                package_config.import_pass_module(pass_config.type)
 
-        # Second pass, initializes the pass and registers it with the engine
+        # Initializes the pass and register it with the engine
         for pass_name, pass_config in passes.items():
             if pass_name in pass_flows_to_run:
                 host = pass_config.host.create_system() if pass_config.host is not None else None
                 engine.register(
-                    Pass.registry[pass_config.type.lower()],
+                    pass_config.type,
                     config=pass_config.config,
                     name=pass_name,
                     host=host,
@@ -396,3 +385,8 @@ def get_used_passes(run_config: RunConfig) -> Generator["RunPassConfig", None, N
                     yield run_config.passes[pass_name]
     elif run_config.passes:
         yield from run_config.passes.values()
+
+
+def get_run_on_target(package_config: OlivePackageConfig, pass_config: RunPassConfig) -> bool:
+    pass_module_config = package_config.get_pass_module_config(pass_config.type)
+    return pass_module_config.run_on_target

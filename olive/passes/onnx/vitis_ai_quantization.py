@@ -205,8 +205,6 @@ class VitisAIQuantization(Pass):
     We can search for best parameters for vai_q_onnx quantization at same time.
     """
 
-    run_on_target = True
-
     def _initialize(self):
         super()._initialize()
         self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_vaiq_tmp")

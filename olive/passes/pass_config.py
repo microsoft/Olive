@@ -169,6 +169,14 @@ class PassModuleConfig(ConfigBase):
     module_dependencies: List[str] = Field(default_factory=list)
     extra_dependencies: List[str] = Field(default_factory=list)
 
+    # Flag indicate whether the pass need to be run in target instead of host
+    run_on_target: bool = False
+
+    def set_class_variables(self, cls):
+        attrs = {"supported_providers", "supported_accelerators", "supported_precisions", "run_on_target"}
+        for attr in attrs:
+            setattr(cls, attr, getattr(self, attr))
+
     @validator("module_path", pre=True)
     def validate_module_path(cls, v):
         if not v:

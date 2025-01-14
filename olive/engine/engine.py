@@ -25,6 +25,7 @@ from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.hardware import AcceleratorSpec
 from olive.logging import enable_filelog
 from olive.model import ModelConfig
+from olive.package_config import OlivePackageConfig
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
 from olive.systems.system_config import SystemConfig
@@ -46,6 +47,7 @@ class Engine:
 
     def __init__(
         self,
+        olive_config: OlivePackageConfig = None,
         workflow_id: str = DEFAULT_WORKFLOW_ID,
         search_strategy: Optional[Union[Dict[str, Any], SearchStrategyConfig]] = None,
         host: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
@@ -57,6 +59,7 @@ class Engine:
         *,
         azureml_client_config=None,
     ):
+        self.olive_config = olive_config or OlivePackageConfig.load_default_config()
         self.workflow_id = workflow_id
         self.search_strategy = SearchStrategy(search_strategy) if search_strategy else None
 
@@ -123,7 +126,7 @@ class Engine:
 
     def register(
         self,
-        pass_type: Type["Pass"],
+        pass_type: Union[Type["Pass"], str],
         config: Dict[str, Any] = None,
         name: str = None,
         host: "OliveSystem" = None,
@@ -141,6 +144,10 @@ class Engine:
                 idx += 1
                 if name not in self.pass_config:
                     break
+
+        pass_type_name = pass_type if isinstance(pass_type, str) else pass_type.__name__
+        logger.debug("Registering pass %s", pass_type_name)
+        pass_type = self.olive_config.import_pass_module(pass_type_name)
 
         self.pass_config[name] = {
             "type": pass_type,

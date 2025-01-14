@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import functools
 import importlib
 from pathlib import Path
 from typing import Dict, List
@@ -25,10 +26,12 @@ class OlivePackageConfig(ConfigBase):
         return {key.lower(): value for key, value in values.items()}
 
     @staticmethod
+    @functools.lru_cache
     def get_default_config_path() -> str:
         return str(Path(__file__).parent / "olive_config.json")
 
     @staticmethod
+    @functools.lru_cache
     def load_default_config() -> "OlivePackageConfig":
         return OlivePackageConfig.parse_file(OlivePackageConfig.get_default_config_path())
 
@@ -36,7 +39,9 @@ class OlivePackageConfig(ConfigBase):
         pass_module_config = self.get_pass_module_config(pass_type)
         module_path, module_name = pass_module_config.module_path.rsplit(".", 1)
         module = importlib.import_module(module_path, module_name)
-        return getattr(module, module_name)
+        cls = getattr(module, module_name)
+        pass_module_config.set_class_variables(cls)
+        return cls
 
     def get_pass_module_config(self, pass_type: str) -> PassModuleConfig:
         if "." in pass_type:
