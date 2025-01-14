@@ -55,6 +55,10 @@ The `OnnxPeepholeOptimizer` leverages `onnxscript` (https://onnxscript.ai/tutori
 | **Fuse Consecutive Slices**       | Fuses consecutive Slice operations.                                                 |
 | **Eliminate Unused Initializer**  | Eliminates unused initializers.                                                     |
 | **Eliminate Duplicate Initializer** | Eliminates duplicate initializers.                                  |
+| **Broadcast to MatMul**           | Converts broadcast patterns into MatMul operations for better efficiency.  |
+| **Cast Constant of Shape**        | Simplifies constant casting for shape operations.                          |
+| **GEMM to MatMul+Add**            | Converts GEMM operations into MatMul and Add for improved compatibility.   |
+| **No-Op Removal**                 | Removes redundant or no-op operations in the computation graph.            |
 
 Please refer to [OnnxPeepholeOptimizer](../../../reference/pass.rst#onnx_peephole_optimizer) for more details about the pass and its config parameters.
 
