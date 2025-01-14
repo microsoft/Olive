@@ -78,30 +78,45 @@ class UnpackedQKV(nn.Module):
 
 
 class LayerAdapter:
-    FIRST_LAYER_NORM = {"default": "input_layernorm", "opt": "self_attn_layer_norm", "qwen": "ln_1"}
+    FIRST_LAYER_NORM = {"default": "input_layernorm", "gpt2": "ln_1", "opt": "self_attn_layer_norm", "qwen": "ln_1"}
     SECOND_LAYER_NORM = {
         "default": "post_attention_layernorm",
         "gemma2": "pre_feedforward_layernorm",
+        "gpt2": "ln_2",
         "opt": "final_layer_norm",
         "qwen": "ln_2",
     }
-    ATTENTION = {"default": "self_attn", "bloom": "self_attention", "qwen": "attn"}
+    ATTENTION = {"default": "self_attn", "bloom": "self_attention", "gpt2": "attn", "qwen": "attn"}
     ATTENTION_INPUTS = {
         "default": ["q_proj", "k_proj", "v_proj"],
         "bloom": ["query_key_value"],
+        "gpt2": ["c_attn"],
         "phi3": ["qkv_proj"],
         "qwen": ["c_attn"],
     }
-    ATTENTION_OUTPUTS = {"default": ["o_proj"], "bloom": ["dense"], "opt": ["out_proj"], "qwen": ["c_proj"]}
+    ATTENTION_OUTPUTS = {
+        "default": ["o_proj"],
+        "bloom": ["dense"],
+        "gpt2": ["c_proj"],
+        "opt": ["out_proj"],
+        "qwen": ["c_proj"],
+    }
     MLP = {"default": "mlp", "opt": ""}
     MLP_INPUTS = {
         "default": ["gate_proj", "up_proj"],
         "bloom": ["dense_h_to_4h"],
+        "gpt2": ["c_fc"],
         "opt": ["fc1"],
         "phi3": ["gate_up_proj"],
         "qwen": ["w1", "w2"],
     }
-    MLP_OUTPUTS = {"default": ["down_proj"], "bloom": ["dense_4h_to_h"], "opt": ["fc2"], "qwen": ["c_proj"]}
+    MLP_OUTPUTS = {
+        "default": ["down_proj"],
+        "bloom": ["dense_4h_to_h"],
+        "gpt2": ["c_proj"],
+        "opt": ["fc2"],
+        "qwen": ["c_proj"],
+    }
 
     def __init__(self, layer: nn.Module, model_type: str):
         # TODO(jambayk): use _layer and property to get the layer?
@@ -170,7 +185,7 @@ class ModelAdapter:
         "qwen": ["transformer.wte", "transformer.rotary_emb"],
     }
     LM_HEAD = {"default": "lm_head"}
-    PRE_HEAD_LAYERNORM = {"default": "model.norm"}
+    PRE_HEAD_LAYERNORM = {"default": "model.norm", "gpt2": "transformer.ln_f", "qwen": "transformer.ln_f"}
     LAYERS = {
         "default": "model.layers",
         "bloom": "transformer.h",

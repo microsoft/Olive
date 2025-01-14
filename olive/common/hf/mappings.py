@@ -69,20 +69,6 @@ MODELS_TO_MAX_LENGTH_MAPPING = {
     "qwen2": "max_position_embeddings",
 }
 
-
-# To extend following list/map from huggingface config
-# there is the priority order: NUM_HEADS_NAMES[0] and HIDDEN_SIZE_NAMES[0] are the first choice
-# which means user can override the value in config file
-NUM_HEADS_NAMES = (
-    "num_heads",
-    "num_attention_heads",
-    "n_head",
-    "n_heads",
-    "encoder_attention_heads",
-)
-NUM_HIDDEN_LAYER_NAMES = ("num_hidden_layers", "num_layers", "n_layer", "n_layers")
-NUM_KEY_VALUE_HEADS_NAMES = ("num_key_value_heads",)
-HIDDEN_SIZE_NAMES = ("hidden_size", "dim", "d_model", "n_embd")
 MODEL_TYPE_MAPPING = {
     "whisper": "bart",
     "camembert": "bert",

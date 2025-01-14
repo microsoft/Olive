@@ -12,17 +12,17 @@ from typing import Any, Dict, List, Union
 import torch
 
 from olive.common.config_utils import validate_config
+from olive.common.hf.adapter import ModelAdapter
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
-from olive.passes.pytorch.sparsegpt_utils import (
+from olive.passes.pytorch.utils.sparsegpt import (
     SparseGPTModule,
     catch_layer_inputs,
     get_layer_submodules,
-    get_layers,
     supported_models,
     validate_min_max_layers,
 )
@@ -125,11 +125,15 @@ class SparseGPT(Pass):
         use_cache = pytorch_model.config.use_cache
         pytorch_model.config.use_cache = False
 
+        # create model adapter
+        model_adapter = ModelAdapter(pytorch_model.config)
+        model_adapter.set_model(pytorch_model)
+
         # get module list of layers
-        layers = get_layers(pytorch_model, model_type)
+        layers = model_adapter.get_layers()
 
         # get the inputs to the first layer
-        inputs, attention_mask, extras = catch_layer_inputs(pytorch_model, model_type, dataloader, device)
+        inputs, attention_mask, extras = catch_layer_inputs(model_adapter, dataloader, device)
         logger.debug("Inputs shape: %s", inputs.shape)
         # place holder to store output from layer
         outputs = torch.zeros_like(inputs)
