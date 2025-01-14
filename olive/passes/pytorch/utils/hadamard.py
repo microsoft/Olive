@@ -11,7 +11,7 @@
 
 import torch
 
-from olive.passes.pytorch.hadamard_tensors import (
+from olive.passes.pytorch.utils.hadamard_tensors import (
     get_had12,
     get_had20,
     get_had28,

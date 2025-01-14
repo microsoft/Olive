@@ -13,7 +13,7 @@ from torch import nn
 
 from olive.common.hf.adapter import ModelAdapter
 from olive.common.utils import cleanup_memory
-from olive.passes.pytorch.hadamard_utils import random_hadamard_matrix
+from olive.passes.pytorch.utils.hadamard import random_hadamard_matrix
 
 logger = logging.getLogger(__name__)
 

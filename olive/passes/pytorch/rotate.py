@@ -51,7 +51,7 @@ class RotateBase(Pass):
         :param config: Dict[str, Any]: The configuration for the rotation.
         :return: ModelAdapter with the rotated model, rotation parameters, and save replacements.
         """
-        from olive.passes.pytorch.rotate_utils import RotateEmbed, RotateLinear, fuse_layer_norms, get_orthogonal_matrix
+        from olive.passes.pytorch.utils.rotate import RotateEmbed, RotateLinear, fuse_layer_norms, get_orthogonal_matrix
 
         if model.adapter_path:
             logger.info(
