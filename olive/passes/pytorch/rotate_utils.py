@@ -146,26 +146,6 @@ def rotate_weight(
     return weight.to(**to_kwargs)
 
 
-def rotate_embed(embedding: nn.Embedding, Q: torch.Tensor, device: torch.device):
-    """Rotate the embedding matrix by Q."""
-    embedding.weight.data = rotate_weight(embedding.weight.data, Q, pre=True, device=device)
-
-
-def rotate_pre_linear(linear: nn.Linear, Q: torch.Tensor, device: torch.device):
-    """Rotate the input linear layer by Q."""
-    linear.weight.data = rotate_weight(linear.weight.data, Q, pre=True, device=device)
-
-
-def rotate_post_linear(linear: nn.Linear, Q: torch.Tensor, device: torch.device):
-    """Rotate the output linear layer by Q."""
-    # transpose and reshape during headwise rotation might make the weight matrix non-contiguous
-    linear.weight.data = rotate_weight(linear.weight.data, Q, pre=False, device=device).contiguous()
-    if hasattr(linear, "bias") and linear.bias is not None:
-        linear.bias.data = (
-            rotate_weight(linear.bias.data.unsqueeze(1), Q, pre=False, device=device).squeeze(1).contiguous()
-        )
-
-
 class RotateEmbed(nn.Module):
     """Embedding layer with pre-rotation."""
 
@@ -212,7 +192,7 @@ class RotateLinear(nn.Module):
         return weight, bias
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return nn.functional.linear(x, *self.get_rotated_weights())
+        return nn.functional.linear(x, *self.get_rotated_weights())  # pylint: disable=not-callable
 
     @torch.no_grad()
     def create_merged(self, device) -> nn.Linear:
