@@ -266,10 +266,10 @@ class OnnxPeepholeOptimizer(Pass):
         # optimize model
         peephole_optimizer = ModelOptimizer(model.model_path)
         peephole_optimizer.onnxscript_optimize()
+        peephole_optimizer.onnxoptimizer_optimize()
         peephole_optimizer.fuse_transpose_qat()
         peephole_optimizer.patch_unsupported_argmax_operator()
         peephole_optimizer.fuse_reshape_operations()
-        peephole_optimizer.onnxoptimizer_optimize()
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(peephole_optimizer.model, output_model_path, config)
