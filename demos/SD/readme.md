@@ -11,7 +11,29 @@ Need this version for textencoder
 
 ## Run
 
-`python stable_diffusion.py --optimize`
+### Use OnnxStaticQuantization
+
+`python stable_diffusion.py --model [text_encoder/unet/vae_decoder] --qnn`
+
+### Use QNN SDK
+
+See D:\Olive\examples\mobilenet\README_QNN_SDK.md
+
+```
+export QNN_SDK_ROOT=/mnt/c/Qualcomm/AIStack/QAIRT/2.28.0.241029
+
+# See D:\Olive\olive\platform_sdk\qualcomm\configure\configure.py
+bash /mnt/d/Olive/olive/platform_sdk/qualcomm/create_python_env.sh -v 3.8 --sdk qnn
+
+# Fix pandas build
+sudo ln -s /mnt/c/Qualcomm/AIStack/QAIRT/2.28.0.241029/python-env-setup/olive-pyenv/lib/python3.10/site-packages/numpy/core/include/numpy /usr/include/numpy
+
+# Fix "onnx/onnx_ml_pb2.py", line 5, in <module> from google.protobuf.internal import builder as _builder ImportError: cannot import name 'builder' from 'google.protobuf.internal'
+/mnt/c/Qualcomm/AIStack/QAIRT/2.28.0.241029/olive-pyenv/bin/python -m pip install --upgrade protobuf
+
+olive run --config config_vae_decoder.qnn.sdk.json
+```
+
 
 ## Bugs
 
@@ -66,3 +88,6 @@ onnx.save(
 ## Other
 
 https://github.com/quic/aimet/tree/develop
+
+https://app.aihub.qualcomm.com/docs/hub/quantize_examples.html
+

@@ -8,22 +8,26 @@ from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionS
 from huggingface_hub import model_info
 from sd_utils import config
 from transformers.models.clip.modeling_clip import CLIPTextModel
-
+import numpy as np
 from olive.data.registry import Registry
+import os
 
 # Helper latency-only dataloader that creates random tensors with no label
 class RandomDataLoader:
-    def __init__(self, create_inputs_func, batch_size, torch_dtype):
+    def __init__(self, create_inputs_func, batch_size, torch_dtype, total = 1):
         self.create_input_func = create_inputs_func
         self.batch_size = batch_size
         self.torch_dtype = torch_dtype
+        self.total = total
 
     def __getitem__(self, idx):
         print("getitem: " + str(idx))
-        if idx > 0: return None
+        if idx >= self.total: return None
         label = None
         return self.create_input_func(self.batch_size, self.torch_dtype) #, label
 
+folders = [f"data/{f.name}" for f in os.scandir('data') if f.is_dir()]
+print(folders)
 
 def get_base_model_name(model_name):
     return model_info(model_name).cardData.get("base_model") or model_name
@@ -93,44 +97,17 @@ def unet_conversion_inputs(model=None):
 def unet_data_loader(dataset, batch_size, *args, **kwargs):
     return RandomDataLoader(unet_inputs, batch_size, torch.float32)
 
-
-# -----------------------------------------------------------------------------
-# VAE ENCODER
-# -----------------------------------------------------------------------------
-
-
-def vae_encoder_inputs(batch_size, torch_dtype):
-    return {"sample": torch.rand((batch_size, 3, config.vae_sample_size, config.vae_sample_size), dtype=torch_dtype)}
-
-
-def vae_encoder_load(model_name):
-    base_model_id = get_base_model_name(model_name)
-    model = AutoencoderKL.from_pretrained(base_model_id, subfolder="vae")
-    model.forward = lambda sample: model.encode(sample)[0].sample()
-    return model
-
-
-def vae_encoder_conversion_inputs(model=None):
-    return tuple(vae_encoder_inputs(1, torch.float32).values())
-
-
-@Registry.register_dataloader()
-def vae_encoder_data_loader(dataset, batch_size, *args, **kwargs):
-    return RandomDataLoader(vae_encoder_inputs, batch_size, torch.float16)
-
-
 # -----------------------------------------------------------------------------
 # VAE DECODER
 # -----------------------------------------------------------------------------
 
 
 def vae_decoder_inputs(batch_size, torch_dtype):
+    data = torch.rand((batch_size, 4, config.unet_sample_size, config.unet_sample_size), dtype=torch_dtype)
+    data = (data * 2 - 1) / 0.18215
     return {
-        "latent": torch.rand(
-            (batch_size, 4, config.unet_sample_size, config.unet_sample_size), dtype=torch_dtype
-        )
+        "latent": data 
     }
-
 
 def vae_decoder_load(model_name):
     base_model_id = get_base_model_name(model_name)
@@ -142,10 +119,22 @@ def vae_decoder_load(model_name):
 def vae_decoder_conversion_inputs(model=None):
     return tuple(vae_decoder_inputs(1, torch.float32).values())
 
+class DecoderDataLoader:
+    def __init__(self):
+        self.data = []
+        for f in folders:
+            data = torch.from_numpy(np.fromfile(f + '/latent.raw', dtype=np.float32).reshape(1, 4, 64, 64))
+            self.data.append({ "latent": data })
+
+    def __getitem__(self, idx):
+        print("getitem: " + str(idx))
+        if idx >= len(self.data) or idx >= 1: return None
+        return self.data[idx]
 
 @Registry.register_dataloader()
 def vae_decoder_data_loader(dataset, batch_size, *args, **kwargs):
-    return RandomDataLoader(vae_decoder_inputs, batch_size, torch.float32)
+    return DecoderDataLoader()
+    return RandomDataLoader(vae_decoder_inputs, batch_size, torch.float32, 100)
 
 
 # -----------------------------------------------------------------------------

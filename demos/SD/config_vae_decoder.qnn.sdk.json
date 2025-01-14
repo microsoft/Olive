@@ -1,0 +1,56 @@
+{
+    "input_model": {
+        "type": "OnnxModel",
+        "model_path": "footprints/vae_decoder/output_model/model.onnx"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "cpu"
+                }
+            ]
+        }
+    },
+    "data_configs": [
+    ],
+    "passes": {
+        "converter": {
+            "type": "QNNConversion"
+        },
+        "quantization": {
+            "type": "QNNConversion",
+            "extra_args": "--input_list /mnt/d/Olive/demos/SD/data/vae_decoder.txt"
+        },
+        "build_model_lib": {
+            "type": "QNNModelLibGenerator",
+            "lib_targets": "x86_64-linux-clang"
+        },
+        "qnn_context_binary": {
+            "type": "QNNContextBinaryGenerator",
+            "backend": "libQnnHtp.so"
+        }
+    },
+    "pass_flows": [
+        [
+            "converter",
+            "build_model_lib"
+        ],
+        [
+            "quantization",
+            "build_model_lib"
+        ],
+        [
+            "converter",
+            "build_model_lib",
+            "qnn_context_binary"
+        ]
+    ],
+    "log_severity_level": 0,
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "clean_cache": true,
+    "output_dir": "footprints_qnn/vae_decoder"
+}
