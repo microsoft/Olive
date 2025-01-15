@@ -9,13 +9,19 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Type, Union, get_args
 
-from olive.common.config_utils import NestedConfig, ParamCategory, validate_config, validate_lowercase
-from olive.common.pydantic_v1 import BaseModel, Field, ValidationError, create_model, validator
+from olive.common.config_utils import ParamCategory, validate_config
+from olive.common.pydantic_v1 import BaseModel, ValidationError, create_model
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
 from olive.model import CompositeModelHandler, DistributedOnnxModelHandler, OliveModelHandler, ONNXModelHandler
-from olive.passes.pass_config import PassConfigBase, PassConfigParam, PassParamDefault, create_config_class
+from olive.passes.pass_config import (
+    AbstractPassConfig,
+    BasePassConfig,
+    PassConfigParam,
+    PassParamDefault,
+    create_config_class,
+)
 from olive.resource_path import ResourcePath
 from olive.strategy.search_parameter import (
     Categorical,
@@ -110,9 +116,9 @@ class Pass(ABC):
     def generate_search_space(
         cls,
         accelerator_spec: AcceleratorSpec,
-        config: Optional[Union[Dict[str, Any], PassConfigBase]] = None,
+        config: Optional[Union[Dict[str, Any], BasePassConfig]] = None,
         disable_search: Optional[bool] = False,
-    ) -> Tuple[Type[PassConfigBase], Dict[str, Any]]:
+    ) -> Tuple[Type[BasePassConfig], Dict[str, Any]]:
         """Generate search space for the pass."""
         assert accelerator_spec is not None, "Please specify the accelerator spec for the pass"
 
@@ -459,10 +465,10 @@ class Pass(ABC):
     @classmethod
     def _resolve_config(
         cls,
-        input_config: Union[Dict[str, Any], PassConfigBase],
+        input_config: Union[Dict[str, Any], BasePassConfig],
         default_config: Dict[str, PassConfigParam],
     ) -> Dict[str, Any]:
-        """Resolve config to PassConfigBase."""
+        """Resolve config to BasePassConfig."""
         config = input_config.dict()
         config = cls._resolve_defaults(config, default_config)
         if "user_script" in config:
@@ -481,25 +487,6 @@ class Pass(ABC):
         raise NotImplementedError
 
 
-class AbstractPassConfig(NestedConfig):
-    """Base class for pass configuration."""
-
-    type: str = Field(description="The type of the pass.")
-    config: Dict[str, Any] = Field(
-        None,
-        description=(
-            "The configuration of the pass. Values for required parameters must be provided. For optional parameters,"
-            " default values or searchable values (if available and search is not disabled) will be used if not"
-            " provided."
-        ),
-    )
-
-    @validator("type", pre=True)
-    def validate_type(cls, v):
-        return validate_lowercase(v)
-
-
-# TODO(jambayk): rename. We are using FullPassConfig since PassConfigBase already refers to inner config
 class FullPassConfig(AbstractPassConfig):
     """Configuration for a pass serialization.
 
