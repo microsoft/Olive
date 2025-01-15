@@ -5,23 +5,19 @@ https://huggingface.co/stabilityai/stable-diffusion-2-1-base/tree/main
 
 ### Text encoder
 
-Constant: 357
+Constant: 263
 Reshape: 233
 Gather: 5
 ConstantOfShape: 1
 Cast: 1
-Mul: 72
-Add: 303
+Mul: 25
+Add: 209
 ArgMax: 1
 Equal: 1
-ReduceMean: 94
+LayerNormalization: 47
 Where: 1
-Sub: 47
-Expand: 1
-Pow: 47
-Sqrt: 47
-Div: 47
 MatMul: 184
+Expand: 1
 Transpose: 115
 Softmax: 23
 Gelu: 23
@@ -29,7 +25,61 @@ Shape: 2
 Flatten: 1
 Concat: 2
 
+1138 -> 370
 
+### Unet
+
+Constant: 649
+Conv: 66
+MatMul: 256
+ConstantOfShape: 1
+Reshape: 282
+Shape: 109
+Mul: 222
+InstanceNormalization: 61
+Transpose: 160
+Equal: 1
+Where: 1
+Expand: 1
+Add: 281
+Unsqueeze: 45
+Sigmoid: 47
+Cast: 98
+Sin: 1
+Cos: 1
+Concat: 14
+Slice: 66
+Gemm: 24
+Div: 102
+LayerNormalization: 48
+Sqrt: 96
+Softmax: 32
+Gather: 16
+Gelu: 16
+Resize: 3
+
+2699 -> 680
+
+### Vae decoder
+
+Conv: 36
+Constant: 117
+Reshape: 66
+InstanceNormalization: 30
+Shape: 31
+Mul: 61
+Add: 49
+Sigmoid: 29
+Div: 16
+Transpose: 6
+MatMul: 6
+Slice: 1
+Cast: 4
+Sqrt: 3
+Softmax: 1
+Resize: 3
+
+459 -> 70
 
 ## Dependency
 
