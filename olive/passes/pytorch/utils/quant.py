@@ -2,8 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-# This code is based on SpinQuant(https://github.com/facebookresearch/SpinQuant).
-# Licensed under Apache License 2.0.
 import torch
 from torch import nn
 

@@ -2,13 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-# This code is based on QuaRot(https://github.com/spcl/QuaRot/tree/main/quarot).
+# Based on QuaRot(https://github.com/spcl/QuaRot/tree/main/quarot).
 # Licensed under Apache License 2.0.
 # Adapted from https://github.com/Cornell-RelaxML/quip-sharp/blob/main/lib/utils/matmul_had.py
-
-# ruff: noqa: A001,N802,N806
-# pylint: disable=W0622
-
 import torch
 
 from olive.passes.pytorch.utils.hadamard_tensors import (
@@ -24,6 +20,9 @@ from olive.passes.pytorch.utils.hadamard_tensors import (
     get_had156,
     get_had172,
 )
+
+# ruff: noqa: A001,N802,N806
+# pylint: disable=W0622
 
 
 def get_hadK(n, transpose=False):

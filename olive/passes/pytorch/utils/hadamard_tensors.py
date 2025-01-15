@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 # hadamard matrices from http://www.neilsloane.com/hadamard/index.html
-
 import torch
 
 

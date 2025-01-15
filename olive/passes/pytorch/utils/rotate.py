@@ -2,9 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-# This code is based on QuaRot(https://github.com/spcl/QuaRot/tree/main/quarot).
+# Based on QuaRot(https://github.com/spcl/QuaRot/tree/main/quarot).
 # Licensed under Apache License 2.0.
-
 import logging
 from typing import Iterable, Optional, Union
 

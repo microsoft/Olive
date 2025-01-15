@@ -7,7 +7,6 @@
 # QLoRA: https://github.com/artidoro/qlora/blob/main/qlora.py
 #        https://arxiv.org/abs/2305.14314
 # --------------------------------------------------------------------------
-import dataclasses
 import logging
 import tempfile
 from abc import abstractmethod
@@ -19,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import transformers
 from packaging import version
 
-from olive.common.config_utils import ConfigBase, NestedConfig
+from olive.common.config_utils import ConfigBase
 from olive.common.hf.mappings import MODELS_TO_LORA_TARGET_MODULES_MAPPING
 from olive.common.hf.utils import get_peft_task_type_from_task
 from olive.common.pydantic_v1 import Field, validator
@@ -31,6 +30,7 @@ from olive.model import HfModelHandler
 from olive.model.config.hf_config import HfLoadKwargs
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pytorch.utils.train_utils import BaseHFTrainingArguments, load_hf_base_model
 from olive.strategy.search_parameter import Categorical
 
 if TYPE_CHECKING:
@@ -41,20 +41,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# pylint: disable=unused-import
 
-
-# ruff: noqa: B010
-# creating a Config class since transformers.TrainingArguments is a dataclass
-# pydantic handles dataclasses differently and causes issues with validation
-# this also allows us to handle and validate extra_args better
-class HFTrainingArguments(NestedConfig):
+class HFTrainingArguments(BaseHFTrainingArguments):
     """Training arguments for transformers.Trainer.
 
     Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.
     """
-
-    _nested_field_name = "extra_args"
 
     # TODO(jambayk): is this default optim required? does it work for regular lora? what about lr_scheduler_type?
     optim: str = Field("paged_adamw_32bit", description="The optimizer to use.")
@@ -72,10 +64,6 @@ class HFTrainingArguments(NestedConfig):
             " set to 'epoch'."
         ),
     )
-    report_to: Union[str, List[str]] = Field(
-        "none", description="The list of integrations to report the results and logs to."
-    )
-    output_dir: str = Field(None, description="The output dir for logs and checkpoints. If None, will use a temp dir.")
     overwrite_output_dir: bool = Field(
         False,
         description=(
@@ -89,47 +77,13 @@ class HFTrainingArguments(NestedConfig):
             "The path to a folder with a valid checkpoint for the model. Supercedes any checkpoint found in output_dir."
         ),
     )
-    deepspeed: Union[bool, str, Dict] = Field(
-        None,
-        description=(
-            "Use [Deepspeed](https://github.com/microsoft/deepspeed). If True, will use default deepspeed config. Else,"
-            " it is a path to a deepspeed config file or a dict with deepspeed config."
-        ),
-    )
-    extra_args: Dict[str, Any] = Field(
-        None,
-        description=(
-            "Extra arguments to pass to the trainer. Values can be provided directly to this field as a dict or as"
-            " keyword arguments to the config. See transformers.TrainingArguments for more details on the available"
-            " arguments."
-        ),
-    )
 
     @validator("extra_args", pre=True, always=True)
-    def validate_extra_args(cls, v):
-        if v is None:
-            v = {}
-        # make sure extra args are fields of transformers.Trainer
-        training_args_fields = {f.name for f in dataclasses.fields(transformers.TrainingArguments) if f.init}
-        for k in list(v):  # need a copy of the keys since we are mutating the dict
-            if k == "fp16":
-                logger.warning("Extra arg %s is not allowed. Please use `torch_dtype` instead.", k)
-                del v[k]
-            elif k not in training_args_fields:
-                logger.warning("Extra arg %s is not a field of transformers.TrainingArguments. Ignoring.", k)
-                del v[k]
+    def validate_torch_dtype(cls, v):
+        if v and "fp16" in v:
+            logger.warning("Extra arg 'fp16' is not allowed. Please use `torch_dtype` instead.")
+            del v["fp16"]
         return v
-
-    def create_training_args(self) -> transformers.TrainingArguments:
-        args = self.dict()
-        if not args["output_dir"]:
-            raise ValueError("output_dir must be provided.")
-        if args["deepspeed"] is True:
-            args["deepspeed"] = deepcopy(DEFAULT_DEEPSPEED_CONFIG)
-        elif args["deepspeed"] is False:
-            del args["deepspeed"]
-        extra_args = args.pop("extra_args")
-        return transformers.TrainingArguments(**args, **extra_args)
 
 
 class LoRABase(Pass):
@@ -329,39 +283,13 @@ class LoRABase(Pass):
         """
         import torch
 
-        # model cannot have it's own adapter
-        if model_handler.adapter_path:
-            raise ValueError("Model already has an adapter. Please provide a model without an adapter.")
-
-        # don't want the original loaded model
-        # also frees gpu memory if original model is on gpu
-        model_handler.model = None
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
-        # create copy of the input model, will modify this model
-        # also resets adapter_path
-        new_model_handler = deepcopy(model_handler)
-
         torch_dtype = self.get_torch_dtype(config.torch_dtype)
         # will use mixed precision since full fp16 is unstable
         model_dtype = torch_dtype if torch_dtype != torch.float16 else torch.float32
 
-        # load model, reset load_kwargs and adapter_path
-        load_kwargs = new_model_handler.load_kwargs.dict() if new_model_handler.load_kwargs else {}
-        load_kwargs.update(
-            {
-                "torch_dtype": model_dtype,
-                # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
-                # "auto": uses all available GPUs, model parallel
-                "device_map": "auto",
-            }
-        )
-        # overwrite load_kwargs with kwargs
-        load_kwargs.update(kwargs)
-        new_model_handler.load_kwargs = HfLoadKwargs(**load_kwargs)
-
-        return new_model_handler.load_model(cache_model=False)
+        # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
+        # "auto": uses all available GPUs, model parallel
+        return load_hf_base_model(model_handler, torch_dtype=model_dtype, device_map="auto", **kwargs)
 
     def init_lora_adapters(
         self,
@@ -442,8 +370,8 @@ class LoRABase(Pass):
         # set model_parallel and is_parallelizable to True
         # we are using "auto" device_map, so model_parallel is True or doing DDP
         # don't want the trainer to do Data Parallel
-        setattr(model, "model_parallel", True)
-        setattr(model, "is_parallelizable", True)
+        model.model_parallel = True
+        model.is_parallelizable = True
 
         logger.debug(
             "The number of trainable parameters in the original model: %s", self.count_trainable_parameters(model)
@@ -863,41 +791,3 @@ class LoftQ(QLoRABase):
         )
 
         return new_model_handler, pytorch_model, bnb_quant_config, quantized_modules
-
-
-DEFAULT_DEEPSPEED_CONFIG = {
-    "zero_optimization": {
-        "stage": 3,
-        "allgather_partitions": True,
-        "allgather_bucket_size": 5e8,
-        "overlap_comm": True,
-        "reduce_scatter": True,
-        "reduce_bucket_size": "auto",
-        "contiguous_gradients": True,
-        "stage3_prefetch_bucket_size": "auto",
-        "stage3_param_persistence_threshold": "auto",
-        "sub_group_size": 1e9,
-        "stage3_max_live_parameters": 1e9,
-        "stage3_max_reuse_distance": 1e9,
-        "stage3_gather_16bit_weights_on_model_save": "auto",
-        "offload_param": {
-            "device": "cpu",
-        },
-        "offload_optimizer": {
-            "device": "cpu",
-        },
-    },
-    "fp16": {
-        "enabled": "auto",
-        "loss_scale": 0,
-        "loss_scale_window": 1000,
-        "initial_scale_power": 16,
-        "hysteresis": 2,
-        "min_loss_scale": 1,
-    },
-    "bf16": {"enabled": "auto"},
-    "train_micro_batch_size_per_gpu": "auto",
-    "train_batch_size": "auto",
-    "gradient_accumulation_steps": "auto",
-    "gradient_clipping": "auto",
-}
