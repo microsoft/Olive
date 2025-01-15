@@ -4,11 +4,18 @@ parameters:
   dockerfile: ''
   python_version: ''
   docker_image: ''
+  base_image: ''
+  trt_version: ''
 
 steps:
 - script: |
     docker login -u $(docker-username) -p $(docker-password)
-    docker build --build-arg PYTHON_VERSION=${{ parameters.python_version }} -t ${{ parameters.docker_image }} -f $(Build.SourcesDirectory)/${{ parameters.dockerfile }} .
+    docker build \
+    --build-arg BASE_IMAGE=${{ parameters.base_image }} \
+    --build-arg TENSORRT_VERSION=${{ parameters.trt_version }} \
+    --build-arg PYTHON_VERSION=${{ parameters.python_version }} \
+    -t ${{ parameters.docker_image }} \
+    -f $(Build.SourcesDirectory)/${{ parameters.dockerfile }} .
   displayName: Build Docker Image
 
 - script: |

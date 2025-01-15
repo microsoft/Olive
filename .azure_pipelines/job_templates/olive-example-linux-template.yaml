@@ -7,6 +7,8 @@ parameters:
   device: 'cpu'
   dockerfile: '.azure_pipelines/dockerfiles/linux-cpu.dockerfile'
   docker_image: 'olive-pipeline:latest'
+  base_image: 'ubuntu:22.04'
+  trt_version: ''
   onnxruntime: 'onnxruntime'
   subfolder: 'local'
   torch: 'torch'
@@ -32,6 +34,8 @@ jobs:
         python_version: ${{ parameters.python_version }}
         dockerfile: ${{ parameters.dockerfile }}
         docker_image: ${{ parameters.docker_image }}
+        base_image: ${{ parameters.base_image }}
+        trt_version: ${{ parameters.trt_version }}
 
     # set exampleRequirements to requirements.txt if user does not specify
     - script:
@@ -45,6 +49,7 @@ jobs:
             GPU_OPTION="--gpus=all"
         fi
         docker run \
+        --shm-size=4g \
         $GPU_OPTION \
         -v $(Build.SourcesDirectory)/logs:/logs \
         -e WORKSPACE_SUBSCRIPTION_ID=$(workspace-subscription-id) \

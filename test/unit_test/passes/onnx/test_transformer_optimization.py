@@ -66,6 +66,9 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
     from onnxruntime.transformers.onnx_model import OnnxModel
     from packaging import version
 
+    if accelerator_spec == DEFAULT_GPU_TRT_ACCELERATOR and not mock_inferece_session:
+        pytest.skip("Skipping test: TRT EP does not support compiled nodes when mock_inferece_session=False")
+
     logger = logging.getLogger("olive")
     logger.propagate = True
 

@@ -64,7 +64,6 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     test_type: 'unit_test'
     device: 'gpu'
-    dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
     onnxruntime: onnxruntime-gpu==1.19.2
     requirements_file: 'requirements-test-gpu.txt'
 
@@ -125,6 +124,8 @@ jobs:
     device: 'gpu'
     onnxruntime: onnxruntime-gpu
     dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
+    base_image: 'nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04'
+    trt_version: '10.5.0.18-1+cuda12.6'
     examples:
       bert_cuda_gpu:
         exampleFolder: bert

@@ -1,6 +1,7 @@
 parameters:
   python_version: '3.10'
   onnxruntime: 'onnxruntime'
+  onnxruntime_nightly: false
   torch: torch
 
 steps:
@@ -15,11 +16,12 @@ steps:
 - script: python -m pip install .
   displayName: Install Olive
 
-- ${{ if startsWith(parameters.onnxruntime, 'ort-nightly') }}:
+- ${{ if  eq(parameters.onnxruntime_nightly, true) }}:
   - script: |
       pip install onnxruntime
       pip uninstall -y onnxruntime
-      pip install ${{ parameters.onnxruntime }} --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+      pip install -r  https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
+      pip install ${{ parameters.onnxruntime }} --pre --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ --disable-pip-version-check
     displayName: Install ${{ parameters.onnxruntime }}
 - ${{ else }}:
   - script: |
