@@ -25,7 +25,10 @@
         }
     ],
     "passes": {
-        "convert": { "type": "OnnxConversion", "target_opset": 14 }
+        "convert": {
+            "type": "OnnxConversion",
+            "target_opset": 17
+        }
     },
     "log_severity_level": 0,
     "host": "local_system",

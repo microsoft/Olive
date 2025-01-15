@@ -11,6 +11,12 @@ Need this version for textencoder
 
 ## Run
 
+### Convert to onnx
+
+ONNX model must use an opset >= 17 in order to use LayerNormalization
+
+`python stable_diffusion.py --model [text_encoder/unet/vae_decoder]`
+
 ### Use OnnxStaticQuantization
 
 `python stable_diffusion.py --model [text_encoder/unet/vae_decoder] --qnn`
@@ -25,6 +31,7 @@ export QNN_SDK_ROOT=/mnt/c/Qualcomm/AIStack/QAIRT/2.28.0.241029
 # See D:\Olive\olive\platform_sdk\qualcomm\configure\configure.py
 # Need to update to 3.10?
 # file:///C:/Qualcomm/AIStack/QAIRT/2.28.0.241029/docs/QNN/general/setup/linux_setup.html said so
+# Not needed PIP_EXTRA_ARGS
 bash /mnt/d/Olive/olive/platform_sdk/qualcomm/create_python_env.sh -v 3.8 --sdk qnn
 
 # Fix pandas build
