@@ -23,6 +23,8 @@ See D:\Olive\examples\mobilenet\README_QNN_SDK.md
 export QNN_SDK_ROOT=/mnt/c/Qualcomm/AIStack/QAIRT/2.28.0.241029
 
 # See D:\Olive\olive\platform_sdk\qualcomm\configure\configure.py
+# Need to update to 3.10?
+# file:///C:/Qualcomm/AIStack/QAIRT/2.28.0.241029/docs/QNN/general/setup/linux_setup.html said so
 bash /mnt/d/Olive/olive/platform_sdk/qualcomm/create_python_env.sh -v 3.8 --sdk qnn
 
 # Fix pandas build
@@ -74,6 +76,10 @@ D:\Olive\olive-venv\Lib\site-packages\onnxruntime\quantization\calibrate.py: Min
 # Output calibrated tensors
 print("+"*20)
 print(len(self.model.graph.node))
+from collections import Counter
+type_counts = Counter([node.op_type for node in self.model.graph.node])
+for string, count in type_counts.items():
+    print(f"{string}: {count}")
 print(len(tensors))
 
 # Save aug model

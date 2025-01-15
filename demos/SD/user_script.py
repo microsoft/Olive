@@ -61,9 +61,18 @@ def text_encoder_load(model_name):
 def text_encoder_conversion_inputs(model=None):
     return text_encoder_inputs(1, torch.int32)
 
+class EncoderDataLoader(BaseDataLoader):
+    def __init__(self):
+        super().__init__()
+        for f in folders:
+            data = torch.from_numpy(np.fromfile(f + '/cond_tokens.raw', dtype=np.int32).reshape(1, 77))
+            self.data.append({ "tokens": data })
+            data = torch.from_numpy(np.fromfile(f + '/uncond_tokens.raw', dtype=np.int32).reshape(1, 77))
+            self.data.append({ "tokens": data })
 
 @Registry.register_dataloader()
 def text_encoder_data_loader(dataset, batch_size, *args, **kwargs):
+    return EncoderDataLoader()
     return RandomDataLoader(text_encoder_inputs, batch_size, torch.int32)
 
 
