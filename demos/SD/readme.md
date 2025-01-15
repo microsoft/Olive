@@ -3,6 +3,34 @@
 
 https://huggingface.co/stabilityai/stable-diffusion-2-1-base/tree/main
 
+### Text encoder
+
+Constant: 357
+Reshape: 233
+Gather: 5
+ConstantOfShape: 1
+Cast: 1
+Mul: 72
+Add: 303
+ArgMax: 1
+Equal: 1
+ReduceMean: 94
+Where: 1
+Sub: 47
+Expand: 1
+Pow: 47
+Sqrt: 47
+Div: 47
+MatMul: 184
+Transpose: 115
+Softmax: 23
+Gelu: 23
+Shape: 2
+Flatten: 1
+Concat: 2
+
+
+
 ## Dependency
 
 https://github.com/microsoft/Olive/issues/1267: `pip install transformers==4.42.4`

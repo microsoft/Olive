@@ -48,7 +48,9 @@ def get_base_model_name(model_name):
 
 
 def text_encoder_inputs(batch_size, torch_dtype):
-    return {"tokens": torch.zeros((batch_size, 77), dtype=torch_dtype)}
+# TODO File "D:\Olive\olive-venv\Lib\site-packages\transformers\models\clip\modeling_clip.py", line 693, in forward
+#    raise ValueError("You have to specify input_ids")
+    return {"input_ids": torch.zeros((batch_size, 77), dtype=torch_dtype)}
 
 
 def text_encoder_load(model_name):

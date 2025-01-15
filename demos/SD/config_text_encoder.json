@@ -7,7 +7,7 @@
         "io_config": {
             "input_names": [ "tokens" ],
             "output_names": [ "text_feature", "pooler_output" ],
-            "dynamic_axes": { "tokens": { "0": "batch", "1": "sequence" } }
+            "dynamic_axes": { "input_ids": { "0": "batch", "1": "sequence" } }
         },
         "dummy_inputs_func": "text_encoder_conversion_inputs"
     },
@@ -26,7 +26,10 @@
         }
     ],
     "passes": {
-        "convert": { "type": "OnnxConversion", "target_opset": 14 },
+        "convert": {
+            "type": "OnnxConversion",
+            "target_opset": 17
+        },
         "dynamic_shape_to_fixed": {
             "type": "DynamicToFixedShape",
             "dim_param": [ "batch", "sequence" ],
