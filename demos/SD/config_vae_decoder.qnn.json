@@ -19,7 +19,8 @@
     ],
     "passes": {
         "qnn_preprocess": {
-            "type": "QNNPreprocess"
+            "type": "QNNPreprocess",
+            "fuse_layernorm": true
         },
         "quantization": {
             "type": "OnnxStaticQuantization",
@@ -27,7 +28,7 @@
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
-            "op_types_to_quantize": [ "MatMul" ]
+            "op_types_to_quantize": [ "MatMul", "LayerNormalization" ]
         }
     },
     "log_severity_level": 0,

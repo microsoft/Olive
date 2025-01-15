@@ -27,7 +27,7 @@
             "data_config": "quant_data_config",
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
-            "op_types_to_quantize": ["MatMul"]
+            "op_types_to_quantize": [ "MatMul", "LayerNormalization" ]
         }
     },
     "log_severity_level": 0,
