@@ -198,33 +198,34 @@ def test_onnx_peephole_optimizer_pass_fuse_reshape_operations(tmp_path, external
 @patch("olive.passes.onnx.peephole_optimizer.model_proto_to_olive_model")
 @patch("onnxoptimizer.optimize")
 @patch("onnxscript.optimizer.optimize")
-def test_onnxscript(mock_onnxscript_optimize, mock_onnxoptimizer_optimize, mock_model_proto_to_olive_model, tmp_path):
+def test_onnxscript(mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_olive_model, tmp_path):
     # setup
     input_model = get_onnx_model()
     p = create_pass_from_dict(OnnxPeepholeOptimizer, {}, disable_search=True)
+    mock_onnxscript.return_value = input_model.load_model()
+    mock_onnxoptimizer.return_value = input_model.load_model()
     output_folder = str(tmp_path / "onnx")
 
     # execute
     p.run(input_model, output_folder)
 
     # assert
-    mock_onnxscript_optimize.assert_called_once_with(input_model.load_model())
+    mock_onnxscript.assert_called_once_with(input_model.load_model())
 
 
 @patch("olive.passes.onnx.peephole_optimizer.model_proto_to_olive_model")
 @patch("onnxoptimizer.optimize")
 @patch("onnxscript.optimizer.optimize")
-def test_onnxoptimizer(
-    mock_onnxscript_optimize, mock_onnxoptimizer_optimize, mock_model_proto_to_olive_model, tmp_path
-):
+def test_onnxoptimizer(mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_olive_model, tmp_path):
     # setup
     input_model = get_onnx_model()
     p = create_pass_from_dict(OnnxPeepholeOptimizer, {}, disable_search=True)
-
+    mock_onnxscript.return_value = input_model.load_model()
+    mock_onnxoptimizer.return_value = input_model.load_model()
     output_folder = str(tmp_path / "onnx")
 
     # execute
     p.run(input_model, output_folder)
 
     # assert
-    mock_onnxoptimizer_optimize.assert_called_once()
+    mock_onnxoptimizer.assert_called_once()
