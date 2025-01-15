@@ -31,6 +31,7 @@ class BaseHFTrainingArguments(NestedConfig):
 
     _nested_field_name = "extra_args"
 
+    gradient_checkpointing: bool = Field(True, description="Use gradient checkpointing. Recommended.")
     report_to: Union[str, List[str]] = Field(
         "none", description="The list of integrations to report the results and logs to."
     )
@@ -79,7 +80,7 @@ def load_hf_base_model(
     model_handler: HfModelHandler,
     torch_dtype: Optional["torch.dtype"] = None,
     device_map: Optional[Union[int, str, Dict]] = None,
-    **kwargs
+    **kwargs,
 ) -> "PreTrainedModel":
     """Load a base PyTorch model.
 
@@ -115,6 +116,57 @@ def load_hf_base_model(
     new_model_handler.load_kwargs = HfLoadKwargs(**load_kwargs)
 
     return new_model_handler.load_model(cache_model=False)
+
+
+def prepare_model_for_finetuning(model: "PreTrainedModel", training_args: BaseHFTrainingArguments):
+    """Prepare the model for fine-tuning.
+
+    Freeze base model's layers and prepare model for gradient checkpointing if necessary.
+    Similar to peft.prepare_model_for_kbit_training but no casting to fp32 and gradient checkpointing is
+    also supported for non-quantized models.
+
+    :param model: The Hugging Face PyTorch model to prepare for fine-tuning.
+    :param training_args: The training arguments for the model.
+    """
+    for param in model.parameters():
+        # freeze base model's layers
+        param.requires_grad = False
+
+    if training_args.gradient_checkpointing and not model.supports_gradient_checkpointing:
+        logger.warning(
+            "gradient_checkpointing is True, but model does not support gradient checkpointing! Setting"
+            " gradient_checkpoing to False"
+        )
+        training_args.gradient_checkpointing = False
+    elif training_args.gradient_checkpointing:
+        # For backward compatibility
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
+        else:
+
+            def make_inputs_require_grad(module_, input_, output_):
+                output_.requires_grad_(True)
+
+            model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+
+        # enable gradient checkpointing for memory efficiency
+        model.gradient_checkpointing_enable()
+
+    logger.debug("The number of trainable parameters in the original model: %s", count_trainable_parameters(model))
+
+
+def count_trainable_parameters(model) -> str:
+    """Count and return the number of trainable parameters in a model."""
+    trainable_params = 0
+    all_param = 0
+    for param in model.parameters():
+        all_param += param.numel()
+        if param.requires_grad:
+            trainable_params += param.numel()
+    return (
+        f"trainable params: {trainable_params} || all params: {all_param} "
+        f"|| trainable%: {100 * trainable_params / all_param:.2f}"
+    )
 
 
 DEFAULT_DEEPSPEED_CONFIG = {

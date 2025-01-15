@@ -30,7 +30,12 @@ from olive.model import HfModelHandler
 from olive.model.config.hf_config import HfLoadKwargs
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
-from olive.passes.pytorch.utils.train_utils import BaseHFTrainingArguments, load_hf_base_model
+from olive.passes.pytorch.utils.train import (
+    BaseHFTrainingArguments,
+    count_trainable_parameters,
+    load_hf_base_model,
+    prepare_model_for_finetuning,
+)
 from olive.strategy.search_parameter import Categorical
 
 if TYPE_CHECKING:
@@ -51,7 +56,6 @@ class HFTrainingArguments(BaseHFTrainingArguments):
     # TODO(jambayk): is this default optim required? does it work for regular lora? what about lr_scheduler_type?
     optim: str = Field("paged_adamw_32bit", description="The optimizer to use.")
     learning_rate: float = Field(0.0002, description="The initial learning rate for AdamW.")
-    gradient_checkpointing: bool = Field(True, description="Use gradient checkpointing. Recommended.")
     lr_scheduler_type: str = Field(
         "constant",
         description="Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.",
@@ -239,40 +243,6 @@ class LoRABase(Pass):
 
         return train_dataset, eval_dataset
 
-    @staticmethod
-    def prepare_model_for_lora_finetuning(
-        model: "PreTrainedModel", use_gradient_checkpointing: bool
-    ) -> "PreTrainedModel":
-        """Prepare the model for fine-tuning.
-
-        Freeze base model's layers and prepare model for gradient checkpointing if necessary.
-        Similar to peft.prepare_model_for_kbit_training but no casting to fp32 and gradient checkpointing is
-        also supported for non-quantized models.
-
-        :param model: The Hugging Face PyTorch model to prepare for fine-tuning.
-        :param use_gradient_checkpointing: Whether to use gradient checkpointing.
-        :return: The prepared model.
-        """
-        for param in model.parameters():
-            # freeze base model's layers
-            param.requires_grad = False
-
-        if use_gradient_checkpointing:
-            # For backward compatibility
-            if hasattr(model, "enable_input_require_grads"):
-                model.enable_input_require_grads()
-            else:
-
-                def make_inputs_require_grad(module_, input_, output_):
-                    output_.requires_grad_(True)
-
-                model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
-
-            # enable gradient checkpointing for memory efficiency
-            model.gradient_checkpointing_enable()
-
-        return model
-
     def load_base_pytorch_model(self, model_handler: HfModelHandler, config: ConfigBase, **kwargs) -> "PreTrainedModel":
         """Load a base PyTorch model for fine-tuning.
 
@@ -358,14 +328,7 @@ class LoRABase(Pass):
         from peft import PeftModel
 
         logger.debug("Enabling LoRA fine-tuning")
-        if config.training_args.gradient_checkpointing and not model.supports_gradient_checkpointing:
-            logger.warning(
-                "gradient_checkpointing is True, but model does not support gradient checkpointing! Setting"
-                " gradient_checkpoing to False"
-            )
-            config.training_args.gradient_checkpointing = False
-
-        model = self.prepare_model_for_lora_finetuning(model, config.training_args.gradient_checkpointing)
+        prepare_model_for_finetuning(model, config.training_args)
 
         # set model_parallel and is_parallelizable to True
         # we are using "auto" device_map, so model_parallel is True or doing DDP
@@ -373,18 +336,13 @@ class LoRABase(Pass):
         model.model_parallel = True
         model.is_parallelizable = True
 
-        logger.debug(
-            "The number of trainable parameters in the original model: %s", self.count_trainable_parameters(model)
-        )
         if not adapter_path:
             logger.debug("Initializing LoRA adapters from config")
             lora_model = self.init_lora_adapters(model, task, config, target_modules=target_modules)
         else:
             logger.debug("Loading LoRA adapters from %s", adapter_path)
             lora_model = PeftModel.from_pretrained(model, adapter_path, is_trainable=True)
-        logger.debug(
-            "The number of trainable parameters in the LoRA model: %s", self.count_trainable_parameters(lora_model)
-        )
+        logger.debug("The number of trainable parameters in the LoRA model: %s", count_trainable_parameters(lora_model))
         # no need to cast lora modules to model's dtype, we dont do peft.prepare_model_for_kbit_training so the modules
         # are already in the same dtype as the model
         # casting to dtype is risky since for awq quant linear, it also casts the scales to dtype and but the qlinear
@@ -500,20 +458,6 @@ class LoRABase(Pass):
         supported_dtypes = ("bfloat16", "float16", "float32")
         assert torch_dtype in supported_dtypes, f"torch_dtype must be one of {supported_dtypes} but got {torch_dtype}"
         return resolve_torch_dtype(torch_dtype)
-
-    @staticmethod
-    def count_trainable_parameters(model) -> str:
-        """Count and return the number of trainable parameters in a model."""
-        trainable_params = 0
-        all_param = 0
-        for param in model.parameters():
-            all_param += param.numel()
-            if param.requires_grad:
-                trainable_params += param.numel()
-        return (
-            f"trainable params: {trainable_params} || all params: {all_param} "
-            f"|| trainable%: {100 * trainable_params / all_param:.2f}"
-        )
 
 
 class LoRA(LoRABase):

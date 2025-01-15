@@ -273,20 +273,26 @@
             "supported_precisions": [ "*" ],
             "module_dependencies": [ "pytorch-lightning" ]
         },
+        "QuaRot": {
+            "module_path": "olive.passes.pytorch.rotate.QuaRot",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ]
+        },
         "SparseGPT": {
             "module_path": "olive.passes.pytorch.sparsegpt.SparseGPT",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ]
         },
-        "SliceGPT": {
-            "module_path": "olive.passes.pytorch.slicegpt.SliceGPT",
+        "SpinQuant": {
+            "module_path": "olive.passes.pytorch.rotate.SpinQuant",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ]
         },
-        "QuaRot": {
-            "module_path": "olive.passes.pytorch.rotate.QuaRot",
+        "SliceGPT": {
+            "module_path": "olive.passes.pytorch.slicegpt.SliceGPT",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ]
