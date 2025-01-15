@@ -84,6 +84,17 @@ onnx.save(
 )
 ```
 
+### 3 op_types_to_quantize is overwitten by prepare_qnn_config
+
+D:\Olive\olive-venv\Lib\site-packages\olive\passes\onnx\quantization.py: OnnxQuantization: _run_for_config
+
+```
+                # if we set it, overwrite from qnn_qdq_config
+                if config["op_types_to_quantize"]:
+                    run_config["op_types_to_quantize"] = config["op_types_to_quantize"]
+                print("^"*20)
+                print(run_config)
+```
 
 ## Other
 

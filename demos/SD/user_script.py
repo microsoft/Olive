@@ -26,7 +26,17 @@ class RandomDataLoader:
         label = None
         return self.create_input_func(self.batch_size, self.torch_dtype) #, label
 
+class BaseDataLoader:
+    def __init__(self):
+        self.data = []
+
+    def __getitem__(self, idx):
+        print("getitem: " + str(idx))
+        if idx >= len(self.data): return None
+        return self.data[idx]
+
 folders = [f"data/{f.name}" for f in os.scandir('data') if f.is_dir()]
+folders = folders[:1]
 print(folders)
 
 def get_base_model_name(model_name):
@@ -92,9 +102,21 @@ def unet_load(model_name):
 def unet_conversion_inputs(model=None):
     return tuple(unet_inputs(1, torch.float32, True).values())
 
+class UnetDataLoader(BaseDataLoader):
+    def __init__(self):
+        super().__init__()
+        for f in folders:
+            for i in range(5):
+                latent = torch.from_numpy(np.fromfile(f + f'/{i}_latent.raw', dtype=np.float32).reshape(1, 4, 64, 64))
+                time = torch.from_numpy(np.fromfile(f + f'/{i}_time.raw', dtype=np.float32).reshape(1))
+                text = torch.from_numpy(np.fromfile(f + f'/{i}_text.raw', dtype=np.float32).reshape(1, 77, 1024))
+                self.data.append({ "latent": latent, "time_emb": time, "text_emb": text })
+                text = torch.from_numpy(np.fromfile(f + f'/{i}_untext.raw', dtype=np.float32).reshape(1, 77, 1024))
+                self.data.append({ "latent": latent, "time_emb": time, "text_emb": text })
 
 @Registry.register_dataloader()
 def unet_data_loader(dataset, batch_size, *args, **kwargs):
+    return UnetDataLoader()
     return RandomDataLoader(unet_inputs, batch_size, torch.float32)
 
 # -----------------------------------------------------------------------------
@@ -119,47 +141,16 @@ def vae_decoder_load(model_name):
 def vae_decoder_conversion_inputs(model=None):
     return tuple(vae_decoder_inputs(1, torch.float32).values())
 
-class DecoderDataLoader:
+class DecoderDataLoader(BaseDataLoader):
     def __init__(self):
-        self.data = []
+        super().__init__()
         for f in folders:
             data = torch.from_numpy(np.fromfile(f + '/latent.raw', dtype=np.float32).reshape(1, 4, 64, 64))
             self.data.append({ "latent": data })
 
-    def __getitem__(self, idx):
-        print("getitem: " + str(idx))
-        if idx >= len(self.data) or idx >= 1: return None
-        return self.data[idx]
 
 @Registry.register_dataloader()
 def vae_decoder_data_loader(dataset, batch_size, *args, **kwargs):
     return DecoderDataLoader()
     return RandomDataLoader(vae_decoder_inputs, batch_size, torch.float32, 100)
 
-
-# -----------------------------------------------------------------------------
-# SAFETY CHECKER
-# -----------------------------------------------------------------------------
-
-
-def safety_checker_inputs(batch_size, torch_dtype):
-    return {
-        "clip_input": torch.rand((batch_size, 3, 224, 224), dtype=torch_dtype),
-        "images": torch.rand((batch_size, config.vae_sample_size, config.vae_sample_size, 3), dtype=torch_dtype),
-    }
-
-
-def safety_checker_load(model_name):
-    base_model_id = get_base_model_name(model_name)
-    model = StableDiffusionSafetyChecker.from_pretrained(base_model_id, subfolder="safety_checker")
-    model.forward = model.forward_onnx
-    return model
-
-
-def safety_checker_conversion_inputs(model=None):
-    return tuple(safety_checker_inputs(1, torch.float32).values())
-
-
-@Registry.register_dataloader()
-def safety_checker_data_loader(dataset, batch_size, *args, **kwargs):
-    return RandomDataLoader(safety_checker_inputs, batch_size, torch.float16)
