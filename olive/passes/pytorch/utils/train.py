@@ -12,6 +12,7 @@ import transformers
 from olive.common.config_utils import NestedConfig
 from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import cleanup_memory
+from olive.data.config import DataConfig
 from olive.model import HfModelHandler
 from olive.model.config.hf_config import HfLoadKwargs
 
@@ -167,6 +168,30 @@ def count_trainable_parameters(model) -> str:
         f"trainable params: {trainable_params} || all params: {all_param} "
         f"|| trainable%: {100 * trainable_params / all_param:.2f}"
     )
+
+
+def get_training_dataset(data_config: DataConfig):
+    """Get the training dataset from the data config."""
+    from datasets import Dataset
+
+    def data_generator(dataset):
+        # not iterating over dataset directly since we only require loaded dataset to have __len__ and __getitem__
+        for idx in range(len(dataset)):  # pylint: disable=consider-using-enumerate
+            example = dataset[idx]
+            if isinstance(example, tuple):
+                # if example = {**example[0], "labels": example[1]}, the attention_mask is not the same
+                # for some reason, so yield a new dict
+                yield {**example[0], "labels": example[1]}
+            else:
+                yield example
+
+    # each sample is an (input_dict, target) tuple
+    data_container = data_config.to_data_container()
+    dataset = data_container.pre_process(data_container.load_dataset())
+    dataset = Dataset.from_generator(data_generator, gen_kwargs={"dataset": dataset})
+    dataset.set_format("torch")
+
+    return dataset
 
 
 DEFAULT_DEEPSPEED_CONFIG = {

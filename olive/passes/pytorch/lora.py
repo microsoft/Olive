@@ -33,6 +33,7 @@ from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pytorch.utils.train import (
     BaseHFTrainingArguments,
     count_trainable_parameters,
+    get_training_dataset,
     load_hf_base_model,
     prepare_model_for_finetuning,
 )
@@ -213,33 +214,13 @@ class LoRABase(Pass):
     ) -> Tuple["Dataset", Optional["Dataset"]]:
         """Load training and evaluation datasets."""
         # we return dataset.Dataset object since the trainer works better with it
-        from datasets import Dataset
-
-        train_data_config = config.train_data_config
-        eval_data_config = config.eval_data_config
-
-        def data_generator(data_config):
-            data_container = data_config.to_data_container()
-            dataset = data_container.pre_process(data_container.load_dataset())
-
-            for idx in range(len(dataset)):  # pylint: disable=consider-using-enumerate
-                example = dataset[idx]
-                if isinstance(example, tuple):
-                    # if example = {**example[0], "labels": example[1]}, the attention_mask is not the same
-                    # for some reason, so yield a new dict
-                    yield {**example[0], "labels": example[1]}
-                else:
-                    yield example
-
         # load training dataset
-        train_dataset = Dataset.from_generator(data_generator, gen_kwargs={"data_config": train_data_config})
-        train_dataset.set_format("torch")
+        train_dataset = get_training_dataset(config.train_data_config)
 
         # load evaluation dataset if needed
         eval_dataset = None
-        if eval_data_config:
-            eval_dataset = Dataset.from_generator(data_generator, gen_kwargs={"data_config": eval_data_config})
-            eval_dataset.set_format("torch")
+        if config.eval_data_config:
+            eval_dataset = get_training_dataset(config.eval_data_config)
 
         return train_dataset, eval_dataset
 

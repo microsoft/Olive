@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import tempfile
 from copy import deepcopy
 from functools import partial
 from typing import Any, Dict, Optional, Union
@@ -12,6 +13,7 @@ import torch
 from olive.common.hf.adapter import ModelAdapter
 from olive.common.pydantic_v1 import Field
 from olive.common.utils import StrEnumBase, replace_submodules, set_attr
+from olive.data.template import huggingface_data_config_template
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.passes import Pass
@@ -20,6 +22,7 @@ from olive.passes.pytorch.common import inherit_hf_from_hf
 from olive.passes.pytorch.utils.train import (
     BaseHFTrainingArguments,
     count_trainable_parameters,
+    get_training_dataset,
     load_hf_base_model,
     prepare_model_for_finetuning,
 )
@@ -102,11 +105,11 @@ class RotateBase(Pass):
 
         # rotate the model
         torch.manual_seed(seed)
-        rotation_params = {}
+        rotation_params = []
         R1 = torch.nn.Parameter(
             get_orthogonal_matrix(model_adapter.hidden_size, rotate_mode, model_adapter.model.device)
         )
-        rotation_params["R1"] = R1
+        rotation_params.append(R1)
 
         # rotate embeddings and lm_head
         for embed, embed_name in zip(*model_adapter.get_embeds(return_name=True)):
@@ -120,7 +123,7 @@ class RotateBase(Pass):
         model_adapter.maybe_unpack_qkv()
 
         # rotate the hidden layers
-        for i, layer_adapter in enumerate(model_adapter.get_layer_adapters()):
+        for layer_adapter in model_adapter.get_layer_adapters():
             R2 = None
             for linear_idx, (linear, linear_name) in enumerate(
                 zip(*layer_adapter.get_attention_inputs(return_name=True))
@@ -133,7 +136,7 @@ class RotateBase(Pass):
                     R2 = torch.nn.Parameter(
                         get_orthogonal_matrix(model_adapter.head_dim, rotate_mode, model_adapter.model.device)
                     )
-                    rotation_params[f"R2_{i}"] = R2
+                    rotation_params.append(R2)
                 set_attr(
                     layer_adapter.layer,
                     linear_name,
@@ -211,6 +214,10 @@ class HFTrainingArguments(BaseHFTrainingArguments):
         1,
         description="Number of training epochs.",
     )
+    logging_steps: int = Field(
+        20,
+        description="Log every n updates steps.",
+    )
 
 
 class SpinQuant(RotateBase):
@@ -252,8 +259,11 @@ class SpinQuant(RotateBase):
         return config
 
     def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+        from transformers import Trainer
+
         from olive.passes.pytorch.utils.quant import ActQuantLinear
         from olive.passes.pytorch.utils.rotate import RotateLinear
+        from olive.passes.pytorch.utils.sgdg import SGDG
 
         training_args = HFTrainingArguments.parse_obj(config["training_args"] or {})
 
@@ -272,8 +282,55 @@ class SpinQuant(RotateBase):
         )
         save_replacements = [(ActQuantLinear, lambda x: x.linear), *save_replacements]
 
+        with tempfile.TemporaryDirectory(prefix="olive_tmp") as temp_dir:
+            if not training_args.output_dir:
+                training_args.output_dir = temp_dir
+
+            # training data
+            train_dataset = get_training_dataset(
+                self.get_train_data_config(
+                    model.model_name_or_path, trust_remote_code=model.get_load_kwargs.get("trust_remote_code", None)
+                )
+            )
+
+            # optimizer
+            optimizer = SGDG(
+                rotation_params, lr=training_args.learning_rate, weight_decay=training_args.weight_decay, stiefel=True
+            )
+
+            # get the trainer
+            trainer = Trainer(
+                model=model_adapter.model,
+                args=training_args.create_training_args(),
+                train_dataset=train_dataset,
+                optimizers=(optimizer, None),
+            )
+
+            # train
+            logger.info("Running training.")
+            train_result = trainer.train()
+            logger.debug("train_result: %s", train_result)
+
         # save the model
         model_adapter.save_model(output_model_path, replacements=save_replacements)
         model.save_metadata(output_model_path)
 
         return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
+
+    def get_train_data_config(self, model_name_or_path: str, trust_remote_code: Optional[bool] = None):
+        return huggingface_data_config_template(
+            model_name=model_name_or_path,
+            task="text-generation",
+            load_dataset_config={
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train",
+                "trust_remote_code": trust_remote_code,
+            },
+            pre_process_data_config={
+                "add_special_tokens": False,
+                "max_seq_len": 2048,
+                "max_samples": 800,
+                "trust_remote_code": trust_remote_code,
+            },
+        )
