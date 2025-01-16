@@ -297,6 +297,12 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ]
         },
+        "SpinQuant": {
+            "module_path": "olive.passes.pytorch.rotate.SpinQuant",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ]
+        },
         "SliceGPT": {
             "module_path": "olive.passes.pytorch.slicegpt.SliceGPT",
             "supported_providers": [ "*" ],

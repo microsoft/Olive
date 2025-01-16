@@ -3,19 +3,30 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import tempfile
 from copy import deepcopy
+from functools import partial
 from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
 import torch
 from torch import nn
 
 from olive.common.hf.wrapper import ModelWrapper
-from olive.common.utils import StrEnumBase, cleanup_memory, set_attr
+from olive.common.pydantic_v1 import Field
+from olive.common.utils import StrEnumBase, cleanup_memory, replace_submodules, set_attr
+from olive.data.template import huggingface_data_config_template
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
+from olive.passes.pytorch.train_utils import (
+    BaseHFTrainingArguments,
+    count_trainable_parameters,
+    get_training_dataset,
+    load_hf_base_model,
+    prepare_model_for_finetuning,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +56,19 @@ class RotateBase(Pass):
         }
 
     @torch.no_grad()
-    def rotate_model(self, model: HfModelHandler, rotate_mode: str, seed: int):
+    def rotate_model(
+        self,
+        model: HfModelHandler,
+        rotate_mode: str,
+        seed: int,
+        training_args: Optional[BaseHFTrainingArguments] = None,
+    ):
         """Create a new model with rotate modules.
 
         :param model: HfModelHandler: The model to rotate.
         :param rotate_mode: str: The rotation method to use.
         :param seed: int: The random seed for the rotation.
+        :param training_args: Optional[BaseHFTrainingArguments]: The training arguments for the model.
         :return: ModelWrapper with the rotated model, rotation parameters, and save replacements.
         """
         if model.adapter_path:
@@ -65,8 +83,18 @@ class RotateBase(Pass):
             model = deepcopy(model)
             model.set_resource("adapter_path", None)
 
-        # create model wrapper
-        model_wrapper = ModelWrapper.from_model(model.load_model(cache_model=True))
+        # load pytorch model
+        torch_dtype = None
+        if training_args:
+            torch_dtype = torch.bfloat16 if training_args.bf16 else torch.float16
+        pytorch_model = load_hf_base_model(model, torch_dtype=torch_dtype)
+
+        # prepare model for finetuning
+        if training_args:
+            prepare_model_for_finetuning(pytorch_model, training_args)
+
+        # create model model_wrapper
+        model_wrapper = ModelWrapper.from_model(pytorch_model)
 
         # fuse layernorms into adjacent linear layers
         self.fuse_layer_norms(model_wrapper)
@@ -120,6 +148,12 @@ class RotateBase(Pass):
             for linear, linear_name in zip(*layer_wrapper.get_mlp_outputs()):
                 # Wdown @ R1
                 set_attr(layer_wrapper.layer, linear_name, RotateLinear(linear, Q_post=R1))
+
+        if training_args:
+            logger.debug(
+                "The number of trainable parameters in the trainable model: %s",
+                count_trainable_parameters(model_wrapper.model),
+            )
 
         return (
             model_wrapper,
@@ -217,7 +251,160 @@ class QuaRot(RotateBase):
         return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
 
 
-# Rotated Embedding and Linear Layers
+class HFTrainingArguments(BaseHFTrainingArguments):
+    """Training arguments for transformers.Trainer.
+
+    Has the same fields as transformers.TrainingArguments with recommended default values for SpinQuant
+    """
+
+    bf16 = Field(
+        True, description="Whether to use bfloat16 precision. Recommended for performance on supported hardware."
+    )
+    per_device_train_batch_size: int = Field(
+        4,
+        description="The batch size per GPU. Only effective batch size 8 has been tested.",
+    )
+    gradient_accumulation_steps: int = Field(
+        2,
+        description="Number of updates steps to accumulate before performing a backward/update pass.",
+    )
+    learning_rate: float = Field(1.5, description="The initial learning rate for AdamW.")
+    weight_decay: float = Field(0.0, description="Weight decay to apply.")
+    lr_scheduler_type: str = Field(
+        "cosine",
+        description="Learning rate schedule.",
+    )
+    num_train_epochs: int = Field(
+        1,
+        description="Number of training epochs.",
+    )
+    logging_steps: int = Field(
+        10,
+        description="Log every n updates steps.",
+    )
+
+
+class SpinQuant(RotateBase):
+    """Rotate model using SpinQuant.
+
+    See https://arxiv.org/pdf/2405.16406 for more details on the algorithm. Only offline weight rotation is supported.
+    Can be followed by a pass such as GPTQ to quantize the rotated model weights.
+
+    This pass only supports HfModelHandler.
+    """
+
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        config = super()._default_config(accelerator_spec)
+        config.update(
+            {
+                "a_bits": PassConfigParam(
+                    type_=int,
+                    default_value=16,
+                    description="Number of bits for dynamic quantization of activations.",
+                ),
+                "a_symmetric": PassConfigParam(
+                    type_=bool,
+                    default_value=True,
+                    description="Whether to use symmetric quantization for activations.",
+                ),
+                "a_per_token": PassConfigParam(
+                    type_=bool,
+                    default_value=True,
+                    description="Whether to quantize activations per token. If False, quantize activations per tensor.",
+                ),
+                # training parameters
+                "training_args": PassConfigParam(
+                    type_=Union[HFTrainingArguments, Dict],
+                    default_value=None,
+                    description=("Training arguments. If None, will use default arguments."),
+                ),
+            }
+        )
+        return config
+
+    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+        from transformers import Trainer
+
+        from olive.passes.pytorch.sgdg import SGDG
+
+        training_args = HFTrainingArguments.parse_obj(config["training_args"] or {})
+
+        # rotate the model
+        model_wrapper, rotation_params, save_replacements = self.rotate_model(
+            model, config["rotate_mode"], config["seed"], training_args
+        )
+
+        # add activation quantization to the layer linear modules
+        replace_submodules(
+            model_wrapper.get_layers(False),
+            RotateLinear,
+            partial(
+                ActQuantLinear, bits=config["a_bits"], symmetric=config["a_symmetric"], per_token=config["a_per_token"]
+            ),
+        )
+        save_replacements = [(ActQuantLinear, lambda x: x.linear), *save_replacements]
+
+        with tempfile.TemporaryDirectory(prefix="olive_tmp") as temp_dir:
+            if not training_args.output_dir:
+                training_args.output_dir = temp_dir
+
+            # training data
+            train_dataset = get_training_dataset(
+                self.get_train_data_config(
+                    model.model_name_or_path, trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None)
+                )
+            )
+
+            # optimizer
+            optimizer = SGDG(
+                rotation_params, lr=training_args.learning_rate, weight_decay=training_args.weight_decay, stiefel=True
+            )
+
+            # get the trainer
+            training_args = training_args.create_training_args()
+            # save strategy is set to "no" to avoid saving the model after training. shared rotation parameters are not
+            # compatible with checkpointing
+            training_args.save_strategy = "no"
+            trainer = Trainer(
+                model=model_wrapper.model,
+                args=training_args,
+                train_dataset=train_dataset,
+                optimizers=(optimizer, None),
+            )
+
+            # train
+            logger.info("Running training.")
+            train_result = trainer.train()
+            logger.debug("train_result: %s", train_result)
+
+        # save the model
+        model_wrapper.save_model(output_model_path, replacements=save_replacements)
+        model.save_metadata(output_model_path)
+
+        return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
+
+    @staticmethod
+    def get_train_data_config(model_name_or_path: str, trust_remote_code: Optional[bool] = None):
+        return huggingface_data_config_template(
+            model_name=model_name_or_path,
+            task="text-generation",
+            load_dataset_config={
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train",
+                "trust_remote_code": trust_remote_code,
+            },
+            pre_process_data_config={
+                "add_special_tokens": False,
+                "max_seq_len": 2048,
+                "max_samples": 800,
+                "trust_remote_code": trust_remote_code,
+            },
+        )
+
+
+# Rotated Embedding and Linear Modules
 
 
 def rotate_weight(
@@ -331,3 +518,81 @@ class RotateLinear(nn.Module):
             linear.bias = nn.Parameter(bias.contiguous())
 
         return linear
+
+
+# Activation Quantized Linear Module
+
+
+class QuantizeDequantizeSTEFunction(torch.autograd.Function):
+    """Quantize-Dequantize function with Straight-Through Estimator."""
+
+    # pylint: disable=W0223,W0221
+    @staticmethod
+    def forward(ctx, x, scale, zero, maxq):
+        q = torch.clamp(torch.round(x / scale) + zero, 0, maxq)
+        return scale * (q - zero)
+
+    @staticmethod
+    def backward(ctx, grad_q):
+        return grad_q, None, None, None
+
+
+class ActQuantLinear(nn.Module):
+    """Linear Module with quantized activations."""
+
+    def __init__(self, linear: nn.Module, bits: int, symmetric: bool = True, per_token: bool = True):
+        super().__init__()
+        self.linear = linear
+        self.bits = bits
+        self.symmetric = symmetric
+        self.per_token = per_token
+
+        self.maxq = torch.tensor(2**bits - 1)
+
+    def get_qparams(self, x: torch.Tensor):
+        device = x.device
+
+        # put maxq on the same device as x
+        self.maxq = self.maxq.to(device)
+
+        x_shape = x.shape
+        if self.per_token:
+            x = x.view(-1, x_shape[-1])
+        else:
+            x = x.flatten().unsqueeze(0)
+
+        # range needs to include 0
+        tmp = torch.zeros(x.shape[0], device=device)
+        xmin = torch.minimum(x.min(1)[0], tmp)
+        xmax = torch.maximum(x.max(1)[0], tmp)
+
+        if self.symmetric:
+            # symmetric quantization has same range on both sides of 0
+            tmp = torch.maximum(torch.abs(xmin), xmax)
+            xmin = -tmp
+            xmax = tmp
+
+        # avoid zero scale
+        tmp = (xmin == 0) & (xmax == 0)
+        xmin[tmp] = -1
+        xmax[tmp] = 1
+
+        scale = (xmax - xmin) / self.maxq
+        if self.symmetric:
+            zero = torch.full_like(scale, (self.maxq + 1) / 2)
+        else:
+            zero = torch.round(-xmin / scale)
+
+        if self.per_token:
+            scale = scale.view(x_shape[:-1] + (1,))
+            zero = zero.view(x_shape[:-1] + (1,))
+        else:
+            scale = scale.flatten()
+            zero = zero.flatten()
+
+        return scale, zero
+
+    def forward(self, x: torch.Tensor):
+        scale, zero = self.get_qparams(x)
+        x = QuantizeDequantizeSTEFunction.apply(x, scale, zero, self.maxq).to(x.dtype)
+        return self.linear(x)

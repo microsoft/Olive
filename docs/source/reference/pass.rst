@@ -240,6 +240,12 @@ QuaRot
 ------
 .. autoconfigclass:: olive.passes.QuaRot
 
+.. _spinquant:
+
+SpinQuant
+---------
+.. autoconfigclass:: olive.passes.SpinQuant
+
 .. _gptq_quantizer:
 
 GptqQuantizer
