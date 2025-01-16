@@ -18,8 +18,6 @@ steps:
 
 - ${{ if  eq(parameters.onnxruntime_nightly, true) }}:
   - script: |
-      pip install onnxruntime
-      pip uninstall -y onnxruntime
       pip install -r  https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
       pip install ${{ parameters.onnxruntime }} --pre --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ --disable-pip-version-check
     displayName: Install ${{ parameters.onnxruntime }}
