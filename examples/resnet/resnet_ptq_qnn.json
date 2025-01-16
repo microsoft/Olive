@@ -1,0 +1,192 @@
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "model_path": "models/resnet50.pth",
+        "io_config": {
+            "input_names": [
+                "input"
+            ],
+            "input_shapes": [
+                [
+                    1,
+                    3,
+                    224,
+                    224
+                ]
+            ],
+            "output_names": [
+                "output"
+            ],
+            "dynamic_axes": {
+                "input": {
+                    "0": "batch_size"
+                },
+                "output": {
+                    "0": "batch_size"
+                }
+            }
+        }
+    },
+    "systems": {
+        "host_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "cpu",
+                    "execution_providers": [
+                        "CPUExecutionProvider"
+                    ]
+                }
+            ]
+        },
+        "target_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "npu",
+                    "execution_providers": [
+                        "QNNExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "data_configs": [
+        {
+            "name": "quantize_data_config",
+            "user_script": "imagenet.py",
+            "dataloader_config": {
+                "type": "imagenet_dataloader",
+                "data_dir": "data/imagenet/validation",
+                "batch_size": 1
+            },
+            "post_process_data_config": {
+                "type": "imagenet_post_fun"
+            }
+        }
+    ],
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "data_config": "quantize_data_config",
+                    "sub_types": [
+                        {
+                            "name": "accuracy_score",
+                            "priority": 1,
+                            "metric_config": {
+                                "task": "multiclass",
+                                "num_classes": 1001
+                            }
+                        }
+                    ],
+                    "user_config": {
+                        "inference_settings": {
+                            "onnx": {
+                                "session_options": {
+                                    "extra_session_config": {
+                                        "session.disable_cpu_ep_fallback": "1"
+                                    }
+                                },
+                                "execution_provider": "QNNExecutionProvider",
+                                "provider_options": [
+                                    {
+                                        "backend_path": "QnnHtp.dll"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                {
+                  "name": "latency_qnn",
+                  "type": "latency",
+                  "data_config": "quantize_data_config",
+                  "sub_types": [
+                    { "name": "avg", "priority": 2 },
+                    { "name": "p75" },
+                    { "name": "p90" },
+                    { "name": "p99" }
+                  ],
+                  "user_config": {
+                    "inference_settings": {
+                      "onnx": {
+                        "session_options": {
+                          "extra_session_config": {
+                            "session.disable_cpu_ep_fallback": "1"
+                          }
+                        },
+                        "execution_provider": "QNNExecutionProvider",
+                        "provider_options": [
+                            {
+                                "backend_path": "QnnHtp.dll"
+                            }
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "latency_cpu",
+                  "type": "latency",
+                  "data_config": "quantize_data_config",
+                  "sub_types": [
+                    { "name": "avg", "priority": 3 },
+                    { "name": "p75" },
+                    { "name": "p90" },
+                    { "name": "p99" }
+                  ],
+                  "user_config": {
+                    "inference_settings": {
+                      "onnx": {
+                        "execution_provider": "CPUExecutionProvider"
+                      }
+                    }
+                  }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": {
+            "device": "cpu",
+            "type": "OnnxConversion",
+            "target_opset": 17,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "dynamic": false,
+            "use_dynamo_exporter": false
+        },
+        "DynamicToFixedShape": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [
+                "batch_size"
+            ],
+            "dim_value": [
+                1
+            ]
+        },
+        "QNNPreprocess": {
+            "type": "QNNPreprocess",
+            "fuse_layernorm": true
+        },
+        "OnnxQuantization": {
+            "type": "OnnxQuantization",
+            "data_config": "quantize_data_config",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8",
+            "calibrate_method": "MinMax",
+            "quant_preprocess": true,
+            "prepare_qnn_config": true
+        }
+    },
+    "host": "host_system",
+    "target": "target_system",
+    "evaluator": "common_evaluator",
+    "cache_dir": "cache",
+    "clean_cache": true,
+    "output_dir": "models/resnet_ptq_qnn",
+    "evaluate_input_model": false
+}
