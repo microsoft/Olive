@@ -56,7 +56,7 @@ def fuse_layer_norms(model_adapter: ModelAdapter):
     model_adapter.maybe_untie_word_embeddings()
 
     # Layers: Fuse layernorms into adjacent linear layers
-    for layer_adapter in model_adapter.get_layer_adapters(False):
+    for layer_adapter in model_adapter.get_layer_adapters():
         fuse_ln_linear(layer_adapter.get_first_layer_norm(False), layer_adapter.get_attention_inputs(False))
         fuse_ln_linear(layer_adapter.get_second_layer_norm(False), layer_adapter.get_mlp_inputs(False))
 

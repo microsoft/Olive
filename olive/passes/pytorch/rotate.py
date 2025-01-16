@@ -123,7 +123,7 @@ class RotateBase(Pass):
         model_adapter.maybe_unpack_qkv()
 
         # rotate the hidden layers
-        for layer_adapter in model_adapter.get_layer_adapters(False):
+        for layer_adapter in model_adapter.get_layer_adapters():
             R2 = None
             for linear_idx, (linear, linear_name) in enumerate(zip(*layer_adapter.get_attention_inputs())):
                 # R1^-1 @ Wq, R1^-1 @ Wk, R1^-1 @ Wv @ R2
@@ -319,7 +319,8 @@ class SpinQuant(RotateBase):
 
         return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
 
-    def get_train_data_config(self, model_name_or_path: str, trust_remote_code: Optional[bool] = None):
+    @staticmethod
+    def get_train_data_config(model_name_or_path: str, trust_remote_code: Optional[bool] = None):
         return huggingface_data_config_template(
             model_name=model_name_or_path,
             task="text-generation",

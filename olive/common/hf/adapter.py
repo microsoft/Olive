@@ -252,8 +252,8 @@ class ModelAdapter:
             logger.debug("Untied word embeddings.")
 
     def maybe_unpack_qkv(self):
-        for layer_adapter in self.get_layer_adapters(False):
-            attn_inputs, attn_input_names = layer_adapter.get_attention_inputs(False)
+        for layer_adapter in self.get_layer_adapters():
+            attn_inputs, attn_input_names = layer_adapter.get_attention_inputs()
 
             if len(attn_inputs) != 1 or not isinstance(attn_inputs[0], nn.Linear):
                 return
