@@ -77,5 +77,5 @@ class ActQuantLinear(nn.Module):
 
     def forward(self, x: torch.Tensor):
         scale, zero = self.get_qparams(x)
-        x = QuantizeDequantizeSTEFunction.apply(x, scale, zero, self.maxq)
+        x = QuantizeDequantizeSTEFunction.apply(x, scale, zero, self.maxq).to(x.dtype)
         return self.linear(x)

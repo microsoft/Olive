@@ -197,11 +197,11 @@ class HFTrainingArguments(BaseHFTrainingArguments):
         True, description="Whether to use bfloat16 precision. Recommended for performance on supported hardware."
     )
     per_device_train_batch_size: int = Field(
-        1,
+        4,
         description="The batch size per GPU. Only effective batch size 8 has been tested.",
     )
     gradient_accumulation_steps: int = Field(
-        1,
+        2,
         description="Number of updates steps to accumulate before performing a backward/update pass.",
     )
     learning_rate: float = Field(1.5, description="The initial learning rate for AdamW.")
@@ -215,7 +215,7 @@ class HFTrainingArguments(BaseHFTrainingArguments):
         description="Number of training epochs.",
     )
     logging_steps: int = Field(
-        20,
+        10,
         description="Log every n updates steps.",
     )
 
@@ -289,7 +289,7 @@ class SpinQuant(RotateBase):
             # training data
             train_dataset = get_training_dataset(
                 self.get_train_data_config(
-                    model.model_name_or_path, trust_remote_code=model.get_load_kwargs.get("trust_remote_code", None)
+                    model.model_name_or_path, trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None)
                 )
             )
 
@@ -299,9 +299,13 @@ class SpinQuant(RotateBase):
             )
 
             # get the trainer
+            training_args = training_args.create_training_args()
+            # save strategy is set to "no" to avoid saving the model after training. shared rotation parameters are not
+            # compatible with checkpointing
+            training_args.save_strategy = "no"
             trainer = Trainer(
                 model=model_adapter.model,
-                args=training_args.create_training_args(),
+                args=training_args,
                 train_dataset=train_dataset,
                 optimizers=(optimizer, None),
             )
