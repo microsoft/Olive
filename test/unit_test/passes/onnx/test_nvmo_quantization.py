@@ -5,10 +5,18 @@
 from pathlib import Path
 from test.unit_test.utils import get_onnx_model
 
+import onnxruntime
+import pytest
+from packaging import version
+
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.nvmo_quantization import NVModelOptQuantization
 
 
+@pytest.mark.skipif(
+    version.parse(onnxruntime.__version__) > version.parse("1.20.1"),
+    reason="Fails on onnxruntime 1.21",
+)
 def test_nvmo_quantization(tmp_path):
     ov_model = get_onnx_model()
     data_dir = tmp_path / "data"
