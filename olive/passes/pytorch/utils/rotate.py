@@ -47,7 +47,7 @@ def fuse_layer_norms(model_adapter: ModelAdapter):
     # - baking mean into output layers
     # - replacing layernorm with RMSNorm
     # Model architecture changes are required
-    if isinstance(model_adapter.get_pre_head_layernorm(), nn.LayerNorm):
+    if isinstance(model_adapter.get_pre_head_layernorm(False), nn.LayerNorm):
         raise ValueError("Model uses LayerNorm. Only RMSNorm fusion is supported.")
 
     logger.debug("Fusing layernorms into adjacent linear layers")
@@ -56,12 +56,12 @@ def fuse_layer_norms(model_adapter: ModelAdapter):
     model_adapter.maybe_untie_word_embeddings()
 
     # Layers: Fuse layernorms into adjacent linear layers
-    for layer_adapter in model_adapter.get_layer_adapters():
-        fuse_ln_linear(layer_adapter.get_first_layer_norm(), layer_adapter.get_attention_inputs())
-        fuse_ln_linear(layer_adapter.get_second_layer_norm(), layer_adapter.get_mlp_inputs())
+    for layer_adapter in model_adapter.get_layer_adapters(False):
+        fuse_ln_linear(layer_adapter.get_first_layer_norm(False), layer_adapter.get_attention_inputs(False))
+        fuse_ln_linear(layer_adapter.get_second_layer_norm(False), layer_adapter.get_mlp_inputs(False))
 
     # LM Head: Fuse layernorm into linear layer
-    fuse_ln_linear(model_adapter.get_pre_head_layernorm(), [model_adapter.get_lm_head()])
+    fuse_ln_linear(model_adapter.get_pre_head_layernorm(False), [model_adapter.get_lm_head(False)])
 
 
 def random_orthogonal_matrix(size: int, device: torch.device) -> torch.Tensor:

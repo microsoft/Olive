@@ -23,7 +23,7 @@ def unit(v, dim=1, eps=1e-8):
 
 def qr_retraction(tan_vec):  # tan_vec, p-by-n, p <= n
     tan_vec.t_()
-    q, r = torch.linalg.qr(tan_vec)
+    q, r = torch.linalg.qr(tan_vec)  # pylint: disable=not-callable
     d = torch.diag(r, 0)
     ph = d.sign()
     q *= ph.expand_as(q)

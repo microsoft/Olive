@@ -130,7 +130,7 @@ class SparseGPT(Pass):
         model_adapter.set_model(pytorch_model)
 
         # get module list of layers
-        layers = model_adapter.get_layers()
+        layers = model_adapter.get_layers(False)
 
         # get the inputs to the first layer
         inputs, attention_mask, extras = catch_layer_inputs(model_adapter, dataloader, device)

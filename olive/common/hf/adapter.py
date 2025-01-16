@@ -126,13 +126,13 @@ class LayerAdapter:
         self.attn, self.attn_name = get_submodules(layer, self.ATTENTION, self.model_type, return_name=True)
         self.mlp, self.mlp_name = get_submodules(layer, self.MLP, self.model_type, return_name=True)
 
-    def get_first_layer_norm(self, return_name: bool = False):
+    def get_first_layer_norm(self, return_name: bool = True):
         return get_submodules(self.layer, self.FIRST_LAYER_NORM, self.model_type, return_name=return_name)
 
-    def get_second_layer_norm(self, return_name: bool = False):
+    def get_second_layer_norm(self, return_name: bool = True):
         return get_submodules(self.layer, self.SECOND_LAYER_NORM, self.model_type, return_name=return_name)
 
-    def get_attention_inputs(self, return_name: bool = False):
+    def get_attention_inputs(self, return_name: bool = True):
         attention_inputs, names = get_submodules(
             self.attn, self.ATTENTION_INPUTS, self.model_type, return_name=True, return_name_prefix=f"{self.attn_name}."
         )
@@ -141,7 +141,7 @@ class LayerAdapter:
             attention_inputs = [attention_inputs[0].q_proj, attention_inputs[0].k_proj, attention_inputs[0].v_proj]
         return attention_inputs if not return_name else (attention_inputs, names)
 
-    def get_attention_outputs(self, return_name: bool = False):
+    def get_attention_outputs(self, return_name: bool = True):
         return get_submodules(
             self.attn,
             self.ATTENTION_OUTPUTS,
@@ -150,12 +150,12 @@ class LayerAdapter:
             return_name_prefix=f"{self.attn_name}.",
         )
 
-    def get_mlp_inputs(self, return_name: bool = False):
+    def get_mlp_inputs(self, return_name: bool = True):
         return get_submodules(
             self.mlp, self.MLP_INPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
         )
 
-    def get_mlp_outputs(self, return_name: bool = False):
+    def get_mlp_outputs(self, return_name: bool = True):
         return get_submodules(
             self.mlp, self.MLP_OUTPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
         )
@@ -224,18 +224,18 @@ class ModelAdapter:
 
     def set_model(self, model: "PreTrainedModel"):
         self._model = model
-        self._layer_adapters = [LayerAdapter(layer, self.model_type) for layer in self.get_layers()]
+        self._layer_adapters = [LayerAdapter(layer, self.model_type) for layer in self.get_layers(False)]
 
-    def get_embeds(self, return_name: bool = False):
+    def get_embeds(self, return_name: bool = True):
         return get_submodules(self.model, self.EMBEDDINGS, self.model_type, return_name=return_name)
 
-    def get_lm_head(self, return_name: bool = False):
+    def get_lm_head(self, return_name: bool = True):
         return get_submodules(self.model, self.LM_HEAD, self.model_type, return_name=return_name)
 
-    def get_pre_head_layernorm(self, return_name: bool = False):
+    def get_pre_head_layernorm(self, return_name: bool = True):
         return get_submodules(self.model, self.PRE_HEAD_LAYERNORM, self.model_type, return_name=return_name)
 
-    def get_layers(self, return_name: bool = False):
+    def get_layers(self, return_name: bool = True):
         return get_submodules(self.model, self.LAYERS, self.model_type, return_name=return_name)
 
     def get_layer_adapters(self):
@@ -248,12 +248,12 @@ class ModelAdapter:
         if self.config.tie_word_embeddings:
             self.config.tie_word_embeddings = False
 
-            self.get_lm_head().weight.data = self.get_embeds()[0].weight.data.clone()
+            self.get_lm_head(False).weight.data = self.get_embeds(False)[0].weight.data.clone()
             logger.debug("Untied word embeddings.")
 
     def maybe_unpack_qkv(self):
-        for layer_adapter in self.get_layer_adapters():
-            attn_inputs, attn_input_names = layer_adapter.get_attention_inputs(return_name=True)
+        for layer_adapter in self.get_layer_adapters(False):
+            attn_inputs, attn_input_names = layer_adapter.get_attention_inputs(False)
 
             if len(attn_inputs) != 1 or not isinstance(attn_inputs[0], nn.Linear):
                 return

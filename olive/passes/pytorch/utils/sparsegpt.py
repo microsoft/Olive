@@ -81,7 +81,7 @@ def catch_layer_inputs(model_adapter, dataloader, device, num_samples=None):
         cache[input_name] = None
 
     # get layers
-    layers = model_adapter.get_layers()
+    layers = model_adapter.get_layers(False)
 
     class FirstLayer(torch.nn.Module):
         def __init__(self, module):
@@ -101,7 +101,7 @@ def catch_layer_inputs(model_adapter, dataloader, device, num_samples=None):
             raise ValueError("Stop forward propagation")
 
     # put all modules until the first layer on the device
-    for module in model_adapter.get_embeds():
+    for module in model_adapter.get_embeds(False):
         module.to(device)
 
     # wrap the first layer
@@ -122,7 +122,7 @@ def catch_layer_inputs(model_adapter, dataloader, device, num_samples=None):
     layers[0] = layers[0].module
 
     # put all modules until the first layer back on the CPU
-    for module in model_adapter.get_embeds():
+    for module in model_adapter.get_embeds(False):
         module.to("cpu")
 
     if "cuda" in str(device):

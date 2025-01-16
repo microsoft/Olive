@@ -112,22 +112,20 @@ class RotateBase(Pass):
         rotation_params.append(R1)
 
         # rotate embeddings and lm_head
-        for embed, embed_name in zip(*model_adapter.get_embeds(return_name=True)):
+        for embed, embed_name in zip(*model_adapter.get_embeds()):
             # embed_tokens @ R1
             set_attr(model_adapter.model, embed_name, RotateEmbed(embed, R1))
         # R1^-1 @ Whead
-        lm_head, lm_head_name = model_adapter.get_lm_head(return_name=True)
+        lm_head, lm_head_name = model_adapter.get_lm_head()
         set_attr(model_adapter.model, lm_head_name, RotateLinear(lm_head, Q_pre=R1))
 
         # need v_proj to be rotated separately, so unpack if necessary
         model_adapter.maybe_unpack_qkv()
 
         # rotate the hidden layers
-        for layer_adapter in model_adapter.get_layer_adapters():
+        for layer_adapter in model_adapter.get_layer_adapters(False):
             R2 = None
-            for linear_idx, (linear, linear_name) in enumerate(
-                zip(*layer_adapter.get_attention_inputs(return_name=True))
-            ):
+            for linear_idx, (linear, linear_name) in enumerate(zip(*layer_adapter.get_attention_inputs())):
                 # R1^-1 @ Wq, R1^-1 @ Wk, R1^-1 @ Wv @ R2
                 if linear_idx == 2 and getattr(linear, "bias", None) is None:
                     # original implementation ignores bias but output doesn't match both when bias is
@@ -143,15 +141,15 @@ class RotateBase(Pass):
                     RotateLinear(linear, Q_pre=R1, Q_post=R2 if linear_idx == 2 else None),
                 )
 
-            for linear, linear_name in zip(*layer_adapter.get_attention_outputs(return_name=True)):
+            for linear, linear_name in zip(*layer_adapter.get_attention_outputs()):
                 # R2^-1 @ Wo @ R1
                 set_attr(layer_adapter.layer, linear_name, RotateLinear(linear, Q_pre=R2, Q_post=R1))
 
-            for linear, linear_name in zip(*layer_adapter.get_mlp_inputs(return_name=True)):
+            for linear, linear_name in zip(*layer_adapter.get_mlp_inputs()):
                 # R1^-1 @ Wup, R1^-1 @ Wgate
                 set_attr(layer_adapter.layer, linear_name, RotateLinear(linear, Q_pre=R1))
 
-            for linear, linear_name in zip(*layer_adapter.get_mlp_outputs(return_name=True)):
+            for linear, linear_name in zip(*layer_adapter.get_mlp_outputs()):
                 # Wdown @ R1
                 set_attr(layer_adapter.layer, linear_name, RotateLinear(linear, Q_post=R1))
 
@@ -274,7 +272,7 @@ class SpinQuant(RotateBase):
 
         # add activation quantization to the layer linear modules
         replace_submodules(
-            model_adapter.get_layers(),
+            model_adapter.get_layers(False),
             RotateLinear,
             partial(
                 ActQuantLinear, bits=config["a_bits"], symmetric=config["a_symmetric"], per_token=config["a_per_token"]
