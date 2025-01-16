@@ -95,7 +95,7 @@ class Engine:
     def initialize(self, log_to_file: bool = False, log_severity_level: int = 1):
         """Initialize engine state. This should be done before running the registered passes."""
         if log_to_file:
-            enable_filelog(log_severity_level, self.cache.cache_dir, self.workflow_id)
+            enable_filelog(log_severity_level, self.cache.dirs.cache_dir, self.workflow_id)
 
         # set cache dir environment variables
         # might be used by other parts of olive to cache data
