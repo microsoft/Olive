@@ -9,6 +9,7 @@ import pytest
 import torch
 
 import olive.passes.pytorch.sparsegpt_utils as sparsegpt_utils
+from olive.common.hf.wrapper import ModelWrapper
 from olive.common.utils import get_attr
 from olive.data.template import huggingface_data_config_template
 from olive.model import HfModelHandler
@@ -45,12 +46,11 @@ def test_torch_trt_conversion_success(tmp_path):
     # setup
     model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
     task = "text-generation"
-    model_type = "opt"
     input_model = HfModelHandler(model_path=model_name, task=task)
     # torch.nn.Linear submodules per layer in the original model
     original_submodules = list(
         sparsegpt_utils.get_layer_submodules(
-            sparsegpt_utils.get_layers(input_model.load_model(), model_type)[0], submodule_types=[torch.nn.Linear]
+            ModelWrapper.from_model(input_model.load_model()).get_layers(False)[0], submodule_types=[torch.nn.Linear]
         ).keys()
     )
 
@@ -86,9 +86,7 @@ def test_torch_trt_conversion_success(tmp_path):
     model = p.run(input_model, output_folder)
 
     # assert
-    pytorch_model = model.load_model()
-    layers = sparsegpt_utils.get_layers(pytorch_model, model_type)
-    for layer in layers:
+    for layer in ModelWrapper.from_model(model.load_model()).get_layers(False):
         for submodule_name in original_submodules:
             # check that the submodule is replaced with MockTRTLinearLayer
             assert isinstance(get_attr(layer, submodule_name), MockTRTLinearLayer)

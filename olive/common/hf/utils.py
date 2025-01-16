@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 from transformers import AutoConfig, AutoModel, AutoTokenizer, GenerationConfig
 
-from olive.common.hf.mappings import MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_PEFT_TASK_TYPE
+from olive.common.hf.mappings import TASK_TO_PEFT_TASK_TYPE
 from olive.common.hf.mlflow import get_pretrained_name_or_path
 from olive.common.utils import hardlink_copy_file
 
@@ -216,30 +216,3 @@ def get_peft_task_type_from_task(task: str, fail_on_not_found=False) -> str:
     elif peft_task_type is None:
         logger.warning(not_found_msg)
     return peft_task_type
-
-
-def get_model_max_length(model_name_or_path: str, fail_on_not_found=False) -> int:
-    """Get max length of the model, extracted from the config."""
-    model_config = get_model_config(model_name_or_path)
-    model_type = model_config.model_type
-
-    max_length = MODELS_TO_MAX_LENGTH_MAPPING.get(model_type, None)
-    if isinstance(max_length, int):
-        return max_length
-    elif isinstance(max_length, str):
-        return getattr(model_config, max_length)
-    else:
-        logger.debug(
-            "No max length mapping found in MODELS_TO_MAX_LENGTH_MAPPING for model type %s, trying __default__",
-            model_type,
-        )
-        default_max_length = MODELS_TO_MAX_LENGTH_MAPPING["__default__"]
-        try:
-            return getattr(model_config, default_max_length)
-        except AttributeError:
-            not_found_msg = f"Could not find max length for model type {model_type}"
-            if fail_on_not_found:
-                raise ValueError(not_found_msg) from None
-            else:
-                logger.warning(not_found_msg)
-                return None

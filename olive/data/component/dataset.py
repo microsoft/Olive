@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import Dataset as TorchDataset
 
 from olive.common.hf.utils import get_model_config
-from olive.common.utils import find_first_matched_value, resolve_torch_dtype
+from olive.common.utils import resolve_torch_dtype
 from olive.constants import Framework
 
 
@@ -318,29 +318,23 @@ class TransformersDummyDataset(BaseDataset):
 
         Shape of past_key_values is (num_heads, past_seq_len, head_size).
         """
-        from olive.common.hf.mappings import (
-            HIDDEN_SIZE_NAMES,
-            NUM_HEADS_NAMES,
-            NUM_HIDDEN_LAYER_NAMES,
-            NUM_KEY_VALUE_HEADS_NAMES,
-        )
+        from olive.common.hf.wrapper import ModelWrapper
 
-        # for MoE models, num_key_value_heads != num_attention_heads
-        # TODO(anyone): find a better way to handle MoE models
-        num_key_value_heads = find_first_matched_value(model_attributes, NUM_KEY_VALUE_HEADS_NAMES)
-        num_attention_heads = find_first_matched_value(model_attributes, NUM_HEADS_NAMES)
-        head_size = find_first_matched_value(model_attributes, HIDDEN_SIZE_NAMES)
-        if num_attention_heads is None or head_size is None:
-            raise ValueError("Cannot find num_attention_heads or head_size in model attributes")
+        model_wrapper = ModelWrapper(model_attributes)
+        num_key_value_heads = model_wrapper.num_key_value_heads
+        num_attention_heads = model_wrapper.num_attention_heads
+        hidden_size = model_wrapper.hidden_size
+        if num_attention_heads is None or hidden_size is None:
+            raise ValueError("Cannot find num_attention_heads or hidden_size in model attributes")
         num_attention_heads = num_attention_heads // world_size
 
-        head_size = head_size // num_attention_heads
+        head_size = hidden_size // num_attention_heads
         if num_key_value_heads is not None:
             num_key_value_heads = num_key_value_heads // world_size
             # adjust num_attention_heads to num_key_value_heads for MoE models to get the right shape
             num_attention_heads = num_key_value_heads
 
-        num_hidden_layers = find_first_matched_value(model_attributes, NUM_HIDDEN_LAYER_NAMES)
+        num_hidden_layers = model_wrapper.num_hidden_layers
         torch_dtype = torch.float16 if use_fp16 else torch.float32
         return [
             (

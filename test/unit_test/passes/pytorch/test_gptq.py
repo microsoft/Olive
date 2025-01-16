@@ -18,9 +18,13 @@ from olive.passes.pytorch.gptq import GptqQuantizer
     not torch.cuda.is_available(),
     reason="gptq requires GPU.",
 )
-def test_gptq_default(tmp_path: Path):
+@pytest.mark.parametrize(
+    ("model_path", "expected_model_type"),
+    [("katuni4ka/tiny-random-phi3", "Phi3ForCausalLM"), ("facebook/opt-125m", "OPTForCausalLM")],
+)
+def test_gptq_default(tmp_path: Path, model_path: str, expected_model_type: str):
     # setup
-    input_model = HfModelHandler(model_path="facebook/opt-125m")
+    input_model = HfModelHandler(model_path=model_path)
     config = {
         "data_config": DataConfig(
             name="test_gptq_dc_config",
@@ -51,7 +55,4 @@ def test_gptq_default(tmp_path: Path):
 
     # assert
     assert isinstance(out, HfModelHandler)
-
-    from transformers import OPTForCausalLM
-
-    assert isinstance(out.load_model(), OPTForCausalLM)
+    assert out.load_model().__class__.__name__ == expected_model_type
