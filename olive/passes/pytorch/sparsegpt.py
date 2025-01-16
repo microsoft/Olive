@@ -19,7 +19,7 @@ from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
-from olive.passes.pytorch.sparsegpt_utils import (
+from olive.passes.pytorch.utils.sparsegpt import (
     SparseGPTModule,
     catch_layer_inputs,
     get_layer_submodules,

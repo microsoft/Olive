@@ -38,7 +38,7 @@ Please refer to [AutoAWQQuantizer](awq_quantizer) for more details about the pas
 ```
 
 ## QuaRot
-`QuaRot` is a quantization technique that combines quantization and rotation to reduce the number of bits required to represent the weights of a model. It is based on the [QuaRot paper](https://arxiv.org/abs/2305.14314).
+`QuaRot` is a technique that rotates the weights of a model to make them more conducive to quantization. It is based on the [QuaRot paper](https://arxiv.org/abs/2305.14314) but only performs offline weight rotation.
 
 This pass only supports HuggingFace transformer PyTorch models. Please refer to [QuaRot](quarot) for more details on the types of transformers models supported.
 
@@ -46,11 +46,6 @@ This pass only supports HuggingFace transformer PyTorch models. Please refer to 
 ```json
 {
     "type": "QuaRot",
-    "w_rtn": true,
-    "rotate": true,
-    "w_bits": 4,
-    "a_bits": 4,
-    "k_bits": 4,
-    "v_bits": 4
+    "rotate_mode": "hadamard"
 }
 ```

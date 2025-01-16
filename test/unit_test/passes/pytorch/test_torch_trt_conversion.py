@@ -8,13 +8,13 @@ from unittest.mock import MagicMock
 import pytest
 import torch
 
-import olive.passes.pytorch.sparsegpt_utils as sparsegpt_utils
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.utils import get_attr
 from olive.data.template import huggingface_data_config_template
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.torch_trt_conversion import TorchTRTConversion
+from olive.passes.pytorch.utils.sparsegpt import get_layer_submodules
 
 # pylint: disable=abstract-method
 
@@ -49,7 +49,7 @@ def test_torch_trt_conversion_success(tmp_path):
     input_model = HfModelHandler(model_path=model_name, task=task)
     # torch.nn.Linear submodules per layer in the original model
     original_submodules = list(
-        sparsegpt_utils.get_layer_submodules(
+        get_layer_submodules(
             ModelWrapper.from_model(input_model.load_model()).get_layers(False)[0], submodule_types=[torch.nn.Linear]
         ).keys()
     )
