@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import os
 from pathlib import Path
+from typing import Any, Dict, Tuple, Type, Union
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -17,7 +18,7 @@ from olive.data.registry import Registry
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import HfModelHandler, ModelConfig, ONNXModelHandler, PyTorchModelHandler
-from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.olive_pass import Pass, create_pass_from_dict
 
 ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
 
@@ -235,12 +236,14 @@ def get_throughput_metric(*lat_subtype, user_config=None):
     )
 
 
-def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
+def get_onnxconversion_pass(
+    ignore_pass_config=True, target_opset=13
+) -> Union[Type[Pass], Tuple[Type[Pass], Dict[str, Any]]]:
     from olive.passes.onnx.conversion import OnnxConversion
 
     onnx_conversion_config = {"target_opset": target_opset}
     p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
-    return p if ignore_pass_config else (p, p.to_json(check_object=True)["config"])
+    return p if ignore_pass_config else (p, p.to_json(check_object=True))
 
 
 def get_onnx_dynamic_quantization_pass(disable_search=False):

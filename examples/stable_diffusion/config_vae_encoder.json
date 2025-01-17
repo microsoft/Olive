@@ -87,7 +87,6 @@
             "keep_io_types": false
         }
     },
-    "pass_flows": [ [ "convert", "optimize" ] ],
     "log_severity_level": 0,
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

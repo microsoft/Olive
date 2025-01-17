@@ -51,11 +51,7 @@
         "transformers_optimization": { "type": "OrtTransformersOptimization", "float16": true },
         "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mrpc", "io_bind": true }
     },
-    "pass_flows": [
-        [ "conversion", "transformers_optimization", "session_params_tuning" ],
-        [ "conversion", "session_params_tuning" ]
-    ],
-    "search_strategy": { "execution_order": "joint", "search_algorithm": "tpe", "num_samples": 3, "seed": 0 },
+    "search_strategy": { "execution_order": "joint", "sampler": "tpe", "max_samples": 3, "seed": 0 },
     "host": "local_system",
     "target": "local_system",
     "evaluator": "common_evaluator",

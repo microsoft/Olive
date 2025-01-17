@@ -179,8 +179,9 @@ def run_inference_gui(
 
 def update_config_with_provider(config: Dict, provider: str):
     if provider == "dml":
-        # DirectML EP is the default, so no need to update config.
-        return config
+        from sd_utils.ort import update_dml_config
+
+        return update_dml_config(config)
     elif provider == "cuda":
         from sd_utils.ort import update_cuda_config
 

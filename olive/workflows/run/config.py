@@ -15,48 +15,14 @@ from olive.common.utils import set_nested_dict_value
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.container.huggingface_container import HuggingfaceContainer
-from olive.engine import Engine, EngineConfig
+from olive.engine import Engine
+from olive.engine.config import EngineConfig, RunPassConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.passes.pass_config import AbstractPassConfig, PassParamDefault
+from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
-
-
-class RunPassConfig(AbstractPassConfig):
-    """Pass configuration for Olive workflow.
-
-    This is the configuration for a single pass in Olive workflow. It includes configurations for pass type, config,
-    etc.
-
-    Example:
-    .. code-block:: json
-
-        {
-            "type": "OlivePass",
-            "config": {
-                "param1": "value1",
-                "param2": "value2"
-            }
-        }
-
-    """
-
-    host: Union[SystemConfig, str] = Field(
-        None,
-        description=(
-            "Host system for the pass. If it is a string, must refer to a system config under `systems` section. If not"
-            " provided, use the engine's host system."
-        ),
-    )
-    evaluator: Union[OliveEvaluatorConfig, str] = Field(
-        None,
-        description=(
-            "Evaluator for the pass. If it is a string, must refer to an evaluator config under `evaluators` section."
-            " If not provided, use the engine's evaluator."
-        ),
-    )
 
 
 class RunEngineConfig(EngineConfig):
@@ -138,15 +104,7 @@ class RunConfig(NestedConfig):
             " no-search or auto-optimizer mode based on whether passes field is provided."
         ),
     )
-    passes: Dict[str, RunPassConfig] = Field(default_factory=dict, description="Pass configurations.")
-    pass_flows: List[List[str]] = Field(
-        None,
-        description=(
-            "Pass flows. Each member must be a list of pass names from `passes` field. If provided,"
-            " each flow will be run sequentially. If not provided, all passes will be run as a single flow in the order"
-            " of `passes` field."
-        ),
-    )
+    passes: Dict[str, List[RunPassConfig]] = Field(None, description="Pass configurations.")
     auto_optimizer_config: AutoOptimizerConfig = Field(
         default_factory=AutoOptimizerConfig,
         description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
@@ -156,10 +114,24 @@ class RunConfig(NestedConfig):
     )
 
     @root_validator(pre=True)
+    def patch_evaluators(cls, values):
+        if "evaluators" in values:
+            for name, evaluator_config in values["evaluators"].items():
+                evaluator_config["name"] = name
+        return values
+
+    @root_validator(pre=True)
+    def patch_passes(cls, values):
+        if "passes" in values:
+            for name, passes_config in values["passes"].items():
+                if isinstance(passes_config, dict):
+                    values["passes"][name] = [passes_config]
+        return values
+
+    @root_validator(pre=True)
     def insert_azureml_client(cls, values):
         values = convert_configs_to_dicts(values)
         _insert_azureml_client(values, values.get("azureml_client"))
-
         return values
 
     @validator("data_configs", pre=True)
@@ -237,42 +209,44 @@ class RunConfig(NestedConfig):
     def validate_engine(cls, v, values):
         v = _resolve_system(v, values, "host")
         v = _resolve_system(v, values, "target")
+        if v.get("search_strategy") and not v.get("evaluator"):
+            raise ValueError(
+                "Can't search without a valid evaluator config. "
+                "Either provider a valid evaluator config or disable search."
+            )
         return _resolve_evaluator(v, values)
 
     @validator("passes", pre=True, each_item=True)
     def validate_pass_host_evaluator(cls, v, values):
-        v = _resolve_system(v, values, "host")
-        return _resolve_evaluator(v, values)
+        for i, _ in enumerate(v):
+            v[i] = _resolve_system(v[i], values, "host")
+            v[i] = _resolve_evaluator(v[i], values)
+        return v
 
     @validator("passes", pre=True, each_item=True)
     def validate_pass_search(cls, v, values):
         if "engine" not in values:
             raise ValueError("Invalid engine")
 
-        # validate first to gather config params
-        v = validate_config(v, RunPassConfig).dict()
+        for i, _ in enumerate(v):
+            # validate first to gather config params
+            v[i] = iv = validate_config(v[i], RunPassConfig).dict()
 
-        if not v.get("config"):
-            return v
+            if iv.get("config"):
+                _resolve_all_data_configs(iv["config"], values)
 
-        searchable_configs = set()
-        for param_name in v["config"]:
-            if v["config"][param_name] == PassParamDefault.SEARCHABLE_VALUES:
-                searchable_configs.add(param_name)
+                searchable_configs = set()
+                for param_name in iv["config"]:
+                    if iv["config"][param_name] == PassParamDefault.SEARCHABLE_VALUES:
+                        searchable_configs.add(param_name)
 
-        resolve_all_data_configs(v["config"], values)
-
-        if not values["engine"].search_strategy and searchable_configs:
-            raise ValueError(
-                f"You cannot disable search for {v['type']} and"
-                f" set {searchable_configs} to SEARCHABLE_VALUES at the same time."
-                " Please remove SEARCHABLE_VALUES or enable search(needs search strategy configs)."
-            )
+                if not values["engine"].search_strategy and searchable_configs:
+                    raise ValueError(
+                        f"You cannot disable search for {iv['type']} and"
+                        f" set {searchable_configs} to SEARCHABLE_VALUES at the same time."
+                        " Please remove SEARCHABLE_VALUES or enable search (needs search strategy configs)."
+                    )
         return v
-
-    @validator("pass_flows", pre=True)
-    def validate_pass_flows(cls, v, values):
-        return v or []
 
     @validator("workflow_host", pre=True)
     def validate_workflow_host(cls, v, values):
@@ -281,15 +255,17 @@ class RunConfig(NestedConfig):
         return _resolve_config(values, v)
 
 
-def resolve_all_data_configs(config, values):
+def _resolve_all_data_configs(config, values):
     """Recursively traverse the config dictionary to resolve all 'data_config' keys."""
-    for param_name, param_value in config.items():
-        if param_name.endswith("data_config"):
-            _resolve_data_config(config, values, param_name)
-            continue
-
-        if isinstance(param_value, dict):
-            resolve_all_data_configs(param_value, values)
+    if isinstance(config, dict):
+        for param_name, param_value in config.items():
+            if param_name.endswith("data_config"):
+                _resolve_data_config(config, values, param_name)
+            else:
+                _resolve_all_data_configs(param_value, values)
+    elif isinstance(config, list):
+        for element in config:
+            _resolve_all_data_configs(element, values)
 
 
 def _insert_azureml_client(config, azureml_client):

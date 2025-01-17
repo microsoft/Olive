@@ -33,11 +33,11 @@ Reference
       :octicon:`arrow-right;1em;sd-text-info` `Pass <pass.html>`_
 
    .. grid-item-card::
-      **Search Algorithm**
+      **Search Samplers**
 
-      Configure search strategies.
+      Configure search samplers.
 
-      :octicon:`arrow-right;1em;sd-text-info` `Search Algorithm <search-algorithm.html>`_
+      :octicon:`arrow-right;1em;sd-text-info` `Search Samplers <search-samplers.html>`_
 
 
 .. toctree::
@@ -48,4 +48,4 @@ Reference
    options
    model
    pass
-   search-algorithm
+   search-samplers

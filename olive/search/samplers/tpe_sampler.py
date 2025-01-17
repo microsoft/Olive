@@ -7,10 +7,10 @@ from typing import Dict
 import optuna
 
 from olive.common.config_utils import ConfigParam
-from olive.strategy.search_algorithm.optuna_sampler import OptunaSearchAlgorithm
+from olive.search.samplers.optuna_sampler import OptunaSampler
 
 
-class TPESearchAlgorithm(OptunaSearchAlgorithm):
+class TPESampler(OptunaSampler):
     """Sample using TPE (Tree-structured Parzen Estimator) algorithm. Uses optuna TPESampler underneath.
 
     Refer to https://optuna.readthedocs.io/en/stable/reference/samplers/generated/optuna.samplers.TPESampler.html

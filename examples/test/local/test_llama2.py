@@ -16,16 +16,16 @@ def setup():
     os.chdir(get_example_dir("llama2"))
 
 
-@pytest.mark.parametrize("search_algorithm", [False])
+@pytest.mark.parametrize("sampler", [False])
 @pytest.mark.parametrize("execution_order", [None])
 @pytest.mark.parametrize("system", ["local_system"])
 @pytest.mark.parametrize("olive_json", ["llama2_qlora.json"])
-def test_llama2(search_algorithm, execution_order, system, olive_json):
+def test_llama2(sampler, execution_order, system, olive_json):
     from onnxruntime import __version__ as ort_version
 
     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json, search_algorithm, execution_order, system)
+    olive_config = patch_config(olive_json, sampler, execution_order, system)
 
     # replace meta-llama with open-llama version of the model
     # doesn't require login

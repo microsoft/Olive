@@ -34,7 +34,7 @@
         "transformers_optimization": { "type": "OrtTransformersOptimization", "model_type": "bert" },
         "dynamic_quantization": { "type": "IncDynamicQuantization" }
     },
-    "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
+    "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
     "output_dir": "models/bert_inc_dynamic_ptq_cpu"

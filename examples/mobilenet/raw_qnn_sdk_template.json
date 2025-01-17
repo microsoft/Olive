@@ -46,9 +46,9 @@
         "dynamic_shape_to_fixed": { "type": "DynamicToFixedShape", "dim_param": [ "batch_size" ], "dim_value": [ 1 ] },
         "converter": { "type": "QNNConversion" },
         "quantization": { "type": "QNNConversion", "extra_args": "--input_list <input_list.txt>" },
-        "build_model_lib": { "type": "QNNModelLibGenerator", "lib_targets": "x86_64-linux-clang" }
+        "build_model_lib": { "type": "QNNModelLibGenerator", "lib_targets": "x86_64-linux-clang" },
+        "qnn_context_binary": { "type": "QNNContextBinaryGenerator", "backend": "libQnnHtp.so" }
     },
-    "pass_flows": [ [ "converter", "build_model_lib" ], [ "quantization", "build_model_lib" ] ],
     "log_severity_level": 0,
     "host": "local_system",
     "target": "local_system",

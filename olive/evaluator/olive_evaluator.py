@@ -1141,6 +1141,7 @@ class LMEvaluator(OliveEvaluator):
 class OliveEvaluatorConfig(NestedConfig):
     _nested_field_name = "type_args"
 
+    name: str = None
     type: str = None
     type_args: Dict = Field(default_factory=dict)
 

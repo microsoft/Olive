@@ -150,42 +150,19 @@ class TestRunConfig:
         assert pass_module.startswith("olive.passes.onnx") == is_onnx
 
     @pytest.mark.parametrize(
-        ("passes", "pass_flows", "is_onnx"),
+        ("passes", "is_onnx"),
         [
-            (None, None, True),
-            (
-                {
-                    "lora": {"type": "LoRA"},
-                },
-                None,
-                False,
-            ),
-            (
-                {
-                    "lora": {"type": "LoRA"},
-                    "quantization": {"type": "IncQuantization"},
-                },
-                None,
-                True,
-            ),
-            (
-                {
-                    "lora": {"type": "LoRA"},
-                    "quantization": {"type": "IncQuantization"},
-                },
-                [["lora"]],
-                False,
-            ),
+            (None, True),
+            ({"lora": {"type": "LoRA"}}, False),
+            ({"lora": {"type": "LoRA"}, "quantization": {"type": "IncQuantization"}}, True),
         ],
     )
-    def test_is_execution_provider_required(self, passes, pass_flows, is_onnx):
+    def test_is_execution_provider_required(self, passes, is_onnx):
         with self.user_script_config_file.open() as f:
             user_script_config = json.load(f)
 
         if passes:
             user_script_config["passes"] = passes
-        if pass_flows:
-            user_script_config["pass_flows"] = pass_flows
 
         run_config = RunConfig.parse_obj(user_script_config)
         result = is_execution_provider_required(run_config, self.package_config)
@@ -212,7 +189,7 @@ class TestDataConfigValidation:
                     },
                 }
             ],
-            "passes": {"tuning": {"type": "OrtSessionParamsTuning"}},
+            "passes": {"tuning": [{"type": "OrtSessionParamsTuning"}]},
             "engine": {"evaluate_input_model": False},
         }
 
@@ -286,10 +263,10 @@ class TestDataConfigValidation:
     )
     def test_str_to_data_config(self, data_config_str):
         config_dict = deepcopy(self.template)
-        config_dict["passes"]["tuning"]["data_config"] = data_config_str
+        config_dict["passes"]["tuning"][0]["data_config"] = data_config_str
 
         run_config = RunConfig.parse_obj(config_dict)
-        pass_data_config = run_config.passes["tuning"].config["data_config"]
+        pass_data_config = run_config.passes["tuning"][0].config["data_config"]
         if data_config_str is None:
             assert pass_data_config is None
         else:
@@ -305,9 +282,11 @@ class TestPassConfigValidation:
                 "type": "OnnxModel",
             },
             "passes": {
-                "tuning": {
-                    "type": "IncQuantization",
-                }
+                "tuning": [
+                    {
+                        "type": "IncQuantization",
+                    }
+                ]
             },
             "evaluate_input_model": False,
         }
@@ -319,19 +298,19 @@ class TestPassConfigValidation:
             (None, "SEARCHABLE_VALUES", False),
             (None, "dummy_approach", True),
             (
-                {"execution_order": "joint", "search_algorithm": "exhaustive"},
+                {"execution_order": "joint", "sampler": "sequential"},
                 "SEARCHABLE_VALUES",
-                True,
+                False,
             ),
         ],
     )
     def test_pass_config_(self, search_strategy, approach, is_valid):
         config_dict = self.template.copy()
         config_dict["search_strategy"] = search_strategy
-        config_dict["passes"]["tuning"]["approach"] = approach
+        config_dict["passes"]["tuning"][0]["approach"] = approach
         if not is_valid:
             with pytest.raises(ValueError):  # noqa: PT011
                 RunConfig.parse_obj(config_dict)
         else:
             config = RunConfig.parse_obj(config_dict)
-            assert config.passes["tuning"].config["approach"] == approach
+            assert config.passes["tuning"][0].config["approach"] == approach

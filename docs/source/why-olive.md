@@ -16,7 +16,7 @@ Olive (**O**NNX **LIVE**) is a cutting-edge model optimization toolkit with an a
 
 The input to Olive is typically a PyTorch or Hugging Face model, and the output is an optimized ONNX model that is executed on a device (deployment target) running the ONNX runtime. Olive will optimize the model for the deployment target's AI accelerator (NPU, GPU, CPU) provided by a hardware vendor such as Qualcomm, AMD, Nvidia, or Intel.
 
-Olive executes a *workflow*, which is an ordered sequence of individual model optimization tasks called *passes* - example passes include model compression, graph capture, quantization, and graph optimization. Each pass has a set of parameters that can be tuned to achieve the best metrics, such as accuracy and latency, that are evaluated by the respective *evaluator*. Olive employs a *search strategy* that uses a *search algorithm* to auto-tune each pass individually or a set of passes together.
+Olive executes a *workflow*, which is an ordered sequence of individual model optimization tasks called *passes* - example passes include model compression, graph capture, quantization, and graph optimization. Each pass has a set of parameters that can be tuned to achieve the best metrics, such as accuracy and latency, that are evaluated by the respective *evaluator*. Olive employs a *search strategy* that uses a *search sampler* to auto-tune each pass individually or a set of passes together.
 ```
 
 ## Benefits of using Olive

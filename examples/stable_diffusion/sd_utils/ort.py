@@ -12,18 +12,30 @@ import onnxruntime as ort
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
-from sd_utils import config
+from sd_utils import config as sd_config
 
 from olive.model import ONNXModelHandler
 
 # ruff: noqa: TID252, T201
 
 
+def update_dml_config(config_dml: Dict):
+    used_passes = {"convert", "optimize"}
+    for pass_name in set(config_dml["passes"].keys()):
+        if pass_name not in used_passes:
+            config_dml["passes"].pop(pass_name, None)
+    config_dml["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["DmlExecutionProvider"]
+    return config_dml
+
+
 def update_cuda_config(config_cuda: Dict):
     if version.parse(OrtVersion) < version.parse("1.17.0"):
         # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
         config_cuda["passes"]["optimize_cuda"]["optimization_options"] = {"enable_skip_group_norm": False}
-    config_cuda["pass_flows"] = [["convert", "optimize_cuda"]]
+    used_passes = {"convert", "optimize_cuda"}
+    for pass_name in set(config_cuda["passes"].keys()):
+        if pass_name not in used_passes:
+            config_cuda["passes"].pop(pass_name, None)
     config_cuda["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
     return config_cuda
 
@@ -134,8 +146,8 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
     batch_size = common_args.batch_size
     image_size = common_args.image_size
     provider = common_args.provider
-    vae_sample_size = config.vae_sample_size
-    unet_sample_size = config.unet_sample_size
+    vae_sample_size = sd_config.vae_sample_size
+    unet_sample_size = sd_config.unet_sample_size
 
     if static_dims:
         hidden_batch_size = batch_size if (guidance_scale == 0.0) else batch_size * 2

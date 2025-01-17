@@ -37,7 +37,7 @@ from olive.passes.pytorch.train_utils import (
     load_hf_base_model,
     prepare_model_for_finetuning,
 )
-from olive.strategy.search_parameter import Categorical
+from olive.search.search_parameter import Categorical
 
 if TYPE_CHECKING:
     import torch

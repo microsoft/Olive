@@ -35,7 +35,7 @@ def assert_metrics(footprints):
 
 def patch_config(
     config_json_path: str,
-    search_algorithm: str,
+    sampler: str,
     execution_order: str,
     system: str,
     is_gpu: bool = False,
@@ -50,15 +50,15 @@ def patch_config(
     olive_config["clean_cache"] = True
 
     # update search strategy
-    if not search_algorithm:
+    if not sampler:
         olive_config["search_strategy"] = False
     else:
         olive_config["search_strategy"] = {
-            "search_algorithm": search_algorithm,
+            "sampler": sampler,
             "execution_order": execution_order,
         }
-        if search_algorithm in ("random", "tpe"):
-            olive_config["search_strategy"].update({"num_samples": 3, "seed": 0})
+        if sampler in ("random", "tpe"):
+            olive_config["search_strategy"].update({"max_samples": 3, "seed": 0})
 
     update_azureml_config(olive_config)
     if system == "aml_system":
@@ -76,7 +76,7 @@ def patch_config(
         # as our docker image is big, we need to reduce the agent size to avoid timeout
         # for the docker system test, we skip to search for transformers optimization as
         # it is tested in other olive system tests
-        olive_config["search_strategy"]["num_samples"] = 2
+        olive_config["search_strategy"]["max_samples"] = 2
 
     return olive_config
 

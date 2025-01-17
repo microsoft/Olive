@@ -25,7 +25,7 @@ from olive.passes.onnx.common import (
 )
 from olive.passes.pass_config import PassConfigParam
 from olive.resource_path import LocalFile
-from olive.strategy.search_parameter import Boolean, Categorical, Conditional
+from olive.search.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
 
