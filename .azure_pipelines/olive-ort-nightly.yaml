@@ -15,7 +15,7 @@ variables:
 
 jobs:
 # Linux unit test
-- template: job_templates/olive-test-linux-template.yaml
+- template: job_templates/olive-test-cpu-template.yaml
   parameters:
     name: Linux_CI_Unit_Test_Olive
     pool: $(OLIVE_POOL_UBUNTU2004)
@@ -26,7 +26,7 @@ jobs:
     onnxruntime_nightly: true
 
 # Linux GPU unit test
-- template: job_templates/olive-test-linux-template.yaml
+- template: job_templates/olive-test-linux-gpu-template.yaml
   parameters:
     name: Linux_GPU_CI_Unit_Test_Olive
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)

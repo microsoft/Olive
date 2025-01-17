@@ -40,6 +40,7 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     onnxruntime: onnxruntime
     python_version: '3.8'
+    base_image: 'ubuntu:20.04'
     examples:
       mobilenet_qnn_toolkit:
         exampleFolder: mobilenet

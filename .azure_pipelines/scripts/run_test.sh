@@ -13,7 +13,8 @@ pip install "$1"
 # Step 2: Install ONNX Runtime (Nightly or Stable)
 if [ "$3" = "true" ]; then
     echo "Installing ONNX Runtime Nightly..."
-    pip install --pre "$2" --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+    pip install -r  https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
+    pip install "$2" --pre --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ --disable-pip-version-check
 else
     echo "Installing ONNX Runtime Stable..."
     pip install "$2"

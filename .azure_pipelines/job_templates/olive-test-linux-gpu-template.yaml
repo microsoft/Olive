@@ -7,6 +7,8 @@ parameters:
   device: 'cpu'
   dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
   docker_image: 'olive-pipeline:latest'
+  base_image: 'nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04'
+  trt_version: '10.5.0.18-1+cuda12.6'
   python_version: '3.10'
   onnxruntime: 'onnxruntime'
   torch: 'torch'
@@ -20,21 +22,25 @@ jobs:
   pool:
     name: ${{ parameters.pool}}
   variables:
-    testType: ${{ parameters.test_type }}
-    python_version: ${{ parameters.python_version }}
-    requirements_file: ${{ parameters.requirements_file }}
     PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
     HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
 
   steps:
+  - script: docker system df && docker system prune -a -f && docker system df
+    displayName: Clean docker images
+    continueOnError: true
+
   - template: build-docker-image-template.yaml
     parameters:
       python_version: ${{ parameters.python_version }}
       dockerfile: ${{ parameters.dockerfile }}
       docker_image: ${{ parameters.docker_image }}
+      base_image: ${{ parameters.base_image }}
+      trt_version: ${{ parameters.trt_version }}
 
   - script: |
       docker run \
+      --shm-size=4g \
       --gpus=all \
       -v /var/run/docker.sock:/var/run/docker.sock \
       -v $(Build.SourcesDirectory)/logs:/logs \
@@ -47,8 +53,8 @@ jobs:
       ${{ parameters.torch }} \
       ${{ parameters.onnxruntime }} \
       ${{ parameters.onnxruntime_nightly }} \
-      test/$(requirements_file) \
-      test/$(testType)
+      test/${{ parameters.requirements_file }} \
+      test/${{ parameters.test_type }}
     displayName: Run Tests in Docker
 
   - task: CredScan@3
