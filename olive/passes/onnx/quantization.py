@@ -402,6 +402,9 @@ class OnnxQuantization(Pass):
                 logger.info("Already processed model for quantization, skipping preprocessing")
                 model = ONNXModelHandler(LocalFile({"path": preprocessed_temp_model_path}))
 
+        if config["op_types_to_quantize"]:
+            run_config["op_types_to_quantize"] = config["op_types_to_quantize"]
+
         # if enable _append_first_op_types_to_quantize_list
         if run_config["append_first_op_types_to_quantize_list"]:
             run_config["op_types_to_quantize"] = _append_first_op_types_to_quantize_list(
