@@ -71,7 +71,7 @@ def parse_common_args(raw_args):
 
 
 def main(raw_args=None):
-    common_args = parse_common_args(raw_args)
+    common_args, extra_args = parse_common_args(raw_args)
     optimize(common_args.model_id, common_args.step, common_args.model)
 
 
