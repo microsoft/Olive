@@ -27,7 +27,7 @@
     "passes": {
         "convert": {
             "type": "OnnxConversion",
-            "target_opset": 17,
+            "target_opset": 20,
             "save_as_external_data": true,
             "all_tensors_to_one_file": true,
             "external_data_name": "unet.weights.pb"

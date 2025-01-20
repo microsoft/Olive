@@ -36,5 +36,5 @@
     "target": "local_system",
     "cache_dir": "cache",
     "clean_cache": true,
-    "output_dir": "footprints_qnn/unet"
+    "output_dir": "footprints/unet_qnn"
 }

@@ -28,6 +28,7 @@
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
+            "quant_preprocess": true,
             "op_types_to_quantize": [ "MatMul", "LayerNormalization", "Gemm", "Sigmoid" ]
         }
     },
@@ -36,5 +37,5 @@
     "target": "local_system",
     "cache_dir": "cache",
     "clean_cache": true,
-    "output_dir": "footprints_qnn/vae_decoder"
+    "output_dir": "footprints/vae_decoder_qnn"
 }

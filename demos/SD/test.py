@@ -2,8 +2,9 @@ import onnxruntime as ort
 import numpy as np
 import onnx
 from onnx import shape_inference, TensorProto
+from onnx import OperatorSetIdProto
 
-file = "./footprints/unet/output_model/model/model.onnx"
+file = "./footprints/vae_decoder_qnn/output_model/model.onnx"
 file_new = "new.onnx"
 file_infer = "infer.onnx"
 
@@ -72,3 +73,18 @@ if False:
     onnx_model = onnx.load(file, load_external_data=False)
     onnx_infer = onnx.shape_inference.infer_shapes(onnx_model)
     onnx.save(onnx_infer, file_infer)
+
+if False:
+    onnx_model = onnx.load(file)
+    microsoft_opset = OperatorSetIdProto()
+    microsoft_opset.domain = 'com.microsoft'
+    microsoft_opset.version = 1  # Set the appropriate version
+    onnx_model.opset_import.append(microsoft_opset)
+    onnx.save(onnx_model, file)
+
+if True:
+    onnx_model = onnx.load(file)
+    from collections import Counter
+    type_counts = Counter([node.op_type for node in onnx_model.graph.node])
+    for string, count in type_counts.items():
+        print(f"{string}: {count}")

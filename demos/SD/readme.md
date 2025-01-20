@@ -60,6 +60,16 @@ Resize: 3
 
 2699 -> 680
 
+About .opt
+
+This is for CUDA
+
+File "D:\Olive\olive-venv\Lib\site-packages\onnx\shape_inference.py", line 96, in infer_shapes_path
+    C.infer_shapes_path(model_path, output_path, check_type, strict_mode, data_prop)
+onnx.onnx_cpp2py_export.shape_inference.InferenceError: [TypeInferenceError] Cannot infer type and shape for node name GroupNorm_0. No opset import for domain com.microsoft optype GroupNorm
+
+GroupNorm is not supported https://onnxruntime.ai/docs/execution-providers/QNN-ExecutionProvider.html
+
 ### Vae decoder
 
 Conv: 36
@@ -81,19 +91,33 @@ Resize: 3
 
 459 -> 70
 
-## Dependency
+### About Op types
+
+From Renyi (also working): "MatMul", "LayerNormalization", "Gemm", "Sigmoid"
+
+From Renyi (not working): Add, Mul
+
+Constant: no impact for decoder
+
+Conv: big size reduce for decoder, but not work
+
+## Run
+
+### Dependency
 
 https://github.com/microsoft/Olive/issues/1267: `pip install transformers==4.42.4`
 
 Need this version for textencoder
-
-## Run
 
 ### Convert to onnx
 
 ONNX model must use an opset >= 17 in order to use LayerNormalization
 
 `python stable_diffusion.py --model [text_encoder/unet/vae_decoder]`
+
+### Use auto-opt
+
+olive auto-opt --model_name_or_path "D:\Olive\demos\SD\footprints\unet\output_model\model\model.onnx" --output_path footprints/unet_auto --device cpu --provider CPUExecutionProvider --precision int16 --log_level 1
 
 ### Use OnnxStaticQuantization
 
@@ -186,6 +210,12 @@ D:\Olive\olive-venv\Lib\site-packages\olive\passes\onnx\quantization.py: OnnxQua
                 print("^"*20)
                 print(run_config)
 ```
+
+### 4 inference with local system?
+
+D:\Olive\olive-venv\Lib\site-packages\onnxruntime\quantization\calibrate.py
+
+CalibraterBase.infer_session if use CPUExecutionProvider, do not support float16
 
 ## Other
 
