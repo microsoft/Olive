@@ -7,20 +7,20 @@
 
 import inspect
 import logging
+from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Type
 
 import numpy as np
 import onnx
 from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
-from pathlib import Path
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
-from olive.passes import Pass
-from olive.passes.onnx.common import model_proto_to_olive_model, get_external_data_config
-from olive.passes.pass_config import PassConfigParam
 from olive.model.utils import resolve_onnx_path
+from olive.passes import Pass
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
 
