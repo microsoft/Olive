@@ -150,6 +150,8 @@ olive run --config config_vae_decoder.qnn.sdk.json
 
 ### 1 shape infer does not support > 2GB
 
+Update to latest onnx to fix this
+
 https://github.com/onnx/onnx/issues/6150
 
 D:\Olive\olive-venv\Lib\site-packages\onnxruntime\quantization\quant_utils.py: load_model_with_shape_infer
@@ -216,6 +218,18 @@ D:\Olive\olive-venv\Lib\site-packages\olive\passes\onnx\quantization.py: OnnxQua
 D:\Olive\olive-venv\Lib\site-packages\onnxruntime\quantization\calibrate.py
 
 CalibraterBase.infer_session if use CPUExecutionProvider, do not support float16
+
+### 5 uint8 weight infer
+
+D:\Olive\olive-venv\Lib\site-packages\onnxruntime\quantization\qdq_loss_debug.py: _run_dequantize_linear
+
+(weight_tensor - weight_zp) will be > 0 if both uint
+
+### 6 no such tensor generated
+
+D:\Olive\olive-venv\Lib\site-packages\onnxruntime\quantization\qdq_loss_debug.py: create_activation_matching
+
+No such tensor is generated from D:\Olive\olive-venv\Lib\site-packages\onnxruntime\quantization\qdq_loss_debug.py: modify_model_output_intermediate_tensors because no related value info
 
 ## Other
 
