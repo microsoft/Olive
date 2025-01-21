@@ -9,7 +9,7 @@ import platform
 import shutil
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
@@ -110,13 +110,9 @@ class PythonEnvironmentSystem(OliveSystem):
         the_pass: "Pass",
         model_config: ModelConfig,
         output_model_path: str,
-        point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
-        """Run the pass on the model at a specific point in the search space."""
-        point = point or {}
-        config = the_pass.config_at_search_point(point)
+        """Run the pass on the model."""
         pass_config = the_pass.to_json(check_object=True)
-        pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
         config_jsons = {
             "model_config": model_config.to_json(check_object=True),
             "pass_config": pass_config,

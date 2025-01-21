@@ -277,8 +277,6 @@ class TestDockerSystem:
 
         p = create_pass_from_dict(OrtSessionParamsTuning, {}, disable_search=True)
         pass_config = p.to_json(check_object=True)
-        config = p.config_at_search_point({})
-        pass_config["config"].update(p.serialize_config(config, check_object=True))
 
         onnx_model = get_onnx_model_config()
 

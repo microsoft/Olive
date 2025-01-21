@@ -21,7 +21,7 @@ from olive.passes.onnx.transformer_optimization import OrtTransformersOptimizati
 
 def test_fusion_options():
     config = {"model_type": "bart", "optimization_options": {"use_multi_head_attention": True}}
-    config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, True)
+    config = OrtTransformersOptimization.generate_config(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
     transformer_optimization = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
     run_config = deepcopy(config)
     del (
@@ -47,7 +47,7 @@ def test_ort_transformer_optimization_pass(tmp_path):
     input_model = get_onnx_model()
     config = {"model_type": "bert"}
 
-    config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
+    config = OrtTransformersOptimization.generate_config(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
     p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
     output_folder = str(tmp_path / "onnx")
 
@@ -74,9 +74,9 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
 
     input_model = get_onnx_model()
     config = {"model_type": "bert", "use_gpu": use_gpu, "float16": fp16}
-    config = OrtTransformersOptimization.generate_search_space(accelerator_spec, config, disable_search=True)
+    config = OrtTransformersOptimization.generate_config(accelerator_spec, config, disable_search=True)
     p = OrtTransformersOptimization(accelerator_spec, config, True)
-    is_pruned = not p.validate_search_point(config, accelerator_spec)
+    is_pruned = not p.validate_config(config, accelerator_spec, disable_search=True)
 
     if accelerator_spec.execution_provider == "CPUExecutionProvider":
         if fp16 and use_gpu:
@@ -143,7 +143,7 @@ def test_transformer_optimization_invalid_model_type(tmp_path):
     input_model = get_onnx_model()
     config = {"model_type": None}
 
-    config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
+    config = OrtTransformersOptimization.generate_config(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
     p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
     output_folder = str(tmp_path / "onnx")
 
@@ -161,7 +161,7 @@ def test_optimization_with_provider(mock_proto_to_model, mock_optimize_model, tm
     config = {"model_type": "bert", "use_gpu": True}
 
     dml_ep = AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="DmlExecutionProvider")
-    config = OrtTransformersOptimization.generate_search_space(dml_ep, config, disable_search=True)
+    config = OrtTransformersOptimization.generate_config(dml_ep, config, disable_search=True)
     p = OrtTransformersOptimization(dml_ep, config, True)
     output_folder = str(tmp_path / "onnx")
 

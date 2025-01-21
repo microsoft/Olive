@@ -6,7 +6,7 @@ import csv
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
 
@@ -63,17 +63,24 @@ class CaptureSplitInfo(Pass):
             ),
         }
 
-    def validate_search_point(
-        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    @classmethod
+    def validate_config(
+        cls,
+        config: Dict[str, Any],
+        accelerator_spec: AcceleratorSpec,
+        disable_search: Optional[bool] = False,
     ) -> bool:
-        if with_fixed_value:
-            search_point = self.config_at_search_point(search_point or {})
+        if not super().validate_config(config, accelerator_spec, disable_search):
+            return False
 
-        if search_point.get("num_splits") is None and search_point.get("cost_model") is None:
+        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
+        config = config_cls(**config)
+
+        if config.num_splits is None and config.cost_model is None:
             logger.info("One of num_splits or cost_model is required.")
             return False
 
-        if search_point.get("cost_model") is not None and accelerator_spec.memory is None:
+        if config.cost_model is not None and accelerator_spec.memory is None:
             logger.info("Accelerator memory is required if cost_model is provided.")
             return False
 

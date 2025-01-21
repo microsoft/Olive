@@ -11,8 +11,8 @@ from olive.passes.onnx.conversion import OnnxConversion
 
 @pytest.mark.parametrize("host_device", [None, "cpu", "gpu"])
 def test_pass_serialization(host_device):
-    onnx_conversion_config = {}
-    config = OnnxConversion.generate_search_space(DEFAULT_CPU_ACCELERATOR, onnx_conversion_config)
+    config = {}
+    config = OnnxConversion.generate_config(DEFAULT_CPU_ACCELERATOR, config)
     onnx_conversion = OnnxConversion(DEFAULT_CPU_ACCELERATOR, config, host_device=host_device)
     json = onnx_conversion.to_json(True)
 

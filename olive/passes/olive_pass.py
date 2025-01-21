@@ -75,7 +75,7 @@ class Pass(ABC):
         assert config is not None, "Please specify the configuration for the pass."
 
         # NOTE: The :disable_search argument isn't impactful here since the search isn't
-        # dependent on it. The same parameter in :generate_search_space is what decides
+        # dependent on it. The same parameter in :generate_config is what decides
         # how search points are handled. HEre, Using default values for each config
         # parameter in the config class keeps it simple.
         config_class, default_config = self.get_config_class(accelerator_spec, True)
@@ -87,19 +87,12 @@ class Pass(ABC):
         self.config = config
         self._user_module_loader = UserModuleLoader(self.config.get("user_script"), self.config.get("script_dir"))
 
-        self._fixed_params = {}
-        self.search_space = {}
-        for k, v in self.config.items():
-            if isinstance(v, SearchParameter):
-                self.search_space[k] = v
-            else:
-                self._fixed_params[k] = v
-
         # Params that are paths [(param_name, required)]
-        self.path_params = []
-        for param, param_config in default_config.items():
-            if param_config.category in (ParamCategory.PATH, ParamCategory.DATA):
-                self.path_params.append((param, param_config.required, param_config.category))
+        self.path_params = [
+            (param, param_config.required, param_config.category)
+            for param, param_config in default_config.items()
+            if param_config.category in (ParamCategory.PATH, ParamCategory.DATA)
+        ]
 
         self._initialized = False
 
@@ -113,30 +106,32 @@ class Pass(ABC):
         return True
 
     @classmethod
-    def generate_search_space(
+    def generate_config(
         cls,
         accelerator_spec: AcceleratorSpec,
-        config: Optional[Union[Dict[str, Any], BasePassConfig]] = None,
+        config: Optional[Dict[str, Any]] = None,
         disable_search: Optional[bool] = False,
-    ) -> Tuple[Type[BasePassConfig], Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """Generate search space for the pass."""
         assert accelerator_spec is not None, "Please specify the accelerator spec for the pass"
+        config = config or {}
 
         # Get the config class with default value or default search value
         config_class, default_config = cls.get_config_class(accelerator_spec, disable_search)
 
         if not disable_search:
             # Replace user-provided values with Categorical if user intended to search
-            config = cls.identify_search_values(config, default_config)
+            config = cls._identify_search_values(config, default_config)
 
         # Generate the search space by using both default value and default search value and user provided config
         config = validate_config(config, config_class)
 
         config = cls._resolve_config(config, default_config)
-        return cls._init_fixed_and_search_params(config, default_config)
+        fixed_values, search_params = cls._init_fixed_and_search_params(config, default_config)
+        return {**fixed_values, **search_params}
 
     @classmethod
-    def identify_search_values(
+    def _identify_search_values(
         cls,
         config: Dict[str, Any],
         default_config: Dict[str, PassConfigParam],
@@ -189,26 +184,41 @@ class Pass(ABC):
                 ), f"{param} ending with data_config must be of type DataConfig."
         return config
 
-    def config_at_search_point(self, point: Dict[str, Any]) -> Dict[str, Any]:
+    @classmethod
+    def config_at_search_point(
+        cls,
+        point: Dict[str, Any],
+        accelerator_spec: AcceleratorSpec,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Get the configuration for the pass at a specific point in the search space."""
-        assert set(point.keys()) == set(self.search_space.keys()), "Search point is not in the search space."
-        config = self._fixed_params.copy()
-        config.update(**point)
-        return self._config_class(**config).dict()
+        assert accelerator_spec is not None, "Please specify the accelerator spec for the pass"
 
-    def validate_search_point(
-        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+        # Get the config class with default search value
+        config_class, default_config = cls.get_config_class(accelerator_spec)
+
+        # Replace user-provided values with Categorical if user intended to search
+        config = cls._identify_search_values(config or {}, default_config)
+
+        # Generate the search space by using both default value and default search value and user provided config
+        config = validate_config(config, config_class)
+        config = cls._resolve_config(config, default_config)
+        fixed_values, search_params = cls._init_fixed_and_search_params(config, default_config)
+        assert set(point.keys()) == set(search_params.keys()), "Search point is not in the search space."
+        return {**fixed_values, **search_params, **point}
+
+    @classmethod
+    def validate_config(
+        cls,
+        config: Dict[str, Any],
+        accelerator_spec: AcceleratorSpec,
+        disable_search: Optional[bool] = False,
     ) -> bool:
-        """Validate the search point for the pass."""
+        """Validate the input config for the pass."""
         return True
 
-    def run(
-        self, model: OliveModelHandler, output_model_path: str, point: Optional[Dict[str, Any]] = None
-    ) -> OliveModelHandler:
+    def run(self, model: OliveModelHandler, output_model_path: str) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
-        point = point or {}
-        config = self.config_at_search_point(point)
-
         if not self._initialized:
             self._initialize()
             self._initialized = True
@@ -218,7 +228,7 @@ class Pass(ABC):
             for rank in range(model.num_ranks):
                 input_ranked_model = model.load_model(rank)
                 ranked_output_path = Path(output_model_path).with_suffix("") / model.ranked_model_name(rank)
-                self._run_for_config(input_ranked_model, config, str(ranked_output_path))
+                self._run_for_config(input_ranked_model, self.config, str(ranked_output_path))
 
             # ranked model don't have their own model_attributes, they are just part of the distributed model
             # which has the model_attributes
@@ -235,7 +245,7 @@ class Pass(ABC):
             component_names = []
             for component_name, component_model in model.get_model_components():
                 component_output_path = Path(output_model_path).with_suffix("") / component_name
-                output_model_component = self._run_for_config(component_model, config, str(component_output_path))
+                output_model_component = self._run_for_config(component_model, self.config, str(component_output_path))
                 output_model_component.model_attributes = (
                     output_model_component.model_attributes or component_model.model_attributes
                 )
@@ -245,7 +255,7 @@ class Pass(ABC):
             output_model = CompositeModelHandler(components, component_names)
             output_model.model_attributes = output_model.model_attributes or model.model_attributes
         else:
-            output_model = self._run_for_config(model, config, output_model_path)
+            output_model = self._run_for_config(model, self.config, output_model_path)
             # assumption: the model attributes from passes, if any, are more important than
             # the input model attributes, we should not update/extend anymore outside of the pass run
             output_model.model_attributes = output_model.model_attributes or model.model_attributes
@@ -443,8 +453,7 @@ class Pass(ABC):
         assert not cyclic_search_space(search_space), "Search space is cyclic."
         # TODO(jambayk): better error message, e.g. which parameters are invalid, how they are invalid
         assert SearchSpace({"search_space": search_space}).size() > 0, "There are no valid points in the search space."
-
-        return {**fixed_params, **search_space}
+        return fixed_params, search_space
 
     @classmethod
     def _resolve_search_parameter(cls, param: SearchParameter, fixed_params: Dict[str, Any]) -> Any:
@@ -519,5 +528,5 @@ def create_pass_from_dict(
     if accelerator_spec is None:
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
 
-    config = pass_cls.generate_search_space(accelerator_spec, config, disable_search)
+    config = pass_cls.generate_config(accelerator_spec, config, disable_search)
     return pass_cls(accelerator_spec, config, host_device)

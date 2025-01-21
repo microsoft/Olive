@@ -5,7 +5,7 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import onnx
 
@@ -135,15 +135,23 @@ class OrtTransformersOptimization(Pass):
         config.update(get_external_data_config())
         return config
 
-    def validate_search_point(
-        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    @classmethod
+    def validate_config(
+        cls,
+        config: Dict[str, Any],
+        accelerator_spec: AcceleratorSpec,
+        disable_search: Optional[bool] = False,
     ) -> bool:
+        if not super().validate_config(config, accelerator_spec, disable_search):
+            return False
+
         from onnxruntime import __version__ as OrtVersion
         from packaging import version
 
-        if with_fixed_value:
-            search_point = self.config_at_search_point(search_point or {})
-        if search_point.get("float16"):
+        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
+        config = config_cls(**config)
+
+        if config.float16:
             if accelerator_spec.execution_provider == "TensorrtExecutionProvider":
                 logger.info(
                     "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
@@ -153,21 +161,16 @@ class OrtTransformersOptimization(Pass):
             if accelerator_spec.execution_provider == "CPUExecutionProvider":
                 logger.info("CPUExecutionProvider does not support float16 very well, please avoid to use float16.")
                 return False
-        if not search_point.get("float16") and search_point.get("use_gqa"):
+        if not config.float16 and config.use_gqa:
             logger.info("use_gqa is only supported when float16 is True.")
             return False
-        if search_point.get("use_gpu") and accelerator_spec.execution_provider == "CPUExecutionProvider":
+        if config.use_gpu and accelerator_spec.execution_provider == "CPUExecutionProvider":
             logger.info("CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu.")
             return False
-        if search_point.get("only_onnxruntime") and search_point.get("opt_level") <= 0:
+        if config.only_onnxruntime and config.opt_level <= 0:
             logger.info("Please specify a positive value for opt_level when only_onnxruntime is True")
             return False
-        if (
-            search_point.get("opt_level") == 0
-            and search_point.get("only_onnxruntime")
-            and search_point.get("num_heads") == 0
-            and search_point.get("hidden_size") == 0
-        ):
+        if config.opt_level == 0 and config.only_onnxruntime and config.num_heads == 0 and config.hidden_size == 0:
             if version.parse(OrtVersion) <= version.parse("1.16.0"):
                 logger.info(
                     "Ignore this search point because the issue https://github.com/microsoft/onnxruntime/issues/17254"

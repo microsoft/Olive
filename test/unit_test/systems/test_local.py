@@ -36,7 +36,7 @@ class TestLocalSystem:
         self.system.run_pass(p, olive_model, output_model_path)
 
         # assert
-        p.run.assert_called_once_with(olive_model.create_model(), output_model_path, None)
+        p.run.assert_called_once_with(olive_model.create_model(), output_model_path)
 
     METRIC_TEST_CASE: ClassVar[List[Metric]] = [
         (partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE)),

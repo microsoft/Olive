@@ -78,9 +78,9 @@ def test_validate_quant_type(pass_config, model_attributes, expected_error, tmp_
     p = create_pass_from_dict(OnnxBnb4Quantization, pass_config, disable_search=True)
     if expected_error:
         with pytest.raises(expected_error):
-            p.run(input_model, str(tmp_path / "model.onnx"), None)
+            p.run(input_model, str(tmp_path / "model.onnx"))
     else:
-        p.run(input_model, str(tmp_path / "model.onnx"), None)
+        p.run(input_model, str(tmp_path / "model.onnx"))
 
 
 @pytest.mark.parametrize(("model_generator", "expected_count"), [(get_onnx_matmul_model, 1), (get_onnx_gemm_model, 0)])
@@ -117,5 +117,5 @@ def count_matmulbnb4_nodes(model: onnx.ModelProto):
 def test_quantized_modules(tmp_path, model_generator, quantized_modules, expected_count):
     input_model = model_generator(str(tmp_path / "model.onnx"))
     p = create_pass_from_dict(OnnxBnb4Quantization, {"quant_type": "nf4", "quantized_modules": quantized_modules})
-    output_model = p.run(input_model, (tmp_path / "output_model.onnx"), None)
+    output_model = p.run(input_model, (tmp_path / "output_model.onnx"))
     assert count_matmulbnb4_nodes(output_model.load_model()) == expected_count

@@ -10,7 +10,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Generator, List, Optional, Union
 
-from olive.auto_optimizer import AutoOptimizer
 from olive.common.utils import set_tempdir
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
@@ -147,9 +146,6 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     except Exception:
         logger.warning("ORT log severity level configuration ignored since the module isn't installed.")
 
-    # input model
-    input_model = run_config.input_model
-
     # Azure ML Client
     olive_config = run_config.to_json()
     engine = run_config.engine.create_engine(package_config, run_config.azureml_client, workflow_id)
@@ -168,10 +164,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
         and run_config.auto_optimizer_config is not None
         and not run_config.auto_optimizer_config.disable_auto_optimizer
     )
-    if auto_optimizer_enabled:
-        is_ep_required = True
-    else:
-        is_ep_required = is_execution_provider_required(run_config, package_config)
+    is_ep_required = auto_optimizer_enabled or is_execution_provider_required(run_config, package_config)
 
     # Register passes since we need to know whether they need to run on target
     used_passes = list(get_used_passes(run_config))
@@ -196,66 +189,32 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
         engine.target_config, skip_supported_eps_check=target_not_used, is_ep_required=is_ep_required
     )
 
-    pass_list = []
-    acc_list = []
-    if auto_optimizer_enabled:
-        # For auto optimizer, Olive generates passes and pass_flows for each accelerator
-        # that means, the passes and pass_flows might be different for each accelerator
-        for acc_spec in accelerator_specs:
-            _passes, pass_flows = AutoOptimizer(
-                input_model,
-                engine.evaluator_config,
-                acc_spec,
-                run_config.auto_optimizer_config,
-                run_config.data_configs,
-            ).suggest()
-            pass_list.append(({k: RunPassConfig.parse_obj(v) for k, v in _passes.items()}, pass_flows))
-            acc_list.append([acc_spec])
-    else:
-        # For non-auto-optimizer case, Olive uses the same passes and pass_flows for all accelerators
-        # if user needs different passes and pass_flows for each accelerator, they need to write multiple
-        # config files.
-        pass_list.append((run_config.passes, run_config.pass_flows))
-        acc_list.append(accelerator_specs)
-
-    run_rls = {}
-    # Note that, in Olive, there are two positions where the accelerator_specs are looped over:
-    # 1. olive workflow run level: this is where the accelerator_specs are created and passed to
-    # the engine. In this level, accelerator specs can be used to generate passes and pass_flows.
-    # 2. engine level: this is where the accelerator_specs are looped over to run the passes.
-    # TODO(anyone): refactor the code to remove the engine level loop if possible.
-    # For time being, we are keeping both loops, but in future, we might want to refactor the code
-    # to remove engine level loop and pass the accelerator_specs to the engine directly.
-    for accelerator_spec, (passes, pass_flows) in zip(acc_list, pass_list):
-        engine.reset_passes()
-        pass_flows_to_run = {p for ps in pass_flows for p in ps} if pass_flows else set(passes.keys())
-
-        # Initializes the pass and register it with the engine
-        for pass_name, pass_config in passes.items():
-            if pass_name in pass_flows_to_run:
-                host = pass_config.host.create_system() if pass_config.host is not None else None
-                engine.register(
-                    pass_config.type,
-                    config=pass_config.config,
-                    name=pass_name,
-                    host=host,
-                    evaluator_config=pass_config.evaluator,
-                )
-            engine.set_pass_flows(pass_flows)
-
-        # run
-        run_rls.update(
-            engine.run(
-                input_model,
-                accelerator_spec,
-                run_config.engine.packaging_config,
-                run_config.engine.output_dir,
-                run_config.engine.evaluate_input_model,
-                run_config.engine.log_to_file,
-                run_config.engine.log_severity_level,
-            )
+    # Initializes the passes and register it with the engine
+    passes_to_run = (
+        {pass_name for pass_flow in run_config.pass_flows for pass_name in pass_flow}
+        if run_config.pass_flows
+        else set(run_config.passes.keys())
+    )
+    for pass_name in passes_to_run:
+        pass_run_config = run_config.passes[pass_name]
+        engine.register(
+            pass_run_config.type,
+            config=pass_run_config.config,
+            name=pass_name,
+            host=pass_run_config.host.create_system() if pass_run_config.host is not None else None,
+            evaluator_config=pass_run_config.evaluator,
         )
-    return run_rls
+    engine.set_pass_flows(run_config.pass_flows or [list(run_config.passes.keys())])
+
+    return engine.run(
+        run_config.input_model,
+        accelerator_specs,
+        run_config.engine.packaging_config,
+        run_config.engine.output_dir,
+        run_config.engine.evaluate_input_model,
+        run_config.engine.log_to_file,
+        run_config.engine.log_severity_level,
+    )
 
 
 def set_olive_config_for_aml_system(olive_config: dict):

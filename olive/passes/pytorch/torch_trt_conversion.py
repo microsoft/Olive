@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 
@@ -67,12 +67,19 @@ class TorchTRTConversion(Pass):
             ),
         }
 
-    def validate_search_point(
-        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    @classmethod
+    def validate_config(
+        cls,
+        config: Dict[str, Any],
+        accelerator_spec: AcceleratorSpec,
+        disable_search: Optional[bool] = False,
     ) -> bool:
+        if not super().validate_config(config, accelerator_spec, disable_search):
+            return False
+
         # since the run will leverage the host device to move the model to device,
         # we need to check if the host device is GPU
-        if self.host_device != Device.GPU:
+        if accelerator_spec.accelerator_type != Device.GPU:
             logger.info("TorchTRTConversion only supports GPU.")
             return False
         return True
