@@ -12,6 +12,12 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ]
         },
+        "GraphSurgeries": {
+            "module_path": "olive.passes.onnx.graph_surgeries.GraphSurgeries",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ]
+        },
         "ExtractAdapters": {
             "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters",
             "supported_providers": [ "*" ],
