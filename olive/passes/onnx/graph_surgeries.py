@@ -7,6 +7,7 @@
 
 import inspect
 import logging
+from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Type
 
 import numpy as np
@@ -16,8 +17,9 @@ from onnx.helper import make_tensor
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -487,17 +489,21 @@ class GraphSurgeries(Pass):
                 required=True,
                 description="List of surgeries to apply, each with its type and parameters",
             ),
+            **get_external_data_config(),
         }
 
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+
         surgeries = config["surgeries"]
         onnx_model = model.load_model()
         for surgery in surgeries:
             logger.info("Applying surgery: %s", surgery)
             surgeon_instance = self.init_surgeon_instance(surgery)
             onnx_model = surgeon_instance(onnx_model)
+
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
     def init_surgeon_instance(self, surgery):
