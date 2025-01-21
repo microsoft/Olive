@@ -29,38 +29,40 @@ Concat: 2
 
 ### Unet
 
-Constant: 649
-Conv: 66
-MatMul: 256
 ConstantOfShape: 1
-Reshape: 282
-Shape: 109
-Mul: 222
-InstanceNormalization: 61
-Transpose: 160
 Equal: 1
 Where: 1
 Expand: 1
-Add: 281
-Unsqueeze: 45
-Sigmoid: 47
-Cast: 98
 Sin: 1
 Cos: 1
+Resize: 3
 Concat: 14
-Slice: 66
-Gemm: 24
-Div: 102
-LayerNormalization: 48
-Sqrt: 96
-Softmax: 32
 Gather: 16
 Gelu: 16
-Resize: 3
+Gemm: 24
+Softmax: 32
+Unsqueeze: 45
+Sigmoid: 47
+LayerNormalization: 48
+InstanceNormalization: 61
+Conv: 66
+Slice: 66
+Sqrt: 96
+Cast: 98 -> OP_TYPES_TO_EXCLUDE = {"Cast"} ?
+Div: 102
+Shape: 109
+Transpose: 160
+Mul: 222
+MatMul: 256
+Add: 281
+Reshape: 282
+Constant: 649
 
 2699 -> 680
 
-About .opt
+Constant: NG
+
+#### About .opt.json
 
 This is for CUDA
 
