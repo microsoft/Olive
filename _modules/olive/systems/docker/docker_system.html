@@ -548,11 +548,10 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span>
         <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">point</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the pass on the model at a specific point in the search space.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the pass on the model.&quot;&quot;&quot;</span>
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pass_container</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">tempdir</span><span class="p">),</span> <span class="n">the_pass</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">point</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pass_container</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">tempdir</span><span class="p">),</span> <span class="n">the_pass</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_pass_container</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -560,13 +559,8 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span>
         <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">point</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">:</span>
-        <span class="n">point</span> <span class="o">=</span> <span class="n">point</span> <span class="ow">or</span> <span class="p">{}</span>
-        <span class="n">config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">config_at_search_point</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
-
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">the_pass</span><span class="o">.</span><span class="n">serialize_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 
         <span class="n">volumes_list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">runner_output_path</span> <span class="o">=</span> <span class="s2">&quot;runner_output&quot;</span>
