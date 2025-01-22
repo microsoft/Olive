@@ -54,10 +54,7 @@ def download_model():
         tar_ref.extractall(stage_dir)  # lgtm
     original_model_path = stage_dir / mobilenet_name / f"{mobilenet_name}.onnx"
     model_path = models_dir / f"{mobilenet_name}.onnx"
-    run_subprocess(
-        f"python -m onnxruntime.tools.make_dynamic_shape_fixed {original_model_path} {model_path} --dim_param"
-        " batch_size --dim_value 1"
-    )
+    shutil.copy(original_model_path, model_path)
 
 
 def download_eval_data():
@@ -69,7 +66,7 @@ def download_eval_data():
 
     # download evaluation data
     github_source = "https://github.com/EliSchwartz/imagenet-sample-images.git"
-    run_subprocess(f"git clone {github_source} {stage_dir}")
+    run_subprocess(["git", "clone", github_source, stage_dir], check=True)
 
     # sort jpegs
     jpegs = list(stage_dir.glob("*.JPEG"))

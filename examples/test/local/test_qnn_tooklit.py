@@ -68,7 +68,7 @@ class TestQnnToolkit:
                     + os.environ["PATH"]
                 )
         retry_func(run_subprocess, kwargs={"cmd": "python download_files.py", "check": True})
-        retry_func(run_subprocess, kwargs={"cmd": "python prepare_config.py --use_raw_qnn_sdk", "check": True})
+        retry_func(run_subprocess, kwargs={"cmd": "python prepare_config.py", "check": True})
 
     @pytest.mark.parametrize("use_olive_env", [True, False])
     def test_mobilenet_qnn(self, use_olive_env):

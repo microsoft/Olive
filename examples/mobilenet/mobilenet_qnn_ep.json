@@ -4,27 +4,15 @@
         "local_system": {
             "type": "LocalSystem",
             "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ]
-        },
-        "qnn_ep_env": {
-            "type": "IsolatedORT",
-            "python_environment_path": "<qnn_env_path>",
-            "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ],
-            "preprend_to_path": [ "<qnn_lib_path>" ]
         }
     },
     "data_configs": [
         {
-            "name": "metric_data_config",
+            "name": "mobilenet_data_config",
             "user_script": "user_script.py",
-            "load_dataset_config": { "type": "qnn_evaluation_dataset", "data_dir": "data/eval" },
-            "post_process_data_config": { "type": "qnn_post_process" },
+            "load_dataset_config": { "type": "mobilenet_dataset", "data_dir": "data/eval" },
+            "post_process_data_config": { "type": "mobilenet_post_process" },
             "dataloader_config": { "batch_size": 1 }
-        },
-        {
-            "name": "quant_data_config",
-            "user_script": "user_script.py",
-            "load_dataset_config": { "type": "simple_dataset" },
-            "dataloader_config": { "type": "mobilenet_calibration_reader", "data_dir": "data/eval" }
         }
     ],
     "evaluators": {
@@ -33,7 +21,7 @@
                 {
                     "name": "accuracy",
                     "type": "accuracy",
-                    "data_config": "metric_data_config",
+                    "data_config": "mobilenet_data_config",
                     "sub_types": [
                         {
                             "name": "accuracy_score",
@@ -45,25 +33,26 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "data_config": "metric_data_config",
+                    "data_config": "mobilenet_data_config",
                     "sub_types": [ { "name": "avg", "priority": 2 } ]
                 }
             ]
         }
     },
     "passes": {
+        "dynamic_shape_to_fixed": { "type": "DynamicToFixedShape", "dim_param": [ "batch_size" ], "dim_value": [ 1 ] },
         "qnn_preprocess": { "type": "QNNPreprocess" },
         "quantization": {
             "type": "OnnxStaticQuantization",
-            "data_config": "quant_data_config",
+            "data_config": "mobilenet_data_config",
             "activation_type": "QUInt16",
             "weight_type": "QUInt8"
         }
     },
-    "target": "<target>",
-    "evaluator": "<evaluator>",
+    "host": "local_system",
+    "target": "local_system",
+    "evaluator": "common_evaluator",
     "evaluate_input_model": false,
     "cache_dir": "cache",
-    "clean_cache": true,
     "output_dir": "models/mobilenet_qnn_ep"
 }
