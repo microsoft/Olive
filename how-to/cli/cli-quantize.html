@@ -468,35 +468,28 @@
 <td><p>PyTorch <br> HuggingFace</p></td>
 <td><p>PyTorch</p></td>
 </tr>
-<tr class="row-even"><td><p>QuaRot</p></td>
-<td><p>Quantization technique that combines quantization and rotation to reduce the number of bits required to represent the weights of a model.</p></td>
-<td><p>✔️</p></td>
-<td><p>✔️</p></td>
-<td><p>HuggingFace</p></td>
-<td><p>PyTorch</p></td>
-</tr>
-<tr class="row-odd"><td><p>bnb4</p></td>
+<tr class="row-even"><td><p>bnb4</p></td>
 <td><p>Is a MatMul with weight quantized with N bits (e.g., 2, 3, 4, 5, 6, 7).</p></td>
 <td><p>❌</p></td>
 <td><p>❌</p></td>
 <td><p>ONNX</p></td>
 <td><p>ONNX</p></td>
 </tr>
-<tr class="row-even"><td><p>ONNX Dynamic</p></td>
+<tr class="row-odd"><td><p>ONNX Dynamic</p></td>
 <td><p>Dynamic quantization calculates the quantization parameters (scale and zero point) for activations dynamically.</p></td>
 <td><p>❌</p></td>
 <td><p>❌</p></td>
 <td><p>ONNX</p></td>
 <td><p>ONNX</p></td>
 </tr>
-<tr class="row-odd"><td><p>INC Dynamic</p></td>
+<tr class="row-even"><td><p>INC Dynamic</p></td>
 <td><p>Intel® Neural Compressor model compression tool.</p></td>
 <td><p>❌</p></td>
 <td><p>❌</p></td>
 <td><p>ONNX</p></td>
 <td><p>ONNX</p></td>
 </tr>
-<tr class="row-even"><td><p>NVMO</p></td>
+<tr class="row-odd"><td><p>NVMO</p></td>
 <td><p>NVIDIA TensorRT Model Optimizer is a library comprising state-of-the-art model optimization techniques including quantization, sparsity, distillation, and pruning to compress models.</p></td>
 <td><p>❌</p></td>
 <td><p>❌</p></td>
@@ -527,7 +520,7 @@
 </section>
 <section id="quantization-with-onnx-optimizations">
 <h2>Quantization with ONNX Optimizations<a class="headerlink" href="#quantization-with-onnx-optimizations" title="Link to this heading">#</a></h2>
-<p>As articulated in <a class="reference internal" href="#supported-quantization-techniques"><span class="xref myst">Supported quantization techniques</span></a>, you may wish to take the PyTorch/Hugging Face output of AWQ/GPTQ/QuaRot quantization methods and convert into an optimized ONNX format so that you can inference using the ONNX runtime.</p>
+<p>As articulated in <a class="reference internal" href="#supported-quantization-techniques"><span class="xref myst">Supported quantization techniques</span></a>, you may wish to take the PyTorch/Hugging Face output of AWQ/GPTQ quantization methods and convert into an optimized ONNX format so that you can inference using the ONNX runtime.</p>
 <p>You can use Olive’s automatic optimizer (<code class="docutils literal notranslate"><span class="pre">auto-opt</span></code>) to create an optimized ONNX model from a quantized model:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 1: AWQ (will output a PyTorch model)</span>
 olive<span class="w"> </span>quantize<span class="w"> </span><span class="se">\</span>
