@@ -12,9 +12,6 @@ import math
 import torch
 import transformers
 
-from olive.common.hf.mappings import MODELS_TO_EMBEDDINGS_MAPPING, MODELS_TO_LAYERS_MAPPING
-from olive.common.utils import get_attr
-
 logger = logging.getLogger(__name__)
 
 # ruff: noqa: N802, N806, RUF100
@@ -25,12 +22,6 @@ supported_models = ("bloom", "gpt2", "gpt_neox", "llama", "opt")
 # additional inputs to the layers for each model type
 # all model types are expected to have "input_ids" and "attention_mask"
 additional_inputs = {"bloom": ["alibi"], "gpt_neox": ["position_ids"]}
-
-
-def get_layers(model, model_type):
-    """Get the layers from model based on model type."""
-    layers = MODELS_TO_LAYERS_MAPPING[model_type]
-    return get_attr(model, layers)
 
 
 def get_layer_submodules(module, submodule_types=None, layer_name_filter=None, name=""):
@@ -70,27 +61,27 @@ def validate_min_max_layers(min_layer, max_layer, num_layers):
 
 
 @torch.no_grad()
-def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
+def catch_layer_inputs(model_wrapper, dataloader, device, num_samples=None):
     """Get the layers from model based on model type."""
     num_samples = num_samples or len(dataloader.dataset)
     first_batch = next(iter(dataloader))
     # sequence length
     seqlen = first_batch[0]["input_ids"].shape[1]
     # embedding dimension
-    hidden_size = model.config.hidden_size
+    hidden_size = model_wrapper.hidden_size
     # data type
-    dtype = next(iter(model.parameters())).dtype
+    dtype = next(iter(model_wrapper.model.parameters())).dtype
 
     # placeholder to save the layer inputs
     inputs = torch.zeros((num_samples, seqlen, hidden_size), dtype=dtype, device=device)
     cache = {"i": 0, "attention_mask": None}
     # additional inputs to the layers
-    additional_input = additional_inputs.get(model_type, [])
+    additional_input = additional_inputs.get(model_wrapper.model_type, [])
     for input_name in additional_input:
         cache[input_name] = None
 
     # get layers
-    layers = get_layers(model, model_type)
+    layers = model_wrapper.get_layers(False)
 
     class FirstLayer(torch.nn.Module):
         def __init__(self, module):
@@ -110,10 +101,8 @@ def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
             raise ValueError("Stop forward propagation")
 
     # put all modules until the first layer on the device
-    for name in MODELS_TO_EMBEDDINGS_MAPPING[model_type]:
-        module = get_attr(model, name)
-        if module:
-            module.to(device)
+    for module in model_wrapper.get_embeds(False):
+        module.to(device)
 
     # wrap the first layer
     layers[0] = FirstLayer(layers[0])
@@ -122,7 +111,7 @@ def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
     for data, _ in dataloader:
         input_ids = data["input_ids"].to(device)
         try:
-            model(input_ids)
+            model_wrapper.model(input_ids)
         except ValueError:
             pass
         # stop if we have enough samples
@@ -133,10 +122,8 @@ def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
     layers[0] = layers[0].module
 
     # put all modules until the first layer back on the CPU
-    for name in MODELS_TO_EMBEDDINGS_MAPPING[model_type]:
-        module = get_attr(model, name)
-        if module:
-            module.to("cpu")
+    for module in model_wrapper.get_embeds(False):
+        module.to("cpu")
 
     if "cuda" in str(device):
         torch.cuda.empty_cache()

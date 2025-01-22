@@ -11,9 +11,10 @@ from typing import Any, Dict, List, Union
 
 import torch
 from packaging import version
+from transformers import PreTrainedModel
 
 from olive.common.config_utils import validate_config
-from olive.common.hf.mappings import MODEL_INSIDE_LAYER_MODULES, MODEL_OUTSIDE_LAYER_MODULES, MODELS_TO_LAYERS_MAPPING
+from olive.common.hf.wrapper import ModelWrapper
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
@@ -143,6 +144,13 @@ class GptqQuantizer(Pass):
             model.set_resource("adapter_path", None)
 
         pytorch_model = model.load_model(cache_model=False)
+        model_type = pytorch_model.config.model_type if hasattr(pytorch_model, "config") else ""
+
+        # create model adapter if needed
+        model_wrapper = None
+        if isinstance(pytorch_model, PreTrainedModel) and model_type not in GPTQ_CAUSAL_LM_MODEL_MAP:
+            model_wrapper = ModelWrapper.from_model(pytorch_model)
+
         quantize_config = BaseQuantizeConfig(
             bits=config["bits"],
             group_size=config["group_size"],
@@ -155,23 +163,21 @@ class GptqQuantizer(Pass):
             model_file_base_name="model",
         )
 
-        model_type = pytorch_model.config.model_type if hasattr(pytorch_model, "config") else ""
         model_class = GPTQ_CAUSAL_LM_MODEL_MAP.get(model_type, BaseGPTQForCausalLM)
         quantized_model: BaseGPTQForCausalLM = model_class(pytorch_model, False, quantize_config)
 
-        fields_to_set = {
-            "outside_layer_modules": MODEL_OUTSIDE_LAYER_MODULES,
-            "inside_layer_modules": MODEL_INSIDE_LAYER_MODULES,
-            "layers_block_name": MODELS_TO_LAYERS_MAPPING,
-        }
-        for key, value in fields_to_set.items():
+        for key in ["outside_layer_modules", "inside_layer_modules", "layers_block_name"]:
             if config[key]:
+                # user provided value
                 setattr(quantized_model, key, config[key])
-            elif model_type not in GPTQ_CAUSAL_LM_MODEL_MAP:
-                if model_type in value:
-                    setattr(quantized_model, key, value[model_type])
-                else:
-                    raise ValueError(f"Can't get {key} to quantize automatically, please provide it in config.")
+            elif model_type in GPTQ_CAUSAL_LM_MODEL_MAP:
+                # gptq supports the model type
+                pass
+            elif model_wrapper:
+                # try to get the value from the model adapter
+                setattr(quantized_model, key, self.get_gptq_info(model_wrapper, key))
+            else:
+                raise ValueError(f"Can't get {key} to quantize automatically, please provide it in config.")
 
         quantized_model.quantize(dataset)
 
@@ -233,3 +239,21 @@ class GptqQuantizer(Pass):
         if new_load_kwargs.get("extra_args") and new_load_kwargs["extra_args"].get("use_safetensors") is False:
             new_load_kwargs["extra_args"]["use_safetensors"] = True
         return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path, load_kwargs=new_load_kwargs)
+
+    @staticmethod
+    def get_gptq_info(model_wrapper: ModelWrapper, name: str) -> List[str]:
+        """Get the GPTQ info from the model wrapper."""
+        if name == "outside_layer_modules":
+            return [*model_wrapper.get_embeds()[1], model_wrapper.get_pre_head_layernorm()[1]]
+        if name == "inside_layer_modules":
+            layer_wrapper = model_wrapper.get_layer_wrappers()[0]
+            return [
+                layer_wrapper.get_attention_inputs()[1],
+                layer_wrapper.get_attention_outputs()[1],
+                layer_wrapper.get_mlp_inputs()[1],
+                layer_wrapper.get_mlp_outputs()[1],
+            ]
+        if name == "layers_block_name":
+            return model_wrapper.get_layers()[1]
+
+        raise ValueError(f"Unknown key {name}")
