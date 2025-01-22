@@ -103,16 +103,6 @@
             "execution_providers_list": [ "CUDAExecutionProvider" ],
             "opt_level_list": [ 0, 1 ],
             "execution_mode_list": [ 0, 1 ]
-        },
-        "quarot": {
-            "type": "QuaRot",
-            "w_rtn": true,
-            "rotate": true,
-            "w_bits": 4,
-            "a_bits": 4,
-            "k_bits": 4,
-            "v_bits": 4,
-            "calibration_data_config": "wikitext2_train"
         }
     },
     "pass_flows": [ [ "<place_holder>" ] ],

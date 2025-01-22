@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import codecs
+import gc
 import hashlib
 import inspect
 import io
@@ -659,3 +660,12 @@ def load_weights(path: Union[str, Path], file_format: Optional[WeightsFileFormat
 def unescaped_str(arg_str):
     """Decode strings without escaping."""
     return codecs.decode(arg_str, "unicode_escape")
+
+
+def cleanup_memory():
+    """Cleanup memory by running garbage collection and emptying CUDA cache."""
+    import torch
+
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()

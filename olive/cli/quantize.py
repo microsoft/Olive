@@ -69,9 +69,6 @@ class QuantizeCommand(BaseOliveCLICommand):
             action="store_true",
             help="Use QDQ encoding in ONNX model for the quantized nodes.",
         )
-        sub_parser.add_argument(
-            "--quarot_rotate", action="store_true", help="Apply QuaRot/Hadamard rotation to the model."
-        )
 
         add_dataset_options(sub_parser, required=False, include_train=False, include_eval=False)
         add_remote_options(sub_parser)
@@ -96,9 +93,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         if not self.args.precision:
             self.args.precision = ALGORITHMS[self.args.algorithm][defaults_key]["precision"]
 
-        if self.args.algorithm in ["gptq", "rtn"] and self.args.implementation == "quarot":
-            self.args.precision = "int16"
-        elif self.args.algorithm == "rtn" and self.args.precision == "nf4":
+        if self.args.algorithm == "rtn" and self.args.precision == "nf4":
             self.args.implementation = "bnb4"
 
         if self.args.enable_qdq_encoding and self.args.implementation != "matmul4":
@@ -130,10 +125,6 @@ class QuantizeCommand(BaseOliveCLICommand):
             (("passes", "awq", "w_bit"), precision),
             (("passes", "gptq", "bits"), precision),
             (("passes", "bnb4", "quant_type"), precision),
-            (("passes", "quarot", "w_bits"), precision),
-            (("passes", "quarot", "rotate"), self.args.quarot_rotate),
-            (("passes", "quarot", "w_rtn"), self.args.algorithm == "rtn"),
-            (("passes", "quarot", "w_gptq"), self.args.algorithm == "gptq"),
             (("passes", "nvmo", "precision"), precision),
             (("passes", "nvmo", "algorithm"), self.args.algorithm.upper()),
             (("passes", "onnx_dynamic", "weight_type"), precision),
@@ -153,9 +144,6 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         if ("gptq" in self.args.algorithm) and (not self.args.data_name):
             raise ValueError("data_name is required to use gptq.")
-
-        if ("quarot" in self.args.algorithm) and (not self.args.data_name) and (self.args.quarot_strategy == "gptq"):
-            raise ValueError("data_name is required to quantize weights using gptq.")
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
@@ -184,14 +172,6 @@ TEMPLATE = {
         # Pytorch algorithms
         "awq": {"type": "AutoAWQQuantizer", "w_bit": 4},
         "gptq": {"type": "GptqQuantizer", "bits": 4, "data_config": "default_data_config"},
-        "quarot": {
-            "type": "QuaRot",
-            "w_bits": 16,
-            "w_rtn": False,
-            "w_gptq": False,
-            "rotate": False,
-            "calibration_data_config": "default_data_config",
-        },
         # Onnx algorithms
         "bnb4": {"type": "OnnxBnb4Quantization", "quant_type": "nf4"},
         "matmul4": {"type": "OnnxMatMul4Quantizer", "accuracy_level": 4},
@@ -219,14 +199,14 @@ ALGORITHMS = {
         "description": "(HfModel, OnnxModel) WOQ with AWQ.",
     },
     "gptq": {
-        "implementations": ["gptq", "quarot", "matmul4", "inc_static", "inc_dynamic"],
+        "implementations": ["gptq", "matmul4", "inc_static", "inc_dynamic"],
         "hf_model_defaults": {"implementation": "gptq", "precision": "int4"},
         "onnx_model_defaults": {"implementation": "matmul4", "precision": "int4"},
         "description": "(HfModel, OnnxModel) WOQ with GPTQ.",
     },
     "rtn": {
-        "implementations": ["quarot", "bnb4", "matmul4"],
-        "hf_model_defaults": {"implementation": "quarot", "precision": "int16"},
+        "implementations": ["bnb4", "matmul4"],
+        "hf_model_defaults": {"implementation": None, "precision": None},
         "onnx_model_defaults": {"implementation": "onnx_static", "precision": "int8"},
         "description": "(HfModel, OnnxModel) WOQ with RTN.",
     },
@@ -265,18 +245,6 @@ IMPLEMENTATIONS = {
     },
     "gptq": {
         "name": "WOQ with GPTQ",
-        "supported_precisions": [],
-        "precision_mapping": {
-            "int4": 4,
-            "int8": 8,
-            "int16": 16,
-            "uint4": 4,
-            "uint8": 8,
-            "uint16": 16,
-        },
-    },
-    "quarot": {
-        "name": "QuaRot/Hadamard rotation",
         "supported_precisions": [],
         "precision_mapping": {
             "int4": 4,

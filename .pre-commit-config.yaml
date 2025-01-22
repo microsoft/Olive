@@ -13,6 +13,7 @@ repos:
     hooks:
       - id: black
         name: Format code
+        exclude: "hadamard_utils.py"
   - repo: https://github.com/pycqa/isort
     rev: 5.11.5
     hooks:
