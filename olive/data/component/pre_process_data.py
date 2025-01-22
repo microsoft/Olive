@@ -30,18 +30,23 @@ def pre_process(dataset, **kwargs):
     return dataset
 
 
-def _huggingface_pre_process_helper(dataset, map_func, **kwargs):
+def _huggingface_pre_process_helper(dataset, map_func, max_samples, **kwargs):
     """Apply a map function to the dataset.
 
     Args:
         dataset (object): Data to be pre-processed.
         map_func (function): Function to be applied to the dataset.
+        max_samples (int): Max number of samples to use.
         **kwargs: Additional arguments.
 
     Returns:
         object: Pre-processed data.
 
     """
+    if max_samples is not None:
+        # select the data beforehand to avoid tokenizing the whole dataset
+        dataset = dataset.select(range(min(len(dataset), max_samples)))
+
     # output type is list
     tokenized_datasets = dataset.map(
         map_func,
@@ -96,7 +101,7 @@ def huggingface_pre_process(
         if model_hf_config and model_hf_config.label2id:
             dataset = dataset.align_labels_with_mapping(model_hf_config.label2id, label_col)
 
-    tokenized_datasets = _huggingface_pre_process_helper(dataset, _tokenizer_and_align_labels, **kwargs)
+    tokenized_datasets = _huggingface_pre_process_helper(dataset, _tokenizer_and_align_labels, max_samples, **kwargs)
     # label_col is "label" since we added label_col as "label" to tokenized_inputs
     return BaseDataset(tokenized_datasets, label_col="label", max_samples=max_samples)
 
@@ -146,7 +151,7 @@ def ner_huggingface_preprocess(
         tokenized_inputs["label"] = new_labels
         return tokenized_inputs
 
-    tokenized_datasets = _huggingface_pre_process_helper(dataset, _tokenizer_and_align_labels, **kwargs)
+    tokenized_datasets = _huggingface_pre_process_helper(dataset, _tokenizer_and_align_labels, max_samples, **kwargs)
     return BaseDataset(tokenized_datasets, label_col="label", max_samples=max_samples)
 
 
@@ -238,5 +243,5 @@ def audio_classification_pre_process(
 
         return tokenized_inputs
 
-    tokenized_datasets = _huggingface_pre_process_helper(dataset, _tokenizer_and_align_labels, **kwargs)
+    tokenized_datasets = _huggingface_pre_process_helper(dataset, _tokenizer_and_align_labels, max_samples, **kwargs)
     return BaseDataset(tokenized_datasets, label_col="label", max_samples=max_samples)
