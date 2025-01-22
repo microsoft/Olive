@@ -67,7 +67,7 @@ include_patterns = [
   '**/*.py'
 ]
 exclude_patterns = [
-  '**/hadamard_tensors.py'
+  '**/hadamard_utils.py'
 ]
 command = [
   'python',
@@ -95,7 +95,7 @@ include_patterns = [
   '**/*.py'
 ]
 exclude_patterns = [
-  '**/hadamard_tensors.py'
+  '**/hadamard_utils.py'
 ]
 command = [
   'python',

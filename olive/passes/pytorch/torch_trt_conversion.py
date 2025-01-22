@@ -17,7 +17,7 @@ from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pytorch.common import inherit_pytorch_from_hf
-from olive.passes.pytorch.utils.sparsegpt import get_layer_submodules, supported_models, validate_min_max_layers
+from olive.passes.pytorch.sparsegpt_utils import get_layer_submodules, supported_models, validate_min_max_layers
 
 logger = logging.getLogger(__name__)
 
