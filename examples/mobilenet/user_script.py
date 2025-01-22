@@ -6,12 +6,13 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
 from olive.data.registry import Registry
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListProcessedDataLoader
 
 # QNN EP dataset and post-process functions
+
 
 class MobileNetDataset(Dataset):
     def __init__(self, data_dir: str):
@@ -32,6 +33,7 @@ class MobileNetDataset(Dataset):
         # need to remove the batch dimension, will be added by the dataloader
         return {"input": data.squeeze(0)}, label
 
+
 @Registry.register_dataset()
 def mobilenet_dataset(data_dir, **kwargs):
     return MobileNetDataset(data_dir)
@@ -41,7 +43,9 @@ def mobilenet_dataset(data_dir, **kwargs):
 def mobilenet_post_process(output):
     return output.argmax(axis=1)
 
+
 # QNN SDK dataloader and post-process functions
+
 
 @Registry.register_dataloader()
 def qnn_dataloader(dataset, data_dir: str, batch_size: int, **kwargs):
@@ -55,4 +59,3 @@ def qnn_dataloader(dataset, data_dir: str, batch_size: int, **kwargs):
 @Registry.register_post_process()
 def qnn_sdk_post_process(output):
     return np.array([output.argmax(axis=-1)])
-

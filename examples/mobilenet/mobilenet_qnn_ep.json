@@ -40,11 +40,7 @@
         }
     },
     "passes": {
-        "dynamic_shape_to_fixed": {
-            "type": "DynamicToFixedShape",
-            "dim_param": [ "batch_size" ],
-            "dim_value": [ 1 ]
-        },
+        "dynamic_shape_to_fixed": { "type": "DynamicToFixedShape", "dim_param": [ "batch_size" ], "dim_value": [ 1 ] },
         "qnn_preprocess": { "type": "QNNPreprocess" },
         "quantization": {
             "type": "OnnxStaticQuantization",
