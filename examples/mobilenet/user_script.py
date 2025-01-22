@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader, Dataset
 from olive.data.registry import Registry
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListProcessedDataLoader
 
+# QNN EP dataset and post-process functions
 
 class MobileNetDataset(Dataset):
     def __init__(self, data_dir: str):
@@ -28,8 +29,19 @@ class MobileNetDataset(Dataset):
     def __getitem__(self, idx):
         data = torch.unsqueeze(self.data[idx], dim=0)
         label = self.labels[idx] if self.labels is not None else -1
-        return {"input": data}, label
+        # need to remove the batch dimension, will be added by the dataloader
+        return {"input": data.squeeze(0)}, label
 
+@Registry.register_dataset()
+def mobilenet_dataset(data_dir, **kwargs):
+    return MobileNetDataset(data_dir)
+
+
+@Registry.register_post_process()
+def mobilenet_post_process(output):
+    return output.argmax(axis=1)
+
+# QNN SDK dataloader and post-process functions
 
 @Registry.register_dataloader()
 def qnn_dataloader(dataset, data_dir: str, batch_size: int, **kwargs):
@@ -40,22 +52,7 @@ def qnn_dataloader(dataset, data_dir: str, batch_size: int, **kwargs):
     )
 
 
-@Registry.register_dataset()
-def qnn_evaluation_dataset(data_dir, **kwargs):
-    return MobileNetDataset(data_dir)
-
-
-@Registry.register_post_process()
-def qnn_post_process(output):
-    return output.argmax(axis=1)
-
-
 @Registry.register_post_process()
 def qnn_sdk_post_process(output):
     return np.array([output.argmax(axis=-1)])
 
-
-@Registry.register_dataloader()
-def mobilenet_calibration_reader(dataset, batch_size, data_dir, **kwargs):
-    dataset = MobileNetDataset(data_dir)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=False)

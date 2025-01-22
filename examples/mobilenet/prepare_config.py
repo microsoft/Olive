@@ -41,12 +41,4 @@ def raw_qnn_config():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--use_raw_qnn_sdk",
-        action="store_true",
-        help="If set, use the raw qnn sdk instead of the qnn EP",
-    )
-    args = parser.parse_args()
-    if args.use_raw_qnn_sdk:
-        raw_qnn_config()
+    raw_qnn_config()

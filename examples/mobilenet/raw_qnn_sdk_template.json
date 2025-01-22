@@ -43,6 +43,11 @@
         }
     },
     "passes": {
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [ "batch_size" ],
+            "dim_value": [ 1 ]
+        },
         "converter": { "type": "QNNConversion" },
         "quantization": { "type": "QNNConversion", "extra_args": "--input_list <input_list.txt>" },
         "build_model_lib": { "type": "QNNModelLibGenerator", "lib_targets": "x86_64-linux-clang" }

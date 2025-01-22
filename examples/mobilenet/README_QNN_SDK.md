@@ -17,7 +17,7 @@ olive configure-qualcomm-sdk --py_version 3.8 --sdk qnn
 
 ### Prepare workflow config json
 ```
-python prepare_config.py --use_raw_qnn_sdk
+python prepare_config.py
 ```
 
 ### Pip requirements
