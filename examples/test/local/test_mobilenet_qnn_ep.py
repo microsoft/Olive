@@ -2,11 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import os
-import sys
 
 import pytest
 
+from olive.common.utils import retry_func, run_subprocess
 from olive.hardware import AcceleratorSpec
 
 from ..utils import get_example_dir
@@ -15,19 +16,22 @@ from ..utils import get_example_dir
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    example_dir = get_example_dir("mobilenet")
-    os.chdir(example_dir)
-    sys.path.insert(0, example_dir)
+    os.chdir(get_example_dir("mobilenet"))
 
-    yield
-    sys.path.remove(example_dir)
+    retry_func(run_subprocess, kwargs={"cmd": "python download_files.py", "check": True})
 
 
 def test_mobilenet_qnn_ep():
-    from mobilenet_qnn_ep import main as mobilenet_qnn_ep_main
+    from olive.workflows import run as olive_run
+
+    with open("mobilenet_qnn_ep.json") as f:
+        config = json.load(f)
+
+    # only run optimization here, needs qnn-ep to run evaluation
+    del config["evaluators"], config["evaluator"]
 
     # need to pass [] since the parser reads from sys.argv
-    result = mobilenet_qnn_ep_main([])
+    result = olive_run(config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
 
     expected_accelerator_spec = AcceleratorSpec(accelerator_type="npu", execution_provider="QNNExecutionProvider")
     # make sure it only ran for npu-qnn
