@@ -113,11 +113,11 @@ The default value is 3. User can increase if there are network issues and the op
 User should specify input model type and configuration using `input model` dictionary. It contains following items:
 
 - `type: [str]` Type of the input model which is case insensitive.. The supported types contain `HfModelHandler`, `PyTorchModelHandler`, `ONNXModelHandler`, `OpenVINOModelHandler`,`SNPEModelHandler` and etc. You can
-find more details in [Olive Models](https://microsoft.github.io/Olive/api/models.html).
+find more details in [Olive Models](../../reference/model.rst).
 
 - `config: [Dict]` The configuration of the pass. Its fields can be provided directly to the parent dictionary. For example, for `HfModelHandler`, the input model config dictionary specifies following items:
 
-    - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is a huggingface hub model id or a local directory. If it is a dictionary, it contains information about the model path. Please refer to [Configuring Model Path](../tutorials/configure_model_path.md) for the more information of the model path dictionary.
+    - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is a huggingface hub model id or a local directory. If it is a dictionary, it contains information about the model path. Please refer to [Configuring Model Path](../configure-workflows/model-opt-and-transform/configure-model-path.md) for the more information of the model path dictionary.
 
     - `task: [str]` The task of the model. The default task is `text-generation-with-past` which is equivalent to a causal language model with key-value cache enabled.
 
@@ -169,11 +169,14 @@ Please find the detailed config options from following table for each model type
 
 | Model Type | Description |
 |:----------|:-------------|
-| [HfModelHandler](hf_model) | Hf model |
-| [PytorchModelHandler](pytorch_model) | Pytorch model |
-| [ONNXModelHandler](onnx_model) | ONNX model |
-| [OpenVINOModelHandler](openvino_model) | OpenVINO IR model |
-| [SNPEModelHandler](snpe_model) | SNPE DLC model |
+| [HfModelHandler](../../reference/model.rst#_hf_model) | Hf model |
+| [DistributedHfModelHandler](../../reference/model.rst#_distributed_hf_model) | Distributed Hf Model |
+| [PytorchModelHandler](../../reference/model.rst#_pytorch_model) | Pytorch model |
+| [ONNXModelHandler](../../reference/model.rst#_onnx_model) | ONNX model |
+| [DistributedOnnxModelHandler](../../reference/model.rst#_distributed_onnx_model) | ONNX model |
+| [OpenVINOModelHandler](../../reference/model.rst#_openvino_model) | OpenVINO IR model |
+| [SNPEModelHandler](../../reference/model.rst#_snpe_model) | SNPE DLC model |
+| [CompositeModelHandler](../../reference/model.rst#_composite_model) | Composite Model |
 
 ### Example
 
@@ -193,13 +196,13 @@ dictionary is the name of the system. The value of the dictionary is another dic
 information of the system contains following items:
 
 - `type: [str]` The type of the system. The supported types are `LocalSystem`, `AzureML` and `Docker`.
-  There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [Olive System Alias](olive_system_alias) for the complete list of system alias.
+  There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [Olive System Alias](../../reference/system.rst#_olive_system_alias) for the complete list of system alias.
 
 - `config: [Dict]` The system config dictionary that contains the system specific information. The fields can be provided directly under the parent dictionary.
  - `accelerators: [List[str]]` The accelerators that will be used for this workflow.
  - `hf_token: [bool]` Whether to use a Huggingface token to access Huggingface resources. If it is set to `True`, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the `HF_TOKEN` environment variable or from the token file located at `~/.huggingface/token`. For AzureML system, Olive will retrieve the token from user keyvault secret. If set to `False`, no token will be utilized during this workflow run. The default value is `False`.
 
-Please refer to [How To Configure System](../tutorials/configure_systems.rst) for the more information of the system config dictionary.
+Please refer to [How To Configure System](../configure-workflows/systems.md) for the more information of the system config dictionary.
 
 ### Example
 
@@ -238,7 +241,7 @@ information of the evaluator contains following items:
 
     - `subtypes: [List[Dict]]` The subtypes of the metric. Cannot be null or empty. Each subtype is a dictionary that contains following items:
 
-        - `name: str` The name of the subtype. Please refer to [AccuracySubtype](accuracy_sub_type), [LatencySubtype](latency_sub_type) and [ThroughputSubtype](throughput_sub_type)
+        - `name: str` The name of the subtype. Please refer to [AccuracySubtype](../../reference/metric.rst#_accuracy_sub_type), [LatencySubtype](../../reference/metric.rst#_latency_sub_type) and [ThroughputSubtype](../../reference/metric.rst#_throughput_sub_type)
         for the supported subtypes. For `custom` type, if the result of the evaluation is a dictionary, the name of the subtype should be the key of the dictionary. Otherwise, the name of the subtype could be any unique string user gives.
 
         - `metric_config` The parameter config used to measure detailed metrics. Please note that when the `backend` is `huggingface_metrics`, you should see the `metric_config` as dictionary of:
@@ -557,9 +560,9 @@ Please find the detailed config options from following table for each search alg
 
 | Algorithm  | Description |
 |:----------|:-------------|
-| [exhaustive](exhaustive_search_algorithm) | Iterates over the entire search space |
-| [random](random_search_algorithm) | Samples random points from the search space with or without replacement |
-| [tpe](tpe_search_algorithm) | Sample using TPE (Tree-structured Parzen Estimator) algorithm. |
+| [exhaustive](../../reference/search-algorithm.rst#_exhaustive_search_algorithm) | Iterates over the entire search space |
+| [random](../../reference/search-algorithm.rst#_random_search_algorithm) | Samples random points from the search space with or without replacement |
+| [tpe](../../reference/search-algorithm.rst#_tpe_search_algorithm) | Sample using TPE (Tree-structured Parzen Estimator) algorithm. |
 
 ### Example
 
