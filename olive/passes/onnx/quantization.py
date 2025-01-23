@@ -54,6 +54,13 @@ _onnx_quantization_config = {
             List of operator types to quantize. If None, all quantizable.
         """,
     ),
+    "op_types_to_exclude": PassConfigParam(
+        type_=list,
+        default_value=None,
+        description="""
+            List of operator types to exclude from quantization. If None, all quantizable.
+        """,
+    ),
     "append_first_op_types_to_quantize_list": PassConfigParam(
         type_=bool,
         default_value=False,
@@ -421,6 +428,7 @@ class OnnxQuantization(Pass):
             "quant_preprocess",
             "prepare_qnn_config",
             "append_first_op_types_to_quantize_list",
+            "op_types_to_exclude",
             *_dataloader_config.keys(),
             *get_external_data_config().keys(),
         ]
@@ -447,6 +455,15 @@ class OnnxQuantization(Pass):
 
         # remove keys not needed for quantization
         run_config = exclude_keys(run_config, to_delete)
+
+        # add nodes to exclude if op_types_to_exclude is not None
+        nodes_to_exclude = run_config["nodes_to_exclude"]
+        if config["op_types_to_exclude"]:
+            nodes_to_exclude = nodes_to_exclude or []
+            for node in onnx.load(model.model_path, load_external_data=False).graph.node:
+                if node.op_type in config["op_types_to_exclude"]:
+                    nodes_to_exclude.append(node.name)
+        run_config["nodes_to_exclude"] = nodes_to_exclude
 
         # for ORT version < 1.16.0, set optimize_model to False
         # always set it to False since it is not recommended and is removed in ORT 1.16.0
@@ -493,8 +510,11 @@ class OnnxQuantization(Pass):
                 # override the run_config with qnn_config
                 # get all attributes of qnn_config
                 run_config = {k: v for k, v in inspect.getmembers(qnn_config) if not k.startswith("_")}
-                # remove the calibration_data_reader from run_config
+                # put back the nodes_to_exclude
+                if nodes_to_exclude:
+                    run_config["nodes_to_exclude"].extend(nodes_to_exclude)
 
+            # remove the calibration_data_reader from run_config
             run_config = exclude_keys(
                 run_config,
                 ("calibration_data_reader", "use_external_data_format", "qnn_extra_options"),

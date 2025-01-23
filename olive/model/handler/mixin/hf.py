@@ -115,13 +115,20 @@ class HfMixin:
 
     def get_hf_io_config(self) -> Optional[Dict[str, Any]]:
         """Get Io config for the model."""
-        return get_model_io_config(self.model_path, self.task, self.load_model(), **self.get_load_kwargs())
+        return get_model_io_config(
+            self.model_path,
+            self.task,
+            self.load_model(),
+            extended_mask_type=self.model_attributes.get("extended_mask_type", None),
+            **self.get_load_kwargs(),
+        )
 
     def get_hf_dummy_inputs(self) -> Optional[Dict[str, Any]]:
         """Get dummy inputs for the model."""
         return get_model_dummy_input(
             self.model_path,
             self.task,
+            extended_mask_type=self.model_attributes.get("extended_mask_type", None),
             **self.get_load_kwargs(),
         )
 

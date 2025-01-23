@@ -59,7 +59,15 @@ def _huggingface_pre_process_helper(dataset, map_func, max_samples, **kwargs):
 
 @Registry.register_pre_process()
 def huggingface_pre_process(
-    dataset, model_name, input_cols, label_col="label", max_samples=None, trust_remote_code=None, **kwargs
+    dataset,
+    model_name,
+    input_cols,
+    label_col="label",
+    max_samples=None,
+    trust_remote_code=None,
+    extended_mask_type=False,
+    extended_mask_value=None,
+    **kwargs
 ):
     """Pre-process data.
 
@@ -103,12 +111,26 @@ def huggingface_pre_process(
 
     tokenized_datasets = _huggingface_pre_process_helper(dataset, _tokenizer_and_align_labels, max_samples, **kwargs)
     # label_col is "label" since we added label_col as "label" to tokenized_inputs
-    return BaseDataset(tokenized_datasets, label_col="label", max_samples=max_samples)
+    return BaseDataset(
+        tokenized_datasets,
+        label_col="label",
+        max_samples=max_samples,
+        extended_mask_type=extended_mask_type,
+        extended_mask_value=extended_mask_value,
+    )
 
 
 @Registry.register_pre_process()
 def ner_huggingface_preprocess(
-    dataset, model_name, input_cols, label_col="label", max_samples=None, trust_remote_code=None, **kwargs
+    dataset,
+    model_name,
+    input_cols,
+    label_col="label",
+    max_samples=None,
+    trust_remote_code=None,
+    extended_mask_type=False,
+    extended_mask_value=None,
+    **kwargs
 ):
     """Pre-process data for ner task."""
 
@@ -152,7 +174,13 @@ def ner_huggingface_preprocess(
         return tokenized_inputs
 
     tokenized_datasets = _huggingface_pre_process_helper(dataset, _tokenizer_and_align_labels, max_samples, **kwargs)
-    return BaseDataset(tokenized_datasets, label_col="label", max_samples=max_samples)
+    return BaseDataset(
+        tokenized_datasets,
+        label_col="label",
+        max_samples=max_samples,
+        extended_mask_type=extended_mask_type,
+        extended_mask_value=extended_mask_value,
+    )
 
 
 @Registry.register_pre_process()

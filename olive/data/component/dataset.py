@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
 
+from olive.common.hf.model_io import replace_with_extended_mask
 from olive.common.hf.utils import get_model_config
 from olive.common.utils import resolve_torch_dtype
 from olive.constants import Framework
@@ -23,11 +24,13 @@ class BaseDataset(TorchDataset):
     The data should be a list or dict of numpy arrays or torch tensors
     """
 
-    def __init__(self, data, label_col, max_samples=None, **kwargs):
+    def __init__(self, data, label_col, max_samples=None, extended_mask_type=None, extended_mask_value=None, **kwargs):
         """Initialize the dataset."""
         self.data = data
         self.label_col = label_col
         self.max_samples = max_samples
+        self.extended_mask_type = extended_mask_type
+        self.extended_mask_value = extended_mask_value
 
     def __len__(self):
         """Return the length of the dataset."""
@@ -39,6 +42,10 @@ class BaseDataset(TorchDataset):
 
     def __getitem__(self, index):
         data = {k: v for k, v in self.data[index].items() if k != self.label_col}
+        # we could do this as part of preprocessing but extended masks are memory intensive
+        # so we do it here to avoid storing them in memory
+        if self.extended_mask_type:
+            data = replace_with_extended_mask(data, self.extended_mask_type, self.extended_mask_value)
         label = self.data[index][self.label_col]
         return data, label
 

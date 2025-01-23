@@ -182,17 +182,22 @@ class RunConfig(NestedConfig):
             raise ValueError("Invalid input model")
 
         input_model_config = values["input_model"].dict()
-        if input_model_config["type"].lower() not in ["hfmodel", "onnxmodel"]:
+        if input_model_config["type"].lower() not in ["hfmodel", "onnxmodel", "pytorchmodel"]:
             return v
 
         if isinstance(v, DataConfig):
             v = v.dict()
 
         # all model related info used for auto filling
+        model_attributes = input_model_config["config"].get("model_attributes", {})
         model_info = {
             "model_name": input_model_config["config"]["model_path"],
-            "task": input_model_config["config"].get("task", DEFAULT_HF_TASK),
+            # hfmodelhandler: part of config, rest: check model_attributes
+            "task": input_model_config["config"].get("task") or model_attributes.get("task") or DEFAULT_HF_TASK,
+            # hfmodelhandler: part of load_kwargs, rest: check model_attributes
             "trust_remote_code": input_model_config["config"].get("load_kwargs", {}).get("trust_remote_code"),
+            "extended_mask_type": model_attributes.get("extended_mask_type"),
+            "extended_mask_value": model_attributes.get("extended_mask_value"),
         }
         kv_cache = input_model_config.get("io_config", {}).get("kv_cache")
         if isinstance(kv_cache, dict):
@@ -223,6 +228,14 @@ class RunConfig(NestedConfig):
                     ["pre_process_data_config", "load_dataset_config"],
                     ["trust_remote_code"],
                     only_none=True,
+                )
+
+                # auto insert causal mask related info from input model hf config
+                _auto_fill_data_config(
+                    v,
+                    model_info,
+                    ["pre_process_data_config"],
+                    ["extended_mask_type", "extended_mask_value"],
                 )
 
         return validate_config(v, DataConfig)

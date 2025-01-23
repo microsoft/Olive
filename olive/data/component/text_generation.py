@@ -74,6 +74,8 @@ class TextGenParams(ConfigBase):
     random_retries: int = (
         10  # number of resamples to try before giving up when a sample is too short for RANDOM strategies
     )
+    extended_mask_type: bool = False  # use causal mask for language modeling tasks
+    extended_mask_value: float = None  # value to use for causal mask, None for minimum value for torch float32 dtype
 
     @validator("drop_short_sequences", always=True)
     def _check_padding(cls, v, values):
@@ -347,7 +349,13 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
     hf_dataset.set_format("torch", output_all_columns=True)
 
     # return BaseDataset
-    return BaseDataset(hf_dataset, "labels", max_samples=args.max_samples)
+    return BaseDataset(
+        hf_dataset,
+        "labels",
+        max_samples=args.max_samples,
+        extended_mask_type=args.extended_mask_type,
+        extended_mask_value=args.extended_mask_value,
+    )
 
 
 def get_text(

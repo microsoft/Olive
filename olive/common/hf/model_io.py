@@ -6,6 +6,8 @@ import logging
 from itertools import chain
 from typing import TYPE_CHECKING, Dict, Optional
 
+import torch
+
 from olive.common.hf.mlflow import get_pretrained_name_or_path
 from olive.common.hf.peft import is_peft_model
 from olive.common.hf.utils import get_model_config, get_tokenizer
@@ -103,6 +105,7 @@ def get_export_config(model_name: str, task: str, **kwargs) -> Optional["OnnxCon
 
 def get_model_io_config(model_name: str, task: str, model: "PreTrainedModel", **kwargs) -> Optional[Dict]:
     """Get the input/output config for the model_name and task."""
+    extended_mask_type = kwargs.pop("extended_mask_type", False)
     # just log a debug message if io_config is not found
     # this is not a critical error and the caller may not need the io_config
     export_config = get_export_config(model_name, task, **kwargs)
@@ -124,6 +127,13 @@ def get_model_io_config(model_name: str, task: str, model: "PreTrainedModel", **
         for axis, axis_name in value.items():
             if axis_name == "past_sequence_length + 1":
                 value[axis] = "past_sequence_length + sequence_length"
+    # causal mask is 4D with shape (batch_size, 1, sequence_length, total_sequence_length)
+    if extended_mask_type and "attention_mask" in dynamic_axes:
+        dynamic_axes["attention_mask"] = {
+            0: dynamic_axes["attention_mask"][0],
+            2: dynamic_axes["input_ids"][1],
+            3: dynamic_axes["attention_mask"][1],
+        }
     # NOTE: Due to the complexity of dynamic_shapes, we don't provide it here.
     # torch-onnx converter has a naive approach to auto-gen dynamic shapes based on input and
     # dynamic_axes, so we don't need to provide dynamic shapes here.
@@ -132,6 +142,7 @@ def get_model_io_config(model_name: str, task: str, model: "PreTrainedModel", **
 
 def get_model_dummy_input(model_name: str, task: str, **kwargs) -> Optional[Dict]:
     """Get dummy inputs for the model_name and task."""
+    extended_mask_type = kwargs.pop("extended_mask_type", False)
     export_config = get_export_config(model_name, task, **kwargs)
     if not export_config:
         return None
@@ -139,4 +150,47 @@ def get_model_dummy_input(model_name: str, task: str, **kwargs) -> Optional[Dict
     from optimum.utils import DEFAULT_DUMMY_SHAPES
 
     dummy_inputs = export_config.generate_dummy_inputs(framework="pt", **DEFAULT_DUMMY_SHAPES)
-    return export_config.rename_ambiguous_inputs(dummy_inputs)
+    dummy_inputs = export_config.rename_ambiguous_inputs(dummy_inputs)
+    if extended_mask_type:
+        dummy_inputs = replace_with_extended_mask(dummy_inputs, extended_mask_type=extended_mask_type)
+    return dummy_inputs
+
+
+def replace_with_extended_mask(
+    data: Dict[str, torch.Tensor], extended_mask_type: str, extended_mask_value: Optional[float] = None
+) -> Dict[str, torch.Tensor]:
+    """Replace the attention_mask in the data with an extended mask."""
+    if "attention_mask" not in data or data["attention_mask"].ndim > 2:
+        return data
+
+    attention_mask = data["attention_mask"]
+    ndims = attention_mask.ndim
+    # will use a 2d -> 4d mask creator
+    if ndims == 1:
+        attention_mask = attention_mask.unsqueeze(0)
+    if extended_mask_value is None:
+        extended_mask_value = torch.finfo(torch.float32).min
+    tgt_len = data["input_ids"].shape[-1]
+    batch_size, src_len = attention_mask.shape
+
+    # the inference caller should cast the mask to the right dtype
+    expanded_mask = attention_mask[:, None, None, :].expand(batch_size, 1, tgt_len, src_len).float()
+    expanded_mask = 1.0 - expanded_mask
+    expanded_mask = expanded_mask.masked_fill(expanded_mask.bool(), extended_mask_value)
+    if extended_mask_type == "causal":
+        causal_mask = torch.full((tgt_len, tgt_len), extended_mask_value)
+        mask_cond = torch.arange(causal_mask.size(-1))
+        causal_mask.masked_fill_(mask_cond < (mask_cond + 1).view(causal_mask.size(-1), 1), 0)
+        causal_mask = causal_mask.float()
+        if src_len > tgt_len:
+            causal_mask = torch.cat([torch.zeros(tgt_len, src_len - tgt_len), causal_mask], dim=-1)
+        causal_mask = causal_mask[None, None, :, :].expand(batch_size, 1, tgt_len, src_len)
+        expanded_mask = causal_mask.masked_fill(expanded_mask.bool(), extended_mask_value)
+    elif extended_mask_type != "non-causal":
+        raise ValueError(f"extended_mask_type {extended_mask_type} is not supported")
+
+    if ndims == 1:
+        expanded_mask = expanded_mask.squeeze(0)
+
+    data["attention_mask"] = expanded_mask
+    return data
