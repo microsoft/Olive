@@ -20,7 +20,7 @@ git+https://github.com/xiaoyu-work/TransformerCompression.git ; python_version >
 # latest 3.24.0 will break the pipeline
 # TODO(team): 55399 Switch back to the latest version once it's compatible with the pipeline
 marshmallow<3.24.0
-mlflow>=2.4.0
+mlflow>=2.4.0, <2.20.0
 neural-compressor<2.4
 nncf==2.7.0
 nvidia-modelopt
