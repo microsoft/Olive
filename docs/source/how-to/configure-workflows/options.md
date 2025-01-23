@@ -281,7 +281,7 @@ information of the evaluator contains following items:
         as keyword/positional parameters after the required positional parameters or through `**kwargs`.
 
     Note that for above `data_dir` config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.
-    
+
     ```json
     "data_dir": {
         "type": "azureml_datastore",
