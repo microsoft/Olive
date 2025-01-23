@@ -80,7 +80,6 @@ Configure Workflows (Advanced)
    :maxdepth: 2
    :hidden:
 
-   configure-workflows/options
    configure-workflows/pass/pass-configuration
    configure-workflows/model-opt-and-transform/index
    configure-workflows/how-to-configure-data
@@ -95,14 +94,6 @@ For more complex scenarios, you can create fully customize workflows where you c
 
 .. grid:: 2 2 2 3
    :class-container: cards
-
-   .. grid-item-card::
-
-      **Explore Olive configuration options**
-
-      Explore Olive configuration options.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Olive options <configure-workflows/options.html>`_
 
    .. grid-item-card::
 

@@ -10,8 +10,8 @@
   content: "Install `olive-ai` with `pip` and get up and running with OLIVE in minutes.<br/>{octicon}`arrow-right` [Get Started](getting-started/getting-started.md)"
 - header: "{octicon}`rocket` How To"
   content: "Find more details on specific Olive capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!<br/>{octicon}`arrow-right` [Features](how-to/index)"
-- header: "{fas}`code`  API Reference"
-  content: "Get more details on specific Olive capabilities, such as running workflows on remote compute (for example, Azure AI), model packaging, conversions, and more!<br/>{octicon}`arrow-right` [APIs](reference/index)"
+- header: "{fas}`code`  Reference"
+  content: "Get more details on specific Olive capabilities, such as running workflows on remote compute (for example, Azure AI), model packaging, conversions, and more!<br/>{octicon}`arrow-right` [Reference](reference/index)"
 - header: "{octicon}`diff-added`  Extending Olive"
   content: "Learn about the design of Olive and how to extend Olive with your own optimization methods.<br/>{octicon}`arrow-right` [Extend Olive](extending/index)"
 ```

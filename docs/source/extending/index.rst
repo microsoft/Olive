@@ -25,13 +25,6 @@ Extending Olive
 
       :octicon:`arrow-right;1em;sd-text-info` `Custom scripts <custom-scripts.html>`_
 
-   .. grid-item-card::
-      **Advanced users**
-
-      Learn how to use Olive as a library and extend it for your own use cases.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Advanced users <advanced-users.html>`_
-
 .. toctree::
    :maxdepth: 2
    :hidden:
@@ -39,4 +32,3 @@ Extending Olive
    design
    how-to-add-optimization-pass
    custom-scripts
-   advanced-users
