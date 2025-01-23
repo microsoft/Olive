@@ -28,7 +28,7 @@
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
-            "op_types_to_quantize": [ "MatMul", "LayerNormalization", "Gemm", "Sigmoid", "Mul", "Reshape", "Add", "Transpose", "Shape", "Div", "Cast", "Sqrt", "Slice", "Conv", "InstanceNormalization", "Unsqueeze", "Softmax", "Gelu", "Gather", "Concat", "Resize", "Cos", "Sin", "Expand", "Where", "Equal", "ConstantOfShape" ],
+            "quant_preprocess": true,
             "save_as_external_data": true
         }
     },

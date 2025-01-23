@@ -99,10 +99,6 @@ From Renyi (also working): "MatMul", "LayerNormalization", "Gemm", "Sigmoid"
 
 From Renyi (not working): Add, Mul
 
-Constant: no impact for decoder
-
-Conv: big size reduce for decoder, but not work
-
 ## Run
 
 ### Dependency
