@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
 from pathlib import Path
@@ -19,7 +18,6 @@ from olive.cli.base import (
     add_shared_cache_options,
     get_input_model_config,
     is_remote_run,
-    save_config_file,
     update_accelerator_options,
     update_remote_options,
     update_shared_cache_options,
@@ -145,28 +143,22 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         return config
 
     def run(self):
-        from olive.workflows import run as olive_run
+        output = self._run_workflow()
 
-        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
-            run_config = self.get_run_config(tempdir)
-            if self.args.generate_config_file:
-                save_config_file(run_config)
-            output = olive_run(run_config)
+        if is_remote_run(self.args):
+            return
 
-            if is_remote_run(self.args):
-                return
+        output_path = Path(self.args.output_path).resolve()
+        for key, value in output.items():
+            if len(value.nodes) < 1:
+                print(f"Tuning for {key} failed. Please set the log_level to 1 for more detailed logs.")
+                continue
 
-            output_path = Path(self.args.output_path).resolve()
-            for key, value in output.items():
-                if len(value.nodes) < 1:
-                    print(f"Tuning for {key} failed. Please set the log_level to 1 for more detailed logs.")
-                    continue
-
-                infer_setting_output_path = output_path / f"{key}.json"
-                infer_settings = value.get_model_inference_config(value.get_output_model_id())
-                with infer_setting_output_path.open("w") as f:
-                    json.dump(infer_settings, f, indent=4)
-            print(f"Inference session parameters are saved to {output_path}.")
+            infer_setting_output_path = output_path / f"{key}.json"
+            infer_settings = value.get_model_inference_config(value.get_output_model_id())
+            with infer_setting_output_path.open("w") as f:
+                json.dump(infer_settings, f, indent=4)
+        print(f"Inference session parameters are saved to {output_path}.")
 
 
 TEMPLATE = {

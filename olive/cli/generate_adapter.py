@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
 from typing import Dict
@@ -15,7 +14,6 @@ from olive.cli.base import (
     add_save_config_file_options,
     add_shared_cache_options,
     get_input_model_config,
-    save_config_file,
     update_remote_options,
     update_shared_cache_options,
 )
@@ -47,13 +45,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
         sub_parser.set_defaults(func=GenerateAdapterCommand)
 
     def run(self):
-        from olive.workflows import run as olive_run
-
-        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
-            run_config = self.get_run_config(tempdir)
-            if self.args.generate_config_file:
-                save_config_file(run_config)
-            olive_run(run_config)
+        self._run_workflow()
 
     def get_run_config(self, tempdir: str) -> Dict:
         input_model_config = get_input_model_config(self.args)
