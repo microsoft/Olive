@@ -5,7 +5,7 @@
 import logging
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Dict, List, Type
 
 import onnx
 from packaging import version
@@ -15,7 +15,7 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class OnnxBnb4Quantization(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
@@ -60,8 +60,8 @@ class OnnxBnb4Quantization(Pass):
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        quant_type = config["quant_type"]
-        quantized_modules = config["quantized_modules"]
+        quant_type = config.quant_type
+        quantized_modules = config.quantized_modules
         if model.model_attributes:
             quantized_modules = quantized_modules or model.model_attributes.get("quantized_modules")
 
@@ -87,7 +87,7 @@ class OnnxBnb4Quantization(Pass):
         onnx_model = model.load_model()
 
         # get nodes to exclude from quantization
-        nodes_to_exclude = config["nodes_to_exclude"] or []
+        nodes_to_exclude = config.nodes_to_exclude or []
 
         # find all MatMul nodes in the graph
         matmul_nodes = self._find_matmul_nodes(onnx_model.graph)

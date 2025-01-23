@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import os
 from pathlib import Path
-from typing import Any, Dict, Tuple, Type, Union
+from typing import Type
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -236,14 +236,11 @@ def get_throughput_metric(*lat_subtype, user_config=None):
     )
 
 
-def get_onnxconversion_pass(
-    ignore_pass_config=True, target_opset=13
-) -> Union[Type[Pass], Tuple[Type[Pass], Dict[str, Any]]]:
+def get_onnxconversion_pass(target_opset=13) -> Type[Pass]:
     from olive.passes.onnx.conversion import OnnxConversion
 
     onnx_conversion_config = {"target_opset": target_opset}
-    p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
-    return p if ignore_pass_config else (p, p.to_json(check_object=True))
+    return create_pass_from_dict(OnnxConversion, onnx_conversion_config)
 
 
 def get_onnx_dynamic_quantization_pass(disable_search=False):

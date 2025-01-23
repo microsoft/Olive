@@ -5,12 +5,12 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Type, Union
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
 
@@ -51,15 +51,11 @@ class OptimumConversion(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
-
-        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
-        config = config_cls(**config)
 
         if config.fp16 and config.device != "cuda":
             logger.info("OptimumConversion: fp16 is set to True, but device is not set to cuda.")
@@ -68,18 +64,18 @@ class OptimumConversion(Pass):
         return True
 
     def _run_for_config(
-        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         from optimum import version as optimum_version
         from optimum.exporters.onnx import main_export as export_optimum_model
         from packaging import version
 
-        extra_args = deepcopy(config["extra_args"]) or {}
+        extra_args = deepcopy(config.extra_args) or {}
         extra_args.update(
             {
-                "opset": config["target_opset"],
-                "fp16": config["fp16"],
-                "device": config["device"],
+                "opset": config.target_opset,
+                "fp16": config.fp16,
+                "device": config.device,
             }
         )
         if model.load_kwargs and "trust_remote_code" not in extra_args:
@@ -104,11 +100,11 @@ class OptimumConversion(Pass):
 
         # check the exported components
         exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".onnx"]
-        if config["components"]:
+        if config.components:
             assert all(
-                component in exported_models for component in config["components"]
+                component in exported_models for component in config.components
             ), f"Components {config['components']} are not exported. Only {exported_models} are exported."
-        components = config["components"] or exported_models
+        components = config.components or exported_models
         logger.debug("Exported models are: %s. Returning components: %s.", exported_models, components)
 
         # if there is only one component, return it directly

@@ -3,13 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Callable, Dict, List, Type, Union
 
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, SNPEModelHandler, TensorFlowModelHandler
 from olive.passes.olive_pass import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.constants import InputLayout, InputType
 from olive.platform_sdk.qualcomm.snpe.tools.dev import get_dlc_io_config, to_dlc
 from olive.resource_path import LocalFile
@@ -95,12 +95,12 @@ class SNPEConversion(Pass):
     def _run_for_config(
         self,
         model: Union[ONNXModelHandler, TensorFlowModelHandler],
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> SNPEModelHandler:
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
         to_dlc(model.model_path, model.framework, config, output_model_path)
-        io_config = get_dlc_io_config(output_model_path, config["input_names"], config["output_names"])
+        io_config = get_dlc_io_config(output_model_path, config.input_names, config.output_names)
         return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **io_config)

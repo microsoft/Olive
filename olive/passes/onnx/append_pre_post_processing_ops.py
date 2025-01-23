@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import tempfile
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Type, Union
 
 import onnx
 from packaging import version
@@ -17,7 +17,7 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.pipeline import TENSOR_TYPE_MAP
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 
 class PrePostProcessorInput(ConfigBase):
@@ -81,13 +81,13 @@ class AppendPrePostProcessingOps(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        tool_command = config.get("tool_command")
+        tool_command = config.tool_command
         if tool_command:
             if tool_command == "whisper":
                 from onnxruntime_extensions import __version__ as ortext_version
@@ -98,9 +98,9 @@ class AppendPrePostProcessingOps(Pass):
 
                 from olive.passes.utils.whisper_prepost import add_pre_post_processing_to_model
 
-                tool_command_args = config.get("tool_command_args") or {}
+                tool_command_args = config.tool_command_args or {}
                 onnx_model = add_pre_post_processing_to_model(
-                    model.load_model(), config["target_opset"], **tool_command_args
+                    model.load_model(), config.target_opset, **tool_command_args
                 )
             else:
                 # Use the pre-defined helper to add pre/post processing to model.
@@ -108,7 +108,7 @@ class AppendPrePostProcessingOps(Pass):
 
                 # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
                 # Results are much better when that can be used. Minimum opset is 16.
-                onnx_opset = config.get("target_opset")
+                onnx_opset = config.target_opset
 
                 if version.parse(OrtVersion) >= version.parse("1.14.0"):
                     onnx_opset = 18
@@ -123,7 +123,7 @@ class AppendPrePostProcessingOps(Pass):
                         "tool_command must be a callable or a string defined in onnxruntime_extensions.tools"
                     ) from None
 
-                kwargs = config.get("tool_command_args") or {}
+                kwargs = config.tool_command_args or {}
                 kwargs["onnx_opset"] = onnx_opset
 
                 # add the processing commands to the model
@@ -143,32 +143,31 @@ class AppendPrePostProcessingOps(Pass):
         olive_model.use_ort_extensions = True
         return olive_model
 
-    def _run_prepost_pipeline(self, model: ONNXModelHandler, config: Dict[str, Any]):
+    def _run_prepost_pipeline(self, model: ONNXModelHandler, config: Type[BasePassConfig]):
         from onnxruntime_extensions.tools.pre_post_processing import PrePostProcessor
 
         from olive.passes.onnx.pipeline.step_utils import create_named_value, parse_steps
 
         # Initialize pre/post step instance list
         pre_steps = []
-        pre = config.get("pre")
+        pre = config.pre
         model_proto = model.load_model()
         if pre:
             steps = parse_steps(model_proto, pre)
             pre_steps = [self.create_step_from_config(step_name, step_param) for step_name, step_param in steps]
 
         post_steps = []
-        post = config.get("post")
+        post = config.post
         if post:
             steps = parse_steps(model_proto, post)
             post_steps = [self.create_step_from_config(step_name, step_param) for step_name, step_param in steps]
 
         # Initialize PrePostProcessor instance
-        config_obj = self._config_class(**config)
-        input_param = config_obj.tool_command_args
+        input_param = config.tool_command_args
         assert isinstance(input_param, list)
         assert all(isinstance(i, PrePostProcessorInput) for i in input_param)
         inputs = [create_named_value(i.name, TENSOR_TYPE_MAP[i.data_type], i.shape) for i in input_param]
-        pipeline = PrePostProcessor(inputs, config_obj.target_opset)
+        pipeline = PrePostProcessor(inputs, config.target_opset)
 
         if pre_steps:
             pipeline.add_pre_processing(pre_steps)

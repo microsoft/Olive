@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Dict
+from typing import Dict, Type
 
 from onnx import ModelProto, TensorProto, helper
 from packaging import version
@@ -13,7 +13,7 @@ from olive.model import CompositeModelHandler, OliveModelHandler, ONNXModelHandl
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,13 @@ class InsertBeamSearch(Pass):
         return config
 
     def chain_model(
-        self, model_A: ModelProto, model_A_name: str, model_B: ModelProto, model_B_name: str, model_config, options
+        self,
+        model_A: ModelProto,
+        model_A_name: str,
+        model_B: ModelProto,
+        model_B_name: str,
+        model_config,
+        options: Type[BasePassConfig],
     ):
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.transformers.convert_generation import get_shared_initializers
@@ -105,24 +111,24 @@ class InsertBeamSearch(Pass):
         model_B.graph.name = f"{model_B_name} subgraph"
 
         beam_inputs = [
-            "input_features_fp16" if options["fp16"] else "input_features",
+            "input_features_fp16" if options.fp16 else "input_features",
             "max_length",
             "min_length",
             "num_beams",
             "num_return_sequences",
-            "length_penalty_fp16" if options["fp16"] else "length_penalty",
-            "repetition_penalty_fp16" if options["fp16"] else "repetition_penalty",
-            "vocab_mask" if (version_1_16 and options["use_vocab_mask"]) else "",
-            "prefix_vocab_mask" if (version_1_16 and options["use_prefix_vocab_mask"]) else "",
+            "length_penalty_fp16" if options.fp16 else "length_penalty",
+            "repetition_penalty_fp16" if options.fp16 else "repetition_penalty",
+            "vocab_mask" if (version_1_16 and options.use_vocab_mask) else "",
+            "prefix_vocab_mask" if (version_1_16 and options.use_prefix_vocab_mask) else "",
             "" if version_1_16 else "attention_mask",
         ]
         if version_1_16:
-            beam_inputs.extend(["decoder_input_ids" if options["use_forced_decoder_ids"] else ""])
-            beam_inputs.extend(["logits_processor" if options["use_logits_processor"] else ""])
+            beam_inputs.extend(["decoder_input_ids" if options.use_forced_decoder_ids else ""])
+            beam_inputs.extend(["logits_processor" if options.use_logits_processor else ""])
         if version_1_17_1:
             beam_inputs.extend(["", ""])
             beam_inputs.extend(
-                [("temperature_fp16" if options["fp16"] else "temperature") if options["use_temperature"] else ""]
+                [("temperature_fp16" if options.fp16 else "temperature") if options.use_temperature else ""]
             )
         # remove empty string from the end of beam_inputs
         # otherwise, the model gives error when the last input is empty
@@ -131,7 +137,7 @@ class InsertBeamSearch(Pass):
 
         # Cast input features to fp16 if required
         graph_nodes = []
-        if options["fp16"]:
+        if options.fp16:
             input_features_cast_node = helper.make_node(
                 "Cast",
                 inputs=["input_features"],
@@ -155,7 +161,7 @@ class InsertBeamSearch(Pass):
             )
             graph_nodes.extend([input_features_cast_node, len_pen_cast_node, rep_pen_cast_node])
 
-            if version_1_17_1 and options["use_temperature"]:
+            if version_1_17_1 and options.use_temperature:
                 temperature_cast_node = helper.make_node(
                     "Cast",
                     inputs=["temperature"],
@@ -172,7 +178,7 @@ class InsertBeamSearch(Pass):
             helper.make_attribute("eos_token_id", model_config["eos_token_id"]),
             helper.make_attribute("pad_token_id", model_config["pad_token_id"]),
             helper.make_attribute("decoder_start_token_id", model_config["decoder_start_token_id"]),
-            helper.make_attribute("no_repeat_ngram_size", options["no_repeat_ngram_size"]),
+            helper.make_attribute("no_repeat_ngram_size", options.no_repeat_ngram_size),
             helper.make_attribute("early_stopping", True),
             helper.make_attribute("model_type", 2),
         ]
@@ -236,29 +242,29 @@ class InsertBeamSearch(Pass):
             )
             graph_inputs.append(attention_mask)
         else:
-            if options["use_vocab_mask"]:
+            if options.use_vocab_mask:
                 vocab_mask = helper.make_tensor_value_info(
                     "vocab_mask", TensorProto.INT32, [model_config["vocab_size"]]
                 )
                 graph_inputs.append(vocab_mask)
 
-            if options["use_prefix_vocab_mask"]:
+            if options.use_prefix_vocab_mask:
                 prefix_vocab_mask = helper.make_tensor_value_info(
                     "prefix_vocab_mask", TensorProto.INT32, ["batch_size", model_config["vocab_size"]]
                 )
                 graph_inputs.append(prefix_vocab_mask)
 
-            if options["use_forced_decoder_ids"]:
+            if options.use_forced_decoder_ids:
                 decoder_input_ids = helper.make_tensor_value_info(
                     "decoder_input_ids", TensorProto.INT32, ["batch_size", "initial_sequence_length"]
                 )
                 graph_inputs.append(decoder_input_ids)
 
-            if options["use_logits_processor"]:
+            if options.use_logits_processor:
                 logits_processor = helper.make_tensor_value_info("logits_processor", TensorProto.INT32, [1])
                 graph_inputs.append(logits_processor)
 
-            if version_1_17_1 and options["use_temperature"]:
+            if version_1_17_1 and options.use_temperature:
                 temperature = helper.make_tensor_value_info("temperature", TensorProto.FLOAT, [1])
                 graph_inputs.append(temperature)
 
@@ -269,7 +275,7 @@ class InsertBeamSearch(Pass):
         graph_outputs = [sequences]
 
         # Replace MultiHeadAttention with DecoderMaskedMultiHeadAttention for CUDA EP inference
-        if options["use_gpu"] and version_1_16:
+        if options.use_gpu and version_1_16:
             from onnxruntime.transformers.convert_generation import (
                 update_decoder_subgraph_share_buffer_and_use_decoder_masked_mha as update_decoder_with_ort,
             )
@@ -316,7 +322,7 @@ class InsertBeamSearch(Pass):
         model.graph.input.insert(1, mask)
 
     def _run_for_config(
-        self, model: OliveModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: OliveModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.transformers import onnx_model as ort_onnx_model
@@ -334,7 +340,7 @@ class InsertBeamSearch(Pass):
         # version check
         version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
 
-        if not version_1_16 and config["use_forced_decoder_ids"]:
+        if not version_1_16 and config.use_forced_decoder_ids:
             logger.warning(
                 "use_forced_decoder_ids is not supported in ONNX Runtime versions < 1.16.0. Will be ignored."
             )

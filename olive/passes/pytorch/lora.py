@@ -15,12 +15,11 @@ from abc import abstractmethod
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Type, Union
 
 import transformers
 from packaging import version
 
-from olive.common.config_utils import ConfigBase
 from olive.common.hf.mappings import MODELS_TO_LORA_TARGET_MODULES_MAPPING
 from olive.common.hf.utils import get_peft_task_type_from_task
 from olive.common.pydantic_v1 import Field, validator
@@ -32,6 +31,7 @@ from olive.model import HfModelHandler
 from olive.model.config.hf_config import HfLoadKwargs
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pass_config import BasePassConfig
 from olive.passes.pytorch.train_utils import (
     BaseHFTrainingArguments,
     count_trainable_parameters,
@@ -168,7 +168,7 @@ class LoRA(Pass):
         }
 
     @classmethod
-    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+    def check_dependencies(cls, config: Type[BasePassConfig], is_qlora: bool = False):
         """Check dependencies for the pass."""
         # bitsandbytes quantization only supported after transformers 4.30.0
         if is_qlora and version.parse(transformers.__version__) < version.parse("4.30.0"):
@@ -223,9 +223,7 @@ class LoRA(Pass):
         return new_batch
 
     @staticmethod
-    def get_datasets(
-        config: ConfigBase,
-    ) -> Tuple["Dataset", Optional["Dataset"]]:
+    def get_datasets(config: Type[BasePassConfig]) -> Tuple["Dataset", Optional["Dataset"]]:
         """Load training and evaluation datasets."""
         # we return dataset.Dataset object since the trainer works better with it
         # load training dataset
@@ -238,16 +236,14 @@ class LoRA(Pass):
 
         return train_dataset, eval_dataset
 
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+    def _run_for_config(
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
         return self._run_lora_training(model, config, output_model_path)
 
     def _run_lora_training(
-        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str, use_dora: bool = False
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str, use_dora: bool = False
     ) -> HfModelHandler:
-        # convert config to pass config class
-        # this will validate the config and convert to the correct types
-        config = self._config_class(**config)
-
         # check dependencies
         self.check_dependencies(config)
 
@@ -275,7 +271,9 @@ class LoRA(Pass):
             pytorch_model, model.get_hf_tokenizer(), config, deepcopy(model), output_model_path
         )
 
-    def load_base_pytorch_model(self, model_handler: HfModelHandler, config: ConfigBase, **kwargs) -> "PreTrainedModel":
+    def load_base_pytorch_model(
+        self, model_handler: HfModelHandler, config: Type[BasePassConfig], **kwargs
+    ) -> "PreTrainedModel":
         """Load a base PyTorch model for fine-tuning.
 
         :param model_handler: The input model handler.
@@ -299,7 +297,7 @@ class LoRA(Pass):
     def init_adapters(
         self,
         model: "PreTrainedModel",
-        config: ConfigBase,
+        config: Type[BasePassConfig],
         *,
         task: Optional[str] = None,
         use_loftq: Optional[bool] = False,
@@ -334,7 +332,7 @@ class LoRA(Pass):
     def enable_lora(
         self,
         model: "PreTrainedModel",
-        config: ConfigBase,
+        config: Type[BasePassConfig],
         task: Optional[str] = None,
         use_dora: bool = False,
         adapter_path: Optional[str] = None,
@@ -384,7 +382,7 @@ class LoRA(Pass):
         self,
         model: "PeftModel",
         tokenizer: "PreTrainedTokenizer",
-        config: ConfigBase,
+        config: Type[BasePassConfig],
         output_model: HfModelHandler,
         output_model_path: str,
     ) -> HfModelHandler:
@@ -506,7 +504,9 @@ class LoRA(Pass):
         return None
 
     @staticmethod
-    def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
+    def get_peft_model(
+        model: "PreTrainedModel", config: Type[BasePassConfig], config_kwargs: Dict = None
+    ) -> "PeftModel":
         """Get the PEFT model for LoRA fine-tuning."""
         from peft import LoraConfig, LoraRuntimeConfig, get_peft_model
 
@@ -530,7 +530,9 @@ class LoRA(Pass):
 class DoRA(LoRA):
     """Run DoRA fine-tuning on a Hugging Face PyTorch model."""
 
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+    def _run_for_config(
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
         return self._run_lora_training(model, config, output_model_path, use_dora=True)
 
 
@@ -590,7 +592,9 @@ class LoHa(LoRAVariant):
     """Run LoHa fine-tuning on a Hugging Face PyTorch model."""
 
     @staticmethod
-    def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
+    def get_peft_model(
+        model: "PreTrainedModel", config: Type[BasePassConfig], config_kwargs: Dict = None
+    ) -> "PeftModel":
         """Get the PEFT model for LoHa fine-tuning."""
         from peft import LoHaConfig, get_peft_model
 
@@ -614,9 +618,9 @@ class LoHa(LoRAVariant):
         return get_peft_model(model, config)
 
     @classmethod
-    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+    def check_dependencies(cls, config: Type[BasePassConfig], is_qlora: bool = False):
         """Check dependencies for the pass."""
-        super().check_dependencies(config)
+        super().check_dependencies(config, is_qlora=is_qlora)
 
         from peft import __version__ as peft_version
 
@@ -651,7 +655,9 @@ class LoKr(LoRAVariant):
         return config
 
     @staticmethod
-    def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
+    def get_peft_model(
+        model: "PreTrainedModel", config: Type[BasePassConfig], config_kwargs: Dict = None
+    ) -> "PeftModel":
         """Get the PEFT model for LoKr fine-tuning."""
         from peft import LoKrConfig, get_peft_model
 
@@ -678,9 +684,9 @@ class LoKr(LoRAVariant):
         return get_peft_model(model, config)
 
     @classmethod
-    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+    def check_dependencies(cls, config: Type[BasePassConfig], is_qlora: bool = False):
         """Check dependencies for the pass."""
-        super().check_dependencies(config)
+        super().check_dependencies(config, is_qlora=is_qlora)
 
         from peft import __version__ as peft_version
 
@@ -715,11 +721,9 @@ class QLoRABase(LoRA):
         config.update(super()._default_config(accelerator_spec))
         return config
 
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
-        # convert config to pass config class
-        # this will validate the config and convert to the correct types
-        config = self._config_class(**config)
-
+    def _run_for_config(
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
         # check dependencies
         self.check_dependencies(config, is_qlora=True)
 
@@ -748,7 +752,7 @@ class QLoRABase(LoRA):
 
     @abstractmethod
     def get_quant_model(
-        self, model: HfModelHandler, config: ConfigBase, output_model_path: str
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> Tuple[HfModelHandler, "PreTrainedModel", Dict, List[str]]:
         """Get the model handler, LoRA model for QLoRA fine-tuning.
 
@@ -785,7 +789,7 @@ class QLoRA(QLoRABase):
         return config
 
     def get_quant_model(
-        self, model: HfModelHandler, config: ConfigBase, output_model_path: str
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> Tuple[HfModelHandler, "PreTrainedModel", Dict, List[str]]:
         """Get the model handler, LoRA model for QLoRA fine-tuning.
 
@@ -836,7 +840,7 @@ class LoftQ(QLoRABase):
         return config
 
     @classmethod
-    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+    def check_dependencies(cls, config: Type[BasePassConfig], is_qlora: bool = False):
         """Check dependencies for the pass."""
         super().check_dependencies(config, is_qlora=is_qlora)
 
@@ -847,7 +851,7 @@ class LoftQ(QLoRABase):
             raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
 
     def get_quant_model(
-        self, model: HfModelHandler, config: ConfigBase, output_model_path: str
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> Tuple[HfModelHandler, "PreTrainedModel", Dict, List[str]]:
         """Get the model handler, LoRA model for QLoRA fine-tuning.
 

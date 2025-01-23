@@ -6,7 +6,7 @@ import logging
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Optional, Type
 
 import onnx
 
@@ -15,7 +15,7 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +139,7 @@ class OnnxIODataTypeConverter(Pass):
             )
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime.transformers.onnx_model import OnnxModel
 
@@ -153,11 +153,11 @@ class OnnxIODataTypeConverter(Pass):
         self.create_io_mapping(ort_onnx_model.model.graph, i_map, o_map)
 
         pat = None
-        if config["name_pattern"]:
-            pat = re.compile(config["name_pattern"])
+        if config.name_pattern:
+            pat = re.compile(config.name_pattern)
 
-        source_dtype = config["source_dtype"]
-        target_dtype = config["target_dtype"]
+        source_dtype = config.source_dtype
+        target_dtype = config.target_dtype
 
         self._verify_elem_type(source_dtype)
         self._verify_elem_type(target_dtype)

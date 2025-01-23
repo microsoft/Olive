@@ -464,7 +464,7 @@ class TestOliveEvaluatorConfig:
     def test_valid_custom_type_validation(self, registry_get_mock, import_user_module_mock):
         registry_get_mock.return_value = MagicMock()
         OliveEvaluatorConfig.from_json({"type": "test_evaluator"})
-        registry_get_mock.called_once_with("test_evaluator")
+        registry_get_mock.assert_called_once_with("test_evaluator")
 
     @patch("olive.common.import_lib.import_user_module")
     @patch("olive.evaluator.registry.Registry.get")
@@ -474,4 +474,4 @@ class TestOliveEvaluatorConfig:
         with pytest.raises(ValidationError):
             OliveEvaluatorConfig.from_json({"type": "test_evaluator"})
 
-        registry_get_mock.called_once_with("test_evaluator")
+        registry_get_mock.assert_called_once_with("test_evaluator")

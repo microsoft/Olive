@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, List
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Type
 
 from olive.common.pydantic_v1 import root_validator
 from olive.hardware import AcceleratorSpec
@@ -12,7 +12,7 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 if TYPE_CHECKING:
     from onnx import ModelProto
@@ -66,7 +66,7 @@ class DynamicToFixedShape(Pass):
     def _run_for_config(
         self,
         model: ONNXModelHandler,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
         from onnxruntime.tools.onnx_model_utils import make_dim_param_fixed, make_input_shape_fixed
@@ -74,11 +74,11 @@ class DynamicToFixedShape(Pass):
         onnx_model = model.load_model()
         output_model_path = resolve_onnx_path(output_model_path)
 
-        if config["dim_param"]:
-            for param, value in zip(config["dim_param"], config["dim_value"]):
+        if config.dim_param:
+            for param, value in zip(config.dim_param, config.dim_value):
                 make_dim_param_fixed(onnx_model.graph, param, value)
-        elif config["input_name"]:
-            for name, shape in zip(config["input_name"], config["input_shape"]):
+        elif config.input_name:
+            for name, shape in zip(config.input_name, config.input_shape):
                 make_input_shape_fixed(onnx_model.graph, name, shape)
         # update the output shapes to make them fixed
         # onnxruntime.tools.onnx_model_utils.fix_output_shapes cannot handle models > 2GB
