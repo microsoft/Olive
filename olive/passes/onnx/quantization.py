@@ -608,7 +608,6 @@ class OnnxStaticQuantization(OnnxQuantization):
             config["activation_type"].search_defaults = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
             config["weight_type"].search_defaults = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
             config["prepare_qnn_config"].default_value = True
-            config["quant_preprocess"].default_value = False
             # in QNN EP, the default value WeightSymmetric is None
             # but in base quantizer, the default value is True.
             config["WeightSymmetric"].default_value = None
