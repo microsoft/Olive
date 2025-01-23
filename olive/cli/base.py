@@ -247,6 +247,16 @@ def add_logging_options(sub_parser: ArgumentParser):
     return sub_parser
 
 
+def add_save_config_file_options(sub_parser: ArgumentParser):
+    """Add save config file options to the sub_parser."""
+    sub_parser.add_argument(
+        "--generate_config_file",
+        action="store_true",
+        help="Generate a config file for the command.",
+    )
+    return sub_parser
+
+
 def add_remote_options(sub_parser: ArgumentParser):
     """Add remote options to the sub_parser."""
     remote_group = sub_parser
@@ -352,6 +362,14 @@ def add_input_model_options(
         help="Path to save the command output.",
     )
     return model_group
+
+
+def save_config_file(config: Dict):
+    """Save the config file."""
+    config_file_path = Path(config["output_dir"]) / "config.json"
+    with open(config_file_path, "w") as f:
+        json.dump(config, f, indent=4)
+    print(f"Config file saved at {config_file_path}")
 
 
 def output_path_type(path: str) -> str:

@@ -17,7 +17,9 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_save_config_file_options,
     add_shared_cache_options,
+    save_config_file,
     update_dataset_options,
     update_input_model_options,
     update_shared_cache_options,
@@ -74,6 +76,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         add_remote_options(sub_parser)
         add_shared_cache_options(sub_parser)
         add_logging_options(sub_parser)
+        add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=QuantizeCommand)
 
     def _get_run_config(self, tempdir: str) -> Dict[str, Any]:
@@ -147,6 +150,8 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
+            if self.args.generate_config_file:
+                save_config_file(run_config)
             olive_run(run_config)
 
 

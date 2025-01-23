@@ -12,8 +12,10 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_save_config_file_options,
     add_shared_cache_options,
     get_input_model_config,
+    save_config_file,
     update_remote_options,
     update_shared_cache_options,
 )
@@ -142,6 +144,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         # remote options
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
+        add_save_config_file_options(sub_parser)
         add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=CaptureOnnxGraphCommand)
 
@@ -150,6 +153,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self.get_run_config(tempdir)
+            if self.args.generate_config_file:
+                save_config_file(run_config)
             olive_run(run_config)
 
     def get_run_config(self, tempdir: str) -> Dict:
