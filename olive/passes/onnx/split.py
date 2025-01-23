@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 class SplitModel(Pass):
+    """Split an ONNX model into multiple smaller sub-models based on predefined assignments."""
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {

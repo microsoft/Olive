@@ -89,6 +89,12 @@ OnnxMatMul4Quantizer
 --------------------
 .. autoconfigclass:: olive.passes.OnnxMatMul4Quantizer
 
+.. _graph_surgeries:
+
+GraphSurgeries
+--------------------
+.. autoconfigclass:: olive.passes.GraphSurgeries
+
 .. _matmulnbits_to_qdq:
 
 MatMulNBitsToQDQ
@@ -288,7 +294,7 @@ OptimumMerging
 --------------
 .. autoconfigclass:: olive.passes.OptimumMerging
 
-.. model_builder:
+.. _model_builder:
 
 ModelBuilder
 ------------

@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 class MatMulNBitsToQDQ(Pass):
+    """Convert ONNX MatMulNBits nodes to standard ONNX quantized-dequantized (QDQ) format."""
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {

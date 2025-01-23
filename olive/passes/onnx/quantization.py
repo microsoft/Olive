@@ -616,6 +616,8 @@ class OnnxStaticQuantization(OnnxQuantization):
 
 
 class OnnxMatMul4Quantizer(Pass):
+    """Quantize ONNX models' MatMul operations to 4-bit weights."""
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
