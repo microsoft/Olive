@@ -37,7 +37,7 @@ class BaseOliveCLICommand(ABC):
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
-            if self.args.generate_config_file:
+            if self.args.save_config_file:
                 self._save_config_file(run_config)
             return olive_run(run_config)
 
@@ -266,12 +266,12 @@ def add_logging_options(sub_parser: ArgumentParser):
     return sub_parser
 
 
-def add_save_config_file_options(sub_parser: ArgumentParser):
+def add_save_config_file(sub_parser: ArgumentParser):
     """Add save config file options to the sub_parser."""
     sub_parser.add_argument(
-        "--generate_config_file",
+        "--save_config_file",
         action="store_true",
-        help="Generate a config file for the command.",
+        help="Generate and save the config file for the command.",
     )
     return sub_parser
 

@@ -12,7 +12,7 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
-    add_save_config_file_options,
+    add_save_config_file,
     add_shared_cache_options,
     get_input_model_config,
     update_dataset_options,
@@ -76,7 +76,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         add_remote_options(sub_parser)
         add_shared_cache_options(sub_parser)
         add_logging_options(sub_parser)
-        add_save_config_file_options(sub_parser)
+        add_save_config_file(sub_parser)
         sub_parser.set_defaults(func=FineTuneCommand)
 
     def run(self):
