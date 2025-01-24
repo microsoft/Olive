@@ -177,7 +177,7 @@ class AutoOptCommand(BaseOliveCLICommand):
     def run(self):
         self._run_workflow()
 
-    def get_run_config(self, tempdir) -> Dict:
+    def _get_run_config(self, tempdir) -> Dict:
         config = deepcopy(TEMPLATE)
         olive_config = OlivePackageConfig.load_default_config()
 

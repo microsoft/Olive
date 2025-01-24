@@ -121,7 +121,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         pass_config.update({k: args_dict[k] for k in pass_config_keys if args_dict[k] is not None})
         return pass_config
 
-    def get_run_config(self, tempdir) -> Dict:
+    def _get_run_config(self, tempdir) -> Dict:
         config = deepcopy(TEMPLATE)
 
         session_params_tuning_key = ("passes", "session_params_tuning")

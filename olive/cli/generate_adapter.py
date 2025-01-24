@@ -47,7 +47,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
     def run(self):
         self._run_workflow()
 
-    def get_run_config(self, tempdir: str) -> Dict:
+    def _get_run_config(self, tempdir: str) -> Dict:
         input_model_config = get_input_model_config(self.args)
         assert (
             input_model_config["type"].lower() == "onnxmodel"

@@ -97,7 +97,7 @@ class FineTuneCommand(BaseOliveCLICommand):
 
         return {k: v for k, v in vars(training_args).items() if k in arg_keys}
 
-    def get_run_config(self, tempdir: str) -> Dict:
+    def _get_run_config(self, tempdir: str) -> Dict:
         input_model_config = get_input_model_config(self.args)
         assert input_model_config["type"].lower() == "hfmodel", "Only HfModel is supported in finetune command."
 
