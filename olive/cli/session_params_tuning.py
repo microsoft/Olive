@@ -14,7 +14,7 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
-    add_save_config_file,
+    add_save_config_file_options,
     add_shared_cache_options,
     get_input_model_config,
     is_remote_run,
@@ -100,7 +100,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         add_accelerator_options(sub_parser, single_provider=False)
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
-        add_save_config_file(sub_parser)
+        add_save_config_file_options(sub_parser)
         add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=SessionParamsTuningCommand)
 

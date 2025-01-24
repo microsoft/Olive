@@ -266,7 +266,7 @@ def add_logging_options(sub_parser: ArgumentParser):
     return sub_parser
 
 
-def add_save_config_file(sub_parser: ArgumentParser):
+def add_save_config_file_options(sub_parser: ArgumentParser):
     """Add save config file options to the sub_parser."""
     sub_parser.add_argument(
         "--save_config_file",
