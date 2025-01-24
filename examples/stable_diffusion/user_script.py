@@ -57,8 +57,8 @@ class UnetDataPrebuiltLoader(BaseDataLoader):
 
 
 class EncoderDataPrebuiltLoader(BaseDataLoader):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, total):
+        super().__init__(total)
         for f in data_folders:
             data = torch.from_numpy(np.fromfile(f + '/cond_tokens.raw', dtype=np.int32).reshape(1, 77))
             self.data.append({ "input_ids": data })
@@ -67,8 +67,8 @@ class EncoderDataPrebuiltLoader(BaseDataLoader):
 
 
 class DecoderDataPrebuiltLoader(BaseDataLoader):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, total):
+        super().__init__(total)
         for f in data_folders:
             data = torch.from_numpy(np.fromfile(f + '/latent.raw', dtype=np.float32).reshape(1, 4, 64, 64))
             self.data.append({ "latent_sample": data })
@@ -317,6 +317,11 @@ def vae_encoder_conversion_inputs(model=None):
 
 @Registry.register_dataloader()
 def vae_encoder_data_loader(dataset, batch_size, *args, **kwargs):
+    return RandomDataLoader(vae_encoder_inputs, batch_size, torch.float16)
+
+
+@Registry.register_dataloader()
+def vae_encoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
     return RandomDataLoader(vae_encoder_inputs, batch_size, torch.float16)
 
 
