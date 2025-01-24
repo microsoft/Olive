@@ -179,3 +179,35 @@ Inference will loop until the generated image. The result will be saved as `resu
 Run `python stable_diffusion.py --help` for additional options. A few particularly relevant ones:
 - `--image_path <str>`: the input image path for image to image inference.
 - `--img_to_img_example`: image to image example. The default input image is `assets/dog.png`, the default prompt is `amazing watercolor painting`.
+
+## Stable Diffusion Optimization with QDQ for QNN EP
+
+How to optimize
+
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize`
+
+How to test
+
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --num_inference_steps 5 --guidance_scale 1 --prompt "hamburger swims in the river" --seed 0`
+
+Unoptmized: assets/hamburger.png
+
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --num_inference_steps 5 --guidance_scale 7.5 --prompt "cat and dog" --seed 0`
+
+Unoptmized: assets/cat.png
+
+Note that in QNN, we need to use static dimensions (batch is fixed to 1), so we need to update `diffusers\pipelines\stable_diffusion\pipeline_onnx_stable_diffusion.py` in `__call__` if `guidance_scale > 1`
+
+```
+if do_classifier_free_guidance:
+    neg_input, text_input = np.split(latent_model_input, 2)
+    neg_embeds, text_emeds = np.split(prompt_embeds, 2)
+    noise_pred_uncond = self.unet(sample=neg_input, timestep=timestep, encoder_hidden_states=neg_embeds)
+    noise_pred_uncond = noise_pred_uncond[0]
+    noise_pred_text = self.unet(sample=text_input, timestep=timestep, encoder_hidden_states=text_emeds)
+    noise_pred_text = noise_pred_text[0]
+    noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+else:
+    noise_pred = self.unet(sample=latent_model_input, timestep=timestep, encoder_hidden_states=prompt_embeds)
+    noise_pred = noise_pred[0]
+```
