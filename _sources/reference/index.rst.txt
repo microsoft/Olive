@@ -1,4 +1,4 @@
-API reference
+Reference
 ==============
 
 .. grid:: 2 2 2 3
