@@ -12,25 +12,11 @@ API reference
       :octicon:`arrow-right;1em;sd-text-info` `CLI <cli.html>`_
 
    .. grid-item-card::
-      **Engine**
+      **Explore Olive configuration options**
 
-      Learn about Olive's engine configuration.
+      Explore Olive configuration options.
 
-      :octicon:`arrow-right;1em;sd-text-info` `Engine <engine.html>`_
-
-   .. grid-item-card::
-      **Evaluator**
-
-      Details on evaluators available in Olive.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Evaluator <evaluator.html>`_
-
-   .. grid-item-card::
-      **Metric**
-
-      Learn about metrics configuration.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Metric <metric.html>`_
+      :octicon:`arrow-right;1em;sd-text-info` `Olive options <options.html>`_
 
    .. grid-item-card::
       **Model**
@@ -47,27 +33,11 @@ API reference
       :octicon:`arrow-right;1em;sd-text-info` `Pass <pass.html>`_
 
    .. grid-item-card::
-      **Resource Path**
-
-      Manage and configure resource paths.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Resource Path <resource-path.html>`_
-
-   .. grid-item-card::
       **Search Algorithm**
 
       Configure search strategies.
 
       :octicon:`arrow-right;1em;sd-text-info` `Search Algorithm <search-algorithm.html>`_
-
-   .. grid-item-card::
-      **System**
-
-      Learn about system settings and configurations.
-
-      :octicon:`arrow-right;1em;sd-text-info` `System <system.html>`_
-
-
 
 
 .. toctree::
@@ -75,11 +45,7 @@ API reference
    :hidden:
 
    cli
-   engine
-   evaluator
-   metric
+   options
    model
    pass
-   resource-path
    search-algorithm
-   system
