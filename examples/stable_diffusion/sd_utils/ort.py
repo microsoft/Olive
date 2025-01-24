@@ -28,6 +28,14 @@ def update_cuda_config(config_cuda: Dict):
     return config_cuda
 
 
+def update_qnn_config(config: Dict):
+    config["input_model"]["io_config"]["dynamic_axes"] = None
+    config["pass_flows"] = [["convert", "qnn_preprocess", "quantization"]]
+    config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
+    config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
+    return config
+
+
 def validate_args(args, provider):
     ort.set_default_logger_severity(4)
     if args.static_dims:
@@ -63,7 +71,7 @@ def save_optimized_onnx_submodel(submodel_name, provider, model_info):
         for footprint in footprints.values():
             if footprint["from_pass"] == "OnnxConversion":
                 conversion_footprint = footprint
-            elif footprint["from_pass"] == "OrtTransformersOptimization":
+            elif footprint["from_pass"] == "OrtTransformersOptimization" or footprint["from_pass"] == "OnnxStaticQuantization":
                 optimizer_footprint = footprint
 
         assert conversion_footprint
@@ -163,6 +171,7 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
     provider_map = {
         "dml": "DmlExecutionProvider",
         "cuda": "CUDAExecutionProvider",
+        "qnn": "CPUExecutionProvider"
     }
     assert provider in provider_map, f"Unsupported provider: {provider}"
     return OnnxStableDiffusionPipeline.from_pretrained(

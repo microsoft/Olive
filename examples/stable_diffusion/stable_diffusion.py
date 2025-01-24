@@ -189,6 +189,10 @@ def update_config_with_provider(config: Dict, provider: str):
         from sd_utils.ov import update_ov_config
 
         return update_ov_config(config)
+    elif provider == "qnn":
+        from sd_utils.ort import update_qnn_config
+
+        return update_qnn_config(config)
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
@@ -284,7 +288,7 @@ def parse_common_args(raw_args):
 
     parser.add_argument("--model_id", default="CompVis/stable-diffusion-v1-4", type=str)
     parser.add_argument(
-        "--provider", default="dml", type=str, choices=["dml", "cuda", "openvino"], help="Execution provider to use"
+        "--provider", default="dml", type=str, choices=["dml", "cuda", "openvino", "qnn"], help="Execution provider to use"
     )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")

@@ -32,6 +32,12 @@
             "user_script": "user_script.py",
             "load_dataset_config": { "type": "local_dataset" },
             "dataloader_config": { "type": "unet_data_loader", "batch_size": 1 }
+        },
+        {
+            "name": "quantize_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "local_dataset" },
+            "dataloader_config": { "type": "unet_quantize_data_loader", "batch_size": 1 }
         }
     ],
     "evaluators": {
@@ -49,7 +55,7 @@
     "passes": {
         "convert": {
             "type": "OnnxConversion",
-            "target_opset": 14,
+            "target_opset": 17,
             "save_as_external_data": true,
             "all_tensors_to_one_file": true,
             "external_data_name": "weights.pb"
@@ -98,6 +104,18 @@
             "float16": true,
             "use_gpu": true,
             "keep_io_types": false
+        },
+        "qnn_preprocess": {
+            "type": "QNNPreprocess",
+            "fuse_layernorm": true
+        },
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "data_config": "quantize_data_config",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8",
+            "calibrate_method": "MinMax",
+            "quant_preprocess": true
         }
     },
     "pass_flows": [ [ "convert", "optimize" ] ],
