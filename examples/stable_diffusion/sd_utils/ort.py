@@ -29,7 +29,12 @@ def update_cuda_config(config_cuda: Dict):
 
 
 def update_qnn_config(config: Dict, submodel_name: str):
-    config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "qnn_preprocess", "quantization"]]
+    # TODO onnx or onnxruntime needs to fix this
+    if submodel_name == "unet":
+        config["input_model"]["io_config"]["dynamic_axes"] = None
+        config["pass_flows"] = [["convert", "qnn_preprocess", "quantization"]]
+    else:
+        config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "qnn_preprocess", "quantization"]]
     config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
     config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
     config["evaluator"] = None
@@ -146,7 +151,7 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
     unet_sample_size = config.unet_sample_size
 
     if static_dims:
-        hidden_batch_size = batch_size if (guidance_scale == 0.0) else batch_size * 2
+        hidden_batch_size = batch_size if (guidance_scale <= 1.0) else batch_size * 2
         # Not necessary, but helps DML EP further optimize runtime performance.
         # batch_size is doubled for sample & hidden state because of classifier free guidance:
         # https://github.com/huggingface/diffusers/blob/46c52f9b9607e6ecb29c782c052aea313e6487b7/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L672
