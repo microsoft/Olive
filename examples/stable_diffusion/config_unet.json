@@ -105,6 +105,11 @@
             "use_gpu": true,
             "keep_io_types": false
         },
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [ "unet_sample_batch", "unet_sample_channels", "unet_sample_height", "unet_sample_width", "unet_time_batch", "unet_hidden_batch", "unet_hidden_sequence" ],
+            "dim_value": [ 1, 4, 64, 64, 1, 1, 77 ]
+        },
         "qnn_preprocess": {
             "type": "QNNPreprocess",
             "fuse_layernorm": true

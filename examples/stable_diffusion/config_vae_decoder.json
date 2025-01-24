@@ -97,6 +97,11 @@
             "use_gpu": true,
             "keep_io_types": false
         },
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [ "decoder_batch", "decoder_channels", "decoder_height", "decoder_width" ],
+            "dim_value": [ 1, 4, 64, 64 ]
+        },
         "qnn_preprocess": {
             "type": "QNNPreprocess",
             "fuse_layernorm": true

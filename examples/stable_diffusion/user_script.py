@@ -56,7 +56,7 @@ class UnetDataPrebuiltLoader(BaseDataLoader):
         print(latent_min, latent_max, time_min, time_max, text_min, text_max)
 
 
-class EncoderDataPrebuiltLoader(BaseDataLoader):
+class TextEncoderDataPrebuiltLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
         for f in data_folders:
@@ -66,12 +66,20 @@ class EncoderDataPrebuiltLoader(BaseDataLoader):
             self.data.append({ "input_ids": data })
 
 
-class DecoderDataPrebuiltLoader(BaseDataLoader):
+class VaeDecoderDataPrebuiltLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
         for f in data_folders:
             data = torch.from_numpy(np.fromfile(f + '/latent.raw', dtype=np.float32).reshape(1, 4, 64, 64))
             self.data.append({ "latent_sample": data })
+
+
+class VaeEncoderDataPrebuiltLoader(BaseDataLoader):
+    def __init__(self, total):
+        super().__init__(total)
+        for f in data_folders:
+            data = torch.from_numpy(np.fromfile(f + '/output_img.raw', dtype=np.float32).reshape(1, 3, 512, 512))
+            self.data.append({ "sample": data })
 
 
 def get_data_list(size, torch_dtype, total, value_min, value_max):
@@ -226,7 +234,7 @@ def text_encoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 @Registry.register_dataloader()
 def text_encoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    return EncoderDataPrebuiltLoader(2)
+    return TextEncoderDataPrebuiltLoader(2)
 
 
 # -----------------------------------------------------------------------------
@@ -322,7 +330,7 @@ def vae_encoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 @Registry.register_dataloader()
 def vae_encoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    return RandomDataLoader(vae_encoder_inputs, batch_size, torch.float16)
+    return VaeEncoderDataPrebuiltLoader(1)
 
 
 # -----------------------------------------------------------------------------
@@ -356,7 +364,7 @@ def vae_decoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 @Registry.register_dataloader()
 def vae_decoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    return DecoderDataPrebuiltLoader(1)
+    return VaeDecoderDataPrebuiltLoader(1)
 
 
 # -----------------------------------------------------------------------------

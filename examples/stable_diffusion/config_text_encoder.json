@@ -90,6 +90,11 @@
             "use_gpu": true,
             "keep_io_types": false
         },
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [ "batch", "sequence" ],
+            "dim_value": [ 1, 77 ]
+        },
         "qnn_preprocess": {
             "type": "QNNPreprocess",
             "fuse_layernorm": true

@@ -29,12 +29,7 @@ def update_cuda_config(config_cuda: Dict):
 
 
 def update_qnn_config(config: Dict, submodel_name: str):
-    if submodel_name != "vae_encoder":
-        config["input_model"]["io_config"]["dynamic_axes"] = None
-    if submodel_name == "vae_encoder":
-        config["pass_flows"] = [["convert", "dynamic_shape_to_fixed"]]
-    else:
-        config["pass_flows"] = [["convert", "qnn_preprocess", "quantization"]]
+    config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "qnn_preprocess", "quantization"]]
     config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
     config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
     config["evaluator"] = None
@@ -76,7 +71,7 @@ def save_optimized_onnx_submodel(submodel_name, provider, model_info):
         for footprint in footprints.values():
             if footprint["from_pass"] == "OnnxConversion":
                 conversion_footprint = footprint
-            elif footprint["from_pass"] == "OrtTransformersOptimization" or footprint["from_pass"] == "OnnxStaticQuantization" or footprint["from_pass"] == "DynamicToFixedShape":
+            elif footprint["from_pass"] == "OrtTransformersOptimization" or footprint["from_pass"] == "OnnxStaticQuantization":
                 optimizer_footprint = footprint
 
         assert conversion_footprint
