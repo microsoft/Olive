@@ -275,6 +275,42 @@ def tensor_data_to_dtype(data, dtype):
     return data
 
 
+def format_data(data, io_config):
+    """Format data based on io_config.
+
+    :param data: data to format. Consists of torch tensors or numpy arrays.
+        Single tensor or list of tensors: zipped with input names.
+        Dict: Keys not in input names are ignored. So unused data is allowed.
+        Caller needs to ensure the required inputs are present in the data.
+    :param io_config: io config to use for formatting.
+        input_names: list of input names.
+        input_types: list of numpy input types.
+    :return: formatted data. Consists of numpy arrays.
+    """
+    import numpy as np
+    import torch
+
+    input_names = io_config["input_names"]
+    name_to_type = dict(zip(io_config["input_names"], io_config["input_types"]))
+    if isinstance(data, list):
+        # the input is just a list of tensors
+        data = dict(zip(input_names, data))
+    elif isinstance(data, (torch.Tensor, np.ndarray)):
+        # input is a single tensor
+        data = dict(zip(input_names, [data]))
+    elif not isinstance(data, dict):
+        raise ValueError(f"Invalid input data format: {data}")
+    return {
+        # k: np.ascontiguousarray(
+        #     data[k].cpu().numpy() if isinstance(data[k], torch.Tensor) else data[k],
+        #     dtype=name_to_type[k],
+        # )
+        k: (data[k].cpu().numpy() if isinstance(data[k], torch.Tensor) else data[k]).astype(name_to_type[k])
+        for k in data
+        if k in input_names
+    }
+
+
 def resolve_torch_dtype(dtype):
     """Get torch dtype from string or torch dtype.
 

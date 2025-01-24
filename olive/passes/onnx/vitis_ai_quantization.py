@@ -317,7 +317,7 @@ class VitisAIQuantization(Pass):
         dataloader = None
         if config["data_config"]:
             data_config = validate_config(config["data_config"], DataConfig)
-            dataloader = data_config.to_data_container().create_calibration_dataloader()
+            dataloader = data_config.to_data_container().create_calibration_dataloader(io_config=model.io_config)
 
         execution_provider = self.accelerator_spec.execution_provider
 

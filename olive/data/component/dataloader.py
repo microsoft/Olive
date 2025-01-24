@@ -5,6 +5,7 @@
 
 from typing import List, Union
 
+from olive.common.utils import format_data
 from olive.data.registry import Registry
 
 
@@ -48,13 +49,14 @@ def no_auto_batch_dataloader(dataset, **kwargs):
 
 
 @Registry.register_dataloader()
-def default_calibration_dataloader(dataloader, **kwargs):
+def default_calibration_dataloader(dataloader, io_config=None, **kwargs):
     # TODO(trajep): consider other quantization calibration interface in SNPE/INC/OpenVINO/Torch and etc.
     from onnxruntime.quantization import CalibrationDataReader
 
     class _CalibrationDataReader(CalibrationDataReader):
-        def __init__(self, dataloader, **kwargs):
+        def __init__(self, dataloader, io_config=None, **kwargs):
             self.dataloader = dataloader
+            self.io_config = io_config
             self.kwargs = kwargs
             self.data_iter = iter(self.dataloader)
 
@@ -66,12 +68,17 @@ def default_calibration_dataloader(dataloader, **kwargs):
             except StopIteration:
                 return None
             if isinstance(batch, list):
+                # [input, label]
                 batch = batch[0]
-            if isinstance(batch, dict):
+            assert isinstance(batch, dict), "Only support dict type batch data"
+
+            if self.io_config:
+                batch = format_data(batch, self.io_config)
+            else:
                 batch = {k: v.detach().cpu().numpy() for k, v in batch.items()}
             return batch
 
         def rewind(self):
             self.data_iter = None
 
-    return _CalibrationDataReader(dataloader, **kwargs)
+    return _CalibrationDataReader(dataloader, io_config, **kwargs)

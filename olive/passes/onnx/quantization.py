@@ -262,9 +262,9 @@ _static_optional_config = {
 }
 
 
-def get_calibration_dataloader(config):
+def get_calibration_dataloader(config, io_config):
     data_config = validate_config(config["data_config"], DataConfig)
-    return data_config.to_data_container().create_calibration_dataloader()
+    return data_config.to_data_container().create_calibration_dataloader(io_config=io_config)
 
 
 class OnnxQuantization(Pass):
@@ -481,7 +481,7 @@ class OnnxQuantization(Pass):
 
         if is_static:
             # get the dataloader
-            dataloader = get_calibration_dataloader(config)
+            dataloader = get_calibration_dataloader(config, model.io_config)
             if config["prepare_qnn_config"]:
                 import inspect
 
@@ -775,7 +775,7 @@ class OnnxMatMul4Quantizer(Pass):
                     # ort 1.17.0+ uses blocksize instead of block_size :(
                     algo_config["blocksize"] = algo_config["block_size"]
                     algo_config.pop("block_size")
-                dataloader = get_calibration_dataloader(config)
+                dataloader = get_calibration_dataloader(config, model.io_config)
                 weight_only_quant_config_class = partial(GPTQWeightOnlyQuantConfig, calibration_data_reader=dataloader)
 
             if version.parse(OrtVersion) >= version.parse("1.18.0"):
