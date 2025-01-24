@@ -11,6 +11,70 @@ from transformers.models.clip.modeling_clip import CLIPTextModel
 
 from olive.data.registry import Registry
 
+import numpy as np
+import sys
+
+# Prebuilt data helpers
+
+data_folders = ['prebuilt_data/1_mickey_mouse', 'prebuilt_data/2_a_flying_cat', 'prebuilt_data/3_hamburger_swims_in_the_river']
+
+class BaseDataLoader:
+    def __init__(self, total):
+        self.data = []
+        self.total = total
+
+    def __getitem__(self, idx):
+        print("getitem: " + str(idx))
+        if idx >= len(self.data) or idx >= self.total: return None
+        return self.data[idx]
+
+class UnetDataPrebuiltLoader(BaseDataLoader):
+    def __init__(self, total):
+        super().__init__(total)
+        latent_min = sys.float_info.max
+        latent_max = sys.float_info.min
+        time_min = sys.float_info.max
+        time_max = sys.float_info.min
+        text_min = sys.float_info.max
+        text_max = sys.float_info.min
+        for f in data_folders:
+            for i in range(5):
+                latent = torch.from_numpy(np.fromfile(f + f'/{i}_latent.raw', dtype=np.float32).reshape(1, 4, 64, 64))
+                latent_max = max(latent_max, latent.max())
+                latent_min = min(latent_min, latent.min())
+                time = torch.from_numpy(np.fromfile(f + f'/{i}_time.raw', dtype=np.float32).reshape(1))
+                time_max = max(time_max, time.max())
+                time_min = min(time_min, time.min())
+                text = torch.from_numpy(np.fromfile(f + f'/{i}_text.raw', dtype=np.float32).reshape(1, 77, 1024))
+                text_max = max(text_max, text.max())
+                text_min = min(text_min, text.min())
+                self.data.append({ "sample": latent, "timestep": time, "encoder_hidden_states": text })
+                text = torch.from_numpy(np.fromfile(f + f'/{i}_untext.raw', dtype=np.float32).reshape(1, 77, 1024))
+                text_max = max(text_max, text.max())
+                text_min = min(text_min, text.min())
+                self.data.append({ "sample": latent, "timestep": time, "encoder_hidden_states": text })
+        print(latent_min, latent_max, time_min, time_max, text_min, text_max)
+
+
+def get_data_list(size, torch_dtype, total, value_min, value_max):
+    result = []
+    result.append(torch.zeros(size, dtype=torch_dtype))
+    result.append(torch.zeros(size, dtype=torch_dtype) + value_min)
+    result.append(torch.zeros(size, dtype=torch_dtype) + value_max)
+    for i in range(total):
+        result.append(torch.rand(size, dtype=torch_dtype) * (value_max - value_min) + value_min)
+    return result
+
+
+class UnetDataRandomLoader(BaseDataLoader):
+    def __init__(self, total):
+        super().__init__(total + 3)
+        samples = get_data_list((1, 4, config.unet_sample_size, config.unet_sample_size), torch.float32, total, -11, 8)
+        timesteps = get_data_list((1), torch.float32, total, 0, 1000)
+        states = get_data_list((1, 77, config.cross_attention_dim), torch.float32, total, -8, 14)
+        for i in range(self.total):
+            self.data.append({ "sample": samples[i], "timestep": timesteps[i], "encoder_hidden_states": states[i] })
+
 
 # Helper latency-only dataloader that creates random tensors with no label
 class RandomDataLoader:
@@ -200,6 +264,11 @@ def unet_conversion_inputs(model=None):
 @Registry.register_dataloader()
 def unet_data_loader(dataset, batch_size, *args, **kwargs):
     return RandomDataLoader(unet_inputs, batch_size, torch.float16)
+
+
+@Registry.register_dataloader()
+def unet_quantize_data_loader(dataset, batch_size, *args, **kwargs):
+    return UnetDataRandomLoader(7)
 
 
 # -----------------------------------------------------------------------------
