@@ -489,7 +489,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -582,6 +582,10 @@
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
 </dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: False</p>
+</dd>
 </dl>
 </section>
 <section id="lora-options">
@@ -633,7 +637,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -761,6 +765,10 @@
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
 </dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: False</p>
+</dd>
 </dl>
 </section>
 </section>
@@ -786,7 +794,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -892,6 +900,10 @@
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
 </dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: False</p>
+</dd>
 </dl>
 </section>
 </section>
@@ -921,7 +933,7 @@
                                 <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
@@ -980,6 +992,10 @@
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
+</dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: False</p>
 </dd>
 <dt><kbd>--account_name</kbd></dt>
 <dd><p>Azure storage account name for shared cache.</p>
@@ -1053,7 +1069,7 @@
                               <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
-                              <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                              <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
@@ -1092,6 +1108,10 @@
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
+</dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: False</p>
 </dd>
 <dt><kbd>--account_name</kbd></dt>
 <dd><p>Azure storage account name for shared cache.</p>
@@ -1177,7 +1197,7 @@
                                  <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
@@ -1265,6 +1285,10 @@
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
 <p>Default: 3</p>
+</dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: False</p>
 </dd>
 <dt><kbd>--account_name</kbd></dt>
 <dd><p>Azure storage account name for shared cache.</p>
