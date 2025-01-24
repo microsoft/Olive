@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
 from pathlib import Path
@@ -15,6 +14,7 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_save_config_file_options,
     add_shared_cache_options,
     get_input_model_config,
     is_remote_run,
@@ -100,6 +100,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         add_accelerator_options(sub_parser, single_provider=False)
         add_remote_options(sub_parser)
         add_logging_options(sub_parser)
+        add_save_config_file_options(sub_parser)
         add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=SessionParamsTuningCommand)
 
@@ -120,7 +121,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         pass_config.update({k: args_dict[k] for k in pass_config_keys if args_dict[k] is not None})
         return pass_config
 
-    def get_run_config(self, tempdir) -> Dict:
+    def _get_run_config(self, tempdir) -> Dict:
         config = deepcopy(TEMPLATE)
 
         session_params_tuning_key = ("passes", "session_params_tuning")
@@ -142,26 +143,22 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         return config
 
     def run(self):
-        from olive.workflows import run as olive_run
+        output = self._run_workflow()
 
-        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
-            run_config = self.get_run_config(tempdir)
-            output = olive_run(run_config)
+        if is_remote_run(self.args):
+            return
 
-            if is_remote_run(self.args):
-                return
+        output_path = Path(self.args.output_path).resolve()
+        for key, value in output.items():
+            if len(value.nodes) < 1:
+                print(f"Tuning for {key} failed. Please set the log_level to 1 for more detailed logs.")
+                continue
 
-            output_path = Path(self.args.output_path).resolve()
-            for key, value in output.items():
-                if len(value.nodes) < 1:
-                    print(f"Tuning for {key} failed. Please set the log_level to 1 for more detailed logs.")
-                    continue
-
-                infer_setting_output_path = output_path / f"{key}.json"
-                infer_settings = value.get_model_inference_config(value.get_output_model_id())
-                with infer_setting_output_path.open("w") as f:
-                    json.dump(infer_settings, f, indent=4)
-            print(f"Inference session parameters are saved to {output_path}.")
+            infer_setting_output_path = output_path / f"{key}.json"
+            infer_settings = value.get_model_inference_config(value.get_output_model_id())
+            with infer_setting_output_path.open("w") as f:
+                json.dump(infer_settings, f, indent=4)
+        print(f"Inference session parameters are saved to {output_path}.")
 
 
 TEMPLATE = {

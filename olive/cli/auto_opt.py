@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 from argparse import ArgumentParser
 from collections import OrderedDict
 from copy import deepcopy
@@ -14,6 +13,7 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_save_config_file_options,
     add_search_options,
     add_shared_cache_options,
     get_input_model_config,
@@ -171,16 +171,13 @@ class AutoOptCommand(BaseOliveCLICommand):
         add_remote_options(sub_parser)
         add_shared_cache_options(sub_parser)
         add_logging_options(sub_parser)
+        add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=AutoOptCommand)
 
     def run(self):
-        from olive.workflows import run as olive_run
+        self._run_workflow()
 
-        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
-            run_config = self.get_run_config(tempdir)
-            olive_run(run_config)
-
-    def get_run_config(self, tempdir) -> Dict:
+    def _get_run_config(self, tempdir) -> Dict:
         config = deepcopy(TEMPLATE)
         olive_config = OlivePackageConfig.load_default_config()
 

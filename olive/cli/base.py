@@ -30,6 +30,25 @@ class BaseOliveCLICommand(ABC):
         if unknown_args and not self.allow_unknown_args:
             parser.error(f"Unknown arguments: {unknown_args}")
 
+    def _run_workflow(self):
+        import tempfile
+
+        from olive.workflows import run as olive_run
+
+        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
+            run_config = self._get_run_config(tempdir)
+            if self.args.save_config_file:
+                self._save_config_file(run_config)
+            return olive_run(run_config)
+
+    @staticmethod
+    def _save_config_file(config: Dict):
+        """Save the config file."""
+        config_file_path = Path(config["output_dir"]) / "config.json"
+        with open(config_file_path, "w") as f:
+            json.dump(config, f, indent=4)
+        print(f"Config file saved at {config_file_path}")
+
     @staticmethod
     @abstractmethod
     def register_subcommand(parser: ArgumentParser):
@@ -243,6 +262,16 @@ def add_logging_options(sub_parser: ArgumentParser):
         type=int,
         default=3,
         help="Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL",
+    )
+    return sub_parser
+
+
+def add_save_config_file_options(sub_parser: ArgumentParser):
+    """Add save config file options to the sub_parser."""
+    sub_parser.add_argument(
+        "--save_config_file",
+        action="store_true",
+        help="Generate and save the config file for the command.",
     )
     return sub_parser
 

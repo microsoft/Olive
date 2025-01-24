@@ -6,7 +6,6 @@
 # ruff: noqa: T201
 # ruff: noqa: RUF012
 
-import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
 from typing import Any, Dict
@@ -17,6 +16,7 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_save_config_file_options,
     add_shared_cache_options,
     update_dataset_options,
     update_input_model_options,
@@ -74,6 +74,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         add_remote_options(sub_parser)
         add_shared_cache_options(sub_parser)
         add_logging_options(sub_parser)
+        add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=QuantizeCommand)
 
     def _get_run_config(self, tempdir: str) -> Dict[str, Any]:
@@ -140,14 +141,10 @@ class QuantizeCommand(BaseOliveCLICommand):
         return config
 
     def run(self):
-        from olive.workflows import run as olive_run
-
         if ("gptq" in self.args.algorithm) and (not self.args.data_name):
             raise ValueError("data_name is required to use gptq.")
 
-        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
-            run_config = self._get_run_config(tempdir)
-            olive_run(run_config)
+        self._run_workflow()
 
 
 TEMPLATE = {
