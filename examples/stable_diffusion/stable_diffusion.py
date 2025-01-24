@@ -177,7 +177,7 @@ def run_inference_gui(
     window.mainloop()
 
 
-def update_config_with_provider(config: Dict, provider: str):
+def update_config_with_provider(config: Dict, provider: str, submodel_name: str):
     if provider == "dml":
         # DirectML EP is the default, so no need to update config.
         return config
@@ -192,7 +192,7 @@ def update_config_with_provider(config: Dict, provider: str):
     elif provider == "qnn":
         from sd_utils.ort import update_qnn_config
 
-        return update_qnn_config(config)
+        return update_qnn_config(config, submodel_name)
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
@@ -248,7 +248,7 @@ def optimize(
         olive_config = None
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
-        olive_config = update_config_with_provider(olive_config, provider)
+        olive_config = update_config_with_provider(olive_config, provider, submodel_name)
 
         if submodel_name in ("unet", "text_encoder"):
             olive_config["input_model"]["model_path"] = model_id

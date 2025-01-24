@@ -28,7 +28,7 @@ def update_cuda_config(config_cuda: Dict):
     return config_cuda
 
 
-def update_qnn_config(config: Dict):
+def update_qnn_config(config: Dict, submodel_name: str):
     config["input_model"]["io_config"]["dynamic_axes"] = None
     config["pass_flows"] = [["convert", "qnn_preprocess", "quantization"]]
     config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"

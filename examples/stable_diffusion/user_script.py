@@ -56,6 +56,24 @@ class UnetDataPrebuiltLoader(BaseDataLoader):
         print(latent_min, latent_max, time_min, time_max, text_min, text_max)
 
 
+class EncoderDataPrebuiltLoader(BaseDataLoader):
+    def __init__(self):
+        super().__init__()
+        for f in data_folders:
+            data = torch.from_numpy(np.fromfile(f + '/cond_tokens.raw', dtype=np.int32).reshape(1, 77))
+            self.data.append({ "input_ids": data })
+            data = torch.from_numpy(np.fromfile(f + '/uncond_tokens.raw', dtype=np.int32).reshape(1, 77))
+            self.data.append({ "input_ids": data })
+
+
+class DecoderDataPrebuiltLoader(BaseDataLoader):
+    def __init__(self):
+        super().__init__()
+        for f in data_folders:
+            data = torch.from_numpy(np.fromfile(f + '/latent.raw', dtype=np.float32).reshape(1, 4, 64, 64))
+            self.data.append({ "latent_sample": data })
+
+
 def get_data_list(size, torch_dtype, total, value_min, value_max):
     result = []
     result.append(torch.zeros(size, dtype=torch_dtype))
@@ -206,6 +224,11 @@ def text_encoder_data_loader(dataset, batch_size, *args, **kwargs):
     return RandomDataLoader(text_encoder_inputs, batch_size, torch.int32)
 
 
+@Registry.register_dataloader()
+def text_encoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
+    return EncoderDataPrebuiltLoader(2)
+
+
 # -----------------------------------------------------------------------------
 # UNET
 # -----------------------------------------------------------------------------
@@ -268,7 +291,8 @@ def unet_data_loader(dataset, batch_size, *args, **kwargs):
 
 @Registry.register_dataloader()
 def unet_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    return UnetDataRandomLoader(7)
+    return UnetDataPrebuiltLoader(10)
+    #return UnetDataRandomLoader(7)
 
 
 # -----------------------------------------------------------------------------
@@ -323,6 +347,11 @@ def vae_decoder_conversion_inputs(model=None):
 @Registry.register_dataloader()
 def vae_decoder_data_loader(dataset, batch_size, *args, **kwargs):
     return RandomDataLoader(vae_decoder_inputs, batch_size, torch.float16)
+
+
+@Registry.register_dataloader()
+def vae_decoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
+    return DecoderDataPrebuiltLoader(1)
 
 
 # -----------------------------------------------------------------------------
