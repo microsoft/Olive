@@ -59,27 +59,44 @@ class UnetDataPrebuiltLoader(BaseDataLoader):
 class TextEncoderDataPrebuiltLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
+        latent_min = sys.float_info.max
+        latent_max = sys.float_info.min
         for f in data_folders:
             data = torch.from_numpy(np.fromfile(f + '/cond_tokens.raw', dtype=np.int32).reshape(1, 77))
+            latent_max = max(latent_max, data.max())
+            latent_min = min(latent_min, data.min())
             self.data.append({ "input_ids": data })
             data = torch.from_numpy(np.fromfile(f + '/uncond_tokens.raw', dtype=np.int32).reshape(1, 77))
+            latent_max = max(latent_max, data.max())
+            latent_min = min(latent_min, data.min())
             self.data.append({ "input_ids": data })
+        print(latent_min, latent_max)
 
 
 class VaeDecoderDataPrebuiltLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
+        latent_min = sys.float_info.max
+        latent_max = sys.float_info.min
         for f in data_folders:
             data = torch.from_numpy(np.fromfile(f + '/latent.raw', dtype=np.float32).reshape(1, 4, 64, 64))
+            latent_max = max(latent_max, data.max())
+            latent_min = min(latent_min, data.min())
             self.data.append({ "latent_sample": data })
+        print(latent_min, latent_max)
 
 
 class VaeEncoderDataPrebuiltLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
+        latent_min = sys.float_info.max
+        latent_max = sys.float_info.min
         for f in data_folders:
             data = torch.from_numpy(np.fromfile(f + '/output_img.raw', dtype=np.float32).reshape(1, 3, 512, 512))
+            latent_max = max(latent_max, data.max())
+            latent_min = min(latent_min, data.min())
             self.data.append({ "sample": data })
+        print(latent_min, latent_max)
 
 
 def get_data_list(size, torch_dtype, total, value_min, value_max):
@@ -87,6 +104,8 @@ def get_data_list(size, torch_dtype, total, value_min, value_max):
     result.append(torch.zeros(size, dtype=torch_dtype))
     result.append(torch.zeros(size, dtype=torch_dtype) + value_min)
     result.append(torch.zeros(size, dtype=torch_dtype) + value_max)
+    total -= 3
+    if total <= 0: return result
     for i in range(total):
         result.append(torch.rand(size, dtype=torch_dtype) * (value_max - value_min) + value_min)
     return result
@@ -94,12 +113,28 @@ def get_data_list(size, torch_dtype, total, value_min, value_max):
 
 class UnetDataRandomLoader(BaseDataLoader):
     def __init__(self, total):
-        super().__init__(total + 3)
-        samples = get_data_list((1, 4, config.unet_sample_size, config.unet_sample_size), torch.float32, total, -11, 8)
+        super().__init__(total)
+        samples = get_data_list((1, 4, config.unet_sample_size, config.unet_sample_size), torch.float32, total, -10.9, 7.96)
         timesteps = get_data_list((1), torch.float32, total, 0, 1000)
-        states = get_data_list((1, 77, config.cross_attention_dim), torch.float32, total, -8, 14)
+        states = get_data_list((1, 77, config.cross_attention_dim), torch.float32, total, -7.16, 13.1)
         for i in range(self.total):
             self.data.append({ "sample": samples[i], "timestep": timesteps[i], "encoder_hidden_states": states[i] })
+
+
+class TextEncoderDataRandomLoader(BaseDataLoader):
+    def __init__(self, total):
+        super().__init__(total)
+        samples = get_data_list((1, 77), torch.float32, total, 0, 49407)
+        for i in range(self.total):
+            self.data.append({ "input_ids": samples[i].to(torch.int32) })
+
+
+class VaeDecoderDataRandomLoader(BaseDataLoader):
+    def __init__(self, total):
+        super().__init__(total)
+        samples = get_data_list((1, 4, config.unet_sample_size, config.unet_sample_size), torch.float32, total, -61.3, 49.4)
+        for i in range(self.total):
+            self.data.append({ "latent_sample": samples[i] })
 
 
 # Helper latency-only dataloader that creates random tensors with no label
@@ -234,6 +269,8 @@ def text_encoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 @Registry.register_dataloader()
 def text_encoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
+    if config.rand_data:
+        return TextEncoderDataRandomLoader(10)
     return TextEncoderDataPrebuiltLoader(2)
 
 
@@ -299,8 +336,9 @@ def unet_data_loader(dataset, batch_size, *args, **kwargs):
 
 @Registry.register_dataloader()
 def unet_quantize_data_loader(dataset, batch_size, *args, **kwargs):
+    if config.rand_data:
+        return UnetDataRandomLoader(10)
     return UnetDataPrebuiltLoader(10)
-    #return UnetDataRandomLoader(7)
 
 
 # -----------------------------------------------------------------------------
@@ -364,6 +402,8 @@ def vae_decoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 @Registry.register_dataloader()
 def vae_decoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
+    if config.rand_data:
+        return VaeDecoderDataRandomLoader(10)
     return VaeDecoderDataPrebuiltLoader(1)
 
 
