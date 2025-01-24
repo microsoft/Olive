@@ -65,7 +65,7 @@ def optimize(
 def parse_common_args(raw_args):
     parser = argparse.ArgumentParser("Common arguments")
     parser.add_argument("--model_id", default="stabilityai/stable-diffusion-2-1-base", type=str)
-    parser.add_argument("--model", default="text_encoder", type=str, choices=["text_encoder", "unet", "vae_decoder"])
+    parser.add_argument("--model", default="text_encoder", type=str, choices=["text_encoder", "unet", "vae_decoder", "vae_encoder"])
     parser.add_argument("--step", type=str, help="Runs different step like qnn")
     return parser.parse_known_args(raw_args)
 

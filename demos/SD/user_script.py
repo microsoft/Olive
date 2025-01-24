@@ -165,3 +165,27 @@ def vae_decoder_data_loader(dataset, batch_size, *args, **kwargs):
     return DecoderDataLoader()
     return RandomDataLoader(vae_decoder_inputs, batch_size, torch.float32, 100)
 
+
+# -----------------------------------------------------------------------------
+# VAE ENCODER
+# -----------------------------------------------------------------------------
+
+
+def vae_encoder_inputs(batch_size, torch_dtype):
+    return {"sample": torch.rand((batch_size, 3, config.vae_sample_size, config.vae_sample_size), dtype=torch_dtype)}
+
+
+def vae_encoder_load(model_name):
+    base_model_id = get_base_model_name(model_name)
+    model = AutoencoderKL.from_pretrained(base_model_id, subfolder="vae")
+    model.forward = lambda sample: model.encode(sample)[0].sample()
+    return model
+
+
+def vae_encoder_conversion_inputs(model=None):
+    return tuple(vae_encoder_inputs(1, torch.float32).values())
+
+
+@Registry.register_dataloader()
+def vae_encoder_data_loader(dataset, batch_size, *args, **kwargs):
+    return RandomDataLoader(vae_encoder_inputs, batch_size, torch.float16)
