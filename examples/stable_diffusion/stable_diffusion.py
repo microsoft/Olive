@@ -190,7 +190,7 @@ def update_config_with_provider(config: Dict, provider: str, submodel_name: str)
 
         return update_ov_config(config)
     elif provider == "qnn":
-        from sd_utils.ort import update_qnn_config
+        from sd_utils.qnn import update_qnn_config
 
         return update_qnn_config(config, submodel_name)
     else:
@@ -356,6 +356,16 @@ def parse_ov_args(raw_args):
     return parser.parse_known_args(raw_args)
 
 
+def parse_qnn_args(raw_args):
+    parser = argparse.ArgumentParser("QNN arguments")
+
+    parser.add_argument("--generate_data", action="store_true")
+    parser.add_argument("--data_dir", default="quantize_data", type=str)
+    parser.add_argument("--data_num", default=10, type=int)
+    parser.add_argument("--use_random_data", action="store_true")
+
+    return parser.parse_known_args(raw_args)
+
 def main(raw_args=None):
     common_args, extra_args = parse_common_args(raw_args)
 
@@ -379,6 +389,11 @@ def main(raw_args=None):
     ov_args, ort_args = None, None
     if provider == "openvino":
         ov_args, extra_args = parse_ov_args(extra_args)
+    elif provider == "qnn":
+        qnn_args, extra_args = parse_qnn_args(extra_args)
+        config.rand_data = qnn_args.use_random_data
+        config.data_dir = qnn_args.data_dir
+        config.data_num = qnn_args.data_num
     else:
         ort_args, extra_args = parse_ort_args(extra_args)
 
@@ -404,6 +419,10 @@ def main(raw_args=None):
                 from sd_utils.ov import get_ov_pipeline
 
                 pipeline = get_ov_pipeline(common_args, ov_args, optimized_model_dir)
+            elif provider == "qnn":
+                from sd_utils.qnn import get_qnn_pipeline
+
+                pipeline = get_qnn_pipeline(model_dir, common_args, qnn_args, script_dir)
             else:
                 from sd_utils.ort import get_ort_pipeline
 

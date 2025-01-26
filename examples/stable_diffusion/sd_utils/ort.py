@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+
 import json
 import shutil
 import sys
@@ -26,19 +27,6 @@ def update_cuda_config(config_cuda: Dict):
     config_cuda["pass_flows"] = [["convert", "optimize_cuda"]]
     config_cuda["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
     return config_cuda
-
-
-def update_qnn_config(config: Dict, submodel_name: str):
-    # TODO onnx or onnxruntime needs to fix this
-    if submodel_name == "unet":
-        config["input_model"]["io_config"]["dynamic_axes"] = None
-        config["pass_flows"] = [["convert", "qnn_preprocess", "quantization"]]
-    else:
-        config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "qnn_preprocess", "quantization"]]
-    config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
-    config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
-    config["evaluator"] = None
-    return config
 
 
 def validate_args(args, provider):
@@ -175,8 +163,7 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
 
     provider_map = {
         "dml": "DmlExecutionProvider",
-        "cuda": "CUDAExecutionProvider",
-        "qnn": "CPUExecutionProvider"
+        "cuda": "CUDAExecutionProvider"
     }
     assert provider in provider_map, f"Unsupported provider: {provider}"
     return OnnxStableDiffusionPipeline.from_pretrained(
