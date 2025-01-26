@@ -5,27 +5,20 @@ https://huggingface.co/stabilityai/stable-diffusion-2-1-base/tree/main
 
 ### Text encoder
 
-Constant: 263
-Reshape: 233
-Gather: 5
-ConstantOfShape: 1
-Cast: 1
-Mul: 25
-Add: 209
-ArgMax: 1
-Equal: 1
-LayerNormalization: 47
-Where: 1
-MatMul: 184
-Expand: 1
-Transpose: 115
-Softmax: 23
-Gelu: 23
-Shape: 2
-Flatten: 1
-Concat: 2
+Cast: 1 ?
+ArgMax: 1 V
+Flatten: 1 V
+Gather: 5 V
+Softmax: 23 X
+Gelu: 23 V
+Mul: 25 V
+LayerNormalization: 47 V
+Transpose: 115 V
+MatMul: 184 V
+Add: 209 X
+Reshape: 233 V
 
-1138 -> 370
+['Add', 'LayerNormalization', 'MatMul', 'Transpose', 'Mul', 'Reshape', 'Gather', 'Softmax', 'Gelu', 'Flatten', 'ArgMax']
 
 ### Unet
 
@@ -235,3 +228,8 @@ https://github.com/quic/aimet/tree/develop
 
 https://app.aihub.qualcomm.com/docs/hub/quantize_examples.html
 
+print(latent_min, latent_max, time_min, time_max, text_min, text_max)
+
+tensor(-10.8272) tensor(7.9535) tensor(200.) tensor(999.) tensor(-7.1502) tensor(13.0235)
+tensor(0, dtype=torch.int32) tensor(49407, dtype=torch.int32)
+tensor(-61.2782) tensor(49.3553)

@@ -82,9 +82,21 @@ if False:
     onnx_model.opset_import.append(microsoft_opset)
     onnx.save(onnx_model, file)
 
-if True:
+if False:
     onnx_model = onnx.load(file)
     from collections import Counter
     type_counts = Counter([node.op_type for node in onnx_model.graph.node])
     for string, count in type_counts.items():
         print(f"{string}: {count}")
+
+
+if False:
+    import pandas as pd
+    import json
+
+    df = pd.read_excel("result.xlsx")
+    data = {}
+    for index, row in df.iterrows():
+        data[row['Name']] = { "Error": row['Error'] }
+    with open('test.json', 'w') as json_file:
+        json.dump(data, json_file, indent=4)
