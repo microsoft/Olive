@@ -103,7 +103,7 @@ class AutoAWQQuantizer(Pass):
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 default_value=None,
-                description="Data config for quantization. Default value is None.",
+                description="Data config for quantization. If not provided, pile validation data will be used.",
             ),
         }
 
