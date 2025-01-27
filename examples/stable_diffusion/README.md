@@ -196,7 +196,7 @@ Then generate data (updating the prompt to generate more will be better):
 
 ### Optimize
 
-`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize`
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --clean_cache`
 
 ### Test
 

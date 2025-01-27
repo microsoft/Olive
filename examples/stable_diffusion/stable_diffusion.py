@@ -392,7 +392,7 @@ def main(raw_args=None):
     elif provider == "qnn":
         qnn_args, extra_args = parse_qnn_args(extra_args)
         config.rand_data = qnn_args.use_random_data
-        config.data_dir = qnn_args.data_dir
+        config.data_dir = script_dir / qnn_args.data_dir
         config.data_num = qnn_args.data_num
     else:
         ort_args, extra_args = parse_ort_args(extra_args)
