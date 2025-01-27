@@ -386,7 +386,7 @@ def main(raw_args=None):
         guidance_scale = 0.0
         print(f"WARNING: Classifier free guidance has been forcefully disabled since {model_id} doesn't support it.")
 
-    ov_args, ort_args = None, None
+    ov_args, qnn_args, ort_args = None, None, None
     if provider == "openvino":
         ov_args, extra_args = parse_ov_args(extra_args)
     elif provider == "qnn":

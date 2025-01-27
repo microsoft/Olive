@@ -163,7 +163,7 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
 
     provider_map = {
         "dml": "DmlExecutionProvider",
-        "cuda": "CUDAExecutionProvider"
+        "cuda": "CUDAExecutionProvider",
     }
     assert provider in provider_map, f"Unsupported provider: {provider}"
     return OnnxStableDiffusionPipeline.from_pretrained(

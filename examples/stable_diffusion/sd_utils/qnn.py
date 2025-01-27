@@ -212,6 +212,8 @@ def get_qnn_pipeline(model_dir, common_args, qnn_args, script_dir):
     print("Loading models into ORT session...")
     sess_options = ort.SessionOptions()
 
+    # TODO diffusers needs to support new parameter for QNN
+    # See https://github.com/huggingface/diffusers/issues/10658
     pipeline = QnnStableDiffusionPipeline.from_pretrained(
         model_dir, provider="CPUExecutionProvider", sess_options=sess_options
     )
