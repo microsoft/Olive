@@ -403,7 +403,7 @@ def main(raw_args=None):
         # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            if provider != "openvino":
+            if provider != "openvino" and provider != "qnn":
                 from sd_utils.ort import validate_args
 
                 validate_args(ort_args, common_args.provider)

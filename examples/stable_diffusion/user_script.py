@@ -19,7 +19,8 @@ class BaseDataLoader:
     def __init__(self, total):
         self.data = []
         self.total = total
-        self.data_folders = [config.data_dir / f.name for f in os.scandir(config.data_dir) if f.is_dir()]
+        if not config.rand_data:
+            self.data_folders = [config.data_dir / f.name for f in os.scandir(config.data_dir) if f.is_dir()]
 
     def __getitem__(self, idx):
         print("getitem: " + str(idx))
@@ -142,7 +143,7 @@ class VaeDecoderDataRandomLoader(BaseDataLoader):
 class VaeEncoderDataRandomLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
-        samples = get_data_list((1, 3, config.vae_sample_size, config.vae_sample_size), torch.float32, total, -1, 1)
+        samples = get_data_list((1, 3, 512, 512), torch.float32, total, -1, 1)
         for i in range(self.total):
             self.data.append({ "sample": samples[i] })
 

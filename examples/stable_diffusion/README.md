@@ -182,32 +182,24 @@ Run `python stable_diffusion.py --help` for additional options. A few particular
 
 ## Stable Diffusion Optimization with QDQ for QNN EP
 
-How to optimize
+### Generate data for static quantization
+
+To get better result, we need to generate real data from original model instead of using random data for static quantization.
+
+First generate onnx unoptimized model (it also generates an optimized model using random data):
+
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --use_random_data --data_num 1` 
+
+Then generate data (updating the prompt to generate more will be better):
+
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --generate_data --num_inference_steps 5 --seed 0 --test_unoptimized --prompt "hamburger swims in the river"` 
+
+### Optimize
 
 `python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize`
 
-How to test
+### Test
 
-`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --num_inference_steps 5 --guidance_scale 1 --prompt "hamburger swims in the river" --seed 0`
-
-Unoptmized: assets/hamburger.png
+We could add `--test_unoptimized` first to generate from original model for comparison.
 
 `python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --num_inference_steps 5 --guidance_scale 7.5 --prompt "cat and dog" --seed 0`
-
-Unoptmized: assets/cat.png
-
-Note that in QNN, we need to use static dimensions (batch is fixed to 1), so we need to update `diffusers\pipelines\stable_diffusion\pipeline_onnx_stable_diffusion.py` in `__call__` if `guidance_scale > 1`
-
-```
-if do_classifier_free_guidance:
-    neg_input, text_input = np.split(latent_model_input, 2)
-    neg_embeds, text_emeds = np.split(prompt_embeds, 2)
-    noise_pred_uncond = self.unet(sample=neg_input, timestep=timestep, encoder_hidden_states=neg_embeds)
-    noise_pred_uncond = noise_pred_uncond[0]
-    noise_pred_text = self.unet(sample=text_input, timestep=timestep, encoder_hidden_states=text_emeds)
-    noise_pred_text = noise_pred_text[0]
-    noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
-else:
-    noise_pred = self.unet(sample=latent_model_input, timestep=timestep, encoder_hidden_states=prompt_embeds)
-    noise_pred = noise_pred[0]
-```
