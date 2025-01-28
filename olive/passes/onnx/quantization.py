@@ -259,12 +259,20 @@ _static_optional_config = {
             To be noted that the options might be updated in the further version of onnxruntime.
         """,
     ),
+    "calibration_providers": PassConfigParam(
+        type_=list,
+        default_value=None,
+        description=(
+            "Execution providers to run the session during calibration. Default is None which uses"
+            " CPUExecutionProvider."
+        ),
+    ),
 }
 
 
-def get_calibration_dataloader(config, io_config):
+def get_calibration_dataloader(config, model_path, io_config):
     data_config = validate_config(config["data_config"], DataConfig)
-    return data_config.to_data_container().create_calibration_dataloader(io_config=io_config)
+    return data_config.to_data_container().create_calibration_dataloader(model_path=model_path, io_config=io_config)
 
 
 class OnnxQuantization(Pass):
@@ -481,7 +489,7 @@ class OnnxQuantization(Pass):
 
         if is_static:
             # get the dataloader
-            dataloader = get_calibration_dataloader(config, model.io_config)
+            dataloader = get_calibration_dataloader(config, model.model_path, model.io_config)
             if config["prepare_qnn_config"]:
                 import inspect
 
@@ -504,6 +512,7 @@ class OnnxQuantization(Pass):
                     activation_type=run_config["activation_type"],
                     weight_type=run_config["weight_type"],
                     per_channel=run_config["per_channel"],
+                    calibration_providers=config["calibration_providers"],
                     **symmetric_options,
                     **qnn_extra_options,
                 )
@@ -775,7 +784,7 @@ class OnnxMatMul4Quantizer(Pass):
                     # ort 1.17.0+ uses blocksize instead of block_size :(
                     algo_config["blocksize"] = algo_config["block_size"]
                     algo_config.pop("block_size")
-                dataloader = get_calibration_dataloader(config, model.io_config)
+                dataloader = get_calibration_dataloader(config, model.model_path, model.io_config)
                 weight_only_quant_config_class = partial(GPTQWeightOnlyQuantConfig, calibration_data_reader=dataloader)
 
             if version.parse(OrtVersion) >= version.parse("1.18.0"):

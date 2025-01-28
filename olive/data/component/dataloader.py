@@ -3,10 +3,18 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import logging
+import re
+from copy import deepcopy
 from typing import List, Union
 
+import torch
+
+from olive.common.hf.model_io import replace_with_extended_mask
 from olive.common.utils import format_data
 from olive.data.registry import Registry
+
+logger = logging.getLogger(__name__)
 
 
 @Registry.register_dataloader()
@@ -48,9 +56,7 @@ def no_auto_batch_dataloader(dataset, **kwargs):
     return DataLoader(dataset, batch_size=None, **kwargs)
 
 
-@Registry.register_dataloader()
-def default_calibration_dataloader(dataloader, io_config=None, **kwargs):
-    # TODO(trajep): consider other quantization calibration interface in SNPE/INC/OpenVINO/Torch and etc.
+def default_calibration_dataloader(dataloader, model_path=None, io_config=None, **kwargs):
     from onnxruntime.quantization import CalibrationDataReader
 
     class _CalibrationDataReader(CalibrationDataReader):
@@ -67,8 +73,8 @@ def default_calibration_dataloader(dataloader, io_config=None, **kwargs):
                 batch = next(self.data_iter)
             except StopIteration:
                 return None
-            if isinstance(batch, list):
-                # [input, label]
+            if isinstance(batch, (list, tuple)):
+                # [input, label] or (input, label)
                 batch = batch[0]
             assert isinstance(batch, dict), "Only support dict type batch data"
 
@@ -81,4 +87,184 @@ def default_calibration_dataloader(dataloader, io_config=None, **kwargs):
         def rewind(self):
             self.data_iter = None
 
+    if model_path and io_config:
+        # there is no overhead for non-llm models
+        dataloader = LLMAugmentedDataLoader(dataloader, model_path, io_config)
+
     return _CalibrationDataReader(dataloader, io_config, **kwargs)
+
+
+class LLMAugmentedDataLoader:
+    # TODO(jambayk): provide flags to enable/disable prefill+decode inputs
+    def __init__(self, dataloader, model_path, io_config):
+        self.dataloader = dataloader
+        self.model_path = model_path
+        self.io_config = deepcopy(io_config)
+        self.io_config["input_shapes"] = dict(zip(self.io_config["input_names"], self.io_config["input_shapes"]))
+
+        self.position_ids = "position_ids" in self.io_config["input_names"]
+        self.extended_attention_mask = (
+            "attention_mask" in self.io_config["input_names"]
+            and len(self.io_config["input_shapes"]["attention_mask"]) == 4
+        )
+
+        self.kv_info = self.get_kv_info(self.io_config)
+        self._session = None
+
+    def __len__(self):
+        return len(self.dataloader) * (
+            2 if self.kv_info and self.kv_info["past_names"][0] not in next(iter(self.dataloader))[0] else 1
+        )
+
+    def __iter__(self):
+        for batch, label in self.dataloader:
+            if self.extended_attention_mask and batch["attention_mask"].ndim == 2:
+                # model expects 4d attention mask
+                replace_with_extended_mask(batch, "causal", -5000)
+            if self.position_ids and "position_ids" not in batch:
+                # create position ids from attention mask
+                batch["position_ids"] = self.get_position_ids(batch["input_ids"], batch["attention_mask"])
+
+            if self.kv_info and self.kv_info["past_names"][0] not in batch:
+                attention_mask = batch["attention_mask"]
+                if attention_mask.ndim == 4:
+                    attention_mask = (attention_mask[:, 0, -1] == 0).to(batch["input_ids"].dtype)
+                # prepend mask for past keys and values
+                attention_mask = torch.cat([torch.zeros_like(attention_mask[:, :1]), attention_mask], dim=-1)
+
+                # prefill: all - 1 tokens, no past keys/values (= 0 past seq len)
+                prefill_batch = {
+                    "input_ids": batch["input_ids"][:, :-1],
+                    # "attention_mask": (
+                    #     batch["attention_mask"][:, :-1]
+                    #     if batch["attention_mask"].ndim == 2
+                    #     else batch["attention_mask"][:, :, :-1, :-1]
+                    # ),
+                    "attention_mask": attention_mask[:, :-1],
+                    **self.get_empty_kv_cache(batch["input_ids"].shape[0], self.kv_info),
+                }
+                if self.position_ids:
+                    prefill_batch["position_ids"] = batch["position_ids"][:, :-1]
+                if self.extended_attention_mask:
+                    replace_with_extended_mask(prefill_batch, "causal", -5000)
+
+                prefill_label = (
+                    label[:, :-1]
+                    if (isinstance(label, torch.Tensor) and label.shape == batch["input_ids"].shape)
+                    else label
+                )
+
+                yield prefill_batch, prefill_label
+
+                # decode: last token, all - 1 past keys/values generated from prefill
+                session_outputs = self.session.run(None, format_data(prefill_batch, self.io_config))
+                session_outputs = dict(zip(self.io_config["output_names"], session_outputs))
+
+                decode_batch = {
+                    "input_ids": batch["input_ids"][:, -1:],
+                    # "attention_mask": batch["attention_mask"],
+                    "attention_mask": attention_mask,
+                    **{v: session_outputs[k] for k, v in self.kv_info["present_to_past"].items()},
+                }
+                if self.position_ids:
+                    decode_batch["position_ids"] = batch["position_ids"][:, -1:]
+                if self.extended_attention_mask:
+                    replace_with_extended_mask(decode_batch, "causal", -5000)
+
+                decode_label = (
+                    label[:, -1:]
+                    if (isinstance(label, torch.Tensor) and label.shape == batch["input_ids"].shape)
+                    else label
+                )
+
+                yield decode_batch, decode_label
+            else:
+                yield batch, label
+
+    @property
+    def session(self):
+        from onnxruntime import InferenceSession
+
+        if self._session is not None:
+            return self._session
+        try:
+            # will try to use CUDAExecutionProvider if possible
+            self._session = InferenceSession(self.model_path, providers=["CUDAExecutionProvider"])
+        except Exception:
+            logger.debug("Failed to use CUDAExecutionProvider for generating past keys/values, falling back to CPU")
+            self._session = InferenceSession(self.model_path)
+        return self._session
+
+    @staticmethod
+    def get_position_ids(input_ids, attention_mask):
+        sequence_length = input_ids.shape[-1]
+        if attention_mask.ndim == 2:
+            return (attention_mask.cumsum(-1) - 1)[:, -sequence_length:]
+        elif attention_mask.ndim == 4:
+            return ((attention_mask[:, 0, -1] == 0).cumsum(-1) - 1)[:, -sequence_length:]
+        else:
+            raise ValueError("Invalid attention mask shape")
+
+    @staticmethod
+    def get_kv_info(io_config):
+        # assuming batch_size, num_kv_heads, past_seq_len, head_size
+        kv_options = {
+            r"past_key_values.(\d+).key": {
+                "past_key": "past_key_values.%d.key",
+                "past_value": "past_key_values.%d.value",
+                "present_key": "present.%d.key",
+                "present_value": "present.%d.value",
+            },
+            r"past_key_(\d+)": {
+                "past_key": "past_key_%d",
+                "past_value": "past_value_%d",
+                "present_key": "present_key_%d",
+                "present_value": "present_value_%d",
+            },
+        }
+
+        # Find the format of the past keys and values
+        # only accept dynamic shapes for now
+        kv_format = None
+        for i_name in io_config["input_names"]:
+            for pattern in kv_options:
+                if re.match(pattern, i_name) and not isinstance(io_config["input_shapes"][i_name][2], int):
+                    kv_format = pattern
+                    break
+            if kv_format:
+                break
+
+        if kv_format is None:
+            return None
+
+        num_layers = 0
+        for i_name in io_config["input_names"]:
+            num_layers += int(re.match(kv_format, i_name) is not None)
+        logger.debug("Found %d layers with past keys/values", num_layers)
+
+        past_names = []
+        present_to_past = {}
+        for k in ["key", "value"]:
+            past_names.extend([kv_options[kv_format][f"past_{k}"] % i for i in range(num_layers)])
+            present_to_past.update(
+                {
+                    kv_options[kv_format][f"present_{k}"] % i: kv_options[kv_format][f"past_{k}"] % i
+                    for i in range(num_layers)
+                }
+            )
+
+        return {
+            "past_names": past_names,
+            "present_to_past": present_to_past,
+            "num_kv_heads": io_config["input_shapes"][past_names[0]][1],
+            "head_size": io_config["input_shapes"][past_names[0]][3],
+        }
+
+    @staticmethod
+    def get_empty_kv_cache(batch_size, kv_info):
+        # TODO(jambayk): should we have atleast seq len 1?
+        # if so, would need to prepend to 2d attention mask
+        return {
+            k: torch.zeros((batch_size, kv_info["num_kv_heads"], 1, kv_info["head_size"]), dtype=torch.float32)
+            for k in kv_info["past_names"]
+        }
