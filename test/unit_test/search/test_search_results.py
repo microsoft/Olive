@@ -12,19 +12,21 @@ from olive.search.search_results import SearchResults
 
 class TestSearchResults:
     def test_empty(self):
-        results = SearchResults()
+        objectives = {
+            "accuracy-accuracy_custom": {"goal": 0.75, "higher_is_better": True, "priority": 1},
+            "latency-avg": {"goal": 24, "higher_is_better": False, "priority": 2},
+            "latency-max": {"goal": 30, "higher_is_better": False, "priority": 3},
+        }
+        results = SearchResults(objectives)
         results.sort()
 
         assert results._sorted_indices == []
         assert results.get_next_best_result(-1) == (None, None, None)
 
     def test_sort(self):
-        objectives2 = {
-            "accuracy-accuracy_custom": {"goal": 0.7220000147819519, "higher_is_better": True, "priority": 1},
-            "latency-avg": {"goal": 24.044427, "higher_is_better": False, "priority": 2},
-        }
-        objectives3 = {
-            **objectives2,
+        objectives = {
+            "accuracy-accuracy_custom": {"goal": 0.75, "higher_is_better": True, "priority": 1},
+            "latency-avg": {"goal": 24, "higher_is_better": False, "priority": 2},
             "latency-max": {"goal": 30, "higher_is_better": False, "priority": 3},
         }
 
@@ -62,14 +64,12 @@ class TestSearchResults:
 
         signals = [
             (
-                objectives2,
                 signal1,
                 ["model_id_1"],
             ),
             None,
             None,
             (
-                objectives2,
                 signal2,
                 ["model_id_2"],
             ),
@@ -77,13 +77,12 @@ class TestSearchResults:
             None,
             None,
             (
-                objectives3,
                 signal3,
                 ["model_id_3"],
             ),
         ]
 
-        results = SearchResults()
+        results = SearchResults(objectives)
         for i, signal in enumerate(signals):
             if signal:
                 results.record_feedback_signal(i, *signal)

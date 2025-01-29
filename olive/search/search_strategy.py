@@ -125,17 +125,18 @@ class SearchStrategy:
         self,
         space_config: Dict[str, List[Dict[str, "SearchParameter"]]],
         init_model_id: str,
-        objectives: Dict[str, List[Dict[str, Dict[str, Any]]]],
+        objectives: Dict[str, Dict[str, Dict[str, Any]]],
     ):
         """Initialize the search strategy.
 
         space_config: Ordered dictionary of format {pass_name, [{param_name: SearchParameter}]}
         init_model_id: Input model id to use to start searching.
-        objectives: dictionary of format {objective_name: {"higher_is_better": bool, "goal": float}}
+        objectives: dictionary of format
+                    {pass_name: {objective_name: {"higher_is_better": bool, "goal": float, "priority": int}}}
 
-        Depending on the execution order, we could generate either a single search space (for join mode)
+        Depending on the execution order, we could generate either a single search space (for joint mode)
         or multiple search spaces (for pass-by-pass mode). However, the logic in how we process these
-        search spaces not differ.
+        search spaces does not differ.
         """
         # for the fist search group, init_model_id must be provided
         if not init_model_id:
@@ -158,14 +159,8 @@ class SearchStrategy:
         else:
             raise ValueError(f"Unsupported execution order: {self.config.execution_order}")
 
-        if objectives:
-            for pass_name, pass_params in space_config.items():
-                pass_objectives = objectives.get(pass_name)
-                assert not pass_objectives or len(pass_objectives) == len(
-                    pass_params
-                ), "Expect none or all passes to have objectives"
-
-        self._objectives = objectives or {}
+        objectives = objectives or {}
+        self._objectives = {pass_name: objectives.get(pass_name) or {} for pass_name in space_config}
         self._init_model_id = init_model_id
 
         # Note that the state variables will be initialized at start of iteration.
@@ -208,12 +203,13 @@ class SearchStrategy:
         # Initialize the state variables
         self._path = []
         search_space = self._search_spaces[len(self._path)]
+        objectives = self._get_objectives(search_space)
         self._state = {
             tuple(self._path): SearchWalkState(
                 self._path,
                 [self._init_model_id],
-                self._create_sampler(search_space),
-                self._create_results(),
+                self._create_sampler(search_space, objectives),
+                self._create_results(objectives),
             )
         }
 
@@ -252,16 +248,24 @@ class SearchStrategy:
             if not self._step_down() and not self._step_up():
                 return None
 
-    def _create_sampler(self, search_space: SearchSpace) -> SearchSampler:
+    def _get_objectives(self, search_space: SearchSpace) -> Dict[str, Any]:
+        """Return search space specific objectives."""
+        return {
+            name: objective
+            for pass_name, _ in search_space.parameters
+            for name, objective in self._objectives[pass_name].items()
+        }
+
+    def _create_sampler(self, search_space: SearchSpace, objectives: Dict[str, Any]) -> SearchSampler:
         """Create a search sampler."""
         if self.config.sampler not in REGISTRY:
             raise ValueError(f"Unsupported search sampler: {self.config.sampler}")
 
-        return REGISTRY[self.config.sampler](search_space, self.config.sampler_config)
+        return REGISTRY[self.config.sampler](search_space, self.config.sampler_config, objectives)
 
-    def _create_results(self) -> SearchResults:
+    def _create_results(self, objectives: Dict[str, Any]) -> SearchResults:
         """Create and return a search result."""
-        return SearchResults()
+        return SearchResults(objectives)
 
     def _initialize_step(self) -> bool:
         state = self._state[tuple(self._path)]
@@ -280,11 +284,12 @@ class SearchStrategy:
         if state.best_result_index is not None:
             self._path.append(next_search_point)
             search_space = self._search_spaces[len(self._path)]
+            objectives = self._get_objectives(search_space)
             self._state[tuple(self._path)] = SearchWalkState(
                 self._path,
                 next_model_ids,
-                self._create_sampler(search_space),
-                self._create_results(),
+                self._create_sampler(search_space, objectives),
+                self._create_results(objectives),
             )
             return True
 
@@ -327,14 +332,8 @@ class SearchStrategy:
         assert self._initialized, "Search strategy is not initialized"
 
         state = self._state[tuple(self._path)]
-        search_space = self._search_spaces[len(self._path)]
-        search_point = search_space[search_point_index]
-        pass_name, _ = search_space.parameters[-1]
-        pass_index, _ = search_point.values[pass_name]
-        passes_objectives = self._objectives.get(pass_name, [])
-        objectives = passes_objectives[pass_index] if pass_index < len(passes_objectives) else {}
-        state.results.record_feedback_signal(search_point_index, objectives, signal, model_ids)
-        state.sampler.record_feedback_signal(search_point_index, objectives, signal, should_prune)
+        state.results.record_feedback_signal(search_point_index, signal, model_ids)
+        state.sampler.record_feedback_signal(search_point_index, signal, should_prune)
 
     @property
     def should_stop(self):

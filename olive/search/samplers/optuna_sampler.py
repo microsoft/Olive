@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import sys
 from abc import abstractmethod
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
@@ -39,15 +40,15 @@ class OptunaSampler(SearchSampler):
         self,
         search_space: SearchSpace,
         config: Optional[Union[Dict[str, Any], ConfigBase]] = None,
+        objectives: Dict[str, Dict[str, Any]] = None,
     ):
-        super().__init__(search_space, config)
+        super().__init__(search_space, config, objectives)
 
         # Initialize the searcher
         self._sampler = self._create_sampler()
-        # TODO(olivedev): There is no absolute direction to set.
-        # directions = ["maximize" if hib else "minimize" for hib in self._higher_is_betters]
-        # self._study = optuna.create_study(directions=directions, sampler=self._sampler)
-        self._study = optuna.create_study(sampler=self._sampler)
+        directions = ["maximize" if self._higher_is_betters[name] else "minimize" for name in self._objectives]
+        self._study = optuna.create_study(directions=directions, sampler=self._sampler)
+
         self._num_samples_suggested = 0
         self._search_point_index_to_trail_id = {}
 
@@ -133,12 +134,18 @@ class OptunaSampler(SearchSampler):
         else:
             raise ValueError(f"Unsupported parameter type: {type(param)}")
 
-    def record_feedback_signal(
-        self, search_point_index: int, objectives: Dict[str, dict], signal: "MetricResult", should_prune: bool = False
-    ):
+    def record_feedback_signal(self, search_point_index: int, signal: "MetricResult", should_prune: bool = False):
         trial_id = self._search_point_index_to_trail_id[search_point_index]
         if should_prune:
             self._study.tell(trial_id, state=optuna.trial.TrialState.PRUNED)
         else:
-            values = [signal[objective].value for objective in objectives]
+            values = []
+            for name in self._objectives:
+                if name in signal:
+                    values.append(signal[name].value)
+                elif self._higher_is_betters[name]:
+                    values.append(-sys.maxsize - 1)
+                else:
+                    values.append(sys.maxsize)
+
             self._study.tell(trial_id, values)

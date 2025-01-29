@@ -583,84 +583,37 @@ class TestSearchStrategy:
             [
                 (
                     "PassA",
-                    [
-                        {
-                            "accuracy-accuracy_custom": {
-                                "goal": 0.70,
-                                "higher_is_better": True,
-                                "priority": 1,
-                            },
-                            "latency-avg": {"goal": 24.0, "higher_is_better": False, "priority": 2},
+                    {
+                        "accuracy-accuracy_custom": {
+                            "goal": 0.70,
+                            "higher_is_better": True,
+                            "priority": 1,
                         },
-                        {
-                            "accuracy-accuracy_custom": {
-                                "goal": 0.85,
-                                "higher_is_better": True,
-                                "priority": 1,
-                            },
-                            "latency-avg": {"goal": 23.0, "higher_is_better": False, "priority": 2},
-                        },
-                        {
-                            "accuracy-accuracy_custom": {
-                                "goal": 0.80,
-                                "higher_is_better": True,
-                                "priority": 1,
-                            },
-                            "latency-avg": {"goal": 25.0, "higher_is_better": False, "priority": 2},
-                        },
-                        {
-                            "accuracy-accuracy_custom": {
-                                "goal": 0.75,
-                                "higher_is_better": True,
-                                "priority": 1,
-                            },
-                            "latency-avg": {"goal": 20.0, "higher_is_better": False, "priority": 2},
-                        },
-                    ],
+                        "latency-avg": {"goal": 24.0, "higher_is_better": False, "priority": 2},
+                    },
                 ),
                 (
                     "PassB",
-                    [
-                        {
-                            "accuracy-accuracy_custom": {
-                                "goal": 0.70,
-                                "higher_is_better": True,
-                                "priority": 1,
-                            },
-                            "latency-avg": {"goal": 40.0, "higher_is_better": False, "priority": 2},
-                            "latency-max": {"goal": 64.0, "higher_is_better": False, "priority": 2},
+                    {
+                        "accuracy-accuracy_custom": {
+                            "goal": 0.80,
+                            "higher_is_better": True,
+                            "priority": 1,
                         },
-                        {
-                            "accuracy-accuracy_custom": {
-                                "goal": 0.80,
-                                "higher_is_better": True,
-                                "priority": 1,
-                            },
-                            "latency-avg": {"goal": 45.0, "higher_is_better": False, "priority": 2},
-                            "latency-max": {"goal": 72.0, "higher_is_better": False, "priority": 2},
-                        },
-                    ],
+                        "latency-avg": {"goal": 45.0, "higher_is_better": False, "priority": 2},
+                        "latency-max": {"goal": 72.0, "higher_is_better": False, "priority": 2},
+                    },
                 ),
                 (
                     "PassC",
-                    [
-                        {
-                            "accuracy-accuracy_custom": {
-                                "goal": 0.89,
-                                "higher_is_better": True,
-                                "priority": 1,
-                            },
-                            "latency-avg": {"goal": 16.0, "higher_is_better": False, "priority": 2},
+                    {
+                        "accuracy-accuracy_custom": {
+                            "goal": 0.90,
+                            "higher_is_better": True,
+                            "priority": 1,
                         },
-                        {
-                            "accuracy-accuracy_custom": {
-                                "goal": 0.92,
-                                "higher_is_better": True,
-                                "priority": 1,
-                            },
-                            "latency-avg": {"goal": 14.0, "higher_is_better": False, "priority": 2},
-                        },
-                    ],
+                        "latency-avg": {"goal": 14.0, "higher_is_better": False, "priority": 2},
+                    },
                 ),
             ]
         )
