@@ -8,7 +8,7 @@
 import inspect
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Type
+from typing import Any, ClassVar, Dict, List, Optional, Type
 
 import numpy as np
 import onnx
@@ -20,6 +20,7 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -453,6 +454,127 @@ class ExposeQuantizedOutput(Surgeon):
         zero_point_onnx_dtype = zero_point_initializer.data_type
         zero_point_np_dtype = tensor_dtype_to_np_dtype(zero_point_onnx_dtype)
         return self._add_zero_point(model, zero_point_value, zero_point_onnx_dtype, zero_point_np_dtype)
+
+
+class RMSNormToL2Norm(Surgeon):
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        modified = 0
+        removed_nodes = set()
+        replaced_initializers = set()
+        for node_name in dag.get_node_names():
+            if node_name in removed_nodes or dag.get_node_op_type(node_name) != "Pow":
+                continue
+
+            rmsnorm_nodes = self.is_rmsnorm_pattern(node_name, dag)
+            if not rmsnorm_nodes:
+                continue
+
+            graph_idx = dag.get_graph_idx(node_name)
+
+            # name for the new L2Norm node
+            l2norm_node_name = node_name.replace("Pow", "L2Norm") if "Pow" in node_name else f"{node_name}_L2Norm"
+            node_output_name = dag.get_node_outputs(node_name)[0]
+            l2norm_node_output_name = (
+                node_output_name.replace("Pow", "L2Norm") if "Pow" in node_output_name else f"{node_output_name}_L2Norm"
+            )
+
+            # create L2Norm node
+            l2norm_node = onnx.helper.make_node(
+                "LpNormalization",
+                inputs=[dag.get_node_inputs(node_name)[0]],
+                outputs=[l2norm_node_output_name],
+                name=l2norm_node_name,
+                axis=-1,
+                p=2,
+            )
+
+            # Muliply weight by sqrt(N)
+            final_node_name = rmsnorm_nodes[-1]
+            final_node_children = dag.get_consumers(final_node_name)
+            # can be Cast or Mul
+            if len(final_node_children) != 1 or dag.get_node_op_type(final_node_children[0]) not in ["Cast", "Mul"]:
+                logger.debug("RMSNorm Pattern does not end with Cast or Mul. Found %s", final_node_children)
+                continue
+            final_node_output_name = dag.get_node_outputs(final_node_name)[0]
+
+            # Get the weight Mul node
+            if dag.get_node_op_type(final_node_children[0]) == "Mul":
+                rmsnorm_mul_node_name = final_node_children[0]
+            else:
+                cast_node_children = dag.get_consumers(final_node_children[0])
+                if len(cast_node_children) != 1 or dag.get_node_op_type(cast_node_children[0]) != "Mul":
+                    logger.debug("RMSNorm Pattern does not end with Cast -> Mul. Found %s", cast_node_children)
+                    continue
+                rmsnorm_mul_node_name = cast_node_children[0]
+
+            # Get the weight Mul node inputs
+            rmsnorm_weight_name = None
+            for input_name in dag.get_node_inputs(rmsnorm_mul_node_name):
+                if dag.is_initializer(input_name):
+                    rmsnorm_weight_name = input_name
+                    break
+            if rmsnorm_weight_name is None:
+                logger.debug("RMSNorm Mul node does not have initializer input")
+                continue
+
+            # update weight and replace initializer
+            if rmsnorm_weight_name not in replaced_initializers:
+                # rotated models have all 1s and might share initializer
+                # don't want to multiply by sqrt(N) multiple times even though it is fine in all 1s case
+                rmsnorm_weight = dag.get_initializer_np_array(rmsnorm_weight_name)
+                sqrt_n = np.sqrt(rmsnorm_weight.shape[-1])
+                if np.all(rmsnorm_weight == 1):
+                    # this is possible in a quarot/spinquant rotated model
+                    # Multiplying by 1D is probably faster
+                    rmsnorm_weight = np.array([1], dtype=rmsnorm_weight.dtype)
+                rmsnorm_weight = sqrt_n * rmsnorm_weight
+
+                dag.replace_initializer(
+                    onnx.numpy_helper.from_array(rmsnorm_weight, name=rmsnorm_weight_name), graph_idx
+                )
+                replaced_initializers.add(rmsnorm_weight_name)
+
+            # add and replace nodes
+            dag.add_node(l2norm_node, graph_idx)
+            dag.replace_node_input(final_node_children[0], final_node_output_name, l2norm_node_output_name)
+            for rms_node_name in rmsnorm_nodes[::-1]:
+                dag.remove_node(rms_node_name)
+                removed_nodes.add(rms_node_name)
+
+            modified += 1
+
+        if modified > 0:
+            logger.debug("Replaced %d RMSNorm nodes with L2Norm nodes", modified)
+
+        dag.update()
+        return dag.model
+
+    @staticmethod
+    def is_rmsnorm_pattern(pow_node: str, dag: OnnxDAG) -> Optional[List[str]]:
+        # Two possible patterns:
+        # x / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div
+        # x * 1 / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div -> Mul
+        pattern = ["Pow", "ReduceMean", "Add", "Sqrt", "Div", "Mul"]
+        pow_node_input = dag.get_node_inputs(pow_node)[0]
+        current_node = pow_node
+        rmsnorm_nodes = [current_node]
+        for op_type in pattern[1:]:
+            child_nodes = dag.get_consumers(current_node)
+            if len(child_nodes) != 1 or dag.get_node_op_type(child_nodes[0]) != op_type:
+                return []
+            current_node = child_nodes[0]
+            rmsnorm_nodes.append(current_node)
+            if pow_node_input in dag.get_node_inputs(current_node):
+                # this can happen either at Div or Mul
+                # early stopping if it is Div
+                break
+
+        return rmsnorm_nodes if len(rmsnorm_nodes) >= (len(pattern) - 1) else []
 
 
 class GraphSurgeries(Pass):

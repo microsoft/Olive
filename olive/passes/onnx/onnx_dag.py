@@ -243,6 +243,18 @@ class OnnxDAG:
         """
         self._add_special_input(initializer, graph_idx, SpecialInput.INITIALIZER, keep_input)
 
+    def replace_initializer(self, initializer: TensorProto, graph_idx: int):
+        """Replace an initializer in the graph.
+
+        :param initializer: TensorProto of the initializer.
+        :param graph_idx: index of the graph in the model.
+        """
+        name = initializer.name
+        if not self.is_initializer(name):
+            raise ValueError(f"{name} is not an initializer.")
+        proto_list = self.ios[name].proto[:-1] + [initializer]
+        self.ios[name].proto = proto_list
+
     def add_value_info(self, value_info: ValueInfoProto, graph_idx: int, overwrite: bool = False):
         """Add a value info to the graph.
 
