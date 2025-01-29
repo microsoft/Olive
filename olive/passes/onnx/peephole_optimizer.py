@@ -232,7 +232,7 @@ class ModelOptimizer:
             logger.debug("Fused %d redundant Reshape operators", num_changed)
             o_model.prune_graph()
 
-    def clip_attention_mask(self):
+    def clip_attention_mask(self, mask_value):
         num_changed = 0
         for n in self.model.graph.node:
             if n.op_type == "ConstantOfShape":
@@ -240,14 +240,14 @@ class ModelOptimizer:
                 tensor_value = onnx.numpy_helper.to_array(value)
                 if tensor_value[0] < -3e30:
                     new_attribute = onnx.helper.make_attribute(
-                        "value", onnx.helper.make_tensor(value.name, value.data_type, [1], [-3e30])
+                        "value", onnx.helper.make_tensor(value.name, value.data_type, [1], [mask_value])
                     )
                     n.ClearField("attribute")
                     n.attribute.extend([new_attribute])
                     num_changed += 1
 
         if num_changed > 0:
-            logger.debug("Replaced %d attention mask values with -3e30", num_changed)
+            logger.debug("Replaced %d attention mask values with %d", num_changed, mask_value)
 
     def onnxscript_optimize(self):
         try:
@@ -293,7 +293,12 @@ class OnnxPeepholeOptimizer(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        return get_external_data_config()
+        return {
+            "attention_mask_value":  PassConfigParam(
+                type_=float, default_value=-1000, description="The version of the default (ai.onnx) opset to target."
+            ),
+            **get_external_data_config()
+        }
 
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
@@ -304,7 +309,7 @@ class OnnxPeepholeOptimizer(Pass):
         peephole_optimizer = ModelOptimizer(model.model_path)
         peephole_optimizer.onnxscript_optimize()
         peephole_optimizer.onnxoptimizer_optimize()
-        peephole_optimizer.clip_attention_mask()
+        peephole_optimizer.clip_attention_mask(config["attention_mask_value"])
         peephole_optimizer.fuse_transpose_qat()
         peephole_optimizer.patch_unsupported_argmax_operator()
         peephole_optimizer.fuse_reshape_operations()
