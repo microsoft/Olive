@@ -571,21 +571,29 @@ class OnnxQuantization(Pass):
                 verbose=3,  # set verbose to 3 to get more information about the preprocessing
             )
         except Exception as e:
-            # TODO(jambayk): try with `skip_optimization = True`
-            # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
-            # there are some problems with the path to where the external data is saved
-            # need to find out why before enabling this
-
-            logger.warning(
-                "Failed to run quantization preprocessing with error of %s. Using original model.", e, exc_info=True
+            logger.info(
+                "Failed to run quantization preprocessing with shape inference and optimization: %s. Trying with shape"
+                " inference turned off.",
+                e,
             )
-            # save original model to output path
-            onnx_model = onnx.load(model.model_path)
-            model_proto_to_file(
-                onnx_model,
-                output_model_path,
-                save_as_external_data=True,  # always save as external data to avoid failures due to large models
-            )
+            try:
+                quant_pre_process(
+                    input_model_path=model.model_path,
+                    output_model_path=str(output_model_path),
+                    auto_merge=True,
+                    save_as_external_data=True,
+                    verbose=3,
+                    skip_symbolic_shape=True,
+                )
+            except Exception as e:
+                logger.info("Fail with shape inference turned off as well: %s. Using original model.", e)
+                # save original model to output path
+                onnx_model = onnx.load(model.model_path)
+                model_proto_to_file(
+                    onnx_model,
+                    output_model_path,
+                    save_as_external_data=True,  # always save as external data to avoid failures due to large models
+                )
 
         # since this is only used internally, we will just treat it as a model file
         return ONNXModelHandler(LocalFile({"path": output_model_path}))

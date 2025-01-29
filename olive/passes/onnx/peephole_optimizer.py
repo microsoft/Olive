@@ -232,14 +232,51 @@ class ModelOptimizer:
             logger.debug("Fused %d redundant Reshape operators", num_changed)
             o_model.prune_graph()
 
+    def clip_attention_mask(self):
+        num_changed = 0
+        for n in self.model.graph.node:
+            if n.op_type == "ConstantOfShape":
+                value = onnx.helper.get_attribute_value(n.attribute[0])
+                tensor_value = onnx.numpy_helper.to_array(value)
+                if tensor_value[0] < -3e30:
+                    new_attribute = onnx.helper.make_attribute(
+                        "value", onnx.helper.make_tensor(value.name, value.data_type, [1], [-3e30])
+                    )
+                    n.ClearField("attribute")
+                    n.attribute.extend([new_attribute])
+                    num_changed += 1
+
+        if num_changed > 0:
+            logger.debug("Replaced %d attention mask values with -3e30", num_changed)
+
     def onnxscript_optimize(self):
         try:
             import onnxscript
         except ImportError:
             logger.warning("Please install `onnxscript` to apply more optimization.")
             return
-
         onnxscript.optimizer.optimize(self.model)
+
+        # ir_model = onnxscript.ir.serde.deserialize_model(self.model)
+        # onnxscript.optimizer.optimize(ir_model)
+
+        # # replace attention mask value with a smaller value to avoid numerical instability
+        # def c_pattern(op, x: onnxscript.ir.Value, value: onnxscript.ir.Attr):
+        #     return op.ConstantOfShape(x, value=value)
+
+        # def c_rewrite(op, x: onnxscript.ir.Value, value: onnxscript.ir.Attr):
+        #     new_value = onnx.helper.make_tensor("value", value.as_tensor().dtype, [1], [-3e30])
+        #     return op.ConstantOfShape(x, value=new_value)
+
+        # def c_check(context, x, value) -> bool:
+        #     return value.as_tensor().numpy()[0] < -3e30
+
+        # # rule = onnxscript.rewriter.pattern.RewriteRule(c_pattern, c_rewrite, c_check)
+        # # count = rule.apply_to_model(ir_model)
+        # # if count > 0:
+        # #     logger.debug("Replaced %d attention mask values with -3e30", count)
+
+        # self.model = onnxscript.ir.serde.serialize_model(ir_model)
 
     def onnxoptimizer_optimize(self):
         try:
@@ -267,6 +304,7 @@ class OnnxPeepholeOptimizer(Pass):
         peephole_optimizer = ModelOptimizer(model.model_path)
         peephole_optimizer.onnxscript_optimize()
         peephole_optimizer.onnxoptimizer_optimize()
+        peephole_optimizer.clip_attention_mask()
         peephole_optimizer.fuse_transpose_qat()
         peephole_optimizer.patch_unsupported_argmax_operator()
         peephole_optimizer.fuse_reshape_operations()
