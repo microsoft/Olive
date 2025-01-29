@@ -10,6 +10,7 @@ from kv_cache_utils import DynamicCache, DynamicIOBoundCache, GQASharedCache, St
 from onnxruntime import InferenceSession, OrtValue, SessionOptions, set_default_logger_severity
 from transformers import PreTrainedTokenizer
 
+from olive.common.hf.model_io import replace_with_extended_mask
 from olive.common.utils import StrEnumBase, load_weights
 
 if TYPE_CHECKING:
@@ -70,9 +71,13 @@ class ORTGenerator:
                 self.attn_type = "mha"
                 break
         # Get io info
+        self.extended_attention_mask = False
         self.input_info = {}
         self.cache_info = {"past_names": [], "present_names": [], "dtype": None, "num_kv_heads": None, "head_dim": None}
         for i in model_proto.graph.input:
+            if i.name == "attention_mask":
+                attention_mask_info = self.get_io_type_shape(i)
+                self.extended_attention_mask = len(attention_mask_info["shape"]) == 4
             if ".key" not in i.name and ".value" not in i.name:
                 self.input_info[i.name] = self.get_io_type_shape(i)
                 continue
@@ -246,6 +251,8 @@ class ORTGenerator:
         """
         if use_io_binding and self.execution_provider == "QNNExecutionProvider":
             raise ValueError("QNNExecutionProvider does not support IO binding.")
+        if use_io_binding and self.extended_attention_mask:
+            raise ValueError("Model uses 4D causal mask which is not supported with IO binding yet.")
 
         # get session, template and adapter inputs
         # if adapter mode is inputs, the adapter input is dictionary of adapter weights
@@ -291,6 +298,11 @@ class ORTGenerator:
                 outputs = io_binding.get_outputs()
                 logits = outputs[0].numpy()
             else:
+                if self.extended_attention_mask:
+                    replace_with_extended_mask(inputs, "causal", -1000)
+                    inputs["attention_mask"] = inputs["attention_mask"].astype(
+                        self.input_info["attention_mask"]["dtype"]
+                    )
                 outputs = session.run(None, {**inputs, **cache.get_kv_inputs()})
                 logits = outputs[0]
 
@@ -367,7 +379,7 @@ class ORTGenerator:
                 )
 
             if not use_io_binding:
-                inputs["attention_mask"] = np_buffers["attention_mask"]
+                inputs["attention_mask"] = np_buffers["attention_mask"].copy()
             elif cache_type == "dynamic" or (idx == 0 and not isinstance(cache, GQASharedCache)):
                 # only update attention mask for dynamic cache or first token for static cache (non-GQA)
                 inputs["attention_mask"] = OrtValue.ortvalue_from_numpy(
@@ -418,7 +430,9 @@ class ORTGenerator:
         encodings_dict = self.tokenizer(prompt, return_tensors="np", padding=True)
         input_ids = encodings_dict["input_ids"].astype(self.input_info["input_ids"]["dtype"])
         batch_size, prompt_length = input_ids.shape
-        attention_mask = encodings_dict["attention_mask"].astype(self.input_info["attention_mask"]["dtype"])
+        attention_mask = encodings_dict["attention_mask"]
+        if not self.extended_attention_mask:
+            attention_mask = attention_mask.astype(self.input_info["attention_mask"]["dtype"])
 
         cache = self.get_fresh_cache(batch_size, use_io_binding, cache_type, max_cache_len, cache_backend)
         if isinstance(cache, GQASharedCache):

@@ -74,7 +74,7 @@ class TextGenParams(ConfigBase):
     random_retries: int = (
         10  # number of resamples to try before giving up when a sample is too short for RANDOM strategies
     )
-    extended_mask_type: bool = False  # use causal mask for language modeling tasks
+    extended_mask_type: str = None  # use causal mask for language modeling tasks
     extended_mask_value: float = None  # value to use for causal mask, None for minimum value for torch float32 dtype
 
     @validator("drop_short_sequences", always=True)

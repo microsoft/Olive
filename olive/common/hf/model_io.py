@@ -6,6 +6,7 @@ import logging
 from itertools import chain
 from typing import TYPE_CHECKING, Dict, Optional
 
+import numpy as np
 import torch
 
 from olive.common.hf.mlflow import get_pretrained_name_or_path
@@ -164,6 +165,8 @@ def replace_with_extended_mask(
         return data
 
     attention_mask = data["attention_mask"]
+    if is_np := isinstance(attention_mask, np.ndarray):
+        attention_mask = torch.from_numpy(attention_mask)
     ndims = attention_mask.ndim
     # will use a 2d -> 4d mask creator
     if ndims == 1:
@@ -191,6 +194,8 @@ def replace_with_extended_mask(
 
     if ndims == 1:
         expanded_mask = expanded_mask.squeeze(0)
+    if is_np:
+        expanded_mask = expanded_mask.numpy()
 
     data["attention_mask"] = expanded_mask
     return data
