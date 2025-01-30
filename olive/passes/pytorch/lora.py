@@ -92,20 +92,18 @@ class HFTrainingArguments(BaseHFTrainingArguments):
 
 
 class LoRABase(Pass):
-    """Base class for LoRA and QLoRA fine-tuning passes."""
+    """Base class for LoRA fine-tuning passes."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
-            "lora_r": PassConfigParam(
+            "r": PassConfigParam(
                 type_=int,
                 default_value=64,
                 search_defaults=Categorical([16, 32, 64]),
-                description="Lora R dimension.",
+                description="R dimension.",
             ),
-            "lora_alpha": PassConfigParam(
-                type_=float, default_value=16, description="The alpha parameter for Lora scaling."
-            ),
+            "alpha": PassConfigParam(type_=float, default_value=16, description="The alpha parameter for scaling."),
             "lora_dropout": PassConfigParam(
                 type_=float, default_value=0.05, description="The dropout probability for Lora layers."
             ),
@@ -224,6 +222,38 @@ class LoRABase(Pass):
 
         return train_dataset, eval_dataset
 
+    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+        # convert config to pass config class
+        # this will validate the config and convert to the correct types
+        config = self._config_class(**config)
+
+        # check dependencies
+        self.check_dependencies(config)
+
+        # use default training args if not provided
+        config.training_args = config.training_args or HFTrainingArguments()
+
+        # check if peft or olive has target modules for the model
+        config.target_modules = config.target_modules or self.check_target_modules(model)
+
+        # get new model
+        pytorch_model = self.load_base_pytorch_model(model, config)
+        # NOTE: quantized model support
+        # awq: requires awq cuda extension or triton for backward pass, scale must be fp16
+        # gptq: there is no custom backend. works fine when using naive dequantize + matmul
+        # no issue with single precision. mix precision depends on autocast as there is no input cast
+        # gradient might not be correct when using cuda/exllama deqauntize kernels
+        # we load in fp32/bf16 so cuda kernels are disabled by default. Might need extra work to
+        # disable exllama (gptq pass disables it)
+
+        # add lora modules
+        pytorch_model = self.enable_lora(pytorch_model, config, model.task)
+
+        # train and return new model
+        return self.train_and_save_new_model(
+            pytorch_model, model.get_hf_tokenizer(), config, deepcopy(model), output_model_path
+        )
+
     def load_base_pytorch_model(self, model_handler: HfModelHandler, config: ConfigBase, **kwargs) -> "PreTrainedModel":
         """Load a base PyTorch model for fine-tuning.
 
@@ -242,55 +272,41 @@ class LoRABase(Pass):
         # "auto": uses all available GPUs, model parallel
         return load_hf_base_model(model_handler, torch_dtype=model_dtype, device_map="auto", **kwargs)
 
-    def init_lora_adapters(
+    def init_adapters(
         self,
         model: "PreTrainedModel",
-        task: str,
         config: ConfigBase,
-        target_modules: Optional[List[str]] = None,
+        *,
+        task: Optional[str] = None,
         use_loftq: Optional[bool] = False,
     ) -> "PeftModel":
         """Initialize LoRA adapters.
 
         :param model: The Hugging Face PyTorch model to add LoRA adapters to.
-        :param task: The task type of the model.
         :param config: The config for the pass run.
-        :param target_modules: List of modules to target for LoRA fine-tuning.
+        :param task: The task type of the model.
         :param use_loftq: Whether to use LoftQ to initialize weights.
         :return: The LoRA model.
         """
-        from peft import LoraConfig, get_peft_model
-
-        lora_config_kwargs = {}
+        config_kwargs = {}
         if use_loftq:
             from peft import LoftQConfig
 
-            lora_config_kwargs = {
+            config_kwargs = {
                 "init_lora_weights": "loftq",
                 "loftq_config": LoftQConfig(loftq_bits=4, loftq_iter=config.loftq_iter),
             }
+        if task:
+            config_kwargs.update({"peft_task_type": get_peft_task_type_from_task(task, fail_on_not_found=True)})
 
-        peft_task_type = get_peft_task_type_from_task(task, fail_on_not_found=True)
-        lora_config = LoraConfig(
-            r=config.lora_r,
-            lora_alpha=config.lora_alpha,
-            lora_dropout=config.lora_dropout,
-            target_modules=target_modules,
-            bias="none",
-            task_type=peft_task_type,
-            modules_to_save=config.modules_to_save,
-            **lora_config_kwargs,
-        )
-
-        return get_peft_model(model, lora_config)
+        return self.get_peft_model(model, config, config_kwargs)
 
     def enable_lora(
         self,
         model: "PreTrainedModel",
-        task: str,
         config: ConfigBase,
+        task: Optional[str] = None,
         adapter_path: Optional[str] = None,
-        target_modules: Optional[List[str]] = None,
     ) -> "PeftModel":
         """Enable LoRA fine-tuning on a Hugging Face PyTorch model.
 
@@ -299,15 +315,11 @@ class LoRABase(Pass):
         Load or initialize LoRA adapters.
 
         :param model: The Hugging Face PyTorch model to enable LoRA fine-tuning on.
-        :param tokenizer: The tokenizer for the model.
-        :param task: The task type of the model.
         :param config: The config for the pass run.
+        :param task: The task type of the model.
         :param adapter_path: Path to the adapter weights. If None, will initialize new adapters.
-        :param target_modules: List of modules to target for LoRA fine-tuning. Only used if adapter_path is None.
         :return: The LoRA model.
         """
-        from peft import PeftModel
-
         logger.debug("Enabling LoRA fine-tuning")
         prepare_model_for_finetuning(model, config.training_args)
 
@@ -319,8 +331,10 @@ class LoRABase(Pass):
 
         if not adapter_path:
             logger.debug("Initializing LoRA adapters from config")
-            lora_model = self.init_lora_adapters(model, task, config, target_modules=target_modules)
+            lora_model = self.init_adapters(model, config, task=task)
         else:
+            from peft import PeftModel
+
             logger.debug("Loading LoRA adapters from %s", adapter_path)
             lora_model = PeftModel.from_pretrained(model, adapter_path, is_trainable=True)
         logger.debug("The number of trainable parameters in the LoRA model: %s", count_trainable_parameters(lora_model))
@@ -440,6 +454,39 @@ class LoRABase(Pass):
         assert torch_dtype in supported_dtypes, f"torch_dtype must be one of {supported_dtypes} but got {torch_dtype}"
         return resolve_torch_dtype(torch_dtype)
 
+    @staticmethod
+    def check_target_modules(model: HfModelHandler):
+        from peft.utils import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
+
+        model_type = model.get_hf_model_type()
+        if model_type not in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING:
+            if model_type in MODELS_TO_LORA_TARGET_MODULES_MAPPING:
+                return MODELS_TO_LORA_TARGET_MODULES_MAPPING[model_type]
+            else:
+                raise ValueError(
+                    f"Model type {model_type} is not recognized by peft or olive. Please provide 'target_modules'."
+                )
+        return None
+
+    @staticmethod
+    def get_peft_model(model, config, config_kwargs=None):
+        from peft import LoraConfig, get_peft_model
+
+        if config_kwargs is None:
+            config_kwargs = {}
+
+        lora_config = LoraConfig(
+            r=config.r,
+            lora_alpha=config.alpha,
+            lora_dropout=config.lora_dropout,
+            target_modules=config.target_modules,
+            bias="none",
+            modules_to_save=config.modules_to_save,
+            **config_kwargs,
+        )
+
+        return get_peft_model(model, lora_config)
+
 
 class LoRA(LoRABase):
     """Run LoRA fine-tuning on a Hugging Face PyTorch model."""
@@ -452,46 +499,161 @@ class LoRA(LoRABase):
         config.update(super()._default_config(accelerator_spec))
         return config
 
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
-        from peft.utils import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
 
-        # convert config to pass config class
-        # this will validate the config and convert to the correct types
-        config = self._config_class(**config)
+class LoRAVariant(LoRABase):
+    """Run LoRA variant fine-tuning on a Hugging Face PyTorch model."""
 
-        # check dependencies
-        self.check_dependencies(config)
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        config = {
+            "rank_dropout": PassConfigParam(
+                type_=float,
+                default_value=0.0,
+                description="The dropout probability for rank dimension during training.",
+            ),
+            "module_dropout": PassConfigParam(
+                type_=float,
+                default_value=0.0,
+                description="The dropout probability for disabling LoHa modules during training.",
+            ),
+            "use_effective_conv2d": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Use parameter effective decomposition for Conv2d with ksize > 1.",
+            ),
+            "target_modules": PassConfigParam(
+                type_=Optional[Union[List[str], str]],
+                default_value="all-linear",
+                description="The names of the modules to apply the adapter to.",
+            ),
+            "exclude_modules": PassConfigParam(
+                type_=Optional[Union[List[str], str]], default_value=None, description="Modules to exclude from LoHa."
+            ),
+            "init_weights": PassConfigParam(
+                type_=bool, default_value=True, description="Whether to perform initialization of adapter weights."
+            ),
+            "layers_to_transform": PassConfigParam(
+                type_=List[int], default_value=None, description="The layer indices to transform."
+            ),
+            "layers_pattern": PassConfigParam(
+                type_=List[str],
+                default_value=None,
+                description="The layer pattern name, used only if layers_to_transform is different from None.",
+            ),
+            "rank_pattern": PassConfigParam(
+                type_=Dict,
+                default_value={},
+                description="The mapping from layer names or regexp expression "
+                "to ranks which are different from the default rank specified by r.",
+            ),
+            "alpha_pattern": PassConfigParam(
+                type_=Dict,
+                default_value={},
+                description="The mapping from layer names or regexp expression "
+                "to alphas which are different from the default alpha specified by alpha.",
+            ),
+        }
+        config.update(super()._default_config(accelerator_spec))
+        return config
 
-        # use default training args if not provided
-        config.training_args = config.training_args or HFTrainingArguments()
 
-        # check if peft or olive has target modules for the model
-        model_type = model.get_hf_model_type()
-        if not config.target_modules and model_type not in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING:
-            if model_type in MODELS_TO_LORA_TARGET_MODULES_MAPPING:
-                config.target_modules = MODELS_TO_LORA_TARGET_MODULES_MAPPING[model_type]
-            else:
-                raise ValueError(
-                    f"Model type {model_type} is not recognized by peft or olive. Please provide 'target_modules'."
-                )
+class LoHa(LoRAVariant):
+    """Run LoHa fine-tuning on a Hugging Face PyTorch model."""
 
-        # get new model
-        pytorch_model = self.load_base_pytorch_model(model, config)
-        # NOTE: quantized model support
-        # awq: requires awq cuda extension or triton for backward pass, scale must be fp16
-        # gptq: there is no custom backend. works fine when using naive dequantize + matmul
-        # no issue with single precision. mix precision depends on autocast as there is no input cast
-        # gradient might not be correct when using cuda/exllama deqauntize kernels
-        # we load in fp32/bf16 so cuda kernels are disabled by default. Might need extra work to
-        # disable exllama (gptq pass disables it)
+    @staticmethod
+    def get_peft_model(model, config, config_kwargs=None):
+        from peft import LoHaConfig, LoHaModel
 
-        # add lora modules
-        pytorch_model = self.enable_lora(pytorch_model, model.task, config, target_modules=config.target_modules)
-
-        # train and return new model
-        return self.train_and_save_new_model(
-            pytorch_model, model.get_hf_tokenizer(), config, deepcopy(model), output_model_path
+        config = LoHaConfig(
+            r=config.r,
+            alpha=config.alpha,
+            rank_dropout=config.rank_dropout,
+            module_dropout=config.module_dropout,
+            use_effective_conv2d=config.use_effective_conv2d,
+            target_modules=config.target_modules,
+            exclude_modules=config.exclude_modules,
+            init_weights=config.init_weights,
+            layers_to_transform=config.layers_to_transform,
+            layers_pattern=config.layers_pattern,
+            rank_pattern=config.rank_pattern,
+            alpha_pattern=config.alpha_pattern,
+            modules_to_save=config.modules_to_save,
         )
+
+        return LoHaModel(model, config, "default")
+
+    @classmethod
+    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+        """Check dependencies for the pass."""
+        super().check_dependencies(config)
+
+        from peft import __version__ as peft_version
+
+        # LoHa is only supported after peft 0.7.0
+        if version.parse(peft_version) < version.parse("0.7.0"):
+            raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
+
+
+class LoKr(LoRAVariant):
+    """Run LoKr fine-tuning on a Hugging Face PyTorch model."""
+
+    @staticmethod
+    def get_peft_model(model, config, config_kwargs=None):
+        from peft import LoKrConfig, LoKrModel
+
+        config = LoKrConfig(
+            r=config.r,
+            alpha=config.alpha,
+            rank_dropout=config.rank_dropout,
+            module_dropout=config.module_dropout,
+            decompose_both=config.decompose_both,
+            decompose_factor=config.decompose_factor,
+            rank_dropout_scale=config.rank_dropout_scale,
+            use_effective_conv2d=config.use_effective_conv2d,
+            target_modules=config.target_modules,
+            exclude_modules=config.exclude_modules,
+            init_weights=config.init_weights,
+            layers_to_transform=config.layers_to_transform,
+            layers_pattern=config.layers_pattern,
+            rank_pattern=config.rank_pattern,
+            alpha_pattern=config.alpha_pattern,
+            modules_to_save=config.modules_to_save,
+        )
+
+        return LoKrModel(model, config, "default")
+
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        config = {
+            "decompose_both": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Perform rank decomposition of left kronecker product matrix.",
+            ),
+            "decompose_factor": PassConfigParam(
+                type_=int,
+                default_value=-1,
+                description="Kronecker product decomposition factor.",
+            ),
+            "rank_dropout_scale": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to scale the rank dropout while training.",
+            ),
+        }
+        config.update(super()._default_config(accelerator_spec))
+        return config
+
+    @classmethod
+    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+        """Check dependencies for the pass."""
+        super().check_dependencies(config)
+
+        from peft import __version__ as peft_version
+
+        # LoHa is only supported after peft 0.7.0
+        if version.parse(peft_version) < version.parse("0.7.0"):
+            raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
 
 
 class QLoRABase(LoRABase):
@@ -618,7 +780,8 @@ class QLoRA(QLoRABase):
         logger.debug("Quantized modules: %s", quantized_modules)
 
         # enable lora fine-tuning with new lora modules
-        pytorch_model = self.enable_lora(pytorch_model, model.task, config, target_modules=quantized_modules)
+        config.target_modules = quantized_modules
+        pytorch_model = self.enable_lora(pytorch_model, config, model.task)
 
         return deepcopy(model), pytorch_model, bnb_quant_config, quantized_modules
 
@@ -671,7 +834,8 @@ class LoftQ(QLoRABase):
 
         # get loftq initialized lora model
         logger.debug("Initializing LoRA with LoftQ")
-        pytorch_model = self.init_lora_adapters(pytorch_model, model.task, config, quantized_modules, use_loftq=True)
+        config.target_modules = quantized_modules
+        pytorch_model = self.init_adapters(pytorch_model, config, task=model.task, use_loftq=True)
 
         output_model_path = Path(output_model_path)
 

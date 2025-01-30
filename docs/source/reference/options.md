@@ -410,6 +410,7 @@ Please also find the detailed options from following table for each pass:
 | [SplitModel](../../reference/pass.rst#_split_model) | Split an ONNX model into multiple smaller sub-models based on predefined assignments. |
 | [LoRA](../../reference/pass.rst#_lora) | Run LoRA fine-tuning on a Hugging Face PyTorch model. |
 | [QLoRA](../../reference/pass.rst#_qlora) | Run QLoRA fine-tuning on a Hugging Face PyTorch model. |
+| [LoHa](../../reference/pass.rst#_loha) | Run LoHa fine-tuning on a Hugging Face PyTorch model. |
 | [LoftQ](../../reference/pass.rst#_loftq) | Run LoftQ fine-tuning on a Hugging Face PyTorch model. |
 | [QuantizationAwareTraining](../../reference/pass.rst#_onnx_quantization_aware_training) | Run quantization aware training on PyTorch model. |
 | [OpenVINOConversion](../../reference/pass.rst#_openvino_conversion) | Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model. |

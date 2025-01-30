@@ -197,6 +197,12 @@ QLoRA
 -----
 .. autoconfigclass:: olive.passes.QLoRA
 
+.. _loha:
+
+LoHa
+-----
+.. autoconfigclass:: olive.passes.LoHa
+
 .. _loftq:
 
 LoftQ
