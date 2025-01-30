@@ -445,7 +445,6 @@ window.addEventListener("load", () => mermaid.run());
 <span class="c1"># QLoRA: https://github.com/artidoro/qlora/blob/main/qlora.py</span>
 <span class="c1">#        https://arxiv.org/abs/2305.14314</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
@@ -457,7 +456,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="kn">import</span><span class="w"> </span><span class="nn">transformers</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">packaging</span><span class="w"> </span><span class="kn">import</span> <span class="n">version</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">NestedConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigBase</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.hf.mappings</span><span class="w"> </span><span class="kn">import</span> <span class="n">MODELS_TO_LORA_TARGET_MODULES_MAPPING</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.hf.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_peft_task_type_from_task</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.pydantic_v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
@@ -469,6 +468,13 @@ window.addEventListener("load", () => mermaid.run());
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.config.hf_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">HfLoadKwargs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.passes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.passes.olive_pass</span><span class="w"> </span><span class="kn">import</span> <span class="n">PassConfigParam</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">olive.passes.pytorch.train_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BaseHFTrainingArguments</span><span class="p">,</span>
+    <span class="n">count_trainable_parameters</span><span class="p">,</span>
+    <span class="n">get_training_dataset</span><span class="p">,</span>
+    <span class="n">load_hf_base_model</span><span class="p">,</span>
+    <span class="n">prepare_model_for_finetuning</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.strategy.search_parameter</span><span class="w"> </span><span class="kn">import</span> <span class="n">Categorical</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
@@ -479,27 +485,18 @@ window.addEventListener("load", () => mermaid.run());
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
-<span class="c1"># pylint: disable=unused-import</span>
 
-
-<span class="c1"># ruff: noqa: B010</span>
-<span class="c1"># creating a Config class since transformers.TrainingArguments is a dataclass</span>
-<span class="c1"># pydantic handles dataclasses differently and causes issues with validation</span>
-<span class="c1"># this also allows us to handle and validate extra_args better</span>
 <div class="viewcode-block" id="HFTrainingArguments">
 <a class="viewcode-back" href="../../../../reference/pass.html#olive.passes.pytorch.lora.HFTrainingArguments">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">HFTrainingArguments</span><span class="p">(</span><span class="n">NestedConfig</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">HFTrainingArguments</span><span class="p">(</span><span class="n">BaseHFTrainingArguments</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Training arguments for transformers.Trainer.</span>
 
 <span class="sd">    Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">_nested_field_name</span> <span class="o">=</span> <span class="s2">&quot;extra_args&quot;</span>
-
     <span class="c1"># TODO(jambayk): is this default optim required? does it work for regular lora? what about lr_scheduler_type?</span>
     <span class="n">optim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s2">&quot;paged_adamw_32bit&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The optimizer to use.&quot;</span><span class="p">)</span>
     <span class="n">learning_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mf">0.0002</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The initial learning rate for AdamW.&quot;</span><span class="p">)</span>
-    <span class="n">gradient_checkpointing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Use gradient checkpointing. Recommended.&quot;</span><span class="p">)</span>
     <span class="n">lr_scheduler_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
         <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.&quot;</span><span class="p">,</span>
@@ -512,10 +509,6 @@ window.addEventListener("load", () => mermaid.run());
             <span class="s2">&quot; set to &#39;epoch&#39;.&quot;</span>
         <span class="p">),</span>
     <span class="p">)</span>
-    <span class="n">report_to</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
-        <span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The list of integrations to report the results and logs to.&quot;</span>
-    <span class="p">)</span>
-    <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The output dir for logs and checkpoints. If None, will use a temp dir.&quot;</span><span class="p">)</span>
     <span class="n">overwrite_output_dir</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
         <span class="kc">False</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
@@ -529,50 +522,13 @@ window.addEventListener("load", () => mermaid.run());
             <span class="s2">&quot;The path to a folder with a valid checkpoint for the model. Supercedes any checkpoint found in output_dir.&quot;</span>
         <span class="p">),</span>
     <span class="p">)</span>
-    <span class="n">deepspeed</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
-        <span class="kc">None</span><span class="p">,</span>
-        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">&quot;Use [Deepspeed](https://github.com/microsoft/deepspeed). If True, will use default deepspeed config. Else,&quot;</span>
-            <span class="s2">&quot; it is a path to a deepspeed config file or a dict with deepspeed config.&quot;</span>
-        <span class="p">),</span>
-    <span class="p">)</span>
-    <span class="n">extra_args</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
-        <span class="kc">None</span><span class="p">,</span>
-        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">&quot;Extra arguments to pass to the trainer. Values can be provided directly to this field as a dict or as&quot;</span>
-            <span class="s2">&quot; keyword arguments to the config. See transformers.TrainingArguments for more details on the available&quot;</span>
-            <span class="s2">&quot; arguments.&quot;</span>
-        <span class="p">),</span>
-    <span class="p">)</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;extra_args&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">validate_extra_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">v</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="c1"># make sure extra args are fields of transformers.Trainer</span>
-        <span class="n">training_args_fields</span> <span class="o">=</span> <span class="p">{</span><span class="n">f</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">fields</span><span class="p">(</span><span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">init</span><span class="p">}</span>
-        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>  <span class="c1"># need a copy of the keys since we are mutating the dict</span>
-            <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;fp16&quot;</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Extra arg </span><span class="si">%s</span><span class="s2"> is not allowed. Please use `torch_dtype` instead.&quot;</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
-                <span class="k">del</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
-            <span class="k">elif</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">training_args_fields</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Extra arg </span><span class="si">%s</span><span class="s2"> is not a field of transformers.TrainingArguments. Ignoring.&quot;</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
-                <span class="k">del</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">v</span>
-
-<div class="viewcode-block" id="HFTrainingArguments.create_training_args">
-<a class="viewcode-back" href="../../../../reference/pass.html#olive.passes.pytorch.lora.HFTrainingArguments.create_training_args">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">create_training_args</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">:</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;output_dir&quot;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;output_dir must be provided.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
-            <span class="n">args</span><span class="p">[</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">DEFAULT_DEEPSPEED_CONFIG</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
-            <span class="k">del</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;deepspeed&quot;</span><span class="p">]</span>
-        <span class="n">extra_args</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;extra_args&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_args</span><span class="p">)</span></div>
-</div>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_torch_dtype</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="ow">and</span> <span class="s2">&quot;fp16&quot;</span> <span class="ow">in</span> <span class="n">v</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Extra arg &#39;fp16&#39; is not allowed. Please use `torch_dtype` instead.&quot;</span><span class="p">)</span>
+            <span class="k">del</span> <span class="n">v</span><span class="p">[</span><span class="s2">&quot;fp16&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">v</span></div>
 
 
 
@@ -699,69 +655,15 @@ window.addEventListener("load", () => mermaid.run());
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="s2">&quot;Dataset&quot;</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Dataset&quot;</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load training and evaluation datasets.&quot;&quot;&quot;</span>
         <span class="c1"># we return dataset.Dataset object since the trainer works better with it</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
-
-        <span class="n">train_data_config</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">train_data_config</span>
-        <span class="n">eval_data_config</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">eval_data_config</span>
-
-        <span class="k">def</span><span class="w"> </span><span class="nf">data_generator</span><span class="p">(</span><span class="n">data_config</span><span class="p">):</span>
-            <span class="n">data_container</span> <span class="o">=</span> <span class="n">data_config</span><span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
-            <span class="n">dataset</span> <span class="o">=</span> <span class="n">data_container</span><span class="o">.</span><span class="n">pre_process</span><span class="p">(</span><span class="n">data_container</span><span class="o">.</span><span class="n">load_dataset</span><span class="p">())</span>
-
-            <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">)):</span>  <span class="c1"># pylint: disable=consider-using-enumerate</span>
-                <span class="n">example</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">example</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
-                    <span class="c1"># if example = {**example[0], &quot;labels&quot;: example[1]}, the attention_mask is not the same</span>
-                    <span class="c1"># for some reason, so yield a new dict</span>
-                    <span class="k">yield</span> <span class="p">{</span><span class="o">**</span><span class="n">example</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;labels&quot;</span><span class="p">:</span> <span class="n">example</span><span class="p">[</span><span class="mi">1</span><span class="p">]}</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="k">yield</span> <span class="n">example</span>
-
         <span class="c1"># load training dataset</span>
-        <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">Dataset</span><span class="o">.</span><span class="n">from_generator</span><span class="p">(</span><span class="n">data_generator</span><span class="p">,</span> <span class="n">gen_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;data_config&quot;</span><span class="p">:</span> <span class="n">train_data_config</span><span class="p">})</span>
-        <span class="n">train_dataset</span><span class="o">.</span><span class="n">set_format</span><span class="p">(</span><span class="s2">&quot;torch&quot;</span><span class="p">)</span>
+        <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">get_training_dataset</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">train_data_config</span><span class="p">)</span>
 
         <span class="c1"># load evaluation dataset if needed</span>
         <span class="n">eval_dataset</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">eval_data_config</span><span class="p">:</span>
-            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">Dataset</span><span class="o">.</span><span class="n">from_generator</span><span class="p">(</span><span class="n">data_generator</span><span class="p">,</span> <span class="n">gen_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;data_config&quot;</span><span class="p">:</span> <span class="n">eval_data_config</span><span class="p">})</span>
-            <span class="n">eval_dataset</span><span class="o">.</span><span class="n">set_format</span><span class="p">(</span><span class="s2">&quot;torch&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">eval_data_config</span><span class="p">:</span>
+            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">get_training_dataset</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">eval_data_config</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">train_dataset</span><span class="p">,</span> <span class="n">eval_dataset</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_model_for_lora_finetuning</span><span class="p">(</span>
-        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">use_gradient_checkpointing</span><span class="p">:</span> <span class="nb">bool</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare the model for fine-tuning.</span>
-
-<span class="sd">        Freeze base model&#39;s layers and prepare model for gradient checkpointing if necessary.</span>
-<span class="sd">        Similar to peft.prepare_model_for_kbit_training but no casting to fp32 and gradient checkpointing is</span>
-<span class="sd">        also supported for non-quantized models.</span>
-
-<span class="sd">        :param model: The Hugging Face PyTorch model to prepare for fine-tuning.</span>
-<span class="sd">        :param use_gradient_checkpointing: Whether to use gradient checkpointing.</span>
-<span class="sd">        :return: The prepared model.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
-            <span class="c1"># freeze base model&#39;s layers</span>
-            <span class="n">param</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
-
-        <span class="k">if</span> <span class="n">use_gradient_checkpointing</span><span class="p">:</span>
-            <span class="c1"># For backward compatibility</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;enable_input_require_grads&quot;</span><span class="p">):</span>
-                <span class="n">model</span><span class="o">.</span><span class="n">enable_input_require_grads</span><span class="p">()</span>
-            <span class="k">else</span><span class="p">:</span>
-
-                <span class="k">def</span><span class="w"> </span><span class="nf">make_inputs_require_grad</span><span class="p">(</span><span class="n">module_</span><span class="p">,</span> <span class="n">input_</span><span class="p">,</span> <span class="n">output_</span><span class="p">):</span>
-                    <span class="n">output_</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-
-                <span class="n">model</span><span class="o">.</span><span class="n">get_input_embeddings</span><span class="p">()</span><span class="o">.</span><span class="n">register_forward_hook</span><span class="p">(</span><span class="n">make_inputs_require_grad</span><span class="p">)</span>
-
-            <span class="c1"># enable gradient checkpointing for memory efficiency</span>
-            <span class="n">model</span><span class="o">.</span><span class="n">gradient_checkpointing_enable</span><span class="p">()</span>
-
-        <span class="k">return</span> <span class="n">model</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">load_base_pytorch_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_handler</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a base PyTorch model for fine-tuning.</span>
@@ -773,39 +675,13 @@ window.addEventListener("load", () => mermaid.run());
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-        <span class="c1"># model cannot have it&#39;s own adapter</span>
-        <span class="k">if</span> <span class="n">model_handler</span><span class="o">.</span><span class="n">adapter_path</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Model already has an adapter. Please provide a model without an adapter.&quot;</span><span class="p">)</span>
-
-        <span class="c1"># don&#39;t want the original loaded model</span>
-        <span class="c1"># also frees gpu memory if original model is on gpu</span>
-        <span class="n">model_handler</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>
-
-        <span class="c1"># create copy of the input model, will modify this model</span>
-        <span class="c1"># also resets adapter_path</span>
-        <span class="n">new_model_handler</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">model_handler</span><span class="p">)</span>
-
         <span class="n">torch_dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_torch_dtype</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span><span class="p">)</span>
         <span class="c1"># will use mixed precision since full fp16 is unstable</span>
         <span class="n">model_dtype</span> <span class="o">=</span> <span class="n">torch_dtype</span> <span class="k">if</span> <span class="n">torch_dtype</span> <span class="o">!=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float16</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
 
-        <span class="c1"># load model, reset load_kwargs and adapter_path</span>
-        <span class="n">load_kwargs</span> <span class="o">=</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">if</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span> <span class="k">else</span> <span class="p">{}</span>
-        <span class="n">load_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
-            <span class="p">{</span>
-                <span class="s2">&quot;torch_dtype&quot;</span><span class="p">:</span> <span class="n">model_dtype</span><span class="p">,</span>
-                <span class="c1"># TODO(jambayk): Worry about `use_multi_gpu` and distributed training later</span>
-                <span class="c1"># &quot;auto&quot;: uses all available GPUs, model parallel</span>
-                <span class="s2">&quot;device_map&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-            <span class="p">}</span>
-        <span class="p">)</span>
-        <span class="c1"># overwrite load_kwargs with kwargs</span>
-        <span class="n">load_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span> <span class="o">=</span> <span class="n">HfLoadKwargs</span><span class="p">(</span><span class="o">**</span><span class="n">load_kwargs</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">cache_model</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># TODO(jambayk): Worry about `use_multi_gpu` and distributed training later</span>
+        <span class="c1"># &quot;auto&quot;: uses all available GPUs, model parallel</span>
+        <span class="k">return</span> <span class="n">load_hf_base_model</span><span class="p">(</span><span class="n">model_handler</span><span class="p">,</span> <span class="n">torch_dtype</span><span class="o">=</span><span class="n">model_dtype</span><span class="p">,</span> <span class="n">device_map</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">init_lora_adapters</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -874,33 +750,21 @@ window.addEventListener("load", () => mermaid.run());
         <span class="kn">from</span><span class="w"> </span><span class="nn">peft</span><span class="w"> </span><span class="kn">import</span> <span class="n">PeftModel</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Enabling LoRA fine-tuning&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">gradient_checkpointing</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">model</span><span class="o">.</span><span class="n">supports_gradient_checkpointing</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;gradient_checkpointing is True, but model does not support gradient checkpointing! Setting&quot;</span>
-                <span class="s2">&quot; gradient_checkpoing to False&quot;</span>
-            <span class="p">)</span>
-            <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">gradient_checkpointing</span> <span class="o">=</span> <span class="kc">False</span>
-
-        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_model_for_lora_finetuning</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">gradient_checkpointing</span><span class="p">)</span>
+        <span class="n">prepare_model_for_finetuning</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="p">)</span>
 
         <span class="c1"># set model_parallel and is_parallelizable to True</span>
         <span class="c1"># we are using &quot;auto&quot; device_map, so model_parallel is True or doing DDP</span>
         <span class="c1"># don&#39;t want the trainer to do Data Parallel</span>
-        <span class="nb">setattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;model_parallel&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-        <span class="nb">setattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;is_parallelizable&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">model_parallel</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">is_parallelizable</span> <span class="o">=</span> <span class="kc">True</span>
 
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="s2">&quot;The number of trainable parameters in the original model: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">count_trainable_parameters</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-        <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">adapter_path</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Initializing LoRA adapters from config&quot;</span><span class="p">)</span>
             <span class="n">lora_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_lora_adapters</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">target_modules</span><span class="o">=</span><span class="n">target_modules</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading LoRA adapters from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">adapter_path</span><span class="p">)</span>
             <span class="n">lora_model</span> <span class="o">=</span> <span class="n">PeftModel</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">adapter_path</span><span class="p">,</span> <span class="n">is_trainable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="s2">&quot;The number of trainable parameters in the LoRA model: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">count_trainable_parameters</span><span class="p">(</span><span class="n">lora_model</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;The number of trainable parameters in the LoRA model: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">count_trainable_parameters</span><span class="p">(</span><span class="n">lora_model</span><span class="p">))</span>
         <span class="c1"># no need to cast lora modules to model&#39;s dtype, we dont do peft.prepare_model_for_kbit_training so the modules</span>
         <span class="c1"># are already in the same dtype as the model</span>
         <span class="c1"># casting to dtype is risky since for awq quant linear, it also casts the scales to dtype and but the qlinear</span>
@@ -1016,20 +880,6 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">supported_dtypes</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span> <span class="s2">&quot;float16&quot;</span><span class="p">,</span> <span class="s2">&quot;float32&quot;</span><span class="p">)</span>
         <span class="k">assert</span> <span class="n">torch_dtype</span> <span class="ow">in</span> <span class="n">supported_dtypes</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;torch_dtype must be one of </span><span class="si">{</span><span class="n">supported_dtypes</span><span class="si">}</span><span class="s2"> but got </span><span class="si">{</span><span class="n">torch_dtype</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">return</span> <span class="n">resolve_torch_dtype</span><span class="p">(</span><span class="n">torch_dtype</span><span class="p">)</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">count_trainable_parameters</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Count and return the number of trainable parameters in a model.&quot;&quot;&quot;</span>
-        <span class="n">trainable_params</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">all_param</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
-            <span class="n">all_param</span> <span class="o">+=</span> <span class="n">param</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">:</span>
-                <span class="n">trainable_params</span> <span class="o">+=</span> <span class="n">param</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
-        <span class="k">return</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;trainable params: </span><span class="si">{</span><span class="n">trainable_params</span><span class="si">}</span><span class="s2"> || all params: </span><span class="si">{</span><span class="n">all_param</span><span class="si">}</span><span class="s2"> &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;|| trainable%: </span><span class="si">{</span><span class="mi">100</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">trainable_params</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">all_param</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">LoRA</span><span class="p">(</span><span class="n">LoRABase</span><span class="p">):</span>
@@ -1307,44 +1157,6 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">new_model_handler</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">bnb_quant_config</span><span class="p">,</span> <span class="n">quantized_modules</span>
-
-
-<span class="n">DEFAULT_DEEPSPEED_CONFIG</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;zero_optimization&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
-        <span class="s2">&quot;allgather_partitions&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="s2">&quot;allgather_bucket_size&quot;</span><span class="p">:</span> <span class="mf">5e8</span><span class="p">,</span>
-        <span class="s2">&quot;overlap_comm&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="s2">&quot;reduce_scatter&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="s2">&quot;reduce_bucket_size&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;contiguous_gradients&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="s2">&quot;stage3_prefetch_bucket_size&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;stage3_param_persistence_threshold&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;sub_group_size&quot;</span><span class="p">:</span> <span class="mf">1e9</span><span class="p">,</span>
-        <span class="s2">&quot;stage3_max_live_parameters&quot;</span><span class="p">:</span> <span class="mf">1e9</span><span class="p">,</span>
-        <span class="s2">&quot;stage3_max_reuse_distance&quot;</span><span class="p">:</span> <span class="mf">1e9</span><span class="p">,</span>
-        <span class="s2">&quot;stage3_gather_16bit_weights_on_model_save&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;offload_param&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
-        <span class="p">},</span>
-        <span class="s2">&quot;offload_optimizer&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
-        <span class="p">},</span>
-    <span class="p">},</span>
-    <span class="s2">&quot;fp16&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;loss_scale&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-        <span class="s2">&quot;loss_scale_window&quot;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
-        <span class="s2">&quot;initial_scale_power&quot;</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>
-        <span class="s2">&quot;hysteresis&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
-        <span class="s2">&quot;min_loss_scale&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="p">},</span>
-    <span class="s2">&quot;bf16&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">},</span>
-    <span class="s2">&quot;train_micro_batch_size_per_gpu&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;train_batch_size&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;gradient_accumulation_steps&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;gradient_clipping&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-<span class="p">}</span>
 </pre></div>
 
                 </article>

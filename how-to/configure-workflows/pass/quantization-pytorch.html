@@ -474,12 +474,27 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <section id="quarot">
 <h2>QuaRot<a class="headerlink" href="#quarot" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">QuaRot</span></code> is a technique that rotates the weights of a model to make them more conducive to quantization. It is based on the <a class="reference external" href="https://arxiv.org/abs/2305.14314">QuaRot paper</a> but only performs offline weight rotation. Can be followed by a pass such as GPTQ to quantize the rotated model weights.</p>
-<p>This pass only supports HuggingFace transformer PyTorch models. Please refer to <a class="reference internal" href="../../../reference/pass.html#quarot"><span class="std std-ref">QuaRot</span></a> for more details on the types of transformers models supported.</p>
+<p>This pass only supports HuggingFace transformer PyTorch models.</p>
 <section id="id2">
 <h3>Example Configuration<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuaRot&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;rotate_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;hadamard&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="spinquant">
+<h2>SpinQuant<a class="headerlink" href="#spinquant" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SpinQuant</span></code> is a technique simlar to QuaRot that rotates the weights of a model to make them more conducive to quantization. The rotation weights are trained on a calibration dataset to improve activation quantization quality. It is based on the <a class="reference external" href="https://arxiv.org/pdf/2405.16406">SpinQuant paper</a> but only performs offline weight rotation. Can be followed by a pass such as GPTQ to quantize the rotated model weights.</p>
+<p>This pass only supports HuggingFace transformer PyTorch models.</p>
+<section id="id3">
+<h3>Example Configuration<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SpinQuant&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;rotate_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;hadamard&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;a_bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -544,6 +559,10 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quarot">QuaRot</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spinquant">SpinQuant</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
