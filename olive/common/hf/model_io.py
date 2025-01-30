@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from itertools import chain
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from olive.common.hf.mlflow import get_pretrained_name_or_path
 from olive.common.hf.peft import is_peft_model
@@ -124,10 +124,51 @@ def get_model_io_config(model_name: str, task: str, model: "PreTrainedModel", **
         for axis, axis_name in value.items():
             if axis_name == "past_sequence_length + 1":
                 value[axis] = "past_sequence_length + sequence_length"
-    # NOTE: Due to the complexity of dynamic_shapes, we don't provide it here.
-    # torch-onnx converter has a naive approach to auto-gen dynamic shapes based on input and
-    # dynamic_axes, so we don't need to provide dynamic shapes here.
-    return {"input_names": input_names, "output_names": output_names, "dynamic_axes": dynamic_axes}
+    # dynamic_shapes should follow input order and format
+    dynamic_shapes = _unflatten_past_key_values_with_check(inputs)
+    return {
+        "input_names": input_names,
+        "output_names": output_names,
+        "dynamic_axes": dynamic_axes,
+        "dynamic_shapes": dynamic_shapes,
+    }
+
+
+def _unflatten_past_key_values_with_check(flattened_inputs: Dict[str, Any]) -> Dict[str, Any]:
+    max_idx = -1
+    past_key_value_count = 0  # Track number of key-value pairs
+
+    # Find the max index for generating unflatten past_key_values later
+    # and record the total number of past_key_values entries for validation
+    for input_name in flattened_inputs:
+        if input_name.startswith("past_key_values"):
+            # From Optimum: past_key_values.0.key, past_key_values.0.value,
+            #               past_key_values.1.key, past_key_values.1.value, ...
+            idx = int(input_name.split(".")[1])
+            max_idx = max(max_idx, idx)
+            past_key_value_count += 1
+
+    # Check if we have exactly 2 * (max_idx + 1) key-value pairs
+    expected_count = 2 * (max_idx + 1)
+    if past_key_value_count != expected_count or past_key_value_count % 2 != 0:
+        raise ValueError(
+            f"Expected {expected_count} past_key_values entries, but found {past_key_value_count} from Optimum inputs."
+        )
+    if max_idx == -1:
+        # No past_key_values found
+        return flattened_inputs
+
+    unflattened = {}
+    for input_name, dynamic_shapes in flattened_inputs.items():
+        # Replace flattened past_key_values with unflattened past_key_values
+        if not input_name.startswith("past_key_values"):
+            unflattened[input_name] = dynamic_shapes
+    # Based on Optimum's implementation:
+    # https://github.com/huggingface/optimum/blob/b755036ae12e0959d61085e597e7b96473c4b46d/optimum/exporters/onnx/base.py#L629
+    # past_key_values is a list of lists, and it locates at the end of the input list/dict
+    # Generate the past_key_values list using the max index
+    unflattened["past_key_values"] = [[dynamic_shapes, dynamic_shapes] for _ in range(max_idx + 1)]
+    return unflattened
 
 
 def get_model_dummy_input(model_name: str, task: str, **kwargs) -> Optional[Dict]:

@@ -212,12 +212,11 @@ class OnnxConversion(Pass):
             # The "legacy dynamo" is the torch.onnx_dynamo_export API
             legacy_dynamo_supported_version = version.parse("2.2.0").release
             # The new "dynamo" api is torch.onnx.export with dynamo=True
-            # TODO(#1478): Change 2.6.0 back to 2.5.0 when dynamic_shapes are supported in Olive
             dynamo_supported_version = version.parse("2.6.0").release
             if torch_version < legacy_dynamo_supported_version:
                 raise ImportError(
-                    f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
-                    "Please upgrade your torch version to 2.5.0 or above."
+                    f"torch.onnx.export(..., dynamo=True) is not available for torch version {torch_version}. "
+                    "Please upgrade your torch version to 2.6.0 or above."
                 )
             from torch._dynamo import config as dynamo_config
 
@@ -597,14 +596,7 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs):
 
     def is_dict_axes(x) -> bool:
         return isinstance(x, dict) and all(
-            isinstance(key, str)
-            and len(key) == 1
-            and isinstance(value, list)
-            and len(value) == 3
-            and isinstance(value[0], str)
-            and isinstance(value[1], int)
-            and isinstance(value[2], int)
-            for key, value in x.items()
+            isinstance(key, (str, int)) and isinstance(value, str) for key, value in x.items()
         )
 
     flat_dynamic_shapes, _ = _pytree.tree_flatten(dynamic_shapes, is_leaf=is_dict_axes)
@@ -615,15 +607,20 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs):
             continue
         new_axes = {}
         for axis, dynamic_shape in axes.items():
-            new_axes[int(axis)] = dynamic_shape
+            try:
+                axis_int = int(axis)
+            except ValueError as e:
+                raise ValueError(
+                    f"Please check dynamic_shapes in configuration. Invalid axis {axis}. The axis should be an integer."
+                ) from e
+            new_axes[axis_int] = dynamic_shape
         new_dynamic_shapes.append(new_axes)
-
     _, tree_structure = _pytree.tree_flatten(dummy_inputs, is_leaf=is_dict_axes)
     return _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
 
 
 def _convert_dynamic_shapes_to_torch_export_dims(
-    dynamic_shapes: Dict[str, Dict[int, torch.export.Dim]]
+    dynamic_shapes: Dict[str, Dict[int, torch.export.Dim]],
 ) -> Dict[str, Dict[int, torch.export.Dim]]:
     """Convert dynamic_shapes to torch export dims.
 
@@ -634,8 +631,12 @@ def _convert_dynamic_shapes_to_torch_export_dims(
 
     For a single axis:
 
-    before: ["axis_name", min_value, max_value]
-    after: torch.export.Dim("axis_name", min=min_value, max=max_value)
+    before: {0: "batch_size"}
+    after: {0: torch.export.Dim.AUTO)
+
+    NOTE: The user specified dim name is not respected at the moment due to
+          technical issue in torch.export. Follow up
+          https://github.com/pytorch/pytorch/issues/144273
 
     # Please check `dynamic_shapes` in torch.export.export
     # https://pytorch.org/docs/stable/export.html#torch.export.export
@@ -646,9 +647,6 @@ def _convert_dynamic_shapes_to_torch_export_dims(
     if dynamic_shapes is None:
         return None
 
-    # If the axes has the same name, they should be the same torch.export.Dim
-    torch_export_dim_farm: Dict[str, torch.export.Dim] = {}
-
     # dynamic_shapes follows input format, which could be nested
     def _from_tuple_to_dim(data: Union[Dict, List, Tuple, Any]) -> Union[Dict, List, Tuple, Any]:
         if isinstance(data, dict):
@@ -657,26 +655,14 @@ def _convert_dynamic_shapes_to_torch_export_dims(
         # TODO(titaiwang): Can we use `dummy_inputs` to align the dynamic_shapes format?
         # JSON foramt does not accept tuple.
         elif isinstance(data, (tuple, list)):
-            # We assume the tuple/list is in the format of (name, min, max)
-            # TODO(titaiwang): This format could potentially be used as model
-            # inputs (would string be used as model input?)
-            if len(data) == 3 and isinstance(data[0], str) and isinstance(data[1], int) and isinstance(data[2], int):
-                if data[0] in torch_export_dim_farm:
-                    if torch_export_dim_farm[data[0]].min == data[1] and torch_export_dim_farm[data[0]].max == data[2]:
-                        return torch_export_dim_farm[data[0]]
-                    raise ValueError(
-                        f"Found different boundary for the same axis name {data[0]}. "
-                        f"Previous min: {torch_export_dim_farm[data[0]].min} and "
-                        f"max: {torch_export_dim_farm[data[0]].max}. "
-                        f"Current min: {data[1]} and max: {data[2]}."
-                    )
-                dim = torch.export.Dim(data[0], min=data[1], max=data[2])
-                torch_export_dim_farm[data[0]] = dim
-                return dim
             if isinstance(data, tuple):
                 return tuple(_from_tuple_to_dim(item) for item in data)
-            if isinstance(data, list):
-                return [_from_tuple_to_dim(item) for item in data]
+            return [_from_tuple_to_dim(item) for item in data]
+        elif isinstance(data, str):
+            # NOTE: AUTO does not guarantee the axis will be dynamic, but
+            #       it is the only option that not only avoid crashing during
+            #       export, but also does not require user to specify min/max.
+            return torch.export.Dim.AUTO
         return data
 
     return _from_tuple_to_dim(dynamic_shapes)
