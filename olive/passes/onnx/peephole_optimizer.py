@@ -28,105 +28,6 @@ class ModelOptimizer:
         self.source_model_path = str(source_model_path)
         self.model = onnx.load(self.source_model_path)
 
-    def fuse_transpose_qat(self):
-        # DequantizeLinear -> Transpose = Dequantize Linear with transposed initializer
-        # Might need to check if this is performant for EPs like DML
-        # Very limited use case, assumes a lot of things about the model
-        # probably better to remove this or create a more general solution
-        from onnxruntime.transformers.onnx_model import OnnxModel as TransformersOnnxModel
-
-        onnx_model = TransformersOnnxModel(self.model)
-        graph = onnx_model.graph()
-
-        node_name2module = {}
-        for node_idx, node in enumerate(graph.node):
-            if node.name == "":
-                node.name = str(node.op_type) + str(node_idx)
-            node_name2module[node.name] = [node, node_idx]
-
-        num_changed = 0
-        for module in node_name2module.values():
-            node = module[0]
-            node_index = module[1]
-            if node.op_type == "Transpose" and "DequantizeLinear" in node.input[0]:
-                dequant_node_name = node.input[0][:-9]
-                new_dequant_node_output = node.output[0]
-                dequant_node = node_name2module[dequant_node_name][0]
-                x_node = node_name2module[dequant_node.input[0][:-9]][0]
-                x_scale_node = node_name2module[dequant_node.input[1][:-9]][0]
-                x_zero_point_node = node_name2module[dequant_node.input[2][:-9]][0]
-
-                x_val = onnx_model.get_constant_value(dequant_node.input[0])
-                new_x_val = np.transpose(x_val, axes=(1, 0))
-                x_scale_val = onnx_model.get_constant_value(dequant_node.input[1])
-                x_zero_point_val = onnx_model.get_constant_value(dequant_node.input[2])
-
-                self.remove_nodes(graph, [node, dequant_node, x_node, x_scale_node, x_zero_point_node])
-                new_dequant, x, x_scale, x_zero_point = self.create_dequantizelinear_node(
-                    new_x_val, x_scale_val, x_zero_point_val, new_dequant_node_output, node_index
-                )
-                self.add_nodes(graph, [new_dequant, x, x_scale, x_zero_point], node_index)
-                num_changed += 1
-
-        if num_changed > 0:
-            logger.debug(
-                "Converted %d Transpose -> DequantizeLinear to DequantizeLinear with transposed initializer",
-                num_changed,
-            )
-            onnx_model.topological_sort()
-
-    def create_dequantizelinear_node(self, x_val, x_scale_val, x_zero_point_val, outputs, node_name_suffix):
-        x_tensor = onnx.helper.make_tensor(
-            name="const_tensor",
-            data_type=onnx.TensorProto.DataType.INT8,
-            dims=x_val.shape,
-            vals=x_val.flatten().tobytes(),
-            raw=True,
-        )
-
-        x_scale_tensor = onnx.helper.make_tensor(
-            name="const_tensor",
-            data_type=onnx.TensorProto.DataType.FLOAT,
-            dims=[1],
-            vals=x_scale_val.tobytes(),
-            raw=True,
-        )
-
-        x_zero_point_tensor = onnx.helper.make_tensor(
-            name="const_tensor",
-            data_type=onnx.TensorProto.DataType.INT8,
-            dims=[1],
-            vals=x_zero_point_val.tobytes(),
-            raw=True,
-        )
-
-        x = onnx.helper.make_node("Constant", inputs=[], outputs=["x_" + str(node_name_suffix)], value=x_tensor)
-        x_scale = onnx.helper.make_node(
-            "Constant", inputs=[], outputs=["x_scale_" + str(node_name_suffix)], value=x_scale_tensor
-        )
-        x_zero_point = onnx.helper.make_node(
-            "Constant", inputs=[], outputs=["x_zero_point_" + str(node_name_suffix)], value=x_zero_point_tensor
-        )
-
-        dequant_node = onnx.helper.make_node(
-            "DequantizeLinear",
-            inputs=[
-                "x_" + str(node_name_suffix),
-                "x_scale_" + str(node_name_suffix),
-                "x_zero_point_" + str(node_name_suffix),
-            ],
-            outputs=[outputs],
-        )
-        return dequant_node, x, x_scale, x_zero_point
-
-    def remove_nodes(self, graph, nodes_list):
-        for node in nodes_list:
-            graph.node.remove(node)
-
-    def add_nodes(self, graph, nodes_list, node_index):
-        for node in nodes_list:
-            graph.node.insert(node_index, node)
-
     @staticmethod
     def _create_node_name(nodes: Dict[str, Message], op_type: str, prefix_a: str, prefix_b: str):
         prefix: str = ""
@@ -249,6 +150,12 @@ class ModelOptimizer:
         if num_changed > 0:
             logger.debug("Replaced %d attention mask values with -3e30", num_changed)
 
+    def remove_useless_cast_nodes(self):
+        from onnxruntime.transformers.onnx_model import OnnxModel as TransformersOnnxModel
+
+        o_model = TransformersOnnxModel(self.model)
+        o_model.remove_useless_cast_nodes()
+
     def onnxscript_optimize(self):
         try:
             import onnxscript
@@ -256,27 +163,6 @@ class ModelOptimizer:
             logger.warning("Please install `onnxscript` to apply more optimization.")
             return
         onnxscript.optimizer.optimize(self.model)
-
-        # ir_model = onnxscript.ir.serde.deserialize_model(self.model)
-        # onnxscript.optimizer.optimize(ir_model)
-
-        # # replace attention mask value with a smaller value to avoid numerical instability
-        # def c_pattern(op, x: onnxscript.ir.Value, value: onnxscript.ir.Attr):
-        #     return op.ConstantOfShape(x, value=value)
-
-        # def c_rewrite(op, x: onnxscript.ir.Value, value: onnxscript.ir.Attr):
-        #     new_value = onnx.helper.make_tensor("value", value.as_tensor().dtype, [1], [-3e30])
-        #     return op.ConstantOfShape(x, value=new_value)
-
-        # def c_check(context, x, value) -> bool:
-        #     return value.as_tensor().numpy()[0] < -3e30
-
-        # # rule = onnxscript.rewriter.pattern.RewriteRule(c_pattern, c_rewrite, c_check)
-        # # count = rule.apply_to_model(ir_model)
-        # # if count > 0:
-        # #     logger.debug("Replaced %d attention mask values with -3e30", count)
-
-        # self.model = onnxscript.ir.serde.serialize_model(ir_model)
 
     def onnxoptimizer_optimize(self):
         try:
@@ -305,7 +191,7 @@ class OnnxPeepholeOptimizer(Pass):
         peephole_optimizer.onnxscript_optimize()
         peephole_optimizer.onnxoptimizer_optimize()
         peephole_optimizer.clip_attention_mask()
-        peephole_optimizer.fuse_transpose_qat()
+        peephole_optimizer.remove_useless_cast_nodes()
         peephole_optimizer.patch_unsupported_argmax_operator()
         peephole_optimizer.fuse_reshape_operations()
 

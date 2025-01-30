@@ -296,8 +296,8 @@ def add_remote_options(sub_parser: ArgumentParser):
         type=str,
         required=False,
         help=(
-            "The azureml keyvault name with huggingface token to use for remote run. Refer to "
-            "https://microsoft.github.io/Olive/how-to/configure-workflows/huggingface-integration.html#huggingface-login"
+            "The azureml keyvault name with huggingface token to use for remote run. Refer to"
+            " https://microsoft.github.io/Olive/how-to/configure-workflows/huggingface-integration.html#huggingface-login"
             " for more details."
         ),
     )
