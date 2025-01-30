@@ -1,5 +1,5 @@
 -r requirements-test.txt
 auto-gptq
 autoawq
-# only available on Linux currently
-bitsandbytes==0.43.3
+bitsandbytes
+triton

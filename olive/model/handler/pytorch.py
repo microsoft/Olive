@@ -151,7 +151,7 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
             elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
                 model = torch.jit.load(self.model_path)
             elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
-                model = torch.load(self.model_path)
+                model = torch.load(self.model_path, weights_only=False)
             elif self.model_file_format == ModelFileFormat.PYTORCH_SLICE_GPT_MODEL:
                 model = self._load_slicegpt_model()
             elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
