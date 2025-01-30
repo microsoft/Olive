@@ -481,6 +481,7 @@ def add_dataset_options(sub_parser, required=True, include_train=True, include_e
         type=unescaped_str,
         help=r"Template to generate text field from. E.g. '### Question: {prompt} \n### Answer: {response}'",
     )
+    text_group.add_argument("--use_chat_template", action="store_true", help="Use chat template for text field.")
     dataset_group.add_argument(
         "--max_seq_len",
         type=int,
@@ -526,6 +527,7 @@ def update_dataset_options(args, config):
         ),
         ((*preprocess_key, "text_cols"), args.text_field),
         ((*preprocess_key, "text_template"), args.text_template),
+        ((*preprocess_key, "chat_template"), args.use_chat_template),
         ((*preprocess_key, "max_seq_len"), args.max_seq_len),
         ((*preprocess_key, "add_special_tokens"), args.add_special_tokens),
         ((*preprocess_key, "max_samples"), args.max_samples),
