@@ -86,6 +86,11 @@ class QuantizeCommand(BaseOliveCLICommand):
         is_hf_model = config["input_model"]["type"].lower() == "hfmodel"
         if is_hf_model and self.args.algorithm not in ["awq", "gptq", "rtn"]:
             raise ValueError("Selected algorithm is not supported for HuggingFace models.")
+        if not is_hf_model and "gptq" in self.args.algorithm and not self.args.data_name:
+            # hf model doesn't require user provided data
+            raise ValueError("data_name is required to use gptq.")
+        if self.args.data_name:
+            config["passes"]["gptq"]["data_config"] = "default_data_config"
 
         defaults_key = "hf_model_defaults" if is_hf_model else "onnx_model_defaults"
 
@@ -141,9 +146,6 @@ class QuantizeCommand(BaseOliveCLICommand):
         return config
 
     def run(self):
-        if ("gptq" in self.args.algorithm) and (not self.args.data_name):
-            raise ValueError("data_name is required to use gptq.")
-
         self._run_workflow()
 
 
@@ -168,7 +170,7 @@ TEMPLATE = {
     "passes": {
         # Pytorch algorithms
         "awq": {"type": "AutoAWQQuantizer", "w_bit": 4},
-        "gptq": {"type": "GptqQuantizer", "bits": 4, "data_config": "default_data_config"},
+        "gptq": {"type": "GptqQuantizer", "bits": 4},
         # Onnx algorithms
         "bnb4": {"type": "OnnxBnb4Quantization", "quant_type": "nf4"},
         "matmul4": {"type": "OnnxMatMul4Quantizer", "accuracy_level": 4},
