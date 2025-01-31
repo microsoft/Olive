@@ -16,7 +16,8 @@ from ..utils import check_output, download_conda_installer, download_qc_toolkit,
 
 set_verbosity_debug()
 
-#TODO(team): add test back to pipeline when update the qnn sdk to support python 3.10
+
+# TODO(team): add test back to pipeline when update the qnn sdk to support python 3.10
 class TestQnnToolkit:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
