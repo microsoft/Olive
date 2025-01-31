@@ -54,7 +54,7 @@
     <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="SearchAlgorithms" href="search-algorithm.html" />
+    <link rel="next" title="Samplers" href="search-samplers.html" />
     <link rel="prev" title="OliveModels" href="model.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -962,7 +962,7 @@
 <dd><p>Execution providers framework list to execute the ONNX models.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> CPUExecutionProvider</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([‘CPUExecutionProvider’])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -971,7 +971,7 @@
 <dd><p>Execution provider options to execute the ONNX models.</p>
 <p><strong>type:</strong> Dict[str, Any]</p>
 <p><strong>default_value:</strong> {}</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([{}])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -980,7 +980,7 @@
 <dd><p>Parallelism list between operators.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([None])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -989,7 +989,7 @@
 <dd><p>Optimization level list for ONNX model.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([None])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1007,7 +1007,7 @@
 <dd><p>List of intra thread number for test.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([None])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1016,7 +1016,7 @@
 <dd><p>List of inter thread number for test.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> None</p>
+<p><strong>search_defaults:</strong> Categorical([None])</p>
 </dd></dl>
 
 <dl class="std option">
@@ -5855,11 +5855,11 @@
       </div>
     </a>
     <a class="right-next"
-       href="search-algorithm.html"
+       href="search-samplers.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">SearchAlgorithms</p>
+        <p class="prev-next-title">Samplers</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

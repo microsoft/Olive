@@ -634,7 +634,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">num</span><span class="o">-</span><span class="n">splits</span> <span class="n">NUM_SPLITS</span> <span class="o">|</span> <span class="o">--</span><span class="n">cost</span><span class="o">-</span><span class="n">model</span> <span class="n">COST_MODEL</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">mixed</span><span class="o">-</span><span class="n">precision</span><span class="o">-</span><span class="n">overrides</span><span class="o">-</span><span class="n">config</span> <span class="p">[</span><span class="n">MIXED_PRECISION_OVERRIDES_CONFIG</span> <span class="o">...</span><span class="p">]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">enable_search</span> <span class="p">[{</span><span class="n">exhaustive</span><span class="p">,</span><span class="n">tpe</span><span class="p">,</span><span class="n">random</span><span class="p">}]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">enable_search</span> <span class="p">[{</span><span class="n">random</span><span class="p">,</span><span class="n">sequential</span><span class="p">,</span><span class="n">tpe</span><span class="p">}]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
@@ -740,11 +740,11 @@
 <p>Default: False</p>
 </dd>
 <dt><kbd>--enable_search</kbd></dt>
-<dd><p>Possible choices: exhaustive, tpe, random</p>
-<p>Enable search to produce optimal model for the given criteria. Optionally provide search algorithm from available choices. Use exhastive search algorithm by default.</p>
+<dd><p>Possible choices: random, sequential, tpe</p>
+<p>Enable search to produce optimal model for the given criteria. Optionally provide sampler from available choices. By default, uses sequential sampler.</p>
 </dd>
 <dt><kbd>--seed</kbd></dt>
-<dd><p>Random seed for search algorithm</p>
+<dd><p>Random seed for search sampler</p>
 <p>Default: 0</p>
 </dd>
 <dt><kbd>--resource_group</kbd></dt>

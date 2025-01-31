@@ -65,17 +65,9 @@
       "description": "Pass configurations.",
       "type": "object",
       "additionalProperties": {
-        "$ref": "#/definitions/RunPassConfig"
-      }
-    },
-    "pass_flows": {
-      "title": "Pass Flows",
-      "description": "Pass flows. Each member must be a list of pass names from `passes` field. If provided, each flow will be run sequentially. If not provided, all passes will be run as a single flow in the order of `passes` field.",
-      "type": "array",
-      "items": {
         "type": "array",
         "items": {
-          "type": "string"
+          "$ref": "#/definitions/RunPassConfig"
         }
       }
     },
@@ -491,6 +483,10 @@
       "description": "Config class that automatically gathers all values.\n\nThe values are defined in the class fields and inserted into a dict Field called described by `_nested_field_name`.\nGenerally used for configs that have a nested structure like:\n    {\n        \"type\": \"object\",\n        \"config\": {\n            \"key1\": \"value1\",\n            \"key2\": \"value2\"\n        }\n    }\nMust ensure that there are no fields inside the `_nested_field_name` dict/class that are also defined as fields in\nthis class. The fields of this class take precedence over the fields in the nested class.",
       "type": "object",
       "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
         "type": {
           "title": "Type",
           "type": "string"
@@ -533,6 +529,15 @@
         }
       }
     },
+    "SearchStrategyExecutionOrder": {
+      "title": "SearchStrategyExecutionOrder",
+      "description": "An enumeration.",
+      "enum": [
+        "joint",
+        "pass-by-pass"
+      ],
+      "type": "string"
+    },
     "SearchStrategyConfig": {
       "title": "SearchStrategyConfig",
       "description": "Config class that automatically gathers all values.\n\nThe values are defined in the class fields and inserted into a dict Field called described by `_nested_field_name`.\nGenerally used for configs that have a nested structure like:\n    {\n        \"type\": \"object\",\n        \"config\": {\n            \"key1\": \"value1\",\n            \"key2\": \"value2\"\n        }\n    }\nMust ensure that there are no fields inside the `_nested_field_name` dict/class that are also defined as fields in\nthis class. The fields of this class take precedence over the fields in the nested class.",
@@ -540,13 +545,20 @@
       "properties": {
         "execution_order": {
           "title": "Execution Order",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/definitions/SearchStrategyExecutionOrder"
+            }
+          ]
+        },
+        "sampler": {
+          "title": "Sampler",
           "type": "string"
         },
-        "search_algorithm": {
-          "title": "Search Algorithm",
-          "type": "string"
-        },
-        "search_algorithm_config": {
+        "sampler_config": {
           "$ref": "#/definitions/ConfigBase"
         },
         "output_model_num": {
@@ -565,12 +577,13 @@
         "max_time": {
           "title": "Max Time",
           "type": "integer"
+        },
+        "include_pass_params": {
+          "title": "Include Pass Params",
+          "default": true,
+          "type": "boolean"
         }
-      },
-      "required": [
-        "execution_order",
-        "search_algorithm"
-      ]
+      }
     },
     "PackagingType": {
       "title": "PackagingType",

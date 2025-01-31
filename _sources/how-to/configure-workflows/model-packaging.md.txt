@@ -197,11 +197,9 @@ You can add different types `PackagingConfig` as a list to Engine configurations
 "engine": {
     "search_strategy": {
         "execution_order": "joint",
-        "search_algorithm": "tpe",
-        "search_algorithm_config": {
-            "num_samples": 5,
-            "seed": 0
-        }
+        "sampler": "tpe",
+        "max_samples": 5,
+        "seed": 0
     },
     "evaluator": "common_evaluator",
     "host": "local_system",

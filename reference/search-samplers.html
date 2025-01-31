@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>SearchAlgorithms &#8212; Olive  documentation</title>
+    <title>Samplers &#8212; Olive  documentation</title>
   
   
   
@@ -50,7 +50,7 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/search-algorithm';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/search-samplers';</script>
     <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -415,7 +415,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Reference</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">SearchAlgorithms</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Samplers</span></li>
   </ul>
 </nav>
 </div>
@@ -432,25 +432,33 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="searchalgorithms">
-<h1>SearchAlgorithms<a class="headerlink" href="#searchalgorithms" title="Link to this heading">#</a></h1>
-<p>The following search algorithms are available in Olive.</p>
-<p>Each algorithm is followed by a description of the algorithm and a list of the its configuration options.</p>
-<section id="exhaustivesearchalgorithm">
-<span id="exhaustive-search-algorithm"></span><h2>ExhaustiveSearchAlgorithm<a class="headerlink" href="#exhaustivesearchalgorithm" title="Link to this heading">#</a></h2>
-<p><strong>Name:</strong> <code class="code docutils literal notranslate"><span class="pre">&quot;exhaustive&quot;</span></code></p>
-<p>Exhaustive Search Algorithm. Does a grid search over the search space.</p>
-</section>
-<section id="randomsearchalgorithm">
-<span id="random-search-algorithm"></span><h2>RandomSearchAlgorithm<a class="headerlink" href="#randomsearchalgorithm" title="Link to this heading">#</a></h2>
-<p><strong>Name:</strong> <code class="code docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code></p>
-<p>Random Searcher. Samples random points from the search space with or without replacement.</p>
+  <section id="samplers">
+<h1>Samplers<a class="headerlink" href="#samplers" title="Link to this heading">#</a></h1>
+<p>The following sampling algorithms are available in Olive.</p>
+<p>Each sampler is followed by a description of the algorithm and a list of the its configuration options.</p>
+<section id="sequentialsampler">
+<span id="sequential-sampler"></span><h2>SequentialSampler<a class="headerlink" href="#sequentialsampler" title="Link to this heading">#</a></h2>
+<p><strong>Name:</strong> <code class="code docutils literal notranslate"><span class="pre">&quot;sequential&quot;</span></code></p>
+<p>Sequential sampler provides search sequential search points.</p>
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-num_samples">
-<span class="sig-name descname"><span class="pre">num_samples</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-num_samples" title="Link to this definition">#</a></dt>
-<dd><p>Number of samples to suggest.</p>
+<dt class="sig sig-object std" id="cmdoption-arg-max_samples">
+<span class="sig-name descname"><span class="pre">max_samples</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-max_samples" title="Link to this definition">#</a></dt>
+<dd><p>Maximum number of samples to suggest. Search exhaustively if set to zero.</p>
 <p><strong>type:</strong> int</p>
-<p><strong>default_value:</strong> 1</p>
+<p><strong>default_value:</strong> 0</p>
+</dd></dl>
+
+</section>
+<section id="randomsampler">
+<span id="random-sampler"></span><h2>RandomSampler<a class="headerlink" href="#randomsampler" title="Link to this heading">#</a></h2>
+<p><strong>Name:</strong> <code class="code docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code></p>
+<p>Random sampler. Samples random points from the search space.</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-0">
+<span class="sig-name descname"><span class="pre">max_samples</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-0" title="Link to this definition">#</a></dt>
+<dd><p>Maximum number of samples to suggest. Search exhaustively if set to zero.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 0</p>
 </dd></dl>
 
 <dl class="std option">
@@ -461,33 +469,25 @@
 <p><strong>default_value:</strong> 1</p>
 </dd></dl>
 
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-with_replacement">
-<span class="sig-name descname"><span class="pre">with_replacement</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-with_replacement" title="Link to this definition">#</a></dt>
-<dd><p>Sample with replacement.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
-</dd></dl>
-
 </section>
-<section id="tpesearchalgorithm">
-<span id="tpe-search-algorithm"></span><h2>TPESearchAlgorithm<a class="headerlink" href="#tpesearchalgorithm" title="Link to this heading">#</a></h2>
+<section id="tpesampler">
+<span id="tpe-sampler"></span><h2>TPESampler<a class="headerlink" href="#tpesampler" title="Link to this heading">#</a></h2>
 <p><strong>Name:</strong> <code class="code docutils literal notranslate"><span class="pre">&quot;tpe&quot;</span></code></p>
 <p>Sample using TPE (Tree-structured Parzen Estimator) algorithm. Uses optuna TPESampler underneath.
 
     Refer to <a class="reference external" href="https://optuna.readthedocs.io/en/stable/reference/samplers/generated/optuna.samplers.TPESampler.html">https://optuna.readthedocs.io/en/stable/reference/samplers/generated/optuna.samplers.TPESampler.html</a>
     for more details about the sampler.</p>
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-0">
-<span class="sig-name descname"><span class="pre">num_samples</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-0" title="Link to this definition">#</a></dt>
-<dd><p>Number of samples to suggest.</p>
+<dt class="sig sig-object std" id="cmdoption-arg-1">
+<span class="sig-name descname"><span class="pre">max_samples</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-1" title="Link to this definition">#</a></dt>
+<dd><p>Maximum number of samples to suggest. Search exhaustively if set to zero.</p>
 <p><strong>type:</strong> int</p>
-<p><strong>default_value:</strong> 1</p>
+<p><strong>default_value:</strong> 0</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-1">
-<span class="sig-name descname"><span class="pre">seed</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-1" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-2">
+<span class="sig-name descname"><span class="pre">seed</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-2" title="Link to this definition">#</a></dt>
 <dd><p>Seed for the rng.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1</p>
@@ -559,9 +559,9 @@
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#exhaustivesearchalgorithm">ExhaustiveSearchAlgorithm</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#randomsearchalgorithm">RandomSearchAlgorithm</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tpesearchalgorithm">TPESearchAlgorithm</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sequentialsampler">SequentialSampler</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#randomsampler">RandomSampler</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tpesampler">TPESampler</a></li>
 </ul>
   </nav></div>
 

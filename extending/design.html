@@ -439,8 +439,7 @@ that are composed to construct a model optimization workflow.</p>
 <p>The workflow which is run by the <strong>Engine</strong> is composed of <strong>Passes</strong> that are executed in a specific order.
 Each Pass is responsible for performing a specific optimization on the model. Each Pass might have a set of parameters that
 can be tuned to achieve the best metrics, say accuracy and latency, that are evaluated by the respective <strong>Evaluator</strong>.
-The Engine employs a <strong>Search Strategy</strong> that uses a <strong>Search Algorithm</strong> to auto-tune each Pass one by one or set of Passes
-together.</p>
+The Engine employs a <strong>Search Strategy</strong> that uses a <strong>Search Samplers</strong> to auto-tune each Pass one by one or set of Passes together.</p>
 <p>Each Pass can be run on any host <strong>System</strong> and its output model can be evaluated on the desired target <strong>System</strong>.</p>
 <p>Olive can be used to find the “best” candidate model, pareto frontier models (for multi-objective search), or the first model
 that meets some metric goals.</p>
@@ -501,27 +500,27 @@ created and <strong>registered</strong> along with their host system and evaluat
 </section>
 <section id="search-strategy">
 <h2>Search Strategy<a class="headerlink" href="#search-strategy" title="Link to this heading">#</a></h2>
-<p>Search strategy provides an optimization pipeline that finds the best search point from the search space of one or more passes.</p>
-<p>It consists of two sub-components – <code class="docutils literal notranslate"><span class="pre">execution_order</span></code> and <code class="docutils literal notranslate"><span class="pre">search_algorithm</span></code>.</p>
+<p>Search strategy provides an optimization pipeline that finds the best search point from the search space built from one or more passes and search parameters within each of those passes. <code class="docutils literal notranslate"><span class="pre">include_pass_params</span></code> controls whether or not individual pass’ search parameters are included in the search. <code class="docutils literal notranslate"><span class="pre">max_iter</span></code> and <code class="docutils literal notranslate"><span class="pre">max_time</span></code> can be configured for finer control.</p>
+<p>It consists of two sub-components – <code class="docutils literal notranslate"><span class="pre">execution_order</span></code> and <code class="docutils literal notranslate"><span class="pre">sampler</span></code>.</p>
 <section id="execution-order">
 <h3>Execution Order<a class="headerlink" href="#execution-order" title="Link to this heading">#</a></h3>
-<p>The execution order defines the order in which the passes are optimized.</p>
+<p>The execution order defines the order in which the search space is traversed.</p>
 <p>Currently, we support two execution orders:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">joint</span></code>: The search spaces of all passes are combined and searched together to find the best search point. Each search point
-that is evaluated has parameters for the search parameters of all passes.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">pass-by-pass</span></code>: The search space of each pass is searched and optimized independently in order.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">joint</span></code>: The search spaces of all passes and their corresponding parameters are combined and searched together to find the best search point. Each search point consists of values for all search parameters of at most one pass in each pass group.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pass-by-pass</span></code>: The search space of each pass group is searched and optimized independently in order.</p></li>
 </ul>
 </section>
-<section id="search-algorithm">
-<h3>Search Algorithm<a class="headerlink" href="#search-algorithm" title="Link to this heading">#</a></h3>
-<p>Search algorithm operates over a search space and provides samples/trials (search points) from the search space to execute and evaluate.</p>
-<p>The following search algorithms have been implemented:</p>
+<section id="search-sampler">
+<h3>Search Sampler<a class="headerlink" href="#search-sampler" title="Link to this heading">#</a></h3>
+<p>Search sampler provides samples/trials (search points) from the search space to evaluate. Each search point consists of valuesfor all search parameters and all passes within the pass group.</p>
+<p>The following sampling algorithms have been implemented:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">exhaustive</span></code>: Exhaustively iterates over the search space.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">random</span></code>: Randomly samples points from the search space without replacement.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">tpe</span></code>: ample using TPE (Tree-structured Parzen Estimator) algorithm to sample from the search space.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sequential</span></code>: Sequentially iterates over the search space.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">random</span></code>: Randomly samples points from the search space.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tpe</span></code>: Sample using TPE (Tree-structured Parzen Estimator) algorithm to sample the search space.</p></li>
 </ul>
+<p>Each of the sampler can be used as an exhaustive search by setting the <code class="docutils literal notranslate"><span class="pre">max_samples</span></code> field to zero.</p>
 </section>
 </section>
 </section>
@@ -579,7 +578,7 @@ that is evaluated has parameters for the search parameters of all passes.</p></l
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#engine">Engine</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#search-strategy">Search Strategy</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#execution-order">Execution Order</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#search-algorithm">Search Algorithm</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#search-sampler">Search Sampler</a></li>
 </ul>
 </li>
 </ul>

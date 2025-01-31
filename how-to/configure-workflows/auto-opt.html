@@ -474,11 +474,9 @@ Auto Optimizer is still under development actively, and we will keep improving i
 <span class="w">        </span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="nt">&quot;search_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">                </span><span class="nt">&quot;execution_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;joint&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;search_algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tpe&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;search_algorithm_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                    </span><span class="nt">&quot;num_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;seed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
-<span class="w">                </span><span class="p">}</span>
+<span class="w">                </span><span class="nt">&quot;sampler&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tpe&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;max_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;seed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
 <span class="w">            </span><span class="p">},</span>
 <span class="w">            </span><span class="nt">&quot;evaluator&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;common_evaluator&quot;</span><span class="p">,</span>
 <span class="w">            </span><span class="nt">&quot;cache_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cache&quot;</span><span class="p">,</span>
@@ -578,8 +576,8 @@ Auto Optimizer</label><div class="sd-tab-content docutils">
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;search_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;execution_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;joint&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;search_algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tpe&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;num_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;sampler&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tpe&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;max_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;seed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;evaluator&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;common_evaluator&quot;</span><span class="p">,</span>
@@ -689,8 +687,8 @@ Manual Settings for CUDA&amp;TRT EP</label><div class="sd-tab-content docutils">
 <span class="w">    </span><span class="p">],</span>
 <span class="w">    </span><span class="nt">&quot;search_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;execution_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;joint&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;search_algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tpe&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;num_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;sampler&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tpe&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;max_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;seed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;evaluator&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;common_evaluator&quot;</span><span class="p">,</span>
