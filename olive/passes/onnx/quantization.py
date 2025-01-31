@@ -23,6 +23,7 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (
     get_external_data_config,
+    iter_adapter_nodes,
     model_has_adapters,
     model_proto_to_file,
     model_proto_to_olive_model,
@@ -704,6 +705,11 @@ class OnnxMatMul4Quantizer(Pass):
                     https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L63C1-L99C37
                 """,
             ),
+            "skip_adapters": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to quantizer adapter MatMul nodes. Default value is False.",
+            ),
             **get_external_data_config(),
             # static_dataloder_config
             **deepcopy(_dataloader_config),
@@ -722,13 +728,22 @@ class OnnxMatMul4Quantizer(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
-        if model_has_adapters(model.model_path) and config["algorithm"] not in {None, "DEFAULT"}:
+        adapter_nodes = list(iter_adapter_nodes(model.model_path))
+        if adapter_nodes and config["algorithm"] not in {None, "DEFAULT"}:
             logger.info(
                 "Model has adapters which should only be quantized with algorithm=None or DEFAULT. Got %s. Returning"
                 " the model without quantization.",
                 config["algorithm"],
             )
             return model
+
+        # add adapter nodes to nodes to exclude
+        nodes_to_exclude = config["nodes_to_exclude"] or []
+        if not config["skip_adapters"] and adapter_nodes:
+            logger.debug(
+                "Found %d adapter nodes in the model. Skipping quantization for these nodes.", len(adapter_nodes)
+            )
+            nodes_to_exclude.extend(adapter_nodes)
 
         from onnxruntime import __version__ as OrtVersion
 
@@ -777,7 +792,7 @@ class OnnxMatMul4Quantizer(Pass):
                 model.load_model(),
                 block_size=config["block_size"],
                 is_symmetric=config["is_symmetric"],
-                nodes_to_exclude=config["nodes_to_exclude"],
+                nodes_to_exclude=nodes_to_exclude,
                 accuracy_level=config["accuracy_level"],
                 algo_config=weight_only_quant_config,
             )
@@ -787,7 +802,7 @@ class OnnxMatMul4Quantizer(Pass):
                 model.load_model(),
                 block_size=config["block_size"],
                 is_symmetric=config["is_symmetric"],
-                nodes_to_exclude=config["nodes_to_exclude"],
+                nodes_to_exclude=nodes_to_exclude,
             )
         quant.process()
         # topologically sort the graph at the end since previous optimizations may have broken it

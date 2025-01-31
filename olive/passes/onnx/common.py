@@ -5,7 +5,7 @@
 import logging
 import re
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Iterable, Optional, Union
 
 import onnx
 
@@ -195,15 +195,23 @@ LORA_NAME_PATTERNS = [
 
 
 # TODO(jambayk): considering matching by subgraph pattern, more involved but more reliable
+def iter_adapter_nodes(model_path: Union[str, Path]) -> Iterable[str]:
+    """Iterate over the adapter nodes in the model.
+
+    :param model_path: The path to the model.
+    :return: An iterator over the adapter nodes in the model.
+    """
+    dag = OnnxDAG(onnx.load(model_path, load_external_data=False))
+    for node_name in dag.get_node_names():
+        op_type = dag.get_node_op_type(node_name)
+        if op_type in {"MatMul", "MatMulNBits"} and any(re.match(pattern, node_name) for pattern in LORA_NAME_PATTERNS):
+            yield node_name
+
+
 def model_has_adapters(model_path: Union[str, Path]) -> bool:
     """Check if the model has adapters.
 
     :param model_path: The path to the model.
     :return: True if the model has adapters, False otherwise.
     """
-    dag = OnnxDAG(onnx.load(model_path, load_external_data=False))
-    for node_name in dag.get_node_names():
-        op_type = dag.get_node_op_type(node_name)
-        if op_type in {"MatMul", "MatMulNBits"} and any(re.match(pattern, node_name) for pattern in LORA_NAME_PATTERNS):
-            return True
-    return False
+    return any(iter_adapter_nodes(model_path))
