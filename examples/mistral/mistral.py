@@ -108,7 +108,7 @@ def main(raw_args=None):
     optimized_model_dir = (
         script_dir
         / config["output_dir"]
-        / "-".join(config["pass_flows"][0])
+        / "-".join(config["passes"].keys())
         / f"{config['output_name']}_{accelerator}-{ep_header}_model"
     )
 

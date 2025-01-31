@@ -621,16 +621,16 @@ def add_search_options(sub_parser: ArgumentParser):
         "--enable_search",
         type=str,
         default=None,
-        const="exhaustive",
+        const="sequential",
         nargs="?",
-        choices=["exhaustive", "tpe", "random"],
+        choices=["random", "sequential", "tpe"],
         help=(
             "Enable search to produce optimal model for the given criteria. "
-            "Optionally provide search algorithm from available choices. "
-            "Use exhastive search algorithm by default."
+            "Optionally provide sampler from available choices. "
+            "By default, uses sequential sampler."
         ),
     )
-    search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search algorithm")
+    search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search sampler")
 
 
 def update_search_options(args, config):
@@ -641,7 +641,7 @@ def update_search_options(args, config):
                 "search_strategy",
                 {
                     "execution_order": "joint",
-                    "search_algorithm": args.enable_search,
+                    "sampler": args.enable_search,
                     "seed": args.seed,
                 },
             ),

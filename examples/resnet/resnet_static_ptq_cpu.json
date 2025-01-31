@@ -65,7 +65,7 @@
             "data_config": "session_params_tuning_data_config"
         }
     },
-    "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
+    "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "host": "local_system",
     "target": "local_system",
     "evaluator": "common_evaluator",

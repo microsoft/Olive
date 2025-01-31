@@ -8,6 +8,6 @@ from olive.passes.onnx.session_params_tuning import OrtSessionParamsTuning
 
 class TestUserScriptConfig:
     def test_no_config(self):
-        config = {}
-        config = OrtSessionParamsTuning.generate_config(DEFAULT_CPU_ACCELERATOR, config, True)
+        config = OrtSessionParamsTuning.generate_config(DEFAULT_CPU_ACCELERATOR, disable_search=True)
         assert config
+        assert OrtSessionParamsTuning.validate_config(config, DEFAULT_CPU_ACCELERATOR, disable_search=True)

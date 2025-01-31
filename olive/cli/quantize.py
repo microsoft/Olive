@@ -7,6 +7,7 @@
 # ruff: noqa: RUF012
 
 from argparse import ArgumentParser
+from collections import OrderedDict
 from copy import deepcopy
 from typing import Any, Dict
 
@@ -127,7 +128,6 @@ class QuantizeCommand(BaseOliveCLICommand):
             self.args.implementation = [self.args.implementation]
 
         to_replace = [
-            ("pass_flows", [self.args.implementation]),
             (("passes", "awq", "w_bit"), precision),
             (("passes", "gptq", "bits"), precision),
             (("passes", "bnb4", "quant_type"), precision),
@@ -143,6 +143,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             if v is not None:
                 set_nested_dict_value(config, k, v)
 
+        config["passes"] = OrderedDict([(k, v) for k, v in config["passes"].items() if k in self.args.implementation])
         return config
 
     def run(self):
@@ -183,7 +184,6 @@ TEMPLATE = {
         # "inc_static": {"type": "IncStaticQuantization", "data_config": "default_data_config"},
         # "vitis": {"type": "VitisAIQuantization", "data_config": "default_data_config"},
     },
-    "pass_flows": [],
     "output_dir": "models",
     "host": "local_system",
     "target": "local_system",

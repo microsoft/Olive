@@ -243,12 +243,7 @@ class AzureMLSystem(OliveSystem):
         if obj is None:
             raise ValueError(f"{obj.__class__.__name__} is missing in the inputs!")
 
-    def run_pass(
-        self,
-        the_pass: "Pass",
-        model_config: ModelConfig,
-        output_model_path: str,
-    ) -> ModelConfig:
+    def run_pass(self, the_pass: "Pass", model_config: ModelConfig, output_model_path: str) -> ModelConfig:
         """Run the pass on the model."""
         ml_client = self.azureml_client_config.create_client()
 

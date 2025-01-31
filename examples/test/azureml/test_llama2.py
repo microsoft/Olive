@@ -22,15 +22,15 @@ def setup():
     os.chdir(get_example_dir("llama2"))
 
 
-@pytest.mark.parametrize("search_algorithm", [False])
+@pytest.mark.parametrize("sampler", [False])
 @pytest.mark.parametrize("execution_order", [None])
 @pytest.mark.parametrize("system", ["local_system"])
 @pytest.mark.parametrize("cache_config", [None, {"account_name": account_name, "container_name": container_name}])
 @pytest.mark.parametrize("olive_json", ["llama2_qlora.json"])
-def test_llama2(search_algorithm, execution_order, system, cache_config, olive_json):
+def test_llama2(sampler, execution_order, system, cache_config, olive_json):
     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json, search_algorithm, execution_order, system, is_gpu=False, hf_token=True)
+    olive_config = patch_config(olive_json, sampler, execution_order, system, is_gpu=False, hf_token=True)
 
     # reduce qlora steps for faster test
     olive_config["passes"]["f"]["training_args"]["max_steps"] = 5

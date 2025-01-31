@@ -446,41 +446,6 @@ Please also find the detailed options from following table for each pass:
 }
 ```
 
-## Pass Flows Information
-
-`pass_flows: List[List[str]]`
-
-This is a list of list of pass names. Each list of pass names is a pass flow which will be executed in order.
-When `pass_flows` is not specified, the passes are executed in the order of the `passes` dictionary.
-
-### Example
-
-```json
-"passes": {
-    "onnx_conversion": {
-        "type": "OnnxConversion",
-        "target_opset": 13
-    },
-    "transformers_optimization": {
-        "type": "OrtTransformersOptimization",
-        "model_type": "bert",
-        "num_heads": 12,
-        "hidden_size": 768,
-        "float16": true
-    },
-    "onnx_quantization": {
-        "type": "OnnxQuantization",
-        "data_config": "calib_data_coonfig",
-        "weight_type": "QUInt8"
-    }
-},
-"pass_flows": [
-    ["onnx_conversion", "transformers_optimization"],
-    ["onnx_conversion", "transformers_optimization", "onnx_quantization"],
-    ["onnx_conversion", "onnx_quantization"],
-]
-```
-
 ## Engine Information
 
 `engine: [Dict]`
@@ -491,15 +456,13 @@ This is a dictionary that contains the information of the engine. Its fields can
 
     - `execution_order: [str]` The execution order of the optimizations of passes. The options are `pass-by-pass` and `joint`.
 
-    - `search_algorithm: [str]` The search algorithm of the engine. The available search algorithms are `exhaustive`, `random` and `tpe`.
+    - `sampler: [str]` The search sampler to use while traversing. The available search algorithms are `random`, `sequential` and `tpe`.
 
-    - `search_algorithm_config: [Dict]` The configuration of the search algorithm. The configuration of the search algorithm depends on
-    the search algorithm. Its fields can be provided directly to the parent dictionary.
+    - `sampler_config: [Dict]` The configuration of the sampler. The options depends on the chosen sampler. Its fields can be provided directly to the parent dictionary.
 
-    - `output_model_num: [int]` The number of output models from the engine based on metric priority. If not specified, the engine will output all qualified models.
+    - `stop_when_goals_met: [Boolean]` This decides whether to stop the search when the metric goals, if any,  are met. This is `false` by default.
 
-    - `stop_when_goals_met: [Boolean]` This decides whether to stop the search when the metric goals, if any,  are met. This is `false` by
-    default.
+    - `include_pass_params: [Boolean]` Includes individual pass parameter to build the search space. Defaults to true.
 
     - `max_iter: [int]` The maximum number of iterations of the search. Only valid for `joint` execution order. By default, there is no
     maximum number of iterations.
@@ -511,8 +474,8 @@ This is a dictionary that contains the information of the engine. Its fields can
   have empty search spaces. The output of the final pass will be evaluated if there is a valid evaluator. The output of the engine will be
   the output model of the final pass and its evaluation result.
 
-  If `search_strategy` is `true`, the search strategy will be the default search strategy. The default search strategy is `exhaustive` search
-  algorithm with `joint` execution order.
+  If `search_strategy` is `true`, the search strategy will be the default search strategy. The default search strategy is `sequential` search
+  sampler with `joint` execution order.
 
 - `evaluate_input_model: [Boolean]` In this mode, the engine will evaluate the input model using the engine's evaluator and return the results. If the engine has no evaluator, it will skip the evaluation. This is `true` by default.
 
@@ -556,13 +519,15 @@ This is a dictionary that contains the information of the engine. Its fields can
 - `log_to_file: [Boolean]`, `false` by default. This decides whether to log to file. If `true`, the log will be stored in a olive-<timestamp>.log file
     under the current working directory.
 
-Please find the detailed config options from following table for each search algorithm:
+Please find the detailed config options from following table for each search sampler:
 
-| Algorithm  | Description |
+Note that if `max_samples` is set to zero, each of the below sampler will be exhaustive.
+
+| Sampler  | Description |
 |:----------|:-------------|
-| [exhaustive](../../reference/search-algorithm.rst#_exhaustive_search_algorithm) | Iterates over the entire search space |
-| [random](../../reference/search-algorithm.rst#_random_search_algorithm) | Samples random points from the search space with or without replacement |
-| [tpe](../../reference/search-algorithm.rst#_tpe_search_algorithm) | Sample using TPE (Tree-structured Parzen Estimator) algorithm. |
+| [random](../../reference/search-samplers.rst#_random_sampler) | Samples random points from the search space |
+| [sequential](../../reference/search-samplers.rst#_sequential_sampler) | Iterates over the entire search space sequentially |
+| [tpe](../../reference/search-samplers.rst#_tpe_sampler) | Sample using TPE (Tree-structured Parzen Estimator) algorithm. |
 
 ### Example
 
@@ -570,8 +535,8 @@ Please find the detailed config options from following table for each search alg
 "engine": {
     "search_strategy": {
         "execution_order": "joint",
-        "search_algorithm": "tpe",
-        "num_samples": 5,
+        "sampler": "tpe",
+        "max_samples": 5,
         "seed": 0
     },
     "evaluator": "common_evaluator",

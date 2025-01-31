@@ -18,7 +18,7 @@ from olive.common.utils import StrEnumBase
 from olive.hardware.accelerator import Device
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import validate_resource_path
-from olive.strategy.search_parameter import SearchParameter, SpecialParamValue, json_to_search_parameter
+from olive.search.search_parameter import SearchParameter, SpecialParamValue, json_to_search_parameter
 
 
 class PassParamDefault(StrEnumBase):

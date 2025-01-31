@@ -87,7 +87,6 @@
             "keep_io_types": true
         }
     },
-    "pass_flows": [ [ "convert", "optimize" ] ],
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,
     "host": "local_system",

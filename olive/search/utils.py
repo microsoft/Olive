@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from typing import Dict, List, Set, Tuple
 
-from olive.strategy.search_parameter import Conditional, SearchParameter
+from olive.search.search_parameter import Conditional, SearchParameter
 
 
 class DirectedGraph:

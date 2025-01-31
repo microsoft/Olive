@@ -64,7 +64,7 @@
             }
         }
     },
-    "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
+    "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
     "output_dir": "models/bert_inc_ptq_cpu"

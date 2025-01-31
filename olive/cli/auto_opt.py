@@ -412,7 +412,7 @@ EVALUATE_TEMPLATE = {
 TEMPLATE = {
     "input_model": {"type": "HfModel"},
     "auto_optimizer_config": {},
-    "search_strategy": {"execution_order": "joint", "search_algorithm": "tpe", "num_samples": 5, "seed": 0},
+    "search_strategy": {"execution_order": "joint", "sampler": "tpe", "max_samples": 5, "seed": 0},
     "systems": {
         "local_system": {
             "type": "LocalSystem",

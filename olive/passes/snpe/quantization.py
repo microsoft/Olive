@@ -14,7 +14,7 @@ from olive.passes.pass_config import PassConfigParam
 from olive.platform_sdk.qualcomm.snpe.tools.dev import quantize_dlc
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 from olive.resource_path import LocalFile
-from olive.strategy.search_parameter import Boolean
+from olive.search.search_parameter import Boolean
 
 
 class SNPEQuantization(Pass):

@@ -5,8 +5,7 @@ that are composed to construct a model optimization workflow.
 The workflow which is run by the **Engine** is composed of **Passes** that are executed in a specific order.
 Each Pass is responsible for performing a specific optimization on the model. Each Pass might have a set of parameters that
 can be tuned to achieve the best metrics, say accuracy and latency, that are evaluated by the respective **Evaluator**.
-The Engine employs a **Search Strategy** that uses a **Search Algorithm** to auto-tune each Pass one by one or set of Passes
-together.
+The Engine employs a **Search Strategy** that uses a **Search Samplers** to auto-tune each Pass one by one or set of Passes together.
 
 Each Pass can be run on any host **System** and its output model can be evaluated on the desired target **System**.
 
@@ -71,22 +70,23 @@ created and **registered** along with their host system and evaluators if any.
 The engine also maintains a cache directory to cache pass runs, models and evaluations.
 
 ## Search Strategy
-Search strategy provides an optimization pipeline that finds the best search point from the search space of one or more passes.
+Search strategy provides an optimization pipeline that finds the best search point from the search space built from one or more passes and search parameters within each of those passes. `include_pass_params` controls whether or not individual pass' search parameters are included in the search. `max_iter` and `max_time` can be configured for finer control.
 
-It consists of two sub-components – `execution_order` and `search_algorithm`.
+It consists of two sub-components – `execution_order` and `sampler`.
 
 ### Execution Order
-The execution order defines the order in which the passes are optimized.
+The execution order defines the order in which the search space is traversed.
 
 Currently, we support two execution orders:
-- `joint`: The search spaces of all passes are combined and searched together to find the best search point. Each search point
-that is evaluated has parameters for the search parameters of all passes.
-- `pass-by-pass`: The search space of each pass is searched and optimized independently in order.
+- `joint`: The search spaces of all passes and their corresponding parameters are combined and searched together to find the best search point. Each search point consists of values for all search parameters of at most one pass in each pass group.
+- `pass-by-pass`: The search space of each pass group is searched and optimized independently in order.
 
-### Search Algorithm
-Search algorithm operates over a search space and provides samples/trials (search points) from the search space to execute and evaluate.
+### Search Sampler
+Search sampler provides samples/trials (search points) from the search space to evaluate. Each search point consists of valuesfor all search parameters and all passes within the pass group.
 
-The following search algorithms have been implemented:
-- `exhaustive`: Exhaustively iterates over the search space.
-- `random`: Randomly samples points from the search space without replacement.
-- `tpe`: ample using TPE (Tree-structured Parzen Estimator) algorithm to sample from the search space.
+The following sampling algorithms have been implemented:
+- `sequential`: Sequentially iterates over the search space.
+- `random`: Randomly samples points from the search space.
+- `tpe`: Sample using TPE (Tree-structured Parzen Estimator) algorithm to sample the search space.
+
+Each of the sampler can be used as an exhaustive search by setting the `max_samples` field to zero.

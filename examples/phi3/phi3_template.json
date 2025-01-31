@@ -105,7 +105,6 @@
             "execution_mode_list": [ 0, 1 ]
         }
     },
-    "pass_flows": [ [ "<place_holder>" ] ],
     "cache_dir": "cache",
     "output_dir": "models",
     "host": "local_system",

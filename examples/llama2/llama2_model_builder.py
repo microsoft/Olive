@@ -5,6 +5,7 @@
 
 import argparse
 import json
+from collections import OrderedDict
 
 from olive.workflows import run as olive_run
 
@@ -38,10 +39,8 @@ def main(raw_args=None):
     template_json = json.loads(template_json_str)
 
     # add pass flows
-    if args.metadata_only:
-        template_json["pass_flows"] = [["conversion", "metadata"]]
-    else:
-        template_json["pass_flows"] = [["builder", "session_params_tuning"]]
+    used_passes = {"conversion", "metadata"} if args.metadata_only else {"builder", "session_params_tuning"}
+    template_json["passes"] = OrderedDict([(k, v) for k, v in template_json["passes"].items() if k in used_passes])
     template_json["output_dir"] = f"models/{model_name}"
 
     # dump config

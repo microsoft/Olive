@@ -41,12 +41,7 @@ class OliveSystem(ABC):
         self.hf_token = hf_token
 
     @abstractmethod
-    def run_pass(
-        self,
-        the_pass: "Pass",
-        model_config: "ModelConfig",
-        output_model_path: str,
-    ) -> "ModelConfig":
+    def run_pass(self, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str) -> "ModelConfig":
         """Run the pass on the model at a specific point in the search space."""
         raise NotImplementedError
 

@@ -191,7 +191,10 @@ def use_passes(template_json, *passes):
     else:
         del template_json["data_configs"]
 
-    template_json["pass_flows"] = [passes]
+    for pass_name in set(template_json["passes"].keys()):
+        if pass_name not in passes:
+            template_json["passes"].pop(pass_name, None)
+
     return template_json
 
 
@@ -223,7 +226,7 @@ def generate_config(args):
 
     if args.tune_session_params:
         passes_to_use.append("tune_session_params")
-        template_json["search_strategy"] = {"execution_order": "joint", "search_algorithm": "exhaustive"}
+        template_json["search_strategy"] = {"execution_order": "joint", "sampler": "sequential"}
         template_json["evaluator"] = "common_evaluator"
     else:
         del template_json["evaluators"]

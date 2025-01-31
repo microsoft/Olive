@@ -27,7 +27,7 @@ def setup():
     ],
 )
 def test_bert(olive_test_knob):
-    # olive_config: (config_json_path, search_algorithm, execution_order, system)
+    # olive_config: (config_json_path, sampler, execution_order, system)
     # bert_ptq_cpu.json: use huggingface model id
     # bert_ptq_cpu_aml.json: use aml model path
     from olive.workflows import run as olive_run

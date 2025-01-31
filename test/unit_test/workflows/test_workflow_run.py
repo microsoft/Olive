@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 from test.unit_test.utils import (
     get_pytorch_model,
@@ -100,7 +101,7 @@ def test_run_without_ep(mock_model_to_json, mock_model_from_json, mock_run, conf
     with user_script.open("w"):
         pass
 
-    config = config_test
+    config = deepcopy(config_test)
     config["passes"]["qat"]["config"]["user_script"] = str(user_script)
     config["engine"]["cache_dir"] = str(tmp_path / "cache")
     config["engine"]["output_dir"] = str(tmp_path / "output")

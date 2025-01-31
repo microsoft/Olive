@@ -280,7 +280,7 @@ class OliveCache:
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec" = None,
     ):
-        run_json = self.get_run_json(pass_name, pass_config, input_model_id, accelerator_spec)
+        run_json = self.get_run_json(pass_name.lower(), pass_config, input_model_id, accelerator_spec)
         return hash_dict(run_json)[:8]
 
     def get_cache_dir(self) -> Path:

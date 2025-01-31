@@ -24,7 +24,7 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_has_adapters, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.strategy.search_parameter import Boolean, Categorical, Conditional
+from olive.search.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
 

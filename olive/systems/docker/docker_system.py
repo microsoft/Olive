@@ -103,22 +103,13 @@ class DockerSystem(OliveSystem):
                     _print_docker_logs(e.build_log, logging.ERROR)
                     raise
 
-    def run_pass(
-        self,
-        the_pass: "Pass",
-        model_config: "ModelConfig",
-        output_model_path: str,
-    ) -> "ModelConfig":
+    def run_pass(self, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str) -> "ModelConfig":
         """Run the pass on the model."""
         with tempfile.TemporaryDirectory() as tempdir:
             return self._run_pass_container(Path(tempdir), the_pass, model_config, output_model_path)
 
     def _run_pass_container(
-        self,
-        workdir: Path,
-        the_pass: "Pass",
-        model_config: "ModelConfig",
-        output_model_path: str,
+        self, workdir: Path, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str
     ) -> "ModelConfig":
         pass_config = the_pass.to_json(check_object=True)
 

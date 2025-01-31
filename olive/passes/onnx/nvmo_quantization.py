@@ -20,7 +20,7 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.strategy.search_parameter import Categorical
+from olive.search.search_parameter import Categorical
 
 logger = logging.getLogger(__name__)
 
