@@ -87,6 +87,9 @@ jobs:
     device: 'gpu'
     onnxruntime: onnxruntime-gpu
     dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
+    docker_image: 'olive-pipeline:latest'
+    base_image: 'nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04'
+    trt_version: '10.5.0.18-1+cuda12.6'
     examples:
       mistral:
         exampleFolder: mistral
