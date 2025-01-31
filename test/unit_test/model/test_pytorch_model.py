@@ -58,7 +58,7 @@ def test_load_from_path(torch_load):
     model = PyTorchModelHandler(model_path="test_path")
 
     assert model.load_model() == "dummy_pytorch_model"
-    torch_load.assert_called_once_with("test_path")
+    torch_load.assert_called_once_with("test_path", weights_only=False)
 
 
 @patch("olive.model.handler.pytorch.UserModuleLoader")
