@@ -265,6 +265,20 @@
             "supported_precisions": [ "*" ],
             "extra_dependencies": [ "lora" ]
         },
+        "LoHa": {
+            "module_path": "olive.passes.pytorch.lora.LoHa",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "extra_dependencies": [ "lora" ]
+        },
+        "LoKr": {
+            "module_path": "olive.passes.pytorch.lora.LoKr",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "extra_dependencies": [ "lora" ]
+        },
         "PyTorchTensorParallel": {
             "module_path": "olive.passes.pytorch.tensor_parallel.PyTorchTensorParallel",
             "supported_providers": [ "*" ],
