@@ -391,18 +391,25 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
-    ) -> Dict[str, List[Dict[str, Any]]]:
-        objectives_by_pass_name: Dict[str, List[Dict[str, Any]]] = {}
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        # NOTE: Olive config doesn't easily lend itself to enforcing one evaluator across
+        # multiple pass run configs since each can have its own. That freedom creates some
+        # bad unexpected scenarios for search. If two or more pass run configs in the same
+        # pass group dictates different objectives (and thus different goals), there is no
+        # way to resolve them. To keep things simple for the time being, the objectives
+        # across all pass run configs within a pass group are merged by name (so the last
+        # one) in the group will win.
+        objectives_by_pass_name: Dict[str, Dict[str, Dict[str, Any]]] = {}
         objectives_by_evaluator_name: Dict[str, Dict[str, Any]] = {}
         for pass_name, passes_configs in self.input_passes_configs.items():
-            objectives_by_pass_name[pass_name] = passes_objectives = []
+            objectives_by_pass_name[pass_name] = passes_objectives = {}
             for pass_config in passes_configs:
                 evaluator_config = pass_config.evaluator or self.evaluator_config
                 if evaluator_config.name not in objectives_by_evaluator_name:
                     objectives_by_evaluator_name[evaluator_config.name] = self.resolve_objectives(
                         input_model_config, input_model_id, evaluator_config.metrics, accelerator_spec
                     )
-                passes_objectives.append(objectives_by_evaluator_name[evaluator_config.name])
+                passes_objectives.update(objectives_by_evaluator_name[evaluator_config.name])
 
         accelerator_objectives: Dict[str, Any] = {}
         for objectives in objectives_by_evaluator_name.values():
@@ -523,7 +530,7 @@ class Engine:
                     "goal": goals.get(metric_key),
                     "priority": sub_type.priority,
                 }
-        return dict(sorted(objective_dict.items(), key=lambda x: x[1]["priority"]))
+        return OrderedDict(sorted(objective_dict.items(), key=lambda x: x[1]["priority"]))
 
     def resolve_goals(
         self,

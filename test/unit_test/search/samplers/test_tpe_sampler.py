@@ -21,9 +21,14 @@ class TestTPESampler:
                 ("PassD", Categorical(["a", "b", "c"])),
             ]
         )
+        objectives = {
+            "accuracy-accuracy_custom": {"goal": 0.75, "higher_is_better": True, "priority": 1},
+            "latency-avg": {"goal": 24, "higher_is_better": False, "priority": 2},
+            "latency-max": {"goal": 30, "higher_is_better": False, "priority": 3},
+        }
 
         config = {"seed": 101, "max_samples": 50}
-        sampler = TPESampler(search_space, config=config)
+        sampler = TPESampler(search_space, config, objectives)
 
         count = 0
         actual = []
@@ -159,9 +164,14 @@ class TestTPESampler:
                 ),
             ]
         )
+        objectives = {
+            "accuracy-accuracy_custom": {"goal": 0.75, "higher_is_better": True, "priority": 1},
+            "latency-avg": {"goal": 24, "higher_is_better": False, "priority": 2},
+            "latency-max": {"goal": 30, "higher_is_better": False, "priority": 3},
+        }
 
         config = {"seed": 101, "max_samples": 500}
-        sampler = TPESampler(search_space, config=config)
+        sampler = TPESampler(search_space, config, objectives)
 
         while not sampler.should_stop:
             sp = sampler.suggest()

@@ -29,8 +29,9 @@ class RandomSampler(SearchSampler):
         self,
         search_space: SearchSpace,
         config: Optional[Union[Dict[str, Any], ConfigBase]] = None,
+        objectives: Dict[str, Dict[str, Any]] = None,
     ):
-        super().__init__(search_space, config)
+        super().__init__(search_space, config, objectives)
 
         self._rng = Random(self.config.seed)
         self._search_points = [None] * len(self._search_space)

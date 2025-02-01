@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Type, Union
 
 from olive.common.auto_config import AutoConfigClass
@@ -33,10 +34,19 @@ class SearchSampler(AutoConfigClass):
         self,
         search_space: SearchSpace,
         config: Optional[Union[Dict[str, Any], ConfigBase]] = None,
+        objectives: Dict[str, Dict[str, Any]] = None,
     ):
         super().__init__(config)
 
         self._search_space = search_space
+        self._config = config
+
+        # Order the objectives based on priority, and then by name
+        objectives = objectives or {}
+        self._objectives = OrderedDict(sorted(objectives.items(), key=lambda entry: (entry[1]["priority"], entry[0])))
+        self._higher_is_betters = {
+            name: objective.get("higher_is_better") or False for name, objective in self._objectives.items()
+        }
 
     @property
     @abstractmethod
@@ -63,7 +73,5 @@ class SearchSampler(AutoConfigClass):
         """Suggest a new configuration to try."""
         return None
 
-    def record_feedback_signal(
-        self, search_point_index: int, objectives: Dict[str, dict], signal: "MetricResult", should_prune: bool = False
-    ):
+    def record_feedback_signal(self, search_point_index: int, signal: "MetricResult", should_prune: bool = False):
         """Report the result of a configuration."""
