@@ -21,6 +21,7 @@ def setup():
     retry_func(run_subprocess, kwargs={"cmd": "python download_files.py", "check": True})
 
 
+# TODO(team): add test back to pipeline when update the qnn sdk to support python 3.10
 def test_mobilenet_qnn_ep():
     from olive.workflows import run as olive_run
 
