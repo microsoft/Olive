@@ -129,13 +129,6 @@ def prepare_model_for_finetuning(model: "PreTrainedModel", training_args: BaseHF
     :param model: The Hugging Face PyTorch model to prepare for fine-tuning.
     :param training_args: The training arguments for the model.
     """
-    if training_args.gradient_checkpointing and not model.supports_gradient_checkpointing:
-        logger.warning(
-            "gradient_checkpointing is True, but model does not support gradient checkpointing! Setting"
-            " gradient_checkpoing to False"
-        )
-        training_args.gradient_checkpointing = False
-
     for param in model.parameters():
         # freeze base model's layers
         param.requires_grad = False

@@ -234,7 +234,7 @@ class LoRABase(Pass):
         config.training_args = config.training_args or HFTrainingArguments()
 
         # check if peft or olive has target modules for the model
-        config.target_modules = config.target_modules or self.check_target_modules(model)
+        config.target_modules = config.target_modules or self.get_target_modules(model)
 
         # get new model
         pytorch_model = self.load_base_pytorch_model(model, config)
@@ -455,7 +455,8 @@ class LoRABase(Pass):
         return resolve_torch_dtype(torch_dtype)
 
     @staticmethod
-    def check_target_modules(model: HfModelHandler):
+    def get_target_modules(model: HfModelHandler) -> Optional[List[str]]:
+        """Get the target modules for the model."""
         from peft.utils import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
 
         model_type = model.get_hf_model_type()
@@ -469,7 +470,8 @@ class LoRABase(Pass):
         return None
 
     @staticmethod
-    def get_peft_model(model, config, config_kwargs=None):
+    def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
+        """Get the PEFT model for LoRA fine-tuning."""
         from peft import LoraConfig, get_peft_model
 
         if config_kwargs is None:
@@ -514,7 +516,7 @@ class LoRAVariant(LoRABase):
             "module_dropout": PassConfigParam(
                 type_=float,
                 default_value=0.0,
-                description="The dropout probability for disabling LoHa modules during training.",
+                description="The dropout probability for disabling modules during training.",
             ),
             "use_effective_conv2d": PassConfigParam(
                 type_=bool,
@@ -527,7 +529,7 @@ class LoRAVariant(LoRABase):
                 description="The names of the modules to apply the adapter to.",
             ),
             "exclude_modules": PassConfigParam(
-                type_=Optional[Union[List[str], str]], default_value=None, description="Modules to exclude from LoHa."
+                type_=Optional[Union[List[str], str]], default_value=None, description="Modules to exclude from tuning."
             ),
             "init_weights": PassConfigParam(
                 type_=bool, default_value=True, description="Whether to perform initialization of adapter weights."
@@ -561,7 +563,8 @@ class LoHa(LoRAVariant):
     """Run LoHa fine-tuning on a Hugging Face PyTorch model."""
 
     @staticmethod
-    def get_peft_model(model, config, config_kwargs=None):
+    def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
+        """Get the PEFT model for LoHa fine-tuning."""
         from peft import LoHaConfig, LoHaModel
 
         config = LoHaConfig(
@@ -597,8 +600,31 @@ class LoHa(LoRAVariant):
 class LoKr(LoRAVariant):
     """Run LoKr fine-tuning on a Hugging Face PyTorch model."""
 
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        config = {
+            "decompose_both": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Perform rank decomposition of left kronecker product matrix.",
+            ),
+            "decompose_factor": PassConfigParam(
+                type_=int,
+                default_value=-1,
+                description="Kronecker product decomposition factor.",
+            ),
+            "rank_dropout_scale": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to scale the rank dropout while training.",
+            ),
+        }
+        config.update(super()._default_config(accelerator_spec))
+        return config
+
     @staticmethod
-    def get_peft_model(model, config, config_kwargs=None):
+    def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
+        """Get the PEFT model for LoKr fine-tuning."""
         from peft import LoKrConfig, LoKrModel
 
         config = LoKrConfig(
@@ -621,28 +647,6 @@ class LoKr(LoRAVariant):
         )
 
         return LoKrModel(model, config, "default")
-
-    @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
-            "decompose_both": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="Perform rank decomposition of left kronecker product matrix.",
-            ),
-            "decompose_factor": PassConfigParam(
-                type_=int,
-                default_value=-1,
-                description="Kronecker product decomposition factor.",
-            ),
-            "rank_dropout_scale": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="Whether to scale the rank dropout while training.",
-            ),
-        }
-        config.update(super()._default_config(accelerator_spec))
-        return config
 
     @classmethod
     def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
