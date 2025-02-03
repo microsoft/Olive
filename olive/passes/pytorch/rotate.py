@@ -45,12 +45,13 @@ class RotateBase(Pass):
         }
 
     @torch.no_grad()
-    def rotate_model(self, model: HfModelHandler, rotate_mode: str, seed: int):
+    def rotate_model(self, model: HfModelHandler, rotate_mode: str, seed: int, apply_R2: bool = True):
         """Create a new model with rotate modules.
 
         :param model: HfModelHandler: The model to rotate.
         :param rotate_mode: str: The rotation method to use.
         :param seed: int: The random seed for the rotation.
+        :param apply_R2: bool: Whether to apply a second rotation matrix to the value and out projection layers.
         :return: ModelWrapper with the rotated model, rotation parameters, and save replacements.
         """
         if model.adapter_path:
@@ -95,7 +96,7 @@ class RotateBase(Pass):
             R2 = None
             for linear_idx, (linear, linear_name) in enumerate(zip(*layer_wrapper.get_attention_inputs())):
                 # R1^-1 @ Wq, R1^-1 @ Wk, R1^-1 @ Wv @ R2
-                if linear_idx == 2 and getattr(linear, "bias", None) is None:
+                if apply_R2 and linear_idx == 2 and getattr(linear, "bias", None) is None:
                     # original implementation ignores bias but output doesn't match both when bias is
                     # rotated headwise and when it is not, so we skip it for now
                     # not really an issue since bias is not present in most models
@@ -120,6 +121,8 @@ class RotateBase(Pass):
             for linear, linear_name in zip(*layer_wrapper.get_mlp_outputs()):
                 # Wdown @ R1
                 set_attr(layer_wrapper.layer, linear_name, RotateLinear(linear, Q_post=R1))
+
+        print(f"Num rotation params: {len(rotation_params)}")
 
         return (
             model_wrapper,
@@ -209,6 +212,25 @@ class QuaRot(RotateBase):
     @torch.no_grad()
     def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
         model_wrapper, _, save_replacements = self.rotate_model(model, config["rotate_mode"], config["seed"])
+
+        # save the model
+        model_wrapper.save_model(output_model_path, replacements=save_replacements)
+        model.save_metadata(output_model_path)
+
+        return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
+    
+class QuaRot2(RotateBase):
+    """Rotate model using QuaRot.
+
+    See https://arxiv.org/pdf/2404.00456 for more details on the algorithm. Only offline weight rotation is supported.
+    Can be followed by a pass such as GPTQ to quantize the rotated model weights.
+
+    This pass only supports HfModelHandler.
+    """
+
+    @torch.no_grad()
+    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+        model_wrapper, _, save_replacements = self.rotate_model(model, config["rotate_mode"], config["seed"], apply_R2=False)
 
         # save the model
         model_wrapper.save_model(output_model_path, replacements=save_replacements)

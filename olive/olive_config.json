@@ -291,6 +291,12 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ]
         },
+        "QuaRot2": {
+            "module_path": "olive.passes.pytorch.rotate.QuaRot2",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ]
+        },
         "SparseGPT": {
             "module_path": "olive.passes.pytorch.sparsegpt.SparseGPT",
             "supported_providers": [ "*" ],
