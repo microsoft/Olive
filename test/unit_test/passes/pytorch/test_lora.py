@@ -13,7 +13,7 @@ from olive.common.constants import OS
 from olive.data.template import huggingface_data_config_template
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch.lora import LoftQ, LoHa, LoRA, QLoRA
+from olive.passes.pytorch.lora import LoKr, LoftQ, LoHa, LoRA, QLoRA
 
 # pylint: disable=redefined-outer-name
 
@@ -119,6 +119,15 @@ def test_loftq(tmp_path):
 def test_loha(mock_train, tmp_path):
     # execute
     out = run_finetuning(LoHa, tmp_path, torch_dtype="float32")
+
+    # assert
+    assert Path(out.get_resource("adapter_path")).exists()
+
+
+@patch("transformers.Trainer.train")
+def test_lokr(mock_train, tmp_path):
+    # execute
+    out = run_finetuning(LoKr, tmp_path, torch_dtype="float32")
 
     # assert
     assert Path(out.get_resource("adapter_path")).exists()
