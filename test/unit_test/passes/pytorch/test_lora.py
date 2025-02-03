@@ -77,7 +77,8 @@ def run_finetuning(pass_class, tmp_path, **pass_config_kwargs):
     not torch.cuda.is_available() or True,
     reason="lora finetuning requires GPU.",
 )
-def test_lora(tmp_path):
+@patch("transformers.Trainer.train")
+def test_lora(mock_tain, tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
     out = run_finetuning(LoRA, tmp_path, torch_dtype="float32")
@@ -91,7 +92,8 @@ def test_lora(tmp_path):
     platform.system() == OS.WINDOWS or not torch.cuda.is_available() or True,
     reason="bitsandbytes requires Linux GPU.",
 )
-def test_qlora(tmp_path):
+@patch("transformers.Trainer.train")
+def test_qlora(mock_tain, tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
     out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32")
@@ -105,7 +107,8 @@ def test_qlora(tmp_path):
     platform.system() == OS.WINDOWS or not torch.cuda.is_available() or True,
     reason="bitsandbytes requires Linux GPU.",
 )
-def test_loftq(tmp_path):
+@patch("transformers.Trainer.train")
+def test_loftq(mock_tain, tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
     out = run_finetuning(LoftQ, tmp_path, torch_dtype="float32")

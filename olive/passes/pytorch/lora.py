@@ -551,13 +551,14 @@ class LoHa(LoRAVariant):
         """Get the PEFT model for LoHa fine-tuning."""
         from peft import LoHaConfig, LoHaModel
 
+        target_modules = config.target_modules or "all-linear"
         config = LoHaConfig(
             r=config.r,
             alpha=config.alpha,
             rank_dropout=config.rank_dropout,
             module_dropout=config.module_dropout,
             use_effective_conv2d=config.use_effective_conv2d,
-            target_modules=config.target_modules,
+            target_modules=target_modules,
             exclude_modules=config.exclude_modules,
             init_weights=config.init_weights,
             layers_to_transform=config.layers_to_transform,
@@ -611,6 +612,7 @@ class LoKr(LoRAVariant):
         """Get the PEFT model for LoKr fine-tuning."""
         from peft import LoKrConfig, LoKrModel
 
+        target_modules = config.target_modules or "all-linear"
         config = LoKrConfig(
             r=config.r,
             alpha=config.alpha,
@@ -620,7 +622,7 @@ class LoKr(LoRAVariant):
             decompose_factor=config.decompose_factor,
             rank_dropout_scale=config.rank_dropout_scale,
             use_effective_conv2d=config.use_effective_conv2d,
-            target_modules=config.target_modules,
+            target_modules=target_modules,
             exclude_modules=config.exclude_modules,
             init_weights=config.init_weights,
             layers_to_transform=config.layers_to_transform,
@@ -864,7 +866,7 @@ class LoftQ(QLoRABase):
 
         # enable lora fine-tuning with the loftq initialized adapter weights
         pytorch_model = self.enable_lora(
-            pytorch_model, new_model_handler.task, config, adapter_path=loftq_init_adapter_path
+            pytorch_model, config, new_model_handler.task, adapter_path=loftq_init_adapter_path
         )
 
         return new_model_handler, pytorch_model, bnb_quant_config, quantized_modules
