@@ -13,7 +13,7 @@ from olive.common.constants import OS
 from olive.data.template import huggingface_data_config_template
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch.lora import LoKr, LoftQ, LoHa, LoRA, QLoRA
+from olive.passes.pytorch.lora import LoftQ, LoHa, LoKr, LoRA, QLoRA
 
 # pylint: disable=redefined-outer-name
 

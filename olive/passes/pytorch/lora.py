@@ -91,8 +91,8 @@ class HFTrainingArguments(BaseHFTrainingArguments):
         return v
 
 
-class LoRABase(Pass):
-    """Base class for LoRA fine-tuning passes."""
+class LoRA(Pass):
+    """Run LoRA fine-tuning on a Hugging Face PyTorch model."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -107,6 +107,7 @@ class LoRABase(Pass):
             "lora_dropout": PassConfigParam(
                 type_=float, default_value=0.05, description="The dropout probability for Lora layers."
             ),
+            "target_modules": PassConfigParam(type_=List[str], default_value=None, description="Target modules"),
             "modules_to_save": PassConfigParam(
                 type_=None,
                 default_value=None,
@@ -297,7 +298,7 @@ class LoRABase(Pass):
                 "loftq_config": LoftQConfig(loftq_bits=4, loftq_iter=config.loftq_iter),
             }
         if task:
-            config_kwargs.update({"peft_task_type": get_peft_task_type_from_task(task, fail_on_not_found=True)})
+            config_kwargs.update({"task_type": get_peft_task_type_from_task(task, fail_on_not_found=True)})
 
         return self.get_peft_model(model, config, config_kwargs)
 
@@ -490,19 +491,7 @@ class LoRABase(Pass):
         return get_peft_model(model, lora_config)
 
 
-class LoRA(LoRABase):
-    """Run LoRA fine-tuning on a Hugging Face PyTorch model."""
-
-    @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
-            "target_modules": PassConfigParam(type_=List[str], default_value=None, description="Target modules"),
-        }
-        config.update(super()._default_config(accelerator_spec))
-        return config
-
-
-class LoRAVariant(LoRABase):
+class LoRAVariant(LoRA):
     """Run LoRA variant fine-tuning on a Hugging Face PyTorch model."""
 
     @classmethod
@@ -522,11 +511,6 @@ class LoRAVariant(LoRABase):
                 type_=bool,
                 default_value=True,
                 description="Use parameter effective decomposition for Conv2d with ksize > 1.",
-            ),
-            "target_modules": PassConfigParam(
-                type_=Optional[Union[List[str], str]],
-                default_value="all-linear",
-                description="The names of the modules to apply the adapter to.",
             ),
             "exclude_modules": PassConfigParam(
                 type_=Optional[Union[List[str], str]], default_value=None, description="Modules to exclude from tuning."
@@ -660,7 +644,7 @@ class LoKr(LoRAVariant):
             raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
 
 
-class QLoRABase(LoRABase):
+class QLoRABase(LoRA):
     """Base class for QLoRA and LoftQ fine-tuning passes."""
 
     @classmethod
