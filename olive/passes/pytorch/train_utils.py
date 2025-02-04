@@ -111,6 +111,8 @@ def load_hf_base_model(
             "torch_dtype": torch_dtype,
         }
     )
+    # Not all models support device_map. The default value of device_map is "auto".
+    # User needs to set device_map to None if their model does not support device_map.
     if device_map:
         load_kwargs.update({"device_map": device_map})
     # overwrite load_kwargs with kwargs
