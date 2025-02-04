@@ -6,6 +6,8 @@
 # LoRA: https://huggingface.co/docs/diffusers/training/lora
 # QLoRA: https://github.com/artidoro/qlora/blob/main/qlora.py
 #        https://arxiv.org/abs/2305.14314
+# LoHa: https://arxiv.org/abs/2108.06098
+# LoKr: https://arxiv.org/abs/2309.14859
 # --------------------------------------------------------------------------
 import logging
 import tempfile
@@ -22,7 +24,7 @@ from olive.common.config_utils import ConfigBase
 from olive.common.hf.mappings import MODELS_TO_LORA_TARGET_MODULES_MAPPING
 from olive.common.hf.utils import get_peft_task_type_from_task
 from olive.common.pydantic_v1 import Field, validator
-from olive.common.utils import find_submodules, resolve_torch_dtype
+from olive.common.utils import StrEnumBase, find_submodules, resolve_torch_dtype
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
@@ -46,6 +48,11 @@ if TYPE_CHECKING:
     from transformers import PreTrainedModel, PreTrainedTokenizer
 
 logger = logging.getLogger(__name__)
+
+
+class DeviceMap(StrEnumBase):
+    AUTO = "auto"
+    CURRENT_DEVICE = "current_device"
 
 
 class HFTrainingArguments(BaseHFTrainingArguments):
@@ -122,6 +129,11 @@ class LoRA(Pass):
                     "Data type to use for training. Should be one of `bfloat16`, `float16` or `float32`. If `float16`"
                     " will use fp16 mixed-precision training."
                 ),
+            ),
+            "device_map": PassConfigParam(
+                type_=Optional[DeviceMap],
+                default_value=DeviceMap.AUTO,
+                description="Device map to use to load the model.",
             ),
             "allow_tf32": PassConfigParam(
                 type_=bool,
@@ -271,7 +283,10 @@ class LoRA(Pass):
 
         # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
         # "auto": uses all available GPUs, model parallel
-        return load_hf_base_model(model_handler, torch_dtype=model_dtype, device_map="auto", **kwargs)
+        device_map = config.device_map
+        if device_map == DeviceMap.CURRENT_DEVICE:
+            device_map = {"": torch.cuda.current_device()}
+        return load_hf_base_model(model_handler, torch_dtype=model_dtype, device_map=device_map, **kwargs)
 
     def init_adapters(
         self,
@@ -329,6 +344,10 @@ class LoRA(Pass):
         # don't want the trainer to do Data Parallel
         model.model_parallel = True
         model.is_parallelizable = True
+        # TODO(team): ERROR: forward() got an unexpected keyword argument 'num_items_in_batch'
+        # Temporary fix by disabling loss kwargs
+        # https://github.com/huggingface/transformers/issues/35838
+        model.accepts_loss_kwargs = False
 
         if not adapter_path:
             logger.debug("Initializing LoRA adapters from config")

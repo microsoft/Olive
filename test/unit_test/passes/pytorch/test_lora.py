@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import platform
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 import torch
@@ -74,11 +73,10 @@ def run_finetuning(pass_class, tmp_path, **pass_config_kwargs):
 
 # TODO(team): Failed in pipeline (linux gpu). Need to investigate.
 @pytest.mark.skipif(
-    not torch.cuda.is_available() or True,
+    not torch.cuda.is_available(),
     reason="lora finetuning requires GPU.",
 )
-@patch("transformers.Trainer.train")
-def test_lora(mock_tain, tmp_path):
+def test_lora(tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
     out = run_finetuning(LoRA, tmp_path, torch_dtype="float32")
@@ -89,14 +87,13 @@ def test_lora(mock_tain, tmp_path):
 
 # TODO(team): Failed in pipeline (linux gpu). Need to investigate.
 @pytest.mark.skipif(
-    platform.system() == OS.WINDOWS or not torch.cuda.is_available() or True,
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
-@patch("transformers.Trainer.train")
-def test_qlora(mock_tain, tmp_path):
+def test_qlora(tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
-    out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32")
+    out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32", device_map="current_device")
 
     # assert
     assert Path(out.get_resource("adapter_path")).exists()
@@ -104,33 +101,34 @@ def test_qlora(mock_tain, tmp_path):
 
 # TODO(team): Failed in pipeline (linux gpu). Need to investigate.
 @pytest.mark.skipif(
-    platform.system() == OS.WINDOWS or not torch.cuda.is_available() or True,
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
-@patch("transformers.Trainer.train")
-def test_loftq(mock_tain, tmp_path):
+def test_loftq(tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
-    out = run_finetuning(LoftQ, tmp_path, torch_dtype="float32")
+    out = run_finetuning(LoftQ, tmp_path, torch_dtype="float32", device_map="current_device")
 
     # assert
     assert Path(out.get_resource("model_path")).exists()
     assert Path(out.get_resource("adapter_path")).exists()
 
 
-@patch("transformers.Trainer.train")
-def test_loha(mock_train, tmp_path):
+def test_loha(tmp_path):
     # execute
-    out = run_finetuning(LoHa, tmp_path, torch_dtype="float32")
+    out = run_finetuning(
+        LoHa, tmp_path, torch_dtype="float16", training_args={"remove_unused_columns": False, "save_safetensors": False}
+    )
 
     # assert
     assert Path(out.get_resource("adapter_path")).exists()
 
 
-@patch("transformers.Trainer.train")
-def test_lokr(mock_train, tmp_path):
+def test_lokr(tmp_path):
     # execute
-    out = run_finetuning(LoKr, tmp_path, torch_dtype="float32")
+    out = run_finetuning(
+        LoKr, tmp_path, torch_dtype="float16", training_args={"remove_unused_columns": False, "save_safetensors": False}
+    )
 
     # assert
     assert Path(out.get_resource("adapter_path")).exists()
