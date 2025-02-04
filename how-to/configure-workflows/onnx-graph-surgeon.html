@@ -1056,6 +1056,41 @@
 </div>
 </section>
 </section>
+<section id="rmsnormtol2norm">
+<h3>RMSNormToL2Norm<a class="headerlink" href="#rmsnormtol2norm" title="Link to this heading">#</a></h3>
+<section id="id28">
+<h4>Description<a class="headerlink" href="#id28" title="Link to this heading">#</a></h4>
+<p>Replace RMSNorm subgraph with L2Norm subgraph.</p>
+</section>
+<section id="id29">
+<h4>Example<a class="headerlink" href="#id29" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">RMSNorm</span> <span class="n">pattern</span><span class="p">:</span>
+    <span class="o">+-----------------------------------------------+</span>
+    <span class="o">|</span>                                               <span class="o">|</span>
+    <span class="o">|</span>                                               <span class="n">v</span>
+<span class="p">[</span><span class="n">Root</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">Pow</span> <span class="o">--&gt;</span> <span class="n">ReduceMean</span> <span class="o">--&gt;</span> <span class="n">Add</span> <span class="o">--&gt;</span> <span class="n">Sqrt</span> <span class="o">--&gt;</span> <span class="n">Div</span> <span class="o">--&gt;</span> <span class="n">Mul</span>
+          <span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>     <span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>   <span class="p">(</span><span class="n">B</span><span class="o">=</span><span class="n">E</span><span class="o">-</span><span class="mi">6</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RMSNormToL2Norm&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">Root</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">LpNormalization</span> <span class="o">--&gt;</span> <span class="n">Mul</span>
+           <span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 </section>
 
@@ -1171,6 +1206,11 @@
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id25">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id26">Configurations</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id27">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rmsnormtol2norm">RMSNormToL2Norm</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id28">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id29">Example</a></li>
 </ul>
 </li>
 </ul>
