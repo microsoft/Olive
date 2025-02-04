@@ -656,3 +656,44 @@ graph {
   output: "zero_point"
 }
 ```
+
+
+### RMSNormToL2Norm
+
+#### Description
+
+Replace RMSNorm subgraph with L2Norm subgraph.
+
+#### Example
+
+Initial model graph:
+
+```
+RMSNorm pattern:
+    +-----------------------------------------------+
+    |                                               |
+    |                                               v
+[Root] --> Pow --> ReduceMean --> Add --> Sqrt --> Div --> Mul
+          (y=2)     (axis=-1)   (B=E-6)
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RMSNormToL2Norm"
+        }
+    ]
+}
+```
+
+
+Transformed model graph:
+
+```
+[Root] --> LpNormalization --> Mul
+           (p=2, axis=-1)
+```

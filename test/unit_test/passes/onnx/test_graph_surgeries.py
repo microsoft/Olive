@@ -6,11 +6,15 @@ from pathlib import Path
 
 import numpy as np
 import onnx
+import pytest
+import torch
 from onnx import TensorProto, helper, numpy_helper
+from onnxruntime import InferenceSession
 
 from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
+from olive.passes.onnx.onnx_dag import OnnxDAG
 
 
 def get_onnx_model(model_path):
@@ -351,3 +355,76 @@ def test_expose_quantized_output(tmp_path):
     assert np.allclose(
         numpy_helper.to_array(zero_point_initializer), np.array([original_zero_point_value], dtype=zero_point_dtype)
     ), "Zero point value mismatch."
+
+
+class RMSNorm(torch.nn.Module):
+    def __init__(self, hidden_size, eps=1e-6, use_rsqrt=True, use_cast=True, all_ones=False):
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.ones(hidden_size) if all_ones else torch.randn(hidden_size))
+        self.variance_epsilon = eps
+        self.use_rsqrt = use_rsqrt
+        self.use_cast = use_cast
+
+    def forward(self, hidden_states):
+        input_dtype = hidden_states.dtype
+        if self.use_cast:
+            hidden_states = hidden_states.to(torch.float32)
+        variance = hidden_states.pow(2).mean(-1, keepdim=True)
+        if self.use_rsqrt:
+            hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+        else:
+            hidden_states = hidden_states / torch.sqrt(variance + self.variance_epsilon)
+        return self.weight * (hidden_states.to(input_dtype) if self.use_cast else hidden_states)
+
+
+@pytest.mark.parametrize("use_rsqrt", [True, False])
+@pytest.mark.parametrize("use_cast", [True, False])
+@pytest.mark.parametrize("all_ones", [True, False])
+def test_rmsnorm_to_l2norm(tmp_path, use_rsqrt, use_cast, all_ones):
+    # setup
+    hidden_size = 3
+    module = RMSNorm(hidden_size, use_rsqrt=use_rsqrt, use_cast=use_cast, all_ones=all_ones)
+    input_model_path = tmp_path / "input_model.onnx"
+    torch.onnx.export(
+        module, torch.randn(1, hidden_size), input_model_path, input_names=["x"], output_names=["y"], opset_version=20
+    )
+    input_model = ONNXModelHandler(input_model_path)
+
+    output_folder = str(tmp_path / "output")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RMSNormToL2Norm"}]},
+        disable_search=True,
+    )
+
+    # execute
+    onnx_model = p.run(input_model, output_folder)
+
+    # assert
+    # check output values match
+    input_session = InferenceSession(input_model_path)
+    output_session = InferenceSession(onnx_model.model_path)
+    input_feed = {"x": np.random.randn(1, hidden_size).astype(np.float32)}
+    input_result = input_session.run(None, input_feed)
+    output_result = output_session.run(None, input_feed)
+    np.testing.assert_allclose(input_result[0], output_result[0], rtol=1e-5, atol=1e-5)
+    # count nodes
+    dag = OnnxDAG.from_model_path(onnx_model.model_path)
+    expected_num_nodes = 2 + 2 * int(use_cast)
+    assert len(dag.nodes) == expected_num_nodes
+    # check all ones case
+    if all_ones:
+        mul_name = None
+        for node in dag.get_node_names():
+            if dag.get_node_op_type(node) == "Mul":
+                mul_name = node
+                break
+        mul_weight_name = None
+        for input_name in dag.get_node_inputs(mul_name):
+            if dag.is_initializer(input_name):
+                mul_weight_name = input_name
+                break
+        mul_weight = dag.get_initializer_np_array(mul_weight_name)
+        assert mul_weight.shape == (1,)
+        assert np.allclose(mul_weight, np.sqrt(hidden_size))
