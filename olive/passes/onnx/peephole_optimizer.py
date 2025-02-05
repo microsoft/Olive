@@ -190,7 +190,7 @@ class OnnxPeepholeOptimizer(Pass):
         peephole_optimizer = ModelOptimizer(model.model_path)
         peephole_optimizer.onnxscript_optimize()
         peephole_optimizer.onnxoptimizer_optimize()
-        peephole_optimizer.clip_attention_mask()
+        # peephole_optimizer.clip_attention_mask()
         peephole_optimizer.remove_useless_cast_nodes()
         peephole_optimizer.patch_unsupported_argmax_operator()
         peephole_optimizer.fuse_reshape_operations()
