@@ -596,7 +596,10 @@ class RMSNormToL2Norm(Surgeon):
 
 
 class ReplaceAttentionMaskValue(Surgeon):
-    """Replace the value of extended attention mask with a new value."""
+    """Replace the value of extended attention mask with a new value.
+
+    This surgery is useful if the default mask value does not quantize well due to numerical instability.
+    """
 
     def __init__(self, threshold: float = -3e30, replacement: float = -1e4):
         self.threshold = threshold
