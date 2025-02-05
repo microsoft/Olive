@@ -93,7 +93,7 @@ def test_lora(tmp_path):
 def test_qlora(tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
-    out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32", device_map="current_device")
+    out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32")
 
     # assert
     assert Path(out.get_resource("adapter_path")).exists()
@@ -107,13 +107,17 @@ def test_qlora(tmp_path):
 def test_loftq(tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
-    out = run_finetuning(LoftQ, tmp_path, torch_dtype="float32", device_map="current_device")
+    out = run_finetuning(LoftQ, tmp_path, torch_dtype="float32")
 
     # assert
     assert Path(out.get_resource("model_path")).exists()
     assert Path(out.get_resource("adapter_path")).exists()
 
 
+@pytest.mark.skipif(
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
+    reason="bitsandbytes requires Linux GPU.",
+)
 def test_loha(tmp_path):
     # execute
     out = run_finetuning(
@@ -124,6 +128,10 @@ def test_loha(tmp_path):
     assert Path(out.get_resource("adapter_path")).exists()
 
 
+@pytest.mark.skipif(
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
+    reason="bitsandbytes requires Linux GPU.",
+)
 def test_lokr(tmp_path):
     # execute
     out = run_finetuning(
