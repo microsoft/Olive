@@ -27,6 +27,7 @@ Given a model and targeted hardware, Olive (abbreviation of **O**nnx **LIVE**) c
 ## 📰 News Highlights
 Here are some recent videos, blog articles and labs that highlight Olive:
 
+- [ Feb 2025 ] [New Notebook available - Finetune and Optimize DeepSeek R1 with Olive 🐋 ](examples/getting_started/olive-deepseek-finetune.ipynb)
 - [ Nov 2024 ] [Democratizing AI Model optimization with the new Olive CLI](https://onnxruntime.ai/blogs/olive-cli)
 - [ Nov 2024 ] [Unlocking NLP Potential: Fine-Tuning with Microsoft Olive (Ignite Pre-Day Lab PRE016)](https://github.com/Azure/Ignite_FineTuning_workshop)
 - [ Nov 2024 ] [Olive supports generating models for MultiLoRA serving on the ONNX Runtime ](https://onnxruntime.ai/blogs/multilora)
@@ -46,6 +47,7 @@ The following notebooks are available that demonstrate key optimization workflow
 | **Quickstart** | Text Generation | *Learn how to quantize & optimize an SLM for the ONNX Runtime using a single Olive command.* | 5mins  | [Download](examples/getting_started/olive_quickstart.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb) |
 | **Optimizing popular SLMs** | Text Generation | *Choose from a curated list of over 20 popular SLMs to quantize & optimize for the ONNX runtime.* | 5mins  | [Download](examples/getting_started/text-gen-optimized-slms.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/text-gen-optimized-slms.ipynb) |
 | **How to finetune models for on-device inference** | Text Generation | *Learn how to Quantize (using AWQ method), fine-tune, and optimize an SLM for on-device inference.* |15mins| [Download](examples/getting_started/olive-awq-ft-llama.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive-awq-ft-llama.ipynb) |
+| **Finetune and Optimize DeepSeek R1 with Olive** | Text Generation | *Learn how to Finetune and Optimize DeepSeek-R1-Distill-Qwen-1.5B for on-device inference.* |15mins| [Download](examples/getting_started/olive-deepseek-finetune.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive-deepseek-finetune.ipynb) |
 
 ### ✨ Quickstart
 If you prefer using the command line directly instead of Jupyter notebooks, we've outlined the quickstart commands here.
