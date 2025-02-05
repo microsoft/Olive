@@ -243,11 +243,10 @@ class OnnxDAG:
         """
         self._add_special_input(initializer, graph_idx, SpecialInput.INITIALIZER, keep_input)
 
-    def replace_initializer(self, initializer: TensorProto, graph_idx: int):
+    def replace_initializer(self, initializer: TensorProto):
         """Replace an initializer in the graph.
 
         :param initializer: TensorProto of the initializer.
-        :param graph_idx: index of the graph in the model.
         """
         name = initializer.name
         if not self.is_initializer(name):
@@ -586,6 +585,38 @@ class OnnxDAG:
             return self.get_node_op_type(source) == "Constant"
 
         return (source == SpecialInput.INITIALIZER) or (allow_input_initializer and SpecialInput.is_initializer(source))
+
+    def get_input_names(self) -> List[str]:
+        """Get the names of all inputs in the graph.
+
+        :return: list of input names.
+        """
+        return [i for i in self.ios if self.is_input(i)]
+
+    def get_initializer_names(self) -> List[str]:
+        """Get the names of all initializers in the graph.
+
+        :return: list of initializer names.
+        """
+        return [i for i in self.ios if self.is_initializer(i)]
+
+    def get_input_proto(self, input_name: str) -> ValueInfoProto:
+        """Get the input proto.
+
+        :param input_name: name of the input.
+        :return: ValueInfoProto object.
+        """
+        assert self.is_input(input_name)
+        return self.ios[input_name].proto[0]
+
+    def get_initializer_proto(self, initializer_name: str) -> TensorProto:
+        """Get the initializer proto.
+
+        :param initializer_name: name of the initializer.
+        :return: TensorProto object.
+        """
+        assert self.is_initializer(initializer_name)
+        return self.ios[initializer_name].proto[-1]
 
     def get_graph_idx(self, name: str) -> int:
         """Get the index of the graph containing the input/output or node."""

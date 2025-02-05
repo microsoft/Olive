@@ -554,9 +554,7 @@ class RMSNormToL2Norm(Surgeon):
                     rmsnorm_weight = np.array([1], dtype=rmsnorm_weight.dtype)
                 rmsnorm_weight = sqrt_n * rmsnorm_weight
 
-                dag.replace_initializer(
-                    onnx.numpy_helper.from_array(rmsnorm_weight, name=rmsnorm_weight_name), graph_idx
-                )
+                dag.replace_initializer(onnx.numpy_helper.from_array(rmsnorm_weight, name=rmsnorm_weight_name))
                 replaced_initializers.add(rmsnorm_weight_name)
 
             # add and replace nodes
@@ -595,6 +593,64 @@ class RMSNormToL2Norm(Surgeon):
                 break
 
         return rmsnorm_nodes if len(rmsnorm_nodes) >= (len(pattern) - 1) else []
+
+
+class ReplaceAttentionMaskValue(Surgeon):
+    """Replace the value of extended attention mask with a new value."""
+
+    def __init__(self, threshold: float = -3e30, replacement: float = -1e4):
+        self.threshold = threshold
+        self.replacement = replacement
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+        modified = 0
+
+        # update any constant or constantofshape nodes with the threshold value
+        for node_name in dag.get_node_names():
+            op_type = dag.get_node_op_type(node_name)
+            node_proto = dag.get_node_proto(node_name)
+            # print(node_name)
+            if not (
+                op_type in {"Constant", "ConstantOfShape"}
+                and node_proto.attribute
+                and node_proto.attribute[0].t
+                and node_proto.attribute[0].t.data_type == onnx.TensorProto.FLOAT
+                and node_proto.attribute[0].t.dims in [[], [1]]
+            ):
+                continue
+
+            value = onnx.helper.get_attribute_value(node_proto.attribute[0])
+            tensor_value = onnx.numpy_helper.to_array(value)
+            if tensor_value < self.threshold:
+                node_proto.ClearField("attribute")
+                node_proto.attribute.extend(
+                    [
+                        onnx.helper.make_attribute(
+                            "value", onnx.numpy_helper.from_array(np.full_like(tensor_value, self.replacement))
+                        )
+                    ]
+                )
+                modified += 1
+
+        # update any initializer nodes with the threshold value
+        for init_name in dag.get_initializer_names():
+            init_proto = dag.get_initializer_proto(init_name)
+            if not (init_proto.data_type == onnx.TensorProto.FLOAT and init_proto.dims in [[], [1]]):
+                continue
+
+            tensor_value = onnx.numpy_helper.to_array(init_proto)
+            if tensor_value < self.threshold:
+                dag.replace_initializer(
+                    onnx.numpy_helper.from_array(np.full_like(tensor_value, self.replacement), name=init_name)
+                )
+                modified += 1
+
+        if modified > 0:
+            logger.debug("Replaced %d values below threshold with replacement.", modified)
+
+        dag.update()
+        return dag.model
 
 
 class GraphSurgeries(Pass):
@@ -657,22 +713,33 @@ class GraphSurgeries(Pass):
         if not surgeon_class:
             raise ValueError(f"Surgeon '{surgeon_name}' does not exist. Available surgeons: {Surgeon.registry.keys()}")
 
-        required_params = self.get_surgeon_parameters(surgeon_class)
+        required_params, optional_params = self.get_surgeon_parameters(surgeon_class)
         provided_params = set(surgery.keys()) - {"surgeon"}
         missing_params = set(required_params) - provided_params
-        extra_params = provided_params - set(required_params)
+        extra_params = provided_params - set(required_params) - set(optional_params)
 
         if missing_params:
             raise ValueError(f"Missing parameters for surgery '{surgeon_name}': {missing_params}")
         if extra_params:
-            raise ValueError(f"Ignoring extra parameters for surgery '{surgeon_name}': {extra_params}")
+            logger.warning("Ignoring extra parameters for surgery '%s': %s", surgeon_name, extra_params)
 
         init_params = {param: surgery[param] for param in required_params}
+        init_params.update({param: surgery[param] for param in optional_params if param in surgery})
         return surgeon_class(**init_params)
 
     @staticmethod
     def get_surgeon_parameters(surgeon_class):
-        signature = inspect.signature(surgeon_class.__init__)
-        params = list(signature.parameters.keys())
-        params.remove("self")
-        return params
+        parameters = inspect.signature(surgeon_class.__init__).parameters
+
+        positional_args = [
+            name
+            for name, param in parameters.items()
+            if param.default == param.empty and param.kind in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD)
+        ]
+        positional_args.remove("self")
+        keyword_args = [
+            name
+            for name, param in parameters.items()
+            if param.default != param.empty or param.kind == param.KEYWORD_ONLY
+        ]
+        return positional_args, keyword_args
