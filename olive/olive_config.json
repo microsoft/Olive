@@ -292,6 +292,13 @@
             "supported_precisions": [ "*" ],
             "extra_dependencies": [ "bnb", "lora" ]
         },
+        "DoRA": {
+            "module_path": "olive.passes.pytorch.lora.DoRA",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "extra_dependencies": [ "bnb", "lora" ]
+        },
         "QuantizationAwareTraining": {
             "module_path": "olive.passes.pytorch.quantization_aware_training.QuantizationAwareTraining",
             "supported_providers": [ "*" ],
@@ -387,7 +394,7 @@
         "flash-attn": [ "flash_attn" ],
         "gpu": [ "onnxruntime-gpu" ],
         "inc": [ "neural-compressor" ],
-        "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
+        "lora": [ "accelerate>=0.30.0", "peft>=0.12.0", "scipy" ],
         "nvmo": [ "nvidia-modelopt", "onnx-graphsurgeon", "datasets>=2.14.4", "cppimport==22.8.2" ],
         "openvino": [ "openvino==2023.2.0", "nncf==2.7.0", "numpy<2.0" ],
         "optimum": [ "optimum" ],
