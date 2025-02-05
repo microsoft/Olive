@@ -99,7 +99,7 @@ This workflow performs BERT optimization on GPU with CUDA/TensorRT. It performs 
     - *PyTorch Model -> Onnx Model -> ONNX Runtime performance tuning with trt_fp16_enable*
     Config file: [bert_trt_gpu.json](bert_trt_gpu.json)
 
-### BERT optimization with PTQ on CPU
+### BERT optimization with PTQ on NPU
 This workflow performs BERT optimization on Qualcomm NPU with ONNX Runtime PTQ. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> Static shaped Onnx Model -> Quantized Onnx Model*
 
