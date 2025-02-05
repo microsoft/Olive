@@ -409,6 +409,8 @@ Please also find the detailed options from following table for each pass:
 | [CaptureSplitInfo](../../reference/pass.rst#_capture_split_info) | Capture the split information of the model layers. Only splits the transformer layers. |
 | [SplitModel](../../reference/pass.rst#_split_model) | Split an ONNX model into multiple smaller sub-models based on predefined assignments. |
 | [LoRA](../../reference/pass.rst#_lora) | Run LoRA fine-tuning on a Hugging Face PyTorch model. |
+| [LoHa](../../reference/pass.rst#_loha) | Run LoHa fine-tuning on a Hugging Face PyTorch model. |
+| [LoKr](../../reference/pass.rst#_lokr) | Run LoKr fine-tuning on a Hugging Face PyTorch model. |
 | [QLoRA](../../reference/pass.rst#_qlora) | Run QLoRA fine-tuning on a Hugging Face PyTorch model. |
 | [LoftQ](../../reference/pass.rst#_loftq) | Run LoftQ fine-tuning on a Hugging Face PyTorch model. |
 | [QuantizationAwareTraining](../../reference/pass.rst#_onnx_quantization_aware_training) | Run quantization aware training on PyTorch model. |

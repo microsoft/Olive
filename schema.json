@@ -444,6 +444,7 @@
     },
     "Metric": {
       "title": "Metric",
+      "description": "Config class that automatically gathers all values.\n\nThe values are defined in the class fields and inserted into a dict Field called described by `_nested_field_name`.\nGenerally used for configs that have a nested structure like:\n    {\n        \"type\": \"object\",\n        \"config\": {\n            \"key1\": \"value1\",\n            \"key2\": \"value2\"\n        }\n    }\nMust ensure that there are no fields inside the `_nested_field_name` dict/class that are also defined as fields in\nthis class. The fields of this class take precedence over the fields in the nested class.",
       "type": "object",
       "properties": {
         "name": {

@@ -1091,6 +1091,107 @@
 </div>
 </section>
 </section>
+<section id="replaceattentionmaskvalue">
+<h3>ReplaceAttentionMaskValue<a class="headerlink" href="#replaceattentionmaskvalue" title="Link to this heading">#</a></h3>
+<section id="id30">
+<h4>Description<a class="headerlink" href="#id30" title="Link to this heading">#</a></h4>
+<p>Replace the value of extended attention mask with a new value. This surgery is useful if the default mask value does not quantize well due to numerical instability.</p>
+</section>
+<section id="id31">
+<h4>Example<a class="headerlink" href="#id31" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+    <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;output1&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;ConstantOfShape&quot;</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;ConstantOfShape&quot;</span>
+    <span class="n">attribute</span> <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span>
+      <span class="n">t</span> <span class="p">{</span>
+        <span class="n">dims</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">3.4028234663852886e+38</span>
+        <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+      <span class="p">}</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">TENSOR</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;Constant_output&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;Constant&quot;</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Constant&quot;</span>
+    <span class="n">attribute</span> <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span>
+      <span class="n">t</span> <span class="p">{</span>
+        <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">3.4028234663852886e+38</span>
+        <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+      <span class="p">}</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">TENSOR</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">initializer</span> <span class="p">{</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">3.4028234663852886e+38</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;init&quot;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ReplaceAttentionMaskValue&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+    <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;output1&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;ConstantOfShape&quot;</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;ConstantOfShape&quot;</span>
+    <span class="n">attribute</span> <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span>
+      <span class="n">t</span> <span class="p">{</span>
+        <span class="n">dims</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">10000.0</span>
+        <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+      <span class="p">}</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">TENSOR</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;Constant_output&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;Constant&quot;</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Constant&quot;</span>
+    <span class="n">attribute</span> <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span>
+      <span class="n">t</span> <span class="p">{</span>
+        <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">10000.0</span>
+        <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+      <span class="p">}</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">TENSOR</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">initializer</span> <span class="p">{</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">10000.0</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;init&quot;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 </section>
 
@@ -1211,6 +1312,11 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rmsnormtol2norm">RMSNormToL2Norm</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id28">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id29">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replaceattentionmaskvalue">ReplaceAttentionMaskValue</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id30">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id31">Example</a></li>
 </ul>
 </li>
 </ul>
