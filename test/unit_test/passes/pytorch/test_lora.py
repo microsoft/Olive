@@ -121,7 +121,7 @@ def test_loftq(tmp_path):
 def test_loha(tmp_path):
     # execute
     out = run_finetuning(
-        LoHa, tmp_path, torch_dtype="float16", training_args={"remove_unused_columns": False, "save_safetensors": False}
+        LoHa, tmp_path, torch_dtype="float32", training_args={"remove_unused_columns": False, "save_safetensors": False}
     )
 
     # assert
@@ -135,7 +135,7 @@ def test_loha(tmp_path):
 def test_lokr(tmp_path):
     # execute
     out = run_finetuning(
-        LoKr, tmp_path, torch_dtype="float16", training_args={"remove_unused_columns": False, "save_safetensors": False}
+        LoKr, tmp_path, torch_dtype="float32", training_args={"remove_unused_columns": False, "save_safetensors": False}
     )
 
     # assert
