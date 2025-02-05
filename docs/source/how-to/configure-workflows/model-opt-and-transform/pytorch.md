@@ -14,7 +14,7 @@ This pass only supports HfModels. Please refer to [LoRA](lora) for more details 
 ```json
 {
     "type": "LoRA",
-    "lora_alpha": 16,
+    "alpha": 16,
     "train_data_config": // ...,
     "training_args": {
         "learning_rate": 0.0002,

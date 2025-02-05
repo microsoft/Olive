@@ -107,8 +107,8 @@ class FineTuneCommand(BaseOliveCLICommand):
             ((*finetune_key, "type"), self.args.method),
             ((*finetune_key, "torch_dtype"), self.args.torch_dtype),
             ((*finetune_key, "training_args"), self.parse_training_args()),
-            ((*finetune_key, "lora_r"), self.args.lora_r),
-            ((*finetune_key, "lora_alpha"), self.args.lora_alpha),
+            ((*finetune_key, "r"), self.args.lora_r),
+            ((*finetune_key, "alpha"), self.args.lora_alpha),
             ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
         ]
