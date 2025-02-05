@@ -379,6 +379,7 @@
         "optimum": [ "optimum" ],
         "ort-genai": [ "onnxruntime-genai" ],
         "ort": [ "onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino", "numpy<2.0" ],
+        "qnn": [ "onnxruntime-qnn" ],
         "tf": [ "tensorflow==1.15.0" ],
         "torch-tensorrt": [ "torch-tensorrt" ],
         "tune-session-params": [ "psutil" ]
