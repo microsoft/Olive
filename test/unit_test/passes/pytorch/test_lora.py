@@ -114,6 +114,10 @@ def test_loftq(tmp_path):
     assert Path(out.get_resource("adapter_path")).exists()
 
 
+@pytest.mark.skipif(
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
+    reason="bitsandbytes requires Linux GPU.",
+)
 def test_loha(tmp_path):
     # execute
     out = run_finetuning(
@@ -124,6 +128,10 @@ def test_loha(tmp_path):
     assert Path(out.get_resource("adapter_path")).exists()
 
 
+@pytest.mark.skipif(
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
+    reason="bitsandbytes requires Linux GPU.",
+)
 def test_lokr(tmp_path):
     # execute
     out = run_finetuning(

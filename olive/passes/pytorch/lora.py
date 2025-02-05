@@ -568,7 +568,7 @@ class LoHa(LoRAVariant):
     @staticmethod
     def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
         """Get the PEFT model for LoHa fine-tuning."""
-        from peft import LoHaConfig, LoHaModel
+        from peft import LoHaConfig, get_peft_model
 
         target_modules = config.target_modules or "all-linear"
         config = LoHaConfig(
@@ -587,7 +587,7 @@ class LoHa(LoRAVariant):
             modules_to_save=config.modules_to_save,
         )
 
-        return LoHaModel(model, config, "default")
+        return get_peft_model(model, config)
 
     @classmethod
     def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
@@ -629,7 +629,7 @@ class LoKr(LoRAVariant):
     @staticmethod
     def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
         """Get the PEFT model for LoKr fine-tuning."""
-        from peft import LoKrConfig, LoKrModel
+        from peft import LoKrConfig, get_peft_model
 
         target_modules = config.target_modules or "all-linear"
         config = LoKrConfig(
@@ -651,7 +651,7 @@ class LoKr(LoRAVariant):
             modules_to_save=config.modules_to_save,
         )
 
-        return LoKrModel(model, config, "default")
+        return get_peft_model(model, config)
 
     @classmethod
     def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
