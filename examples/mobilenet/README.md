@@ -32,4 +32,4 @@ Run the following command to quantize the model and evaluate it on the NPU:
 olive run --config mobilenet_qnn_ep.json
 ```
 
-**NOTE:** The model optimization part of the workflow can also be done on a Linux machine with a different onnxruntime package installed. Remove the `"evaluators"` and `"evaluator`" sections from the `mobilenet_qnn_ep.json` configuration file to skip the evaluation step.
+**NOTE:** The model optimization part of the workflow can also be done on a Linux/Windows machine with a different onnxruntime package installed. Remove the `"evaluators"` and `"evaluator"` sections from the `mobilenet_qnn_ep.json` configuration file to skip the evaluation step.

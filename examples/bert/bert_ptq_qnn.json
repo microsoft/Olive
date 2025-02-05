@@ -1,0 +1,75 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "Intel/bert-base-uncased-mrpc",
+        "task": "text-classification",
+        "load_kwargs": { "attn_implementation": "eager" }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
+        }
+    },
+    "data_configs": [
+        {
+            "name": "glue_mrpc",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": { "data_name": "glue", "subset": "mrpc", "split": "validation" },
+            "pre_process_data_config": {
+                "max_length": 128,
+                "padding": "max_length",
+                "input_cols": [ "sentence1", "sentence2" ],
+                "max_samples": 100
+            },
+            "dataloader_config": { "batch_size": 1 }
+        }
+    ],
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "data_config": "glue_mrpc",
+                    "sub_types": [ { "name": "accuracy_score", "priority": 1 } ]
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "data_config": "glue_mrpc",
+                    "sub_types": [ { "name": "avg", "priority": 2 } ]
+                },
+                {
+                    "name": "latency_cpu",
+                    "type": "latency",
+                    "data_config": "glue_mrpc",
+                    "sub_types": [ { "name": "avg", "priority": 3 } ],
+                    "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": { "type": "OnnxConversion", "target_opset": 17 },
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [ "batch_size", "sequence_length" ],
+            "dim_value": [ 1, 128 ]
+        },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
+        "qnn_preprocess": { "type": "QNNPreprocess" },
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "data_config": "glue_mrpc",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8"
+        }
+    },
+    "evaluator": "common_evaluator",
+    "evaluate_input_model": false,
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models/bert_ptq_qnn"
+}

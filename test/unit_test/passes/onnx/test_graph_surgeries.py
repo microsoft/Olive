@@ -428,3 +428,84 @@ def test_rmsnorm_to_l2norm(tmp_path, use_rsqrt, use_cast, all_ones):
         mul_weight = dag.get_initializer_np_array(mul_weight_name)
         assert mul_weight.shape == (1,)
         assert np.allclose(mul_weight, np.sqrt(hidden_size))
+
+
+def test_replace_attention_mask_value(tmp_path):
+    # setup
+    min_value = float(np.finfo(np.float32).min)
+    input_tensors = [
+        helper.make_tensor_value_info("input1", TensorProto.INT64, [1]),
+        helper.make_tensor_value_info("input2", TensorProto.FLOAT, [1]),
+        helper.make_tensor_value_info("input3", TensorProto.FLOAT, [1]),
+    ]
+    output_tensors = [
+        helper.make_tensor_value_info("output1", TensorProto.FLOAT, [1]),
+        helper.make_tensor_value_info("output2", TensorProto.FLOAT, [1]),
+        helper.make_tensor_value_info("output3", TensorProto.FLOAT, [1]),
+    ]
+    initializers = [
+        helper.make_tensor("init", TensorProto.FLOAT, [], [min_value]),
+    ]
+    nodes = [
+        helper.make_node(
+            "ConstantOfShape",
+            inputs=["input1"],
+            outputs=["output1"],
+            name="ConstantOfShape",
+            value=helper.make_tensor("", TensorProto.FLOAT, [1], [min_value]),
+        ),
+        helper.make_node(
+            "Constant",
+            inputs=[],
+            outputs=["Constant_output"],
+            name="Constant",
+            value=helper.make_tensor("", TensorProto.FLOAT, [], [min_value]),
+        ),
+        helper.make_node(
+            "Mul",
+            inputs=["input2", "Constant_output"],
+            outputs=["output2"],
+            name="Mul_constant",
+        ),
+        helper.make_node(
+            "Mul",
+            inputs=["input3", "init"],
+            outputs=["output3"],
+            name="Mul_init",
+        ),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=input_tensors,
+        outputs=output_tensors,
+        initializer=initializers,
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "ReplaceAttentionMaskValue"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+    output_session = output_model.prepare_session()
+    outputs = output_session.run(
+        None,
+        {
+            "input1": np.array([1], dtype=np.int64),
+            "input2": np.array([1], dtype=np.float32),
+            "input3": np.array([1], dtype=np.float32),
+        },
+    )
+    assert all(o == -1e4 for o in outputs)
