@@ -613,7 +613,6 @@ class ReplaceAttentionMaskValue(Surgeon):
         for node_name in dag.get_node_names():
             op_type = dag.get_node_op_type(node_name)
             node_proto = dag.get_node_proto(node_name)
-            # print(node_name)
             if not (
                 op_type in {"Constant", "ConstantOfShape"}
                 and node_proto.attribute
