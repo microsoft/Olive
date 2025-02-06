@@ -218,7 +218,8 @@ class QuaRot(RotateBase):
         model.save_metadata(output_model_path)
 
         return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
-    
+
+
 class QuaRot2(RotateBase):
     """Rotate model using QuaRot.
 
@@ -230,7 +231,9 @@ class QuaRot2(RotateBase):
 
     @torch.no_grad()
     def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
-        model_wrapper, _, save_replacements = self.rotate_model(model, config["rotate_mode"], config["seed"], apply_R2=False)
+        model_wrapper, _, save_replacements = self.rotate_model(
+            model, config["rotate_mode"], config["seed"], apply_R2=False
+        )
 
         # save the model
         model_wrapper.save_model(output_model_path, replacements=save_replacements)
