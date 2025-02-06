@@ -6,14 +6,15 @@ import inspect
 import logging
 import shutil
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Type, Union, get_args
 
 from olive.common.config_utils import ParamCategory, validate_config
-from olive.common.pydantic_v1 import BaseModel, ValidationError, create_model
+from olive.common.pydantic_v1 import BaseModel, ValidationError, create_model, validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
-from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
+from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec, Device
 from olive.model import CompositeModelHandler, DistributedOnnxModelHandler, OliveModelHandler, ONNXModelHandler
 from olive.passes.pass_config import (
     AbstractPassConfig,
@@ -80,17 +81,10 @@ class Pass(ABC):
         if hasattr(self.config, "user_script") and hasattr(self.config, "script_dir"):
             self._user_module_loader = UserModuleLoader(self.config.user_script, self.config.script_dir)
 
-        # Params that are paths [(param_name, required)]
-        self.path_params = [
-            (param, param_config.required, param_config.category)
-            for param, param_config in self.default_config(accelerator_spec).items()
-            if param_config.category in (ParamCategory.PATH, ParamCategory.DATA)
-        ]
-
         self._initialized = False
 
-    @staticmethod
-    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+    @classmethod
+    def is_accelerator_agnostic(cls, accelerator_spec: AcceleratorSpec) -> bool:
         """Whether the pass is accelerator agnostic. If True, the pass will be reused for all accelerators.
 
         The default value is True. The subclass could choose to override this method to return False by using the
@@ -482,17 +476,35 @@ class FullPassConfig(AbstractPassConfig):
     reconstruct the pass from the JSON file.
     """
 
-    accelerator: Dict[str, str] = None
-    host_device: Optional[str] = None
+    accelerator: Optional[AcceleratorSpec] = None
+    host_device: Optional[Device] = None
 
-    def create_pass(self):
-        if not isinstance(self.accelerator, dict):
-            raise ValueError(f"accelerator must be a dict, got {self.accelerator}")
+    @validator("accelerator", pre=True)
+    def validate_accelerator(cls, v):
+        if isinstance(v, AcceleratorSpec):
+            return v
+        elif isinstance(v, dict):
+            return AcceleratorSpec(**v)
+        raise ValueError("Invalid accelerator input.")
 
-        pass_cls = Pass.registry[self.type.lower()]
-        accelerator_spec = AcceleratorSpec(**self.accelerator)  # pylint: disable=not-a-mapping
-        self.config = pass_cls.generate_config(accelerator_spec, self.config)
-        return pass_cls(accelerator_spec, self.config, self.host_device)
+    def create_pass(self) -> Pass:
+        """Create a Pass."""
+        return super().create_pass_with_args(self.accelerator, self.host_device)
+
+    @staticmethod
+    def from_run_pass_config(
+        run_pass_config: Dict[str, Any],
+        accelerator: "AcceleratorSpec",
+        host_device: Device = None,
+    ) -> "FullPassConfig":
+        config = deepcopy(run_pass_config) if isinstance(run_pass_config, dict) else run_pass_config.dict()
+        config.update(
+            {
+                "accelerator": accelerator,
+                "host_device": host_device,
+            }
+        )
+        return validate_config(config, FullPassConfig)
 
 
 # TODO(myguo): deprecate or remove this function by explicitly specify the accelerator_spec in the arguments

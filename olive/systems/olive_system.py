@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import ModelConfig
-    from olive.passes.olive_pass import Pass
+    from olive.passes.olive_pass import FullPassConfig
 
 
 logger = logging.getLogger(__name__)
@@ -41,8 +41,13 @@ class OliveSystem(ABC):
         self.hf_token = hf_token
 
     @abstractmethod
-    def run_pass(self, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str) -> "ModelConfig":
-        """Run the pass on the model at a specific point in the search space."""
+    def run_pass(
+        self,
+        full_pass_config: "FullPassConfig",
+        model_config: "ModelConfig",
+        output_model_path: str,
+    ) -> "ModelConfig":
+        """Create and run the pass on the model."""
         raise NotImplementedError
 
     @abstractmethod

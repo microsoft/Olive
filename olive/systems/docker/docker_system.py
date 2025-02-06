@@ -8,7 +8,7 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 import docker
 from docker.errors import BuildError, ContainerError
@@ -18,6 +18,7 @@ from olive.common.config_utils import ParamCategory, validate_config
 from olive.evaluator.metric_result import MetricResult
 from olive.hardware import Device
 from olive.model import ModelConfig
+from olive.package_config import OlivePackageConfig
 from olive.systems.common import AcceleratorConfig, LocalDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import DockerTargetUserConfig
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
     from olive.evaluator.metric import Metric
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
     from olive.hardware.accelerator import AcceleratorSpec
-    from olive.passes import Pass
+    from olive.passes.olive_pass import FullPassConfig, Pass
 
 logger = logging.getLogger(__name__)
 
@@ -103,16 +104,23 @@ class DockerSystem(OliveSystem):
                     _print_docker_logs(e.build_log, logging.ERROR)
                     raise
 
-    def run_pass(self, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str) -> "ModelConfig":
+    def run_pass(
+        self,
+        full_pass_config: "FullPassConfig",
+        model_config: "ModelConfig",
+        output_model_path: str,
+    ) -> "ModelConfig":
         """Run the pass on the model."""
         with tempfile.TemporaryDirectory() as tempdir:
-            return self._run_pass_container(Path(tempdir), the_pass, model_config, output_model_path)
+            return self._run_pass_container(Path(tempdir), full_pass_config, model_config, output_model_path)
 
     def _run_pass_container(
-        self, workdir: Path, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str
+        self,
+        workdir: Path,
+        full_pass_config: "FullPassConfig",
+        model_config: "ModelConfig",
+        output_model_path: str,
     ) -> "ModelConfig":
-        pass_config = the_pass.to_json(check_object=True)
-
         volumes_list = []
         runner_output_path = "runner_output"
         runner_output_name = "runner_res.json"
@@ -133,11 +141,14 @@ class DockerSystem(OliveSystem):
         volumes_list.extend(model_mount_str_list)
 
         # data_dir or data_config
-        docker_data_paths, data_mount_str_list = self._create_data_mounts_for_pass(container_root_path, the_pass)
+        docker_data_paths, data_mount_str_list = self._create_data_mounts_for_pass(
+            container_root_path,
+            full_pass_config,
+        )
         volumes_list.extend(data_mount_str_list)
 
         # mount config file
-        data = self._create_runner_config(model_config, pass_config, docker_model_files, docker_data_paths)
+        data = self._create_runner_config(model_config, full_pass_config, docker_model_files, docker_data_paths)
         logger.debug("Runner config is %s", data)
         docker_config_file, config_file_mount_str = docker_utils.create_config_file(
             workdir=workdir,
@@ -163,7 +174,7 @@ class DockerSystem(OliveSystem):
         )
 
         model_output_json_file = self._run_container(
-            runner_command, volumes_list, output_local_path, runner_output_name, the_pass.accelerator_spec
+            runner_command, volumes_list, output_local_path, runner_output_name, full_pass_config.accelerator
         )
         if model_output_json_file.is_file():
             with model_output_json_file.open() as f:
@@ -289,7 +300,7 @@ class DockerSystem(OliveSystem):
     @staticmethod
     def _create_runner_config(
         model_config: "ModelConfig",
-        pass_config: Dict[str, Any],
+        full_pass_config: "FullPassConfig",
         model_mounts: Dict[str, str],
         data_mounts: Dict[str, str],
     ):
@@ -297,11 +308,11 @@ class DockerSystem(OliveSystem):
         for k, v in model_mounts.items():
             model_json["config"][k] = v
 
-        pass_config_copy = copy.deepcopy(pass_config)
+        pass_json = full_pass_config.to_json(check_object=True)
         for k, v in data_mounts.items():
-            pass_config_copy["config"][k] = v
+            pass_json["config"][k] = v
 
-        return {"model": model_json, "pass": pass_config_copy}
+        return {"model": model_json, "pass": pass_json}
 
     def _run_container(
         self,
@@ -358,16 +369,25 @@ class DockerSystem(OliveSystem):
 
         return Path(output_local_path) / output_name
 
-    def _create_data_mounts_for_pass(self, container_root_path: Path, the_pass: "Pass"):
+    def _create_data_mounts_for_pass(
+        self, container_root_path: Path, full_pass_config: "FullPassConfig"
+    ) -> Tuple[Dict[str, str], List[str]]:
         mounts = {}
         mount_strs = []
-        config_dict = the_pass.config.dict()
-        for param, _, category in the_pass.path_params:
-            param_val = config_dict.get(param)
-            if category == ParamCategory.DATA and param_val:
-                mount = str(container_root_path / param)
-                mounts[param] = mount
-                mount_strs.append(f"{param_val}:{mount}")
+        if not full_pass_config.config:
+            return mounts, mount_strs
+
+        olive_config = OlivePackageConfig.load_default_config()
+        pass_cls: Type[Pass] = olive_config.import_pass_module(full_pass_config.type)
+
+        config_dict = full_pass_config.to_json().get("config") or {}
+        for param, param_config in pass_cls.default_config(full_pass_config.accelerator).items():
+            if param_config.category == ParamCategory.DATA:
+                param_val = config_dict.get(param)
+                if param_val:
+                    mount = str(container_root_path / param)
+                    mounts[param] = mount
+                    mount_strs.append(f"{param_val}:{mount}")
 
         return mounts, mount_strs
 
