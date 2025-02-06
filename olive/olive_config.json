@@ -292,6 +292,13 @@
             "supported_precisions": [ "*" ],
             "extra_dependencies": [ "bnb", "lora" ]
         },
+        "DoRA": {
+            "module_path": "olive.passes.pytorch.lora.DoRA",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "extra_dependencies": [ "bnb", "lora" ]
+        },
         "QuantizationAwareTraining": {
             "module_path": "olive.passes.pytorch.quantization_aware_training.QuantizationAwareTraining",
             "supported_providers": [ "*" ],

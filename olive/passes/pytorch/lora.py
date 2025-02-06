@@ -144,6 +144,9 @@ class LoRA(Pass):
                     "see 'https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices'"
                 ),
             ),
+            "ephemeral_gpu_offload": PassConfigParam(
+                type_=bool, default_value=False, description="Ephemeral GPU offload"
+            ),
             # data parameters
             "train_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
@@ -236,6 +239,11 @@ class LoRA(Pass):
         return train_dataset, eval_dataset
 
     def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+        return self._run_lora_training(model, config, output_model_path)
+
+    def _run_lora_training(
+        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str, use_dora: bool = False
+    ) -> HfModelHandler:
         # convert config to pass config class
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
@@ -260,7 +268,7 @@ class LoRA(Pass):
         # disable exllama (gptq pass disables it)
 
         # add lora modules
-        pytorch_model = self.enable_lora(pytorch_model, config, model.task)
+        pytorch_model = self.enable_lora(pytorch_model, config, model.task, use_dora=use_dora)
 
         # train and return new model
         return self.train_and_save_new_model(
@@ -295,6 +303,7 @@ class LoRA(Pass):
         *,
         task: Optional[str] = None,
         use_loftq: Optional[bool] = False,
+        use_dora: Optional[bool] = False,
     ) -> "PeftModel":
         """Initialize LoRA adapters.
 
@@ -302,6 +311,7 @@ class LoRA(Pass):
         :param config: The config for the pass run.
         :param task: The task type of the model.
         :param use_loftq: Whether to use LoftQ to initialize weights.
+        :param use_dora: Whether to use DoRA to initialize weights.
         :return: The LoRA model.
         """
         config_kwargs = {}
@@ -311,6 +321,10 @@ class LoRA(Pass):
             config_kwargs = {
                 "init_lora_weights": "loftq",
                 "loftq_config": LoftQConfig(loftq_bits=4, loftq_iter=config.loftq_iter),
+            }
+        if use_dora:
+            config_kwargs = {
+                "use_dora": True,
             }
         if task:
             config_kwargs.update({"task_type": get_peft_task_type_from_task(task, fail_on_not_found=True)})
@@ -322,6 +336,7 @@ class LoRA(Pass):
         model: "PreTrainedModel",
         config: ConfigBase,
         task: Optional[str] = None,
+        use_dora: bool = False,
         adapter_path: Optional[str] = None,
     ) -> "PeftModel":
         """Enable LoRA fine-tuning on a Hugging Face PyTorch model.
@@ -333,6 +348,7 @@ class LoRA(Pass):
         :param model: The Hugging Face PyTorch model to enable LoRA fine-tuning on.
         :param config: The config for the pass run.
         :param task: The task type of the model.
+        :param use_dora: Whether to use DoRA to train adapters.
         :param adapter_path: Path to the adapter weights. If None, will initialize new adapters.
         :return: The LoRA model.
         """
@@ -351,7 +367,7 @@ class LoRA(Pass):
 
         if not adapter_path:
             logger.debug("Initializing LoRA adapters from config")
-            lora_model = self.init_adapters(model, config, task=task)
+            lora_model = self.init_adapters(model, config, task=task, use_dora=use_dora)
         else:
             from peft import PeftModel
 
@@ -492,7 +508,7 @@ class LoRA(Pass):
     @staticmethod
     def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
         """Get the PEFT model for LoRA fine-tuning."""
-        from peft import LoraConfig, get_peft_model
+        from peft import LoraConfig, LoraRuntimeConfig, get_peft_model
 
         if config_kwargs is None:
             config_kwargs = {}
@@ -504,10 +520,18 @@ class LoRA(Pass):
             target_modules=config.target_modules,
             bias="none",
             modules_to_save=config.modules_to_save,
+            runtime_config=LoraRuntimeConfig(ephemeral_gpu_offload=config.ephemeral_gpu_offload),
             **config_kwargs,
         )
 
         return get_peft_model(model, lora_config)
+
+
+class DoRA(LoRA):
+    """Run DoRA fine-tuning on a Hugging Face PyTorch model."""
+
+    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+        return self._run_lora_training(model, config, output_model_path, use_dora=True)
 
 
 class LoRAVariant(LoRA):
