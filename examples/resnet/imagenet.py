@@ -41,6 +41,7 @@ preprocess = transforms.Compose(
 @Registry.register_pre_process()
 def dataset_pre_process(output_data, **kwargs):
     cache_key = kwargs.get("cache_key")
+    cache_file = None
     if cache_key:
         cache_file = Path(f"./cache/data/{cache_key}.npz")
         if cache_file.exists():
