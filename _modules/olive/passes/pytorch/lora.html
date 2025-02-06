@@ -585,6 +585,9 @@ window.addEventListener("load", () => mermaid.run());
                     <span class="s2">&quot;see &#39;https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices&#39;&quot;</span>
                 <span class="p">),</span>
             <span class="p">),</span>
+            <span class="s2">&quot;ephemeral_gpu_offload&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Ephemeral GPU offload&quot;</span>
+            <span class="p">),</span>
             <span class="c1"># data parameters</span>
             <span class="s2">&quot;train_data_config&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">DataConfig</span><span class="p">,</span> <span class="n">Dict</span><span class="p">],</span>
@@ -677,6 +680,11 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">train_dataset</span><span class="p">,</span> <span class="n">eval_dataset</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_for_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_lora_training</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_lora_training</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">use_dora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
         <span class="c1"># convert config to pass config class</span>
         <span class="c1"># this will validate the config and convert to the correct types</span>
         <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_class</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">)</span>
@@ -701,7 +709,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="c1"># disable exllama (gptq pass disables it)</span>
 
         <span class="c1"># add lora modules</span>
-        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">task</span><span class="p">)</span>
+        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">use_dora</span><span class="o">=</span><span class="n">use_dora</span><span class="p">)</span>
 
         <span class="c1"># train and return new model</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_and_save_new_model</span><span class="p">(</span>
@@ -736,6 +744,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="o">*</span><span class="p">,</span>
         <span class="n">task</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">use_loftq</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">use_dora</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PeftModel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize LoRA adapters.</span>
 
@@ -743,6 +752,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="sd">        :param config: The config for the pass run.</span>
 <span class="sd">        :param task: The task type of the model.</span>
 <span class="sd">        :param use_loftq: Whether to use LoftQ to initialize weights.</span>
+<span class="sd">        :param use_dora: Whether to use DoRA to initialize weights.</span>
 <span class="sd">        :return: The LoRA model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">config_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
@@ -752,6 +762,10 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">config_kwargs</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="s2">&quot;init_lora_weights&quot;</span><span class="p">:</span> <span class="s2">&quot;loftq&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;loftq_config&quot;</span><span class="p">:</span> <span class="n">LoftQConfig</span><span class="p">(</span><span class="n">loftq_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">loftq_iter</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">loftq_iter</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="k">if</span> <span class="n">use_dora</span><span class="p">:</span>
+            <span class="n">config_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;use_dora&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="p">}</span>
         <span class="k">if</span> <span class="n">task</span><span class="p">:</span>
             <span class="n">config_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="n">get_peft_task_type_from_task</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">fail_on_not_found</span><span class="o">=</span><span class="kc">True</span><span class="p">)})</span>
@@ -763,6 +777,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span>
         <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span>
         <span class="n">task</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">use_dora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">adapter_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PeftModel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Enable LoRA fine-tuning on a Hugging Face PyTorch model.</span>
@@ -774,6 +789,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="sd">        :param model: The Hugging Face PyTorch model to enable LoRA fine-tuning on.</span>
 <span class="sd">        :param config: The config for the pass run.</span>
 <span class="sd">        :param task: The task type of the model.</span>
+<span class="sd">        :param use_dora: Whether to use DoRA to train adapters.</span>
 <span class="sd">        :param adapter_path: Path to the adapter weights. If None, will initialize new adapters.</span>
 <span class="sd">        :return: The LoRA model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -792,7 +808,7 @@ window.addEventListener("load", () => mermaid.run());
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">adapter_path</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Initializing LoRA adapters from config&quot;</span><span class="p">)</span>
-            <span class="n">lora_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_adapters</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">)</span>
+            <span class="n">lora_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_adapters</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span> <span class="n">use_dora</span><span class="o">=</span><span class="n">use_dora</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">peft</span><span class="w"> </span><span class="kn">import</span> <span class="n">PeftModel</span>
 
@@ -933,7 +949,7 @@ window.addEventListener("load", () => mermaid.run());
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_peft_model</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PeftModel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the PEFT model for LoRA fine-tuning.&quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">peft</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoraConfig</span><span class="p">,</span> <span class="n">get_peft_model</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">peft</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoraConfig</span><span class="p">,</span> <span class="n">LoraRuntimeConfig</span><span class="p">,</span> <span class="n">get_peft_model</span>
 
         <span class="k">if</span> <span class="n">config_kwargs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">config_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
@@ -945,10 +961,18 @@ window.addEventListener("load", () => mermaid.run());
             <span class="n">target_modules</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">target_modules</span><span class="p">,</span>
             <span class="n">bias</span><span class="o">=</span><span class="s2">&quot;none&quot;</span><span class="p">,</span>
             <span class="n">modules_to_save</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">modules_to_save</span><span class="p">,</span>
+            <span class="n">runtime_config</span><span class="o">=</span><span class="n">LoraRuntimeConfig</span><span class="p">(</span><span class="n">ephemeral_gpu_offload</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">ephemeral_gpu_offload</span><span class="p">),</span>
             <span class="o">**</span><span class="n">config_kwargs</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">get_peft_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">lora_config</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">DoRA</span><span class="p">(</span><span class="n">LoRA</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run DoRA fine-tuning on a Hugging Face PyTorch model.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_for_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_lora_training</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">use_dora</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">LoRAVariant</span><span class="p">(</span><span class="n">LoRA</span><span class="p">):</span>
