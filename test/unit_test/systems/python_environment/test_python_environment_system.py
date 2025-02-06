@@ -25,6 +25,7 @@ from olive.common.utils import run_subprocess
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
+from olive.passes.olive_pass import FullPassConfig
 from olive.systems.python_environment import PythonEnvironmentSystem
 from olive.systems.python_environment.evaluation_runner import main as evaluation_runner_main
 from olive.systems.python_environment.pass_runner import main as pass_runner_main
@@ -143,17 +144,16 @@ class TestPythonEnvironmentSystem:
         model_config = MagicMock()
         dummy_model_config = {"dummy_model_key": "dummy_model_value"}
         model_config.to_json.return_value = dummy_model_config
-        the_pass = MagicMock()
-        dummy_pass_config = {
-            "type": "DummyPass",
-            "config": {
-                "dummy_param_1": "dummy_param_1_value",
-                "dummy_param_2": "dummy_param_2_value",
-            },
-        }
-        dummy_config = dummy_pass_config["config"]
-        expected_pass_config = {"type": "DummyPass", "config": dummy_config}
-        the_pass.to_json.return_value = dummy_pass_config
+        dummy_full_pass_config = FullPassConfig.parse_obj(
+            {
+                "type": "DummyPass",
+                "config": {
+                    "dummy_param_1": "dummy_param_1_value",
+                    "dummy_param_2": "dummy_param_2_value",
+                },
+                "accelerator": DEFAULT_CPU_ACCELERATOR,
+            }
+        )
 
         # mock return value
         mock_return_value = {"dummy_output_model_key": "dummy_output_model_value"}
@@ -165,14 +165,14 @@ class TestPythonEnvironmentSystem:
         dummy_output_model_path = "dummy_output_model_path"
 
         # execute
-        res = self.system.run_pass(the_pass, model_config, dummy_output_model_path)
+        res = self.system.run_pass(dummy_full_pass_config, model_config, dummy_output_model_path)
 
         # assert
         assert res == mock_output_model_config
         mock_model_config_parse_obj.assert_called_once_with(mock_return_value)
         mock__run_command.assert_called_once_with(
             self.system.pass_runner_path,
-            {"model_config": dummy_model_config, "pass_config": expected_pass_config},
+            {"model_config": dummy_model_config, "pass_config": dummy_full_pass_config.to_json(check_object=True)},
             tempdir=tempfile.tempdir,
             output_model_path=dummy_output_model_path,
         )

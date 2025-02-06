@@ -26,6 +26,7 @@ from olive.hardware import AcceleratorSpec
 from olive.logging import enable_filelog
 from olive.model import ModelConfig
 from olive.package_config import OlivePackageConfig
+from olive.passes.olive_pass import FullPassConfig
 from olive.search.search_sample import SearchSample
 from olive.search.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
@@ -677,28 +678,27 @@ class Engine:
         """Run a pass on the input model."""
         run_start_time = datetime.now().timestamp()
 
-        pass_config: RunPassConfig = self.computed_passes_configs[pass_name]
-        pass_type_name = pass_config.type
+        run_pass_config: RunPassConfig = self.computed_passes_configs[pass_name]
+        pass_type_name = run_pass_config.type
 
         logger.info("Running pass %s:%s", pass_name, pass_type_name)
 
         # check whether the config is valid
-        pass_cls: Type[Pass] = self.olive_config.import_pass_module(pass_config.type)
-        if not pass_cls.validate_config(pass_config.config, accelerator_spec):
+        pass_cls: Type[Pass] = self.olive_config.import_pass_module(run_pass_config.type)
+        if not pass_cls.validate_config(run_pass_config.config, accelerator_spec):
             logger.warning("Invalid config, pruned.")
-            logger.debug(pass_config)
+            logger.debug(run_pass_config)
             # no need to record in footprint since there was no run and thus no valid/failed model
             # invalid configs are also not cached since the same config can be valid for other accelerator specs
             # a pass can be accelerator agnostic but still have accelerator specific invalid configs
             # this helps reusing cached models for different accelerator specs
             return INVALID_CONFIG, None
 
-        p: Pass = pass_cls(accelerator_spec, pass_config.config, self.get_host_device())
-        pass_config = p.config.to_json()
+        pass_config = run_pass_config.config.to_json()
         output_model_config = None
 
         # load run from cache if it exists
-        run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
+        run_accel = None if pass_cls.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
         output_model_id = self.cache.get_output_model_id(pass_type_name, pass_config, input_model_id, run_accel)
         run_cache = self.cache.load_run_from_model_id(output_model_id)
         if run_cache:
@@ -729,7 +729,7 @@ class Engine:
             input_model_config = self.cache.prepare_resources_for_local(input_model_config)
 
         try:
-            if p.run_on_target:
+            if pass_cls.run_on_target:
                 if self.target.system_type == SystemType.IsolatedORT:
                     logger.warning(
                         "Cannot run pass %s on IsolatedORT target, will use the host to run the pass.", pass_name
@@ -737,7 +737,10 @@ class Engine:
                 else:
                     host = self.target
 
-            output_model_config = host.run_pass(p, input_model_config, output_model_path)
+            full_pass_config = FullPassConfig.from_run_pass_config(
+                run_pass_config, accelerator_spec, self.get_host_device()
+            )
+            output_model_config = host.run_pass(full_pass_config, input_model_config, output_model_path)
         except OlivePassError:
             logger.exception("Pass run_pass failed")
             output_model_config = FAILED_CONFIG

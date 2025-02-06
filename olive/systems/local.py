@@ -12,7 +12,7 @@ from olive.systems.olive_system import OliveSystem
 if TYPE_CHECKING:
     from olive.evaluator.metric_result import MetricResult
     from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig
-    from olive.passes.olive_pass import Pass
+    from olive.passes.olive_pass import FullPassConfig, Pass
 
 
 class LocalSystem(OliveSystem):
@@ -20,11 +20,12 @@ class LocalSystem(OliveSystem):
 
     def run_pass(
         self,
-        the_pass: "Pass",
-        model_config: ModelConfig,
+        full_pass_config: "FullPassConfig",
+        model_config: "ModelConfig",
         output_model_path: str,
     ) -> ModelConfig:
         """Run the pass on the model."""
+        the_pass: Pass = full_pass_config.create_pass()
         model = model_config.create_model()
         output_model = the_pass.run(model, output_model_path)
         return ModelConfig.from_json(output_model.to_json())

@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Set, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Optional, Set, Type, Union
 
 from olive.common.config_utils import (
     ConfigBase,
@@ -20,6 +20,9 @@ from olive.hardware.accelerator import Device
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import validate_resource_path
 from olive.search.search_parameter import SearchParameter, SpecialParamValue, json_to_search_parameter
+
+if TYPE_CHECKING:
+    from olive.hardware.accelerator import AcceleratorSpec
 
 
 class PassParamDefault(StrEnumBase):
@@ -128,6 +131,21 @@ class AbstractPassConfig(NestedConfig):
     @validator("type", pre=True)
     def validate_type(cls, v):
         return validate_lowercase(v)
+
+    @validator("config", pre=True, always=True)
+    def validate_config(cls, v):
+        return v or {}
+
+    def create_pass_with_args(self, accelerator: "AcceleratorSpec", host_device: Device):
+        """Create a Pass."""
+        from olive.package_config import OlivePackageConfig  # pylint: disable=cyclic-import
+
+        olive_config = OlivePackageConfig.load_default_config()
+        pass_cls = olive_config.import_pass_module(self.type)
+        self.config = pass_cls.generate_config(
+            accelerator, self.config if isinstance(self.config, dict) else self.config.dict()
+        )
+        return pass_cls(accelerator, self.config, host_device)
 
 
 def create_config_class(

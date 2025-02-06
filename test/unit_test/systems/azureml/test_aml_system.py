@@ -34,8 +34,6 @@ from olive.evaluator.metric_result import MetricResult
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModelHandler
-from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.conversion import OnnxConversion
 from olive.resource_path import ResourcePath, ResourceType
 from olive.systems.azureml.aml_evaluation_runner import main as aml_evaluation_runner_main
 from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
@@ -167,8 +165,9 @@ class TestAzureMLSystem:
         with dummy_config_path.open("w") as f:
             json.dump(dummy_config, f, indent=4)
 
-        onnx_conversion_config = {}
-        p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
+        full_pass_config = MagicMock()
+        full_pass_config.create_pass.return_value = MagicMock()
+
         model_config = get_hf_model_config()
         output_model_path = tmp_path / "output_folder" / "output_model_path"
         output_model_path.mkdir(parents=True, exist_ok=True)
@@ -186,11 +185,11 @@ class TestAzureMLSystem:
         with patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory") as mock_tempdir:
             mock_tempdir.return_value.__enter__.return_value = output_folder
             # execute
-            actual_res = self.system.run_pass(p, model_config, output_model_path)
+            actual_res = self.system.run_pass(full_pass_config, model_config, output_model_path)
 
         # assert
         mock_create_pipeline.assert_called_once_with(
-            output_folder, model_config.to_json(check_object=True), p.to_json()
+            output_folder, model_config.to_json(check_object=True), full_pass_config.to_json()
         )
         assert mock_retry_func.call_count == 2
         ml_client.jobs.stream.assert_called_once()

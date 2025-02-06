@@ -15,7 +15,7 @@ from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.metric_result import joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.olive_pass import FullPassConfig
 from olive.passes.onnx.session_params_tuning import OrtSessionParamsTuning
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
@@ -226,7 +226,9 @@ class TestDockerSystem:
         )
         docker_system = DockerSystem(docker_config, is_dev=True)
 
-        p = create_pass_from_dict(OrtSessionParamsTuning, {}, disable_search=True)
+        full_pass_config = FullPassConfig.from_run_pass_config(
+            {"type": OrtSessionParamsTuning.__name__}, DEFAULT_CPU_ACCELERATOR
+        )
         output_folder = str(tmp_path / "onnx")
 
         def validate_file_or_folder(v, values, **kwargs):
@@ -240,7 +242,7 @@ class TestDockerSystem:
         ), patch("olive.resource_path._validate_path", side_effect=validate_file_or_folder), patch.object(
             Path, "is_dir", side_effect=is_dir_mock, autospec=True
         ):
-            output_model = docker_system.run_pass(p, onnx_model, output_folder)
+            output_model = docker_system.run_pass(full_pass_config, onnx_model, output_folder)
             assert output_model is not None
 
         runner_local_path = Path(__file__).resolve().parents[4] / "olive" / "systems" / "docker" / "runner.py"
@@ -275,20 +277,20 @@ class TestDockerSystem:
         from olive.systems.docker import utils as docker_utils
         from olive.systems.docker.runner import runner_entry as docker_runner_entry
 
-        p = create_pass_from_dict(OrtSessionParamsTuning, {}, disable_search=True)
-        pass_config = p.to_json(check_object=True)
-
-        onnx_model = get_onnx_model_config()
+        full_pass_config = FullPassConfig.from_run_pass_config(
+            {"type": OrtSessionParamsTuning.__name__}, DEFAULT_CPU_ACCELERATOR
+        )
+        onnx_model_config = get_onnx_model_config()
 
         container_root_path = Path("/olive-ws/")
         data = DockerSystem._create_runner_config(
-            onnx_model,
-            pass_config,
-            {"model_path": onnx_model.config["model_path"]},
+            onnx_model_config,
+            full_pass_config,
+            {"model_path": onnx_model_config.config["model_path"]},
             {},
         )
         docker_utils.create_config_file(tmp_path, data, container_root_path)
-        with patch.object(OrtSessionParamsTuning, "run", return_value=onnx_model):
+        with patch.object(OrtSessionParamsTuning, "run", return_value=onnx_model_config):
             docker_runner_entry(str(tmp_path / "config.json"), str(tmp_path), "runner_res.json")
             assert (tmp_path / "runner_res.json").exists()
 

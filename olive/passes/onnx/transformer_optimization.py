@@ -36,8 +36,8 @@ class OrtTransformersOptimization(Pass):
     # using a Linux machine which doesn't support onnxruntime-directml package.
     # It is enough for the pass to fail if `opt_level` > 0 and the host doesn't have the required packages.
 
-    @staticmethod
-    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+    @classmethod
+    def is_accelerator_agnostic(cls, accelerator_spec: AcceleratorSpec) -> bool:
         """Override this method to return False by using the accelerator spec information."""
         from onnxruntime import __version__ as OrtVersion
         from packaging import version

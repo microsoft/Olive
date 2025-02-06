@@ -40,7 +40,7 @@ from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
-    from olive.passes.olive_pass import Pass
+    from olive.passes.olive_pass import FullPassConfig
 
 
 logger = logging.getLogger(__name__)
@@ -243,15 +243,22 @@ class AzureMLSystem(OliveSystem):
         if obj is None:
             raise ValueError(f"{obj.__class__.__name__} is missing in the inputs!")
 
-    def run_pass(self, the_pass: "Pass", model_config: ModelConfig, output_model_path: str) -> ModelConfig:
+    def run_pass(
+        self,
+        full_pass_config: "FullPassConfig",
+        model_config: "ModelConfig",
+        output_model_path: str,
+    ) -> ModelConfig:
         """Run the pass on the model."""
         ml_client = self.azureml_client_config.create_client()
 
-        # serialize pass
-        pass_config = the_pass.to_json(check_object=True)
+        # serialize config
+        serialized_pass_config = full_pass_config.to_json(check_object=True)
 
         with tempfile.TemporaryDirectory() as tempdir:
-            pipeline_job = self._create_pipeline_for_pass(tempdir, model_config.to_json(check_object=True), pass_config)
+            pipeline_job = self._create_pipeline_for_pass(
+                tempdir, model_config.to_json(check_object=True), serialized_pass_config
+            )
 
             # submit job
             named_outputs_dir = self._run_job(
@@ -259,7 +266,7 @@ class AzureMLSystem(OliveSystem):
                 pipeline_job,
                 "olive-pass",
                 tempdir,
-                tags={"Pass": pass_config["type"]},
+                tags={"Pass": serialized_pass_config["type"]},
                 output_name="pipeline_output",
             )
             pipeline_output_path = named_outputs_dir / "pipeline_output"

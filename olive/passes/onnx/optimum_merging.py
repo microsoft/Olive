@@ -19,8 +19,8 @@ class OptimumMerging(Pass):
 
     _accepts_composite_model = True
 
-    @staticmethod
-    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+    @classmethod
+    def is_accelerator_agnostic(cls, accelerator_spec: AcceleratorSpec) -> bool:
         """Override this method to return False by using the accelerator spec information."""
         return False
 
