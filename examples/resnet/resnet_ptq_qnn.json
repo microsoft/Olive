@@ -3,52 +3,20 @@
         "type": "PyTorchModel",
         "model_path": "models/resnet50.pth",
         "io_config": {
-            "input_names": [
-                "input"
-            ],
-            "input_shapes": [
-                [
-                    1,
-                    3,
-                    224,
-                    224
-                ]
-            ],
-            "output_names": [
-                "output"
-            ],
-            "dynamic_axes": {
-                "input": {
-                    "0": "batch_size"
-                },
-                "output": {
-                    "0": "batch_size"
-                }
-            }
+            "input_names": [ "input" ],
+            "input_shapes": [ [ 1, 3, 224, 224 ] ],
+            "output_names": [ "output" ],
+            "dynamic_axes": { "input": { "0": "batch_size" }, "output": { "0": "batch_size" } }
         }
     },
     "systems": {
         "host_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "device": "cpu",
-                    "execution_providers": [
-                        "CPUExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
         },
         "target_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "device": "npu",
-                    "execution_providers": [
-                        "QNNExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
         }
     },
     "data_configs": [
@@ -60,9 +28,7 @@
                 "data_dir": "data/imagenet/validation",
                 "batch_size": 1
             },
-            "post_process_data_config": {
-                "type": "imagenet_post_fun"
-            }
+            "post_process_data_config": { "type": "imagenet_post_fun" }
         }
     ],
     "evaluators": {
@@ -76,75 +42,56 @@
                         {
                             "name": "accuracy_score",
                             "priority": 1,
-                            "metric_config": {
-                                "task": "multiclass",
-                                "num_classes": 1001
-                            }
+                            "metric_config": { "task": "multiclass", "num_classes": 1001 }
                         }
                     ],
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
                                 "session_options": {
-                                    "extra_session_config": {
-                                        "session.disable_cpu_ep_fallback": "1"
-                                    }
+                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "1" }
                                 },
                                 "execution_provider": "QNNExecutionProvider",
-                                "provider_options": [
-                                    {
-                                        "backend_path": "QnnHtp.dll"
-                                    }
-                                ]
+                                "provider_options": [ { "backend_path": "QnnHtp.dll" } ]
                             }
                         }
                     }
                 },
                 {
-                  "name": "latency_qnn",
-                  "type": "latency",
-                  "data_config": "quantize_data_config",
-                  "sub_types": [
-                    { "name": "avg", "priority": 2 },
-                    { "name": "p75" },
-                    { "name": "p90" },
-                    { "name": "p99" }
-                  ],
-                  "user_config": {
-                    "inference_settings": {
-                      "onnx": {
-                        "session_options": {
-                          "extra_session_config": {
-                            "session.disable_cpu_ep_fallback": "1"
-                          }
-                        },
-                        "execution_provider": "QNNExecutionProvider",
-                        "provider_options": [
-                            {
-                                "backend_path": "QnnHtp.dll"
+                    "name": "latency_qnn",
+                    "type": "latency",
+                    "data_config": "quantize_data_config",
+                    "sub_types": [
+                        { "name": "avg", "priority": 2 },
+                        { "name": "p75" },
+                        { "name": "p90" },
+                        { "name": "p99" }
+                    ],
+                    "user_config": {
+                        "inference_settings": {
+                            "onnx": {
+                                "session_options": {
+                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "1" }
+                                },
+                                "execution_provider": "QNNExecutionProvider",
+                                "provider_options": [ { "backend_path": "QnnHtp.dll" } ]
                             }
-                        ]
-                      }
+                        }
                     }
-                  }
                 },
                 {
-                  "name": "latency_cpu",
-                  "type": "latency",
-                  "data_config": "quantize_data_config",
-                  "sub_types": [
-                    { "name": "avg", "priority": 3 },
-                    { "name": "p75" },
-                    { "name": "p90" },
-                    { "name": "p99" }
-                  ],
-                  "user_config": {
-                    "inference_settings": {
-                      "onnx": {
-                        "execution_provider": "CPUExecutionProvider"
-                      }
+                    "name": "latency_cpu",
+                    "type": "latency",
+                    "data_config": "quantize_data_config",
+                    "sub_types": [
+                        { "name": "avg", "priority": 3 },
+                        { "name": "p75" },
+                        { "name": "p90" },
+                        { "name": "p99" }
+                    ],
+                    "user_config": {
+                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                     }
-                  }
                 }
             ]
         }
@@ -159,19 +106,8 @@
             "dynamic": false,
             "use_dynamo_exporter": false
         },
-        "DynamicToFixedShape": {
-            "type": "DynamicToFixedShape",
-            "dim_param": [
-                "batch_size"
-            ],
-            "dim_value": [
-                1
-            ]
-        },
-        "QNNPreprocess": {
-            "type": "QNNPreprocess",
-            "fuse_layernorm": true
-        },
+        "DynamicToFixedShape": { "type": "DynamicToFixedShape", "dim_param": [ "batch_size" ], "dim_value": [ 1 ] },
+        "QNNPreprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
         "OnnxQuantization": {
             "type": "OnnxQuantization",
             "data_config": "quantize_data_config",
