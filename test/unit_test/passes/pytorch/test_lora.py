@@ -115,7 +115,7 @@ def test_loftq(tmp_path):
 
 
 @pytest.mark.skipif(
-    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
+    not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
 def test_loha(tmp_path):
@@ -129,7 +129,7 @@ def test_loha(tmp_path):
 
 
 @pytest.mark.skipif(
-    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
+    not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
 def test_lokr(tmp_path):
@@ -142,7 +142,7 @@ def test_lokr(tmp_path):
 
 
 @pytest.mark.skipif(
-    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
+    not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
 def test_dora(tmp_path):
