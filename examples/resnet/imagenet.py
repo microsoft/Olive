@@ -2,8 +2,9 @@ from logging import getLogger
 from pathlib import Path
 
 import numpy as np
+import torchvision.transforms as transforms
 from torch import from_numpy
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
 from olive.data.registry import Registry
 
@@ -11,10 +12,9 @@ logger = getLogger(__name__)
 
 
 class ImagenetDataset(Dataset):
-    def __init__(self, data_dir: str):
-        with np.load(Path(data_dir) / "_data.npz") as data:
-            self.images = from_numpy(data["images"])
-            self.labels = from_numpy(data["labels"])
+    def __init__(self, data):
+        self.images = from_numpy(data["images"])
+        self.labels = from_numpy(data["labels"])
 
     def __len__(self):
         return min(len(self.images), len(self.labels))
@@ -23,43 +23,50 @@ class ImagenetDataset(Dataset):
         return {"input": self.images[idx]}, self.labels[idx]
 
 
-@Registry.register_dataloader()
-def imagenet_dataloader(dataset, batch_size, data_dir, **kwargs):
-    return DataLoader(ImagenetDataset(data_dir), batch_size=batch_size, shuffle=False)
-
-
 @Registry.register_post_process()
 def imagenet_post_fun(output):
     return output.argmax(axis=1)
 
 
-import os
-import sys
+preprocess = transforms.Compose(
+    [
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+)
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(current_dir)
 
-from dataset_model_download import download_classfile, download_dataset, download_resnet_model
-from datasets import Split
+@Registry.register_pre_process()
+def dataset_pre_process(output_data, **kwargs):
+    cache_key = kwargs.get("cache_key")
+    if cache_key:
+        cache_file = Path(f"./cache/data/{cache_key}.npz")
+        if cache_file.exists():
+            with np.load(Path(cache_file)) as data:
+                return ImagenetDataset(data)
 
-model_dir = Path("./models").resolve()
-model_dir.mkdir(parents=True, exist_ok=True)
+    size = kwargs.get("size", 256)
+    labels = []
+    images = []
+    for i, sample in enumerate(output_data):
+        if i >= size:
+            break
 
-model_name = "resnet50"
-model_path = model_dir / f"{model_name}.pth"
+        image = sample["image"]
+        label = sample["label"]
 
-if model_path.exists():
-    logger.debug("model already downloaded.")
-else:
-    download_resnet_model(model_path, model_name)
+        image = image.convert("RGB")
+        image = preprocess(image)
 
-data_dir = Path("./data/imagenet").resolve()
-data_dir.mkdir(parents=True, exist_ok=True)
+        images.append(image)
+        labels.append(label)
 
-data_ready = data_dir / ".complete"
-if data_ready.exists():
-    logger.debug("Dataset already downloaded.")
-else:
-    download_dataset(data_dir, Split.VALIDATION, size=256)
-    download_classfile(data_dir)
-    data_ready.touch()
+    result_data = ImagenetDataset({"images": np.array(images), "labels": np.array(labels)})
+
+    if cache_file:
+        cache_file.parent.resolve().mkdir(parents=True, exist_ok=True)
+        np.savez(cache_file, images=np.array(images), labels=np.array(labels))
+
+    return result_data
