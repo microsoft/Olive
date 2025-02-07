@@ -250,6 +250,17 @@ class ModelOptimizer:
 
         self.model = optimize(self.model)
 
+    def onnxsimplifier_optimize(self):
+        try:
+            from onnxsim import simplify
+        except ImportError:
+            logger.warning("Please install `onnxsim` to apply more optimization.")
+            return
+
+        self.model, check = simplify(self.model)
+        if not check:
+            logger.warning("The model is not simplified by onnxsim.")
+
 
 class OnnxPeepholeOptimizer(Pass):
     """Optimize ONNX model by fusing nodes."""
@@ -265,6 +276,7 @@ class OnnxPeepholeOptimizer(Pass):
 
         # optimize model
         peephole_optimizer = ModelOptimizer(model.model_path)
+        peephole_optimizer.onnxsimplifier_optimize()
         peephole_optimizer.onnxscript_optimize()
         peephole_optimizer.onnxoptimizer_optimize()
         peephole_optimizer.fuse_transpose_qat()

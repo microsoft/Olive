@@ -67,8 +67,9 @@ def _make_model_for_patch_unsupported_argmax_operator(
 
 @patch("onnxoptimizer.optimize")
 @patch("onnxscript.optimizer.optimize")
+@patch("onnxsim.simplify")
 def test_onnx_peephole_optimizer_pass_patch_unsupported_argmax_operator_modified(
-    mock_onnxscript, mock_onnxoptimizer, tmp_path, external_data_config
+    mock_onnxsim, mock_onnxscript, mock_onnxoptimizer, tmp_path, external_data_config
 ):
     m = _make_model_for_patch_unsupported_argmax_operator(
         TensorProto.INT64, str(tmp_path / "input.onnx"), external_data_config
@@ -76,6 +77,7 @@ def test_onnx_peephole_optimizer_pass_patch_unsupported_argmax_operator_modified
     p = create_pass_from_dict(
         OnnxPeepholeOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
     )
+    mock_onnxsim.return_value = m.load_model()
     mock_onnxscript.return_value = m.load_model()
     mock_onnxoptimizer.return_value = m.load_model()
 
@@ -198,10 +200,12 @@ def test_onnx_peephole_optimizer_pass_fuse_reshape_operations(tmp_path, external
 @patch("olive.passes.onnx.peephole_optimizer.model_proto_to_olive_model")
 @patch("onnxoptimizer.optimize")
 @patch("onnxscript.optimizer.optimize")
-def test_onnxscript(mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_olive_model, tmp_path):
+@patch("onnxsim.simplify")
+def test_onnxscript(mock_onnxsim, mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_olive_model, tmp_path):
     # setup
     input_model = get_onnx_model()
     p = create_pass_from_dict(OnnxPeepholeOptimizer, {}, disable_search=True)
+    mock_onnxsim.return_value = input_model.load_model()
     mock_onnxscript.return_value = input_model.load_model()
     mock_onnxoptimizer.return_value = input_model.load_model()
     output_folder = str(tmp_path / "onnx")
@@ -216,10 +220,12 @@ def test_onnxscript(mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_oli
 @patch("olive.passes.onnx.peephole_optimizer.model_proto_to_olive_model")
 @patch("onnxoptimizer.optimize")
 @patch("onnxscript.optimizer.optimize")
-def test_onnxoptimizer(mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_olive_model, tmp_path):
+@patch("onnxsim.simplify")
+def test_onnxoptimizer(mock_onnxsim, mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_olive_model, tmp_path):
     # setup
     input_model = get_onnx_model()
     p = create_pass_from_dict(OnnxPeepholeOptimizer, {}, disable_search=True)
+    mock_onnxsim.return_value = input_model.load_model()
     mock_onnxscript.return_value = input_model.load_model()
     mock_onnxoptimizer.return_value = input_model.load_model()
     output_folder = str(tmp_path / "onnx")
@@ -229,3 +235,23 @@ def test_onnxoptimizer(mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_
 
     # assert
     mock_onnxoptimizer.assert_called_once()
+
+
+@patch("olive.passes.onnx.peephole_optimizer.model_proto_to_olive_model")
+@patch("onnxoptimizer.optimize")
+@patch("onnxscript.optimizer.optimize")
+@patch("onnxsim.simplify")
+def test_onnxsim(mock_onnxsim, mock_onnxscript, mock_onnxoptimizer, mock_model_proto_to_olive_model, tmp_path):
+    # setup
+    input_model = get_onnx_model()
+    p = create_pass_from_dict(OnnxPeepholeOptimizer, {}, disable_search=True)
+    mock_onnxsim.return_value = input_model.load_model()
+    mock_onnxscript.return_value = input_model.load_model()
+    mock_onnxoptimizer.return_value = input_model.load_model()
+    output_folder = str(tmp_path / "onnx")
+
+    # execute
+    p.run(input_model, output_folder)
+
+    # assert
+    mock_onnxsim.assert_called_once()
