@@ -28,6 +28,7 @@ onnx-graphsurgeon
 onnxconverter_common
 onnxmltools
 onnxoptimizer
+onnxsim
 onnxruntime_extensions
 # TODO(titaiwai): Add onnxscript to requirements.txt once it's released
 onnxscript
