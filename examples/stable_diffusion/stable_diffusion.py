@@ -237,8 +237,9 @@ def optimize(
     has_safety_checker = getattr(pipeline, "safety_checker", None) is not None
 
     if has_safety_checker:
-        if provider == "openvino":
-            print("WARNING: Safety checker is not supported by OpenVINO. It will be disabled.")
+        if provider == "openvino" or provider == "qnn":
+            print(f"WARNING: Safety checker is not supported by {provider}. It will be disabled.")
+            has_safety_checker = False
         else:
             submodel_names.append("safety_checker")
 

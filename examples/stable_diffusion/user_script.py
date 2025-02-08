@@ -38,10 +38,10 @@ class UnetGeneratedDataLoader(BaseDataLoader):
         text_max = sys.float_info.min
         
         for f in self.data_folders:
-            text = torch.from_numpy(np.fromfile(f / 'text_embeds.raw', dtype=np.float32).reshape(1, 77, 1024))
+            text = torch.from_numpy(np.fromfile(f / 'text_embeds.raw', dtype=np.float32).reshape(1, 77, config.cross_attention_dim))
             text_max = max(text_max, text.max())
             text_min = min(text_min, text.min())
-            text_neg = torch.from_numpy(np.fromfile(f / 'neg_embeds.raw', dtype=np.float32).reshape(1, 77, 1024))
+            text_neg = torch.from_numpy(np.fromfile(f / 'neg_embeds.raw', dtype=np.float32).reshape(1, 77, config.cross_attention_dim))
             text_max = max(text_max, text_neg.max())
             text_min = min(text_min, text_neg.min())
             for i in range(10000):
