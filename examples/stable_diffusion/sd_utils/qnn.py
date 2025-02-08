@@ -69,7 +69,7 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
         # corresponds to doing no classifier free guidance.
         do_classifier_free_guidance = guidance_scale > 1.0
 
-        if self.data_dir:
+        if self.save_data_dir:
             text_inputs = self.tokenizer(
                 prompt,
                 padding="max_length",
@@ -77,7 +77,7 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
                 truncation=True,
                 return_tensors="np",
             ).input_ids.astype(np.int32)
-            text_inputs.tofile(self.data_dir / "text_inputs.raw")
+            text_inputs.tofile(self.save_data_dir / "text_inputs.raw")
 
             uncond_input = self.tokenizer(
                 negative_prompt if negative_prompt else "",
@@ -86,7 +86,7 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
                 truncation=True,
                 return_tensors="np",
             ).input_ids.astype(np.int32)
-            uncond_input.tofile(self.data_dir / "uncond_input.raw")
+            uncond_input.tofile(self.save_data_dir / "uncond_input.raw")
 
 
         prompt_embeds = self._encode_prompt(
@@ -127,11 +127,11 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
 
         if do_classifier_free_guidance:
             neg_embeds, text_embeds = np.split(prompt_embeds, 2)
-            if self.data_dir:
-                neg_embeds.tofile(self.data_dir / "neg_embeds.raw")
-                text_embeds.tofile(self.data_dir / "text_embeds.raw")
-        elif self.data_dir:
-            prompt_embeds.tofile(self.data_dir / "text_embeds.raw")
+            if self.save_data_dir:
+                neg_embeds.tofile(self.save_data_dir / "neg_embeds.raw")
+                text_embeds.tofile(self.save_data_dir / "text_embeds.raw")
+        elif self.save_data_dir:
+            prompt_embeds.tofile(self.save_data_dir / "text_embeds.raw")
 
         for i, t in enumerate(self.progress_bar(self.scheduler.timesteps)):
             latent_model_input = latents
@@ -141,9 +141,9 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
             # predict the noise residual
             timestep = np.array([t], dtype=timestep_dtype)
 
-            if self.data_dir:
-                latent_model_input.tofile(self.data_dir / f"{i}_latent.raw")
-                timestep.tofile(self.data_dir / f"{i}_timestep.raw")
+            if self.save_data_dir:
+                latent_model_input.tofile(self.save_data_dir / f"{i}_latent.raw")
+                timestep.tofile(self.save_data_dir / f"{i}_timestep.raw")
 
             if do_classifier_free_guidance:
                 # Note that in QNN, we need to use static dimensions (batch is fixed to 1), so we need to split
@@ -170,13 +170,13 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
         latents = 1 / 0.18215 * latents
         # image = self.vae_decoder(latent_sample=latents)[0]
         # it seems likes there is a strange result for using half-precision vae decoder if batchsize>1
-        if self.data_dir:
-            latents[0:1].tofile(self.data_dir / "latent.raw")
+        if self.save_data_dir:
+            latents[0:1].tofile(self.save_data_dir / "latent.raw")
         image = np.concatenate(
             [self.vae_decoder(latent_sample=latents[i : i + 1])[0] for i in range(latents.shape[0])]
         )
-        if self.data_dir:
-            image.tofile(self.data_dir / "output_img.raw")
+        if self.save_data_dir:
+            image.tofile(self.save_data_dir / "output_img.raw")
 
         image = np.clip(image / 2 + 0.5, 0, 1)
         image = image.transpose((0, 2, 3, 1))
@@ -217,9 +217,9 @@ def get_qnn_pipeline(model_dir, common_args, qnn_args, script_dir):
     pipeline = QnnStableDiffusionPipeline.from_pretrained(
         model_dir, provider="CPUExecutionProvider", sess_options=sess_options
     )
-    if qnn_args.generate_data:
-        pipeline.data_dir = script_dir / qnn_args.data_dir / common_args.prompt
-        os.makedirs(pipeline.data_dir, exist_ok=True)
+    if qnn_args.save_data:
+        pipeline.save_data_dir = script_dir / qnn_args.data_dir / common_args.prompt
+        os.makedirs(pipeline.save_data_dir, exist_ok=True)
     else:
-        pipeline.data_dir = None
+        pipeline.save_data_dir = None
     return pipeline

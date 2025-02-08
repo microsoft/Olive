@@ -359,7 +359,7 @@ def parse_ov_args(raw_args):
 def parse_qnn_args(raw_args):
     parser = argparse.ArgumentParser("QNN arguments")
 
-    parser.add_argument("--generate_data", action="store_true")
+    parser.add_argument("--save_data", action="store_true")
     parser.add_argument("--data_dir", default="quantize_data", type=str)
     parser.add_argument("--data_num", default=10, type=int)
     parser.add_argument("--use_random_data", action="store_true")
