@@ -5,7 +5,7 @@
         "model_loader": "unet_load",
         "model_script": "user_script.py",
         "io_config": {
-            "input_names": [ "sample", "timestep", "encoder_hidden_states", "return_dict" ],
+            "input_names": [ "sample", "timestep", "encoder_hidden_states" ],
             "output_names": [ "out_sample" ],
             "dynamic_axes": {
                 "sample": {
@@ -30,9 +30,6 @@
     "data_configs": [
         
     ],
-    "evaluators": {
-        
-    },
     "passes": {
         "convert": {
             "type": "OnnxConversion",
@@ -47,5 +44,5 @@
     "host": "local_system",
     "target": "local_system",
     "cache_dir": "cache",
-    "output_dir": "footprints/unet"
+    "output_dir": "models/stable-diffusion-v1-5/unet-animatediff"
 }

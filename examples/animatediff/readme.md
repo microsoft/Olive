@@ -1,7 +1,15 @@
-# Generate base model
+# Get unoptimized stable diffusion onnx model
 
-python stable_diffusion.py --model_id stable-diffusion-v1-5/stable-diffusion-v1-5 --provider qnn --optimize --use_random_data --data_num 1
+You could either
+- Download from https://huggingface.co/onnx-community/stable-diffusion-v1-5-ONNX
+- Get unoptmized model from `python stable_diffusion.py --model_id stable-diffusion-v1-5/stable-diffusion-v1-5 --optimize` in stable_diffusion example
 
-# Generate image
+# Generate unoptimized animate diff onnx model
 
-python stable_diffusion.py --model_id stable-diffusion-v1-5/stable-diffusion-v1-5 --provider qnn --num_inference_steps 5 --guidance_scale 7.5 --prompt "cat swims in the river" --seed 0
+`olive run --config config_unet.json`
+
+Replace original unet model with the generated one.
+
+# Test unoptmized model
+
+`python OnnxAnimateDiffPipeline.py --seed 0`

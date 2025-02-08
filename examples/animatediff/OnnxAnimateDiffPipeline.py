@@ -1,25 +1,10 @@
-# Copyright 2024 The HuggingFace Team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import inspect
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
-from transformers import CLIPImageProcessor, CLIPTextModel, CLIPTokenizer, CLIPVisionModelWithProjection
+from transformers import CLIPImageProcessor, CLIPTokenizer, CLIPVisionModelWithProjection
 
 from diffusers.loaders import IPAdapterMixin, StableDiffusionLoraLoaderMixin, TextualInversionLoaderMixin
-from diffusers.models import AutoencoderKL, ImageProjection, UNet2DConditionModel, UNetMotionModel
 from diffusers.models.lora import adjust_lora_scale_text_encoder
 from diffusers.schedulers import (
     DDIMScheduler,
@@ -65,15 +50,12 @@ EXAMPLE_DOC_STRING = """
         ```
 """
 
-
+# Copied from diffusers.pipelines.animatediff.pipeline_animatediff.AnimateDiffPipeline
 class OnnxAnimateDiffPipeline(
     DiffusionPipeline,
     StableDiffusionMixin,
     TextualInversionLoaderMixin,
-    IPAdapterMixin,
-    StableDiffusionLoraLoaderMixin,
     FreeInitMixin,
-    AnimateDiffFreeNoiseMixin,
 ):
     r"""
     Pipeline for text-to-video generation.
@@ -123,7 +105,6 @@ class OnnxAnimateDiffPipeline(
         ],
         feature_extractor: CLIPImageProcessor = None,
         image_encoder: CLIPVisionModelWithProjection = None,
-        len_vae_config_block_out_channels: int = 4,
         unet_config = { "in_channels": 4, "sample_size": 64 },
         vae_config = { "scaling_factor": 0.18215, "block_out_channels": [
             128,
@@ -157,8 +138,6 @@ class OnnxAnimateDiffPipeline(
         negative_prompt=None,
         prompt_embeds: Optional[np.ndarray] = None,
         negative_prompt_embeds: Optional[np.ndarray] = None,
-        lora_scale: Optional[float] = None,
-        clip_skip: Optional[int] = None,
     ):
         r"""
         Encodes the prompt into text encoder hidden states.
@@ -187,17 +166,6 @@ class OnnxAnimateDiffPipeline(
                 Number of layers to be skipped from CLIP while computing the prompt embeddings. A value of 1 means that
                 the output of the pre-final layer will be used for computing the prompt embeddings.
         """
-        # set lora scale so that monkey patched LoRA
-        # function of text encoder can correctly access it
-        if lora_scale is not None and isinstance(self, StableDiffusionLoraLoaderMixin):
-            self._lora_scale = lora_scale
-
-            # dynamically adjust the LoRA scale
-            if not USE_PEFT_BACKEND:
-                adjust_lora_scale_text_encoder(self.text_encoder, lora_scale)
-            else:
-                scale_lora_layers(self.text_encoder, lora_scale)
-
         if prompt is not None and isinstance(prompt, str):
             batch_size = 1
         elif prompt is not None and isinstance(prompt, list):
@@ -231,41 +199,8 @@ class OnnxAnimateDiffPipeline(
                     f" {self.tokenizer.model_max_length} tokens: {removed_text}"
                 )
 
-            # if hasattr(self.text_encoder.config, "use_attention_mask") and self.text_encoder.config.use_attention_mask:
-            #     attention_mask = text_inputs.attention_mask
-            # else:
-            #     attention_mask = None
-
-            if clip_skip is None:
-                prompt_embeds = self.text_encoder(input_ids=text_input_ids)
-                prompt_embeds = prompt_embeds[0]
-            else:
-                prompt_embeds = self.text_encoder(
-                    input_ids=text_input_ids, output_hidden_states=True
-                )
-                # Access the `hidden_states` first, that contains a tuple of
-                # all the hidden states from the encoder layers. Then index into
-                # the tuple to access the hidden states from the desired layer.
-                prompt_embeds = prompt_embeds[-1][-(clip_skip + 1)]
-                # We also need to apply the final LayerNorm here to not mess with the
-                # representations. The `last_hidden_states` that we typically use for
-                # obtaining the final prompt representations passes through the LayerNorm
-                # layer.
-                prompt_embeds = self.text_encoder.text_model.final_layer_norm(prompt_embeds)
-
-        # if self.text_encoder is not None:
-        #     prompt_embeds_dtype = self.text_encoder.dtype
-        # elif self.unet is not None:
-        #     prompt_embeds_dtype = self.unet.dtype
-        # else:
-        #     prompt_embeds_dtype = prompt_embeds.dtype
-
-        # prompt_embeds = prompt_embeds
-
-        # bs_embed, seq_len, _ = prompt_embeds.shape
-        # duplicate text embeddings for each generation per prompt, using mps friendly method
-        # prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
-        # prompt_embeds = prompt_embeds.view(bs_embed * num_images_per_prompt, seq_len, -1)
+            prompt_embeds = self.text_encoder(input_ids=text_input_ids)
+            prompt_embeds = prompt_embeds[0]
 
         prompt_embeds = np.repeat(prompt_embeds, num_images_per_prompt, axis=0)
 
@@ -303,31 +238,13 @@ class OnnxAnimateDiffPipeline(
                 return_tensors="np",
             )
 
-            # if hasattr(self.text_encoder.config, "use_attention_mask") and self.text_encoder.config.use_attention_mask:
-            #     attention_mask = uncond_input.attention_mask
-            # else:
-            #     attention_mask = None
-
             negative_prompt_embeds = self.text_encoder(
                 input_ids=uncond_input.input_ids,
             )
             negative_prompt_embeds = negative_prompt_embeds[0]
 
         if do_classifier_free_guidance:
-            # duplicate unconditional embeddings for each generation per prompt, using mps friendly method
-            # seq_len = negative_prompt_embeds.shape[1]
-
-            # negative_prompt_embeds = negative_prompt_embeds.to(dtype=prompt_embeds_dtype)
-
-            # negative_prompt_embeds = negative_prompt_embeds.repeat(1, num_images_per_prompt, 1)
-            # negative_prompt_embeds = negative_prompt_embeds.view(batch_size * num_images_per_prompt, seq_len, -1)
-
             negative_prompt_embeds = np.repeat(negative_prompt_embeds, num_images_per_prompt, axis=0)
-
-        if self.text_encoder is not None:
-            if isinstance(self, StableDiffusionLoraLoaderMixin) and USE_PEFT_BACKEND:
-                # Retrieve the original scale by scaling back the LoRA layers
-                unscale_lora_layers(self.text_encoder, lora_scale)
 
         return prompt_embeds, negative_prompt_embeds
 
@@ -424,11 +341,8 @@ class OnnxAnimateDiffPipeline(
     def prepare_latents(
         self, batch_size, num_channels_latents, num_frames, height, width, dtype, generator, latents=None
     ):
-        if isinstance(generator, list) and len(generator) != batch_size:
-            raise ValueError(
-                f"You have passed a list of generators of length {len(generator)}, but requested an effective batch"
-                f" size of {batch_size}. Make sure the batch size matches the length of the generators."
-            )
+        if generator is None:
+            generator = np.random
 
         shape = (
             batch_size,
@@ -439,7 +353,7 @@ class OnnxAnimateDiffPipeline(
         )
 
         if latents is None:
-            latents = np.random.randn(*shape).astype(dtype)
+            latents = generator.randn(*shape).astype(dtype)
         else:
             latents = latents
 
@@ -450,10 +364,6 @@ class OnnxAnimateDiffPipeline(
     @property
     def guidance_scale(self):
         return self._guidance_scale
-
-    @property
-    def clip_skip(self):
-        return self._clip_skip
 
     # here `guidance_scale` is defined analog to the guidance weight `w` of equation (2)
     # of the Imagen paper: https://arxiv.org/pdf/2205.11487.pdf . `guidance_scale = 1`
@@ -494,7 +404,6 @@ class OnnxAnimateDiffPipeline(
         output_type: Optional[str] = "pil",
         return_dict: bool = True,
         cross_attention_kwargs: Optional[Dict[str, Any]] = None,
-        clip_skip: Optional[int] = None,
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
         decode_chunk_size: int = 16,
@@ -605,7 +514,6 @@ class OnnxAnimateDiffPipeline(
         )
 
         self._guidance_scale = guidance_scale
-        self._clip_skip = clip_skip
         self._cross_attention_kwargs = cross_attention_kwargs
         self._interrupt = False
 
@@ -618,10 +526,6 @@ class OnnxAnimateDiffPipeline(
             batch_size = prompt_embeds.shape[0]
 
         # 3. Encode input prompt
-        text_encoder_lora_scale = (
-            self.cross_attention_kwargs.get("scale", None) if self.cross_attention_kwargs is not None else None
-        )
-
         prompt_embeds, negative_prompt_embeds = self.encode_prompt(
             prompt,
             num_videos_per_prompt,
@@ -629,8 +533,6 @@ class OnnxAnimateDiffPipeline(
             negative_prompt,
             prompt_embeds=prompt_embeds,
             negative_prompt_embeds=negative_prompt_embeds,
-            lora_scale=text_encoder_lora_scale,
-            clip_skip=self.clip_skip,
         )
 
         # For classifier free guidance, we need to do two forward passes.
@@ -662,10 +564,6 @@ class OnnxAnimateDiffPipeline(
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
 
         # 7. Add image embeds for IP-Adapter
-        added_cond_kwargs = (
-            None
-        )
-
         self._num_timesteps = len(timesteps)
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
 
@@ -695,7 +593,7 @@ class OnnxAnimateDiffPipeline(
 
                 # perform guidance
                 if self.do_classifier_free_guidance:
-                    noise_pred_uncond, noise_pred_text = np.split(noise_pred.chunk, 2)
+                    noise_pred_uncond, noise_pred_text = np.split(noise_pred, 2)
                     noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
                 # compute the previous noisy sample x_t -> x_t-1
@@ -732,15 +630,60 @@ class OnnxAnimateDiffPipeline(
 
         return AnimateDiffPipelineOutput(frames=video)
 
+import argparse
 
-from diffusers import AnimateDiffPipeline, MotionAdapter, EulerDiscreteScheduler, OnnxStableDiffusionPipeline
-from diffusers.utils import export_to_gif
-
-pipe = OnnxAnimateDiffPipeline.from_pretrained(
-    "C:\\Repos\\Olive\\examples\\animate\\models\\stable-diffusion-v1-5\\stable-diffusion-v1-5", provider="CPUExecutionProvider"
+parser = argparse.ArgumentParser("Common arguments")
+parser.add_argument("--steps", default=2, type=int, help="Number of steps. Should match model")
+parser.add_argument(
+    "--prompt",
+    default=(
+        "cat swims in the river"
+    ),
+    type=str,
+)
+parser.add_argument(
+    "--input",
+    default=(
+        "models/stable-diffusion-v1-5"
+    ),
+    type=str,
+)
+parser.add_argument(
+    "--output",
+    default=(
+        "animation.gif"
+    ),
+    type=str,
+)
+parser.add_argument(
+    "--seed",
+    default=None,
+    type=int,
+    help="The seed to give to the generator to generate deterministic results.",
+)
+parser.add_argument(
+    "--guidance_scale",
+    default=1,
+    type=float,
+    help="Guidance scale as defined in Classifier-Free Diffusion Guidance",
 )
 
-pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing", beta_schedule="linear")
+def main(raw_args=None):
+    args = parser.parse_args(raw_args)
 
-output = pipe(prompt="cat swims in the river", guidance_scale=1, num_inference_steps=1, decode_chunk_size=1)
-export_to_gif(output.frames[0], "animation1.gif")
+    from diffusers import EulerDiscreteScheduler
+    from diffusers.utils import export_to_gif
+
+    pipe = OnnxAnimateDiffPipeline.from_pretrained(
+        args.input, provider="CPUExecutionProvider"
+    )
+
+    pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing", beta_schedule="linear")
+
+    generator = None if args.seed is None else np.random.RandomState(seed=args.seed)
+    output = pipe(prompt=args.prompt, guidance_scale=args.guidance_scale, num_inference_steps=args.steps, decode_chunk_size=1, generator=generator)
+    export_to_gif(output.frames[0], args.output)
+
+
+if __name__ == "__main__":
+    main()
