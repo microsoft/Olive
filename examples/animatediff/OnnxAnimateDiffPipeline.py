@@ -30,6 +30,7 @@ from diffusers.pipelines.animatediff import AnimateDiffPipelineOutput
 
 from diffusers.pipelines.onnx_utils import OnnxRuntimeModel, ORT_TO_NP_TYPE
 import numpy as np
+from pathlib import Path
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -407,6 +408,7 @@ class OnnxAnimateDiffPipeline(
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
         decode_chunk_size: int = 16,
+        save_data_dir: Optional[Path] = None,
         **kwargs,
     ):
         r"""
@@ -573,6 +575,8 @@ class OnnxAnimateDiffPipeline(
         timestep_dtype = ORT_TO_NP_TYPE[timestep_dtype]
 
         # 8. Denoising loop
+        if save_data_dir:
+            prompt_embeds.tofile(save_data_dir / "encoder_hidden_states.raw")
         with self.progress_bar(total=self._num_timesteps) as progress_bar:
             for i, t in enumerate(timesteps):
                 if self.interrupt:
@@ -585,6 +589,9 @@ class OnnxAnimateDiffPipeline(
 
                 timestep = np.array([t], dtype=timestep_dtype)
                 # predict the noise residual
+                if save_data_dir:
+                    latent_model_input.tofile(save_data_dir / f"{i}_sample.raw")
+                    timestep.tofile(save_data_dir / f"{i}_timestep.raw")
                 noise_pred = self.unet(
                     sample=latent_model_input,
                     timestep=timestep,
@@ -637,7 +644,7 @@ parser.add_argument("--steps", default=2, type=int, help="Number of steps. Shoul
 parser.add_argument(
     "--prompt",
     default=(
-        "cat swims in the river"
+        "a cat smiling"
     ),
     type=str,
 )
@@ -667,6 +674,9 @@ parser.add_argument(
     type=float,
     help="Guidance scale as defined in Classifier-Free Diffusion Guidance",
 )
+parser.add_argument("--save_data", action="store_true")
+parser.add_argument("--data_dir", default="quantize_data", type=str)
+
 
 def main(raw_args=None):
     args = parser.parse_args(raw_args)
@@ -681,7 +691,12 @@ def main(raw_args=None):
     pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing", beta_schedule="linear")
 
     generator = None if args.seed is None else np.random.RandomState(seed=args.seed)
-    output = pipe(prompt=args.prompt, guidance_scale=args.guidance_scale, num_inference_steps=args.steps, decode_chunk_size=1, generator=generator)
+    save_data_dir = None
+    if args.save_data:
+        import os
+        save_data_dir = Path(args.data_dir) / args.prompt
+        os.makedirs(save_data_dir, exist_ok=True)
+    output = pipe(prompt=args.prompt, guidance_scale=args.guidance_scale, num_inference_steps=args.steps, decode_chunk_size=1, generator=generator, save_data_dir=save_data_dir)
     export_to_gif(output.frames[0], args.output)
 
 
