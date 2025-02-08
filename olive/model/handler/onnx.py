@@ -180,7 +180,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
             return self._io_config
 
         # save io_config
-        self._io_config = self.get_graph_io_config()
+        self._io_config = self.get_graph_io_config(self.model_path)
         return self._io_config
 
     def _get_default_execution_providers(self, device: Device):

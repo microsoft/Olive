@@ -59,7 +59,8 @@ class OnnxGraphMixin:
                     return tensor
         return None
 
-    def get_graph_io_config(self):
+    @staticmethod
+    def get_graph_io_config(model_path):
         try:
             from onnx.helper import tensor_dtype_to_np_dtype
         except ImportError:
@@ -71,7 +72,7 @@ class OnnxGraphMixin:
         # external data is not needed for io config parsing
         # the .onnx model already contains all of the graph information
         # this method works whether the external data is in the same directory or not
-        model = onnx.load(self.model_path, load_external_data=False)
+        model = onnx.load(model_path, load_external_data=False)
         io_config = {
             "input_names": [],
             "input_shapes": [],

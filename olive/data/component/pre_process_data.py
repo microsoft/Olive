@@ -79,6 +79,8 @@ def huggingface_pre_process(
         max_samples (int, optional): Max number of samples to use. Defaults to None.
         trust_remote_code (bool, optional): Whether or not to allow for custom models defined on the Hub in their own
             modeling files. Defaults to None.
+        extended_mask_type (bool, optional): Whether to use extended mask. Defaults to False.
+        extended_mask_value (int, optional): Value for extended mask. Defaults to None.
         **kwargs: Additional arguments.
 
     Returns:

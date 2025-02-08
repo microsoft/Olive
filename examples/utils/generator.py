@@ -7,24 +7,18 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import onnx
 from kv_cache_utils import DynamicCache, DynamicIOBoundCache, GQASharedCache, StaticCache, StaticIOBoundCache
-from onnxruntime import InferenceSession, OrtValue, SessionOptions, set_default_logger_severity
+from onnxruntime import OrtValue, set_default_logger_severity
 from transformers import PreTrainedTokenizer
 
 from olive.common.hf.model_io import replace_with_extended_mask
-from olive.common.utils import StrEnumBase, load_weights
+from olive.common.ort_inference import get_ort_inference_session
+from olive.common.utils import load_weights
+from olive.model.handler.mixin.onnx_graph import OnnxGraphMixin
 
 if TYPE_CHECKING:
     from kv_cache_utils import Cache, IOBoundCache
     from numpy.typing import NDArray
-    from onnx import ValueInfoProto
-
-
-class AdapterMode(StrEnumBase):
-    """Enum for adapter modes."""
-
-    inputs = "inputs"
-    initializers = "initializers"
-
+    from onnxruntime import InferenceSession
 
 # ort logs warnings about default initializers
 set_default_logger_severity(3)
@@ -33,12 +27,12 @@ set_default_logger_severity(3)
 class ORTGenerator:
     def __init__(
         self,
-        model_path: str,
+        model_path: Union[str, Tuple[str, str]],
         tokenizer: PreTrainedTokenizer,
         execution_provider: str,
         device_id: int = 0,
         adapters: Dict[str, Any] = None,
-        adapter_mode: AdapterMode = AdapterMode.inputs,
+        has_gqa: Optional[bool] = None,
     ):
         """Initialize the generator.
 
@@ -51,47 +45,51 @@ class ORTGenerator:
             - "weights": Path to the weights file or dictionary of weights.
             - "template": The template to use for the adapter.
             If not provided, will assume the model has no adapters.
-        :param adapter_mode: The mode to use for the adapters. Can be "inputs" or "initializers".
         """
-        self.model_path = model_path
+        if isinstance(model_path, str):
+            self.model_path = (model_path,)
+        else:
+            assert len(model_path) == 2, "model_path should be a string or a tuple of two strings."
+            self.model_path = model_path
         self.tokenizer = tokenizer
         self.execution_provider = execution_provider
         self.device_id = device_id
         self.adapter_info = adapters or {"default": {"weights": None, "template": None}}
-        self.adapter_mode = AdapterMode(adapter_mode)
 
         # Determine attention type
-        self.attn_type = "default"
-        model_proto = onnx.load(self.model_path, load_external_data=False)
-        for node in model_proto.graph.node:
-            if node.op_type == "GroupQueryAttention":
-                self.attn_type = "gqa"
-                break
-            if node.op_type == "MultiHeadAttention":
-                self.attn_type = "mha"
-                break
+        if has_gqa is not None:
+            self.has_gqa = has_gqa
+        else:
+            model_proto = onnx.load(self.model_path[-1], load_external_data=False)
+            for node in model_proto.graph.node:
+                if node.op_type == "GroupQueryAttention":
+                    self.has_gqa = True
+                    break
+
         # Get io info
-        self.extended_attention_mask = False
-        self.input_info = {}
-        self.cache_info = {"past_names": [], "present_names": [], "dtype": None, "num_kv_heads": None, "head_dim": None}
-        for i in model_proto.graph.input:
-            if i.name == "attention_mask":
-                attention_mask_info = self.get_io_type_shape(i)
-                self.extended_attention_mask = len(attention_mask_info["shape"]) == 4
-            if ".key" not in i.name and ".value" not in i.name:
-                self.input_info[i.name] = self.get_io_type_shape(i)
+        # use the generator graph for io info since it has all the inputs and outputs
+        self.input_info, self.output_info = ORTGenerator.get_io_info(self.model_path[-1])
+        self.cache_info = {
+            "past_names": [],
+            "present_names": [],
+            "dtype": None,
+            "num_kv_heads": None,
+            "head_dim": None,
+            # "cache_len": None,
+        }
+        for i_name, i_info in self.input_info.items():
+            if ".key" not in i_name and ".value" not in i_name:
                 continue
             if not self.cache_info["past_names"]:
-                past_info = self.get_io_type_shape(i)
-                self.cache_info["dtype"] = past_info["dtype"]
-                self.cache_info["num_kv_heads"] = past_info["shape"][1]
-                self.cache_info["head_dim"] = past_info["shape"][3]
-            self.cache_info["past_names"].append(i.name)
-        for i in model_proto.graph.output:
-            if ".key" not in i.name and ".value" not in i.name:
-                continue
-            self.cache_info["present_names"].append(i.name)
-        del model_proto
+                self.cache_info["dtype"] = i_info["dtype"]
+                self.cache_info["num_kv_heads"] = i_info["shape"][1]
+                self.cache_info["head_dim"] = i_info["shape"][3]
+                # if isinstance(i_info["shape"][2], int):
+                #     self.cache_info["cache_len"] = i_info["shape"][2]
+            self.cache_info["past_names"].append(i_name)
+        for o_name in self.output_info:
+            if ".key" in o_name or ".value" in o_name:
+                self.cache_info["present_names"].append(o_name)
 
         # Determine device to use for io binding
         # NOTE: QNNExecutionProvider does not support IO binding but keep it for future compatibility
@@ -99,46 +97,43 @@ class ORTGenerator:
             "CPUExecutionProvider": "cpu",
             "CUDAExecutionProvider": "cuda",
             "DmlExecutionProvider": "dml",
-            "QNNExecutionProvider": "qnn",
+            "QNNExecutionProvider": "cpu",
         }
         self.device = ep_to_device_map[self.execution_provider]
 
         # create the session
         self.sessions, self.adapters = self.prepare_sessions(
-            self.model_path, self.execution_provider, self.device, self.device_id, self.adapter_info, self.adapter_mode
+            self.model_path, self.execution_provider, self.device, self.device_id, self.adapter_info
         )
         self.default_adapter = next(iter(self.adapters.keys()))
 
     @staticmethod
-    def get_io_type_shape(io: "ValueInfoProto") -> Dict:
-        """Get the type and shape of an input/output."""
-        tensor_type = io.type.tensor_type
-        if tensor_type.elem_type == 0:
-            # sequence type
-            # TODO(jambayk): add support for different types
-            # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
-            tensor_type = io.type.sequence_type.elem_type.tensor_type
-        data_type = onnx.helper.tensor_dtype_to_np_dtype(tensor_type.elem_type).name
-        shape = [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
-        return {
-            "dtype": data_type,
-            "shape": shape,
-        }
+    def get_io_info(model_path: str) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+        io_config = OnnxGraphMixin.get_graph_io_config(model_path)
+        return tuple(
+            {
+                name: {"dtype": dtype, "shape": shape}
+                for name, dtype, shape in zip(
+                    io_config[f"{prefix}_names"], io_config[f"{prefix}_types"], io_config[f"{prefix}_shapes"]
+                )
+            }
+            for prefix in ["input", "output"]
+        )
 
     @property
     def use_position_ids(self) -> bool:
         """Whether the model has position ids."""
         return "position_ids" in self.input_info
 
+    @property
+    def extended_attention_mask(self) -> bool:
+        """Whether the model has extended attention mask."""
+        return len(self.input_info["attention_mask"]["shape"]) == 4
+
     @staticmethod
     def prepare_sessions(
-        model_path: str,
-        execution_provider: str,
-        device: str,
-        device_id: int,
-        adapter_info: Dict[str, Any],
-        adapter_mode: AdapterMode,
-    ) -> Tuple[Dict[str, InferenceSession], Dict[str, Dict[str, Any]]]:
+        model_path: str, execution_provider: str, device: str, device_id: int, adapter_info: Dict[str, Any]
+    ) -> Tuple[Dict[str, "InferenceSession"], Dict[str, Dict[str, Any]]]:
         """Prepare the sessions and adapters for the model.
 
         :param model_path: Path to the model.
@@ -149,71 +144,44 @@ class ORTGenerator:
             dictionary with the following keys
             - "weights": Path to the weights file or dictionary of weights.
             - "template": The template to use for the adapter.
-        :param adapter_mode: The mode to use for the adapters. Can be "inputs" or "initializers".
         :return: Tuple of sessions and adapters.
             Sessions is a dictionary of session names to InferenceSession objects.
             Adapters is a dictionary of adapter names to dictionaries with the following keys
-            - "session": The session name to use for the adapter.
             - "template": The template to use for the adapter.
-            - "numpy_inputs": The numpy inputs for the adapter if adapter_mode is "inputs".
-            - "ortvalue_inputs": The OrtValue inputs for the adapter if adapter_mode is "inputs".
+            - "numpy_inputs": The numpy inputs for the adapter.
+            - "ortvalue_inputs": The OrtValue inputs for the adapter.
         """
         sessions = {}
         adapters = {}
-        providers = [execution_provider]
-        provider_options = [{"device_id": device_id}] if device in {"cuda", "dml"} else None
-        if adapter_mode == AdapterMode.inputs:
-            # there is only one session
-            # TODO(jambayk): test and enable graph for cuda and dml
-            sessions["default"] = InferenceSession(model_path, providers=providers, provider_options=provider_options)
-            for name, info in adapter_info.items():
-                adapters[name] = {
-                    "session": "default",
-                    "template": info.get("template"),
-                }
-                if info.get("weights") is not None:
-                    np_weights = load_weights(info["weights"]) if isinstance(info["weights"], str) else info["weights"]
-                    # TODO(jambayk): provide an option to lazy load the ortvalues if needed
-                    # for example, there is not enough memory to load all adapters at once
-                    if execution_provider != "QNNExecutionProvider":
-                        ort_values = {
-                            k: OrtValue.ortvalue_from_numpy(v, device, device_id) for k, v in np_weights.items()
-                        }
-                    else:
-                        ort_values = None
-                    adapters[name].update({"numpy_inputs": np_weights, "ortvalue_inputs": ort_values})
+        inference_settings = {"execution_provider": [execution_provider]}
+        # TODO(jambayk): test and enable graph for cuda and dml
+        sessions["prefill"] = get_ort_inference_session(model_path[0], inference_settings, device_id=device_id)
+        if len(model_path) == 2:
+            get_ort_inference_session(model_path[1], inference_settings, device_id=device_id)
         else:
-            # create a session for each adapter
-            for name, info in adapter_info.items():
-                # load the initializers and create the session
-                initializer_names = []
-                initializer_values = []
-                if info.get("weights") is not None:
-                    np_weights = load_weights(info["weights"]) if isinstance(info["weights"], str) else info["weights"]
-                    for i_name, value in np_weights.items():
-                        initializer_names.append(i_name)
-                        initializer_values.append(OrtValue.ortvalue_from_numpy(value))
+            sessions["generator"] = sessions["prefill"]
 
-                session_options = SessionOptions()
-                session_options.add_external_initializers(initializer_names, initializer_values)
-
-                sessions[name] = InferenceSession(
-                    model_path, providers=providers, provider_options=provider_options, sess_options=session_options
-                )
-                adapters[name] = {
-                    "session": name,
-                    "template": info.get("template"),
-                }
+        for name, info in adapter_info.items():
+            adapters[name] = {
+                "template": info.get("template"),
+            }
+            if info.get("weights") is not None:
+                np_weights = load_weights(info["weights"]) if isinstance(info["weights"], str) else info["weights"]
+                # TODO(jambayk): provide an option to lazy load the ortvalues if needed
+                # for example, there is not enough memory to load all adapters at once
+                if execution_provider != "QNNExecutionProvider":
+                    ort_values = {k: OrtValue.ortvalue_from_numpy(v, device, device_id) for k, v in np_weights.items()}
+                else:
+                    ort_values = None
+                adapters[name].update({"numpy_inputs": np_weights, "ortvalue_inputs": ort_values})
         return sessions, adapters
 
-    def get_adapter(
-        self, name: Optional[str] = None, use_io_binding: bool = False
-    ) -> Tuple[InferenceSession, str, Dict[str, Any]]:
+    def get_adapter(self, name: Optional[str] = None, use_io_binding: bool = False) -> Tuple[str, Dict[str, Any]]:
         """Get the session, template and inputs for the specified adapter.
 
         :param name: Name of the adapter to use. If None, the default adapter is used.
         :param use_io_binding: Whether to use IO binding for the adapter.
-        :return: Tuple of session, template and inputs.
+        :return: Tuple of template and inputs.
             The adapter_inputs are either numpy arrays or OrtValues depending on use_io_binding.
         """
         if name is None:
@@ -221,12 +189,11 @@ class ORTGenerator:
         elif name not in self.adapters:
             raise ValueError(f"Adapter {name} not found.")
 
-        session = self.sessions[self.adapters[name]["session"]]
         template = self.adapters[name]["template"]
         inputs = (
             self.adapters[name].get("ortvalue_inputs") if use_io_binding else self.adapters[name].get("numpy_inputs")
         )
-        return session, template, inputs
+        return template, inputs
 
     def generate(
         self,
@@ -249,15 +216,9 @@ class ORTGenerator:
         :param cache_backend: The backend to use for static cache. Can be "ort" or "torch".
         :return: The generated text.
         """
-        if use_io_binding and self.execution_provider == "QNNExecutionProvider":
-            raise ValueError("QNNExecutionProvider does not support IO binding.")
-        if use_io_binding and self.extended_attention_mask:
-            raise ValueError("Model uses 4D causal mask which is not supported with IO binding yet.")
-
-        # get session, template and adapter inputs
-        # if adapter mode is inputs, the adapter input is dictionary of adapter weights
-        session, template, adapter_inputs = self.get_adapter(adapter, use_io_binding)
-        io_binding = session.io_binding() if use_io_binding else None
+        # template and adapter inputs
+        # the adapter input is dictionary of adapter weights
+        template, adapter_inputs = self.get_adapter(adapter, use_io_binding)
 
         # get the inputs for prompt processing
         inputs, cache = self.get_initial_inputs(
@@ -271,7 +232,9 @@ class ORTGenerator:
 
         # buffers to keep numpy copy of model inputs, don't want to keep going back and forth between OrtValue and numpy
         np_buffers = {
-            "attention_mask": (inputs["attention_mask"].numpy() if use_io_binding else inputs["attention_mask"].copy())
+            "attention_mask": (
+                inputs.pop("attention_mask_2d").numpy() if use_io_binding else inputs.pop("attention_mask_2d")
+            )
         }
         if self.use_position_ids:
             np_buffers["position_ids"] = (
@@ -281,7 +244,16 @@ class ORTGenerator:
                 .astype(self.input_info["position_ids"]["dtype"])
             )
 
+        session = None
+        io_binding = None
         for idx in range(max_gen_len):
+            if idx == 0:
+                session = self.sessions["prefill"]
+                io_binding = session.io_binding() if use_io_binding else None
+            elif idx == 1:
+                session = self.sessions["generator"]
+                io_binding = session.io_binding() if use_io_binding else None
+
             if use_io_binding:
                 if idx < 2:
                     # need to bind logits twice, once for prompt processing and once for token generation
@@ -378,16 +350,25 @@ class ORTGenerator:
                     [np_buffers["attention_mask"], np.ones((batch_size, 1), dtype=np.int32)], 1
                 )
 
+            attention_mask = np_buffers["attention_mask"]
+            if self.extended_attention_mask:
+                attention_mask = replace_with_extended_mask(
+                    {
+                        "input_ids": inputs["input_ids"].numpy() if use_io_binding else inputs["input_id"],
+                        "attention_mask": attention_mask,
+                    },
+                    "causal",
+                    -1000,
+                )["attention_mask"].astype(self.input_info["attention_mask"]["dtype"])
+
             if not use_io_binding:
-                inputs["attention_mask"] = np_buffers["attention_mask"].copy()
+                inputs["attention_mask"] = attention_mask
             elif cache_type == "dynamic" or (idx == 0 and not isinstance(cache, GQASharedCache)):
                 # only update attention mask for dynamic cache or first token for static cache (non-GQA)
-                inputs["attention_mask"] = OrtValue.ortvalue_from_numpy(
-                    np_buffers["attention_mask"], self.device, self.device_id
-                )
+                inputs["attention_mask"] = OrtValue.ortvalue_from_numpy(attention_mask, self.device, self.device_id)
             else:
                 # GQA, or static during token generation
-                inputs["attention_mask"].update_inplace(np_buffers["attention_mask"])
+                inputs["attention_mask"].update_inplace(attention_mask)
 
             # update cache
             cache.update(outputs[1:])
@@ -432,7 +413,7 @@ class ORTGenerator:
         batch_size, prompt_length = input_ids.shape
         attention_mask = encodings_dict["attention_mask"]
         if not self.extended_attention_mask:
-            attention_mask = attention_mask.astype(self.input_info["attention_mask"]["dtype"])
+            attention_mask.astype(self.input_info["attention_mask"]["dtype"])
 
         cache = self.get_fresh_cache(batch_size, use_io_binding, cache_type, max_cache_len, cache_backend)
         if isinstance(cache, GQASharedCache):
@@ -440,7 +421,10 @@ class ORTGenerator:
                 [attention_mask, np.zeros((batch_size, cache.max_cache_len - prompt_length), dtype=np.int32)], 1
             )
 
-        inputs = {"input_ids": input_ids, "attention_mask": attention_mask}
+        inputs = {"input_ids": input_ids, "attention_mask": attention_mask, "attention_mask_2d": attention_mask}
+        if self.extended_attention_mask:
+            replace_with_extended_mask(inputs, "causal", -1000)
+            inputs["attention_mask"] = inputs["attention_mask"].astype(self.input_info["attention_mask"]["dtype"])
         if self.use_position_ids:
             position_ids = np.arange(prompt_length, dtype=np.int64).reshape((1, prompt_length))
             position_ids = np.broadcast_to(position_ids, (batch_size, prompt_length))
@@ -461,9 +445,9 @@ class ORTGenerator:
         # determine cache class
         cache_class = None
         if cache_type == "static":
-            if self.attn_type == "gqa" and use_io_binding:
+            if self.has_gqa and use_io_binding:
                 cache_class = GQASharedCache
-            elif self.attn_type == "gqa":
+            elif self.has_gqa:
                 # TODO(jambayk): implement generic GQA static cache if needed
                 # it is not the same as using the current static cache since GQA inserts
                 # new kv at seqlen_k instead of appending to the end of the past

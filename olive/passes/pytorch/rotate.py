@@ -122,7 +122,7 @@ class RotateBase(Pass):
                 # Wdown @ R1
                 set_attr(layer_wrapper.layer, linear_name, RotateLinear(linear, Q_post=R1))
 
-        print(f"Num rotation params: {len(rotation_params)}")
+        # print(f"Num rotation params: {len(rotation_params)}")
 
         return (
             model_wrapper,
