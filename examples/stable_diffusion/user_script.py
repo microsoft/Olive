@@ -43,10 +43,14 @@ class UnetGeneratedDataLoader(BaseDataLoader):
         text_max = sys.float_info.min
 
         for f in self.data_folders:
-            text = torch.from_numpy(np.fromfile(f / "text_embeds.raw", dtype=np.float32).reshape(1, 77, config.cross_attention_dim))
+            text = torch.from_numpy(
+                np.fromfile(f / "text_embeds.raw", dtype=np.float32).reshape(1, 77, config.cross_attention_dim)
+            )
             text_max = max(text_max, text.max())
             text_min = min(text_min, text.min())
-            text_neg = torch.from_numpy(np.fromfile(f / "neg_embeds.raw", dtype=np.float32).reshape(1, 77, config.cross_attention_dim))
+            text_neg = torch.from_numpy(
+                np.fromfile(f / "neg_embeds.raw", dtype=np.float32).reshape(1, 77, config.cross_attention_dim)
+            )
             text_max = max(text_max, text_neg.max())
             text_min = min(text_min, text_neg.min())
             for i in range(10000):
@@ -59,8 +63,8 @@ class UnetGeneratedDataLoader(BaseDataLoader):
                 time = torch.from_numpy(np.fromfile(f / f"{i}_timestep.raw", dtype=np.float32).reshape(1))
                 time_max = max(time_max, time.max())
                 time_min = min(time_min, time.min())
-                self.data.append({"sample": latent, "timestep": time, "encoder_hidden_states": text})
-                self.data.append({"sample": latent, "timestep": time, "encoder_hidden_states": text_neg})
+                self.data.extend({"sample": latent, "timestep": time, "encoder_hidden_states": text})
+                self.data.extend({"sample": latent, "timestep": time, "encoder_hidden_states": text_neg})
         print(latent_min, latent_max, time_min, time_max, text_min, text_max)
 
 
@@ -73,11 +77,11 @@ class TextEncoderGeneratedDataLoader(BaseDataLoader):
             data = torch.from_numpy(np.fromfile(f / "text_inputs.raw", dtype=np.int32).reshape(1, 77))
             latent_max = max(latent_max, data.max())
             latent_min = min(latent_min, data.min())
-            self.data.append({"input_ids": data})
+            self.data.extend({"input_ids": data})
             data = torch.from_numpy(np.fromfile(f / "uncond_input.raw", dtype=np.int32).reshape(1, 77))
             latent_max = max(latent_max, data.max())
             latent_min = min(latent_min, data.min())
-            self.data.append({"input_ids": data})
+            self.data.extend({"input_ids": data})
         print(latent_min, latent_max)
 
 
@@ -90,7 +94,7 @@ class VaeDecoderGeneratedDataLoader(BaseDataLoader):
             data = torch.from_numpy(np.fromfile(f / "latent.raw", dtype=np.float32).reshape(1, 4, 64, 64))
             latent_max = max(latent_max, data.max())
             latent_min = min(latent_min, data.min())
-            self.data.append({"latent_sample": data})
+            self.data.extend({"latent_sample": data})
         print(latent_min, latent_max)
 
 
@@ -103,7 +107,7 @@ class VaeEncoderGeneratedDataLoader(BaseDataLoader):
             data = torch.from_numpy(np.fromfile(f / "output_img.raw", dtype=np.float32).reshape(1, 3, 512, 512))
             latent_max = max(latent_max, data.max())
             latent_min = min(latent_min, data.min())
-            self.data.append({"sample": data})
+            self.data.extend({"sample": data})
         print(latent_min, latent_max)
 
 
@@ -112,14 +116,14 @@ class VaeEncoderGeneratedDataLoader(BaseDataLoader):
 
 def get_data_list(size, torch_dtype, total, value_min, value_max):
     result = []
-    result.append(torch.zeros(size, dtype=torch_dtype))
-    result.append(torch.zeros(size, dtype=torch_dtype) + value_min)
-    result.append(torch.zeros(size, dtype=torch_dtype) + value_max)
+    result.extend(torch.zeros(size, dtype=torch_dtype))
+    result.extend(torch.zeros(size, dtype=torch_dtype) + value_min)
+    result.extend(torch.zeros(size, dtype=torch_dtype) + value_max)
     total -= 3
     if total <= 0:
         return result
     for _ in range(total):
-        result.append(torch.rand(size, dtype=torch_dtype) * (value_max - value_min) + value_min)
+        result.extend(torch.rand(size, dtype=torch_dtype) * (value_max - value_min) + value_min)
     return result
 
 
@@ -130,7 +134,7 @@ class UnetDataRandomLoader(BaseDataLoader):
         timesteps = get_data_list((1), torch.float32, total, 0, 1000)
         states = get_data_list((1, 77, config.cross_attention_dim), torch.float32, total, -8, 14)
         for i in range(self.total):
-            self.data.append({"sample": samples[i], "timestep": timesteps[i], "encoder_hidden_states": states[i]})
+            self.data.extend({"sample": samples[i], "timestep": timesteps[i], "encoder_hidden_states": states[i]})
 
 
 class TextEncoderDataRandomLoader(BaseDataLoader):
@@ -138,7 +142,7 @@ class TextEncoderDataRandomLoader(BaseDataLoader):
         super().__init__(total)
         samples = get_data_list((1, 77), torch.float32, total, 0, 49407)
         for i in range(self.total):
-            self.data.append({"input_ids": samples[i].to(torch.int32)})
+            self.data.extend({"input_ids": samples[i].to(torch.int32)})
 
 
 class VaeDecoderDataRandomLoader(BaseDataLoader):
@@ -146,7 +150,7 @@ class VaeDecoderDataRandomLoader(BaseDataLoader):
         super().__init__(total)
         samples = get_data_list((1, 4, config.unet_sample_size, config.unet_sample_size), torch.float32, total, -62, 50)
         for i in range(self.total):
-            self.data.append({"latent_sample": samples[i]})
+            self.data.extend({"latent_sample": samples[i]})
 
 
 class VaeEncoderDataRandomLoader(BaseDataLoader):
@@ -154,7 +158,7 @@ class VaeEncoderDataRandomLoader(BaseDataLoader):
         super().__init__(total)
         samples = get_data_list((1, 3, 512, 512), torch.float32, total, -1, 1)
         for i in range(self.total):
-            self.data.append({"sample": samples[i]})
+            self.data.extend({"sample": samples[i]})
 
 
 # Helper latency-only dataloader that creates random tensors with no label

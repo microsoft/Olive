@@ -118,7 +118,8 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
             extra_step_kwargs["eta"] = eta
 
         timestep_dtype = next(
-            (unet_input.type for unet_input in self.unet.model.get_inputs() if unet_input.name == "timestep"), "tensor(float)"
+            (unet_input.type for unet_input in self.unet.model.get_inputs() if unet_input.name == "timestep"),
+            "tensor(float)",
         )
         timestep_dtype = ORT_TO_NP_TYPE[timestep_dtype]
 
