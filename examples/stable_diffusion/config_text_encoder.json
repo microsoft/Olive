@@ -95,10 +95,7 @@
             "dim_param": [ "batch", "sequence" ],
             "dim_value": [ 1, 77 ]
         },
-        "qnn_preprocess": {
-            "type": "QNNPreprocess",
-            "fuse_layernorm": true
-        },
+        "qnn_preprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "quantize_data_config",
@@ -107,7 +104,17 @@
             "calibrate_method": "MinMax",
             "quant_preprocess": true,
             "prepare_qnn_config": true,
-            "op_types_to_quantize": [ "MatMul", "LayerNormalization", "Reshape", "Transpose", "Mul", "Gather", "Gelu", "Flatten", "ArgMax" ],
+            "op_types_to_quantize": [
+                "MatMul",
+                "LayerNormalization",
+                "Reshape",
+                "Transpose",
+                "Mul",
+                "Gather",
+                "Gelu",
+                "Flatten",
+                "ArgMax"
+            ],
             "append_first_op_types_to_quantize_list": false,
             "nodes_to_exclude": [ "Add", "Softmax" ]
         }

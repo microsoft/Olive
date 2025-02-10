@@ -288,7 +288,11 @@ def parse_common_args(raw_args):
 
     parser.add_argument("--model_id", default="CompVis/stable-diffusion-v1-4", type=str)
     parser.add_argument(
-        "--provider", default="dml", type=str, choices=["dml", "cuda", "openvino", "qnn"], help="Execution provider to use"
+        "--provider",
+        default="dml",
+        type=str,
+        choices=["dml", "cuda", "openvino", "qnn"],
+        help="Execution provider to use",
     )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
@@ -365,6 +369,7 @@ def parse_qnn_args(raw_args):
     parser.add_argument("--use_random_data", action="store_true")
 
     return parser.parse_known_args(raw_args)
+
 
 def main(raw_args=None):
     common_args, extra_args = parse_common_args(raw_args)

@@ -102,10 +102,7 @@
             "dim_param": [ "decoder_batch", "decoder_channels", "decoder_height", "decoder_width" ],
             "dim_value": [ 1, 4, 64, 64 ]
         },
-        "qnn_preprocess": {
-            "type": "QNNPreprocess",
-            "fuse_layernorm": true
-        },
+        "qnn_preprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "quantize_data_config",

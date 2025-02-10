@@ -2,18 +2,21 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import os
+import sys
+
+import numpy as np
 import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
 from huggingface_hub import model_info
 from sd_utils import config
 from transformers.models.clip.modeling_clip import CLIPTextModel
+
 from olive.data.registry import Registry
-import os
-import numpy as np
-import sys
 
 # Generated data helpers
+
 
 class BaseDataLoader:
     def __init__(self, total):
@@ -24,8 +27,10 @@ class BaseDataLoader:
 
     def __getitem__(self, idx):
         print("getitem: " + str(idx))
-        if idx >= len(self.data) or idx >= self.total: return None
+        if idx >= len(self.data) or idx >= self.total:
+            return None
         return self.data[idx]
+
 
 class UnetGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
@@ -36,25 +41,26 @@ class UnetGeneratedDataLoader(BaseDataLoader):
         time_max = sys.float_info.min
         text_min = sys.float_info.max
         text_max = sys.float_info.min
-        
+
         for f in self.data_folders:
-            text = torch.from_numpy(np.fromfile(f / 'text_embeds.raw', dtype=np.float32).reshape(1, 77, 1024))
+            text = torch.from_numpy(np.fromfile(f / "text_embeds.raw", dtype=np.float32).reshape(1, 77, 1024))
             text_max = max(text_max, text.max())
             text_min = min(text_min, text.min())
-            text_neg = torch.from_numpy(np.fromfile(f / 'neg_embeds.raw', dtype=np.float32).reshape(1, 77, 1024))
+            text_neg = torch.from_numpy(np.fromfile(f / "neg_embeds.raw", dtype=np.float32).reshape(1, 77, 1024))
             text_max = max(text_max, text_neg.max())
             text_min = min(text_min, text_neg.min())
             for i in range(10000):
-                if os.path.exists(f / f'{i}_latent.raw') == False: break
+                if os.path.exists(f / f"{i}_latent.raw") == False:
+                    break
 
-                latent = torch.from_numpy(np.fromfile(f / f'{i}_latent.raw', dtype=np.float32).reshape(1, 4, 64, 64))
+                latent = torch.from_numpy(np.fromfile(f / f"{i}_latent.raw", dtype=np.float32).reshape(1, 4, 64, 64))
                 latent_max = max(latent_max, latent.max())
                 latent_min = min(latent_min, latent.min())
-                time = torch.from_numpy(np.fromfile(f / f'{i}_timestep.raw', dtype=np.float32).reshape(1))
+                time = torch.from_numpy(np.fromfile(f / f"{i}_timestep.raw", dtype=np.float32).reshape(1))
                 time_max = max(time_max, time.max())
                 time_min = min(time_min, time.min())
-                self.data.append({ "sample": latent, "timestep": time, "encoder_hidden_states": text })
-                self.data.append({ "sample": latent, "timestep": time, "encoder_hidden_states": text_neg })
+                self.data.append({"sample": latent, "timestep": time, "encoder_hidden_states": text})
+                self.data.append({"sample": latent, "timestep": time, "encoder_hidden_states": text_neg})
         print(latent_min, latent_max, time_min, time_max, text_min, text_max)
 
 
@@ -64,14 +70,14 @@ class TextEncoderGeneratedDataLoader(BaseDataLoader):
         latent_min = sys.float_info.max
         latent_max = sys.float_info.min
         for f in self.data_folders:
-            data = torch.from_numpy(np.fromfile(f / 'text_inputs.raw', dtype=np.int32).reshape(1, 77))
+            data = torch.from_numpy(np.fromfile(f / "text_inputs.raw", dtype=np.int32).reshape(1, 77))
             latent_max = max(latent_max, data.max())
             latent_min = min(latent_min, data.min())
-            self.data.append({ "input_ids": data })
-            data = torch.from_numpy(np.fromfile(f / 'uncond_input.raw', dtype=np.int32).reshape(1, 77))
+            self.data.append({"input_ids": data})
+            data = torch.from_numpy(np.fromfile(f / "uncond_input.raw", dtype=np.int32).reshape(1, 77))
             latent_max = max(latent_max, data.max())
             latent_min = min(latent_min, data.min())
-            self.data.append({ "input_ids": data })
+            self.data.append({"input_ids": data})
         print(latent_min, latent_max)
 
 
@@ -81,10 +87,10 @@ class VaeDecoderGeneratedDataLoader(BaseDataLoader):
         latent_min = sys.float_info.max
         latent_max = sys.float_info.min
         for f in self.data_folders:
-            data = torch.from_numpy(np.fromfile(f / 'latent.raw', dtype=np.float32).reshape(1, 4, 64, 64))
+            data = torch.from_numpy(np.fromfile(f / "latent.raw", dtype=np.float32).reshape(1, 4, 64, 64))
             latent_max = max(latent_max, data.max())
             latent_min = min(latent_min, data.min())
-            self.data.append({ "latent_sample": data })
+            self.data.append({"latent_sample": data})
         print(latent_min, latent_max)
 
 
@@ -94,13 +100,15 @@ class VaeEncoderGeneratedDataLoader(BaseDataLoader):
         latent_min = sys.float_info.max
         latent_max = sys.float_info.min
         for f in self.data_folders:
-            data = torch.from_numpy(np.fromfile(f / 'output_img.raw', dtype=np.float32).reshape(1, 3, 512, 512))
+            data = torch.from_numpy(np.fromfile(f / "output_img.raw", dtype=np.float32).reshape(1, 3, 512, 512))
             latent_max = max(latent_max, data.max())
             latent_min = min(latent_min, data.min())
-            self.data.append({ "sample": data })
+            self.data.append({"sample": data})
         print(latent_min, latent_max)
 
+
 # TODO clean this up
+
 
 def get_data_list(size, torch_dtype, total, value_min, value_max):
     result = []
@@ -108,7 +116,8 @@ def get_data_list(size, torch_dtype, total, value_min, value_max):
     result.append(torch.zeros(size, dtype=torch_dtype) + value_min)
     result.append(torch.zeros(size, dtype=torch_dtype) + value_max)
     total -= 3
-    if total <= 0: return result
+    if total <= 0:
+        return result
     for i in range(total):
         result.append(torch.rand(size, dtype=torch_dtype) * (value_max - value_min) + value_min)
     return result
@@ -121,7 +130,7 @@ class UnetDataRandomLoader(BaseDataLoader):
         timesteps = get_data_list((1), torch.float32, total, 0, 1000)
         states = get_data_list((1, 77, config.cross_attention_dim), torch.float32, total, -8, 14)
         for i in range(self.total):
-            self.data.append({ "sample": samples[i], "timestep": timesteps[i], "encoder_hidden_states": states[i] })
+            self.data.append({"sample": samples[i], "timestep": timesteps[i], "encoder_hidden_states": states[i]})
 
 
 class TextEncoderDataRandomLoader(BaseDataLoader):
@@ -129,7 +138,7 @@ class TextEncoderDataRandomLoader(BaseDataLoader):
         super().__init__(total)
         samples = get_data_list((1, 77), torch.float32, total, 0, 49407)
         for i in range(self.total):
-            self.data.append({ "input_ids": samples[i].to(torch.int32) })
+            self.data.append({"input_ids": samples[i].to(torch.int32)})
 
 
 class VaeDecoderDataRandomLoader(BaseDataLoader):
@@ -137,7 +146,7 @@ class VaeDecoderDataRandomLoader(BaseDataLoader):
         super().__init__(total)
         samples = get_data_list((1, 4, config.unet_sample_size, config.unet_sample_size), torch.float32, total, -62, 50)
         for i in range(self.total):
-            self.data.append({ "latent_sample": samples[i] })
+            self.data.append({"latent_sample": samples[i]})
 
 
 class VaeEncoderDataRandomLoader(BaseDataLoader):
@@ -145,7 +154,7 @@ class VaeEncoderDataRandomLoader(BaseDataLoader):
         super().__init__(total)
         samples = get_data_list((1, 3, 512, 512), torch.float32, total, -1, 1)
         for i in range(self.total):
-            self.data.append({ "sample": samples[i] })
+            self.data.append({"sample": samples[i]})
 
 
 # Helper latency-only dataloader that creates random tensors with no label

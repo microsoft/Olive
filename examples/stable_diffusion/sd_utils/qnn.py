@@ -3,16 +3,16 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from typing import Dict
-from diffusers import OnnxStableDiffusionPipeline
 import inspect
-from typing import Callable, List, Optional, Union
-import onnxruntime as ort
-import numpy as np
-import torch
-from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
-from diffusers.pipelines.onnx_utils import ORT_TO_NP_TYPE
 import os
+from typing import Callable, Dict, List, Optional, Union
+
+import numpy as np
+import onnxruntime as ort
+import torch
+from diffusers import OnnxStableDiffusionPipeline
+from diffusers.pipelines.onnx_utils import ORT_TO_NP_TYPE
+from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 
 
 def update_qnn_config(config: Dict, submodel_name: str):
@@ -29,7 +29,7 @@ def update_qnn_config(config: Dict, submodel_name: str):
 
 
 class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
-     def __call__(
+    def __call__(
         self,
         prompt: Union[str, List[str]] = None,
         height: Optional[int] = 512,
@@ -49,9 +49,7 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
         callback_steps: int = 1,
     ):
         # check inputs. Raise error if not correct
-        self.check_inputs(
-            prompt, height, width, callback_steps, negative_prompt, prompt_embeds, negative_prompt_embeds
-        )
+        self.check_inputs(prompt, height, width, callback_steps, negative_prompt, prompt_embeds, negative_prompt_embeds)
 
         # define call parameters
         if prompt is not None and isinstance(prompt, str):
@@ -87,7 +85,6 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
                 return_tensors="np",
             ).input_ids.astype(np.int32)
             uncond_input.tofile(self.save_data_dir / "uncond_input.raw")
-
 
         prompt_embeds = self._encode_prompt(
             prompt,
@@ -147,13 +144,19 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
 
             if do_classifier_free_guidance:
                 # Note that in QNN, we need to use static dimensions (batch is fixed to 1), so we need to split
-                noise_pred_uncond = self.unet(sample=latent_model_input, timestep=timestep, encoder_hidden_states=neg_embeds)
+                noise_pred_uncond = self.unet(
+                    sample=latent_model_input, timestep=timestep, encoder_hidden_states=neg_embeds
+                )
                 noise_pred_uncond = noise_pred_uncond[0]
-                noise_pred_text = self.unet(sample=latent_model_input, timestep=timestep, encoder_hidden_states=text_embeds)
+                noise_pred_text = self.unet(
+                    sample=latent_model_input, timestep=timestep, encoder_hidden_states=text_embeds
+                )
                 noise_pred_text = noise_pred_text[0]
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
             else:
-                noise_pred = self.unet(sample=latent_model_input, timestep=timestep, encoder_hidden_states=prompt_embeds)
+                noise_pred = self.unet(
+                    sample=latent_model_input, timestep=timestep, encoder_hidden_states=prompt_embeds
+                )
                 noise_pred = noise_pred[0]
 
             # compute the previous noisy sample x_t -> x_t-1
@@ -172,9 +175,7 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
         # it seems likes there is a strange result for using half-precision vae decoder if batchsize>1
         if self.save_data_dir:
             latents[0:1].tofile(self.save_data_dir / "latent.raw")
-        image = np.concatenate(
-            [self.vae_decoder(latent_sample=latents[i : i + 1])[0] for i in range(latents.shape[0])]
-        )
+        image = np.concatenate([self.vae_decoder(latent_sample=latents[i : i + 1])[0] for i in range(latents.shape[0])])
         if self.save_data_dir:
             image.tofile(self.save_data_dir / "output_img.raw")
 
@@ -204,7 +205,7 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
             return (image, has_nsfw_concept)
 
         return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
-     
+
 
 def get_qnn_pipeline(model_dir, common_args, qnn_args, script_dir):
     ort.set_default_logger_severity(3)

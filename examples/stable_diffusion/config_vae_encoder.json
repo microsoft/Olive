@@ -94,13 +94,19 @@
         },
         "dynamic_shape_to_fixed": {
             "type": "DynamicToFixedShape",
-            "dim_param": [ "encoder_batch", "encoder_channels", "encoder_height", "encoder_width", "Addlatent_sample_dim_0", "Addlatent_sample_dim_1", "Addlatent_sample_dim_2", "Addlatent_sample_dim_3" ],
+            "dim_param": [
+                "encoder_batch",
+                "encoder_channels",
+                "encoder_height",
+                "encoder_width",
+                "Addlatent_sample_dim_0",
+                "Addlatent_sample_dim_1",
+                "Addlatent_sample_dim_2",
+                "Addlatent_sample_dim_3"
+            ],
             "dim_value": [ 1, 3, 512, 512, 1, 4, 64, 64 ]
         },
-        "qnn_preprocess": {
-            "type": "QNNPreprocess",
-            "fuse_layernorm": true
-        },
+        "qnn_preprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "quantize_data_config",

@@ -64,7 +64,10 @@ def save_optimized_onnx_submodel(submodel_name, provider, model_info):
         for footprint in footprints.values():
             if footprint["from_pass"] == "OnnxConversion":
                 conversion_footprint = footprint
-            elif footprint["from_pass"] == "OrtTransformersOptimization" or footprint["from_pass"] == "OnnxStaticQuantization":
+            elif (
+                footprint["from_pass"] == "OrtTransformersOptimization"
+                or footprint["from_pass"] == "OnnxStaticQuantization"
+            ):
                 optimizer_footprint = footprint
 
         assert conversion_footprint
