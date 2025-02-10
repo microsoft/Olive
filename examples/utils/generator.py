@@ -8,6 +8,7 @@ import numpy as np
 import onnx
 from kv_cache_utils import DynamicCache, DynamicIOBoundCache, GQASharedCache, StaticCache, StaticIOBoundCache
 from onnxruntime import OrtValue, set_default_logger_severity
+from tqdm import tqdm
 from transformers import PreTrainedTokenizer
 
 from olive.common.hf.model_io import replace_with_extended_mask
@@ -65,18 +66,17 @@ class ORTGenerator:
                 if node.op_type == "GroupQueryAttention":
                     self.has_gqa = True
                     break
+            else:
+                self.has_gqa = False
 
         # Get io info
         # use the generator graph for io info since it has all the inputs and outputs
         self.input_info, self.output_info = ORTGenerator.get_io_info(self.model_path[-1])
-        self.cache_info = {
-            "past_names": [],
-            "present_names": [],
-            "dtype": None,
-            "num_kv_heads": None,
-            "head_dim": None,
-            # "cache_len": None,
-        }
+        self.cache_info = {"past_names": [], "present_names": [], "dtype": None, "num_kv_heads": None, "head_dim": None}
+        # static shapes
+        self.batch_size = None
+        self.prompt_len = None
+        self.cache_len = None
         for i_name, i_info in self.input_info.items():
             if ".key" not in i_name and ".value" not in i_name:
                 continue
@@ -84,12 +84,22 @@ class ORTGenerator:
                 self.cache_info["dtype"] = i_info["dtype"]
                 self.cache_info["num_kv_heads"] = i_info["shape"][1]
                 self.cache_info["head_dim"] = i_info["shape"][3]
-                # if isinstance(i_info["shape"][2], int):
-                #     self.cache_info["cache_len"] = i_info["shape"][2]
+                if isinstance(i_info["shape"][2], int):
+                    self.cache_len = i_info["shape"][2]
             self.cache_info["past_names"].append(i_name)
         for o_name in self.output_info:
             if ".key" in o_name or ".value" in o_name:
                 self.cache_info["present_names"].append(o_name)
+        if len(self.model_path) == 2:
+            c_i, c_o = ORTGenerator.get_io_info(self.model_path[0])
+            self.batch_size, self.prompt_len = c_i["input_ids"]["shape"]
+            if self.cache_len is not None:
+                assert (
+                    c_o[self.cache_info["present_names"][0]]["shape"][2] == self.cache_len
+                ), "prefill present length should match decoder past length."
+                assert self.cache_len == self.prompt_len, "Static cache length must match prompt length."
+                past_name = self.cache_info["past_names"][0]
+                assert past_name not in c_i or c_i[past_name]["shape"][2] == 0, "prefill past should be empty."
 
         # Determine device to use for io binding
         # NOTE: QNNExecutionProvider does not support IO binding but keep it for future compatibility
@@ -157,9 +167,9 @@ class ORTGenerator:
         # TODO(jambayk): test and enable graph for cuda and dml
         sessions["prefill"] = get_ort_inference_session(model_path[0], inference_settings, device_id=device_id)
         if len(model_path) == 2:
-            get_ort_inference_session(model_path[1], inference_settings, device_id=device_id)
+            sessions["iterator"] = get_ort_inference_session(model_path[1], inference_settings, device_id=device_id)
         else:
-            sessions["generator"] = sessions["prefill"]
+            sessions["iterator"] = sessions["prefill"]
 
         for name, info in adapter_info.items():
             adapters[name] = {
@@ -201,7 +211,7 @@ class ORTGenerator:
         adapter: Optional[str] = None,
         max_gen_len: int = 128,
         use_io_binding: bool = False,
-        cache_type: str = "dynamic",
+        cache_type: str = "auto",
         max_cache_len: int = 1024,
         cache_backend: str = "ort",
     ) -> Union[str, List[str]]:
@@ -211,11 +221,14 @@ class ORTGenerator:
         :param adapter: The adapter to use for generation. If None, the default adapter is used.
         :param max_gen_len: The maximum length of the generated text.
         :param use_io_binding: Whether to use IO binding for the generation.
-        :param cache_type: The type of cache to use for the generation. Can be "static" or "dynamic".
+        :param cache_type: The type of cache to use for the generation. Can be "auto", "static" or "dynamic".
         :param max_cache_len: The maximum length of the cache for static cache.
         :param cache_backend: The backend to use for static cache. Can be "ort" or "torch".
         :return: The generated text.
         """
+        if cache_type == "auto":
+            cache_type = "static" if self.cache_len is not None else "dynamic"
+
         # template and adapter inputs
         # the adapter input is dictionary of adapter weights
         template, adapter_inputs = self.get_adapter(adapter, use_io_binding)
@@ -228,6 +241,7 @@ class ORTGenerator:
 
         generated_tokens = inputs["input_ids"].numpy() if use_io_binding else inputs["input_ids"].copy()
         batch_size, prompt_length = generated_tokens.shape
+        valid_prompt_len = int(inputs["attention_mask_2d"].sum(axis=-1).max())
         has_eos = np.zeros(batch_size, dtype=bool)
 
         # buffers to keep numpy copy of model inputs, don't want to keep going back and forth between OrtValue and numpy
@@ -246,12 +260,12 @@ class ORTGenerator:
 
         session = None
         io_binding = None
-        for idx in range(max_gen_len):
+        for idx in tqdm(range(max_gen_len)):
             if idx == 0:
                 session = self.sessions["prefill"]
                 io_binding = session.io_binding() if use_io_binding else None
             elif idx == 1:
-                session = self.sessions["generator"]
+                session = self.sessions["iterator"]
                 io_binding = session.io_binding() if use_io_binding else None
 
             if use_io_binding:
@@ -342,7 +356,7 @@ class ORTGenerator:
                     )
                 elif idx > 0:
                     # previous token becomes past
-                    np_buffers["attention_mask"][:, prompt_length + idx - 1] = 1
+                    np_buffers["attention_mask"][:, valid_prompt_len + idx - 1] = 1
                 # always attend to the last token
                 np_buffers["attention_mask"][:, -1] = 1
             else:
@@ -354,7 +368,7 @@ class ORTGenerator:
             if self.extended_attention_mask:
                 attention_mask = replace_with_extended_mask(
                     {
-                        "input_ids": inputs["input_ids"].numpy() if use_io_binding else inputs["input_id"],
+                        "input_ids": inputs["input_ids"].numpy() if use_io_binding else inputs["input_ids"],
                         "attention_mask": attention_mask,
                     },
                     "causal",
@@ -407,15 +421,31 @@ class ORTGenerator:
             assert isinstance(prompt, str) or (
                 isinstance(prompt, list) and all(isinstance(p, str) for p in prompt)
             ), "tuple prompts require a template"
+        prompt = [prompt] if isinstance(prompt, (str, tuple)) else prompt
 
-        encodings_dict = self.tokenizer(prompt, return_tensors="np", padding=True)
+        if self.batch_size:
+            assert len(prompt) == self.batch_size, f"Batch size mismatch: {len(prompt)} != {self.batch_size}"
+        # padding
+        if self.prompt_len:
+            padding_args = {"padding": "max_length", "max_length": self.prompt_len}
+        else:
+            padding_args = {"padding": "longest"}
+        # encode prompt
+        encodings_dict = self.tokenizer(prompt, return_tensors="np", **padding_args)
         input_ids = encodings_dict["input_ids"].astype(self.input_info["input_ids"]["dtype"])
         batch_size, prompt_length = input_ids.shape
         attention_mask = encodings_dict["attention_mask"]
         if not self.extended_attention_mask:
             attention_mask.astype(self.input_info["attention_mask"]["dtype"])
 
-        cache = self.get_fresh_cache(batch_size, use_io_binding, cache_type, max_cache_len, cache_backend)
+        cache = self.get_fresh_cache(
+            batch_size,
+            use_io_binding,
+            cache_type,
+            self.cache_len or max_cache_len,
+            cache_backend,
+            int(attention_mask.sum(axis=-1).max()),
+        )
         if isinstance(cache, GQASharedCache):
             attention_mask = np.concatenate(
                 [attention_mask, np.zeros((batch_size, cache.max_cache_len - prompt_length), dtype=np.int32)], 1
@@ -440,6 +470,7 @@ class ORTGenerator:
         cache_type: str,
         max_cache_len: int,
         cache_backend: str,
+        valid_prompt_len: int,
     ) -> Union["Cache", "IOBoundCache"]:
         """Get a fresh cache for the model."""
         # determine cache class
@@ -472,6 +503,7 @@ class ORTGenerator:
                 kwargs["backend"] = cache_backend
         if cache_type == "static":
             kwargs["max_cache_len"] = max_cache_len
+            kwargs["valid_prompt_len"] = valid_prompt_len
 
         return cache_class(**kwargs, **self.cache_info)
 

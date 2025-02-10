@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Dict, List, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import numpy as np
 from onnxruntime import OrtValue
@@ -123,6 +123,7 @@ class StaticCache(Cache):
         head_dim: int,
         dtype: str = "float32",
         max_cache_len: int = 2048,
+        valid_prompt_len: Optional[int] = None,
     ):
         """Initialize the cache.
 
@@ -134,9 +135,12 @@ class StaticCache(Cache):
         :param head_dim: Dimension of each key-value head.
         :param dtype: Data type of the key-value tensors.
         :param max_cache_len: Maximum length of the cache.
+        :param valid_prompt_len: Length of the cache that is valid. This is used during prompt processing
+            to indicate the length of the present key-value tensors. Useful when prompt is padded.
         """
         super().__init__(past_names, present_names, batch_size, num_kv_heads, head_dim, dtype)
         self.max_cache_len = max_cache_len
+        self.valid_prompt_len = valid_prompt_len
         # allocate cache with zeros
         self.cache = {
             k: np.zeros((self.batch_size, self.num_kv_heads, self.max_cache_len, self.head_dim), dtype=self.dtype)
@@ -166,7 +170,7 @@ class StaticCache(Cache):
             # prompt processing
             for k, v in zip(self.past_names, present_kvs):
                 self.cache[k][:, :, :present_len] = v
-            self.seen_len = present_len
+            self.seen_len = self.valid_prompt_len or present_len
             return
 
         assert (
@@ -364,6 +368,7 @@ class StaticIOBoundCache(IOBoundCache):
         device_id: int = 0,
         backend: str = "ort",
         max_cache_len: int = 2048,
+        valid_prompt_len: Optional[int] = None,
     ):
         """Initialize the cache.
 
@@ -380,11 +385,13 @@ class StaticIOBoundCache(IOBoundCache):
             If backed is ort, the cache tensors are stored as OrtValue.
             If backend is torch, the cache tensors are stored as torch.Tensor. This is faster than ort backend.
         :param max_cache_len: Maximum length of the cache.
+        :param valid_prompt_len: Length of the cache that is valid. This is used during prompt processing
         """
         super().__init__(
             past_names, present_names, batch_size, num_kv_heads, head_dim, dtype, device, device_id, backend
         )
         self.max_cache_len = max_cache_len
+        self.valid_prompt_len = valid_prompt_len
         # allocate cache with zeros
         self.cache = {
             k: self.get_empty_buffer(self.batch_size, self.num_kv_heads, self.max_cache_len, self.head_dim)
@@ -426,7 +433,7 @@ class StaticIOBoundCache(IOBoundCache):
                     np_value = self.cache[k].numpy()
                     np_value[:, :, :present_len] = v.numpy()
                     self.cache[k].update_inplace(np_value)
-            self.seen_len = present_len
+            self.seen_len = self.valid_prompt_len or present_len
             return
 
         # token generation
@@ -503,11 +510,12 @@ class GQASharedCache(IOBoundCache):
         batch_size: int,
         num_kv_heads: int,
         head_dim: int,
-        max_cache_len: int = 2048,
         dtype: str = "float32",
         device: str = "gpu",
         device_id: int = 0,
         backend: str = "ort",
+        max_cache_len: int = 2048,
+        valid_prompt_len: Optional[int] = None,
     ):
         """Initialize the cache.
 
@@ -517,12 +525,15 @@ class GQASharedCache(IOBoundCache):
         :param batch_size: Batch size.
         :param num_kv_heads: Number of key-value heads.
         :param head_dim: Dimension of each key-value head.
-        :param max_cache_len: Maximum length of the cache.
         :param dtype: Data type of the key-value tensors.
         :param device: Device type for the cache tensors.
         :param device_id: Device ID for the cache tensors.
         :param backend: Backend for the cache tensors. Options: "ort" or "torch".
             There is no implemetation difference for this class between "ort" and "torch".
+        :param max_cache_len: Maximum length of the cache.
+        :param valid_prompt_len: Length of the cache that is valid. Not used in this class.
+            Generator must create the correct attention mask or other GQA inputs to inform the GQA contrib op
+            about the valid length of the key-value tensors and input tokens.
         """
         super().__init__(
             past_names, present_names, batch_size, num_kv_heads, head_dim, dtype, device, device_id, backend
