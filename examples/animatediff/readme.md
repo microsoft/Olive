@@ -20,6 +20,21 @@ Replace original unet model with the generated one.
 
 Follow guide in stable_diffusion example.
 
+## Split unet model
+
+The model is too big for quantization, so we need to split model first.
+
+`olive run --config config_unet_split.json`
+
+Rename split 0 to unet and split 1 to unet_2. Add the following to the models/stable-diffusion-v1-5/model_index.json
+
+```
+"unet_2": [
+    "diffusers",
+    "OnnxRuntimeModel"
+],
+```
+
 ## Generate data for static quantization
 
 `python OnnxAnimateDiffPipeline.py --seed 0 --save_data --prompt "dog swims in the river"`
@@ -30,4 +45,4 @@ Follow guide in stable_diffusion example.
 
 ## Test optimized model
 
-`python OnnxAnimateDiffPipeline.py --seed 0 --input models/stable-diffusion-v1-5-qnn`
+`python OnnxAnimateDiffPipeline.py --seed 0 --input models/stable-diffusion-v1-5-qnn --output qnn.gif`

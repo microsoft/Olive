@@ -31,6 +31,7 @@ from diffusers.pipelines.animatediff import AnimateDiffPipelineOutput
 from diffusers.pipelines.onnx_utils import OnnxRuntimeModel, ORT_TO_NP_TYPE
 import numpy as np
 from pathlib import Path
+import pickle
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -96,6 +97,7 @@ class OnnxAnimateDiffPipeline(
         text_encoder: OnnxRuntimeModel,
         tokenizer: CLIPTokenizer,
         unet: OnnxRuntimeModel,
+        unet_2: OnnxRuntimeModel,
         scheduler: Union[
             DDIMScheduler,
             PNDMScheduler,
@@ -121,6 +123,7 @@ class OnnxAnimateDiffPipeline(
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             unet=unet,
+            unet_2=unet_2,
             scheduler=scheduler,
             feature_extractor=feature_extractor,
             image_encoder=image_encoder,
@@ -575,8 +578,9 @@ class OnnxAnimateDiffPipeline(
         timestep_dtype = ORT_TO_NP_TYPE[timestep_dtype]
 
         # 8. Denoising loop
-        if save_data_dir:
-            prompt_embeds.tofile(save_data_dir / "encoder_hidden_states.raw")
+        if self.unet_2:
+            unet_outputs = [output.name for output in self.unet.model.get_outputs()]
+
         with self.progress_bar(total=self._num_timesteps) as progress_bar:
             for i, t in enumerate(timesteps):
                 if self.interrupt:
@@ -589,14 +593,34 @@ class OnnxAnimateDiffPipeline(
 
                 timestep = np.array([t], dtype=timestep_dtype)
                 # predict the noise residual
+                unet_input = {
+                    "sample": latent_model_input,
+                    "timestep": timestep,
+                    "encoder_hidden_states": prompt_embeds
+                }
+
                 if save_data_dir:
-                    latent_model_input.tofile(save_data_dir / f"{i}_sample.raw")
-                    timestep.tofile(save_data_dir / f"{i}_timestep.raw")
+                    with open(save_data_dir / f"{i}_unet_input.bin", 'wb') as file:
+                        pickle.dump(unet_input, file)
+                
                 noise_pred = self.unet(
-                    sample=latent_model_input,
-                    timestep=timestep,
-                    encoder_hidden_states=prompt_embeds,
-                )[0]
+                    **unet_input
+                )
+                if self.unet_2:
+                    unet_2_input = {}
+                    for j, name in enumerate(unet_outputs):
+                        unet_2_input[name] = noise_pred[j]
+                    unet_2_input["encoder_hidden_states"] = prompt_embeds
+
+                    if save_data_dir:
+                        with open(save_data_dir / f"{i}_unet_2_input.bin", 'wb') as file:
+                            pickle.dump(unet_2_input, file)
+
+                    noise_pred = self.unet_2(
+                        **unet_2_input
+                    )[0]
+                else:
+                    noise_pred = noise_pred[0]
 
                 # perform guidance
                 if self.do_classifier_free_guidance:
