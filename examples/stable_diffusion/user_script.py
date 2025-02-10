@@ -50,7 +50,7 @@ class UnetGeneratedDataLoader(BaseDataLoader):
             text_max = max(text_max, text_neg.max())
             text_min = min(text_min, text_neg.min())
             for i in range(10000):
-                if os.path.exists(f / f"{i}_latent.raw") == False:
+                if not os.path.exists(f / f"{i}_latent.raw"):
                     break
 
                 latent = torch.from_numpy(np.fromfile(f / f"{i}_latent.raw", dtype=np.float32).reshape(1, 4, 64, 64))
@@ -107,7 +107,7 @@ class VaeEncoderGeneratedDataLoader(BaseDataLoader):
         print(latent_min, latent_max)
 
 
-# TODO clean this up
+# TODO(hualxie): clean this up
 
 
 def get_data_list(size, torch_dtype, total, value_min, value_max):
@@ -118,7 +118,7 @@ def get_data_list(size, torch_dtype, total, value_min, value_max):
     total -= 3
     if total <= 0:
         return result
-    for i in range(total):
+    for _ in range(total):
         result.append(torch.rand(size, dtype=torch_dtype) * (value_max - value_min) + value_min)
     return result
 
@@ -328,8 +328,6 @@ def unet_inputs(batch_size, torch_dtype, is_conversion_inputs=False):
 
 
 def get_unet_ov_example_input():
-    import numpy as np
-
     encoder_hidden_state = torch.ones((2, 77, 768))
     latents_shape = (2, 4, 512 // 8, 512 // 8)
     latents = torch.randn(latents_shape)

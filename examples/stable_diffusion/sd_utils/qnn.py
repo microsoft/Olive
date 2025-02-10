@@ -16,7 +16,7 @@ from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 
 
 def update_qnn_config(config: Dict, submodel_name: str):
-    # TODO onnx or onnxruntime needs to fix this
+    # TODO(hualxie): onnx or onnxruntime needs to fix this
     if submodel_name == "unet":
         config["input_model"]["io_config"]["dynamic_axes"] = None
         config["pass_flows"] = [["convert", "qnn_preprocess", "quantization"]]
@@ -118,7 +118,7 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
             extra_step_kwargs["eta"] = eta
 
         timestep_dtype = next(
-            (input.type for input in self.unet.model.get_inputs() if input.name == "timestep"), "tensor(float)"
+            (unet_input.type for unet_input in self.unet.model.get_inputs() if unet_input.name == "timestep"), "tensor(float)"
         )
         timestep_dtype = ORT_TO_NP_TYPE[timestep_dtype]
 
@@ -210,10 +210,9 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
 def get_qnn_pipeline(model_dir, common_args, qnn_args, script_dir):
     ort.set_default_logger_severity(3)
 
-    print("Loading models into ORT session...")
     sess_options = ort.SessionOptions()
 
-    # TODO diffusers needs to support new parameter for QNN
+    # TODO(hualxie): diffusers needs to support new parameter for QNN
     # See https://github.com/huggingface/diffusers/issues/10658
     pipeline = QnnStableDiffusionPipeline.from_pretrained(
         model_dir, provider="CPUExecutionProvider", sess_options=sess_options

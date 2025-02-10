@@ -188,11 +188,11 @@ To get better result, we need to generate real data from original model instead 
 
 First generate onnx unoptimized model (it also generates an optimized model using random data):
 
-`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --use_random_data --data_num 1` 
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --use_random_data --data_num 1`
 
 Then generate data (updating the prompt to generate more will be better):
 
-`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --generate_data --num_inference_steps 5 --seed 0 --test_unoptimized --prompt "hamburger swims in the river"` 
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --generate_data --num_inference_steps 5 --seed 0 --test_unoptimized --prompt "hamburger swims in the river"`
 
 ### Optimize
 
