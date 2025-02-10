@@ -31,10 +31,10 @@ class CaptureSplitInfo(Pass):
                 description="Number of splits to divide the model layers into.",
             ),
             "block_to_split": PassConfigParam(
-                type_=str,
+                type_=Union[str, list[str]],
                 default_value=None,
                 description=(
-                    "Name of the model block to split. Children of the block will be divided into the splits. For"
+                    "Names of the model blocks to split. Children of the block will be divided into the splits. For"
                     " supported transformers models, the default value is the transformers layer block name."
                 ),
             ),
@@ -118,18 +118,26 @@ class CaptureSplitInfo(Pass):
         # check for None specifically since "" is a valid value
         if block_to_split is None and isinstance(model, HfModelHandler):
             model_wrapper = ModelWrapper.from_model(loaded_model)
-            block, block_to_split = model_wrapper.get_layers()
+            blocks = [model_wrapper.get_layers()]
         elif block_to_split is None:
             raise ValueError("block_to_split is not set and could not be inferred. Please set it manually.")
         else:
-            block = get_attr(loaded_model, block_to_split, fail_on_not_found=True)
+            block_to_splits = block_to_split if isinstance(block_to_split, list) else [block_to_split]
+            blocks = [
+                (get_attr(loaded_model, block_to_split, fail_on_not_found=True), block_to_split)
+                for block_to_split in block_to_splits
+            ]
 
-        block_members = [child_name for child_name, _ in block.named_children()]
+        block_members = [
+            f"{block_to_split}.{child_name}".lstrip(".")
+            for block, block_to_split in blocks
+            for child_name, _ in block.named_children()
+        ]
 
         split_assignments = {}
         for split_idx, split_members in enumerate(np.array_split(block_members, config["num_splits"])):
-            for child_name in split_members:
-                split_assignments[f"{block_to_split}.{child_name}".lstrip(".")] = split_idx
+            for member_name in split_members:
+                split_assignments[member_name] = split_idx
 
         return split_assignments
 
