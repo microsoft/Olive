@@ -28,6 +28,14 @@ class SplitModel(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
+            "split_assignments": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description=(
+                    "Set split assignments in the format of name1=0;name2=1 etc."
+                    " Overwrite the one from CaptureSplitInfo pass."
+                ),
+            ),
             **get_external_data_config(),
         }
 
@@ -36,17 +44,20 @@ class SplitModel(Pass):
     ) -> CompositeModelHandler:
         model_proto = model.load_model()
 
-        split_assignments = None
-        for metadata_prop in model_proto.metadata_props:
-            if metadata_prop.key == "split_assignments":
-                split_assignments = {
-                    key: int(value)
-                    for key, value in (assignment.split("=") for assignment in metadata_prop.value.split(";"))
-                }
-                break
+        split_assignments = config["split_assignments"]
+        if split_assignments is None:
+            for metadata_prop in model_proto.metadata_props:
+                if metadata_prop.key == "split_assignments":
+                    split_assignments = metadata_prop.value
+                    break
         # TODO(jambayk): Should we allow split assignments in the model attributes too?
         if not split_assignments:
             raise ValueError("No split assignments found in the model metadata")
+
+        split_assignments = {
+            key: int(value)
+            for key, value in (assignment.split("=") for assignment in split_assignments.split(";"))
+        }
 
         # TODO(jambayk): Make this more generic, for now only assume transformers layers are split
         # so depth of namespace is same for all split assignments
