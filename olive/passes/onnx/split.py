@@ -55,8 +55,7 @@ class SplitModel(Pass):
             raise ValueError("No split assignments found in the model metadata")
 
         split_assignments = {
-            key: int(value)
-            for key, value in (assignment.split("=") for assignment in split_assignments.split(";"))
+            key: int(value) for key, value in (assignment.split("=") for assignment in split_assignments.split(";"))
         }
 
         # TODO(jambayk): Make this more generic, for now only assume transformers layers are split
