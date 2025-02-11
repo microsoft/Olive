@@ -36,7 +36,7 @@ The model is too big for quantization, so we need to split model first.
 
 ## Generate optimized animate diff onnx model
 
-`olive run --config config_unet_qnn.json`
+`python animate_diff.py --quantize --output models/stable-diffusion-v1-5-qnn`
 
 ## Test optimized model
 

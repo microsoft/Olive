@@ -56,13 +56,13 @@ class BaseDataLoader:
         return self.data[idx]
     
 class UnetGeneratedDataLoader(BaseDataLoader):
-    def __init__(self, total):
+    def __init__(self, total, id):
         super().__init__(total)
         
         for folder in self.data_folders:
             i = 0
             while True:
-                f = folder / f'{i}_unet_input.bin'
+                f = folder / f'{i}_unet_{id}_input.bin'
                 if not os.path.exists(f): break
 
                 with open(f, 'rb') as file:
@@ -73,5 +73,5 @@ class UnetGeneratedDataLoader(BaseDataLoader):
                 i += 1
 
 @Registry.register_dataloader()
-def unet_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    return UnetGeneratedDataLoader(data_num)
+def unet_quantize_data_loader(dataset, batch_size, id, *args, **kwargs):
+    return UnetGeneratedDataLoader(data_num, id)
