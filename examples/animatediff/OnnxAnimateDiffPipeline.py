@@ -84,7 +84,7 @@ class OnnxAnimateDiffPipeline(
     """
 
     model_cpu_offload_seq = "text_encoder->image_encoder->unet->vae"
-    _optional_components = ["feature_extractor", "image_encoder", "motion_adapter"]
+    _optional_components = ["feature_extractor", "image_encoder", "motion_adapter", "unet", "unet_0", "unet_1", "unet_2", "unet_3", "unet_4"]
     _callback_tensor_inputs = ["latents", "prompt_embeds", "negative_prompt_embeds"]
 
     def __init__(
@@ -92,8 +92,6 @@ class OnnxAnimateDiffPipeline(
         vae_decoder: OnnxRuntimeModel,
         text_encoder: OnnxRuntimeModel,
         tokenizer: CLIPTokenizer,
-        unet: OnnxRuntimeModel,
-        unet_2: OnnxRuntimeModel,
         scheduler: Union[
             DDIMScheduler,
             PNDMScheduler,
@@ -104,13 +102,19 @@ class OnnxAnimateDiffPipeline(
         ],
         feature_extractor: CLIPImageProcessor = None,
         image_encoder: CLIPVisionModelWithProjection = None,
+        unet: OnnxRuntimeModel = None,
+        unet_0: OnnxRuntimeModel = None,
+        unet_1: OnnxRuntimeModel = None,
+        unet_2: OnnxRuntimeModel = None,
+        unet_3: OnnxRuntimeModel = None,
+        unet_4: OnnxRuntimeModel = None,
         unet_config = { "in_channels": 4, "sample_size": 64 },
         vae_config = { "scaling_factor": 0.18215, "block_out_channels": [
             128,
             256,
             512,
             512
-            ] }
+            ] },
         ):
         super().__init__()
 
@@ -118,16 +122,24 @@ class OnnxAnimateDiffPipeline(
             vae_decoder=vae_decoder,
             text_encoder=text_encoder,
             tokenizer=tokenizer,
-            unet=unet,
-            unet_2=unet_2,
             scheduler=scheduler,
             feature_extractor=feature_extractor,
             image_encoder=image_encoder,
+            unet=unet,
+            unet_0=unet_0,
+            unet_1=unet_1,
+            unet_2=unet_2,
+            unet_3=unet_3,
+            unet_4=unet_4
         )
         self.vae_scale_factor = 2 ** (len(vae_config["block_out_channels"]) - 1)
         self.video_processor = VideoProcessor(do_resize=False, vae_scale_factor=self.vae_scale_factor)
         self.vae_config = vae_config
         self.unet_config = unet_config
+        self.unets = [(u,uname) for u,uname in [(unet,"unet"), (unet_0,"unet_0"), (unet_1,"unet_1"), (unet_2,"unet_2"), (unet_3,"unet_3"), (unet_4,"unet_4")] if u]
+        self.unet_outputs = [[output.name for output in u.model.get_outputs()] for u,_ in self.unets]
+        self.unet_inputs = [set(input.name for input in u.model.get_inputs()) for u,_ in self.unets]
+        
 
     # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.encode_prompt with num_images_per_prompt -> num_videos_per_prompt
     def encode_prompt(
@@ -569,14 +581,11 @@ class OnnxAnimateDiffPipeline(
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
 
         timestep_dtype = next(
-            (input.type for input in self.unet.model.get_inputs() if input.name == "timestep"), "tensor(float)"
+            (input.type for input in self.unets[0][0].model.get_inputs() if input.name == "timestep"), "tensor(float)"
         )
         timestep_dtype = ORT_TO_NP_TYPE[timestep_dtype]
 
         # 8. Denoising loop
-        if self.unet_2:
-            unet_outputs = [output.name for output in self.unet.model.get_outputs()]
-
         with self.progress_bar(total=self._num_timesteps) as progress_bar:
             for i, t in enumerate(timesteps):
                 if self.interrupt:
@@ -589,34 +598,30 @@ class OnnxAnimateDiffPipeline(
 
                 timestep = np.array([t], dtype=timestep_dtype)
                 # predict the noise residual
-                unet_input = {
+                unet_all_inputs = {
                     "sample": latent_model_input,
                     "timestep": timestep,
                     "encoder_hidden_states": prompt_embeds
                 }
 
-                if save_data_dir:
-                    with open(save_data_dir / f"{i}_unet_input.bin", 'wb') as file:
-                        pickle.dump(unet_input, file)
-                
-                noise_pred = self.unet(
-                    **unet_input
-                )
-                if self.unet_2:
-                    unet_2_input = {}
-                    for j, name in enumerate(unet_outputs):
-                        unet_2_input[name] = noise_pred[j]
-                    unet_2_input["encoder_hidden_states"] = prompt_embeds
+                for j in range(len(self.unets)):
+                    unet, uname = self.unets[j]
+                    unet_input = {k: v for k, v in unet_all_inputs.items() if k in self.unet_inputs[j]}
 
                     if save_data_dir:
-                        with open(save_data_dir / f"{i}_unet_2_input.bin", 'wb') as file:
-                            pickle.dump(unet_2_input, file)
+                        with open(save_data_dir / f"{i}_{uname}_input.bin", 'wb') as file:
+                            pickle.dump(unet_input, file)
+                
+                    noise_pred = unet(
+                        **unet_input
+                    )
 
-                    noise_pred = self.unet_2(
-                        **unet_2_input
-                    )[0]
-                else:
-                    noise_pred = noise_pred[0]
+                    if j == len(self.unets) - 1:
+                        noise_pred = noise_pred[0]
+                        break
+
+                    for k, name in enumerate(self.unet_outputs[j]):
+                        unet_all_inputs[name] = noise_pred[k]
 
                 # perform guidance
                 if self.do_classifier_free_guidance:

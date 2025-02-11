@@ -32,7 +32,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--seed",
-    default=None,
+    default=0,
     type=int,
     help="The seed to give to the generator to generate deterministic results.",
 )
@@ -68,14 +68,14 @@ def split(input: Path):
     with (input / "model_index.json").open() as file:
         config = json.load(file)
     config.pop("unet")
-    while i >= 0:
+    while i >= 1:
+        i -= 1
         config[f"unet_{i}"] = [
             "diffusers",
             "OnnxRuntimeModel"
         ]
-        i -= 1
     with (input / "model_index.json").open("w") as file:
-        json.dump(config, file)
+        json.dump(config, file, indent=4)
 
 
 def main(raw_args=None):

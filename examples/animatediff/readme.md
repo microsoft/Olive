@@ -16,7 +16,7 @@ Replace original unet model with the generated one (in models/stable-diffusion-v
 
 ## Test unoptmized model
 
-`python animate_diff.py --seed 0`
+`python animate_diff.py`
 
 ## Get optimized stable diffusion onnx model
 
@@ -32,7 +32,7 @@ The model is too big for quantization, so we need to split model first.
 
 ## Generate data for static quantization
 
-`python OnnxAnimateDiffPipeline.py --seed 0 --save_data --prompt "dog swims in the river"`
+`python animate_diff.py --save_data --prompt "dog swims in the river"`
 
 ## Generate optimized animate diff onnx model
 
@@ -40,4 +40,4 @@ The model is too big for quantization, so we need to split model first.
 
 ## Test optimized model
 
-`python OnnxAnimateDiffPipeline.py --seed 0 --input models/stable-diffusion-v1-5-qnn --output qnn.gif`
+`python animate_diff.py --input models/stable-diffusion-v1-5-qnn --output qnn.gif`
