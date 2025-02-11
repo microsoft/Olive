@@ -113,7 +113,11 @@ class QuantizeCommand(BaseOliveCLICommand):
             )
 
         supported_precisions = IMPLEMENTATIONS[self.args.implementation]["supported_precisions"]
-        if supported_precisions and self.args.precision not in supported_precisions:
+        if (
+            supported_precisions
+            and self.args.precision not in supported_precisions
+            and (not self.args.enable_qdq_encoding and self.args.implementation == "matmul4")
+        ):
             raise ValueError(
                 f"{IMPLEMENTATIONS[self.args.implementation]['name']} quantizer "
                 f"implementation supports only [{', '.join(supported_precisions)}] precisions."
