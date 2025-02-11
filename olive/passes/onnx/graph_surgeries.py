@@ -596,8 +596,10 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
                 continue
 
             if len(dag.get_node_inputs(node_name, True)) != 2 + int(op_type == "SkipSimplifiedLayerNormalization"):
+                # skip has an additional input
                 continue
-            if len(dag.get_node_outputs(node_name, True)) != 1 + int(op_type == "SkipSimplifiedLayerNormalization"):
+            if len(dag.get_node_outputs(node_name, True)) > 1 + int(op_type == "SkipSimplifiedLayerNormalization"):
+                # skip can have 1 or 2 outputs
                 continue
 
             graph_idx = dag.get_graph_idx(node_name)
@@ -616,15 +618,16 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
                     graph_idx,
                 )
 
-                skip_output_name = dag.get_node_outputs(node_name, True)[1]
-                if skip_output_vi := dag.get_value_info(skip_output_name):
-                    add_output_vi = onnx.ValueInfoProto()
-                    add_output_vi.CopyFrom(skip_output_vi)
-                    add_output_vi.name = add_node_output_name
-                    dag.add_value_info(add_output_vi, graph_idx)
+                if len(dag.get_node_outputs(node_name, True)) == 2:
+                    skip_output_name = dag.get_node_outputs(node_name, True)[1]
+                    if skip_output_vi := dag.get_value_info(skip_output_name):
+                        add_output_vi = onnx.ValueInfoProto()
+                        add_output_vi.CopyFrom(skip_output_vi)
+                        add_output_vi.name = add_node_output_name
+                        dag.add_value_info(add_output_vi, graph_idx)
 
-                for child_name in dag.get_consumers(skip_output_name):
-                    dag.replace_node_input(child_name, skip_output_name, add_node_output_name)
+                    for child_name in dag.get_consumers(skip_output_name):
+                        dag.replace_node_input(child_name, skip_output_name, add_node_output_name)
 
                 l2norm_node_input_name = add_node_output_name
             else:

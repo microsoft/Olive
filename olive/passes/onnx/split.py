@@ -29,6 +29,14 @@ class SplitModel(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             **get_external_data_config(),
+            "split_assignments": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description=(
+                    "Set split assignments in the format of name1=0;name2=1 etc."
+                    " Overwrite the one from CaptureSplitInfo pass."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -36,17 +44,20 @@ class SplitModel(Pass):
     ) -> CompositeModelHandler:
         model_proto = model.load_model()
 
-        split_assignments = None
-        for metadata_prop in model_proto.metadata_props:
-            if metadata_prop.key == "split_assignments":
-                split_assignments = {
-                    key: int(value)
-                    for key, value in (assignment.split("=") for assignment in metadata_prop.value.split(";"))
-                }
-                break
+        split_assignments = config["split_assignments"]
+        if split_assignments is None:
+            for metadata_prop in model_proto.metadata_props:
+                if metadata_prop.key == "split_assignments":
+                    split_assignments = metadata_prop.value
+                    break
         # TODO(jambayk): Should we allow split assignments in the model attributes too?
         if not split_assignments:
             raise ValueError("No split assignments found in the model metadata")
+
+        split_assignments = {
+            key: int(value) for key, value in (assignment.split("=") for assignment in split_assignments.split(";"))
+        }
+        logger.debug("Split assignments: %s", split_assignments)
 
         # TODO(jambayk): Make this more generic, for now only assume transformers layers are split
         # so depth of namespace is same for all split assignments
@@ -219,6 +230,11 @@ class SplitModel(Pass):
                 for idx in split_ids:
                     split_dags[idx].add_value_info(io.proto[0], 0, overwrite=True)
 
+        split_dags = [dag for dag in split_dags if len(dag.nodes) > 0]
+        if len(split_dags) == 1:
+            logger.warning("Only one split found, returning the original model")
+            return model
+
         component_models = []
         component_names = []
         for i, split_dag in enumerate(split_dags):
@@ -228,6 +244,8 @@ class SplitModel(Pass):
             split_dag.update()
             component_models.append(model_proto_to_olive_model(split_dag.model, split_path, config))
             component_names.append(split_name)
+
+        logger.info("Split model into %d components", len(component_models))
 
         return CompositeModelHandler(component_models, component_names)
 

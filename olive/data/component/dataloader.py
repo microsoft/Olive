@@ -141,11 +141,15 @@ class LLMAugmentedDataLoader:
                 attention_mask = batch["attention_mask"]
                 if attention_mask.ndim == 4:
                     attention_mask = (attention_mask[:, 0, -1] == 0).to(batch["input_ids"].dtype)
+                # prepend mask for past keys and values
+                if not self.has_gqa:
+                    attention_mask = torch.cat([torch.zeros_like(attention_mask[:, :1]), attention_mask], dim=-1)
+
                 # prefill: all - 1 tokens, no past keys/values (= 0 past seq len)
                 prefill_batch = {
                     "input_ids": batch["input_ids"][:, prefill_slice],
                     "attention_mask": attention_mask[:, prefill_slice],
-                    **self.get_empty_kv_cache(batch["input_ids"].shape[0], self.kv_info),
+                    **self.get_empty_kv_cache(batch["input_ids"].shape[0], self.kv_info, self.has_gqa),
                 }
                 if self.position_ids:
                     prefill_batch["position_ids"] = batch["position_ids"][:, prefill_slice]
@@ -272,10 +276,12 @@ class LLMAugmentedDataLoader:
         }
 
     @staticmethod
-    def get_empty_kv_cache(batch_size, kv_info):
+    def get_empty_kv_cache(batch_size, kv_info, has_gqa):
         # TODO(jambayk): should we have atleast seq len 1?
         # if so, would need to prepend to 2d attention mask
         return {
-            k: torch.zeros((batch_size, kv_info["num_kv_heads"], 0, kv_info["head_size"]), dtype=torch.float32)
+            k: torch.zeros(
+                (batch_size, kv_info["num_kv_heads"], 0 if has_gqa else 1, kv_info["head_size"]), dtype=torch.float32
+            )
             for k in kv_info["past_names"]
         }

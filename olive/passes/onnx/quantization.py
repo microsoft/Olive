@@ -522,13 +522,18 @@ class OnnxQuantization(Pass):
                 # put back the nodes_to_exclude
                 if nodes_to_exclude:
                     run_config["nodes_to_exclude"].extend(nodes_to_exclude)
+                if config["op_types_to_exclude"]:
+                    run_config["op_types_to_quantize"] = list(
+                        set(run_config["op_types_to_quantize"]) - set(config["op_types_to_exclude"])
+                    )
 
             # remove the calibration_data_reader from run_config
             run_config = exclude_keys(
                 run_config,
                 ("calibration_data_reader", "use_external_data_format", "qnn_extra_options"),
             )
-            # logger.debug("nodes_to_exclude: %s", run_config["nodes_to_exclude"])
+            logger.debug("nodes_to_exclude: %s", run_config["nodes_to_exclude"])
+            logger.debug("op_types_to_quantize: %s", run_config["op_types_to_quantize"])
             try:
                 quantize_static(
                     model_input=model.model_path,
