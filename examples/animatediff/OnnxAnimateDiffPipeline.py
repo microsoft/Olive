@@ -4,8 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import torch
 from transformers import CLIPImageProcessor, CLIPTokenizer, CLIPVisionModelWithProjection
 
-from diffusers.loaders import IPAdapterMixin, StableDiffusionLoraLoaderMixin, TextualInversionLoaderMixin
-from diffusers.models.lora import adjust_lora_scale_text_encoder
+from diffusers.loaders import TextualInversionLoaderMixin
 from diffusers.schedulers import (
     DDIMScheduler,
     DPMSolverMultistepScheduler,
@@ -19,12 +18,9 @@ from diffusers.utils import (
     deprecate,
     logging,
     replace_example_docstring,
-    scale_lora_layers,
-    unscale_lora_layers,
 )
 from diffusers.video_processor import VideoProcessor
 from diffusers.pipelines.free_init_utils import FreeInitMixin
-from diffusers.pipelines.free_noise_utils import AnimateDiffFreeNoiseMixin
 from diffusers import DiffusionPipeline, StableDiffusionMixin
 from diffusers.pipelines.animatediff import AnimateDiffPipelineOutput
 
@@ -660,69 +656,3 @@ class OnnxAnimateDiffPipeline(
             return (video,)
 
         return AnimateDiffPipelineOutput(frames=video)
-
-import argparse
-
-parser = argparse.ArgumentParser("Common arguments")
-parser.add_argument("--steps", default=2, type=int, help="Number of steps. Should match model")
-parser.add_argument(
-    "--prompt",
-    default=(
-        "a cat smiling"
-    ),
-    type=str,
-)
-parser.add_argument(
-    "--input",
-    default=(
-        "models/stable-diffusion-v1-5"
-    ),
-    type=str,
-)
-parser.add_argument(
-    "--output",
-    default=(
-        "animation.gif"
-    ),
-    type=str,
-)
-parser.add_argument(
-    "--seed",
-    default=None,
-    type=int,
-    help="The seed to give to the generator to generate deterministic results.",
-)
-parser.add_argument(
-    "--guidance_scale",
-    default=1,
-    type=float,
-    help="Guidance scale as defined in Classifier-Free Diffusion Guidance",
-)
-parser.add_argument("--save_data", action="store_true")
-parser.add_argument("--data_dir", default="quantize_data", type=str)
-
-
-def main(raw_args=None):
-    args = parser.parse_args(raw_args)
-
-    from diffusers import EulerDiscreteScheduler
-    from diffusers.utils import export_to_gif
-
-    pipe = OnnxAnimateDiffPipeline.from_pretrained(
-        args.input, provider="CPUExecutionProvider"
-    )
-
-    pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing", beta_schedule="linear")
-
-    generator = None if args.seed is None else np.random.RandomState(seed=args.seed)
-    save_data_dir = None
-    if args.save_data:
-        import os
-        save_data_dir = Path(args.data_dir) / args.prompt
-        os.makedirs(save_data_dir, exist_ok=True)
-    output = pipe(prompt=args.prompt, guidance_scale=args.guidance_scale, num_inference_steps=args.steps, decode_chunk_size=1, generator=generator, save_data_dir=save_data_dir)
-    export_to_gif(output.frames[0], args.output)
-
-
-if __name__ == "__main__":
-    main()

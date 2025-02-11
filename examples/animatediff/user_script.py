@@ -7,6 +7,8 @@ from olive.data.registry import Registry
 import os
 import numpy as np
 from pathlib import Path
+import pickle
+
 
 step = 2
 unet_sample_size = 64
@@ -40,6 +42,8 @@ def unet_inputs(batch_size, torch_dtype):
 def unet_conversion_inputs(model=None):
     return tuple(unet_inputs(1, torch.float32).values())
 
+# Quantization data
+
 class BaseDataLoader:
     def __init__(self, total):
         self.data = []
@@ -55,15 +59,18 @@ class UnetGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
         
-        for f in self.data_folders:
-            text = torch.from_numpy(np.fromfile(f / 'encoder_hidden_states.raw', dtype=np.float32).reshape(1 * num_frames, 77, cross_attention_dim))
-            for i in range(10000):
-                if os.path.exists(f / f'{i}_sample.raw') == False: break
+        for folder in self.data_folders:
+            i = 0
+            while True:
+                f = folder / f'{i}_unet_input.bin'
+                if not os.path.exists(f): break
 
-                latent = torch.from_numpy(np.fromfile(f / f'{i}_sample.raw', dtype=np.float32).reshape(1, 4, num_frames, unet_sample_size, unet_sample_size))
-                time = torch.from_numpy(np.fromfile(f / f'{i}_timestep.raw', dtype=np.float32).reshape(1))
-                self.data.append({ "sample": latent, "timestep": time, "encoder_hidden_states": text })
+                with open(f, 'rb') as file:
+                    loaded_data = pickle.load(file)
 
+                loaded_data = {key: torch.from_numpy(value) for key, value in loaded_data.items()}
+                self.data.append(loaded_data)
+                i += 1
 
 @Registry.register_dataloader()
 def unet_quantize_data_loader(dataset, batch_size, *args, **kwargs):

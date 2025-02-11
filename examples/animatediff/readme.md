@@ -6,34 +6,29 @@ You could either
 - Download from https://huggingface.co/onnx-community/stable-diffusion-v1-5-ONNX
 - Get unoptmized model from `python stable_diffusion.py --model_id stable-diffusion-v1-5/stable-diffusion-v1-5 --optimize --provider qnn` in stable_diffusion example
 
+Put the model into models/stable-diffusion-v1-5.
+
 ## Generate unoptimized animate diff onnx model
 
 `olive run --config config_unet.json`
 
-Replace original unet model with the generated one.
+Replace original unet model with the generated one (in models/stable-diffusion-v1-5/unet-animatediff).
 
 ## Test unoptmized model
 
-`python OnnxAnimateDiffPipeline.py --seed 0`
+`python animate_diff.py --seed 0`
 
 ## Get optimized stable diffusion onnx model
 
 Follow guide in stable_diffusion example.
 
+Put the model into models/stable-diffusion-v1-5-qnn.
+
 ## Split unet model
 
 The model is too big for quantization, so we need to split model first.
 
-`olive run --config config_unet_split.json`
-
-Rename split 0 to unet and split 1 to unet_2. Add the following to the models/stable-diffusion-v1-5/model_index.json
-
-```
-"unet_2": [
-    "diffusers",
-    "OnnxRuntimeModel"
-],
-```
+`python animate_diff.py --split`
 
 ## Generate data for static quantization
 
