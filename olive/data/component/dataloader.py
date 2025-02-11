@@ -5,10 +5,11 @@
 
 import logging
 import re
-from copy import deepcopy
 from typing import List, Union
 
+import onnx
 import torch
+from tqdm import tqdm
 
 from olive.common.hf.model_io import replace_with_extended_mask
 from olive.common.utils import format_data
@@ -99,24 +100,34 @@ class LLMAugmentedDataLoader:
     def __init__(self, dataloader, model_path, io_config):
         self.dataloader = dataloader
         self.model_path = model_path
-        self.io_config = deepcopy(io_config)
-        self.io_config["input_shapes"] = dict(zip(self.io_config["input_names"], self.io_config["input_shapes"]))
+        self.io_config = io_config
+        # self.io_config["input_shapes"] = dict(zip(self.io_config["input_names"], self.io_config["input_shapes"]))
 
         self.position_ids = "position_ids" in self.io_config["input_names"]
         self.extended_attention_mask = (
             "attention_mask" in self.io_config["input_names"]
-            and len(self.io_config["input_shapes"]["attention_mask"]) == 4
+            and len(self.io_config["input_shapes"][self.io_config["input_names"].index("attention_mask")]) == 4
         )
 
         self.kv_info = self.get_kv_info(self.io_config)
+        self.has_gqa = False
+        for node in onnx.load(self.model_path, load_external_data=False).graph.node:
+            if node.op_type == "GroupQueryAttention":
+                self.has_gqa = True
+                break
+        logger.debug("Model has GroupQueryAttention: %s", self.has_gqa)
+
         self._session = None
 
     def __len__(self):
         return len(self.dataloader) * (
-            2 if self.kv_info and self.kv_info["past_names"][0] not in next(iter(self.dataloader))[0] else 1
+            2
+            if not self.has_gqa and self.kv_info and self.kv_info["past_names"][0] not in next(iter(self.dataloader))[0]
+            else 1
         )
 
     def __iter__(self):
+        progress_bar = tqdm(total=len(self), desc="Onnx Dataloader")
         for batch, label in self.dataloader:
             if self.extended_attention_mask and batch["attention_mask"].ndim == 2:
                 # model expects 4d attention mask
@@ -126,35 +137,32 @@ class LLMAugmentedDataLoader:
                 batch["position_ids"] = self.get_position_ids(batch["input_ids"], batch["attention_mask"])
 
             if self.kv_info and self.kv_info["past_names"][0] not in batch:
+                prefill_slice = slice(0, None) if self.has_gqa else slice(None, -1)
                 attention_mask = batch["attention_mask"]
                 if attention_mask.ndim == 4:
                     attention_mask = (attention_mask[:, 0, -1] == 0).to(batch["input_ids"].dtype)
-                # prepend mask for past keys and values
-                attention_mask = torch.cat([torch.zeros_like(attention_mask[:, :1]), attention_mask], dim=-1)
-
                 # prefill: all - 1 tokens, no past keys/values (= 0 past seq len)
                 prefill_batch = {
-                    "input_ids": batch["input_ids"][:, :-1],
-                    # "attention_mask": (
-                    #     batch["attention_mask"][:, :-1]
-                    #     if batch["attention_mask"].ndim == 2
-                    #     else batch["attention_mask"][:, :, :-1, :-1]
-                    # ),
-                    "attention_mask": attention_mask[:, :-1],
+                    "input_ids": batch["input_ids"][:, prefill_slice],
+                    "attention_mask": attention_mask[:, prefill_slice],
                     **self.get_empty_kv_cache(batch["input_ids"].shape[0], self.kv_info),
                 }
                 if self.position_ids:
-                    prefill_batch["position_ids"] = batch["position_ids"][:, :-1]
+                    prefill_batch["position_ids"] = batch["position_ids"][:, prefill_slice]
                 if self.extended_attention_mask:
                     replace_with_extended_mask(prefill_batch, "causal", -5000)
 
                 prefill_label = (
-                    label[:, :-1]
+                    label[:, prefill_slice]
                     if (isinstance(label, torch.Tensor) and label.shape == batch["input_ids"].shape)
                     else label
                 )
 
                 yield prefill_batch, prefill_label
+                progress_bar.update(1)
+
+                if self.has_gqa:
+                    continue
 
                 # decode: last token, all - 1 past keys/values generated from prefill
                 session_outputs = self.session.run(None, format_data(prefill_batch, self.io_config))
@@ -162,7 +170,6 @@ class LLMAugmentedDataLoader:
 
                 decode_batch = {
                     "input_ids": batch["input_ids"][:, -1:],
-                    # "attention_mask": batch["attention_mask"],
                     "attention_mask": attention_mask,
                     **{v: session_outputs[k] for k, v in self.kv_info["present_to_past"].items()},
                 }
@@ -178,8 +185,10 @@ class LLMAugmentedDataLoader:
                 )
 
                 yield decode_batch, decode_label
+                progress_bar.update(1)
             else:
                 yield batch, label
+                progress_bar.update(1)
 
     @property
     def session(self):
@@ -226,9 +235,9 @@ class LLMAugmentedDataLoader:
         # Find the format of the past keys and values
         # only accept dynamic shapes for now
         kv_format = None
-        for i_name in io_config["input_names"]:
+        for idx, i_name in enumerate(io_config["input_names"]):
             for pattern in kv_options:
-                if re.match(pattern, i_name) and not isinstance(io_config["input_shapes"][i_name][2], int):
+                if re.match(pattern, i_name) and not isinstance(io_config["input_shapes"][idx][2], int):
                     kv_format = pattern
                     break
             if kv_format:
@@ -253,11 +262,13 @@ class LLMAugmentedDataLoader:
                 }
             )
 
+        past_shape = io_config["input_shapes"][io_config["input_names"].index(past_names[0])]
+
         return {
             "past_names": past_names,
             "present_to_past": present_to_past,
-            "num_kv_heads": io_config["input_shapes"][past_names[0]][1],
-            "head_size": io_config["input_shapes"][past_names[0]][3],
+            "num_kv_heads": past_shape[1],
+            "head_size": past_shape[3],
         }
 
     @staticmethod
@@ -265,6 +276,6 @@ class LLMAugmentedDataLoader:
         # TODO(jambayk): should we have atleast seq len 1?
         # if so, would need to prepend to 2d attention mask
         return {
-            k: torch.zeros((batch_size, kv_info["num_kv_heads"], 1, kv_info["head_size"]), dtype=torch.float32)
+            k: torch.zeros((batch_size, kv_info["num_kv_heads"], 0, kv_info["head_size"]), dtype=torch.float32)
             for k in kv_info["past_names"]
         }

@@ -56,6 +56,14 @@ class MatMulNBitsToQDQ(Pass):
                     " False."
                 ),
             ),
+            "nodes_to_exclude": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description=(
+                    "List of node names to exclude from the conversion. The node names should be the names of the"
+                    " MatMulNBits nodes. Default is an empty list."
+                ),
+            ),
             **get_external_data_config(),
         }
 
@@ -63,6 +71,7 @@ class MatMulNBitsToQDQ(Pass):
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+        nodes_to_exclude = set(config["nodes_to_exclude"] or [])
 
         # create a dag from the model
         dag = OnnxDAG.from_model_path(model.model_path)
@@ -77,7 +86,7 @@ class MatMulNBitsToQDQ(Pass):
         num_modified = 0
         for node_name in dag.get_node_names():
             op_type = dag.get_node_op_type(node_name)
-            if op_type != "MatMulNBits":
+            if op_type != "MatMulNBits" or node_name in nodes_to_exclude:
                 continue
 
             node_inputs = dag.get_node_inputs(node_name)

@@ -61,8 +61,7 @@ class ORTGenerator:
         if has_gqa is not None:
             self.has_gqa = has_gqa
         else:
-            model_proto = onnx.load(self.model_path[-1], load_external_data=False)
-            for node in model_proto.graph.node:
+            for node in onnx.load(self.model_path[-1], load_external_data=False).graph.node:
                 if node.op_type == "GroupQueryAttention":
                     self.has_gqa = True
                     break

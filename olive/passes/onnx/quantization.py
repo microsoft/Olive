@@ -528,6 +528,7 @@ class OnnxQuantization(Pass):
                 run_config,
                 ("calibration_data_reader", "use_external_data_format", "qnn_extra_options"),
             )
+            # logger.debug("nodes_to_exclude: %s", run_config["nodes_to_exclude"])
             try:
                 quantize_static(
                     model_input=model.model_path,

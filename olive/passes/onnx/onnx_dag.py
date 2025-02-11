@@ -5,7 +5,7 @@
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 import onnx
 from onnx import AttributeProto, GraphProto, NodeProto, TensorProto, ValueInfoProto
@@ -271,6 +271,15 @@ class OnnxDAG:
         ), f"Value info for {name} already exists in the graph but overwrite is False."
         self.ios[name].proto = [value_info]
 
+    def get_value_info(self, value_info_name: str) -> Optional[ValueInfoProto]:
+        """Get the value info proto.
+
+        :param value_info_name: name of the value info.
+        :return: ValueInfoProto object.
+        """
+        assert value_info_name in self.ios, f"{value_info_name} does not exist in the graph."
+        return self.ios[value_info_name].proto[0] if self.ios[value_info_name].proto else None
+
     def is_io(self, io_name: str) -> bool:
         """Check if an input/output exists in the graph.
 
@@ -393,12 +402,18 @@ class OnnxDAG:
 
         # remove node from the connections
         for i in node.inputs:
+            if i == "":
+                # some nodes have unnamed, unused inputs
+                continue
             self.ios[i].destination.remove(node_name)
             parent = self.ios[i].source
             if parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
                 self.connections[parent].remove(node_name)
 
         for o in node.outputs:
+            if o == "":
+                # some nodes have unnamed, unused outputs
+                continue
             del self.ios[o]
 
         del self.connections[node_name]
@@ -617,6 +632,21 @@ class OnnxDAG:
         """
         assert self.is_initializer(initializer_name)
         return self.ios[initializer_name].proto[-1]
+
+    def get_input_shape(self, input_name: str) -> List[Union[int, str]]:
+        """Get the shape of an input.
+
+        :param input_name: name of the input.
+        :return: list of dimensions of the input shape.
+        """
+        proto = self.get_input_proto(input_name)
+        tensor_type = proto.type.tensor_type
+        if tensor_type.elem_type == 0:
+            # sequence type
+            # TODO(jambayk): add support for different types
+            # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
+            tensor_type = proto.type.sequence_type.elem_type.tensor_type
+        return [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
 
     def get_graph_idx(self, name: str) -> int:
         """Get the index of the graph containing the input/output or node."""
