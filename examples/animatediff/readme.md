@@ -32,6 +32,8 @@ The model is too big for quantization, so we need to split model first.
 
 ## Generate data for static quantization
 
+You could generate more data to fit your need.
+
 `python animate_diff.py --save_data --prompt "dog swims in the river"`
 
 ## Generate optimized animate diff onnx model

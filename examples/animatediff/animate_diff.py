@@ -90,9 +90,8 @@ def quantize(input_dir: Path, output: Path):
         os.makedirs(move_to, exist_ok=True)
         shutil.move(output_f / "output_model" / 'model.onnx', move_to / 'model.onnx')
         i += 1
-        if i == 1: break
 
-    update_model_index(output, 5)
+    update_model_index(output, i)
     
 
 def update_model_index(path: Path, total: int):
