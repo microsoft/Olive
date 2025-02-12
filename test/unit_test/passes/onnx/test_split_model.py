@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import pytest
+import torch
 
 from olive.hardware import AcceleratorSpec
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
@@ -141,3 +142,59 @@ def test_split_model_all_nodes(tmp_path, input_model_info, model_type):
 
     # all non model outputs must be used between the splits
     assert (seen_outputs - used_outputs) == model_outputs
+
+
+class CustomModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.before_layer = torch.nn.Linear(2, 4)
+        self.layers = torch.nn.ModuleList([torch.nn.Linear(4, 4) for _ in range(2)])
+        self.after_layer = torch.nn.Linear(4, 2)
+
+    def forward(self, x):
+        x = self.before_layer(x)
+        x = self.layers[0](x) + self.layers[1](x)
+        return self.after_layer(x)
+
+
+@pytest.mark.parametrize(
+    ("split_assignments", "split_mid_io"),
+    [
+        (
+            # split vertically
+            "layers.0=0;layers.1=1",
+            ["/before_layer/Gemm_output_0", "/layers.0/Gemm_output_0"],
+        ),
+        (
+            # split horizontally
+            "before_layer=0;layers.0=1;layers.1=1",
+            ["/before_layer/Gemm_output_0"],
+        ),
+    ],
+)
+def test_split_model_split_assignments(split_assignments, split_mid_io, tmp_path):
+    config = {
+        "split_assignments": split_assignments,
+    }
+    p = create_pass_from_dict(SplitModel, config, disable_search=True)
+
+    dummy_input = torch.randn(1, 2)
+    input_model_path = tmp_path / "input_model.onnx"
+    torch.onnx.export(CustomModel(), dummy_input, input_model_path, input_names=["input"], output_names=["output"])
+    input_model = ONNXModelHandler(input_model_path)
+
+    out = p.run(input_model, str(tmp_path))
+
+    assert len(out.model_component_names) == 2
+    assert out.model_component_names[0] == "split_0"
+    assert out.model_component_names[1] == "split_1"
+
+    i = 0
+    for model in out.model_components:
+        if i == 0:
+            assert model.io_config["input_names"] == ["input"]
+            assert model.io_config["output_names"] == split_mid_io
+        elif i == 1:
+            assert model.io_config["input_names"] == split_mid_io
+            assert model.io_config["output_names"] == ["output"]
+        i += 1
