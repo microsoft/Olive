@@ -278,6 +278,7 @@ for an example implementation of `"user_script.py"` and `"calib_data_config/data
 LoRA, QLoRA and related techniques allow us to fine-tune a pre-trained model by adding a small number of trainable matrices called adapters. The same base model can be used for multiple tasks by adding different adapters for each task. To support using multiple adapters with the same optimized onnx model, the `ExtractAdapters` pass extracts the adapters weights from the model and saves them to a separate file. The model graph is then modified in one of the following ways:
 - Adapters weights are set as external tensors pointing to a non-existent file. The onnx model is thus invalid by itself as it cannot be loaded. In order to create an inference session using this model, the adapter weights must be added to a sessions options object using `add_initializer` or `add_external_initializers`.
 - Adapter weights are converted into model inputs. The onnx model is valid. During inference, the adapter weights must be provided as part of the inputs. We call them constant inputs here since these weights don't change between runs when using the one set of adapters.
+ - `ExtractAdapters` pass supports `DoRA` and `LoHa` as well. Add `adapter_type` to configuration to specify the adapter. The default value is `lora`.
 
 ### Example Configuration
 
@@ -286,6 +287,7 @@ a. As external initializers
 ```json
 {
     "type": "ExtractAdapters",
+    "adapter_tpye": "dora",
     "make_inputs": false
 }
 ```
