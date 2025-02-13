@@ -160,15 +160,23 @@ class CustomModel(torch.nn.Module):
 @pytest.mark.parametrize(
     ("split_assignments", "split_mid_io"),
     [
+        # split vertically
         (
-            # split vertically
-            "layers.0=0;layers.1=1",
+            { "layers.0": 0, "layers.1": 1 },
             ["/before_layer/Gemm_output_0", "/layers.0/Gemm_output_0"],
         ),
         (
-            # split horizontally
-            "before_layer=0;layers.0=1;layers.1=1",
+            "layers.0=0;layers.1=1",
+            ["/before_layer/Gemm_output_0", "/layers.0/Gemm_output_0"],
+        ),
+        # split horizontally
+        (
+            { "before_layer": 0, "layers.0": 1, "layers.1": 1 },
             ["/before_layer/Gemm_output_0"],
+        ),
+        (
+            "layers.0=0;layers.1=0;after_layer=1",
+            ["/Add_output_0"],
         ),
     ],
 )
@@ -189,12 +197,10 @@ def test_split_model_split_assignments(split_assignments, split_mid_io, tmp_path
     assert out.model_component_names[0] == "split_0"
     assert out.model_component_names[1] == "split_1"
 
-    i = 0
-    for model in out.model_components:
+    for i, model in enumerate(out.model_components):
         if i == 0:
             assert model.io_config["input_names"] == ["input"]
             assert model.io_config["output_names"] == split_mid_io
         elif i == 1:
             assert model.io_config["input_names"] == split_mid_io
             assert model.io_config["output_names"] == ["output"]
-        i += 1

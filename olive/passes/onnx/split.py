@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
 import onnx
@@ -29,7 +29,7 @@ class SplitModel(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "split_assignments": PassConfigParam(
-                type_=str,
+                type_=Union[Dict[str,int], str],
                 default_value=None,
                 description=(
                     "Set split assignments in the format of name1=0;name2=1 etc."
@@ -54,9 +54,10 @@ class SplitModel(Pass):
         if not split_assignments:
             raise ValueError("No split assignments found in the model metadata")
 
-        split_assignments = {
-            key: int(value) for key, value in (assignment.split("=") for assignment in split_assignments.split(";"))
-        }
+        if isinstance(split_assignments, str):
+            split_assignments = {
+                key: int(value) for key, value in (assignment.split("=") for assignment in split_assignments.split(";"))
+            }
 
         # TODO(jambayk): Make this more generic, for now only assume transformers layers are split
         # so depth of namespace is same for all split assignments
