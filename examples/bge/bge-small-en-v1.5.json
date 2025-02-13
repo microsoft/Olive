@@ -1,0 +1,49 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "BAAI/bge-small-en-v1.5",
+        "task": "feature-extraction"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] }
+            ]
+        }
+    },
+    "data_configs": [
+    ],
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "accuracy",
+                    "type": "custom",
+                    "sub_types": [
+                        {
+                            "name": "accuracy_custom",
+                            "priority": 1,
+                            "higher_is_better": true,
+                            "goal": { "type": "max-degradation", "value": 0.05 }
+                        }
+                    ],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "evaluate_func": "eval_accuracy",
+                        "evaluate_func_kwargs": { "tasks": [ "Banking77Classification" ] }
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": { "type": "OnnxConversion", "target_opset": 13 }
+    },
+    "evaluator": "common_evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models/bge-small-en-v1.5",
+    "evaluate_input_model": true
+}
