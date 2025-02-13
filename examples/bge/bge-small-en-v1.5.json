@@ -38,7 +38,7 @@
         }
     },
     "passes": {
-        "conversion": { "type": "OnnxConversion", "target_opset": 13 }
+        "conversion": { "type": "OnnxConversion", "target_opset": 17 }
     },
     "evaluator": "common_evaluator",
     "host": "local_system",
