@@ -56,6 +56,14 @@ class MatMulNBitsToQDQ(Pass):
                     " False."
                 ),
             ),
+            "nodes_to_exclude": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description=(
+                    "List of node names to exclude from the conversion. The node names should be the names of the"
+                    " MatMulNBits nodes. Default is None."
+                ),
+            ),
             **get_external_data_config(),
         }
 
@@ -74,10 +82,13 @@ class MatMulNBitsToQDQ(Pass):
         int_np_dtype = np.int8 if config["use_int4"] else np.uint8
         int_elem_type = onnx.TensorProto.INT4 if config["use_int4"] else onnx.TensorProto.UINT4
 
+        # set of nodes to exclude from the conversion
+        nodes_to_exclude = set(config["nodes_to_exclude"] or [])
+
         num_modified = 0
         for node_name in dag.get_node_names():
             op_type = dag.get_node_op_type(node_name)
-            if op_type != "MatMulNBits":
+            if op_type != "MatMulNBits" or node_name in nodes_to_exclude:
                 continue
 
             node_inputs = dag.get_node_inputs(node_name)
