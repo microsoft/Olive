@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Type, Union
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import StrEnumBase
@@ -13,7 +13,7 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import OliveModelHandler
 from olive.model.handler import OpenVINOModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import ParamCategory, PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, ParamCategory, PassConfigParam, get_user_script_data_config
 
 if TYPE_CHECKING:
     from openvino import CompiledModel
@@ -149,8 +149,8 @@ class OpenVINOQuantizationBase(Pass):
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO pass") from None
 
         data_loader = None
-        if config["data_config"]:
-            data_config = validate_config(config["data_config"], DataConfig)
+        if config.data_config:
+            data_config = validate_config(config.data_config, DataConfig)
             data_loader = data_config.to_data_container().create_dataloader()
 
         def transform_fn(data_item):
@@ -172,16 +172,14 @@ class OpenVINOQuantizationBase(Pass):
         }
 
         extra_params = {}
-        extra_params["model_type"] = nncf.ModelType.Transformer if config.get("model_type") == "TRANSFORMER" else None
+        extra_params["model_type"] = nncf.ModelType.Transformer if config.model_type == "TRANSFORMER" else None
         extra_params["preset"] = (
-            nncf.QuantizationPreset.PERFORMANCE
-            if config.get("preset") == "PERFORMANCE"
-            else nncf.QuantizationPreset.MIXED
+            nncf.QuantizationPreset.PERFORMANCE if config.preset == "PERFORMANCE" else nncf.QuantizationPreset.MIXED
         )
-        extra_params["target_device"] = device_map.get(config.get("target_device"), nncf.TargetDevice.ANY)
+        extra_params["target_device"] = device_map.get(config.target_device, nncf.TargetDevice.ANY)
 
-        if config.get("ignored_scope"):
-            kwargs = {config.get("ignored_scope_type"): config.get("ignored_scope")}
+        if config.ignored_scope:
+            kwargs = {config.ignored_scope_type: config.ignored_scope}
             extra_params["ignored_scopes"] = nncf.IgnoredScope(**kwargs)
 
         return extra_params
@@ -190,7 +188,7 @@ class OpenVINOQuantizationBase(Pass):
 class OpenVINOQuantization(OpenVINOQuantizationBase):
 
     def _run_for_config(
-        self, model: OpenVINOModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: OpenVINOModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> OpenVINOModelHandler:
         try:
             import nncf
@@ -248,7 +246,7 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
         return config
 
     def _run_for_config(
-        self, model: OliveModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: OliveModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> OliveModelHandler:
         try:
             import nncf
@@ -263,19 +261,19 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
         extra_params = self._get_extra_params(config)
 
         validate_func = (
-            self._user_module_loader.load_object(config["validation_func"])
-            if config.get("validation_func")
+            self._user_module_loader.load_object(config.validation_func)
+            if config.validation_func
             else _default_validate_func
         )
 
-        drop_type = nncf.DropType.ABSOLUTE if config["drop_type"] == "ABSOLUTE" else nncf.DropType.RELATIVE
+        drop_type = nncf.DropType.ABSOLUTE if config.drop_type == "ABSOLUTE" else nncf.DropType.RELATIVE
 
         quantized_model = nncf.quantize_with_accuracy_control(
             model,
             calibration_dataset=calibration_dataset,
             validation_dataset=validation_dataset,
             validation_fn=validate_func,
-            max_drop=config["max_drop"],
+            max_drop=config.max_drop,
             drop_type=drop_type,
             **extra_params
         )

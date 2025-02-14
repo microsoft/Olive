@@ -7,7 +7,7 @@ import os
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Type, Union
 
 from packaging import version
 
@@ -23,7 +23,7 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_has_adapters, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.search.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
@@ -445,7 +445,7 @@ class IncQuantization(Pass):
         return {"bits": bits, "group_size": group_size, "scheme": scheme, "algorithm": algo}
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         if model_has_adapters(model.model_path):
             logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")
@@ -467,18 +467,17 @@ class IncQuantization(Pass):
         import neural_compressor
 
         assert not (
-            config["approach"] == "weight_only"
-            and version.parse(neural_compressor.__version__) < version.parse("2.3.0")
+            config.approach == "weight_only" and version.parse(neural_compressor.__version__) < version.parse("2.3.0")
         ), "Require neural-compressor >= 2.3.0 to support weight only quantization."
 
         # start with a copy of the config
-        run_config = deepcopy(config)
+        run_config = config.dict()
         require_dataloader = run_config["approach"] == "static" or (
             run_config["approach"] == "weight_only"
             and run_config["weight_only_config"]["algorithm"].upper() in {"GPTQ", "AWQ"}
         )
         if require_dataloader:
-            assert config["data_config"], "data_config is required for {} quantization.".format(run_config["approach"])
+            assert config.data_config, "data_config is required for {} quantization.".format(run_config["approach"])
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
@@ -515,7 +514,7 @@ class IncQuantization(Pass):
 
         inc_calib_dataloader = None
         if require_dataloader:
-            data_config = validate_config(config["data_config"], DataConfig)
+            data_config = validate_config(config.data_config, DataConfig)
             # inc quantization's calibration dataloader requires:
             # 1. input: (input, label)
             # 2. the dataloader should have the attributes of "__iter__" and "batch_size"

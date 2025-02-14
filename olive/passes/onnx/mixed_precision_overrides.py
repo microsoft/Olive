@@ -6,14 +6,14 @@
 import json
 from logging import getLogger
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Dict, Type, Union
 
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = getLogger(__name__)
 
@@ -54,7 +54,7 @@ class MixedPrecisionOverrides(Pass):
     def _run_for_config(
         self,
         model: ONNXModelHandler,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
         """Run for config.
@@ -84,10 +84,10 @@ class MixedPrecisionOverrides(Pass):
         from onnxruntime.quantization.onnx_model import ONNXModel
 
         overrides_content = {}
-        if isinstance(config["overrides_config"], dict):
-            overrides_content = config["overrides_config"]
-        elif isinstance(config["overrides_config"], str):
-            overrides_config_path = Path(config["overrides_config"])
+        if isinstance(config.overrides_config, dict):
+            overrides_content = config.overrides_config
+        elif isinstance(config.overrides_config, str):
+            overrides_config_path = Path(config.overrides_config)
             with overrides_config_path.open() as f:
                 overrides_content = json.load(f)
         else:
@@ -137,7 +137,7 @@ class MixedPrecisionOverrides(Pass):
         # If certain initializer tensor makes conflict, we do not convert it, but rather add it to conflict_data
         # which we analyze later
 
-        element_wise_binary_ops = config["element_wise_binary_ops"] or ["Add", "Sub", "Mul", "Div"]
+        element_wise_binary_ops = config.element_wise_binary_ops or ["Add", "Sub", "Mul", "Div"]
         for node in onnx_model.graph.node:
 
             if node.op_type in element_wise_binary_ops:
@@ -195,11 +195,11 @@ class MixedPrecisionOverrides(Pass):
         model_proto_to_file(
             onnx_model.model,
             output_model_path,
-            save_as_external_data=config["save_as_external_data"],
-            all_tensors_to_one_file=config["all_tensors_to_one_file"],
-            external_data_name=config["external_data_name"],
-            size_threshold=config["size_threshold"],
-            convert_attribute=config["convert_attribute"],
+            save_as_external_data=config.save_as_external_data,
+            all_tensors_to_one_file=config.all_tensors_to_one_file,
+            external_data_name=config.external_data_name,
+            size_threshold=config.size_threshold,
+            convert_attribute=config.convert_attribute,
         )
 
         overrides_jsonable = {

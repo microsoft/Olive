@@ -3,13 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Callable, Dict, List, Type, Union
 
 from olive.constants import Framework
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, ONNXModelHandler, OpenVINOModelHandler, PyTorchModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 
 class OpenVINOConversion(Pass):
@@ -65,7 +65,7 @@ class OpenVINOConversion(Pass):
     def _run_for_config(
         self,
         model: Union[HfModelHandler, PyTorchModelHandler, ONNXModelHandler],
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> OpenVINOModelHandler:
         try:
@@ -81,18 +81,18 @@ class OpenVINOConversion(Pass):
             input_model = model.load_model()
 
         example_input = None
-        if config.get("example_input_func"):
-            example_input = self._user_module_loader.call_object(config["example_input_func"])
+        if config.example_input_func:
+            example_input = self._user_module_loader.call_object(config.example_input_func)
 
         input_shape = None
-        if config.get("input"):
-            config_input = config["input"]
+        if config.input:
+            config_input = config.input
             if isinstance(config_input, List):
                 input_shape = config_input
             else:
                 input_shape = self._user_module_loader.call_object(config_input)
 
-        extra_configs = config.get("extra_configs") or {}
+        extra_configs = config.extra_configs or {}
         args = {
             "input_model": input_model,
             "input": input_shape,
@@ -103,10 +103,8 @@ class OpenVINOConversion(Pass):
         ov_model = ov.convert_model(**args)
 
         model_name = "ov_model"
-        output_dir = Path(output_model_path) / config.get("output_model", model_name)
+        output_dir = Path(output_model_path) / (config.output_model or model_name)
 
         # Save as ov model
-        ov.save_model(
-            ov_model, output_model=output_dir.with_suffix(".xml"), compress_to_fp16=config["compress_to_fp16"]
-        )
+        ov.save_model(ov_model, output_model=output_dir.with_suffix(".xml"), compress_to_fp16=config.compress_to_fp16)
         return OpenVINOModelHandler(model_path=output_model_path)

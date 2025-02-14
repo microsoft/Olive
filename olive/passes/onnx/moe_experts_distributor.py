@@ -10,7 +10,7 @@ import os
 import pprint
 from abc import abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Tuple, Type, Union
 
 import numpy as np
 import onnx
@@ -22,7 +22,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import DistributedOnnxModelHandler, ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 if TYPE_CHECKING:
     from onnxruntime.transformers.onnx_model import OnnxModel
@@ -394,7 +394,7 @@ class MoEExpertsDistributor(Pass):
         return {"validate_distributor_config": validator("world_size", allow_reuse=True)(cls._validate_world_size)}
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> DistributedOnnxModelHandler:
         # huggingface/tokenizers: The current process just got forked, after parallelism has already been used.
         # Disabling parallelism to avoid deadlocks...
@@ -403,18 +403,18 @@ class MoEExpertsDistributor(Pass):
         #     - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-        matcher = MoEExpertDistributionPatternMatcherA(config["world_size"], model.model_path)
+        matcher = MoEExpertDistributionPatternMatcherA(config.world_size, model.model_path)
         experts, num_experts = matcher.identify_experts(output_model_path)
         matcher.distribute(
             experts,
             num_experts,
             output_model_path,
-            use_external_data_format=config["save_as_external_data"],
-            all_tensors_to_one_file=config["all_tensors_to_one_file"],
-            parallel_jobs=config["parallel_jobs"] or multiprocessing.cpu_count(),
+            use_external_data_format=config.save_as_external_data,
+            all_tensors_to_one_file=config.all_tensors_to_one_file,
+            parallel_jobs=config.parallel_jobs or multiprocessing.cpu_count(),
         )
         return DistributedOnnxModelHandler(
             model_path=str(Path(output_model_path).with_suffix("")),
             model_name_pattern=DistributedOnnxModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT,
-            num_ranks=config["world_size"],
+            num_ranks=config.world_size,
         )
