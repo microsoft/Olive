@@ -14,7 +14,9 @@ This workflow performs CLIP VIT optimization on Qualcomm NPU with ONNX Runtime P
 
 It requires x86 python environment on a Windows ARM machine with `onnxruntime-qnn` installed.
 
+Config file: [openai_clip-vit-base-patch16_ptq_qnn.json](openai_clip-vit-base-patch16_ptq_qnn.json)
 Config file: [openai_clip-vit-base-patch32_ptq_qnn.json](openai_clip-vit-base-patch32_ptq_qnn.json)
+Config file: [openai_clip-vit-large-patch14_ptq_qnn.json](openai_clip-vit-large-patch14_ptq_qnn.json)
 
 **NOTE:** The model optimization part of the workflow can also be done on a Linux/Windows machine with a different onnxruntime package installed. Remove the `"evaluators"` and `"evaluator"` sections from the configuration file to skip the evaluation step.
 
