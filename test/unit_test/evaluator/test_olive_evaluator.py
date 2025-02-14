@@ -29,6 +29,7 @@ from olive.evaluator.olive_evaluator import (
     OpenVINOEvaluator,
     PyTorchEvaluator,
     SNPEEvaluator,
+    _OliveEvaluator,
 )
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
@@ -403,6 +404,65 @@ class TestOliveEvaluator:
                 # verify the original inference settings are not changed
                 assert metric.get_inference_settings("onnx") == metric_inference_settings
                 assert model.inference_settings == model_inference_settings
+
+    @pytest.mark.parametrize(
+        ("input_device", "torch_device"),
+        [("cpu", "cpu"), ("gpu", "cuda"), ("cuda", "cuda"), ("npu", "cpu"), ("unknown device", "cpu")],
+    )
+    def test_evaluator_unknown_device(self, input_device, torch_device):
+        assert _OliveEvaluator.device_string_to_torch_device(input_device).type == torch_device
+
+    @patch("onnxruntime.InferenceSession")
+    def test_onnx_evaluator_inference_dict_output(self, inference_session_mock):
+        mock_session = MagicMock()
+        mock_session.get_providers.return_value = ["CPUExecutionProvider"]
+        mock_session.run.return_value = ([0.5, 0.6], [0.6, 0.7])
+        inference_session_mock.return_value = mock_session
+
+        model = get_onnx_model()
+        # pylint: disable=protected-access
+        model._io_config = {
+            "input_names": ["dummy"],
+            "input_types": ["int32"],
+            "output_names": ["output_1", "output_2"],
+        }
+        metric = get_accuracy_metric(AccuracySubType.PRECISION)
+        dataloader, *_ = OliveEvaluator.get_user_config(model.framework, metric)
+        evaluator = OnnxEvaluator()
+
+        # pylint: disable=protected-access
+        outputs, *_ = evaluator._inference(
+            model,
+            metric,
+            dataloader,
+            lambda x: x["output_1"],
+        )
+        mock_session.run.assert_called_once()
+        assert set(outputs.logits.keys()) == set(model.io_config["output_names"])
+
+    def test_torch_evaluator_inference_dict_output(self):
+        import torch
+
+        model = MagicMock()
+        model.run_session.return_value = {
+            "output_1": torch.Tensor([0.5, 0.6]),
+            "output_2": torch.Tensor([0.6, 0.7]),
+        }
+        metric = MagicMock()
+        metric.get_run_kwargs.return_value = {}
+        dataloader = MagicMock()
+        dataloader.__iter__.return_value = [(torch.Tensor([1, 1]), torch.Tensor([0]))]
+        evaluator = PyTorchEvaluator()
+
+        # pylint: disable=protected-access
+        outputs, *_ = evaluator._inference(
+            model,
+            metric,
+            dataloader,
+            lambda x: x["output_1"],
+        )
+        model.run_session.assert_called_once()
+        assert set(outputs.logits.keys()) == {"output_1", "output_2"}
 
 
 class TestOliveEvaluatorConfig:
