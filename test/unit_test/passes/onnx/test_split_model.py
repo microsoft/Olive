@@ -162,7 +162,7 @@ class CustomModel(torch.nn.Module):
     [
         # split vertically
         (
-            { "layers.0": 0, "layers.1": 1 },
+            {"layers.0": 0, "layers.1": 1},
             ["/before_layer/Gemm_output_0", "/layers.0/Gemm_output_0"],
         ),
         (
@@ -171,7 +171,7 @@ class CustomModel(torch.nn.Module):
         ),
         # split horizontally
         (
-            { "before_layer": 0, "layers.0": 1, "layers.1": 1 },
+            {"before_layer": 0, "layers.0": 1, "layers.1": 1},
             ["/before_layer/Gemm_output_0"],
         ),
         (

@@ -29,7 +29,7 @@ class SplitModel(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "split_assignments": PassConfigParam(
-                type_=Union[Dict[str,int], str],
+                type_=Union[Dict[str, int], str],
                 default_value=None,
                 description=(
                     "Set split assignments in the format of name1=0;name2=1 etc."
