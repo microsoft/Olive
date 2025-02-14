@@ -4022,6 +4022,15 @@
 <p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
 <p><strong>Output:</strong> handler.composite.CompositeModelHandler</p>
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-split_assignments">
+<span class="sig-name descname"><span class="pre">split_assignments</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-split_assignments" title="Link to this definition">#</a></dt>
+<dd><p>Set split assignments in the format of name1=0;name2=1 etc. Overwrite the one from CaptureSplitInfo pass.</p>
+<p><strong>type:</strong> Dict[str, int] | str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-207">
 <span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-207" title="Link to this definition">#</a></dt>
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
