@@ -6,14 +6,14 @@
 import logging
 import platform
 from pathlib import Path
-from typing import Any, Dict
+from typing import Dict, Type
 
 from olive.common.constants import OS
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
 from olive.model import QNNModelHandler
 from olive.passes.olive_pass import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class QNNModelLibGenerator(Pass):
     def _run_for_config(
         self,
         model: QNNModelHandler,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> QNNModelHandler:
         main_cmd = "qnn-model-lib-generator"

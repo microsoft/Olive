@@ -8,7 +8,7 @@ import copy
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Type, Union
 
 import onnx
 import transformers
@@ -19,6 +19,7 @@ from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pass_config import BasePassConfig
 
 logger = logging.getLogger(__name__)
 
@@ -95,15 +96,11 @@ class ModelBuilder(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
-
-        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
-        config = config_cls(**config)
 
         # if device is GPU, but user choose CPU EP, the is_cpu should be True
         if (config.precision == ModelBuilder.Precision.FP16) and not (
@@ -124,13 +121,13 @@ class ModelBuilder(Pass):
     def _run_for_config(
         self,
         model: Union[HfModelHandler, ONNXModelHandler],
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
         from onnxruntime_genai.models.builder import create_model
 
-        precision = config["precision"]
-        metadata_only = config["metadata_only"]
+        precision = config.precision
+        metadata_only = config.metadata_only
 
         if metadata_only:
             if not isinstance(model, ONNXModelHandler):
@@ -167,12 +164,12 @@ class ModelBuilder(Pass):
                 extra_args["adapter_path"] = model.adapter_path
 
         if config.get("int4_block_size"):
-            if int(config["int4_block_size"]) not in [16, 32, 64, 128, 256]:
+            if int(config.int4_block_size) not in [16, 32, 64, 128, 256]:
                 raise ValueError("Invalid int4_block_size. Accepted values: 16/32/64/128/256.")
-            extra_args["int4_block_size"] = config["int4_block_size"]
+            extra_args["int4_block_size"] = config.int4_block_size
 
         if config.get("int4_accuracy_level"):
-            extra_args["int4_accuracy_level"] = config["int4_accuracy_level"].value
+            extra_args["int4_accuracy_level"] = config.int4_accuracy_level.value
 
         # args that are only checked for presence, not value
         for arg in ["exclude_embeds", "exclude_lm_head"]:
@@ -225,7 +222,7 @@ class ModelBuilder(Pass):
         with open(genai_config_filepath) as istrm:
             genai_config = json.load(istrm)
 
-        genai_config["search"] = {**(genai_config.get("search") or {}), **(config.get("search") or {})}
+        genai_config["search"] = {**(genai_config.get("search") or {}), **(config.search or {})}
 
         with open(genai_config_filepath, "w") as ostrm:
             json.dump(genai_config, ostrm, indent=4)

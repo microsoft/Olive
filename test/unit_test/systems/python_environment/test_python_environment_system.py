@@ -154,7 +154,6 @@ class TestPythonEnvironmentSystem:
         dummy_config = dummy_pass_config["config"]
         expected_pass_config = {"type": "DummyPass", "config": dummy_config}
         the_pass.to_json.return_value = dummy_pass_config
-        the_pass.serialize_config.return_value = dummy_config
 
         # mock return value
         mock_return_value = {"dummy_output_model_key": "dummy_output_model_value"}

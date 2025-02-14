@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Dict, Optional, Type, Union
 
 import numpy as np
 import onnx
@@ -17,7 +17,7 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.onnx_dag import OnnxDAG
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +40,11 @@ class SplitModel(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> CompositeModelHandler:
         model_proto = model.load_model()
 
-        split_assignments = config["split_assignments"]
+        split_assignments = config.split_assignments
         if split_assignments is None:
             for metadata_prop in model_proto.metadata_props:
                 if metadata_prop.key == "split_assignments":

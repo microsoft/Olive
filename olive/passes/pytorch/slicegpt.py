@@ -6,7 +6,7 @@
 import json
 import logging
 import sys
-from typing import Any, Dict, Union
+from typing import Dict, Type, Union
 
 import torch
 from torch.utils.data import DataLoader, SubsetRandomSampler
@@ -19,6 +19,7 @@ from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pass_config import BasePassConfig
 from olive.passes.pytorch.common import inherit_pytorch_from_hf
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ class SliceGPT(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
         if sys.version_info < (3, 10):
             raise ValueError("SliceGPT requires python3.10 or higher")
@@ -89,10 +90,6 @@ class SliceGPT(Pass):
         # Renaming variables to match their contextual use
         model_handler = model
         model = None
-
-        # convert config to pass config class
-        # this will validate the config and convert to the correct types
-        config = self._config_class(**config)
 
         model_adapter, _ = get_model_and_tokenizer(model_handler.model_name_or_path)
         model_handler.model = model_adapter.model

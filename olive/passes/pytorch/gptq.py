@@ -7,7 +7,7 @@ import logging
 from argparse import Namespace
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import torch
 from packaging import version
@@ -21,7 +21,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_pytorch
 
 logger = logging.getLogger(__name__)
@@ -103,7 +103,7 @@ class GptqQuantizer(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any], output_model_path: str
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
         from auto_gptq import BaseQuantizeConfig, __version__
         from auto_gptq.modeling import BaseGPTQForCausalLM
@@ -139,13 +139,13 @@ class GptqQuantizer(Pass):
             model_wrapper = ModelWrapper.from_model(pytorch_model)
 
         quantize_config = BaseQuantizeConfig(
-            bits=config["bits"],
-            group_size=config["group_size"],
-            damp_percent=config["damp_percent"],
-            static_groups=config["static_groups"],
-            true_sequential=config["true_sequential"],
-            desc_act=config["desc_act"],
-            sym=config["sym"],
+            bits=config.bits,
+            group_size=config.group_size,
+            damp_percent=config.damp_percent,
+            static_groups=config.static_groups,
+            true_sequential=config.true_sequential,
+            desc_act=config.desc_act,
+            sym=config.sym,
             # this is so that the weight gets saved as "model.safetensors"
             model_file_base_name="model",
         )
@@ -154,9 +154,10 @@ class GptqQuantizer(Pass):
         quantized_model: BaseGPTQForCausalLM = model_class(pytorch_model, False, quantize_config)
 
         for key in ["outside_layer_modules", "inside_layer_modules", "layers_block_name"]:
-            if config[key]:
+            v = getattr(config, key, None)
+            if v:
                 # user provided value
-                setattr(quantized_model, key, config[key])
+                setattr(quantized_model, key, v)
             elif model_type in GPTQ_CAUSAL_LM_MODEL_MAP:
                 # gptq supports the model type
                 pass
@@ -175,9 +176,9 @@ class GptqQuantizer(Pass):
 
             qlinear_class = dynamically_import_QuantLinear(
                 use_triton=False,
-                desc_act=config["desc_act"],
-                group_size=config["group_size"],
-                bits=config["bits"],
+                desc_act=config.desc_act,
+                group_size=config.group_size,
+                bits=config.bits,
                 disable_exllama=False,
                 disable_exllamav2=True,
             )
@@ -231,7 +232,7 @@ class GptqQuantizer(Pass):
         self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Get the dataset for quantization."""
-        data_config = config["data_config"]
+        data_config = config.data_config
         if not data_config and isinstance(model, HfModelHandler):
             data_config = self.get_calibration_data_config(
                 model.model_name_or_path, trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None)

@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Union
+from typing import Callable, Dict, Iterable, List, Type, Union
 
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
@@ -11,7 +11,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import ParamCategory, PassConfigParam
-from olive.passes.pass_config import get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, get_user_script_data_config
 
 
 class QuantizationAwareTraining(Pass):
@@ -93,26 +93,25 @@ class QuantizationAwareTraining(Pass):
         }
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
         from olive.passes.pytorch.qat_utils import QatTrainer
 
-        qat_trainer_config = self._config_class(**config)
         if Path(output_model_path).suffix != ".pt":
             output_model_path += ".pt"
 
-        if config["train_data_config"]:
-            qat_trainer_config.train_data_config = validate_config(config["train_data_config"], DataConfig)
-        if config["val_data_config"]:
-            qat_trainer_config.val_data_config = validate_config(config["val_data_config"], DataConfig)
-        if config["training_loop_func"]:
-            qat_trainer_config.training_loop_func = self._user_module_loader.load_object(config["training_loop_func"])
-        if config["ptl_module"]:
-            qat_trainer_config.ptl_module = self._user_module_loader.load_object(config["ptl_module"])
-        if config["ptl_data_module"]:
-            qat_trainer_config.ptl_data_module = self._user_module_loader.load_object(config["ptl_data_module"])
-        if config["qconfig_func"]:
-            qat_trainer_config.qconfig_func = self._user_module_loader.load_object(config["qconfig_func"])
+        if config.train_data_config:
+            config.train_data_config = validate_config(config.train_data_config, DataConfig)
+        if config.val_data_config:
+            config.val_data_config = validate_config(config.val_data_config, DataConfig)
+        if config.training_loop_func:
+            config.training_loop_func = self._user_module_loader.load_object(config.training_loop_func)
+        if config.ptl_module:
+            config.ptl_module = self._user_module_loader.load_object(config.ptl_module)
+        if config.ptl_data_module:
+            config.ptl_data_module = self._user_module_loader.load_object(config.ptl_data_module)
+        if config.qconfig_func:
+            config.qconfig_func = self._user_module_loader.load_object(config.qconfig_func)
 
-        qat_trainer = QatTrainer(model, qat_trainer_config, output_model_path)
+        qat_trainer = QatTrainer(model, config, output_model_path)
         return qat_trainer.execute_local()

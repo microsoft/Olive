@@ -9,7 +9,7 @@ import logging
 import multiprocessing
 from abc import abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict
+from typing import TYPE_CHECKING, Callable, Dict, Type
 
 from olive.common.config_utils import ParamCategory
 from olive.common.pydantic_v1 import validator
@@ -17,6 +17,7 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import DistributedHfModelHandler, HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pass_config import BasePassConfig
 from olive.passes.pytorch.common import inherit_distributed_hf_from_hf
 
 if TYPE_CHECKING:
@@ -144,11 +145,11 @@ class PyTorchTensorParallel(Pass):
         return 1  # Return 1 for success.
 
     def _run_for_config(
-        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> DistributedHfModelHandler:
         import torch
 
-        world_size = int(config["world_size"])
+        world_size = int(config.world_size)
         output_model_path = Path(output_model_path)
         output_model_path.mkdir(parents=True, exist_ok=True)
 
@@ -163,7 +164,7 @@ class PyTorchTensorParallel(Pass):
             for rank in range(world_size)
         ]
 
-        max_parallel_jobs = min(world_size, config["parallel_jobs"] or multiprocessing.cpu_count())
+        max_parallel_jobs = min(world_size, config.parallel_jobs or multiprocessing.cpu_count())
         if max_parallel_jobs <= 1:
             results = [PyTorchTensorParallel._generate_one(_) for _ in params]
         else:
