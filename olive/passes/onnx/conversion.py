@@ -7,7 +7,7 @@ import multiprocessing
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import onnx
 import torch
@@ -27,7 +27,7 @@ from olive.model.config import IoConfig
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
 
@@ -111,12 +111,12 @@ class OnnxConversion(Pass):
     def _run_for_config(
         self,
         model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
         output_model = self._run_for_config_internal(model, config, output_model_path)
 
-        if isinstance(model, HfModelHandler) and config["save_metadata_for_token_generation"]:
+        if isinstance(model, HfModelHandler) and config.save_metadata_for_token_generation:
             # output_model can only be an ONNXModelHandler
             output_dir = output_model.change_model_path_to_dir()
 
@@ -131,14 +131,14 @@ class OnnxConversion(Pass):
     def _run_for_config_internal(
         self,
         model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
         # default to "cpu" for PyTorchModelHandler and "cuda" for DistributedHfModel
-        device = config["device"] or "cpu"
+        device = config.device or "cpu"
         # get the dtype to use for conversion
-        torch_dtype = resolve_torch_dtype(config["torch_dtype"]) if config["torch_dtype"] else None
+        torch_dtype = resolve_torch_dtype(config.torch_dtype) if config.torch_dtype else None
         if torch_dtype == torch.float16 and device == "cpu":
             logger.debug(
                 "Converting model to float16 on CPU. This might fail for some models. If the conversion fails or model"
@@ -147,7 +147,7 @@ class OnnxConversion(Pass):
             )
 
         if isinstance(model, DistributedHfModelHandler):
-            if not config["device"]:
+            if not config.device:
                 device = "cuda"
             return self._convert_distributed_model_on_device(model, config, output_model_path, device, torch_dtype)
 
@@ -159,7 +159,7 @@ class OnnxConversion(Pass):
         pytorch_model: torch.nn.Module,
         dummy_inputs,
         io_config,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         device: Union[str, torch.device],
         torch_dtype: Optional[torch.dtype] = None,
         tempdir: Optional[Union[Path, str]] = None,
@@ -191,7 +191,7 @@ class OnnxConversion(Pass):
 
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
-        pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config["merge_adapter_weights"])
+        pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config.merge_adapter_weights)
         pytorch_model = make_export_compatible_quant(pytorch_model)
         # cast to dtype, want all modules including lora layers and quant linears in the same dtype
         if torch_dtype:
@@ -201,12 +201,12 @@ class OnnxConversion(Pass):
         assert io_config is not None, "Cannot get io_config for the model."
         io_config = validate_config(io_config, IoConfig)
         # If dynamic is False, set dynamic_axes and dynamic_shapes to None
-        if not config["dynamic"]:
+        if not config.dynamic:
             io_config.dynamic_axes = None
             io_config.dynamic_shapes = None
 
         onnx_model = None
-        if config["use_dynamo_exporter"]:
+        if config.use_dynamo_exporter:
             # Take the "release" version so that dev builds like 2.5.0dev1234 are treated as 2.5.0
             torch_version = version.parse(torch.__version__).release
             # The "legacy dynamo" is the torch.onnx_dynamo_export API
@@ -256,7 +256,7 @@ class OnnxConversion(Pass):
                         dummy_inputs,
                         tmp_model_path,  # needed for fallback=True
                         kwargs=dummy_kwargs,
-                        opset_version=config["target_opset"],
+                        opset_version=config.target_opset,
                         input_names=io_config.input_names,
                         output_names=io_config.output_names,
                         dynamic_axes=io_config.dynamic_axes,
@@ -280,7 +280,7 @@ class OnnxConversion(Pass):
                     dummy_inputs,
                     tmp_model_path,
                     export_params=True,
-                    opset_version=config["target_opset"],
+                    opset_version=config.target_opset,
                     input_names=io_config.input_names,
                     output_names=io_config.output_names,
                     dynamic_axes=io_config.dynamic_axes,
@@ -347,7 +347,7 @@ class OnnxConversion(Pass):
             new_load_kwargs["torch_dtype"] = torch_dtype
             model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
 
-        if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config["load_in_4bit"]:
+        if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config.load_in_4bit:
             logger.debug(
                 "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
                 " from the load kwargs. Use OnnxBnb4Quantization pass after conversion to quantize the"
@@ -378,7 +378,7 @@ class OnnxConversion(Pass):
     def _convert_model_on_device(
         self,
         model: Union[HfModelHandler, PyTorchModelHandler],
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
         device: str,
         torch_dtype: Optional[torch.dtype] = None,
@@ -417,15 +417,15 @@ class OnnxConversion(Pass):
 
     @staticmethod
     def _get_dummy_inputs(
-        model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any]
+        model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig]
     ) -> Union[Dict, Tuple]:
         """Get dummy inputs for the model."""
         return model.get_dummy_inputs(
             filter_hook=(
-                model.merge_kv_cache_hook if config["use_dynamo_exporter"] else model.merge_kv_cache_to_tuple_hook
+                model.merge_kv_cache_hook if config.use_dynamo_exporter else model.merge_kv_cache_to_tuple_hook
             ),
             filter_hook_kwargs={
-                "past_kv_names": config["past_key_value_name"],
+                "past_kv_names": config.past_key_value_name,
             },
         )
 
@@ -466,7 +466,7 @@ class OnnxConversion(Pass):
 
             olive_pytorch_model = input_model.load_model(local_rank)
             dummy_inputs = OnnxConversion._get_dummy_inputs(olive_pytorch_model, pass_config)
-            io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.io_config
+            io_config = None if pass_config.use_dynamo_exporter else olive_pytorch_model.io_config
             pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
 
             ranked_onnx_modelproto = OnnxConversion._export_pytorch_model(
@@ -489,7 +489,7 @@ class OnnxConversion(Pass):
     def _convert_distributed_model_on_device(
         self,
         model: DistributedHfModelHandler,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
         device: str,
         torch_dtype: Optional[torch.dtype] = None,
@@ -514,7 +514,7 @@ class OnnxConversion(Pass):
             for rank in range(world_size)
         ]
 
-        max_parallel_jobs = min(world_size, config["parallel_jobs"] or multiprocessing.cpu_count())
+        max_parallel_jobs = min(world_size, config.parallel_jobs or multiprocessing.cpu_count())
         if max_parallel_jobs <= 1:
             results = [OnnxConversion._export_ranked_model(_) for _ in params]
         else:
@@ -549,18 +549,18 @@ class OnnxOpVersionConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path)
         # since external data is saved in a separate file, we need to load the model to get the opset version
         model_proto = onnx.load(model.model_path, load_external_data=False)
 
         model_opset_version = model_proto.opset_import[0].version
-        if model_opset_version == config["target_opset"]:
-            logger.info("Model is already in target opset version %s.", config["target_opset"])
+        if model_opset_version == config.target_opset:
+            logger.info("Model is already in target opset version %s.", config.target_opset)
             return model
 
-        converted_model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
+        converted_model_proto = onnx.version_converter.convert_version(model_proto, config.target_opset)
         # copy the external data of original model to the new model
         dst_init_map = {init.name: init for init in converted_model_proto.graph.initializer}
         for src_init in model_proto.graph.initializer:

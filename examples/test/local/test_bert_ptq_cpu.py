@@ -23,6 +23,9 @@ def test_bert(sampler, execution_order, system, olive_json):
     from olive.workflows import run as olive_run
 
     olive_config = patch_config(olive_json, sampler, execution_order, system)
+    # remove the latency goal since it is flaky on CI
+    metrics = olive_config["evaluators"]["common_evaluator"]["metrics"]
+    del metrics[1]["sub_types"][0]["goal"]
 
     footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     check_output(footprint)

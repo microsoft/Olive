@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Type, Union
 
 import onnx
 import torch
@@ -19,7 +19,7 @@ from olive.model import OliveModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.search.search_parameter import Categorical
 
 logger = logging.getLogger(__name__)
@@ -76,15 +76,11 @@ class NVModelOptQuantization(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
-
-        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
-        config = config_cls(**config)
 
         # Validate Precision
         if config.precision != NVModelOptQuantization.Precision.INT4:
@@ -120,14 +116,14 @@ class NVModelOptQuantization(Pass):
 
         return True
 
-    def initialize_quant_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def initialize_quant_config(self, config: Type[BasePassConfig]) -> Dict[str, Any]:
         # Check if 'tokenizer_dir' is provided and not empty
-        random_calib = config.get("random_calib_data", False)
+        random_calib = config.random_calib_data or False
         if not random_calib:
             # Prepare calibration inputs only if tokenizer_dir is specified
             calib_inputs = self.get_calib_inputs(
                 dataset_name="cnn",
-                model_name=config["tokenizer_dir"],
+                model_name=config.tokenizer_dir,
                 cache_dir="./cache",
                 calib_size=32,
                 batch_size=1,
@@ -146,10 +142,10 @@ class NVModelOptQuantization(Pass):
 
         # Return a dictionary containing necessary configuration for quantization
         return {
-            "algorithm": config.get("algorithm", self.Algorithm.AWQ.value),
-            "precision": config.get("precision", self.Precision.INT4.value),
-            "calibration_method": config.get("calibration", self.Calibration.AWQ_CLIP.value),
-            "tokenizer_dir": config.get("tokenizer_dir", ""),
+            "algorithm": config.algorithm or self.Algorithm.AWQ.value,
+            "precision": config.precision or self.Precision.INT4.value,
+            "calibration_method": config.calibration or self.Calibration.AWQ_CLIP.value,
+            "tokenizer_dir": config.tokenizer_dir or "",
             "calibration_data_reader": calib_inputs,
         }
 
@@ -384,7 +380,7 @@ class NVModelOptQuantization(Pass):
         return model_proto
 
     def _run_for_config(
-        self, model: OliveModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: OliveModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> OliveModelHandler:
 
         try:

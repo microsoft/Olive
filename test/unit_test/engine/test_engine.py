@@ -41,8 +41,7 @@ from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 class TestEngine:
     def test_register(self, tmpdir):
         # setup
-        p = get_onnxconversion_pass()
-        name = p.__class__.__name__
+        name = OnnxConversion.__name__
         host = SystemConfig(type=SystemType.Local)
         evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
 
@@ -145,17 +144,19 @@ class TestEngine:
 
         engine = Engine(**options)
         p_name = "converter"
-        p1, p1_run_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
-        p2, p2_run_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=14)
-        p1_run_config = RunPassConfig(**p1_run_config)
-        p2_run_config = RunPassConfig(**p2_run_config)
-        engine.set_input_passes_configs({p_name: [p1_run_config, p2_run_config]})
-
-        p1_pass_config = p1.serialize_config(p1_run_config.config, check_object=True)
-        p2_pass_config = p2.serialize_config(p2_run_config.config, check_object=True)
+        p1: OnnxConversion = get_onnxconversion_pass(target_opset=13)
+        p2: OnnxConversion = get_onnxconversion_pass(target_opset=14)
+        engine.set_input_passes_configs(
+            {
+                p_name: [
+                    RunPassConfig.from_json(p1.to_json(check_object=True)),
+                    RunPassConfig.from_json(p2.to_json(check_object=True)),
+                ]
+            }
+        )
         model_ids = [
-            engine.cache.get_output_model_id(p1.__class__.__name__, p1_pass_config, input_model_id),
-            engine.cache.get_output_model_id(p2.__class__.__name__, p2_pass_config, input_model_id),
+            engine.cache.get_output_model_id(p1.__class__.__name__, p1.config.to_json(), input_model_id),
+            engine.cache.get_output_model_id(p2.__class__.__name__, p2.config.to_json(), input_model_id),
         ]
         expected_res = {
             model_id: {
@@ -257,9 +258,9 @@ class TestEngine:
         }
 
         engine = Engine(**options)
-        _, p_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
-        engine.register(OnnxConversion, config=p_config)
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
+        p_config = OnnxConversion.generate_config(accelerator_spec, {"target_opset": 13}).dict()
+        engine.register(OnnxConversion, config=p_config)
 
         output_model_id = engine.cache.get_output_model_id(
             "OnnxConversion", p_config, model_config.get_model_id(), accelerator_spec
@@ -331,7 +332,8 @@ class TestEngine:
             "evaluator": evaluator_config,
         }
         engine = Engine(**options)
-        _, p_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
+        accelerator_spec = DEFAULT_CPU_ACCELERATOR
+        p_config = OnnxConversion.generate_config(accelerator_spec, {"target_opset": 13}).dict()
         engine.register(OnnxConversion, config=p_config)
         # output model to output_dir
         output_dir = tmp_path / "output_dir"
@@ -339,7 +341,7 @@ class TestEngine:
         # execute
         engine.run(
             model_config,
-            [DEFAULT_CPU_ACCELERATOR],
+            [accelerator_spec],
             output_dir=output_dir,
         )
 

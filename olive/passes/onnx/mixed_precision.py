@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Dict, List, Type
 
 from onnx import ValueInfoProto
 
@@ -13,7 +13,7 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class OrtMixedPrecision(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         """Convert model to mixed precision.
 
@@ -46,7 +46,7 @@ class OrtMixedPrecision(Pass):
         """
         from onnxruntime.transformers.float16 import float_to_float16_max_diff
 
-        op_block_list = config["op_block_list"]
+        op_block_list = config.op_block_list
         op_full_set = {node.op_type for node in model.nodes()}
         fp32_op_set = set(op_block_list)
         fp16_op_set = op_full_set.difference(fp32_op_set)
@@ -75,7 +75,7 @@ class OrtMixedPrecision(Pass):
             # we can deduce that the weights are stored in float16 precision.
             max_diff = float_to_float16_max_diff(initializer)
             logger.debug("max diff of converting weights in last MatMul node %s: %s", node.name, max_diff)
-            is_weight_fp16_precision = max_diff < config["atol"]
+            is_weight_fp16_precision = max_diff < config.atol
         else:
             logger.warning("Failed to find MatMul node for logits. Found %s of node %s", node.op_type, node.name)
 
@@ -99,8 +99,7 @@ class OrtMixedPrecision(Pass):
             model=model.load_model(), use_symbolic_shape_infer=True, **parameters
         )
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-        config = self._config_class(**config)
-        return model_proto_to_olive_model(fp16_model, output_model_path, config.dict())
+        return model_proto_to_olive_model(fp16_model, output_model_path, config)
 
     def _convert_float_to_float16(self, model, use_symbolic_shape_infer=True, **kwargs):
         """Convert a model to half (default) or mixed precision.

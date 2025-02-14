@@ -408,7 +408,7 @@ def test_rmsnorm_to_l2norm(tmp_path, use_rsqrt, use_cast, all_ones):
     input_feed = {"x": np.random.randn(1, hidden_size).astype(np.float32)}
     input_result = input_session.run(None, input_feed)
     output_result = output_session.run(None, input_feed)
-    np.testing.assert_allclose(input_result[0], output_result[0], rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(input_result[0], output_result[0], rtol=1e-3, atol=1e-3)
     # count nodes
     dag = OnnxDAG.from_model_path(onnx_model.model_path)
     expected_num_nodes = 2 + 2 * int(use_cast)

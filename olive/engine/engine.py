@@ -382,7 +382,7 @@ class Engine:
             space_config[pass_name] = pass_params_config = []
             for pass_config in passes_configs:
                 pass_cls = self.olive_config.import_pass_module(pass_config.type)
-                _, search_params = pass_cls.get_config_params(accelerator_spec, pass_config.config, False)
+                _, _, search_params = pass_cls.get_config_params(accelerator_spec, pass_config.config, False)
                 pass_params_config.append(search_params)
         return space_config
 
@@ -689,7 +689,7 @@ class Engine:
 
         # check whether the config is valid
         pass_cls: Type[Pass] = self.olive_config.import_pass_module(pass_config.type)
-        if not pass_cls.validate_config(pass_config.config, accelerator_spec, self.search_strategy is None):
+        if not pass_cls.validate_config(pass_config.config, accelerator_spec):
             logger.warning("Invalid config, pruned.")
             logger.debug(pass_config)
             # no need to record in footprint since there was no run and thus no valid/failed model
@@ -699,12 +699,11 @@ class Engine:
             return INVALID_CONFIG, None
 
         p: Pass = pass_cls(accelerator_spec, pass_config.config, self.get_host_device())
-        pass_config = p.serialize_config(pass_config.config, check_object=True)
+        pass_config = p.config.to_json()
         output_model_config = None
 
         # load run from cache if it exists
         run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
-
         output_model_id = self.cache.get_output_model_id(pass_type_name, pass_config, input_model_id, run_accel)
         run_cache = self.cache.load_run_from_model_id(output_model_id)
         if run_cache:

@@ -115,7 +115,7 @@ class AbstractPassConfig(NestedConfig):
     """Base class for pass configuration."""
 
     type: str = Field(description="The type of the pass.")
-    config: Dict[str, Any] = Field(
+    config: Union[Dict[str, Any], Type[BasePassConfig]] = Field(
         None,
         description=(
             "The configuration of the pass. Values for required parameters must be provided. For optional parameters,"
