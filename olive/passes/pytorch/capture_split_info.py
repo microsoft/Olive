@@ -6,7 +6,7 @@ import csv
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Dict, Type, Union
 
 import numpy as np
 
@@ -15,7 +15,7 @@ from olive.common.utils import get_attr
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import ParamCategory, PassConfigParam
+from olive.passes.pass_config import BasePassConfig, ParamCategory, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
@@ -65,15 +65,11 @@ class CaptureSplitInfo(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
-
-        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
-        config = config_cls(**config)
 
         if config.num_splits is None and config.cost_model is None:
             logger.info("One of num_splits or cost_model is required.")
@@ -90,12 +86,12 @@ class CaptureSplitInfo(Pass):
         return False
 
     def _run_for_config(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any], output_model_path: str
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig], output_model_path: str
     ) -> Union[HfModelHandler, PyTorchModelHandler]:
         split_assignments = None
-        if config["num_splits"]:
+        if config.num_splits:
             split_assignments = self.split_using_num_splits(model, config)
-        elif config["cost_model"]:
+        elif config.cost_model:
             split_assignments = self.split_using_cost_model(model, config)
         else:
             raise ValueError("One of num_splits or cost_model is required.")
@@ -109,12 +105,12 @@ class CaptureSplitInfo(Pass):
         return output_model
 
     def split_using_num_splits(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any]
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig]
     ) -> Dict[str, int]:
         # consider loading with meta device to avoid loading the weights
         loaded_model = model.load_model(cache_model=False)
 
-        block_to_split = config["block_to_split"]
+        block_to_split = config.block_to_split
         # check for None specifically since "" is a valid value
         if block_to_split is None and isinstance(model, HfModelHandler):
             model_wrapper = ModelWrapper.from_model(loaded_model)
@@ -135,21 +131,21 @@ class CaptureSplitInfo(Pass):
         ]
 
         split_assignments = {}
-        for split_idx, split_members in enumerate(np.array_split(block_members, config["num_splits"])):
+        for split_idx, split_members in enumerate(np.array_split(block_members, config.num_splits)):
             for member_name in split_members:
                 split_assignments[member_name] = split_idx
 
         return split_assignments
 
     def split_using_cost_model(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any]
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig]
     ) -> Dict[str, int]:
         if self.accelerator_spec.memory is None:
             raise ValueError("Accelerator memory is required to split using cost model.")
 
         # will only care about the number of bytes for now
         module_to_cost = {}
-        with open(config["cost_model"]) as f:
+        with open(config.cost_model) as f:
             reader = csv.DictReader(f)
             for row in reader:
                 module_to_cost[row["module"]] = (int(row["num_params"]), int(row["num_bytes"]), int(row["num_flops"]))
@@ -157,12 +153,12 @@ class CaptureSplitInfo(Pass):
         loaded_model = model.load_model(cache_model=False)
 
         modules_to_exclude = set()
-        if config["exclude_embeds"] and isinstance(model, HfModelHandler):
+        if config.exclude_embeds and isinstance(model, HfModelHandler):
             model_wrapper = ModelWrapper.from_model(loaded_model)
             modules_to_exclude.update(model_wrapper.get_embeds()[1])
-        elif config["exclude_embeds"]:
+        elif config.exclude_embeds:
             modules_to_exclude.add("model.embed_tokens")
-        if config["exclude_lm_head"]:
+        if config.exclude_lm_head:
             modules_to_exclude.add("lm_head")
 
         split_assignments = {}

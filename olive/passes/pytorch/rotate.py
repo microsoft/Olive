@@ -6,7 +6,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from functools import partial
-from typing import Any, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Optional, Tuple, Type, Union
 
 import torch
 from torch import nn
@@ -18,7 +18,7 @@ from olive.data.template import huggingface_data_config_template
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
 from olive.passes.pytorch.train_utils import (
     BaseHFTrainingArguments,
@@ -241,8 +241,10 @@ class QuaRot(RotateBase):
     """
 
     @torch.no_grad()
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
-        model_wrapper, _, save_replacements = self.rotate_model(model, config["rotate_mode"], config["seed"])
+    def _run_for_config(
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
+        model_wrapper, _, save_replacements = self.rotate_model(model, config.rotate_mode, config.seed)
 
         # save the model
         model_wrapper.save_model(output_model_path, replacements=save_replacements)
@@ -328,20 +330,18 @@ class SpinQuant(RotateBase):
 
         from olive.passes.pytorch.sgdg import SGDG
 
-        training_args = HFTrainingArguments.parse_obj(config["training_args"] or {})
+        training_args = HFTrainingArguments.parse_obj(config.training_args or {})
 
         # rotate the model
         model_wrapper, rotation_params, save_replacements = self.rotate_model(
-            model, config["rotate_mode"], config["seed"], training_args
+            model, config.rotate_mode, config.seed, training_args
         )
 
         # add activation quantization to the layer linear modules
         replace_submodules(
             model_wrapper.get_layers(False),
             RotateLinear,
-            partial(
-                ActQuantLinear, bits=config["a_bits"], symmetric=config["a_symmetric"], per_token=config["a_per_token"]
-            ),
+            partial(ActQuantLinear, bits=config.a_bits, symmetric=config.a_symmetric, per_token=config.a_per_token),
         )
         save_replacements = [(ActQuantLinear, lambda x: x.linear), *save_replacements]
 

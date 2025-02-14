@@ -361,8 +361,9 @@ class DockerSystem(OliveSystem):
     def _create_data_mounts_for_pass(self, container_root_path: Path, the_pass: "Pass"):
         mounts = {}
         mount_strs = []
+        config_dict = the_pass.config.dict()
         for param, _, category in the_pass.path_params:
-            param_val = the_pass.config.get(param)
+            param_val = config_dict.get(param)
             if category == ParamCategory.DATA and param_val:
                 mount = str(container_root_path / param)
                 mounts[param] = mount

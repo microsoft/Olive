@@ -5,13 +5,13 @@
 import logging
 import re
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Any, Dict, Optional, Type, Union
 
 import onnx
 
 from olive.model import ONNXModelHandler
 from olive.passes.onnx.onnx_dag import OnnxDAG
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile, LocalFolder
 
 logger = logging.getLogger(__name__)
@@ -139,7 +139,7 @@ def model_proto_to_file(
 def model_proto_to_olive_model(
     model_proto: onnx.ModelProto,
     output_model_path: Union[str, Path],
-    external_data_config: dict,
+    external_data_config: Union[Dict[str, Any], Type[BasePassConfig]],
     check_model: bool = False,
     external_initializers_file_name: Optional[str] = None,
     constant_inputs_file_name: Optional[str] = None,
@@ -163,6 +163,8 @@ def model_proto_to_olive_model(
         "size_threshold",
         "convert_attribute",
     ]
+    if not isinstance(external_data_config, dict):
+        external_data_config = external_data_config.dict()
     has_external_data = model_proto_to_file(
         model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys if k in external_data_config}
     )

@@ -2,7 +2,8 @@ accelerate
 azure-ai-ml
 azure-identity
 azure-storage-blob
-azureml-evaluate-mlflow>=0.0.60
+# azureml.evaluate.mlflow.hftransformers is deprecated in 0.0.66 and above
+azureml-evaluate-mlflow>=0.0.60, <0.0.66
 azureml-fsspec
 # Pin azureml-metrics[all] greater than 0.0.26 to avoid breaking change in azureml-evaluate-mlflow
 azureml-metrics[all]>=0.0.26
