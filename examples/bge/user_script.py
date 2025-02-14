@@ -16,6 +16,7 @@ class OliveEncoder:
         self.session = session
         self.tokenizer = AutoTokenizer.from_pretrained('BAAI/bge-small-en-v1.5')
         self.total = 0
+        self.max_len = 0
 
     def encode(self, corpus: List, **kwargs):
         if self.model.framework == Framework.ONNX:
@@ -40,6 +41,8 @@ class OliveEncoder:
         model_output = model_output[:, 0, :]
         self.total += len(corpus)
         print(self.total)
+        self.max_len = max(self.max_len, model_output.shape[1])
+        print(self.max_len)
         return model_output
 
 

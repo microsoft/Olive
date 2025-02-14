@@ -13,6 +13,17 @@
         }
     },
     "data_configs": [
+        {
+            "name": "quantize_data_config",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": { "data_name": "mteb/banking77", "split": "test" },
+            "pre_process_data_config": {
+                "max_length": 384,
+                "padding": "max_length",
+                "input_cols": [ "text" ]
+            },
+            "dataloader_config": { "batch_size": 1 }
+        }
     ],
     "evaluators": {
         "common_evaluator": {
@@ -38,7 +49,17 @@
         }
     },
     "passes": {
-        "conversion": { "type": "OnnxConversion", "target_opset": 17 }
+        "conversion": { "type": "OnnxConversion", "target_opset": 17 },
+        "QNNPreprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
+        "OnnxQuantization": {
+            "type": "OnnxQuantization",
+            "data_config": "quantize_data_config",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8",
+            "calibrate_method": "MinMax",
+            "quant_preprocess": true,
+            "prepare_qnn_config": true
+        }
     },
     "evaluator": "common_evaluator",
     "host": "local_system",
