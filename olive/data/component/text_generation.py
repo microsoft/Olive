@@ -43,6 +43,7 @@ class TextGenParams(ConfigBase):
     # might have to expose collator for dataloader to support dynamic padding of batches
     # if false, cannot guarantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
+    padding_side: str = "right"  # pad to the right or left
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
     use_attention_mask: bool = True  # add attention mask to each example
     # either use chat template or text
@@ -76,6 +77,12 @@ class TextGenParams(ConfigBase):
     )
     extended_mask_type: str = None  # use causal mask for language modeling tasks
     extended_mask_value: float = None  # value to use for causal mask, None for minimum value for torch float32 dtype
+
+    @validator("padding_side", always=True)
+    def _check_padding_side(cls, v):
+        if v not in ["left", "right"]:
+            raise ValueError("padding_side must be either left or right")
+        return v
 
     @validator("drop_short_sequences", always=True)
     def _check_padding(cls, v, values):
@@ -170,6 +177,9 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
 
     args = validate_config(all_kwargs, TextGenParams, warn_unused_keys=True)
 
+    # set tokenizer padding side
+    tokenizer.padding_side = args.padding_side
+
     if isinstance(args.text_formatting_func, str):
         # load text_formatting_func
         args.text_formatting_func = args.get_user_module_loader().load_object(args.text_formatting_func)
@@ -188,7 +198,7 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
             )
         }
     )
-    text_list = dataset["text"]
+    text_list = [text for text in dataset["text"] if text]  # remove empty strings
     total_examples = len(text_list)  # total number of examples
 
     tokenized_inputs = {"input_ids": [], "labels": [], "attention_mask": []}
