@@ -14,8 +14,7 @@ public versions of onnxruntime can also be installed as extra dependencies durin
 Olive is available for installation from PyPI.
 
 ```bash
-pip install olive-ai[auto-opt,finetune,capture-onnx-graph,bnb]
-pip install transformers datasets onnxscript
+pip install olive-ai
 ```
 
 ## Optional Dependencies
