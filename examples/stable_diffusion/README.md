@@ -179,3 +179,27 @@ Inference will loop until the generated image. The result will be saved as `resu
 Run `python stable_diffusion.py --help` for additional options. A few particularly relevant ones:
 - `--image_path <str>`: the input image path for image to image inference.
 - `--img_to_img_example`: image to image example. The default input image is `assets/dog.png`, the default prompt is `amazing watercolor painting`.
+
+## Stable Diffusion Optimization with QDQ for QNN EP
+
+### Generate data for static quantization
+
+To get better result, we need to generate real data from original model instead of using random data for static quantization.
+
+First generate onnx unoptimized model (it also generates an optimized model using random data):
+
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --use_random_data --data_num 1`
+
+Then generate data (updating the prompt to generate more will be better):
+
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --generate_data --num_inference_steps 5 --seed 0 --test_unoptimized --prompt "hamburger swims in the river"`
+
+### Optimize
+
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --clean_cache`
+
+### Test
+
+We could add `--test_unoptimized` first to generate from original model for comparison.
+
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --num_inference_steps 5 --guidance_scale 7.5 --prompt "cat and dog" --seed 0`
