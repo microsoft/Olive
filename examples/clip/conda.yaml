@@ -1,0 +1,17 @@
+name: project_environment
+channels:
+  - defaults
+dependencies:
+  - python=3.10.16
+  - pip=22.3.1
+  - pip:
+      - datasets<3.0.0
+      - evaluate
+      - optimum
+      - psutil
+      - scipy
+      - scikit-learn==1.5.2 # https://github.com/huggingface/evaluate/issues/655
+      - torch
+      - --extra-index-url https://download.pytorch.org/whl/cpu
+      - transformers==4.44.2
+      - git+https://github.com/microsoft/Olive#egg=olive-ai[cpu]
