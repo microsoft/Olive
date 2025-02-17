@@ -13,11 +13,13 @@ import torch
 from diffusers import OnnxStableDiffusionPipeline
 from diffusers.pipelines.onnx_utils import ORT_TO_NP_TYPE
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
-
+from . import config
 
 def update_qnn_config(config: Dict, submodel_name: str):
+    if config.only_conversion:
+        config["pass_flows"] = [["convert"]]
     # TODO(hualxie): onnx or onnxruntime needs to fix this
-    if submodel_name == "unet":
+    elif submodel_name == "unet":
         config["input_model"]["io_config"]["dynamic_axes"] = None
         config["pass_flows"] = [["convert", "qnn_preprocess", "quantization"]]
     else:
@@ -75,7 +77,7 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
                 truncation=True,
                 return_tensors="np",
             ).input_ids.astype(np.int32)
-            text_inputs.tofile(self.save_data_dir / "text_inputs.raw")
+            np.savez(self.save_data_dir / "text_inputs.npz", input_ids=text_inputs)
 
             uncond_input = self.tokenizer(
                 negative_prompt if negative_prompt else "",
@@ -84,7 +86,7 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
                 truncation=True,
                 return_tensors="np",
             ).input_ids.astype(np.int32)
-            uncond_input.tofile(self.save_data_dir / "uncond_input.raw")
+            np.savez(self.save_data_dir / "uncond_input.npz", input_ids=uncond_input)
 
         prompt_embeds = self._encode_prompt(
             prompt,

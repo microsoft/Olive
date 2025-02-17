@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import os
 import sys
-
+from logging import getLogger
 import numpy as np
 import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel
@@ -14,6 +14,8 @@ from sd_utils import config
 from transformers.models.clip.modeling_clip import CLIPTextModel
 
 from olive.data.registry import Registry
+
+logger = getLogger(__name__)
 
 # Generated data helpers
 
@@ -26,9 +28,9 @@ class BaseDataLoader:
             self.data_folders = [config.data_dir / f.name for f in os.scandir(config.data_dir) if f.is_dir()]
 
     def __getitem__(self, idx):
-        print("getitem: " + str(idx))
         if idx >= len(self.data) or idx >= self.total:
             return None
+        logger.info(f"Process data: {idx}")
         return self.data[idx]
 
 
@@ -71,18 +73,11 @@ class UnetGeneratedDataLoader(BaseDataLoader):
 class TextEncoderGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
-        latent_min = sys.float_info.max
-        latent_max = sys.float_info.min
         for f in self.data_folders:
-            data = torch.from_numpy(np.fromfile(f / "text_inputs.raw", dtype=np.int32).reshape(1, 77))
-            latent_max = max(latent_max, data.max())
-            latent_min = min(latent_min, data.min())
-            self.data.extend({"input_ids": data})
-            data = torch.from_numpy(np.fromfile(f / "uncond_input.raw", dtype=np.int32).reshape(1, 77))
-            latent_max = max(latent_max, data.max())
-            latent_min = min(latent_min, data.min())
-            self.data.extend({"input_ids": data})
-        print(latent_min, latent_max)
+            with np.load(f / "text_inputs.npz") as data:
+                self.data.append(data)
+            with np.load(f / "uncond_input.npz") as data:
+                self.data.append(data)
 
 
 class VaeDecoderGeneratedDataLoader(BaseDataLoader):
@@ -109,57 +104,6 @@ class VaeEncoderGeneratedDataLoader(BaseDataLoader):
             latent_min = min(latent_min, data.min())
             self.data.extend({"sample": data})
         print(latent_min, latent_max)
-
-
-# TODO(hualxie): clean this up
-
-
-def get_data_list(size, torch_dtype, total, value_min, value_max):
-    result = []
-    result.extend(torch.zeros(size, dtype=torch_dtype))
-    result.extend(torch.zeros(size, dtype=torch_dtype) + value_min)
-    result.extend(torch.zeros(size, dtype=torch_dtype) + value_max)
-    total -= 3
-    if total <= 0:
-        return result
-    for _ in range(total):
-        result.extend(torch.rand(size, dtype=torch_dtype) * (value_max - value_min) + value_min)
-    return result
-
-
-class UnetDataRandomLoader(BaseDataLoader):
-    def __init__(self, total):
-        super().__init__(total)
-        samples = get_data_list((1, 4, config.unet_sample_size, config.unet_sample_size), torch.float32, total, -11, 8)
-        timesteps = get_data_list((1), torch.float32, total, 0, 1000)
-        states = get_data_list((1, 77, config.cross_attention_dim), torch.float32, total, -8, 14)
-        for i in range(self.total):
-            self.data.extend({"sample": samples[i], "timestep": timesteps[i], "encoder_hidden_states": states[i]})
-
-
-class TextEncoderDataRandomLoader(BaseDataLoader):
-    def __init__(self, total):
-        super().__init__(total)
-        samples = get_data_list((1, 77), torch.float32, total, 0, 49407)
-        for i in range(self.total):
-            self.data.extend({"input_ids": samples[i].to(torch.int32)})
-
-
-class VaeDecoderDataRandomLoader(BaseDataLoader):
-    def __init__(self, total):
-        super().__init__(total)
-        samples = get_data_list((1, 4, config.unet_sample_size, config.unet_sample_size), torch.float32, total, -62, 50)
-        for i in range(self.total):
-            self.data.extend({"latent_sample": samples[i]})
-
-
-class VaeEncoderDataRandomLoader(BaseDataLoader):
-    def __init__(self, total):
-        super().__init__(total)
-        samples = get_data_list((1, 3, 512, 512), torch.float32, total, -1, 1)
-        for i in range(self.total):
-            self.data.extend({"sample": samples[i]})
-
 
 # Helper latency-only dataloader that creates random tensors with no label
 class RandomDataLoader:

@@ -6,6 +6,6 @@
 vae_sample_size = 512
 unet_sample_size = 64
 cross_attention_dim = 768
-rand_data = True
+only_conversion = False
 data_dir = "quantize_data"
 data_num = 10
