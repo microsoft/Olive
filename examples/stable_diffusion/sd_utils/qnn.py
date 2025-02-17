@@ -9,11 +9,12 @@ from typing import Callable, Dict, List, Optional, Union
 
 import numpy as np
 import onnxruntime as ort
+import sd_utils
 import torch
 from diffusers import OnnxStableDiffusionPipeline
 from diffusers.pipelines.onnx_utils import ORT_TO_NP_TYPE
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
-import sd_utils
+
 
 def update_qnn_config(config: Dict, submodel_name: str):
     if sd_utils.config.only_conversion:
@@ -152,7 +153,11 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
 
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
             else:
-                unet_input = {"sample": latent_model_input, "timestep": timestep, "encoder_hidden_states": prompt_embeds}
+                unet_input = {
+                    "sample": latent_model_input,
+                    "timestep": timestep,
+                    "encoder_hidden_states": prompt_embeds,
+                }
                 if self.save_data_dir:
                     np.savez(self.save_data_dir / f"{i}_unet_input.npz", **unet_input)
                 noise_pred = self.unet(unet_input)
