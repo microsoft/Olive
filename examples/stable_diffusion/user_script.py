@@ -19,13 +19,11 @@ logger = getLogger(__name__)
 
 # Generated data helpers
 
-
 class BaseDataLoader:
     def __init__(self, total):
         self.data = []
         self.total = total
-        if not config.rand_data:
-            self.data_folders = [config.data_dir / f.name for f in os.scandir(config.data_dir) if f.is_dir()]
+        self.data_folders = [config.data_dir / f.name for f in os.scandir(config.data_dir) if f.is_dir()]
 
     def __getitem__(self, idx):
         if idx >= len(self.data) or idx >= self.total:
@@ -37,73 +35,39 @@ class BaseDataLoader:
 class UnetGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
-        latent_min = sys.float_info.max
-        latent_max = sys.float_info.min
-        time_min = sys.float_info.max
-        time_max = sys.float_info.min
-        text_min = sys.float_info.max
-        text_max = sys.float_info.min
-
         for f in self.data_folders:
-            text = torch.from_numpy(
-                np.fromfile(f / "text_embeds.raw", dtype=np.float32).reshape(1, 77, config.cross_attention_dim)
-            )
-            text_max = max(text_max, text.max())
-            text_min = min(text_min, text.min())
-            text_neg = torch.from_numpy(
-                np.fromfile(f / "neg_embeds.raw", dtype=np.float32).reshape(1, 77, config.cross_attention_dim)
-            )
-            text_max = max(text_max, text_neg.max())
-            text_min = min(text_min, text_neg.min())
-            for i in range(10000):
-                if not os.path.exists(f / f"{i}_latent.raw"):
+            i = 0
+            while True:
+                file = f / f"{i}_unet_input.npz"
+                if not os.path.exists(file):
                     break
-
-                latent = torch.from_numpy(np.fromfile(f / f"{i}_latent.raw", dtype=np.float32).reshape(1, 4, 64, 64))
-                latent_max = max(latent_max, latent.max())
-                latent_min = min(latent_min, latent.min())
-                time = torch.from_numpy(np.fromfile(f / f"{i}_timestep.raw", dtype=np.float32).reshape(1))
-                time_max = max(time_max, time.max())
-                time_min = min(time_min, time.min())
-                self.data.extend({"sample": latent, "timestep": time, "encoder_hidden_states": text})
-                self.data.extend({"sample": latent, "timestep": time, "encoder_hidden_states": text_neg})
-        print(latent_min, latent_max, time_min, time_max, text_min, text_max)
+                self.data.append(np.load(file))
+                file = f / f"{i}_unet_input_neg.npz"
+                if os.path.exists(file):
+                    self.data.append(np.load(file))
 
 
 class TextEncoderGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
         for f in self.data_folders:
-            with np.load(f / "text_inputs.npz") as data:
-                self.data.append(data)
-            with np.load(f / "uncond_input.npz") as data:
-                self.data.append(data)
+            self.data.append(np.load(f / "text_inputs.npz"))
+            self.data.append(np.load(f / "uncond_input.npz"))
 
 
 class VaeDecoderGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
-        latent_min = sys.float_info.max
-        latent_max = sys.float_info.min
         for f in self.data_folders:
-            data = torch.from_numpy(np.fromfile(f / "latent.raw", dtype=np.float32).reshape(1, 4, 64, 64))
-            latent_max = max(latent_max, data.max())
-            latent_min = min(latent_min, data.min())
-            self.data.extend({"latent_sample": data})
-        print(latent_min, latent_max)
+            self.data.append(np.load(f / "latent.npz"))
 
 
 class VaeEncoderGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
-        latent_min = sys.float_info.max
-        latent_max = sys.float_info.min
         for f in self.data_folders:
-            data = torch.from_numpy(np.fromfile(f / "output_img.raw", dtype=np.float32).reshape(1, 3, 512, 512))
-            latent_max = max(latent_max, data.max())
-            latent_min = min(latent_min, data.min())
-            self.data.extend({"sample": data})
-        print(latent_min, latent_max)
+            self.data.append(np.load(f / "output_img.npz"))
+
 
 # Helper latency-only dataloader that creates random tensors with no label
 class RandomDataLoader:
@@ -237,8 +201,6 @@ def text_encoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 @Registry.register_dataloader()
 def text_encoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    if config.rand_data:
-        return TextEncoderDataRandomLoader(config.data_num)
     return TextEncoderGeneratedDataLoader(config.data_num)
 
 
@@ -302,8 +264,6 @@ def unet_data_loader(dataset, batch_size, *args, **kwargs):
 
 @Registry.register_dataloader()
 def unet_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    if config.rand_data:
-        return UnetDataRandomLoader(config.data_num)
     return UnetGeneratedDataLoader(config.data_num)
 
 
@@ -334,8 +294,6 @@ def vae_encoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 @Registry.register_dataloader()
 def vae_encoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    if config.rand_data:
-        return VaeEncoderDataRandomLoader(config.data_num)
     return VaeEncoderGeneratedDataLoader(config.data_num)
 
 
@@ -370,8 +328,6 @@ def vae_decoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 @Registry.register_dataloader()
 def vae_decoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    if config.rand_data:
-        return VaeDecoderDataRandomLoader(config.data_num)
     return VaeDecoderGeneratedDataLoader(config.data_num)
 
 

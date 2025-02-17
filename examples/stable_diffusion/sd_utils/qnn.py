@@ -13,10 +13,10 @@ import torch
 from diffusers import OnnxStableDiffusionPipeline
 from diffusers.pipelines.onnx_utils import ORT_TO_NP_TYPE
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
-from . import config
+import sd_utils
 
 def update_qnn_config(config: Dict, submodel_name: str):
-    if config.only_conversion:
+    if sd_utils.config.only_conversion:
         config["pass_flows"] = [["convert"]]
     # TODO(hualxie): onnx or onnxruntime needs to fix this
     elif submodel_name == "unet":
@@ -127,11 +127,6 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
 
         if do_classifier_free_guidance:
             neg_embeds, text_embeds = np.split(prompt_embeds, 2)
-            if self.save_data_dir:
-                neg_embeds.tofile(self.save_data_dir / "neg_embeds.raw")
-                text_embeds.tofile(self.save_data_dir / "text_embeds.raw")
-        elif self.save_data_dir:
-            prompt_embeds.tofile(self.save_data_dir / "text_embeds.raw")
 
         for i, t in enumerate(self.progress_bar(self.scheduler.timesteps)):
             latent_model_input = latents
@@ -141,25 +136,26 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
             # predict the noise residual
             timestep = np.array([t], dtype=timestep_dtype)
 
-            if self.save_data_dir:
-                latent_model_input.tofile(self.save_data_dir / f"{i}_latent.raw")
-                timestep.tofile(self.save_data_dir / f"{i}_timestep.raw")
-
             if do_classifier_free_guidance:
                 # Note that in QNN, we need to use static dimensions (batch is fixed to 1), so we need to split
-                noise_pred_uncond = self.unet(
-                    sample=latent_model_input, timestep=timestep, encoder_hidden_states=neg_embeds
-                )
+                unet_input = {"sample": latent_model_input, "timestep": timestep, "encoder_hidden_states": neg_embeds}
+                if self.save_data_dir:
+                    np.savez(self.save_data_dir / f"{i}_unet_input_neg.npz", **unet_input)
+                noise_pred_uncond = self.unet(unet_input)
                 noise_pred_uncond = noise_pred_uncond[0]
-                noise_pred_text = self.unet(
-                    sample=latent_model_input, timestep=timestep, encoder_hidden_states=text_embeds
-                )
+
+                unet_input = {"sample": latent_model_input, "timestep": timestep, "encoder_hidden_states": text_embeds}
+                if self.save_data_dir:
+                    np.savez(self.save_data_dir / f"{i}_unet_input.npz", **unet_input)
+                noise_pred_text = self.unet(unet_input)
                 noise_pred_text = noise_pred_text[0]
+
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
             else:
-                noise_pred = self.unet(
-                    sample=latent_model_input, timestep=timestep, encoder_hidden_states=prompt_embeds
-                )
+                unet_input = {"sample": latent_model_input, "timestep": timestep, "encoder_hidden_states": prompt_embeds}
+                if self.save_data_dir:
+                    np.savez(self.save_data_dir / f"{i}_unet_input.npz", **unet_input)
+                noise_pred = self.unet(unet_input)
                 noise_pred = noise_pred[0]
 
             # compute the previous noisy sample x_t -> x_t-1
@@ -177,10 +173,10 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
         # image = self.vae_decoder(latent_sample=latents)[0]
         # it seems likes there is a strange result for using half-precision vae decoder if batchsize>1
         if self.save_data_dir:
-            latents[0:1].tofile(self.save_data_dir / "latent.raw")
+            np.savez(self.save_data_dir / "latent.npz", latent_sample=latents[0:1])
         image = np.concatenate([self.vae_decoder(latent_sample=latents[i : i + 1])[0] for i in range(latents.shape[0])])
         if self.save_data_dir:
-            image.tofile(self.save_data_dir / "output_img.raw")
+            np.savez(self.save_data_dir / "output_img.npz", sample=image)
 
         image = np.clip(image / 2 + 0.5, 0, 1)
         image = image.transpose((0, 2, 3, 1))
