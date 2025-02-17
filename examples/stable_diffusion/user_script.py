@@ -46,6 +46,7 @@ class UnetGeneratedDataLoader(BaseDataLoader):
                 file = f / f"{i}_unet_input_neg.npz"
                 if os.path.exists(file):
                     self.data.append(np.load(file))
+            if len(self.data) >= self.total: break
 
 
 class TextEncoderGeneratedDataLoader(BaseDataLoader):
@@ -54,6 +55,7 @@ class TextEncoderGeneratedDataLoader(BaseDataLoader):
         for f in self.data_folders:
             self.data.append(np.load(f / "text_inputs.npz"))
             self.data.append(np.load(f / "uncond_input.npz"))
+            if len(self.data) >= self.total: break
 
 
 class VaeDecoderGeneratedDataLoader(BaseDataLoader):
@@ -61,6 +63,7 @@ class VaeDecoderGeneratedDataLoader(BaseDataLoader):
         super().__init__(total)
         for f in self.data_folders:
             self.data.append(np.load(f / "latent.npz"))
+            if len(self.data) >= self.total: break
 
 
 class VaeEncoderGeneratedDataLoader(BaseDataLoader):
@@ -68,6 +71,7 @@ class VaeEncoderGeneratedDataLoader(BaseDataLoader):
         super().__init__(total)
         for f in self.data_folders:
             self.data.append(np.load(f / "output_img.npz"))
+            if len(self.data) >= self.total: break
 
 
 # Helper latency-only dataloader that creates random tensors with no label
@@ -201,8 +205,8 @@ def text_encoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 
 @Registry.register_dataloader()
-def text_encoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    return TextEncoderGeneratedDataLoader(config.data_num)
+def text_encoder_quantize_data_loader(dataset, data_num, *args, **kwargs):
+    return TextEncoderGeneratedDataLoader(data_num)
 
 
 # -----------------------------------------------------------------------------
@@ -264,8 +268,8 @@ def unet_data_loader(dataset, batch_size, *args, **kwargs):
 
 
 @Registry.register_dataloader()
-def unet_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    return UnetGeneratedDataLoader(config.data_num)
+def unet_quantize_data_loader(dataset, data_num, *args, **kwargs):
+    return UnetGeneratedDataLoader(data_num)
 
 
 # -----------------------------------------------------------------------------
@@ -294,8 +298,8 @@ def vae_encoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 
 @Registry.register_dataloader()
-def vae_encoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    return VaeEncoderGeneratedDataLoader(config.data_num)
+def vae_encoder_quantize_data_loader(dataset, data_num, *args, **kwargs):
+    return VaeEncoderGeneratedDataLoader(data_num)
 
 
 # -----------------------------------------------------------------------------
@@ -328,8 +332,8 @@ def vae_decoder_data_loader(dataset, batch_size, *args, **kwargs):
 
 
 @Registry.register_dataloader()
-def vae_decoder_quantize_data_loader(dataset, batch_size, *args, **kwargs):
-    return VaeDecoderGeneratedDataLoader(config.data_num)
+def vae_decoder_quantize_data_loader(dataset, data_num, *args, **kwargs):
+    return VaeDecoderGeneratedDataLoader(data_num)
 
 
 # -----------------------------------------------------------------------------

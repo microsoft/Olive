@@ -142,13 +142,13 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
                 unet_input = {"sample": latent_model_input, "timestep": timestep, "encoder_hidden_states": neg_embeds}
                 if self.save_data_dir:
                     np.savez(self.save_data_dir / f"{i}_unet_input_neg.npz", **unet_input)
-                noise_pred_uncond = self.unet(unet_input)
+                noise_pred_uncond = self.unet(**unet_input)
                 noise_pred_uncond = noise_pred_uncond[0]
 
                 unet_input = {"sample": latent_model_input, "timestep": timestep, "encoder_hidden_states": text_embeds}
                 if self.save_data_dir:
                     np.savez(self.save_data_dir / f"{i}_unet_input.npz", **unet_input)
-                noise_pred_text = self.unet(unet_input)
+                noise_pred_text = self.unet(**unet_input)
                 noise_pred_text = noise_pred_text[0]
 
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)

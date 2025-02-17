@@ -366,7 +366,6 @@ def parse_qnn_args(raw_args):
 
     parser.add_argument("--save_data", action="store_true")
     parser.add_argument("--data_dir", default="quantize_data", type=str)
-    parser.add_argument("--data_num", default=10, type=int)
     parser.add_argument("--only_conversion", action="store_true")
 
     return parser.parse_known_args(raw_args)
@@ -399,7 +398,6 @@ def main(raw_args=None):
         qnn_args, extra_args = parse_qnn_args(extra_args)
         config.only_conversion = qnn_args.only_conversion
         config.data_dir = script_dir / qnn_args.data_dir
-        config.data_num = qnn_args.data_num
     else:
         ort_args, extra_args = parse_ort_args(extra_args)
 

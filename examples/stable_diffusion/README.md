@@ -186,13 +186,13 @@ Run `python stable_diffusion.py --help` for additional options. A few particular
 
 To get better result, we need to generate real data from original model instead of using random data for static quantization.
 
-First generate onnx unoptimized model (it also generates an optimized model using random data):
+First generate onnx unoptimized model:
 
-`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --use_random_data --data_num 1`
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --only_conversion`
 
 Then generate data (updating the prompt to generate more will be better):
 
-`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --generate_data --num_inference_steps 5 --seed 0 --test_unoptimized --prompt "hamburger swims in the river"`
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --save_data --num_inference_steps 5 --seed 0 --test_unoptimized --prompt "hamburger swims in the river"`
 
 ### Optimize
 

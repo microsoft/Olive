@@ -8,4 +8,3 @@ unet_sample_size = 64
 cross_attention_dim = 768
 only_conversion = False
 data_dir = "quantize_data"
-data_num = 10
