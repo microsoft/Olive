@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
-import sys
 from logging import getLogger
 
 import numpy as np
@@ -30,7 +29,7 @@ class BaseDataLoader:
     def __getitem__(self, idx):
         if idx >= len(self.data) or idx >= self.total:
             return None
-        logger.info(f"Process data: {idx}")
+        logger.info("Process data: %s", idx)
         return self.data[idx]
 
 
