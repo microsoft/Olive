@@ -190,9 +190,9 @@ First generate onnx unoptimized model:
 
 `python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --only_conversion`
 
-Then generate data (updating the prompt to generate more will be better):
+Then generate data (updating the prompts to generate more will be better):
 
-`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --save_data --num_inference_steps 5 --seed 0 --test_unoptimized --prompt "hamburger swims in the river"`
+`python .\evaluation.py --save_data`
 
 ### Optimize
 

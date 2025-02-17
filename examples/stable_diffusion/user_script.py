@@ -25,12 +25,16 @@ class BaseDataLoader:
         self.data = []
         self.total = total
         self.data_folders = [config.data_dir / f.name for f in os.scandir(config.data_dir) if f.is_dir()]
+        self.data_folders.sort()
 
     def __getitem__(self, idx):
         if idx >= len(self.data) or idx >= self.total:
             return None
-        logger.info("Process data: %s", idx)
+        logger.info("Process data: %d", idx)
         return self.data[idx]
+    
+    def load(self, file):
+        self.data.append({key: torch.from_numpy(value) for key, value in np.load(file).items()})
 
 
 class UnetGeneratedDataLoader(BaseDataLoader):
@@ -42,10 +46,10 @@ class UnetGeneratedDataLoader(BaseDataLoader):
                 file = f / f"{i}_unet_input.npz"
                 if not os.path.exists(file):
                     break
-                self.data.append(np.load(file))
+                self.load(file)
                 file = f / f"{i}_unet_input_neg.npz"
                 if os.path.exists(file):
-                    self.data.append(np.load(file))
+                    self.load(file)
             if len(self.data) >= self.total: break
 
 
@@ -53,8 +57,8 @@ class TextEncoderGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
         for f in self.data_folders:
-            self.data.append(np.load(f / "text_inputs.npz"))
-            self.data.append(np.load(f / "uncond_input.npz"))
+            self.load(f / "text_inputs.npz")
+            self.load(f / "uncond_input.npz")
             if len(self.data) >= self.total: break
 
 
@@ -62,7 +66,7 @@ class VaeDecoderGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
         for f in self.data_folders:
-            self.data.append(np.load(f / "latent.npz"))
+            self.load(f / "latent.npz")
             if len(self.data) >= self.total: break
 
 
@@ -70,7 +74,7 @@ class VaeEncoderGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
         super().__init__(total)
         for f in self.data_folders:
-            self.data.append(np.load(f / "output_img.npz"))
+            self.load(f / "output_img.npz")
             if len(self.data) >= self.total: break
 
 
