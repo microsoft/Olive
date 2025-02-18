@@ -12,7 +12,7 @@ from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionS
 from huggingface_hub import model_info
 from sd_utils import config
 from transformers.models.clip.modeling_clip import CLIPTextModel
-
+import random
 from olive.data.registry import Registry
 
 logger = getLogger(__name__)
@@ -36,6 +36,9 @@ class BaseDataLoader:
     def load(self, file):
         self.data.append({key: torch.from_numpy(value) for key, value in np.load(file).items()})
 
+    def finish_load(self):
+        if len(self.data) > self.total:
+            self.data = random.sample(self.data, self.total)
 
 class UnetGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
@@ -50,7 +53,7 @@ class UnetGeneratedDataLoader(BaseDataLoader):
                 file = f / f"{i}_unet_input_neg.npz"
                 if os.path.exists(file):
                     self.load(file)
-            if len(self.data) >= self.total: break
+        self.finish_load()
 
 
 class TextEncoderGeneratedDataLoader(BaseDataLoader):
@@ -59,7 +62,7 @@ class TextEncoderGeneratedDataLoader(BaseDataLoader):
         for f in self.data_folders:
             self.load(f / "text_inputs.npz")
             self.load(f / "uncond_input.npz")
-            if len(self.data) >= self.total: break
+        self.finish_load()
 
 
 class VaeDecoderGeneratedDataLoader(BaseDataLoader):
@@ -67,7 +70,7 @@ class VaeDecoderGeneratedDataLoader(BaseDataLoader):
         super().__init__(total)
         for f in self.data_folders:
             self.load(f / "latent.npz")
-            if len(self.data) >= self.total: break
+        self.finish_load()
 
 
 class VaeEncoderGeneratedDataLoader(BaseDataLoader):
@@ -75,7 +78,7 @@ class VaeEncoderGeneratedDataLoader(BaseDataLoader):
         super().__init__(total)
         for f in self.data_folders:
             self.load(f / "output_img.npz")
-            if len(self.data) >= self.total: break
+        self.finish_load()
 
 
 # Helper latency-only dataloader that creates random tensors with no label

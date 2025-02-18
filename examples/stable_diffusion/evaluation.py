@@ -21,12 +21,12 @@ def main(raw_args=None):
 
     # Some selected captions from https://huggingface.co/datasets/laion/relaion2B-en-research-safe
     prompts = [
+        "Arroyo Hondo Preserve Wedding",
         "Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo",
         "Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow",
-        "Arroyo Hondo Preserve Wedding",
         "Lovely Anthodium N Roses Arrangement with Cute Teddy"
     ]
-    prompts.sort()
+    train_num = int(len(prompts) * 0.5)
     data_path = Path('quantize_data')
     unoptimized_path = data_path / 'unoptimized'
     optimized_path = data_path / 'optimized'
@@ -35,17 +35,18 @@ def main(raw_args=None):
         import subprocess
 
         os.makedirs('quantize_data/', exist_ok=True)
-        for prompt in prompts:
+        for i, prompt in enumerate(prompts):
             command = [
                 "python", "stable_diffusion.py",
                 "--model_id", "stabilityai/stable-diffusion-2-1-base",
                 "--provider", "qnn",
-                "--save_data",
                 "--num_inference_steps", "5",
                 "--seed", "0",
                 "--test_unoptimized",
                 "--prompt", prompt
             ]
+            if i < train_num:
+                command.append("--save_data")
 
             # Run the command
             subprocess.run(command)
