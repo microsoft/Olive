@@ -29,7 +29,7 @@ If your machine only has a CPU device, install the following libraries:
 
 ```bash
 pip install olive-ai[cpu,finetune]
-pip install transformers==4.44.2
+pip install transformers==4.44.2 onnxruntime-genai
 ```
 :::
 
@@ -38,7 +38,7 @@ If your machine has a GPU device (e.g. CUDA), install the following libraries:
 
 ```bash
 pip install olive-ai[gpu,finetune]
-pip install transformers==4.44.2
+pip install transformers==4.44.2 onnxruntime-genai-cuda
 ```
 :::
 
@@ -47,7 +47,7 @@ DirectML provides GPU acceleration on Windows for machine learning tasks across 
 
 ```bash
 pip install olive-ai[directml,finetune]
-pip install transformers==4.44.2
+pip install transformers==4.44.2 onnxruntime-genai-directml
 ```
 :::
 

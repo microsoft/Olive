@@ -56,8 +56,8 @@ If you prefer using the command line directly instead of Jupyter notebooks, we'v
 We recommend installing Olive in a [virtual environment](https://docs.python.org/3/library/venv.html) or a [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
 
 ```
-pip install olive-ai[ort-genai,auto-opt]
-pip install transformers==4.44.2
+pip install olive-ai[auto-opt]
+pip install transformers==4.44.2 onnxruntime-genai
 ```
 > [!NOTE]
 > Olive has optional dependencies that can be installed to enable additional features. Please refer to [Olive package config](./olive/olive_config.json) for the list of extras and their dependencies.
