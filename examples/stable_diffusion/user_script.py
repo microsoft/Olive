@@ -57,6 +57,7 @@ class UnetGeneratedDataLoader(BaseDataLoader):
                 file = f / f"{i}_unet_input_neg.npz"
                 if os.path.exists(file):
                     self.load(file)
+                i += 1
         self.finish_load()
 
 
