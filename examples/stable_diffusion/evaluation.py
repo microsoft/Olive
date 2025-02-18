@@ -11,11 +11,13 @@ from PIL import Image
 import logging
 import sys
 import math
+import numpy as np
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(sys.stdout))
+
 
 def parse_args(raw_args):
     import argparse
@@ -24,15 +26,15 @@ def parse_args(raw_args):
     parser.add_argument("--save_data", action="store_true")
     return parser.parse_args(raw_args)
 
-def mse(image1, image2):
+
+def calc_error(image1, image2):
     image1 = Image.open(image1)
     image2 = Image.open(image2)
-
-    import numpy as np
-
     image1 = np.array(image1, dtype=np.float32)
     image2 = np.array(image2, dtype=np.float32)
-    return np.mean((image1 - image2) ** 2)
+    mse = np.mean((image1 - image2) ** 2)
+    return mse
+
 
 def main(raw_args=None):
     args = parse_args(raw_args)
@@ -72,22 +74,24 @@ def main(raw_args=None):
             shutil.move('result_0.png', unoptimized_path / f'{prompt}.png')
     else:
         os.makedirs(optimized_path, exist_ok=True)
-        train_error = 0
-        test_error = 0
+        train_error = []
+        test_error = []
         for i, prompt in enumerate(prompts):
             command = command_base + ["--prompt", prompt]
             subprocess.run(command)
             shutil.move('result_0.png', optimized_path / f'{prompt}.png')
 
-            error = math.sqrt(mse(unoptimized_path / f'{prompt}.png', optimized_path / f'{prompt}.png'))
-            logger.info("sqrt(mse) for %s: %f", prompt, error)
+            error = calc_error(unoptimized_path / f'{prompt}.png', optimized_path / f'{prompt}.png')
+            logger.info("Error for %s: %f", prompt, error)
             if i < train_num:
-                train_error += error
+                train_error.append(error)
             else:
-                test_error += error
+                test_error.append(error)
 
-        logger.info("Train error %f", train_error / train_num)
-        logger.info("Test error %f", test_error / (len(prompts) - train_num))
+        train_error = np.array(train_error)
+        test_error = np.array(test_error)
+        logger.info("Train error %f", np.mean(train_error))
+        logger.info("Test error %f", np.mean(test_error))
 
 
 if __name__ == "__main__":

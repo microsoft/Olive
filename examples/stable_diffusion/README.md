@@ -198,8 +198,6 @@ Then generate data (updating the prompts to generate more will be better):
 
 `python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --clean_cache`
 
-### Test
+### Test and evaluate
 
-We could add `--test_unoptimized` first to generate from original model for comparison.
-
-`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --num_inference_steps 5 --guidance_scale 7.5 --prompt "cat and dog" --seed 0`
+`python .\evaluation.py`
