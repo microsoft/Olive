@@ -12,7 +12,6 @@ from olive.data.registry import Registry
 
 
 class CLIPDataset(Dataset):
-    # TODO: np and pt 2 formats? first disable pre-eval?
     def __init__(
         self,
         model_name="openai/clip-vit-base-patch32",
