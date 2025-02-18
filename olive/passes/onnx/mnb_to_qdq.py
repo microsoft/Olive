@@ -83,7 +83,7 @@ class MatMulNBitsToQDQ(Pass):
         int_elem_type = onnx.TensorProto.INT4 if config.use_int4 else onnx.TensorProto.UINT4
 
         # set of nodes to exclude from the conversion
-        nodes_to_exclude = set(config["nodes_to_exclude"] or [])
+        nodes_to_exclude = set(config.nodes_to_exclude or [])
 
         num_modified = 0
         for node_name in dag.get_node_names():
