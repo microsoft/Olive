@@ -365,7 +365,7 @@ def parse_qnn_args(raw_args):
     parser = argparse.ArgumentParser("QNN arguments")
 
     parser.add_argument("--save_data", action="store_true")
-    parser.add_argument("--data_dir", default="quantize_data", type=str)
+    parser.add_argument("--data_dir", default="quantize_data/data", type=str)
     parser.add_argument("--only_conversion", action="store_true")
 
     return parser.parse_known_args(raw_args)
