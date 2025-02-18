@@ -10,6 +10,8 @@ import subprocess
 from PIL import Image
 import logging
 import sys
+import math
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -77,7 +79,8 @@ def main(raw_args=None):
             subprocess.run(command)
             shutil.move('result_0.png', optimized_path / f'{prompt}.png')
 
-            error = mse(unoptimized_path / f'{prompt}.png', optimized_path / f'{prompt}.png')
+            error = math.sqrt(mse(unoptimized_path / f'{prompt}.png', optimized_path / f'{prompt}.png'))
+            logger.info("sqrt(mse) for %s: %f", prompt, error)
             if i < train_num:
                 train_error += error
             else:
