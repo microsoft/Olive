@@ -95,6 +95,9 @@
             "dim_param": [ "batch", "sequence" ],
             "dim_value": [ 1, 77 ]
         },
+        "peephole": {
+            "type": "OnnxPeepholeOptimizer", "save_as_external_data": true
+        },
         "qnn_preprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
         "quantization": {
             "type": "OnnxStaticQuantization",

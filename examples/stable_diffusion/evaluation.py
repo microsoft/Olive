@@ -40,9 +40,22 @@ def main(raw_args=None):
         "Arroyo Hondo Preserve Wedding",
         "Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo",
         "Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow",
-        "Lovely Anthodium N Roses Arrangement with Cute Teddy"
+        "Lovely Anthodium N Roses Arrangement with Cute Teddy",
+        "Everyone can join and learn how to cook delicious dishes with us.",
+        "Budget-Friendly Thanksgiving Table Decor Ideas",
+        "Image result for youth worker superhero",
+        "Road improvements coming along in west Gulfport",
+        "Butcher storefront and a companion work, Louis Hayet, Click for value",
+        "folding electric bike"
     ]
-    train_num = int(len(prompts) * 0.5)
+    command_base = [
+        "python", "stable_diffusion.py",
+        "--model_id", "stabilityai/stable-diffusion-2-1-base",
+        "--provider", "qnn",
+        "--num_inference_steps", "5",
+        "--seed", "0",
+    ]
+    train_num = int(len(prompts) * 0.8)
     data_path = Path('quantize_data')
     unoptimized_path = data_path / 'unoptimized'
     optimized_path = data_path / 'optimized'
@@ -50,19 +63,9 @@ def main(raw_args=None):
     if args.save_data:
         os.makedirs(unoptimized_path, exist_ok=True)
         for i, prompt in enumerate(prompts):
-            command = [
-                "python", "stable_diffusion.py",
-                "--model_id", "stabilityai/stable-diffusion-2-1-base",
-                "--provider", "qnn",
-                "--num_inference_steps", "5",
-                "--seed", "0",
-                "--test_unoptimized",
-                "--prompt", prompt
-            ]
+            command = command_base + ["--test_unoptimized", "--prompt", prompt]
             if i < train_num:
                 command.append("--save_data")
-
-            # Run the command
             subprocess.run(command)
             shutil.move('result_0.png', unoptimized_path / f'{prompt}.png')
     else:
@@ -70,18 +73,10 @@ def main(raw_args=None):
         train_error = 0
         test_error = 0
         for i, prompt in enumerate(prompts):
-            command = [
-                "python", "stable_diffusion.py",
-                "--model_id", "stabilityai/stable-diffusion-2-1-base",
-                "--provider", "qnn",
-                "--num_inference_steps", "5",
-                "--seed", "0",
-                "--prompt", prompt
-            ]
-
-            # Run the command
+            command = command_base + ["--prompt", prompt]
             subprocess.run(command)
             shutil.move('result_0.png', optimized_path / f'{prompt}.png')
+
             error = mse(unoptimized_path / f'{prompt}.png', optimized_path / f'{prompt}.png')
             if i < train_num:
                 train_error += error

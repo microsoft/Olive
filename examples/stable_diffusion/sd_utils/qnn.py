@@ -24,7 +24,7 @@ def update_qnn_config(config: Dict, submodel_name: str):
         config["input_model"]["io_config"]["dynamic_axes"] = None
         config["pass_flows"] = [["convert", "qnn_preprocess", "quantization"]]
     else:
-        config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "qnn_preprocess", "quantization"]]
+        config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "peephole", "qnn_preprocess", "quantization"]]
     config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
     config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
     config["evaluator"] = None
