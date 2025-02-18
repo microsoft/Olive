@@ -37,7 +37,7 @@
             "name": "quantize_data_config",
             "user_script": "user_script.py",
             "load_dataset_config": { "type": "local_dataset" },
-            "dataloader_config": { "type": "unet_quantize_data_loader", "data_num": 20 }
+            "dataloader_config": { "type": "unet_quantize_data_loader", "data_num": 100 }
         }
     ],
     "evaluators": {
@@ -117,6 +117,9 @@
                 "unet_hidden_sequence"
             ],
             "dim_value": [ 1, 4, 64, 64, 1, 1, 77 ]
+        },
+        "peephole": {
+            "type": "OnnxPeepholeOptimizer", "save_as_external_data": true
         },
         "qnn_preprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
         "quantization": {

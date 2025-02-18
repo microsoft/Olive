@@ -22,7 +22,7 @@ def update_qnn_config(config: Dict, submodel_name: str):
     # TODO(hualxie): onnx or onnxruntime needs to fix this
     elif submodel_name == "unet":
         config["input_model"]["io_config"]["dynamic_axes"] = None
-        config["pass_flows"] = [["convert", "qnn_preprocess", "quantization"]]
+        config["pass_flows"] = [["convert", "peephole", "qnn_preprocess", "quantization"]]
     else:
         config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "peephole", "qnn_preprocess", "quantization"]]
     config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
