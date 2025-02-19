@@ -2,4 +2,4 @@
 datasets<3.0.0
 evaluate
 scikit-learn==1.5.2
-transformers==4.44.2
+transformers
