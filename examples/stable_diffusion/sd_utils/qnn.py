@@ -22,6 +22,8 @@ def update_qnn_config(config: Dict, submodel_name: str):
     # TODO(hualxie): onnx or onnxruntime needs to fix this
     elif submodel_name == "unet":
         config["input_model"]["io_config"]["dynamic_axes"] = None
+        config["input_model"]["io_config"]["input_shapes"] = [ [ 1, 4, 64, 64 ], [ 1 ], [ 1, 77, 1024 ], [1] ]
+        config["input_model"]["dummy_inputs_func"] = None
         config["pass_flows"] = [["convert", "peephole", "qnn_preprocess", "quantization"]]
     else:
         config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "peephole", "qnn_preprocess", "quantization"]]
