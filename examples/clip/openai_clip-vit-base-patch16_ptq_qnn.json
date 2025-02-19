@@ -15,7 +15,7 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "npu", "execution_providers": [ "NPUExecutionProvider" ] } ]
+            "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
         }
     },
     "data_configs": [

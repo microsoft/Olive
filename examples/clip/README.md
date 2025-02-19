@@ -24,10 +24,6 @@ Config file: [openai_clip-vit-large-patch14_ptq_qnn.json](openai_clip-vit-large-
 ### Pip requirements
 Install the necessary python packages:
 ```sh
-# [CPU]
-pip install git+https://github.com/microsoft/Olive#egg=olive-ai[cpu]
-# [GPU]
-pip install git+https://github.com/microsoft/Olive#egg=olive-ai[gpu]
 # [NPU]
 pip install git+https://github.com/microsoft/Olive#egg=olive-ai[qnn]
 ```
