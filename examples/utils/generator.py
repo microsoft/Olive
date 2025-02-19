@@ -267,7 +267,7 @@ class ORTGenerator:
                 session = self.sessions["iterator"]
                 io_binding = session.io_binding() if use_io_binding else None
 
-            print(np_buffers["attention_mask"])
+            # print(np_buffers["attention_mask"])
 
             if use_io_binding:
                 if idx < 2:
@@ -388,9 +388,9 @@ class ORTGenerator:
             first_cache = outputs[1]
             if use_io_binding:
                 first_cache = first_cache.numpy()
-            print(first_cache[:, 0, :, 0])
-            if idx == 2:
-                sdcd
+            # print(first_cache[:, 0, :, 0])
+            # if idx == 2:
+            #     sdcd
 
             # update cache
             cache.update(outputs[1:])
@@ -439,7 +439,7 @@ class ORTGenerator:
         else:
             padding_args = {"padding": "longest"}
         # encode prompt
-        encodings_dict = self.tokenizer(prompt, return_tensors="np", **padding_args)
+        encodings_dict = self.tokenizer(prompt, return_tensors="np", add_special_tokens=False, **padding_args)
         input_ids = encodings_dict["input_ids"].astype(self.input_info["input_ids"]["dtype"])
         batch_size, prompt_length = input_ids.shape
         attention_mask = encodings_dict["attention_mask"]
@@ -457,6 +457,7 @@ class ORTGenerator:
             int(attention_mask.sum(axis=-1).max()),
         )
         if isinstance(cache, GQASharedCache):
+            print(cache.max_cache_len, prompt_length)
             attention_mask = np.concatenate(
                 [attention_mask, np.zeros((batch_size, cache.max_cache_len - prompt_length), dtype=np.int32)], 1
             )

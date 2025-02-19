@@ -8,10 +8,11 @@ import copy
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import onnx
 import transformers
+from packaging import version
 
 from olive.common.utils import IntEnumBase, StrEnumBase
 from olive.hardware.accelerator import AcceleratorSpec, Device
@@ -66,8 +67,24 @@ class ModelBuilder(Pass):
             "int4_accuracy_level": PassConfigParam(
                 type_=ModelBuilder.AccuracyLevel,
                 required=False,
-                description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
+                description=(
+                    "Specify the minimum accuracy level for activation of MatMul in int4 quantization. Defualt is None"
+                    " (= 0)."
+                ),
             ),
+            # "int4_is_symmetric": PassConfigParam(
+            #     type_=bool,
+            #     required=False,
+            #     description="Whether to use symmetric quantization for int4 quantization. Default is None (= True).",
+            # ),
+            # "int4_op_types_to_quantize": PassConfigParam(
+            #     type_=List[str],
+            #     required=False,
+            #     description=(
+            #         'Specify the op types to quantize for int4 quantization. Default is None (= [ "MatMul" ]). Example:'
+            #         ' ["MatMul", "Gemm"]'
+            #     ),
+            # ),
             "exclude_embeds": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -127,6 +144,7 @@ class ModelBuilder(Pass):
         config: Dict[str, Any],
         output_model_path: str,
     ) -> ONNXModelHandler:
+        from onnxruntime_genai import __version__ as genai_version
         from onnxruntime_genai.models.builder import create_model
 
         precision = config["precision"]
@@ -174,15 +192,23 @@ class ModelBuilder(Pass):
         if config.get("int4_accuracy_level"):
             extra_args["int4_accuracy_level"] = config["int4_accuracy_level"].value
 
-        # args that are only checked for presence, not value
+        # args that are only checked for presence, not value, until 0.6.0
         for arg in ["exclude_embeds", "exclude_lm_head"]:
             if config[arg]:
                 extra_args[arg] = True
 
         # args that are checked for presence and value (if present)
-        for arg in ["enable_cuda_graph"]:
+        # for arg, min_version in [("enable_cuda_graph", None), ("int4_is_symmetric", 0.6.0)]:
+        for arg, min_version in [("enable_cuda_graph", None)]:
             if config[arg] is not None:
+                if min_version and version.parse(genai_version) < version.parse(min_version):
+                    raise ValueError(
+                        f"{arg} is not supported in genai version {genai_version}. Minimum version: {min_version}"
+                    )
                 extra_args[arg] = "1" if config[arg] else "0"
+
+        # if config["int4_op_types_to_quantize"]:
+        #     extra_args["int4_op_types_to_quantize"] = "/".join(config["int4_op_types_to_quantize"])
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
 

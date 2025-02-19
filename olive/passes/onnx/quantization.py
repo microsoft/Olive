@@ -678,6 +678,16 @@ class OnnxMatMul4Quantizer(Pass):
                 default_value=None,
                 description="List of node names to exclude from quantization.",
             ),
+            "nodes_to_include": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description="List of node names to include in quantization.",
+            ),
+            "op_types_to_quantize": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description='List of operator types to quantize. Default value is None (= [ "MatMul" ]).',
+            ),
             "accuracy_level": PassConfigParam(
                 # TODO(trajep): to make it searchable
                 type_=int,
@@ -765,6 +775,19 @@ class OnnxMatMul4Quantizer(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
+        from onnxruntime import __version__ as OrtVersion
+
+        if version.parse(OrtVersion) < version.parse("1.18.0"):
+            raise ValueError("MatMul4BitsQuantizer is only supported for onnxruntime>=1.18.0")
+
+        from onnxruntime.quantization.matmul_4bits_quantizer import (
+            DefaultWeightOnlyQuantConfig,
+            GPTQWeightOnlyQuantConfig,
+            HQQWeightOnlyQuantConfig,
+            MatMul4BitsQuantizer,
+            RTNWeightOnlyQuantConfig,
+        )
+
         if model_has_adapters(model.model_path) and config["algorithm"] not in {None, "DEFAULT"}:
             logger.info(
                 "Model has adapters which should only be quantized with algorithm=None or DEFAULT. Got %s. Returning"
@@ -773,65 +796,38 @@ class OnnxMatMul4Quantizer(Pass):
             )
             return model
 
-        from onnxruntime import __version__ as OrtVersion
-
-        if version.parse(OrtVersion) < version.parse("1.16.2"):
-            raise ValueError("MatMul4BitsQuantizer is only supported in onnxruntime >= 1.16.2")
-
-        from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
-
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         weight_only_quant_config_class = None
         weight_only_quant_config = None
         algo_config = deepcopy(config["weight_only_quant_configs"] or {})
-        if version.parse(OrtVersion) >= version.parse("1.17.0"):
-            from onnxruntime.quantization.matmul_4bits_quantizer import (
-                GPTQWeightOnlyQuantConfig,
-                RTNWeightOnlyQuantConfig,
-            )
 
-            if config["algorithm"] == "RTN":
-                weight_only_quant_config_class = RTNWeightOnlyQuantConfig
-            elif config["algorithm"] == "GPTQ":
-                if "block_size" in algo_config and version.parse(OrtVersion) < version.parse("1.18.0"):
-                    # ort 1.17.0+ uses blocksize instead of block_size :(
-                    algo_config["blocksize"] = algo_config["block_size"]
-                    algo_config.pop("block_size")
-                dataloader = get_calibration_dataloader(config, model.model_path, model.io_config)
-                weight_only_quant_config_class = partial(GPTQWeightOnlyQuantConfig, calibration_data_reader=dataloader)
+        if config["algorithm"] == "RTN":
+            weight_only_quant_config_class = RTNWeightOnlyQuantConfig
+        elif config["algorithm"] == "GPTQ":
+            dataloader = get_calibration_dataloader(config, model.model_path, model.io_config)
+            weight_only_quant_config_class = partial(GPTQWeightOnlyQuantConfig, calibration_data_reader=dataloader)
+        elif config["algorithm"] == "DEFAULT":
+            weight_only_quant_config_class = DefaultWeightOnlyQuantConfig
+        elif config["algorithm"] == "HQQ":
+            weight_only_quant_config_class = HQQWeightOnlyQuantConfig
 
-            if version.parse(OrtVersion) >= version.parse("1.18.0"):
-                from onnxruntime.quantization.matmul_4bits_quantizer import (
-                    DefaultWeightOnlyQuantConfig,
-                    HQQWeightOnlyQuantConfig,
-                )
+        if weight_only_quant_config_class:
+            weight_only_quant_config = weight_only_quant_config_class(**algo_config)
 
-                if config["algorithm"] == "DEFAULT":
-                    weight_only_quant_config_class = DefaultWeightOnlyQuantConfig
-                elif config["algorithm"] == "HQQ":
-                    weight_only_quant_config_class = HQQWeightOnlyQuantConfig
-            elif config["algorithm"] in ("HQQ", "DEFAULT"):
-                raise ValueError("HQQ and DEFAULT algorithm are only supported in onnxruntime >= 1.18.0")
-
-            if weight_only_quant_config_class:
-                weight_only_quant_config = weight_only_quant_config_class(**algo_config)
-            quant = MatMul4BitsQuantizer(
-                model.load_model(),
-                block_size=config["block_size"],
-                is_symmetric=config["is_symmetric"],
-                nodes_to_exclude=config["nodes_to_exclude"],
-                accuracy_level=config["accuracy_level"],
-                algo_config=weight_only_quant_config,
-            )
-        else:
-            # TODO(trajep): remove this block once we migrate customer to onnxruntime>=1.17.0 all
-            quant = MatMul4BitsQuantizer(
-                model.load_model(),
-                block_size=config["block_size"],
-                is_symmetric=config["is_symmetric"],
-                nodes_to_exclude=config["nodes_to_exclude"],
-            )
+        kwargs = {
+            "block_size": config["block_size"],
+            "is_symmetric": config["is_symmetric"],
+            "nodes_to_exclude": config["nodes_to_exclude"],
+            "accuracy_level": config["accuracy_level"],
+            "algo_config": weight_only_quant_config,
+        }
+        for key in ["nodes_to_include", "op_types_to_quantize"]:
+            if config[key]:
+                if version.parse(OrtVersion) < version.parse("1.20.0"):
+                    raise ValueError(f"MatMul4BitsQuantizer {key} is only supported for onnxruntime>=1.20.0")
+                kwargs[key] = config[key]
+        quant = MatMul4BitsQuantizer(model.load_model(), **kwargs)
         quant.process()
         # topologically sort the graph at the end since previous optimizations may have broken it
         quant.model.topological_sort()
@@ -878,6 +874,7 @@ def _validate_weight_only_quant_config(v, values, field):
         default_config_keys = ["block_size", "bits", "axis"]
     elif values["algorithm"] == "GPTQ":
         default_config_keys = ["percdamp", "block_size", "actorder", "mse", "perchannel"]
+    default_config_keys.append("op_types_to_quantize")
 
     if not all(key in default_config_keys for key in config_keys):
         invalid_config_keys = set(config_keys) - set(default_config_keys)
