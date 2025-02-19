@@ -247,7 +247,7 @@ class OnnxConversion(Pass):
                 # dynamic_shapes has nested complexity, and it can't be validated multiple
                 # times like others, we validate it here.
                 io_config.dynamic_shapes = _validate_dynamic_shapes(io_config.dynamic_shapes, the_input)
-                io_config.dynamic_shapes = _convert_dynamic_shapes_to_torch_export_dims(io_config.dynamic_shapes)
+                # io_config.dynamic_shapes = _convert_dynamic_shapes_to_torch_export_dims(io_config.dynamic_shapes)
 
                 # there might be multiple files created during export, so we need to track the dir
                 # if there are other processes writing to the same dir, we might end up deleting files created by
@@ -601,30 +601,24 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs):
 
     from torch.utils import _pytree
 
-    def is_dict_axes(x) -> bool:
-        return isinstance(x, dict) and all(
-            isinstance(key, str)
-            and len(key) == 1
-            and isinstance(value, list)
-            and len(value) == 3
-            and isinstance(value[0], str)
-            and isinstance(value[1], int)
-            and isinstance(value[2], int)
-            for key, value in x.items()
-        )
+    def is_axes(x) -> bool:
+        # axes can be either a dict or a list/tuple
+        # dict: {int: str}
+        # list/tuple: [str]
+        return (
+            isinstance(x, dict)
+            and all(isinstance(k, str) and (v is None or isinstance(v, (str, int))) for k, v in x.items())
+        ) or (isinstance(x, (list, tuple)) and all(v is None or isinstance(v, (str, int)) for v in x))
 
-    flat_dynamic_shapes, _ = _pytree.tree_flatten(dynamic_shapes, is_leaf=is_dict_axes)
-    new_dynamic_shapes = []
-    for axes in flat_dynamic_shapes:
-        if axes is None:
-            new_dynamic_shapes.append(axes)
-            continue
-        new_axes = {}
-        for axis, dynamic_shape in axes.items():
-            new_axes[int(axis)] = dynamic_shape
-        new_dynamic_shapes.append(new_axes)
+    flat_dynamic_shapes, _ = _pytree.tree_flatten(dynamic_shapes, is_leaf=is_axes)
 
-    _, tree_structure = _pytree.tree_flatten(dummy_inputs, is_leaf=is_dict_axes)
+    # dict: {axis: axis_name} -> {int(axis): axis_name}
+    # list/tuple: [axis_name] -> [axis_name]
+    new_dynamic_shapes = [
+        {int(k): v for k, v in axes.items()} if isinstance(axes, dict) else axes for axes in flat_dynamic_shapes
+    ]
+
+    _, tree_structure = _pytree.tree_flatten(dummy_inputs, is_leaf=is_axes)
     return _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
 
 

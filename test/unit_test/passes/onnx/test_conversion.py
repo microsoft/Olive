@@ -189,10 +189,10 @@ def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_con
 @pytest.mark.parametrize(
     "dynamic_shapes",
     [
-        [{"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024], "1": ["y_axis", 0, 6]}],
+        [{"0": "axis_batch", "1": "x_axis"}, {"0": "axis_batch", "1": "y_axis"}],
         {
-            "input_x": {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
-            "input_y": {"0": ["axis_batch", 0, 1024], "1": ["y_axis", 0, 6]},
+            "input_x": {"0": "axis_batch", "1": "x_axis"},
+            "input_y": {"0": "axis_batch", "1": "y_axis"},
         },
     ],
 )
@@ -224,30 +224,30 @@ def _get_simulate_torch_float_tensor_inputs(return_tuple: bool = False):
     [
         (
             [
-                {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
-                [{"1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024]}],
-                {"a": {"0": ["axis_batch", 0, 1024]}, "b": {"1": ["x_axis", 0, 8]}},
+                {"0": "axis_batch", "1": "x_axis"},
+                [{"1": "x_axis"}, {"0": "axis_batch"}],
+                {"a": {"0": "axis_batch"}, "b": {"1": "x_axis"}},
                 None,
             ],
             (
-                {0: ["axis_batch", 0, 1024], 1: ["x_axis", 0, 8]},
-                ({1: ["x_axis", 0, 8]}, {0: ["axis_batch", 0, 1024]}),
-                {"a": {0: ["axis_batch", 0, 1024]}, "b": {1: ["x_axis", 0, 8]}},
+                {0: "axis_batch", 1: "x_axis"},
+                ({1: "x_axis"}, {0: "axis_batch"}),
+                {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 None,
             ),
             _get_simulate_torch_float_tensor_inputs(return_tuple=True),
         ),
         (
             {
-                "w": {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
-                "x": [{"1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024]}],
-                "y": {"a": {"0": ["axis_batch", 0, 1024]}, "b": {"1": ["x_axis", 0, 8]}},
+                "w": {"0": "axis_batch", "1": "x_axis"},
+                "x": [{"1": "x_axis"}, {"0": "axis_batch"}],
+                "y": {"a": {"0": "axis_batch"}, "b": {"1": "x_axis"}},
                 "z": None,
             },
             {
-                "w": {0: ["axis_batch", 0, 1024], 1: ["x_axis", 0, 8]},
-                "x": ({1: ["x_axis", 0, 8]}, {0: ["axis_batch", 0, 1024]}),
-                "y": {"a": {0: ["axis_batch", 0, 1024]}, "b": {1: ["x_axis", 0, 8]}},
+                "w": {0: "axis_batch", 1: "x_axis"},
+                "x": ({1: "x_axis"}, {0: "axis_batch"}),
+                "y": {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 "z": None,
             },
             _get_simulate_torch_float_tensor_inputs(return_tuple=False),
