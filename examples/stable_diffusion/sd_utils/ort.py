@@ -118,9 +118,6 @@ def save_onnx_pipeline(
     print("Saving unoptimized models...")
     onnx_pipeline.save_pretrained(unoptimized_model_dir)
 
-    if config.only_conversion:
-        return
-
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
     print("Copying optimized models...")
     shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))

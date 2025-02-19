@@ -24,6 +24,20 @@ def parse_args(raw_args):
 
     parser = argparse.ArgumentParser("Common arguments")
     parser.add_argument("--save_data", action="store_true")
+    parser.add_argument("--model_id", default="CompVis/stable-diffusion-v1-4", type=str)
+    parser.add_argument(
+        "--guidance_scale",
+        default=7.5,
+        type=float,
+        help="Guidance scale as defined in Classifier-Free Diffusion Guidance",
+    )
+    parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
+    parser.add_argument(
+        "--seed",
+        default=None,
+        type=int,
+        help="The seed to give to the generator to generate deterministic results.",
+    )
     return parser.parse_args(raw_args)
 
 
@@ -54,12 +68,13 @@ def main(raw_args=None):
     ]
     command_base = [
         "python", "stable_diffusion.py",
-        "--model_id", "stabilityai/stable-diffusion-2-1-base",
+        "--model_id", args.model_id,
         "--provider", "qnn",
-        "--num_inference_steps", "5",
-        "--seed", "0",
+        "--num_inference_steps", str(args.num_inference_steps),
+        "--seed", str(args.seed),
+        "--guidance_scale", str(args.guidance_scale)
     ]
-    train_num = int(len(prompts) * 0.8)
+    train_num = int(len(prompts) * 0.5)
     data_path = Path('quantize_data')
     unoptimized_path = data_path / 'unoptimized'
     optimized_path = data_path / 'optimized'

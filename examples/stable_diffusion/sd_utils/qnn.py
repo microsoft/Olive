@@ -160,7 +160,7 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
                 }
                 if self.save_data_dir:
                     np.savez(self.save_data_dir / f"{i}_unet_input.npz", **unet_input)
-                noise_pred = self.unet(unet_input)
+                noise_pred = self.unet(**unet_input)
                 noise_pred = noise_pred[0]
 
             # compute the previous noisy sample x_t -> x_t-1

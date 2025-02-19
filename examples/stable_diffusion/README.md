@@ -188,16 +188,16 @@ To get better result, we need to generate real data from original model instead 
 
 First generate onnx unoptimized model:
 
-`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --only_conversion`
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1 --provider qnn --optimize --only_conversion`
 
 Then generate data (updating the prompts to generate more will be better):
 
-`python .\evaluation.py --save_data`
+`python .\evaluation.py --save_data --model_id stabilityai/stable-diffusion-2-1 --num_inference_steps 10 --seed 0`
 
 ### Optimize
 
-`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1-base --provider qnn --optimize --clean_cache`
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1 --provider qnn --optimize --clean_cache`
 
 ### Test and evaluate
 
-`python .\evaluation.py`
+`python .\evaluation.py --model_id stabilityai/stable-diffusion-2-1 --num_inference_steps 10 --seed 0`
