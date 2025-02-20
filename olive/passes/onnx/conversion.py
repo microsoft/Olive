@@ -280,7 +280,7 @@ class OnnxConversion(Pass):
                         dynamo=True,
                         fallback=True,
                         optimize=config.optimize,
-                        report=True,
+                        report=logger.isEnabledFor(logging.DEBUG),
                     )
                     assert onnx_program is not None
                     onnx_model = onnx_program.model_proto
