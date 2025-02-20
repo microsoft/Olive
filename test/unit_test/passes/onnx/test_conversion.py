@@ -8,7 +8,7 @@ import sys
 from itertools import chain
 from pathlib import Path
 from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
-from types import Dict, Tuple
+from typing import Dict, Tuple
 from unittest.mock import patch
 
 import pytest
