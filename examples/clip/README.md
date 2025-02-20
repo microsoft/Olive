@@ -17,6 +17,7 @@ It requires x86 python environment on a Windows ARM machine with `onnxruntime-qn
 Config file: [openai_clip-vit-base-patch16_ptq_qnn.json](openai_clip-vit-base-patch16_ptq_qnn.json)
 Config file: [openai_clip-vit-base-patch32_ptq_qnn.json](openai_clip-vit-base-patch32_ptq_qnn.json)
 Config file: [openai_clip-vit-large-patch14_ptq_qnn.json](openai_clip-vit-large-patch14_ptq_qnn.json)
+Config file: [laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_qnn.json](laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_qnn.json)
 
 **NOTE:** The model optimization part of the workflow can also be done on a Linux/Windows machine with a different onnxruntime package installed. Remove the `"evaluators"` and `"evaluator"` sections from the configuration file to skip the evaluation step.
 
