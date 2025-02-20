@@ -37,7 +37,7 @@
             "quant_preprocess": true,
             "prepare_qnn_config": true,
             "nodes_to_exclude": [],
-            "op_types_to_quantize": ["Mul", "Transpose", "Unsqueeze", "Add", "Gelu", "LayerNormalization", "Gather", "MatMul", "Sub", "Where", "Expand", "Gemm", "Tanh", "Reshape"]
+            "op_types_to_quantize": null
         }
     },
     "host": "local_system",

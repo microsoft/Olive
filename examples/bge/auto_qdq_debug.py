@@ -105,17 +105,21 @@ def augment_collect(model_path: str, input_data_reader, augment_model_path: str 
 def compare_get(qdq_activations, float_activations, error: float, level_nodes: list[list[str]]):
     print("Comparing activations of float model vs qdq model......")
     results = []
-    for nodes in level_nodes:
+    for i, nodes in enumerate(level_nodes):
+        ratios = []
         for node in nodes:
             qdq_tensor = qdq_activations.get(node)
             float_tensor = float_activations.get(node)
             if qdq_tensor is None or float_tensor is None:
                 continue
             ratio = compute_signal_to_quantization_noice_ratio(float_tensor, qdq_tensor)
+            ratios.append((node, ratio))
             if ratio < error:
                 print(f"Node {node} has error {ratio}")
                 index = node.find("_output_")
                 results.append(node[:index])
+        if ratios:
+            print(ratios)
         if results:
             return results
     return results
