@@ -77,6 +77,7 @@ class DataLoader:
 @Registry.register_pre_process()
 def dataset_pre_process(output_data, **kwargs):
     cache_key = kwargs.get("cache_key")
+    max_length = kwargs.get("max_length")
     cache_file = None
     if cache_key:
         cache_file = Path(f"{cache_key}.npz")
@@ -93,6 +94,8 @@ def dataset_pre_process(output_data, **kwargs):
         input_ids.append(encoded_input.input_ids[0].astype(np.int64))
         attention_mask.append(encoded_input.attention_mask[0].astype(np.int64))
         token_type_ids.append(encoded_input.token_type_ids[0].astype(np.int64))
+        if max_length and len(input_ids) >= max_length:
+            break
     
     data = {"input_ids": np.array(input_ids), "attention_mask": np.array(attention_mask), "token_type_ids": np.array(token_type_ids)}
     result_data = DataLoader(data)
