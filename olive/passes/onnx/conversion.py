@@ -228,11 +228,11 @@ class OnnxConversion(Pass):
             # The "legacy dynamo" is the torch.onnx_dynamo_export API
             legacy_dynamo_supported_version = version.parse("2.2.0").release
             # The new "dynamo" api is torch.onnx.export with dynamo=True
-            dynamo_supported_version = version.parse("2.6.0").release
+            dynamo_supported_version = version.parse("2.7.0").release
             if torch_version < legacy_dynamo_supported_version:
                 raise ImportError(
                     f"torch.onnx.export(..., dynamo=True) is not available for torch version {torch_version}. "
-                    "Please upgrade your torch version to 2.6.0 or above."
+                    "Please upgrade your torch version to 2.7.0 or above."
                 )
             from torch._dynamo import config as dynamo_config
 
@@ -256,7 +256,7 @@ class OnnxConversion(Pass):
                 # NOTE: Usually validation is done in io_config.py, but because
                 # dynamic_shapes has nested complexity, and it can't be validated multiple
                 # times like others, we validate it here.
-                io_config.dynamic_shapes, dummy_kwargs = _validate_dynamic_shapes(
+                io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
                     io_config.dynamic_shapes, the_input, pytorch_model
                 )
 
@@ -625,7 +625,6 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, model):
     unflatten_dynamic_shapes = _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
 
     # NOTE: dynamic_shapes need to follow the same model.forward signature when it's referring to kwargs.
-    # TODO(titaiwang): How to fix this ordering!?
     if isinstance(unflatten_dynamic_shapes, dict):
         param_order = list(inspect.signature(model.forward).parameters)
         # Sort io_config.dynamic_shapes based on this order
@@ -635,4 +634,8 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, model):
         dummy_inputs = collections.OrderedDict(
             sorted(dummy_inputs.items(), key=lambda item: param_order.index(item[0]))
         )
-    return unflatten_dynamic_shapes, dummy_inputs
+        # dummy_inputs is kwargs
+        return unflatten_dynamic_shapes, (), dummy_inputs
+    # If dynami_shapes and dummy_inputs are both list/tuple, we don't need to do anything.
+    # dummy_inputs is args
+    return unflatten_dynamic_shapes, dummy_inputs, {}
