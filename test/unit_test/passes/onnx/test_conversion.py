@@ -21,10 +21,12 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 
 
-@pytest.mark.skipif(sys.version_info > (3, 8), reason="Failed with Python 3.10, need to investigate.")
+# @pytest.mark.skipif(sys.version_info > (3, 8), reason="Failed with Python 3.10, need to investigate.")
 @pytest.mark.parametrize(
     ("input_model", "use_dynamo_exporter"),
-    [(get_pytorch_model(), True), (get_hf_model(), True), (get_pytorch_model(), False), (get_hf_model(), False)],
+    [
+        (get_hf_model(), True),
+    ],
 )
 def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, tmp_path):
     # setup

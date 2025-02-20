@@ -169,6 +169,17 @@ class TestHFDummyInput:
         assert len(dummy_inputs) == 3 + 5 * 2
         assert list(dummy_inputs["past_key_values.0.key"].shape) == [1, 4, 0, 8]
 
+    def test_dynamic_shapes_is_generated_when_kv_cache_is_true(self):
+        io_config = self.io_config
+        io_config["kv_cache"] = True
+        olive_model = HfModelHandler(model_path=self.model_name, task=self.task, io_config=io_config)
+        io_config = olive_model.io_config
+        assert "dynamic_shapes" in io_config
+        assert "past_key_values" in io_config["dynamic_shapes"]
+        assert len(io_config["dynamic_shapes"]["past_key_values"]) == 5
+        assert len(io_config["dynamic_shapes"]["past_key_values"][0]) == 2
+        assert io_config["dynamic_shapes"]["past_key_values"][0][0] == {0: "batch_size", 2: "past_sequence_length"}
+
     def test_dict_io_config(self):
         olive_model = HfModelHandler(model_path=self.model_name, task=self.task, io_config=self.io_config)
         # get io config
