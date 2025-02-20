@@ -55,15 +55,7 @@
                     "data_config": "metric_data_config",
                     "sub_types": [
                         { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.05 } }
-                    ],
-                    "user_config": {
-                        "inference_settings": {
-                            "onnx": {
-                                "execution_provider": "QNNExecutionProvider",
-                                "provider_options": [ { "backend_path": "QnnHtp.dll" } ]
-                            }
-                        }
-                    }
+                    ]
                 },
                 {
                     "name": "latency_qnn",
@@ -73,15 +65,7 @@
                         { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
                         { "name": "max" },
                         { "name": "min" }
-                    ],
-                    "user_config": {
-                        "inference_settings": {
-                            "onnx": {
-                                "execution_provider": "QNNExecutionProvider",
-                                "provider_options": [ { "backend_path": "QnnHtp.dll" } ]
-                            }
-                        }
-                    }
+                    ]
                 },
                 {
                     "name": "latency_cpu",
