@@ -1,0 +1,48 @@
+{
+    "input_model": {
+        "type": "OnnxModel",
+        "model_path": "original_model.onnx"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] }
+            ]
+        }
+    },
+    "data_configs": [
+        {
+            "name": "quantize_data_config",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": {
+                "data_name": "mteb/banking77",
+                "split": "test"
+            },
+            "pre_process_data_config": {
+                "max_length": 128,
+                "padding": "max_length",
+                "input_cols": [ "text" ],
+                "max_samples": 1
+            },
+            "dataloader_config": { "batch_size": 1 }
+        }
+    ],
+    "passes": {
+        "OnnxQuantization": {
+            "type": "OnnxQuantization",
+            "data_config": "quantize_data_config",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8",
+            "calibrate_method": "MinMax",
+            "quant_preprocess": true,
+            "prepare_qnn_config": true,
+            "nodes_to_exclude": []
+        }
+    },
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models/temp",
+    "evaluate_input_model": true
+}
