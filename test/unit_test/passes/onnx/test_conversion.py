@@ -8,6 +8,7 @@ import sys
 from itertools import chain
 from pathlib import Path
 from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
+from types import Dict, Tuple
 from unittest.mock import patch
 
 import pytest
@@ -228,8 +229,8 @@ class SingnatureOnlyModel(torch.nn.Module):
     def forward(
         self,
         w: torch.Tensor,
-        x: tuple[torch.Tensor, torch.Tensor],
-        y: dict[str, torch.Tensor],
+        x: Tuple[torch.Tensor, torch.Tensor],
+        y: Dict[str, torch.Tensor],
         z: torch.Tensor,
     ):
         pass
