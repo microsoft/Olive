@@ -201,7 +201,7 @@ def main():
         print(f"Error nodes: {error_nodes}")
         olive_config["passes"]["OnnxQuantization"]["nodes_to_exclude"].extend(error_nodes)
 
-    json.dump(olive_config, Path(args.qdq_config +  ".final.json").open("w"))
+    json.dump(olive_config, Path(args.qdq_config +  ".final.json").open("w"), indent=4)
 
 
 if __name__ == "__main__":

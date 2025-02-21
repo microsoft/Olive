@@ -91,5 +91,5 @@
     "target": "local_system",
     "cache_dir": "cache",
     "output_dir": "models/bge-small-en-v1.5",
-    "evaluate_input_model": true
+    "evaluate_input_model": false
 }

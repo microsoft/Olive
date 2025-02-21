@@ -1,6 +1,7 @@
 from olive.model import OliveModelHandler, HfModelHandler
 from olive.constants import Framework
 from olive.workflows import run as olive_run
+from olive.engine.footprint import Footprint, FootprintNode
 import mteb
 from typing import List
 from transformers import AutoTokenizer, BertModel
@@ -108,6 +109,18 @@ def dataset_pre_process(output_data, **kwargs):
 
 
 if __name__ == "__main__":
+    all_ops = ["Mul", "Transpose", "Unsqueeze", "Add", "Softmax", "Gelu", "LayerNormalization", "Gather", "MatMul", "Sub", "Where", "Expand", "Gemm", "Tanh", "Reshape"]
+    target_accuracy = 0.8
     with Path("bge-small-en-v1.5.json").open() as fin:
         olive_config = json.load(fin)
-    olive_run(olive_config)
+    for i, op in enumerate(all_ops):
+        if op in olive_config["passes"]["OnnxQuantization"]["op_types_to_quantize"]:
+            continue
+        olive_config["passes"]["OnnxQuantization"]["op_types_to_quantize"].append(op)
+        result = olive_run(olive_config)
+        footprint: Footprint = next(iter(result.values()))
+        node: FootprintNode = next(iter(footprint.nodes.values()))
+        accuracy = node.metrics.value["accuracy-accuracy_custom"].value
+        print(f"Ops: {olive_config["passes"]["OnnxQuantization"]["op_types_to_quantize"]} Accuracy: {accuracy}")
+        if accuracy < target_accuracy:
+            olive_config["passes"]["OnnxQuantization"]["op_types_to_quantize"].remove(op)
