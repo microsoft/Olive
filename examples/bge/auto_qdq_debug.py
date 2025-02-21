@@ -53,23 +53,31 @@ def _generate_aug_model_path(model_path: str) -> str:
     return aug_model_path + ".save_tensors.onnx"
 
 
-def bfs_nodes(model: ModelProto):
-    G = networkx.DiGraph()
-    inputs = set([inp.name for inp in model.graph.input])
-    outputs = set([out.name for out in model.graph.output])
-    inits = set([init.name for init in model.graph.initializer])
+def get_valid_values(model: ModelProto):
+    valid_values = set()
+    parents = {}
+    for inp in model.graph.input:
+        valid_values.add(inp.name)
+    for node in model.graph.node:
+        for output_name in node.output:
+            valid_values.add(output_name)
+            parents[output_name] = node.name
+    return valid_values, parents
 
+
+def get_graph(model: ModelProto, valid_values: set[str]) -> networkx.DiGraph:
+    G = networkx.DiGraph()
     for node in model.graph.node:
         for input_name in node.input:
-            if "Constant_" in input_name: continue
-            if input_name in inits: continue
-            if input_name in inputs or "_output_" in input_name or input_name in outputs:
+            if input_name in valid_values:
                 G.add_edge(input_name, node.name)
         for output_name in node.output:
-            if "Constant_" in output_name: continue
-            if output_name in outputs or "_output_" in output_name:
+            if output_name in valid_values:
                 G.add_edge(node.name, output_name)
-    
+    return G
+
+
+def bfs_nodes(G: networkx.DiGraph, model: ModelProto, valid_values: set[str]) -> list[list[str]]:
     levels = []
     visited = set()
     queue = deque([(inp.name, 0) for inp in model.graph.input])
@@ -78,6 +86,7 @@ def bfs_nodes(model: ModelProto):
     for node in G.nodes:
         input_count[node] = G.in_degree(node)
 
+    outputs = set([out.name for out in model.graph.output])
     while queue:
         node, level = queue.popleft()
         if node not in visited:
@@ -91,7 +100,7 @@ def bfs_nodes(model: ModelProto):
                 if input_count[neighbor] == 0:
                     queue.append((neighbor, level + 1))
     assert not outputs
-    return levels, G
+    return levels
 
 
 def augment_collect(model_path: str, input_data_reader, augment_model_path: str = None) -> Dict[str, numpy.ndarray]:
@@ -129,6 +138,7 @@ def compute_signal_to_quantization_noice_ratio(
     res = tensor_norm / diff_norm
     return 20 * math.log10(res)
 
+
 def compare_get(qdq_activations, float_activations, error: float, level_nodes: list[list[str]]):
     print("Comparing activations of float model vs qdq model......")
     results = []
@@ -150,19 +160,16 @@ def compare_get(qdq_activations, float_activations, error: float, level_nodes: l
             return results
     return results
 
-def get_node(error_output):
-    index = error_output.find("_output_")
-    assert index != -1, f"Error output {error_output} does not contain _output_" 
-    return error_output[:index]
 
-def get_nodes(error_outputs, G: networkx.DiGraph):
+def get_nodes(G: networkx.DiGraph, error_outputs: list[str], parents: Dict[str, str]) -> set[str]:
     nodes = set()
     for error_output in error_outputs:
-        node = get_node(error_output)
+        node = parents[error_output]
         nodes.add(node)
         for pred in G.predecessors(node):
-            nodes.add(get_node(pred))
+            nodes.add(parents[pred])
     return nodes
+
 
 def main():
     # Process input parameters and setup model input data reader
@@ -173,7 +180,9 @@ def main():
     qdq_model_path = olive_config["output_dir"] + "/output_model/model.onnx"
     float_model_path = olive_config["input_model"]["model_path"]
     model = onnx.load(float_model_path)
-    level_nodes, G = bfs_nodes(model)
+    valid_values, parents = get_valid_values(model)
+    G = get_graph(model, valid_values)
+    level_nodes = bfs_nodes(G, model, valid_values)
     data_reader = DataReader()
     float_activations = augment_collect(float_model_path, data_reader)
 
@@ -185,7 +194,7 @@ def main():
         if not error_outputs:
             print("No error outputs found")
             break
-        error_nodes = get_nodes(error_outputs, G)
+        error_nodes = get_nodes(G, error_outputs, parents)
         if error_nodes & set(olive_config["passes"]["OnnxQuantization"]["nodes_to_exclude"]):
             print(f"{error_nodes} are already excluded")
             break
