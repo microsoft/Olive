@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import warnings
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
@@ -152,12 +151,12 @@ def _unflatten_past_key_values_with_check(flattened_inputs: Dict[str, Any]) -> D
     # Check if we have exactly 2 * (max_idx + 1) key-value pairs
     expected_count = 2 * (max_idx + 1)
     if past_key_value_count != expected_count or past_key_value_count % 2 != 0:
-        warnings.warn(
-            f"Expected {expected_count} past_key_values entries, but found {past_key_value_count} from Optimum inputs."
+        logger.warning(
+            "Expected %d past_key_values entries, but found %d from Optimum inputs."
             "Giving up generating dynamic_shapes from Optimum inputs."
             "Olive will use dynamic_axes instead.",
-            UserWarning,
-            stacklevel=3,
+            expected_count,
+            past_key_value_count,
         )
         return {}
     # No past_key_values found

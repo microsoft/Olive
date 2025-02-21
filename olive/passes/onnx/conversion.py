@@ -7,7 +7,6 @@ import inspect
 import logging
 import multiprocessing
 import tempfile
-import warnings
 from copy import deepcopy
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Type, Union
@@ -217,13 +216,11 @@ class OnnxConversion(Pass):
         if config.use_dynamo_exporter:
             # Take the "release" version so that dev builds like 2.5.0dev1234 are treated as 2.5.0
             torch_version = version.parse(torch.__version__).release
-            if torch_version < version.parse("2.7.0").release:
-                warnings.warn(
+            if torch_version < version.parse("2.7.0").release and io_config.dynamic_shapes is not None:
+                logger.warning(
                     "Dynamic shape support in torch.onnx.export(..., dynamo=True) requires "
                     "PyTorch version 2.7.0 or later. "
                     "Please upgrade to PyTorch 2.7.0 or newer if you need dynamic shapes.",
-                    UserWarning,
-                    stacklevel=3,
                 )
             # The "legacy dynamo" is the torch.onnx_dynamo_export API
             legacy_dynamo_supported_version = version.parse("2.2.0").release
@@ -636,6 +633,6 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, model):
         )
         # dummy_inputs is kwargs
         return unflatten_dynamic_shapes, (), dummy_inputs
-    # If dynami_shapes and dummy_inputs are both list/tuple, we don't need to do anything.
+    # If dynamic_shapes and dummy_inputs are both list/tuple, we don't need to do anything.
     # dummy_inputs is args
     return unflatten_dynamic_shapes, dummy_inputs, {}
