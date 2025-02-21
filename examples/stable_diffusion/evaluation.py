@@ -74,7 +74,7 @@ def main(raw_args=None):
         "--seed", str(args.seed),
         "--guidance_scale", str(args.guidance_scale)
     ]
-    train_num = int(len(prompts) * 0.5)
+    train_num = int(len(prompts) * 0.8)
     data_path = Path('quantize_data')
     unoptimized_path = data_path / 'unoptimized'
     optimized_path = data_path / 'optimized'
@@ -85,6 +85,7 @@ def main(raw_args=None):
             command = command_base + ["--test_unoptimized", "--prompt", prompt]
             if i < train_num:
                 command.append("--save_data")
+            logger.info(command)
             subprocess.run(command)
             shutil.move('result_0.png', unoptimized_path / f'{prompt}.png')
     else:
@@ -93,6 +94,7 @@ def main(raw_args=None):
         test_error = []
         for i, prompt in enumerate(prompts):
             command = command_base + ["--prompt", prompt]
+            logger.info(command)
             subprocess.run(command)
             shutil.move('result_0.png', optimized_path / f'{prompt}.png')
 
