@@ -66,7 +66,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             help="The specific implementation of quantization algorithms to use.",
         )
         sub_parser.add_argument(
-            "--enable-qdq-encoding",
+            "--use_qdq_encoding",
             action="store_true",
             help="Use QDQ encoding in ONNX model for the quantized nodes.",
         )
@@ -103,7 +103,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         if self.args.algorithm == "rtn" and self.args.precision == "nf4":
             self.args.implementation = "bnb4"
 
-        if self.args.enable_qdq_encoding and self.args.implementation != "matmul4":
+        if self.args.use_qdq_encoding and self.args.implementation != "matmul4":
             raise ValueError("QDQ encoding is supported only by matmul4 implementation.")
 
         if not self.args.implementation or not self.args.precision:
@@ -122,7 +122,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         precision = IMPLEMENTATIONS[self.args.implementation]["precision_mapping"].get(
             self.args.precision, self.args.precision
         )
-        if self.args.enable_qdq_encoding and self.args.implementation == "matmul4":
+        if self.args.use_qdq_encoding and self.args.implementation == "matmul4":
             self.args.implementation = [self.args.implementation, "mnb_to_qdq"]
         else:
             self.args.implementation = [self.args.implementation]
