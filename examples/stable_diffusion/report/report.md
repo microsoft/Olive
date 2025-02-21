@@ -47,3 +47,24 @@ The images are in [optimized_text_encoder](./optimized_text_encoder).
 
 Average train error 940.967285
 Average test error 817.221069
+
+### unet is quantized
+
+The images are in [optimized_unet](./optimized_unet).
+
+| Prompt | MSE |
+|-|-|
+Images passed the safety checker.
+| Arroyo Hondo Preserve Wedding | 285.498596 |
+| Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo | 428.798737 |
+| Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow | 883.842224 |
+| Lovely Anthodium N Roses Arrangement with Cute Teddy | 2322.932617 |
+| Everyone can join and learn how to cook delicious dishes with us. | 2533.020996 |
+| Budget-Friendly Thanksgiving Table Decor Ideas | 1352.172119 |
+| Image result for youth worker superhero | 1874.321899 |
+| Road improvements coming along in west Gulfport | 1208.272095 |
+| Butcher storefront and a companion work, Louis Hayet, Click for value | 596.398438 |
+| folding electric bike | 470.758514 |
+
+Average train error 1361.107422
+Average test error 533.578491
