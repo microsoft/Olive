@@ -652,11 +652,7 @@ class OnnxMatMul4Quantizer(Pass):
                 default_value=None,
                 description=(
                     "If 'None', the Matmul node with fp32 const weight will be quantize to int4."
-                    "1. 'RTN' and 'GPTQ' are available from onnxruntime>=1.17.0 "
-                    "- For 4b quantize a model with RTN or GPTQ algorithm. Please refer to "
-                    "https://github.com/intel/neural-compressor/blob/master/docs/source/quantization_weight_only.md "
-                    "for more details on weight only quantization using Intel® Neural Compressor. "
-                    "2. 'DEFAULT', 'HQQ' are available from onnxruntime>=1.18.0 "
+                    "1. 'DEFAULT', 'HQQ' are available from onnxruntime>=1.18.0 "
                     "- `DEFAULT` takes the same effect as `None`"
                     "- For HQQ, please refer to onnxruntime for more details: "
                     "https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L102C1-L126C25"
@@ -677,27 +673,11 @@ class OnnxMatMul4Quantizer(Pass):
                     https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L129C1-L140C45
                 2. "algorithm" is "HQQ", by default, the weight_only_quant_configs is:
                     "weight_only_quant_configs": {
-                        "block_size": 128, // channel number in one block to execute a GPTQ quantization iteration.
+                        "block_size": 128, // channel number in one block to execute a quantization iteration.
                         "bits": 4, // how many bits to represent weight.
                         "axis": 1, // 0 or 1. which axis to quantize. https://arxiv.org/pdf/2309.15531.pdf
                     }
                     https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L129C1-L140C45
-                3. "algorithm" is "RTN", by default, the weight_only_quant_configs is:
-                    "weight_only_quant_configs": {
-                        "ratios": None, // type: dict, percentile of clip. Defaults to None.
-                    }
-                    https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L42C1-L60C29
-                4. "algorithm" is "GPTQ", by default, the weight_only_quant_configs is:
-                    "weight_only_quant_configs": {
-                        "percdamp": 0.01, // percent of the average Hessian diagonal to use for dampening.
-                        "block_size": 128,
-                        "actorder": False, // whether rearrange Hessian matrix considering the diag's value.
-                        "mse": False, // whether get scale and zero point with mse error.
-                        "perchannel": True, // whether quantize weight per-channel.
-                    }
-                    For GPTQ's "calibration_data_reader", you can provider a dataloader function or a
-                    data config like what we do for onnx static quantization.
-                    https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L63C1-L99C37
                 """,
             ),
             **get_external_data_config(),
@@ -738,37 +718,19 @@ class OnnxMatMul4Quantizer(Pass):
         weight_only_quant_config_class = None
         weight_only_quant_config = None
         algo_config = deepcopy(config.weight_only_quant_configs) or {}
-        if version.parse(OrtVersion) >= version.parse("1.17.0"):
+        if version.parse(OrtVersion) >= version.parse("1.18.0"):
             from onnxruntime.quantization.matmul_4bits_quantizer import (
-                GPTQWeightOnlyQuantConfig,
-                RTNWeightOnlyQuantConfig,
+                DefaultWeightOnlyQuantConfig,
+                HQQWeightOnlyQuantConfig,
             )
 
-            if config.algorithm == "RTN":
-                weight_only_quant_config_class = RTNWeightOnlyQuantConfig
-            elif config.algorithm == "GPTQ":
-                if "block_size" in algo_config and version.parse(OrtVersion) < version.parse("1.18.0"):
-                    # ort 1.17.0+ uses blocksize instead of block_size :(
-                    algo_config["blocksize"] = algo_config["block_size"]
-                    algo_config.pop("block_size")
-                dataloader = get_calibration_dataloader(config)
-                weight_only_quant_config_class = partial(GPTQWeightOnlyQuantConfig, calibration_data_reader=dataloader)
-
-            if version.parse(OrtVersion) >= version.parse("1.18.0"):
-                from onnxruntime.quantization.matmul_4bits_quantizer import (
-                    DefaultWeightOnlyQuantConfig,
-                    HQQWeightOnlyQuantConfig,
-                )
-
-                if config.algorithm == "DEFAULT":
-                    weight_only_quant_config_class = DefaultWeightOnlyQuantConfig
-                elif config.algorithm == "HQQ":
-                    weight_only_quant_config_class = HQQWeightOnlyQuantConfig
-            elif config.algorithm in ("HQQ", "DEFAULT"):
-                raise ValueError("HQQ and DEFAULT algorithm are only supported in onnxruntime >= 1.18.0")
-
+            if config.algorithm == "DEFAULT":
+                weight_only_quant_config_class = DefaultWeightOnlyQuantConfig
+            elif config.algorithm == "HQQ":
+                weight_only_quant_config_class = HQQWeightOnlyQuantConfig
             if weight_only_quant_config_class:
                 weight_only_quant_config = weight_only_quant_config_class(**algo_config)
+
             quant = MatMul4BitsQuantizer(
                 model.load_model(),
                 block_size=config.block_size,
@@ -808,8 +770,8 @@ def _validate_algorithm(v, values, field):
     if not v:
         return v
 
-    if v not in ("DEFAULT", "HQQ", "RTN", "GPTQ"):
-        raise ValueError(f"OnnxMatMul4Quantizer {field.name} must be 'DEFAULT', 'HQQ', 'RTN', 'GPTQ'")
+    if v not in ("DEFAULT", "HQQ"):
+        raise ValueError(f"OnnxMatMul4Quantizer {field.name} must be 'DEFAULT', 'HQQ'")
 
     return v
 
@@ -825,12 +787,8 @@ def _validate_weight_only_quant_config(v, values, field):
     config_keys = list(v.keys())
     if values["algorithm"] == "DEFAULT":
         default_config_keys = ["block_size", "is_symmetric", "accuracy_level"]
-    elif values["algorithm"] == "RTN":
-        default_config_keys = ["ratios"]
     elif values["algorithm"] == "HQQ":
         default_config_keys = ["block_size", "bits", "axis"]
-    elif values["algorithm"] == "GPTQ":
-        default_config_keys = ["percdamp", "block_size", "actorder", "mse", "perchannel"]
 
     if not all(key in default_config_keys for key in config_keys):
         invalid_config_keys = set(config_keys) - set(default_config_keys)
