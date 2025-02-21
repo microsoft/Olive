@@ -68,3 +68,33 @@ Images passed the safety checker.
 
 Average train error 1361.107422
 Average test error 533.578491
+
+### vae decoder is quantized
+
+The images are in [optimized_vae_decoder](./optimized_vae_decoder).
+
+| Prompt | MSE |
+|-|-|
+| Arroyo Hondo Preserve Wedding | 1.923393 |
+| Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo | 1.801051 |
+| Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow | 1.089745 |
+| Lovely Anthodium N Roses Arrangement with Cute Teddy | 1.847665 |
+| Everyone can join and learn how to cook delicious dishes with us. | 1.615799 |
+| Budget-Friendly Thanksgiving Table Decor Ideas | 2.106870 |
+| Image result for youth worker superhero | 0.873670 |
+| Road improvements coming along in west Gulfport | 1.345603 |
+| Butcher storefront and a companion work, Louis Hayet, Click for value | 1.832780 |
+| folding electric bike | 1.767643 |
+
+Average train error 1.575474
+Average test error 1.800212
+
+## Summary and Question
+
+The current pipeline works for vae decoder, but not for text encoder and unet. They generate similar images but with low quality.
+
+Compared with [ASG](https://perceptiveshell.azurewebsites.net/2.9.7/pg_models.html), it looks like text encoder and unet models are devided into multiple parts.
+
+So questions are:
+
+- For the text encoder and unet model, how the nodes are processed? i.e. please share some insights about what nodes should be processed specially to keep accuracy.
