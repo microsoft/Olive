@@ -2,8 +2,7 @@ import argparse
 import onnx
 from onnx import ModelProto
 from onnxruntime.quantization.qdq_loss_debug import (
-    collect_activations, compute_signal_to_quantization_noice_ratio,
-    _add_pre_post_qdq_pair,
+    collect_activations,
     modify_model_output_intermediate_tensors)
 from olive.workflows import run as olive_run
 import numpy
@@ -11,10 +10,11 @@ from pathlib import Path
 import json
 import networkx
 from collections import defaultdict, deque
-from typing import Dict, Sequence, Optional
+from typing import Dict, Sequence, Optional, Union
 from olive.data.registry import Registry
 from transformers import AutoTokenizer
 from onnxruntime.quantization.quantize import CalibrationDataReader
+import math
 
 text = "How do I locate my card?"
 
@@ -41,7 +41,7 @@ class DataReader(CalibrationDataReader):
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--qdq_config", type=str, default="qdq_config.json", help="Path to qdq config")
-    parser.add_argument("--error", type=float, default=20, help="Error to exclude")
+    parser.add_argument("--error", type=float, default=30, help="Error to exclude")
     args = parser.parse_args()
     return args
 
@@ -91,7 +91,7 @@ def bfs_nodes(model: ModelProto):
                 if input_count[neighbor] == 0:
                     queue.append((neighbor, level + 1))
     assert not outputs
-    return levels
+    return levels, G
 
 
 def augment_collect(model_path: str, input_data_reader, augment_model_path: str = None) -> Dict[str, numpy.ndarray]:
@@ -101,6 +101,33 @@ def augment_collect(model_path: str, input_data_reader, augment_model_path: str 
     modify_model_output_intermediate_tensors(model_path, augment_model_path)
     return collect_activations(augment_model_path, input_data_reader)
 
+
+def compute_signal_to_quantization_noice_ratio(
+    x: Union[Sequence[numpy.ndarray], numpy.ndarray], y: Union[Sequence[numpy.ndarray], numpy.ndarray]
+) -> float:
+    if isinstance(x, numpy.ndarray):
+        xlist = [x]
+    else:
+        xlist = x
+    if isinstance(y, numpy.ndarray):
+        ylist = [y]
+    else:
+        ylist = y
+    if len(xlist) != len(ylist):
+        raise RuntimeError("Unequal number of tensors to compare!")
+
+    left = numpy.concatenate(xlist).flatten()
+    right = numpy.concatenate(ylist).flatten()
+
+    epsilon = numpy.finfo("float").eps
+    tensor_norm = max(numpy.linalg.norm(left), epsilon)
+    diff_norm = max(numpy.linalg.norm(left - right), epsilon)
+
+    if diff_norm == epsilon:
+        return 100.0
+
+    res = tensor_norm / diff_norm
+    return 20 * math.log10(res)
 
 def compare_get(qdq_activations, float_activations, error: float, level_nodes: list[list[str]]):
     print("Comparing activations of float model vs qdq model......")
@@ -116,13 +143,26 @@ def compare_get(qdq_activations, float_activations, error: float, level_nodes: l
             ratios.append((node, ratio))
             if ratio < error:
                 print(f"Node {node} has error {ratio}")
-                index = node.find("_output_")
-                results.append(node[:index])
+                results.append(node)
         if ratios:
             print(ratios)
         if results:
             return results
     return results
+
+def get_node(error_output):
+    index = error_output.find("_output_")
+    assert index != -1, f"Error output {error_output} does not contain _output_" 
+    return error_output[:index]
+
+def get_nodes(error_outputs, G: networkx.DiGraph):
+    nodes = set()
+    for error_output in error_outputs:
+        node = get_node(error_output)
+        nodes.add(node)
+        for pred in G.predecessors(node):
+            nodes.add(get_node(pred))
+    return nodes
 
 def main():
     # Process input parameters and setup model input data reader
@@ -133,22 +173,24 @@ def main():
     qdq_model_path = olive_config["output_dir"] + "/output_model/model.onnx"
     float_model_path = olive_config["input_model"]["model_path"]
     model = onnx.load(float_model_path)
-    level_nodes = bfs_nodes(model)
+    level_nodes, G = bfs_nodes(model)
     data_reader = DataReader()
     float_activations = augment_collect(float_model_path, data_reader)
 
     while True:
         olive_run(olive_config)
         qdq_activations = augment_collect(qdq_model_path, data_reader)
-        error_node = compare_get(qdq_activations, float_activations, args.error, level_nodes)
-        if not error_node:
-            print("No error node found")
+        assert len(float_activations) == len(qdq_activations)
+        error_outputs = compare_get(qdq_activations, float_activations, args.error, level_nodes)
+        if not error_outputs:
+            print("No error outputs found")
             break
-        if set(error_node) & set(olive_config["passes"]["OnnxQuantization"]["nodes_to_exclude"]):
-            print(f"{error_node} is already excluded")
+        error_nodes = get_nodes(error_outputs, G)
+        if error_nodes & set(olive_config["passes"]["OnnxQuantization"]["nodes_to_exclude"]):
+            print(f"{error_nodes} are already excluded")
             break
-        print(f"Error node: {error_node}")
-        olive_config["passes"]["OnnxQuantization"]["nodes_to_exclude"].extend(error_node)
+        print(f"Error nodes: {error_nodes}")
+        olive_config["passes"]["OnnxQuantization"]["nodes_to_exclude"].extend(error_nodes)
 
     json.dump(olive_config, Path(args.qdq_config +  ".final.json").open("w"))
 
