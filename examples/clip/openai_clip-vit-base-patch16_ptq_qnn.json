@@ -1,0 +1,112 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "openai/clip-vit-base-patch16",
+        "task": "zero-shot-image-classification",
+        "load_kwargs": { "attn_implementation": "eager" },
+        "io_config": {
+            "input_names": [ "input_ids", "pixel_values", "attention_mask" ],
+            "input_shapes": [ [ 10, 77 ], [ 1, 3, 224, 224 ], [ 10, 77 ] ],
+            "input_types": [ "int64", "float32", "int64" ],
+            "output_names": [ "logits_per_image" ],
+            "output_shapes": [ [ 1, 2 ] ]
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
+        }
+    },
+    "data_configs": [
+        {
+            "name": "quant_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": {
+                "type": "clip_dataset",
+                "model_name": "openai/clip-vit-base-patch16",
+                "dataset_name": "nlphuji/flickr30k",
+                "start": 0,
+                "end": 10
+            },
+            "dataloader_config": { "type": "no_auto_batch_dataloader" }
+        },
+        {
+            "name": "metric_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": {
+                "type": "clip_dataset",
+                "model_name": "openai/clip-vit-base-patch16",
+                "dataset_name": "nlphuji/flickr30k",
+                "start": 10,
+                "end": 20
+            },
+            "dataloader_config": { "type": "no_auto_batch_dataloader" },
+            "post_process_data_config": { "type": "clip_post_process" }
+        }
+    ],
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "backend": "huggingface_metrics",
+                    "data_config": "metric_data_config",
+                    "sub_types": [
+                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.05 } }
+                    ]
+                },
+                {
+                    "name": "latency_qnn",
+                    "type": "latency",
+                    "data_config": "metric_data_config",
+                    "sub_types": [
+                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
+                        { "name": "max" },
+                        { "name": "min" }
+                    ]
+                },
+                {
+                    "name": "latency_cpu",
+                    "type": "latency",
+                    "data_config": "metric_data_config",
+                    "sub_types": [
+                        { "name": "avg", "priority": 3, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
+                        { "name": "max" },
+                        { "name": "min" }
+                    ],
+                    "user_config": {
+                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
+                    }
+                },
+                {
+                    "name": "throughput",
+                    "type": "throughput",
+                    "data_config": "metric_data_config",
+                    "sub_types": [ { "name": "avg" }, { "name": "max" }, { "name": "min" } ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": { "type": "OnnxConversion", "target_opset": 17 },
+        "qnn_preprocess": { "type": "QNNPreprocess" },
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "quant_preprocess": true,
+            "data_config": "quant_data_config",
+            "op_types_to_quantize": [ "MatMul", "LayerNormalization", "Gemm", "Sigmoid", "Gelu" ],
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8",
+            "calibrate_method": "MinMax"
+        }
+    },
+    "evaluator": "common_evaluator",
+    "evaluate_input_model": false,
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "clean_cache": true,
+    "output_dir": "models/clip-vit-base-patch16"
+}

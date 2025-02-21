@@ -103,6 +103,11 @@ class OnnxConversion(Pass):
                     "Includes config.json, generation_config.json, and tokenizer related files."
                 ),
             ),
+            "optimize": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=("Whether to export the model with constant folding and redundancies elimination."),
+            ),
             "dynamic": PassConfigParam(
                 type_=bool, default_value=True, description=("Whether to export the model with dynamic axes/shapes.")
             ),
@@ -263,6 +268,7 @@ class OnnxConversion(Pass):
                         dynamic_shapes=io_config.dynamic_shapes,
                         dynamo=True,
                         fallback=True,
+                        optimize=config.optimize,
                         report=logger.isEnabledFor(logging.DEBUG),
                     )
                     assert onnx_program is not None

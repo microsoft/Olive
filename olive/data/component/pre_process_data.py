@@ -81,7 +81,7 @@ def huggingface_pre_process(
     def _tokenizer_and_align_labels(examples):
         tokenizer = get_tokenizer(model_name, trust_remote_code=trust_remote_code)
         tokenized_inputs = tokenizer(
-            *[examples[input_col] for input_col in input_cols],
+            *[examples[input_col] for input_col in input_cols if examples[input_col]],
             padding=kwargs.get("padding", True),
             truncation=kwargs.get("truncation", True),
             max_length=kwargs.get("max_length"),
@@ -136,7 +136,7 @@ def ner_huggingface_preprocess(
     def _tokenizer_and_align_labels(examples):
         tokenizer = get_tokenizer(model_name, trust_remote_code=trust_remote_code)
         tokenized_inputs = tokenizer(
-            *[examples[input_col] for input_col in input_cols],
+            *[examples[input_col] for input_col in input_cols if examples[input_col]],
             padding=kwargs.get("padding", True),
             truncation=kwargs.get("truncation", True),
             is_split_into_words=kwargs.get("is_split_into_words", True),
