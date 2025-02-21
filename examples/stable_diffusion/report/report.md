@@ -26,8 +26,24 @@ For text encoder, I didn't quantize Add and Softmax nodes. For unet and vae deco
 
 For a clear comparison, only one model uses quantized version each time.
 
-The images for original model are in (unoptimized)[./unoptimized].
+The images for original model are in [unoptimized](./unoptimized).
 
 ### text encoder is quantized
 
+The images are in [optimized_text_encoder](./optimized_text_encoder).
 
+| Prompt | MSE |
+|-|-|
+| Arroyo Hondo Preserve Wedding | 54.031979 |
+| Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo | 218.897995 |
+| Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow | 942.312500 |
+| Lovely Anthodium N Roses Arrangement with Cute Teddy | 1964.954590 |
+| Everyone can join and learn how to cook delicious dishes with us. | 1232.637695 |
+| Budget-Friendly Thanksgiving Table Decor Ideas | 766.385925 |
+| Image result for youth worker superhero | 1346.230835 |
+| Road improvements coming along in west Gulfport | 1002.286438 |
+| Butcher storefront and a companion work, Louis Hayet, Click for value | 1519.580078 |
+| folding electric bike | 114.862068 |
+
+Average train error 940.967285
+Average test error 817.221069

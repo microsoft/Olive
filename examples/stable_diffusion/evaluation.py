@@ -90,16 +90,17 @@ def main(raw_args=None):
             shutil.move('result_0.png', unoptimized_path / f'{prompt}.png')
     else:
         os.makedirs(optimized_path, exist_ok=True)
-        train_error = []
-        test_error = []
         for i, prompt in enumerate(prompts):
             command = command_base + ["--prompt", prompt]
             logger.info(command)
             subprocess.run(command)
             shutil.move('result_0.png', optimized_path / f'{prompt}.png')
 
+        train_error = []
+        test_error = []
+        for i, prompt in enumerate(prompts):
             error = calc_error(unoptimized_path / f'{prompt}.png', optimized_path / f'{prompt}.png')
-            logger.info("Error for %s: %f", prompt, error)
+            logger.info("| %s | %f |", prompt, error)
             if i < train_num:
                 train_error.append(error)
             else:
@@ -107,8 +108,8 @@ def main(raw_args=None):
 
         train_error = np.array(train_error)
         test_error = np.array(test_error)
-        logger.info("Train error %f", np.mean(train_error))
-        logger.info("Test error %f", np.mean(test_error))
+        logger.info("Average train error %f", np.mean(train_error))
+        logger.info("Average test error %f", np.mean(test_error))
 
 
 if __name__ == "__main__":
