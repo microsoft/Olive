@@ -196,7 +196,11 @@ class OliveEvaluator(ABC):
 class _OliveEvaluator(OliveEvaluator):
     @staticmethod
     def device_string_to_torch_device(device: Device):
-        return torch.device("cuda") if device == Device.GPU else torch.device(device)
+        try:
+            return torch.device("cuda") if device == Device.GPU else torch.device(device)
+        except (ValueError, TypeError, RuntimeError):
+            logger.warning("Device %s is not supported in torch, fallback to CPU instead.", device)
+            return torch.device("cpu")
 
     @classmethod
     def io_bind_enabled(cls, metric: Metric, inference_settings: Dict) -> bool:
@@ -462,7 +466,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         if is_single_tensor_output:
             logits = torch.cat(logits, dim=0)
         else:
-            logits = {k: torch.cat(logits[k], dim=0) for k in output_names}
+            logits = {k: torch.cat(logits_dict[k], dim=0) for k in output_names}
 
         tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
@@ -736,6 +740,7 @@ class PyTorchEvaluator(_OliveEvaluator):
         preds = []
         targets = []
         logits = []
+        logits_dict = collections.defaultdict(list)
         device = _OliveEvaluator.device_string_to_torch_device(device)
         run_kwargs = metric.get_run_kwargs()
         if device:
@@ -748,15 +753,20 @@ class PyTorchEvaluator(_OliveEvaluator):
             # it is expensive to convert to list and then convert back to torch tensor
             preds.append(outputs.cpu())
             targets.append(labels.cpu())
-            logits.append(
-                result.logits.cpu()
-                if not isinstance(result, torch.Tensor) and getattr(result, "logits", None) is not None
-                else result.cpu()
-            )
+            if isinstance(result, torch.Tensor):
+                logits.append(result.cpu())
+            elif isinstance(result, (list, tuple)):
+                logits.append([r.cpu() for r in result])
+            elif isinstance(result, dict):
+                for k in result:
+                    logits_dict[k].append(result[k].cpu())
         # concatenate along the batch dimension
         preds = torch.cat(preds, dim=0)
         targets = torch.cat(targets, dim=0)
-        logits = torch.cat(logits, dim=0)
+        if not logits_dict:
+            logits = torch.cat(logits, dim=0)
+        else:
+            logits = {k: torch.cat(logits_dict[k], dim=0) for k in logits_dict}
         # move model to cpu
         if device:
             session.to("cpu")
