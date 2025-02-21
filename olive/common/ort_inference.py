@@ -79,6 +79,7 @@ def get_ort_inference_session(
     execution_mode = session_options.get("execution_mode")
     graph_optimization_level = session_options.get("graph_optimization_level")
     extra_session_config = session_options.get("extra_session_config")
+    log_severity_level = session_options.get("log_severity_level")
     if enable_profiling:
         sess_options.enable_profiling = True
     if inter_op_num_threads:
@@ -95,6 +96,8 @@ def get_ort_inference_session(
     if extra_session_config:
         for key, value in extra_session_config.items():
             sess_options.add_session_config_entry(key, value)
+    if log_severity_level is not None:
+        sess_options.log_severity_level = log_severity_level
 
     # execution providers and provider options
     providers, provider_options = check_and_normalize_provider_args(
