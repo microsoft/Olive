@@ -1,44 +1,18 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "model_path": "BAAI/bge-small-en-v1.5",
-        "task": "feature-extraction"
-    },
+    "input_model": { "type": "HfModel", "model_path": "BAAI/bge-small-en-v1.5", "task": "feature-extraction" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] }
-            ]
+            "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
         }
     },
     "data_configs": [
         {
             "name": "quantize_data_config",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "data_name": "mteb/banking77",
-                "split": "test"
-            },
-            "pre_process_data_config": {
-                "max_length": 128,
-                "padding": "max_length",
-                "input_cols": [ "text" ]
-            },
+            "load_dataset_config": { "data_name": "mteb/banking77", "split": "test" },
+            "pre_process_data_config": { "max_length": 128, "padding": "max_length", "input_cols": [ "text" ] },
             "dataloader_config": { "batch_size": 1 }
-        },
-        {
-            "name": "quantize_data_config_custom",
-            "type": "HuggingfaceContainer",
-            "user_script": "user_script.py",
-            "load_dataset_config": {
-                "data_name": "mteb/banking77",
-                "split": "test"
-            },
-            "pre_process_data_config": {
-                "type": "dataset_pre_process",
-                "cache_key": "cache"
-            }
         }
     ],
     "evaluators": {
@@ -68,10 +42,7 @@
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "dynamic_shape_to_fixed": {
             "type": "DynamicToFixedShape",
-            "dim_param": [
-                "batch_size",
-                "sequence_length"
-            ],
+            "dim_param": [ "batch_size", "sequence_length" ],
             "dim_value": [ 1, 128 ]
         },
         "QNNPreprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
@@ -83,7 +54,21 @@
             "calibrate_method": "MinMax",
             "quant_preprocess": true,
             "prepare_qnn_config": true,
-            "op_types_to_quantize": [ "Mul", "Transpose", "MatMul", "LayerNormalization", "Gemm", "Gelu", "Unsqueeze", "Gather", "Sub", "Where", "Expand", "Tanh", "Reshape" ]
+            "op_types_to_quantize": [
+                "Mul",
+                "Transpose",
+                "MatMul",
+                "LayerNormalization",
+                "Gemm",
+                "Gelu",
+                "Unsqueeze",
+                "Gather",
+                "Sub",
+                "Where",
+                "Expand",
+                "Tanh",
+                "Reshape"
+            ]
         }
     },
     "pass_flows": [ [ "conversion", "dynamic_shape_to_fixed", "QNNPreprocess", "OnnxQuantization" ] ],
