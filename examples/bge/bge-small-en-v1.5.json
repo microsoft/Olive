@@ -82,7 +82,8 @@
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true,
-            "prepare_qnn_config": true
+            "prepare_qnn_config": true,
+            "op_types_to_quantize": [ "Mul", "Transpose", "MatMul", "LayerNormalization", "Gemm", "Gelu", "Unsqueeze", "Gather", "Sub", "Where", "Expand", "Tanh", "Reshape" ]
         }
     },
     "pass_flows": [ [ "conversion", "dynamic_shape_to_fixed", "QNNPreprocess", "OnnxQuantization" ] ],
@@ -91,5 +92,5 @@
     "target": "local_system",
     "cache_dir": "cache",
     "output_dir": "models/bge-small-en-v1.5",
-    "evaluate_input_model": false
+    "evaluate_input_model": true
 }

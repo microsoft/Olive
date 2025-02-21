@@ -124,3 +124,4 @@ if __name__ == "__main__":
         print(f"Ops: {olive_config["passes"]["OnnxQuantization"]["op_types_to_quantize"]} Accuracy: {accuracy}")
         if accuracy < target_accuracy:
             olive_config["passes"]["OnnxQuantization"]["op_types_to_quantize"].remove(op)
+    print(olive_config["passes"]["OnnxQuantization"]["op_types_to_quantize"])
