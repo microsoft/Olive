@@ -103,9 +103,6 @@ class QuantizeCommand(BaseOliveCLICommand):
         if self.args.algorithm == "rtn" and self.args.precision == "nf4":
             self.args.implementation = "bnb4"
 
-        if self.args.use_qdq_encoding and self.args.implementation != "matmul4":
-            raise ValueError("QDQ encoding is supported only by matmul4 implementation.")
-
         if not self.args.implementation or not self.args.precision:
             raise ValueError(
                 f"Could not select a valid implementation for algorithm={self.args.algorithm} "
@@ -122,6 +119,9 @@ class QuantizeCommand(BaseOliveCLICommand):
         precision = IMPLEMENTATIONS[self.args.implementation]["precision_mapping"].get(
             self.args.precision, self.args.precision
         )
+        quant_format = "QOperator"
+        if self.args.use_qdq_encoding:
+            quant_format = "QDQ"
         if self.args.use_qdq_encoding and self.args.implementation == "matmul4":
             self.args.implementation = [self.args.implementation, "mnb_to_qdq"]
         else:
@@ -134,6 +134,8 @@ class QuantizeCommand(BaseOliveCLICommand):
             (("passes", "nvmo", "precision"), precision),
             (("passes", "nvmo", "algorithm"), self.args.algorithm.upper()),
             (("passes", "onnx_dynamic", "weight_type"), precision),
+            (("passes", "onnx_dynamic", "quant_format"), quant_format),
+            (("passes", "matmul4", "quant_format"), quant_format),
             (("passes", "inc_dynamic", "algorithm"), self.args.algorithm.upper()),
             (("passes", "inc_dynamic", "bits"), precision),
             ("output_dir", self.args.output_path),
@@ -192,37 +194,31 @@ TEMPLATE = {
 
 ALGORITHMS = {
     "awq": {
-        "implementations": ["awq", "inc_static", "inc_dynamic"],
         "hf_model_defaults": {"implementation": "awq", "precision": "int4"},
         "onnx_model_defaults": {"implementation": "nvmo", "precision": "int4"},
         "description": "(HfModel, OnnxModel) WOQ with AWQ.",
     },
     "gptq": {
-        "implementations": ["gptq", "matmul4", "inc_static", "inc_dynamic"],
         "hf_model_defaults": {"implementation": "gptq", "precision": "int4"},
         "onnx_model_defaults": {"implementation": "matmul4", "precision": "int4"},
         "description": "(HfModel, OnnxModel) WOQ with GPTQ.",
     },
     "rtn": {
-        "implementations": ["bnb4", "matmul4"],
         "hf_model_defaults": {"implementation": None, "precision": None},
-        "onnx_model_defaults": {"implementation": "onnx_static", "precision": "int8"},
+        "onnx_model_defaults": {"implementation": "onnx_dynamic", "precision": "int8"},
         "description": "(HfModel, OnnxModel) WOQ with RTN.",
     },
     "hqq": {
-        "implementations": ["matmul4"],
         "hf_model_defaults": {"implementation": None, "precision": None},
         "onnx_model_defaults": {"implementation": "matmul4", "precision": "int4"},
         "description": "(OnnxModel) HQQ quantization using onnxruntime.",
     },
     # "static": {
-    #     "implementations": ["onnx_static", "inc_static"],
     #     "hf_model_defaults": {"implementation": None, "precision": None},
     #     "onnx_model_defaults": {"implementation": "onnx_static", "precision": "int8"},
     #     "description": "(OnnxModel) Static quantization using onnxruntime.",
     # },
     "dynamic": {
-        "implementations": ["onnx_dynamic", "inc_dynamic"],
         "hf_model_defaults": {"implementation": None, "precision": None},
         "onnx_model_defaults": {"implementation": "onnx_dynamic", "precision": "int8"},
         "description": "(OnnxModel) Dynamic quantization using onnxruntime.",
@@ -260,7 +256,7 @@ IMPLEMENTATIONS = {
         "precision_mapping": {},
     },
     "matmul4": {
-        "name": "WOQ with MatMulNBits",
+        "name": "4 biy WOQ",
         "supported_precisions": ["int4"],
         "precision_mapping": {},
     },
