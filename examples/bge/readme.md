@@ -13,19 +13,14 @@ This workflow performs the optimization pipeline:
 
 The precision will drop when Add or Softmax types of op are quantized, so they are not included.
 
-| Quantized Ops | precision |
-|-|-|
-| None (original model) | 0.8574675324675324 |
-| All ("Mul", "Transpose", "Unsqueeze", "Add", "Softmax", "Gelu", "LayerNormalization", "Gather", "MatMul", "Sub", "Where", "Expand", "Gemm", "Tanh", "Reshape") | 0.5315909090909091 |
-| "MatMul", "LayerNormalization", "Gemm", "Gelu" | 0.8506818181818183 |
-| "Mul", "MatMul", "LayerNormalization", "Gemm", "Gelu" | 0.850487012987013 |
-| "Mul", "Transpose", "MatMul", "LayerNormalization", "Gemm", "Gelu" | 0.8504870129870131 |
-| 'Mul', 'Transpose', 'MatMul', 'LayerNormalization', 'Gemm', 'Gelu', 'Unsqueeze' | 0.8504870129870131 |
-| 'Mul', 'Transpose', 'MatMul', 'LayerNormalization', 'Gemm', 'Gelu', 'Unsqueeze', 'Add' | 0.5317207792207792 |
-| 'Mul', 'Transpose', 'MatMul', 'LayerNormalization', 'Gemm', 'Gelu', 'Unsqueeze', 'Softmax' | 0.5313961038961039 |
-| 'Mul', 'Transpose', 'MatMul', 'LayerNormalization', 'Gemm', 'Gelu', 'Unsqueeze', 'Gather' | 0.8504870129870131 |
-| ... | ... |
-| 'Mul', 'Transpose', 'MatMul', 'LayerNormalization', 'Gemm', 'Gelu', 'Unsqueeze', 'Gather', 'Sub', 'Where', 'Expand', 'Tanh', 'Reshape' |  0.8504870129870131 |
+| Quantized Ops | precision | latency (avg) |
+|-|-|-|
+| None (original model) | 0.8574675324675324 | N/A |
+| All ("Mul", "Transpose", "Unsqueeze", "Add", "Softmax", "Gelu", "LayerNormalization", "Gather", "MatMul", "Sub", "Where", "Expand", "Gemm", "Tanh", "Reshape") | 0.19707792207792205 | 24.95298 |
+| Without Softmax | 0.19675324675324674 | 24.08456 |
+| Without Add | 0.1968831168831169 | 64.3278 |
+| Without Add, Softmax | 0.8511038961038961 | 40.48591 |
+
 
 ## How to run
 ### Pip requirements
