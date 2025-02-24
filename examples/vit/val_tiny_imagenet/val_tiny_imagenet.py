@@ -8,7 +8,6 @@ import time
 
 import numpy as np
 import onnxruntime
-import torch
 import torchvision.transforms as transforms
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
@@ -71,7 +70,7 @@ session = onnxruntime.InferenceSession(
     provider_options=[{"backend_path": "QnnHtp.dll"}]
 )
 
-with open("vit_config.json", "r") as file:
+with open("vit_id2label.json", "r") as file:
     config = json.load(file)
 
 def evaluate_onnx_model(session, dataloader):
