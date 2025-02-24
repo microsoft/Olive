@@ -1,3 +1,8 @@
+from olive.constants import Framework
+from olive.engine.footprint import Footprint, FootprintNode
+from olive.model import OliveModelHandler
+from olive.workflows import run as olive_run
+
 import json
 from pathlib import Path
 from typing import List
@@ -7,11 +12,6 @@ import numpy as np
 import torch
 from transformers import AutoTokenizer
 
-from olive.constants import Framework
-from olive.engine.footprint import Footprint, FootprintNode
-from olive.model import OliveModelHandler
-from olive.workflows import run as olive_run
-
 
 class OliveEncoder:
     def __init__(self, model, session):
@@ -20,6 +20,7 @@ class OliveEncoder:
         self.tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-small-en-v1.5")
 
     def encode(self, corpus: List, **kwargs):
+        model_output = None
         if self.model.framework == Framework.ONNX:
             encoded_input = self.tokenizer(
                 corpus, padding="max_length", max_length=128, truncation=True, return_tensors="np"
@@ -85,7 +86,7 @@ if __name__ == "__main__":
         "Reshape",
     ]
     target_accuracy = 0.8
-    with Path("bge-small-en-v1.5.json").open() as fin:
+    with Path("bge-small-en-v1.5_ptq_qnn.json").open() as fin:
         olive_config = json.load(fin)
     for op in all_ops:
         if op in olive_config["passes"]["OnnxQuantization"]["op_types_to_quantize"]:
