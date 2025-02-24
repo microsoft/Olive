@@ -21,6 +21,7 @@ The precision will drop when Add or Softmax types of op are quantized, so they a
 | Without Add | 0.1968831168831169 | 64.3278 |
 | Without Add, Softmax | 0.8511038961038961 | 40.48591 |
 
+TODO(anyone): debug Add and Softmax to add them back to improve latency
 
 ## How to run
 ### Pip requirements

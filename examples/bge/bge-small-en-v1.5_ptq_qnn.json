@@ -1,10 +1,15 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "BAAI/bge-small-en-v1.5", "task": "feature-extraction","io_config": {
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "BAAI/bge-small-en-v1.5",
+        "task": "feature-extraction",
+        "io_config": {
             "input_names": [ "input_ids", "attention_mask", "token_type_ids" ],
             "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
             "input_types": [ "int64", "int64", "int64" ],
             "output_names": [ "last_hidden_state", "state" ]
-        } },
+        }
+    },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
@@ -44,11 +49,7 @@
                     "name": "latency_qnn",
                     "type": "latency",
                     "data_config": "quantize_data_config",
-                    "sub_types": [
-                        { "name": "avg" },
-                        { "name": "max" },
-                        { "name": "min" }
-                    ]
+                    "sub_types": [ { "name": "avg" }, { "name": "max" }, { "name": "min" } ]
                 }
             ]
         }

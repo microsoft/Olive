@@ -1,8 +1,7 @@
-from olive.constants import Framework
-from olive.engine.footprint import Footprint, FootprintNode
-from olive.model import OliveModelHandler
-from olive.workflows import run as olive_run
-
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 import json
 from pathlib import Path
 from typing import List
@@ -11,6 +10,11 @@ import mteb
 import numpy as np
 import torch
 from transformers import AutoTokenizer
+
+from olive.constants import Framework
+from olive.engine.footprint import Footprint, FootprintNode
+from olive.model import OliveModelHandler
+from olive.workflows import run as olive_run
 
 
 class OliveEncoder:
