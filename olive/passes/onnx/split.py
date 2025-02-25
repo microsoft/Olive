@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Optional, Type, Union
+from typing import Dict, Optional, Union, Any
 
 import numpy as np
 import onnx
