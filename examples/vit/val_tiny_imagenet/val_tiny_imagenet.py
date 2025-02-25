@@ -76,26 +76,26 @@ with open("vit_id2label.json", "r") as file:
 def evaluate_onnx_model(session, dataloader):
     total_time = 0
     correct_top1, correct_top5, total = 0, 0, 0
-    
+
     for i, (image, label, img_name) in enumerate(dataloader):
         images_np = image.numpy().astype(np.float32)
-        
+
         start_time = time.time()
         result = session.run(None, {"input": images_np})
         end_time = time.time()
         total_time += (end_time - start_time)
-        
+
         logits = result[0]
         top1_pred = np.argmax(logits, axis=-1).item()
         top5_preds = np.argsort(logits, axis=-1)[0, -5:][::-1]
         ground_truth = idx_to_name[label[0]]
         pred_label = config['id2label'][str(top1_pred)]
-        
+
         print(f"Image {i+1}: {img_name[0]}")
         print(f"  Ground Truth: {ground_truth}")
         print(f"  Top-1 Prediction: {pred_label}")
         print(f"  Top-5 Predictions: {[config['id2label'][str(pred)] for pred in top5_preds]}\n")
-        
+
         correct_top1 += (pred_label == ground_truth)
         correct_top5 += (ground_truth in [config['id2label'][str(pred)] for pred in top5_preds])
         total += 1
