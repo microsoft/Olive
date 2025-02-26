@@ -38,6 +38,8 @@ def parse_args(raw_args):
         type=int,
         help="The seed to give to the generator to generate deterministic results.",
     )
+    parser.add_argument("--data_dir", default="quantize_data", type=str)
+    parser.add_argument("--num_data", default=10, type=int)
     return parser.parse_args(raw_args)
 
 
@@ -56,26 +58,27 @@ def main(raw_args=None):
     # Some selected captions from https://huggingface.co/datasets/laion/relaion2B-en-research-safe
     prompts = [
         "Arroyo Hondo Preserve Wedding",
+        "Budget-Friendly Thanksgiving Table Decor Ideas",
         "Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo",
         "Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow",
         "Lovely Anthodium N Roses Arrangement with Cute Teddy",
         "Everyone can join and learn how to cook delicious dishes with us.",
-        "Budget-Friendly Thanksgiving Table Decor Ideas",
         "Image result for youth worker superhero",
         "Road improvements coming along in west Gulfport",
         "Butcher storefront and a companion work, Louis Hayet, Click for value",
         "folding electric bike"
-    ]
+    ][:args.num_data]
     command_base = [
         "python", "stable_diffusion.py",
         "--model_id", args.model_id,
         "--provider", "qnn",
         "--num_inference_steps", str(args.num_inference_steps),
         "--seed", str(args.seed),
-        "--guidance_scale", str(args.guidance_scale)
+        "--guidance_scale", str(args.guidance_scale),
+        "--data_dir", args.data_dir + "/data",
     ]
-    train_num = int(len(prompts) * 0.8)
-    data_path = Path('quantize_data')
+    train_num = math.floor(len(prompts) * 0.8)
+    data_path = Path(args.data_dir)
     unoptimized_path = data_path / 'unoptimized'
     optimized_path = data_path / 'optimized'
 
