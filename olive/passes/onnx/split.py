@@ -36,6 +36,7 @@ class SplitModel(Pass):
                     " Overwrite the one from CaptureSplitInfo pass."
                 ),
             ),
+            **get_external_data_config(),
         }
 
     def _run_for_config(
