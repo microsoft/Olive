@@ -8,6 +8,7 @@ import sys
 from itertools import chain
 from pathlib import Path
 from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
+from typing import Dict, Tuple
 from unittest.mock import patch
 
 import pytest
@@ -24,7 +25,12 @@ from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 @pytest.mark.skipif(sys.version_info > (3, 8), reason="Failed with Python 3.10, need to investigate.")
 @pytest.mark.parametrize(
     ("input_model", "use_dynamo_exporter"),
-    [(get_pytorch_model(), True), (get_hf_model(), True), (get_pytorch_model(), False), (get_hf_model(), False)],
+    [
+        (get_hf_model(), True),
+        (get_hf_model(), False),
+        (get_pytorch_model(), True),
+        (get_pytorch_model(), False),
+    ],
 )
 def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, tmp_path):
     # setup
@@ -189,10 +195,10 @@ def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_con
 @pytest.mark.parametrize(
     "dynamic_shapes",
     [
-        [{"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024], "1": ["y_axis", 0, 6]}],
+        [{0: "axis_batch", 1: "x_axis"}, {0: "axis_batch", 1: "y_axis"}],
         {
-            "input_x": {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
-            "input_y": {"0": ["axis_batch", 0, 1024], "1": ["y_axis", 0, 6]},
+            "input_x": {0: "axis_batch", 1: "x_axis"},
+            "input_y": {0: "axis_batch", 1: "y_axis"},
         },
     ],
 )
@@ -212,11 +218,22 @@ def _get_simulate_torch_float_tensor_inputs(return_tuple: bool = False):
             torch.ones(4),
         )
     return {
+        "y": {"a": torch.zeros(5), "b": torch.ones(5)},
         "w": torch.ones(5),
         "x": (torch.zeros(5), torch.ones(5)),
-        "y": {"a": torch.zeros(5), "b": torch.ones(5)},
         "z": torch.ones(4),
     }
+
+
+class SingnatureOnlyModel(torch.nn.Module):
+    def forward(
+        self,
+        w: torch.Tensor,
+        x: Tuple[torch.Tensor, torch.Tensor],
+        y: Dict[str, torch.Tensor],
+        z: torch.Tensor,
+    ):
+        pass
 
 
 @pytest.mark.parametrize(
@@ -224,30 +241,32 @@ def _get_simulate_torch_float_tensor_inputs(return_tuple: bool = False):
     [
         (
             [
-                {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
-                [{"1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024]}],
-                {"a": {"0": ["axis_batch", 0, 1024]}, "b": {"1": ["x_axis", 0, 8]}},
+                {0: "axis_batch", 1: "x_axis"},
+                [{1: "x_axis"}, {0: "axis_batch"}],
+                {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 None,
             ],
             (
-                {0: ["axis_batch", 0, 1024], 1: ["x_axis", 0, 8]},
-                ({1: ["x_axis", 0, 8]}, {0: ["axis_batch", 0, 1024]}),
-                {"a": {0: ["axis_batch", 0, 1024]}, "b": {1: ["x_axis", 0, 8]}},
+                {0: "axis_batch", 1: "x_axis"},
+                ({1: "x_axis"}, {0: "axis_batch"}),
+                {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 None,
             ),
             _get_simulate_torch_float_tensor_inputs(return_tuple=True),
         ),
         (
+            # We mess up the order of inputs and dynamic shapes from the model signature
+            # to test that the validation can order it back.
             {
-                "w": {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
-                "x": [{"1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024]}],
-                "y": {"a": {"0": ["axis_batch", 0, 1024]}, "b": {"1": ["x_axis", 0, 8]}},
+                "y": {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
+                "w": {0: "axis_batch", 1: "x_axis"},
+                "x": [{1: "x_axis"}, {0: "axis_batch"}],
                 "z": None,
             },
             {
-                "w": {0: ["axis_batch", 0, 1024], 1: ["x_axis", 0, 8]},
-                "x": ({1: ["x_axis", 0, 8]}, {0: ["axis_batch", 0, 1024]}),
-                "y": {"a": {0: ["axis_batch", 0, 1024]}, "b": {1: ["x_axis", 0, 8]}},
+                "w": {0: "axis_batch", 1: "x_axis"},
+                "x": ({1: "x_axis"}, {0: "axis_batch"}),
+                "y": {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 "z": None,
             },
             _get_simulate_torch_float_tensor_inputs(return_tuple=False),
@@ -255,8 +274,10 @@ def _get_simulate_torch_float_tensor_inputs(return_tuple: bool = False):
     ],
     ids=["in_nested_tuple_inputs", "in_nested_dict_format"],
 )
-def test___validate_dynamic_shapes_follow_input_format(dynamic_shapes, expected_dynamic_shapes, inputs):
+def test___validate_dynamic_shapes_follow_input_format_and_follow_order_of_model_sig(
+    dynamic_shapes, expected_dynamic_shapes, inputs
+):
     from olive.passes.onnx.conversion import _validate_dynamic_shapes
 
-    converted_dynamic_shapes = _validate_dynamic_shapes(dynamic_shapes, inputs)
+    converted_dynamic_shapes, _, _ = _validate_dynamic_shapes(dynamic_shapes, inputs, SingnatureOnlyModel())
     assert converted_dynamic_shapes == expected_dynamic_shapes

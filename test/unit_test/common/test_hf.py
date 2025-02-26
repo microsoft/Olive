@@ -98,7 +98,7 @@ def test_get_model_io_config(with_past):
     model_name, task = get_model_name_task(with_past)
     model = load_model_from_task(task, model_name)
     io_config = get_model_io_config(model_name, task, model)
-    expected_keys = ["input_names", "output_names", "dynamic_axes"]
+    expected_keys = ["input_names", "output_names", "dynamic_axes", "dynamic_shapes"]
     assert set(io_config.keys()) == set(expected_keys)
     expected_input_names = ["input_ids", "attention_mask", "position_ids"]
     expected_output_names = ["logits"]
@@ -109,3 +109,11 @@ def test_get_model_io_config(with_past):
     assert io_config["input_names"] == expected_input_names
     assert io_config["output_names"] == expected_output_names
     assert set(io_config["dynamic_axes"].keys()) == set(expected_input_names + expected_output_names)
+    # dynamic_shapes has nested past_key_values and only includes input names
+    if with_past:
+        assert (
+            len(expected_input_names)
+            == len(io_config["dynamic_shapes"]) - 1 + len(io_config["dynamic_shapes"]["past_key_values"]) * 2
+        )
+    else:
+        assert len(expected_input_names) == len(io_config["dynamic_shapes"])
