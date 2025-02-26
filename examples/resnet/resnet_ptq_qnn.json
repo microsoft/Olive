@@ -61,10 +61,7 @@
                     "type": "latency",
                     "data_config": "quantize_data_config",
                     "sub_types": [
-                        { "name": "avg", "priority": 2 },
-                        { "name": "p75" },
-                        { "name": "p90" },
-                        { "name": "p99" }
+                        { "name": "avg", "priority": 2 }
                     ],
                     "user_config": {
                         "inference_settings": {
@@ -83,10 +80,7 @@
                     "type": "latency",
                     "data_config": "quantize_data_config",
                     "sub_types": [
-                        { "name": "avg", "priority": 3 },
-                        { "name": "p75" },
-                        { "name": "p90" },
-                        { "name": "p99" }
+                        { "name": "avg", "priority": 3 }
                     ],
                     "user_config": {
                         "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
