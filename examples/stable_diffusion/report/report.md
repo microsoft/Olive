@@ -98,3 +98,21 @@ Compared with [ASG](https://perceptiveshell.azurewebsites.net/2.9.7/pg_models.ht
 So questions are:
 
 - For the text encoder and unet model, how the nodes are processed? i.e. please share some insights about what nodes should be processed specially to keep accuracy.
+
+## Data and Config (50 iterations)
+
+- Model: stabilityai/stable-diffusion-2-1
+- Num steps: 50
+- Guidance Scale: 7.5
+- Prompts: Use 3 captions from https://huggingface.co/datasets/laion/relaion2B-en-research-safe, 2 for training and 1 for testing
+
+### Unet is quantized
+
+| Prompt | MSE |
+|-|-|
+| Arroyo Hondo Preserve Wedding | 312.977997 |
+| Budget-Friendly Thanksgiving Table Decor Ideas | 3263.403564 |
+| Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo | 211.961319 |
+
+Average train error 1788.190796
+Average test error 211.961319
