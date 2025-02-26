@@ -16,7 +16,6 @@ RUN apt-get update && \
     unzip \
     docker.io
 RUN ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
-RUN pip install -U setuptools pip
 
 COPY . /olive
 WORKDIR /olive
