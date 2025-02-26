@@ -95,8 +95,7 @@ include_patterns = [
   '**/*.py'
 ]
 exclude_patterns = [
-  '**/hadamard_utils.py',
-  '**/vit_id2label.json'
+  '**/hadamard_utils.py'
 ]
 command = [
   'python',
@@ -257,6 +256,7 @@ command = [
 code = "FORMAT-JSON"
 is_formatter = true
 include_patterns = ['**/*.json']
+exclude_patterns = ['**/vit_id2label.json']
 command = [
   'python',
   'scripts/format_json.py',

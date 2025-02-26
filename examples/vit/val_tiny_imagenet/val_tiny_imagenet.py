@@ -20,14 +20,14 @@ val_images_path = os.path.join(dataset_path, "val\\images")
 val_labels_path = os.path.join(dataset_path, "val\\val_annotations.txt")
 
 img_to_idx = {}
-with open(val_labels_path, "r") as f:
+with open(val_labels_path) as f:
     for line in f.readlines():
         parts = line.strip().split("\t")
         img_to_idx[parts[0]] = parts[1]
 
 words_path = os.path.join(dataset_path, "words.txt")
 idx_to_name = {}
-with open(words_path, "r") as f:
+with open(words_path) as f:
     for line in f.readlines():
         parts = line.strip().split("\t")
         if len(parts) == 2:
@@ -74,7 +74,7 @@ session = onnxruntime.InferenceSession(
     provider_options=[{"backend_path": "QnnHtp.dll"}],
 )
 
-with open("vit_id2label.json", "r") as file:
+with open("vit_id2label.json") as file:
     config = json.load(file)
 
 
