@@ -34,6 +34,8 @@ jobs:
           reporter: github-pr-check
           level: info
           filter_mode: file
+          exclude: |
+            ./examples/vit/val_tiny_imagenet/vit_id2label.json
 
   lint-python-format:
     # Required workflow
