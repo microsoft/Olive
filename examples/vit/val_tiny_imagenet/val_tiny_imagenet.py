@@ -95,7 +95,7 @@ def evaluate_onnx_model(session, dataloader):
         logits = result[0]
         top1_pred = np.argmax(logits, axis=-1).item()
         top5_preds = np.argsort(logits, axis=-1)[0, -5:][::-1]
-        ground_truth = idx_to_name[label[0]]
+        ground_truth = val_idx_to_name[label[0]]
         pred_label = vit_id2label["id2label"][str(top1_pred)]
 
         print(f"Image {i+1}: {img_name[0]}")
