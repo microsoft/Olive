@@ -17,7 +17,8 @@ evaluate
 # Use the forked version of TransformerCompression for now.
 # https://github.com/microsoft/TransformerCompression/issues/183
 # TODO(team): Switch back to the original version once it's compatible with transformers>=4.42.0
-git+https://github.com/xiaoyu-work/TransformerCompression.git ; python_version >= "3.10"
+# TODO(team): Installation fails with setup tools version mismatch.
+# git+https://github.com/xiaoyu-work/TransformerCompression.git ; python_version >= "3.10"
 # latest 3.24.0 will break the pipeline
 # TODO(team): 55399 Switch back to the latest version once it's compatible with the pipeline
 marshmallow<3.24.0

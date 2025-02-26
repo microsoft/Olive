@@ -22,7 +22,6 @@ fi
 
 # Step 3: Install additional dependencies
 echo "Installing additional dependencies..."
-pip install -U setuptools
 pip install pytest azure-identity azure-storage-blob tabulate
 pip install -r "$4"
 
