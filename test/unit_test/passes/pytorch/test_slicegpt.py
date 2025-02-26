@@ -2,10 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import sys
-
 import pytest
-import torch
 
 from olive.data.template import huggingface_data_config_template
 from olive.model import HfModelHandler
