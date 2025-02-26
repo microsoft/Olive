@@ -2,12 +2,15 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from pathlib import Path
+
 import numpy as np
 import torchvision.transforms as transforms
-from olive.data.registry import Registry
-from pathlib import Path
 from torch import from_numpy
 from torch.utils.data import Dataset
+
+from olive.data.registry import Registry
+
 
 class ImagenetDataset(Dataset):
     def __init__(self, data):
@@ -20,9 +23,11 @@ class ImagenetDataset(Dataset):
     def __getitem__(self, idx):
         return {"input": self.images[idx]}, self.labels[idx]
 
+
 @Registry.register_post_process()
 def dataset_post_process(output):
     return output.argmax(axis=1)
+
 
 preprocess = transforms.Compose(
     [
@@ -32,6 +37,7 @@ preprocess = transforms.Compose(
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ]
 )
+
 
 @Registry.register_pre_process()
 def dataset_pre_process(output_data, **kwargs):

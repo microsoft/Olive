@@ -95,7 +95,8 @@ include_patterns = [
   '**/*.py'
 ]
 exclude_patterns = [
-  '**/hadamard_utils.py'
+  '**/hadamard_utils.py',
+  '**/vit_id2label.json'
 ]
 command = [
   'python',
