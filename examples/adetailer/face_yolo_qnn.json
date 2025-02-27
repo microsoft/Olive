@@ -3,7 +3,7 @@
     "systems": {
         "qnn_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
+            "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
         }
     },
     "data_configs": [
@@ -17,15 +17,15 @@
                 "streaming": true,
                 "trust_remote_code": true
             },
-            "pre_process_data_config": { "type": "face_pre_process", "size": 7, "cache_key": "wider_face" },
+            "pre_process_data_config": { "type": "face_pre_process", "size": 128, "cache_key": "wider_face" },
             "dataloader_config": { "type": "no_auto_batch_dataloader" }
         }
     ],
     "evaluators": {
         "common_evaluator": {
-            "metrics": [
+            "metrics": [                              
                 {
-                    "name": "accuracy",
+                    "name": "accuracy_qnn",
                     "type": "custom",
                     "data_config": "face_data_config",
                     "sub_types": [                        
@@ -42,15 +42,46 @@
                     ],
                     "user_config": {
                         "user_script": "user_script.py",
-                        "metric_func": "face_metric"
+                        "metric_func": "face_metric",
+                        "inference_settings": {
+                            "onnx": {
+                                "session_options": {
+                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "1" }
+                                },
+                                "execution_provider": "QNNExecutionProvider",
+                                "provider_options": [ { "backend_path": "QnnHtp.dll" } ]
+                            }
+                        }
                     }
                 },
+                {
+                    "name": "accuracy_cpu",
+                    "type": "custom",
+                    "data_config": "face_data_config",
+                    "sub_types": [                        
+                        {
+                            "name": "map 50",
+                            "priority": 3,
+                            "higher_is_better": true
+                        },
+                        {
+                            "name": "map 50-95",
+                            "priority": 4,
+                            "higher_is_better": true
+                        }
+                    ],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "metric_func": "face_metric",
+                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
+                    }
+                },  
                 {
                     "name": "latency_qnn",
                     "type": "latency",
                     "data_config": "face_data_config",
                     "sub_types": [
-                        { "name": "avg", "priority": 3 }
+                        { "name": "avg", "priority": 5 }
                     ],
                     "user_config": {
                         "inference_settings": {
@@ -69,7 +100,7 @@
                     "type": "latency",
                     "data_config": "face_data_config",
                     "sub_types": [
-                        { "name": "avg", "priority": 4 }
+                        { "name": "avg", "priority": 6 }
                     ],
                     "user_config": {
                         "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
@@ -79,6 +110,7 @@
         }
     },
     "passes": {
+        "QNNPreprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
         "OnnxQuantization": {
             "type": "OnnxQuantization",
             "data_config": "face_data_config",
@@ -94,6 +126,6 @@
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
     "clean_cache": true,
-    "output_dir": "models/face_yolo",
+    "output_dir": "models/face/output",
     "evaluate_input_model": true
 }
