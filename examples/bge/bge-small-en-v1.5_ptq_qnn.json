@@ -87,7 +87,6 @@
             ]
         }
     },
-    "pass_flows": [ [ "conversion", "dynamic_shape_to_fixed", "QNNPreprocess", "OnnxQuantization" ] ],
     "evaluator": "common_evaluator",
     "host": "local_system",
     "target": "local_system",
