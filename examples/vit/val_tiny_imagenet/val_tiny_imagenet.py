@@ -8,6 +8,7 @@
 import json
 import os
 import time
+from pathlib import Path
 
 import numpy as np
 import onnxruntime
@@ -18,9 +19,9 @@ from torch.utils.data import DataLoader, Dataset
 # Download Tiny-ImageNet-200 dataset
 # You can download it from: http://cs231n.stanford.edu/tiny-imagenet-200.zip
 # Extract the contents and update dataset_path accordingly
-dataset_path = "path_to_tiny_imagenet"
-val_images_path = os.path.join(dataset_path, "val\\images")
-val_labels_path = os.path.join(dataset_path, "val\\val_annotations.txt")
+dataset_path = Path("path_to_tiny_imagenet")
+val_images_path = dataset_path / "val" / "images"
+val_labels_path = dataset_path / "val" / "val_annotations.txt"
 
 val_img_to_idx = {}
 with open(val_labels_path) as f:
