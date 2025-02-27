@@ -23,15 +23,15 @@ def update_qnn_config(config: Dict, submodel_name: str):
         config["pass_flows"] = [["convert"]]
     # TODO(hualxie): onnx or onnxruntime needs to fix this
     elif submodel_name == "unet":
-        config["input_model"]["io_config"]["dynamic_axes"] = None
-        config["input_model"]["io_config"]["input_shapes"] = [
-            [ 1, 4, sd_utils.config.unet_sample_size, sd_utils.config.unet_sample_size ],
-            [ 1 ],
-            [ 1, 77, sd_utils.config.cross_attention_dim ],
-            [1]
-        ]
-        config["input_model"]["dummy_inputs_func"] = None
-        config["pass_flows"] = [["convert"]]
+        #config["input_model"]["io_config"]["dynamic_axes"] = None
+        # config["input_model"]["io_config"]["input_shapes"] = [
+        #     [ 1, 4, sd_utils.config.unet_sample_size, sd_utils.config.unet_sample_size ],
+        #     [ 1 ],
+        #     [ 1, 77, sd_utils.config.cross_attention_dim ],
+        #     [1]
+        # ]
+        #config["input_model"]["dummy_inputs_func"] = None
+        config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "peephole", "qnn_preprocess", "quantization"]]
     else:
         config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "peephole", "qnn_preprocess", "quantization"]]
     config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
