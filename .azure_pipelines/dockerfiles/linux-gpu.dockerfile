@@ -41,5 +41,5 @@ COPY . /olive
 WORKDIR /olive
 RUN python -m venv olive-venv
 RUN . olive-venv/bin/activate && \
-    python -m pip install --upgrade setuptools && \
-    python -m pip install -e .
+    pip install --upgrade setuptools && \
+    pip install -e .
