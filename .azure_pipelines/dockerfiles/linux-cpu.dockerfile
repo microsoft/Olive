@@ -19,4 +19,7 @@ RUN ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 
 COPY . /olive
 WORKDIR /olive
-RUN pip install -e .
+RUN python -m venv olive-venv
+RUN . olive-venv/bin/activate && \
+    python -m pip install --upgrade setuptools && \
+    python -m pip install -e .
