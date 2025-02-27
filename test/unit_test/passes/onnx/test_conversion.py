@@ -24,17 +24,21 @@ from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 
 @pytest.mark.skipif(sys.version_info > (3, 8), reason="Failed with Python 3.10, need to investigate.")
 @pytest.mark.parametrize(
-    ("input_model", "use_dynamo_exporter"),
+    ("input_model", "use_dynamo_exporter", "dynamic"),
     [
-        (get_hf_model(), True),
-        (get_hf_model(), False),
-        (get_pytorch_model(), True),
-        (get_pytorch_model(), False),
+        (get_hf_model(), True, True),
+        (get_hf_model(), False, True),
+        (get_hf_model(), True, False),
+        (get_pytorch_model(), True, True),
+        (get_pytorch_model(), False, True),
+        (get_pytorch_model(), True, False),
     ],
 )
-def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, tmp_path):
+def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, dynamic, tmp_path):
     # setup
-    p = create_pass_from_dict(OnnxConversion, {"use_dynamo_exporter": use_dynamo_exporter}, disable_search=True)
+    p = create_pass_from_dict(
+        OnnxConversion, {"use_dynamo_exporter": use_dynamo_exporter, "dynamic": dynamic}, disable_search=True
+    )
     output_folder = str(tmp_path / "onnx")
     # The conversion need torch version > 1.13.1, otherwise, it will complain
     # Unsupported ONNX opset version: 18
@@ -279,5 +283,8 @@ def test___validate_dynamic_shapes_follow_input_format_and_follow_order_of_model
 ):
     from olive.passes.onnx.conversion import _validate_dynamic_shapes
 
-    converted_dynamic_shapes, _, _ = _validate_dynamic_shapes(dynamic_shapes, inputs, SingnatureOnlyModel())
+    if isinstance(dynamic_shapes, (tuple, list)):
+        converted_dynamic_shapes, _, _ = _validate_dynamic_shapes(dynamic_shapes, inputs, {}, SingnatureOnlyModel())
+    else:
+        converted_dynamic_shapes, _, _ = _validate_dynamic_shapes(dynamic_shapes, (), inputs, SingnatureOnlyModel())
     assert converted_dynamic_shapes == expected_dynamic_shapes
