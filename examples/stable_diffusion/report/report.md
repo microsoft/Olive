@@ -116,3 +116,27 @@ So questions are:
 
 Average train error 1788.190796
 Average test error 211.961319
+
+## Data and Config (turbo)
+
+- Model: stabilityai/sd-turbo
+- Num steps: 1
+- Guidance Scale: 0
+
+## Unet is quantized
+
+| Prompt | MSE |
+|-|-|
+| Arroyo Hondo Preserve Wedding | 206.009277 |
+| Budget-Friendly Thanksgiving Table Decor Ideas | 357.284088 |
+| Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo | 235.289551 |
+| Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow | 661.799622 |
+| Lovely Anthodium N Roses Arrangement with Cute Teddy | 760.237061 |
+| Everyone can join and learn how to cook delicious dishes with us. | 701.614258 |
+| Image result for youth worker superhero | 1077.782349 |
+| Road improvements coming along in west Gulfport | 272.503571 |
+| Butcher storefront and a companion work, Louis Hayet, Click for value | 172.381332 |
+| folding electric bike | 333.455811 |
+
+Average train error 534.064941
+Average test error 252.918579
