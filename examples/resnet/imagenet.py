@@ -52,7 +52,7 @@ def dataset_pre_process(output_data, **kwargs):
         if cache_file.exists():
             with np.load(Path(cache_file)) as data:
                 return ImagenetDataset(data)
-    
+
     labels = []
     images = []
     for i, sample in enumerate(output_data):

@@ -1,2 +1,2 @@
-ultralytics
 pycocotools
+ultralytics
