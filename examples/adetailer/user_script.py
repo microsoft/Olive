@@ -16,7 +16,7 @@ from olive.data.registry import Registry
 logger = getLogger(__name__)
 
 # The number of boxes in the labels is not fixed.
-# If they are directly used as the return value of the FaceDataset, 
+# If they are directly used as the return value of the FaceDataset,
 # an error will occur when performing torch.cat(targets, dim=0) later.
 # So, this cache is used as a workaround.
 _curlabels_np = None
