@@ -41,7 +41,9 @@ class DataReader(CalibrationDataReader):
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--qdq_config", type=str, default="qdq_config.json", help="Path to qdq config")
-    parser.add_argument("--error", type=float, default=30, help="Error to exclude")
+    parser.add_argument("--error", type=float, default=30, help="Error < this to exclude")
+    parser.add_argument("--float_model", type=str, default=None)
+    parser.add_argument("--qdq_model", type=str, default=None)
     args = parser.parse_args()
     return args
 
@@ -174,11 +176,17 @@ def get_nodes(G: networkx.DiGraph, error_outputs: list[str], parents: Dict[str, 
 def main():
     # Process input parameters and setup model input data reader
     args = get_args()
-
-    with Path(args.qdq_config).open() as fin:
-        olive_config = json.load(fin)
-    qdq_model_path = olive_config["output_dir"] + "/output_model/model.onnx"
-    float_model_path = olive_config["input_model"]["model_path"]
+    use_config = True
+    if args.float_model and args.qdq_model:
+        float_model_path = args.float_model
+        qdq_model_path = args.qdq_model
+        args.error = -100
+        use_config = False
+    else:
+        with Path(args.qdq_config).open() as fin:
+            olive_config = json.load(fin)
+        qdq_model_path = olive_config["output_dir"] + "/output_model/model.onnx"
+        float_model_path = olive_config["input_model"]["model_path"]
     model = onnx.load(float_model_path)
     valid_values, parents = get_valid_values(model)
     G = get_graph(model, valid_values)
@@ -187,7 +195,8 @@ def main():
     float_activations = augment_collect(float_model_path, data_reader)
 
     while True:
-        olive_run(olive_config)
+        if use_config:
+            olive_run(olive_config)
         qdq_activations = augment_collect(qdq_model_path, data_reader)
         assert len(float_activations) == len(qdq_activations)
         error_outputs = compare_get(qdq_activations, float_activations, args.error, level_nodes)
@@ -201,7 +210,8 @@ def main():
         print(f"Error nodes: {error_nodes}")
         olive_config["passes"]["OnnxQuantization"]["nodes_to_exclude"].extend(error_nodes)
 
-    json.dump(olive_config, Path(args.qdq_config +  ".final.json").open("w"), indent=4)
+    if use_config:
+        json.dump(olive_config, Path(args.qdq_config +  ".final.json").open("w"), indent=4)
 
 
 if __name__ == "__main__":
