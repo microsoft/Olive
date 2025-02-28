@@ -127,6 +127,6 @@ def test_mnb_to_qdq(
         # Pre transposed DQ model does not match the expected output on x64 CPU
         # check for assertion failure so we know when the test is fixed
         with pytest.raises(AssertionError):
-            np.testing.assert_allclose(original_output, qdq_output, rtol=1e-3, atol=1e-3)
+            np.testing.assert_allclose(original_output, qdq_output, rtol=1e-4, atol=1e-4)
     else:
-        np.testing.assert_allclose(original_output, qdq_output, rtol=1e-3, atol=1e-3)
+        np.testing.assert_allclose(original_output, qdq_output, rtol=1e-4, atol=1e-4)
