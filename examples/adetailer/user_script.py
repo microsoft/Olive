@@ -16,7 +16,8 @@ from olive.data.registry import Registry
 logger = getLogger(__name__)
 
 # The number of boxes in the labels is not fixed.
-# If they are directly used as the return value of the FaceDataset, an error will occur when performing torch.cat(targets, dim=0) later.
+# If they are directly used as the return value of the FaceDataset, 
+# an error will occur when performing torch.cat(targets, dim=0) later.
 # So, this cache is used as a workaround.
 _curlabels_np = None
 
@@ -24,8 +25,8 @@ _curlabels_np = None
 class FaceDataset(Dataset):
     def __init__(self, data):
         global _curlabels_np
-        self.images_np = data["images"]
         _curlabels_np = data["labels"]
+        self.images_np = data["images"]
 
     def __len__(self):
         return min(len(self.images_np), len(_curlabels_np))
@@ -127,7 +128,6 @@ def face_pre_process(validation_dataset, **kwargs):
 
 
 def face_metric(model_output, targets):
-    global _curlabels_np
     prediction_data = []
     target_data = []
 
