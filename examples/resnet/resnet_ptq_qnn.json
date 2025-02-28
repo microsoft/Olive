@@ -26,7 +26,7 @@
                 "streaming": true,
                 "trust_remote_code": true
             },
-            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet256" },
+            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet" },
             "post_process_data_config": { "type": "imagenet_post_fun" }
         }
     ],
@@ -34,7 +34,7 @@
         "common_evaluator": {
             "metrics": [
                 {
-                    "name": "accuracy",
+                    "name": "accuracy_qnn",
                     "type": "accuracy",
                     "data_config": "quantize_data_config",
                     "sub_types": [
@@ -57,11 +57,26 @@
                     }
                 },
                 {
+                    "name": "accuracy_cpu",
+                    "type": "accuracy",
+                    "data_config": "quantize_data_config",
+                    "sub_types": [
+                        {
+                            "name": "accuracy_score",
+                            "priority": 2,
+                            "metric_config": { "task": "multiclass", "num_classes": 1001 }
+                        }
+                    ],
+                    "user_config": {
+                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
+                    }
+                },
+                {
                     "name": "latency_qnn",
                     "type": "latency",
                     "data_config": "quantize_data_config",
                     "sub_types": [
-                        { "name": "avg", "priority": 2 }
+                        { "name": "avg", "priority": 3 }
                     ],
                     "user_config": {
                         "inference_settings": {
@@ -80,7 +95,7 @@
                     "type": "latency",
                     "data_config": "quantize_data_config",
                     "sub_types": [
-                        { "name": "avg", "priority": 3 }
+                        { "name": "avg", "priority": 4 }
                     ],
                     "user_config": {
                         "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
@@ -99,14 +114,14 @@
             "dynamic": false,
             "use_dynamo_exporter": false
         },
-        "QNNPreprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
+        "QNNPreprocess": { "type": "QNNPreprocess" },
         "OnnxQuantization": {
             "type": "OnnxQuantization",
+            "quant_preprocess": true,
             "data_config": "quantize_data_config",
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
-            "calibrate_method": "MinMax",
-            "quant_preprocess": true,
+            "calibrate_method": "MinMax"
             "prepare_qnn_config": true
         }
     },

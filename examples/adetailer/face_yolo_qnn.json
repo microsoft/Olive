@@ -110,15 +110,16 @@
         }
     },
     "passes": {
-        "QNNPreprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
+        "QNNPreprocess": { "type": "QNNPreprocess" },
         "OnnxQuantization": {
-            "type": "OnnxQuantization",
+            "type": "OnnxStaticQuantization",
+            "quant_preprocess": true,
             "data_config": "face_data_config",
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
-            "quant_preprocess": true,
-            "prepare_qnn_config": true
+            "op_types_to_quantize": ["Reshape", "Transpose", "Softmax", "Add", "Split","AveragePool", "Div", "Conv", "Sigmoid", "Slice", "MaxPool", "Sub", "Concat", "Resize"]
+        
         }
     },
     "host": "qnn_system",
