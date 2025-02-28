@@ -1,5 +1,6 @@
 numpy
 onnx
+onnxscript
 optuna
 pandas
 protobuf<4.0.0

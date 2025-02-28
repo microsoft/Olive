@@ -8,7 +8,7 @@ import logging
 from functools import partial
 from pathlib import Path
 from types import FunctionType, MethodType
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import yaml
 
@@ -358,3 +358,31 @@ def convert_configs_to_dicts(config: Any) -> Any:
     if isinstance(config, list):
         return [convert_configs_to_dicts(v) for v in config]
     return config
+
+
+def get_the_flattened_and_tree_spec(
+    dynamic_shapes: Union[Dict[str, Any], List[Any]], leave_is_str: bool = False
+) -> Tuple[List[Any], Any]:
+    """Flattens a pytree into a list of values and a TreeSpec that can be used to reconstruct the pytree."""
+    # More info: https://github.com/pytorch/pytorch/blob/48203bec636692e1a9140fe7f23ba1323b19550d/torch/utils/_pytree.py#L985
+    from torch.utils import _pytree
+
+    def is_axes_with_str_key(x) -> bool:
+        # axes can be either a dict or a list/tuple
+        # dict: {str: str}
+        # list/tuple: [str]
+        return (
+            isinstance(x, dict)
+            and all(isinstance(k, str) and (v is None or isinstance(v, (str, int))) for k, v in x.items())
+        ) or (isinstance(x, (list, tuple)) and all(v is None or isinstance(v, (str, int)) for v in x))
+
+    def is_axes_with_int_key(x) -> bool:
+        # axes can be either a dict or a list/tuple
+        # dict: {int: str}
+        # list/tuple: [str]
+        return (
+            isinstance(x, dict)
+            and all(isinstance(k, int) and (v is None or isinstance(v, (str, int))) for k, v in x.items())
+        ) or (isinstance(x, (list, tuple)) and all(v is None or isinstance(v, (str, int)) for v in x))
+
+    return _pytree.tree_flatten(dynamic_shapes, is_leaf=is_axes_with_str_key if leave_is_str else is_axes_with_int_key)
