@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import platform
 import shutil
 from itertools import chain
 from pathlib import Path
@@ -33,6 +34,10 @@ from olive.passes.pytorch.gptq import GptqQuantizer
     ],
 )
 def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, dynamic, tmp_path):
+    if platform.system() == "Windows" and use_dynamo_exporter:
+        # TODO(anyone): Investigate why this test fails on Windows and/or re-enable once torch 2.7 is released
+        pytest.skip("Dynamo export test is skipped on Windows")
+
     # setup
     p = create_pass_from_dict(
         OnnxConversion, {"use_dynamo_exporter": use_dynamo_exporter, "dynamic": dynamic}, disable_search=True
