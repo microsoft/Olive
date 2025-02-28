@@ -19,6 +19,7 @@ logger = getLogger(__name__)
 # If they are directly used as the return value of the FaceDataset,
 # an error will occur when performing torch.cat(targets, dim=0) later.
 # So, this cache is used as a workaround.
+# pylint: disable=global-statement
 _curlabels_np = None
 
 
