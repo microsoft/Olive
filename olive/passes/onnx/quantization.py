@@ -400,7 +400,8 @@ class OnnxQuantization(Pass):
             if not preprocessed_temp_model_path.exists():
                 # overwrite the model path with the preprocessed model path
                 logger.info("Preprocessing model for quantization")
-                model = self._quant_preprocess(model, preprocessed_temp_model_path)
+                # always save as external data to avoid failures due to large models
+                model = _quant_preprocess(model, preprocessed_temp_model_path, save_as_external_data=True)
             else:
                 logger.info("Already processed model for quantization, skipping preprocessing")
                 model = ONNXModelHandler(LocalFile({"path": preprocessed_temp_model_path}))
@@ -526,36 +527,65 @@ class OnnxQuantization(Pass):
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
-    def _quant_preprocess(self, model: ONNXModelHandler, output_model_path: Union[str, Path]) -> ONNXModelHandler:
-        from onnxruntime.quantization.preprocess import quant_pre_process
+def _quant_preprocess(
+        model: ONNXModelHandler,
+        output_model_path: Union[str, Path],
+        save_as_external_data: bool,
+        all_tensors_to_one_file: bool = True,
+        external_data_name: str = None,
+        size_threshold: int = 1024) -> ONNXModelHandler:
+    from onnxruntime.quantization.preprocess import quant_pre_process
 
-        try:
-            quant_pre_process(
-                input_model_path=model.model_path,
-                output_model_path=str(output_model_path),
-                auto_merge=True,
-                save_as_external_data=True,
-                verbose=3,  # set verbose to 3 to get more information about the preprocessing
-            )
-        except Exception as e:
-            # TODO(jambayk): try with `skip_optimization = True`
-            # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
-            # there are some problems with the path to where the external data is saved
-            # need to find out why before enabling this
+    try:
+        quant_pre_process(
+            input_model_path=model.model_path,
+            output_model_path=str(output_model_path),
+            auto_merge=True,
+            save_as_external_data=save_as_external_data,
+            all_tensors_to_one_file=all_tensors_to_one_file,
+            external_data_location=external_data_name,
+            external_data_size_threshold=size_threshold,
+            verbose=3,  # set verbose to 3 to get more information about the preprocessing
+        )
+    except Exception as e:
+        # TODO(jambayk): try with `skip_optimization = True`
+        # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
+        # there are some problems with the path to where the external data is saved
+        # need to find out why before enabling this
 
-            logger.warning(
-                "Failed to run quantization preprocessing with error of %s. Using original model.", e, exc_info=True
-            )
-            # save original model to output path
-            onnx_model = onnx.load(model.model_path)
-            model_proto_to_file(
-                onnx_model,
-                output_model_path,
-                save_as_external_data=True,  # always save as external data to avoid failures due to large models
-            )
+        logger.warning(
+            "Failed to run quantization preprocessing with error of %s. Using original model.", e, exc_info=True
+        )
+        # save original model to output path
+        onnx_model = onnx.load(model.model_path)
+        model_proto_to_file(
+            onnx_model,
+            output_model_path,
+            save_as_external_data=save_as_external_data,
+            all_tensors_to_one_file=all_tensors_to_one_file,
+            external_data_name=external_data_name,
+            size_threshold=size_threshold,
+        )
 
-        # since this is only used internally, we will just treat it as a model file
-        return ONNXModelHandler(LocalFile({"path": output_model_path}))
+    # since this is only used internally, we will just treat it as a model file
+    return ONNXModelHandler(LocalFile({"path": output_model_path}))
+
+
+class OnnxQuantizationPreprocess(Pass):
+    """ONNX Quantization Preprocess Pass. Same as OnnxQuantization quant_preprocess"""
+    
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        configs = get_external_data_config()
+        configs.pop("convert_attribute")
+        return {
+            **configs,
+        }
+    
+    def _run_for_config(
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+    ) -> ONNXModelHandler:
+        return _quant_preprocess(model, output_model_path, **config.dict())
 
 
 class OnnxDynamicQuantization(OnnxQuantization):
