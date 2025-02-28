@@ -19,10 +19,8 @@ jobs:
   parameters:
     name: Linux_CI_Unit_Test_Olive
     pool: $(OLIVE_POOL_UBUNTU2004)
-    device: 'cpu'
     windows: False
     test_type: 'unit_test'
-    onnxruntime: onnxruntime
     onnxruntime_nightly: true
 
 # Linux GPU unit test
@@ -30,22 +28,17 @@ jobs:
   parameters:
     name: Linux_GPU_CI_Unit_Test_Olive
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
-    device: 'gpu'
     windows: False
     test_type: 'unit_test'
-    onnxruntime: onnxruntime-gpu
     onnxruntime_nightly: true
-    requirements_file: 'requirements-test-gpu.txt'
 
 # Windows unit test
 - template: job_templates/olive-test-cpu-template.yaml
   parameters:
     name: Windows_CI_Unit_Test_Olive
     pool: $(OLIVE_POOL_WIN2019)
-    device: 'cpu'
     windows: True
     test_type: 'unit_test'
-    onnxruntime: onnxruntime-gpu
     onnxruntime_nightly: true
 
 # Linux examples test
@@ -101,8 +94,12 @@ jobs:
   parameters:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    device: 'gpu'
     onnxruntime: onnxruntime-gpu
     onnxruntime_nightly: true
+    dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
+    base_image: 'nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04'
+    trt_version: '10.5.0.18-1+cuda12.6'
     examples:
       bert_cuda_gpu:
         exampleFolder: bert
