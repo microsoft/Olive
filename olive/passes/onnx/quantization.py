@@ -788,7 +788,7 @@ def _validate_weight_only_quant_config(v, values, field):
 
     config_keys = list(v.keys())
     if values["algorithm"] == "DEFAULT":
-        default_config_keys = ["block_size", "is_symmetric", "accuracy_level"]0
+        default_config_keys = ["block_size", "is_symmetric", "accuracy_level"]
     elif values["algorithm"] == "RTN":
         default_config_keys = ["ratios"]
     elif values["algorithm"] == "HQQ":
