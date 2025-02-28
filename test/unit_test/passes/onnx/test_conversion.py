@@ -2,9 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import platform
 import shutil
-import sys
 from itertools import chain
 from pathlib import Path
 from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
@@ -15,14 +13,14 @@ import pytest
 import torch
 
 from olive.common.config_utils import validate_config
-from olive.common.constants import OS
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
+from olive.passes.onnx.onnx_dag import OnnxDAG
+from olive.passes.pytorch.gptq import GptqQuantizer
 
 
-@pytest.mark.skipif(sys.version_info > (3, 8), reason="Failed with Python 3.10, need to investigate.")
 @pytest.mark.parametrize(
     ("input_model", "use_dynamo_exporter", "dynamic"),
     [
@@ -40,40 +38,32 @@ def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, d
         OnnxConversion, {"use_dynamo_exporter": use_dynamo_exporter, "dynamic": dynamic}, disable_search=True
     )
     output_folder = str(tmp_path / "onnx")
-    # The conversion need torch version > 1.13.1, otherwise, it will complain
-    # Unsupported ONNX opset version: 18
     onnx_model = p.run(input_model, output_folder)
 
     assert Path(onnx_model.model_path).exists()
 
 
-# TODO(team): Failed in pipeline (linux gpu). Need to investigate.
-@pytest.mark.skipif(
-    platform.system() == OS.WINDOWS or not torch.cuda.is_available() or True,
-    reason="bitsandbytes requires Linux GPU.",
-)
-@pytest.mark.parametrize("add_quantized_modules", [True, False])
-def test_onnx_conversion_pass_quant_model(add_quantized_modules, tmp_path):
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="GPU is not available")
+def test_onnx_conversion_pass_quant_model(tmp_path):
     # setup
-    quantized_modules = ["v_proj", "k_proj", "fc_in", "fc_out", "out_proj", "q_proj"]
-    input_model = HfModelHandler(
-        model_path="hf-internal-testing/tiny-random-gptj",
-        load_kwargs={
-            "quantization_method": "bitsandbytes",
-            "quantization_config": {"load_in_4bit": True, "bnb_4bit_quant_type": "nf4"},
-        },
-        model_attributes={"quantized_modules": quantized_modules} if add_quantized_modules else None,
-    )
-    p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
+    base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
+    # awq has minimum hidden size of 64 or 64 multiples so this model is not compatible
+    # only testing with gptq quantized model
+    quantizer_pass = create_pass_from_dict(GptqQuantizer, disable_search=True)
+    quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
+
+    p = create_pass_from_dict(OnnxConversion, {"torch_dtype": "float32"}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
-    onnx_model = p.run(input_model, output_folder)
+    # run
+    onnx_model = p.run(quantized_model, output_folder)
 
     # assert
     assert Path(onnx_model.model_path).exists()
-    assert set(onnx_model.model_attributes["quantized_modules"]) == set(quantized_modules)
-    assert onnx_model.model_attributes["quantization_config"]["load_in_4bit"] is True
-    assert onnx_model.model_attributes["quantization_config"]["bnb_4bit_quant_type"] == "nf4"
+    dag = OnnxDAG(onnx_model.load_model())
+    num_mnb = sum(dag.get_node_op_type(name) == "MatMulNBits" for name in dag.get_node_names())
+    # 2 layers X 1 qkv, 1 o, 1 gate_up, 1 down
+    assert num_mnb == 2 * 4
 
 
 @pytest.mark.parametrize("target_opset", [9, 10, 16])
