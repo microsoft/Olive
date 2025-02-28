@@ -7,6 +7,9 @@
 # $5: Path to the test file to run
 # $6: Whether to use coverage tracking (true/false)
 
+# activate venv
+source olive-venv/bin/activate
+
 # Step 1: Install PyTorch
 pip install "$1"
 

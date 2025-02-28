@@ -36,6 +36,13 @@ class ModelBuilder(Pass):
         INT8 = "int8"
         INT4 = "int4"
 
+    class BlockSize(IntEnumBase):
+        B16 = 16
+        B32 = 32
+        B64 = 64
+        B128 = 128
+        B256 = 256
+
     class AccuracyLevel(IntEnumBase):
         fp32 = 1
         fp16 = 2
@@ -60,7 +67,7 @@ class ModelBuilder(Pass):
                 type_=Dict[str, Any], required=False, description="Search options to use for generate loop."
             ),
             "int4_block_size": PassConfigParam(
-                type_=int,
+                type_=ModelBuilder.BlockSize,
                 required=False,
                 description="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
             ),
@@ -170,23 +177,21 @@ class ModelBuilder(Pass):
             if model.adapter_path:
                 extra_args["adapter_path"] = model.adapter_path
 
-        if config.get("int4_block_size"):
-            if int(config.int4_block_size) not in [16, 32, 64, 128, 256]:
-                raise ValueError("Invalid int4_block_size. Accepted values: 16/32/64/128/256.")
-            extra_args["int4_block_size"] = config.int4_block_size
+        if config.int4_block_size:
+            extra_args["int4_block_size"] = config.int4_block_size.value
 
-        if config.get("int4_accuracy_level"):
+        if config.int4_accuracy_level:
             extra_args["int4_accuracy_level"] = config.int4_accuracy_level.value
 
         # args that are only checked for presence, not value
         for arg in ["exclude_embeds", "exclude_lm_head"]:
-            if config[arg]:
+            if getattr(config, arg):
                 extra_args[arg] = True
 
         # args that are checked for presence and value (if present)
         for arg in ["enable_cuda_graph"]:
-            if config[arg] is not None:
-                extra_args[arg] = "1" if config[arg] else "0"
+            if getattr(config, arg) is not None:
+                extra_args[arg] = "1" if getattr(config, arg) else "0"
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
 

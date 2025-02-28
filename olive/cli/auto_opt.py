@@ -443,7 +443,7 @@ TEMPLATE = {
             ("qnn_preprocess", {"type": "QNNPreprocess"}),
             ("mixed_precision_overrides", {"type": "MixedPrecisionOverrides", "overrides_config": None}),
             # quantization passes
-            ("dynamic_quant", {"type": "OnnxQuantization", "weight_type": "QInt8"}),
+            ("dynamic_quant", {"type": "OnnxDynamicQuantization", "weight_type": "QInt8"}),
             ("matmul4", {"type": "OnnxMatMul4Quantizer"}),
             ("bnb4", {"type": "OnnxBnb4Quantization", "quant_type": "nf4"}),
             # post processing passes

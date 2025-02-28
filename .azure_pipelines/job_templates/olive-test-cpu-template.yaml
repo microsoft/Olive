@@ -7,7 +7,7 @@ parameters:
   onnxruntime: 'onnxruntime'
   onnxruntime_nightly: false
   torch: 'torch'
-  requirements_file: 'requirements-test.txt'
+  requirements_file: 'requirements-test-cpu.txt'
 
 jobs:
 - job: ${{parameters.name}}

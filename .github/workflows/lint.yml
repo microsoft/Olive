@@ -27,6 +27,7 @@ jobs:
           filter_mode: diff_context
           exclude: |
             ./NOTICE.txt
+            ./examples/vit/val_tiny_imagenet/vit_id2label.json
       - name: shellcheck # Static check shell scripts
         uses: reviewdog/action-shellcheck@v1
         with:
@@ -34,6 +35,8 @@ jobs:
           reporter: github-pr-check
           level: info
           filter_mode: file
+          exclude: |
+            ./examples/vit/val_tiny_imagenet/vit_id2label.json
 
   lint-python-format:
     # Required workflow
