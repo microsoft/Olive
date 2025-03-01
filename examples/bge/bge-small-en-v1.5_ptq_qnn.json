@@ -61,6 +61,7 @@
             "dim_param": [ "batch_size", "sequence_length" ],
             "dim_value": [ 1, 128 ]
         },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue"} ] },
         "QNNPreprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
         "OnnxQuantization": {
             "type": "OnnxQuantization",
@@ -69,22 +70,7 @@
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true,
-            "prepare_qnn_config": true,
-            "op_types_to_quantize": [
-                "Mul",
-                "Transpose",
-                "MatMul",
-                "LayerNormalization",
-                "Gemm",
-                "Gelu",
-                "Unsqueeze",
-                "Gather",
-                "Sub",
-                "Where",
-                "Expand",
-                "Tanh",
-                "Reshape"
-            ]
+            "prepare_qnn_config": true
         }
     },
     "evaluator": "common_evaluator",
