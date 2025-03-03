@@ -2,18 +2,20 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import collections
+import inspect
 import logging
 import multiprocessing
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Type, Union
 
 import onnx
 import torch
 from packaging import version
 
-from olive.common.config_utils import validate_config
+from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
 from olive.hardware import AcceleratorSpec
 from olive.model import (
@@ -27,7 +29,7 @@ from olive.model.config import IoConfig
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +105,11 @@ class OnnxConversion(Pass):
                     "Includes config.json, generation_config.json, and tokenizer related files."
                 ),
             ),
+            "optimize": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=("Whether to export the model with constant folding and redundancies elimination."),
+            ),
             "dynamic": PassConfigParam(
                 type_=bool, default_value=True, description=("Whether to export the model with dynamic axes/shapes.")
             ),
@@ -111,12 +118,12 @@ class OnnxConversion(Pass):
     def _run_for_config(
         self,
         model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
         output_model = self._run_for_config_internal(model, config, output_model_path)
 
-        if isinstance(model, HfModelHandler) and config["save_metadata_for_token_generation"]:
+        if isinstance(model, HfModelHandler) and config.save_metadata_for_token_generation:
             # output_model can only be an ONNXModelHandler
             output_dir = output_model.change_model_path_to_dir()
 
@@ -131,14 +138,14 @@ class OnnxConversion(Pass):
     def _run_for_config_internal(
         self,
         model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
         # default to "cpu" for PyTorchModelHandler and "cuda" for DistributedHfModel
-        device = config["device"] or "cpu"
+        device = config.device or "cpu"
         # get the dtype to use for conversion
-        torch_dtype = resolve_torch_dtype(config["torch_dtype"]) if config["torch_dtype"] else None
+        torch_dtype = resolve_torch_dtype(config.torch_dtype) if config.torch_dtype else None
         if torch_dtype == torch.float16 and device == "cpu":
             logger.debug(
                 "Converting model to float16 on CPU. This might fail for some models. If the conversion fails or model"
@@ -147,7 +154,7 @@ class OnnxConversion(Pass):
             )
 
         if isinstance(model, DistributedHfModelHandler):
-            if not config["device"]:
+            if not config.device:
                 device = "cuda"
             return self._convert_distributed_model_on_device(model, config, output_model_path, device, torch_dtype)
 
@@ -159,7 +166,7 @@ class OnnxConversion(Pass):
         pytorch_model: torch.nn.Module,
         dummy_inputs,
         io_config,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         device: Union[str, torch.device],
         torch_dtype: Optional[torch.dtype] = None,
         tempdir: Optional[Union[Path, str]] = None,
@@ -191,7 +198,7 @@ class OnnxConversion(Pass):
 
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
-        pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config["merge_adapter_weights"])
+        pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config.merge_adapter_weights)
         pytorch_model = make_export_compatible_quant(pytorch_model)
         # cast to dtype, want all modules including lora layers and quant linears in the same dtype
         if torch_dtype:
@@ -201,33 +208,38 @@ class OnnxConversion(Pass):
         assert io_config is not None, "Cannot get io_config for the model."
         io_config = validate_config(io_config, IoConfig)
         # If dynamic is False, set dynamic_axes and dynamic_shapes to None
-        if not config["dynamic"]:
+        if not config.dynamic:
             io_config.dynamic_axes = None
             io_config.dynamic_shapes = None
 
         onnx_model = None
-        if config["use_dynamo_exporter"]:
+        if config.use_dynamo_exporter:
             # Take the "release" version so that dev builds like 2.5.0dev1234 are treated as 2.5.0
             torch_version = version.parse(torch.__version__).release
+            if torch_version < version.parse("2.7.0").release and io_config.dynamic_shapes is not None:
+                logger.warning(
+                    "Dynamic shape support in torch.onnx.export(..., dynamo=True) requires "
+                    "PyTorch version 2.7.0 or later. "
+                    "Please upgrade to PyTorch 2.7.0 or newer if you need dynamic shapes.",
+                )
             # The "legacy dynamo" is the torch.onnx_dynamo_export API
             legacy_dynamo_supported_version = version.parse("2.2.0").release
             # The new "dynamo" api is torch.onnx.export with dynamo=True
-            # TODO(#1478): Change 2.6.0 back to 2.5.0 when dynamic_shapes are supported in Olive
-            dynamo_supported_version = version.parse("2.6.0").release
+            dynamo_supported_version = version.parse("2.7.0").release
             if torch_version < legacy_dynamo_supported_version:
                 raise ImportError(
-                    f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
-                    "Please upgrade your torch version to 2.5.0 or above."
+                    f"torch.onnx.export(..., dynamo=True) is not available for torch version {torch_version}. "
+                    "Please upgrade your torch version to 2.7.0 or above."
                 )
             from torch._dynamo import config as dynamo_config
 
             dynamo_config.capture_scalar_outputs = True
             if isinstance(dummy_inputs, dict):
-                dummy_kwargs = the_input = dummy_inputs
+                dummy_kwargs = dummy_inputs
                 dummy_inputs = ()
             else:
                 dummy_kwargs = {}
-                dummy_inputs = the_input = tuple(dummy_inputs)
+                dummy_inputs = tuple(dummy_inputs)
 
             if torch_version < dynamo_supported_version:
                 onnx_program = torch.onnx.dynamo_export(
@@ -241,8 +253,9 @@ class OnnxConversion(Pass):
                 # NOTE: Usually validation is done in io_config.py, but because
                 # dynamic_shapes has nested complexity, and it can't be validated multiple
                 # times like others, we validate it here.
-                io_config.dynamic_shapes = _validate_dynamic_shapes(io_config.dynamic_shapes, the_input)
-                io_config.dynamic_shapes = _convert_dynamic_shapes_to_torch_export_dims(io_config.dynamic_shapes)
+                io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
+                    io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
+                )
 
                 # there might be multiple files created during export, so we need to track the dir
                 # if there are other processes writing to the same dir, we might end up deleting files created by
@@ -256,13 +269,14 @@ class OnnxConversion(Pass):
                         dummy_inputs,
                         tmp_model_path,  # needed for fallback=True
                         kwargs=dummy_kwargs,
-                        opset_version=config["target_opset"],
+                        opset_version=config.target_opset,
                         input_names=io_config.input_names,
                         output_names=io_config.output_names,
                         dynamic_axes=io_config.dynamic_axes,
                         dynamic_shapes=io_config.dynamic_shapes,
                         dynamo=True,
                         fallback=True,
+                        optimize=config.optimize,
                         report=logger.isEnabledFor(logging.DEBUG),
                     )
                     assert onnx_program is not None
@@ -280,7 +294,7 @@ class OnnxConversion(Pass):
                     dummy_inputs,
                     tmp_model_path,
                     export_params=True,
-                    opset_version=config["target_opset"],
+                    opset_version=config.target_opset,
                     input_names=io_config.input_names,
                     output_names=io_config.output_names,
                     dynamic_axes=io_config.dynamic_axes,
@@ -347,7 +361,7 @@ class OnnxConversion(Pass):
             new_load_kwargs["torch_dtype"] = torch_dtype
             model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
 
-        if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config["load_in_4bit"]:
+        if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config.load_in_4bit:
             logger.debug(
                 "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
                 " from the load kwargs. Use OnnxBnb4Quantization pass after conversion to quantize the"
@@ -378,7 +392,7 @@ class OnnxConversion(Pass):
     def _convert_model_on_device(
         self,
         model: Union[HfModelHandler, PyTorchModelHandler],
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
         device: str,
         torch_dtype: Optional[torch.dtype] = None,
@@ -417,15 +431,15 @@ class OnnxConversion(Pass):
 
     @staticmethod
     def _get_dummy_inputs(
-        model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any]
+        model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig]
     ) -> Union[Dict, Tuple]:
         """Get dummy inputs for the model."""
         return model.get_dummy_inputs(
             filter_hook=(
-                model.merge_kv_cache_hook if config["use_dynamo_exporter"] else model.merge_kv_cache_to_tuple_hook
+                model.merge_kv_cache_hook if config.use_dynamo_exporter else model.merge_kv_cache_to_tuple_hook
             ),
             filter_hook_kwargs={
-                "past_kv_names": config["past_key_value_name"],
+                "past_kv_names": config.past_key_value_name,
             },
         )
 
@@ -466,7 +480,7 @@ class OnnxConversion(Pass):
 
             olive_pytorch_model = input_model.load_model(local_rank)
             dummy_inputs = OnnxConversion._get_dummy_inputs(olive_pytorch_model, pass_config)
-            io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.io_config
+            io_config = None if pass_config.use_dynamo_exporter else olive_pytorch_model.io_config
             pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
 
             ranked_onnx_modelproto = OnnxConversion._export_pytorch_model(
@@ -489,7 +503,7 @@ class OnnxConversion(Pass):
     def _convert_distributed_model_on_device(
         self,
         model: DistributedHfModelHandler,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
         device: str,
         torch_dtype: Optional[torch.dtype] = None,
@@ -514,7 +528,7 @@ class OnnxConversion(Pass):
             for rank in range(world_size)
         ]
 
-        max_parallel_jobs = min(world_size, config["parallel_jobs"] or multiprocessing.cpu_count())
+        max_parallel_jobs = min(world_size, config.parallel_jobs or multiprocessing.cpu_count())
         if max_parallel_jobs <= 1:
             results = [OnnxConversion._export_ranked_model(_) for _ in params]
         else:
@@ -549,18 +563,18 @@ class OnnxOpVersionConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path)
         # since external data is saved in a separate file, we need to load the model to get the opset version
         model_proto = onnx.load(model.model_path, load_external_data=False)
 
         model_opset_version = model_proto.opset_import[0].version
-        if model_opset_version == config["target_opset"]:
-            logger.info("Model is already in target opset version %s.", config["target_opset"])
+        if model_opset_version == config.target_opset:
+            logger.info("Model is already in target opset version %s.", config.target_opset)
             return model
 
-        converted_model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
+        converted_model_proto = onnx.version_converter.convert_version(model_proto, config.target_opset)
         # copy the external data of original model to the new model
         dst_init_map = {init.name: init for init in converted_model_proto.graph.initializer}
         for src_init in model_proto.graph.initializer:
@@ -576,7 +590,7 @@ class OnnxOpVersionConversion(Pass):
         return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
 
 
-def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs):
+def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
     """Validate dynamic_shapes.
 
     This function validates two things:
@@ -591,92 +605,36 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs):
     :return: the validated dynamic_shapes
     """
     if not dynamic_shapes:
-        return dynamic_shapes
+        return dynamic_shapes, dummy_inputs, dummy_kwargs
 
     from torch.utils import _pytree
 
-    def is_dict_axes(x) -> bool:
-        return isinstance(x, dict) and all(
-            isinstance(key, str)
-            and len(key) == 1
-            and isinstance(value, list)
-            and len(value) == 3
-            and isinstance(value[0], str)
-            and isinstance(value[1], int)
-            and isinstance(value[2], int)
-            for key, value in x.items()
+    flat_dynamic_shapes, _ = get_the_flattened_and_tree_spec(dynamic_shapes)
+
+    # dict: {axis: axis_name} -> {int(axis): axis_name}
+    # list/tuple: [axis_name] -> [axis_name]
+    new_dynamic_shapes = [
+        {int(k): v for k, v in axes.items()} if isinstance(axes, dict) else axes for axes in flat_dynamic_shapes
+    ]
+
+    # The input can only be either args or kwargs according to line 237.
+    if len(dummy_inputs) == 0:
+        # dummy_inputs is empty, so it must be kwargs
+        _, tree_structure = get_the_flattened_and_tree_spec(dummy_kwargs, leave_is_str=False)
+        unflatten_dynamic_shapes = _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
+
+        # NOTE: dynamic_shapes need to follow the same model.forward signature when it's referring to kwargs.
+        param_order = list(inspect.signature(model.forward).parameters)
+        # Sort io_config.dynamic_shapes based on this order
+        unflatten_dynamic_shapes = collections.OrderedDict(
+            sorted(unflatten_dynamic_shapes.items(), key=lambda item: param_order.index(item[0]))
         )
-
-    flat_dynamic_shapes, _ = _pytree.tree_flatten(dynamic_shapes, is_leaf=is_dict_axes)
-    new_dynamic_shapes = []
-    for axes in flat_dynamic_shapes:
-        if axes is None:
-            new_dynamic_shapes.append(axes)
-            continue
-        new_axes = {}
-        for axis, dynamic_shape in axes.items():
-            new_axes[int(axis)] = dynamic_shape
-        new_dynamic_shapes.append(new_axes)
-
-    _, tree_structure = _pytree.tree_flatten(dummy_inputs, is_leaf=is_dict_axes)
-    return _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
-
-
-def _convert_dynamic_shapes_to_torch_export_dims(
-    dynamic_shapes: Dict[str, Dict[int, torch.export.Dim]]
-) -> Dict[str, Dict[int, torch.export.Dim]]:
-    """Convert dynamic_shapes to torch export dims.
-
-    torch.onnx.export takes the exported program (fx graph) from
-    torch.export.export, which requires the dynamic_shapes to be in the format
-    of using torch.export.Dim(name, min=min, max=max). This function converts
-    the dynamic_shapes to the format that torch.export.export requires.
-
-    For a single axis:
-
-    before: ["axis_name", min_value, max_value]
-    after: torch.export.Dim("axis_name", min=min_value, max=max_value)
-
-    # Please check `dynamic_shapes` in torch.export.export
-    # https://pytorch.org/docs/stable/export.html#torch.export.export
-
-    :param dynamic_shapes: the dynamic_shapes to convert
-    :return: the converted dynamic_shapes
-    """
-    if dynamic_shapes is None:
-        return None
-
-    # If the axes has the same name, they should be the same torch.export.Dim
-    torch_export_dim_farm: Dict[str, torch.export.Dim] = {}
-
-    # dynamic_shapes follows input format, which could be nested
-    def _from_tuple_to_dim(data: Union[Dict, List, Tuple, Any]) -> Union[Dict, List, Tuple, Any]:
-        if isinstance(data, dict):
-            for key, value in data.items():
-                data[key] = _from_tuple_to_dim(value)
-        # TODO(titaiwang): Can we use `dummy_inputs` to align the dynamic_shapes format?
-        # JSON foramt does not accept tuple.
-        elif isinstance(data, (tuple, list)):
-            # We assume the tuple/list is in the format of (name, min, max)
-            # TODO(titaiwang): This format could potentially be used as model
-            # inputs (would string be used as model input?)
-            if len(data) == 3 and isinstance(data[0], str) and isinstance(data[1], int) and isinstance(data[2], int):
-                if data[0] in torch_export_dim_farm:
-                    if torch_export_dim_farm[data[0]].min == data[1] and torch_export_dim_farm[data[0]].max == data[2]:
-                        return torch_export_dim_farm[data[0]]
-                    raise ValueError(
-                        f"Found different boundary for the same axis name {data[0]}. "
-                        f"Previous min: {torch_export_dim_farm[data[0]].min} and "
-                        f"max: {torch_export_dim_farm[data[0]].max}. "
-                        f"Current min: {data[1]} and max: {data[2]}."
-                    )
-                dim = torch.export.Dim(data[0], min=data[1], max=data[2])
-                torch_export_dim_farm[data[0]] = dim
-                return dim
-            if isinstance(data, tuple):
-                return tuple(_from_tuple_to_dim(item) for item in data)
-            if isinstance(data, list):
-                return [_from_tuple_to_dim(item) for item in data]
-        return data
-
-    return _from_tuple_to_dim(dynamic_shapes)
+        dummy_kwargs = collections.OrderedDict(
+            sorted(dummy_kwargs.items(), key=lambda item: param_order.index(item[0]))
+        )
+        return unflatten_dynamic_shapes, dummy_inputs, dummy_kwargs
+    # If dynamic_shapes and dummy_inputs are both list/tuple, we don't need to sort.
+    # dummy_inputs is args
+    _, tree_structure = get_the_flattened_and_tree_spec(dummy_inputs, leave_is_str=False)
+    unflatten_dynamic_shapes = _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
+    return unflatten_dynamic_shapes, dummy_inputs, dummy_kwargs

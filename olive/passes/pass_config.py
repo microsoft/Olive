@@ -18,7 +18,7 @@ from olive.common.utils import StrEnumBase
 from olive.hardware.accelerator import Device
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import validate_resource_path
-from olive.strategy.search_parameter import SearchParameter, SpecialParamValue, json_to_search_parameter
+from olive.search.search_parameter import SearchParameter, SpecialParamValue, json_to_search_parameter
 
 
 class PassParamDefault(StrEnumBase):
@@ -115,7 +115,7 @@ class AbstractPassConfig(NestedConfig):
     """Base class for pass configuration."""
 
     type: str = Field(description="The type of the pass.")
-    config: Dict[str, Any] = Field(
+    config: Union[Dict[str, Any], Type[BasePassConfig]] = Field(
         None,
         description=(
             "The configuration of the pass. Values for required parameters must be provided. For optional parameters,"

@@ -6,11 +6,15 @@ from pathlib import Path
 
 import numpy as np
 import onnx
+import pytest
+import torch
 from onnx import TensorProto, helper, numpy_helper
+from onnxruntime import InferenceSession
 
 from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
+from olive.passes.onnx.onnx_dag import OnnxDAG
 
 
 def get_onnx_model(model_path):
@@ -351,3 +355,157 @@ def test_expose_quantized_output(tmp_path):
     assert np.allclose(
         numpy_helper.to_array(zero_point_initializer), np.array([original_zero_point_value], dtype=zero_point_dtype)
     ), "Zero point value mismatch."
+
+
+class RMSNorm(torch.nn.Module):
+    def __init__(self, hidden_size, eps=1e-6, use_rsqrt=True, use_cast=True, all_ones=False):
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.ones(hidden_size) if all_ones else torch.randn(hidden_size))
+        self.variance_epsilon = eps
+        self.use_rsqrt = use_rsqrt
+        self.use_cast = use_cast
+
+    def forward(self, hidden_states):
+        input_dtype = hidden_states.dtype
+        if self.use_cast:
+            hidden_states = hidden_states.to(torch.float32)
+        variance = hidden_states.pow(2).mean(-1, keepdim=True)
+        if self.use_rsqrt:
+            hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+        else:
+            hidden_states = hidden_states / torch.sqrt(variance + self.variance_epsilon)
+        return self.weight * (hidden_states.to(input_dtype) if self.use_cast else hidden_states)
+
+
+@pytest.mark.parametrize("use_rsqrt", [True, False])
+@pytest.mark.parametrize("use_cast", [True, False])
+@pytest.mark.parametrize("all_ones", [True, False])
+def test_rmsnorm_to_l2norm(tmp_path, use_rsqrt, use_cast, all_ones):
+    # setup
+    hidden_size = 3
+    module = RMSNorm(hidden_size, use_rsqrt=use_rsqrt, use_cast=use_cast, all_ones=all_ones)
+    input_model_path = tmp_path / "input_model.onnx"
+    torch.onnx.export(
+        module, torch.randn(1, hidden_size), input_model_path, input_names=["x"], output_names=["y"], opset_version=20
+    )
+    input_model = ONNXModelHandler(input_model_path)
+
+    output_folder = str(tmp_path / "output")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RMSNormToL2Norm"}]},
+        disable_search=True,
+    )
+
+    # execute
+    onnx_model = p.run(input_model, output_folder)
+
+    # assert
+    # check output values match
+    input_session = InferenceSession(input_model_path)
+    output_session = InferenceSession(onnx_model.model_path)
+    input_feed = {"x": np.random.randn(1, hidden_size).astype(np.float32)}
+    input_result = input_session.run(None, input_feed)
+    output_result = output_session.run(None, input_feed)
+    np.testing.assert_allclose(input_result[0], output_result[0], rtol=1e-3, atol=1e-3)
+    # count nodes
+    dag = OnnxDAG.from_model_path(onnx_model.model_path)
+    expected_num_nodes = 2 + 2 * int(use_cast)
+    assert len(dag.nodes) == expected_num_nodes
+    # check all ones case
+    if all_ones:
+        mul_name = None
+        for node in dag.get_node_names():
+            if dag.get_node_op_type(node) == "Mul":
+                mul_name = node
+                break
+        mul_weight_name = None
+        for input_name in dag.get_node_inputs(mul_name):
+            if dag.is_initializer(input_name):
+                mul_weight_name = input_name
+                break
+        mul_weight = dag.get_initializer_np_array(mul_weight_name)
+        assert mul_weight.shape == (1,)
+        assert np.allclose(mul_weight, np.sqrt(hidden_size))
+
+
+def test_replace_attention_mask_value(tmp_path):
+    # setup
+    min_value = float(np.finfo(np.float32).min)
+    input_tensors = [
+        helper.make_tensor_value_info("input1", TensorProto.INT64, [1]),
+        helper.make_tensor_value_info("input2", TensorProto.FLOAT, [1]),
+        helper.make_tensor_value_info("input3", TensorProto.FLOAT, [1]),
+    ]
+    output_tensors = [
+        helper.make_tensor_value_info("output1", TensorProto.FLOAT, [1]),
+        helper.make_tensor_value_info("output2", TensorProto.FLOAT, [1]),
+        helper.make_tensor_value_info("output3", TensorProto.FLOAT, [1]),
+    ]
+    initializers = [
+        helper.make_tensor("init", TensorProto.FLOAT, [], [min_value]),
+    ]
+    nodes = [
+        helper.make_node(
+            "ConstantOfShape",
+            inputs=["input1"],
+            outputs=["output1"],
+            name="ConstantOfShape",
+            value=helper.make_tensor("", TensorProto.FLOAT, [1], [min_value]),
+        ),
+        helper.make_node(
+            "Constant",
+            inputs=[],
+            outputs=["Constant_output"],
+            name="Constant",
+            value=helper.make_tensor("", TensorProto.FLOAT, [], [min_value]),
+        ),
+        helper.make_node(
+            "Mul",
+            inputs=["input2", "Constant_output"],
+            outputs=["output2"],
+            name="Mul_constant",
+        ),
+        helper.make_node(
+            "Mul",
+            inputs=["input3", "init"],
+            outputs=["output3"],
+            name="Mul_init",
+        ),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=input_tensors,
+        outputs=output_tensors,
+        initializer=initializers,
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "ReplaceAttentionMaskValue"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+    output_session = output_model.prepare_session()
+    outputs = output_session.run(
+        None,
+        {
+            "input1": np.array([1], dtype=np.int64),
+            "input2": np.array([1], dtype=np.float32),
+            "input3": np.array([1], dtype=np.float32),
+        },
+    )
+    assert all(o == -1e4 for o in outputs)

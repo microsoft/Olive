@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Any, Dict, Union
+from typing import Any, Dict, Type, Union
 
 import torch
 from packaging import version
@@ -14,7 +14,7 @@ from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 from olive.passes.pytorch.common import inherit_hf_from_hf
 
 logger = logging.getLogger(__name__)
@@ -103,25 +103,27 @@ class AutoAWQQuantizer(Pass):
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 default_value=None,
-                description="Data config for quantization. Default value is None.",
+                description="Data config for quantization. If not provided, pile validation data will be used.",
             ),
         }
 
     @torch.no_grad()
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+    def _run_for_config(
+        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
         from awq import AutoAWQForCausalLM
 
         if not torch.cuda.is_available():
             raise ValueError("Please use GPU to run AWQ quantization.")
 
         data_kwargs = {}
-        if config["data_config"]:
+        if config.data_config:
             # set default values for data config
             data_kwargs.update(
                 {
-                    "calib_data": config["data_config"].load_dataset_params.get("data_name"),
-                    "split": config["data_config"].load_dataset_params.get("split"),
-                    "text_column": config["data_config"].pre_process_params.get("input_cols"),
+                    "calib_data": config.data_config.load_dataset_params.get("data_name"),
+                    "split": config.data_config.load_dataset_params.get("split"),
+                    "text_column": config.data_config.pre_process_params.get("input_cols"),
                 }
             )
 
@@ -145,14 +147,14 @@ class AutoAWQQuantizer(Pass):
         awq_model.quantize(
             tokenizer,
             quant_config={
-                "zero_point": config["zero_point"],
-                "q_group_size": config["q_group_size"],
-                "w_bit": config["w_bit"],
-                "version": config["version"],
-                "modules_to_not_convert": config["modules_to_not_convert"],
+                "zero_point": config.zero_point,
+                "q_group_size": config.q_group_size,
+                "w_bit": config.w_bit,
+                "version": config.version,
+                "modules_to_not_convert": config.modules_to_not_convert,
             },
-            duo_scaling=config["duo_scaling"],
-            export_compatible=config["export_compatible"],
+            duo_scaling=config.duo_scaling,
+            export_compatible=config.export_compatible,
             **data_kwargs,
         )
 

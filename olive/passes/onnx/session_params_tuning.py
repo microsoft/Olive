@@ -7,7 +7,7 @@ import json
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Type, Union
 
 import onnxruntime as ort
 
@@ -22,8 +22,8 @@ from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
-from olive.strategy.search_parameter import Categorical
+from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
+from olive.search.search_parameter import Categorical
 
 logger = logging.getLogger(__name__)
 
@@ -114,25 +114,25 @@ class OrtSessionParamsTuning(Pass):
             "providers_list": PassConfigParam(
                 type_=str,
                 default_value=execution_provider,
-                searchable_values=Categorical(AcceleratorLookup.get_execution_providers_for_device(device)),
+                search_defaults=Categorical(AcceleratorLookup.get_execution_providers_for_device(device)),
                 description="Execution providers framework list to execute the ONNX models.",
             ),
             "provider_options_list": PassConfigParam(
                 type_=Dict[str, Any],
                 default_value={},
-                searchable_values=Categorical([{}]),
+                search_defaults=Categorical([{}]),
                 description="Execution provider options to execute the ONNX models.",
             ),
             "execution_mode_list": PassConfigParam(
                 type_=int,
                 default_value=None,
-                searchable_values=Categorical([None]),
+                search_defaults=Categorical([None]),
                 description="Parallelism list between operators.",
             ),
             "opt_level_list": PassConfigParam(
                 type_=int,
                 default_value=None,
-                searchable_values=Categorical([None]),
+                search_defaults=Categorical([None]),
                 description="Optimization level list for ONNX model.",
             ),
             "trt_fp16_enable": PassConfigParam(
@@ -141,13 +141,13 @@ class OrtSessionParamsTuning(Pass):
             "intra_thread_num_list": PassConfigParam(
                 type_=int,
                 default_value=None,
-                searchable_values=Categorical([None]),
+                search_defaults=Categorical([None]),
                 description="List of intra thread number for test.",
             ),
             "inter_thread_num_list": PassConfigParam(
                 type_=int,
                 default_value=None,
-                searchable_values=Categorical([None]),
+                search_defaults=Categorical([None]),
                 description="List of inter thread number for test.",
             ),
             "extra_session_config": PassConfigParam(
@@ -173,19 +173,15 @@ class OrtSessionParamsTuning(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
         """Validate the search point for the pass."""
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
 
-        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
-        config_cls.__config__.extra = Extra.allow
-        config = config_cls(**config)
-
         # Rename the search parameters with atomic/singular names for clarity
+        config.__class__.__config__.extra = Extra.allow
         config.execution_provider = config.providers_list
         config.provider_options = config.provider_options_list
         config.execution_mode = config.execution_mode_list
@@ -264,11 +260,11 @@ class OrtSessionParamsTuning(Pass):
         return True
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         # Rename the search parameters with atomic/singular names for clarity
-        self._config_class.__config__.extra = Extra.allow
-        config = self._config_class(**config)
+        config.__class__.__config__.extra = Extra.allow
+        config = config.copy()
         config.execution_provider = config.providers_list
         config.provider_options = config.provider_options_list
         config.execution_mode = config.execution_mode_list

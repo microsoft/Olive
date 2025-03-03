@@ -58,11 +58,7 @@ def inherit_pytorch_from_hf(
                 for k, v in hf_io_config.get("dynamic_axes", {}).items()
                 if not k.startswith(("present", "past_key_values"))
             }
-        else:
-            # TODO(titaiwang): fix this when we have a better way to handle dynamic_shapes
-            # If the dynamic_shapes is a list, we don't inherit it since
-            # we do not know the exact index of the past_key_values in the list
-            dynamic_shapes = {}
+
         # kv cache will be handled by the kv_cache flag in io_config
         io_config = {
             "input_names": [i for i in hf_io_config.get("input_names", []) if not i.startswith("past_key_values")],
@@ -83,6 +79,16 @@ def inherit_pytorch_from_hf(
 
     if io_config and not io_config.get("kv_cache") and model.task.endswith("-with-past"):
         io_config["kv_cache"] = True
+
+    # dynamic_shapes deals with kv_cache here. If kv_cache is False,
+    # we remove past_key_values from dynamic_shapes
+    if not io_config.get("kv_cache", False):
+        dynamic_shapes = {
+            k: v for k, v in hf_io_config.get("dynamic_shapes", {}).items() if not k.startswith("past_key_values")
+        }
+    else:
+        dynamic_shapes = hf_io_config.get("dynamic_shapes", {})
+    io_config["dynamic_shapes"] = dynamic_shapes
 
     return PyTorchModelHandler(
         model_path=model_path,

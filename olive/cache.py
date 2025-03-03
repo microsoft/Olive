@@ -154,7 +154,9 @@ class OliveCache:
         self.update_shared_cache = cache_config.update_shared_cache
 
     @staticmethod
-    def get_run_json(pass_name: int, pass_config: dict, input_model_id: str, accelerator_spec: "AcceleratorSpec"):
+    def get_run_json(
+        pass_name: str, pass_config: Dict[str, Any], input_model_id: str, accelerator_spec: "AcceleratorSpec"
+    ) -> Dict[str, Any]:
         accelerator_spec = str(accelerator_spec) if accelerator_spec else None
         return {
             "input_model_id": input_model_id,
@@ -280,7 +282,7 @@ class OliveCache:
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec" = None,
     ):
-        run_json = self.get_run_json(pass_name, pass_config, input_model_id, accelerator_spec)
+        run_json = self.get_run_json(pass_name.lower(), pass_config, input_model_id, accelerator_spec)
         return hash_dict(run_json)[:8]
 
     def get_cache_dir(self) -> Path:

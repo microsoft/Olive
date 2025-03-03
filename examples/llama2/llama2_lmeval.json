@@ -42,7 +42,7 @@
                 "max_steps": 150,
                 "logging_steps": 50.0
             },
-            "lora_alpha": 16,
+            "alpha": 16,
             "eval_data_config": "eval_data"
         }
     },
@@ -57,7 +57,7 @@
         }
     },
     "auto_optimizer_config": { "opt_level": 0, "disable_auto_optimizer": true, "precision": "fp16" },
-    "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
+    "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "evaluator": "evaluator",
     "host": "local_system",
     "target": "local_system",

@@ -41,11 +41,9 @@ Here is a simple example of Auto Optimizer configuration, the item which is not 
         "engine": {
             "search_strategy": {
                 "execution_order": "joint",
-                "search_algorithm": "tpe",
-                "search_algorithm_config": {
-                    "num_samples": 1,
-                    "seed": 0
-                }
+                "sampler": "tpe",
+                "max_samples": 1,
+                "seed": 0
             },
             "evaluator": "common_evaluator",
             "cache_dir": "cache",
@@ -149,8 +147,8 @@ Here is another quick comparison between Auto Optimizer and manual settings.
     },
     "search_strategy": {
         "execution_order": "joint",
-        "search_algorithm": "tpe",
-        "num_samples": 1,
+        "sampler": "tpe",
+        "max_samples": 1,
         "seed": 0
     },
     "evaluator": "common_evaluator",
@@ -261,8 +259,8 @@ Here is another quick comparison between Auto Optimizer and manual settings.
     ],
     "search_strategy": {
         "execution_order": "joint",
-        "search_algorithm": "tpe",
-        "num_samples": 1,
+        "sampler": "tpe",
+        "max_samples": 1,
         "seed": 0
     },
     "evaluator": "common_evaluator",

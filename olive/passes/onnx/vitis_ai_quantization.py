@@ -6,7 +6,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Dict, Type, Union
 
 import onnx
 
@@ -23,9 +23,9 @@ from olive.passes.onnx.common import (
     model_proto_to_file,
     model_proto_to_olive_model,
 )
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile
-from olive.strategy.search_parameter import Boolean, Categorical, Conditional
+from olive.search.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +236,7 @@ class VitisAIQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         if model_has_adapters(model.model_path):
             logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")
@@ -248,12 +248,12 @@ class VitisAIQuantization(Pass):
         from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
 
         # start with a copy of the config
-        run_config = deepcopy(config)
+        run_config = config.dict()
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         # extra config
-        extra_options = deepcopy(config["extra_options"]) if config["extra_options"] else {}
+        extra_options = deepcopy(config.extra_options) if config.extra_options else {}
         # keys in extra_options that are already exposed
         intersection = set(extra_options.keys()).intersection(set(_exposed_extra_options_config.keys()))
         if intersection:
@@ -315,8 +315,8 @@ class VitisAIQuantization(Pass):
 
         # get the dataloader
         dataloader = None
-        if config["data_config"]:
-            data_config = validate_config(config["data_config"], DataConfig)
+        if config.data_config:
+            data_config = validate_config(config.data_config, DataConfig)
             dataloader = data_config.to_data_container().create_calibration_dataloader()
 
         execution_provider = self.accelerator_spec.execution_provider

@@ -34,22 +34,6 @@ jobs:
         exampleFolder: super_resolution
         exampleName: super_resolution
 
-- template: job_templates/olive-example-linux-template.yaml
-  parameters:
-    name: Linux_Examples_Py38
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    onnxruntime: onnxruntime
-    python_version: '3.8'
-    base_image: 'ubuntu:20.04'
-    examples:
-      mobilenet_qnn_toolkit:
-        exampleFolder: mobilenet
-        exampleName: qnn_tooklit
-      inception_snpe_toolkit:
-        exampleFolder: inception
-        exampleName: snpe_toolkit
-
-
 # Windows examples test
 - template: job_templates/olive-example-win-template.yaml
   parameters:
@@ -87,6 +71,8 @@ jobs:
     device: 'gpu'
     onnxruntime: onnxruntime-gpu
     dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
+    base_image: 'nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04'
+    trt_version: '10.5.0.18-1+cuda12.6'
     examples:
       mistral:
         exampleFolder: mistral

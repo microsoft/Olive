@@ -43,7 +43,7 @@
             ]
         }
     },
-    "search_strategy": { "execution_order": "joint", "search_algorithm": "tpe", "num_samples": 1, "seed": 0 },
+    "search_strategy": { "execution_order": "joint", "sampler": "tpe", "max_samples": 1, "seed": 0 },
     "evaluator": "common_evaluator",
     "host": "local_system",
     "target": "local_system",

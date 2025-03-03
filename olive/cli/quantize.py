@@ -6,8 +6,8 @@
 # ruff: noqa: T201
 # ruff: noqa: RUF012
 
-import tempfile
 from argparse import ArgumentParser
+from collections import OrderedDict
 from copy import deepcopy
 from typing import Any, Dict
 
@@ -17,6 +17,7 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_save_config_file_options,
     add_shared_cache_options,
     update_dataset_options,
     update_input_model_options,
@@ -74,6 +75,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         add_remote_options(sub_parser)
         add_shared_cache_options(sub_parser)
         add_logging_options(sub_parser)
+        add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=QuantizeCommand)
 
     def _get_run_config(self, tempdir: str) -> Dict[str, Any]:
@@ -85,6 +87,11 @@ class QuantizeCommand(BaseOliveCLICommand):
         is_hf_model = config["input_model"]["type"].lower() == "hfmodel"
         if is_hf_model and self.args.algorithm not in ["awq", "gptq", "rtn"]:
             raise ValueError("Selected algorithm is not supported for HuggingFace models.")
+        if not is_hf_model and "gptq" in self.args.algorithm and not self.args.data_name:
+            # hf model doesn't require user provided data
+            raise ValueError("data_name is required to use gptq.")
+        if self.args.data_name:
+            config["passes"]["gptq"]["data_config"] = "default_data_config"
 
         defaults_key = "hf_model_defaults" if is_hf_model else "onnx_model_defaults"
 
@@ -121,7 +128,6 @@ class QuantizeCommand(BaseOliveCLICommand):
             self.args.implementation = [self.args.implementation]
 
         to_replace = [
-            ("pass_flows", [self.args.implementation]),
             (("passes", "awq", "w_bit"), precision),
             (("passes", "gptq", "bits"), precision),
             (("passes", "bnb4", "quant_type"), precision),
@@ -137,17 +143,11 @@ class QuantizeCommand(BaseOliveCLICommand):
             if v is not None:
                 set_nested_dict_value(config, k, v)
 
+        config["passes"] = OrderedDict([(k, v) for k, v in config["passes"].items() if k in self.args.implementation])
         return config
 
     def run(self):
-        from olive.workflows import run as olive_run
-
-        if ("gptq" in self.args.algorithm) and (not self.args.data_name):
-            raise ValueError("data_name is required to use gptq.")
-
-        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
-            run_config = self._get_run_config(tempdir)
-            olive_run(run_config)
+        self._run_workflow()
 
 
 TEMPLATE = {
@@ -171,7 +171,7 @@ TEMPLATE = {
     "passes": {
         # Pytorch algorithms
         "awq": {"type": "AutoAWQQuantizer", "w_bit": 4},
-        "gptq": {"type": "GptqQuantizer", "bits": 4, "data_config": "default_data_config"},
+        "gptq": {"type": "GptqQuantizer", "bits": 4},
         # Onnx algorithms
         "bnb4": {"type": "OnnxBnb4Quantization", "quant_type": "nf4"},
         "matmul4": {"type": "OnnxMatMul4Quantizer", "accuracy_level": 4},
@@ -184,7 +184,6 @@ TEMPLATE = {
         # "inc_static": {"type": "IncStaticQuantization", "data_config": "default_data_config"},
         # "vitis": {"type": "VitisAIQuantization", "data_config": "default_data_config"},
     },
-    "pass_flows": [],
     "output_dir": "models",
     "host": "local_system",
     "target": "local_system",

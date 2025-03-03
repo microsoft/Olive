@@ -81,7 +81,7 @@
         },
         "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "cifar10_data_config" }
     },
-    "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
+    "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
     "output_dir": "models/resnet_ptq_cpu"

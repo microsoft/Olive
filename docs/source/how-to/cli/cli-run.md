@@ -26,7 +26,7 @@ The *output* of the workflow is a Zip file containing the ONNX model and ORT con
 
 ### {octicon}`code-square` Define the workflow in a YAML file
 
-First, define the "quickstart workflow" in a YAML file:
+First, define the 'quickstart workflow' in a YAML file. Alternatively, you can use a JSON file. For more details about the available options for the configuration file, please refer to this [reference](../../reference/options.md):
 
 ```yaml
 # quickstart-workflow.yaml

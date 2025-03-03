@@ -296,6 +296,44 @@ There are some readymade systems available for AzureML. These systems are pre-co
 }
 ```
 
+System alias list:
+
+- AzureND12SSystem:
+  - sku: "STANDARD_ND12S"
+  - num_cpus: 12
+  - num_gpus: 2
+
+- AzureND24RSSystem:
+  - sku: "STANDARD_ND24RS"
+  - num_cpus: 24
+  - num_gpus: 4
+
+- AzureND24SSystem:
+  - sku: "STANDARD_ND24S"
+  - num_cpus: 24
+  - num_gpus: 4
+
+- AzureNDV2System:
+  - sku: "STANDARD_ND40RS_V2"
+  - num_cpus: 40
+  - num_gpus: 8
+
+- AzureND6SSystem:
+  - sku: "STANDARD_ND6S"
+  - num_cpus: 6
+  - num_gpus: 1
+
+- AzureND96A100System:
+  - sku: "STANDARD_ND96AMSR_A100_V4"
+  - num_cpus: 96
+  - num_gpus: 8
+
+- AzureND96ASystem:
+  - sku: "STANDARD_ND96ASR_V4"
+  - num_cpus: 96
+  - num_gpus: 8
+
+
 ```{Note}
 The accelerators specified in the readymade systems will be filtered against the devices supported by the readymade system. If the specified device is not supported by the readymade system, Olive will filter out the accelerator.
 In above example, the readymade system supports only GPU. Therefore, the final accelerators will be ``[{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}]`` and the CPU will be filtered out.

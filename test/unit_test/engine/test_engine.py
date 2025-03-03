@@ -19,6 +19,7 @@ import pytest
 
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.engine import Engine
+from olive.engine.config import RunPassConfig
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
@@ -28,7 +29,6 @@ from olive.passes.onnx.optimum_conversion import OptimumConversion
 from olive.passes.onnx.quantization import OnnxDynamicQuantization, OnnxStaticQuantization
 from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
-from olive.systems.local import LocalSystem
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 
 # pylint: disable=protected-access
@@ -41,9 +41,8 @@ from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 class TestEngine:
     def test_register(self, tmpdir):
         # setup
-        p = get_onnxconversion_pass()
-        name = p.__class__.__name__
-        system = LocalSystem()
+        name = OnnxConversion.__name__
+        host = SystemConfig(type=SystemType.Local)
         evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
 
         options = {
@@ -53,19 +52,20 @@ class TestEngine:
             },
             "search_strategy": {
                 "execution_order": "joint",
-                "search_algorithm": "random",
+                "sampler": "random",
             },
         }
         engine = Engine(**options)
 
         # execute
-        engine.register(OnnxConversion, host=system, evaluator_config=evaluator_config)
+        engine.register(OnnxConversion, host=host, evaluator_config=evaluator_config)
 
         # assert
-        assert name in engine.pass_run_configs
-        assert engine.pass_run_configs[name]["type"] == OnnxConversion.__name__
-        assert engine.pass_run_configs[name]["host"] == system
-        assert engine.pass_run_configs[name]["evaluator"] == evaluator_config
+        assert name in engine.input_passes_configs
+        assert len(engine.input_passes_configs[name]) == 1
+        assert engine.input_passes_configs[name][0].type == OnnxConversion.__name__.lower()
+        assert engine.input_passes_configs[name][0].host == host
+        assert engine.input_passes_configs[name][0].evaluator == evaluator_config
 
     def test_register_no_search(self, tmpdir):
         # setup
@@ -82,7 +82,7 @@ class TestEngine:
         engine.register(OnnxDynamicQuantization)
 
         # assert
-        assert "OnnxDynamicQuantization" in engine.pass_run_configs
+        assert "OnnxDynamicQuantization" in engine.input_passes_configs
 
     def test_default_engine_run(self, tmpdir):
         # setup
@@ -100,7 +100,7 @@ class TestEngine:
         for fp_nodes in outputs.values():
             for node in fp_nodes.nodes.values():
                 assert node.model_config
-                assert node.from_pass == "OnnxConversion"
+                assert node.from_pass == "onnxconversion"
                 assert node.metrics is None, "Should not evaluate input/output model by default"
 
     @patch("olive.systems.local.LocalSystem")
@@ -118,7 +118,7 @@ class TestEngine:
             },
             "search_strategy": {
                 "execution_order": "joint",
-                "search_algorithm": "random",
+                "sampler": "random",
             },
             "evaluator": evaluator_config,
         }
@@ -143,16 +143,20 @@ class TestEngine:
         system_object.olive_managed_env = False
 
         engine = Engine(**options)
-        p1_name = "converter_13"
-        p2_name = "converter_14"
-        p1, p1_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
-        p2, p2_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=14)
-        engine.register(OnnxConversion, name=p1_name, config=p1_config)
-        engine.register(OnnxConversion, name=p2_name, config=p2_config)
-        engine.set_pass_flows([[p1_name], [p2_name]])
+        p_name = "converter"
+        p1: OnnxConversion = get_onnxconversion_pass(target_opset=13)
+        p2: OnnxConversion = get_onnxconversion_pass(target_opset=14)
+        engine.set_input_passes_configs(
+            {
+                p_name: [
+                    RunPassConfig.from_json(p1.to_json(check_object=True)),
+                    RunPassConfig.from_json(p2.to_json(check_object=True)),
+                ]
+            }
+        )
         model_ids = [
-            engine.cache.get_output_model_id(p1.__class__.__name__, p1_config, input_model_id),
-            engine.cache.get_output_model_id(p2.__class__.__name__, p2_config, input_model_id),
+            engine.cache.get_output_model_id(p1.__class__.__name__, p1.config.to_json(), input_model_id),
+            engine.cache.get_output_model_id(p2.__class__.__name__, p2.config.to_json(), input_model_id),
         ]
         expected_res = {
             model_id: {
@@ -214,7 +218,6 @@ class TestEngine:
 
         engine = Engine(cache_config={"cache_dir": tmpdir})
         engine.register(OptimumConversion)
-        engine.set_pass_flows()
         # output model to output_dir
         output_dir = Path(tmpdir)
 
@@ -255,10 +258,9 @@ class TestEngine:
         }
 
         engine = Engine(**options)
-        _, p_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
-        engine.register(OnnxConversion, config=p_config)
-        engine.set_pass_flows()
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
+        p_config = OnnxConversion.generate_config(accelerator_spec, {"target_opset": 13}).dict()
+        engine.register(OnnxConversion, config=p_config)
 
         output_model_id = engine.cache.get_output_model_id(
             "OnnxConversion", p_config, model_config.get_model_id(), accelerator_spec
@@ -310,7 +312,7 @@ class TestEngine:
         [
             {
                 "execution_order": "joint",
-                "search_algorithm": "random",
+                "sampler": "random",
             },
             None,
         ],
@@ -330,7 +332,8 @@ class TestEngine:
             "evaluator": evaluator_config,
         }
         engine = Engine(**options)
-        _, p_config = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
+        accelerator_spec = DEFAULT_CPU_ACCELERATOR
+        p_config = OnnxConversion.generate_config(accelerator_spec, {"target_opset": 13}).dict()
         engine.register(OnnxConversion, config=p_config)
         # output model to output_dir
         output_dir = tmp_path / "output_dir"
@@ -338,7 +341,7 @@ class TestEngine:
         # execute
         engine.run(
             model_config,
-            [DEFAULT_CPU_ACCELERATOR],
+            [accelerator_spec],
             output_dir=output_dir,
         )
 
@@ -361,7 +364,7 @@ class TestEngine:
                 },
                 "search_strategy": {
                     "execution_order": "joint",
-                    "search_algorithm": "random",
+                    "sampler": "random",
                 },
                 "evaluator": evaluator_config,
             }
@@ -499,7 +502,7 @@ class TestEngine:
             },
             "search_strategy": {
                 "execution_order": "joint",
-                "search_algorithm": "random",
+                "sampler": "random",
             },
             "evaluator": evaluator_config,
         }
@@ -563,7 +566,7 @@ class TestEngine:
                 },
                 "search_strategy": {
                     "execution_order": "joint",
-                    "search_algorithm": "random",
+                    "sampler": "random",
                 },
                 "evaluator": evaluator_config,
             }
@@ -601,7 +604,9 @@ class TestEngine:
                 },
                 "search_strategy": {
                     "execution_order": "joint",
-                    "search_algorithm": "random",
+                    "sampler": "random",
+                    "max_samples": 1,
+                    "seed": 1,
                 },
                 "evaluator": evaluator_config,
             }

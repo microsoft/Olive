@@ -16,13 +16,15 @@ class CustomModel(torch.nn.Module):
         super().__init__()
         self.before_layer = torch.nn.Linear(2, 4)
         self.layers = torch.nn.ModuleList([torch.nn.Linear(4, 4) for _ in range(4)])
-        self.after_layer = torch.nn.Linear(4, 2)
+        self.after_layers = torch.nn.ModuleList([torch.nn.Linear(4, 2) for _ in range(2)])
 
     def forward(self, x):
         x = self.before_layer(x)
         for layer in self.layers:
             x = layer(x)
-        return self.after_layer(x)
+        for layer in self.after_layers:
+            x = layer(x)
+        return x
 
 
 @pytest.mark.parametrize(
@@ -34,11 +36,24 @@ class CustomModel(torch.nn.Module):
             2,
             {"layers.0": 0, "layers.1": 0, "layers.2": 1, "layers.3": 1},
         ),
+        # Test not equally divide the axis
+        (
+            PyTorchModelHandler(model_loader=lambda _: CustomModel()),
+            "layers",
+            3,
+            {"layers.0": 0, "layers.1": 0, "layers.2": 1, "layers.3": 2},
+        ),
         (
             PyTorchModelHandler(model_loader=lambda _: CustomModel()),
             "",
             3,
-            {"before_layer": 0, "layers": 1, "after_layer": 2},
+            {"before_layer": 0, "layers": 1, "after_layers": 2},
+        ),
+        (
+            PyTorchModelHandler(model_loader=lambda _: CustomModel()),
+            ["layers", "after_layers"],
+            2,
+            {"layers.0": 0, "layers.1": 0, "layers.2": 0, "layers.3": 1, "after_layers.0": 1, "after_layers.1": 1},
         ),
         (
             HfModelHandler(model_path="hf-internal-testing/tiny-random-LlamaForCausalLM"),

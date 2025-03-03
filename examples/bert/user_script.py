@@ -2,13 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+
+# pylint: disable=attribute-defined-outside-init, protected-access, ungrouped-imports
+# This file is only used by bert_inc_ptq_cpu, bert_qat_customized_train_loop_cpu
+
 import copy
 
 import numpy as np
 import torch
 import torchmetrics
 import transformers
-from datasets import load_dataset, load_metric
+from datasets import load_dataset
 from datasets.utils import logging as datasets_logging
 from neural_compressor.data import DefaultDataLoader
 from torch.utils.data import Dataset
@@ -26,11 +30,13 @@ from olive.constants import Framework
 from olive.data.registry import Registry
 from olive.model import OliveModelHandler
 
+try:
+    from datasets import load_metric
+except ImportError:
+    from evaluate import load as load_metric
+
 datasets_logging.disable_progress_bar()
 datasets_logging.set_verbosity_error()
-
-# pylint: disable=attribute-defined-outside-init, protected-access
-# This file is only used by bert_inc_ptq_cpu, bert_qat_customized_train_loop_cpu
 
 
 # -------------------------------------------------------------------------

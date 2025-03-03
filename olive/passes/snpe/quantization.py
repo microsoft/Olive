@@ -3,18 +3,18 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Dict, List, Type, Union
 
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModelHandler
 from olive.passes.olive_pass import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.snpe.tools.dev import quantize_dlc
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 from olive.resource_path import LocalFile
-from olive.strategy.search_parameter import Boolean
+from olive.search.search_parameter import Boolean
 
 
 class SNPEQuantization(Pass):
@@ -63,12 +63,12 @@ class SNPEQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: SNPEModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: SNPEModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> SNPEModelHandler:
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
-        data_config = validate_config(config["data_config"], DataConfig)
+        data_config = validate_config(config.data_config, DataConfig)
         dataloader = data_config.to_data_container().create_dataloader()
 
         # convert dataloader to FileListDataLoader if it is not already

@@ -54,7 +54,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
         },
         "search_strategy": {
             "execution_order": "joint",
-            "search_algorithm": "random",
+            "sampler": "random",
         },
         "evaluator": evaluator_config,
     }

@@ -3,9 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Type, Union
 
 import onnx
 
@@ -17,7 +16,7 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 if TYPE_CHECKING:
     from onnxruntime.transformers.onnx_model import OnnxModel
@@ -139,18 +138,14 @@ class OrtTransformersOptimization(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
 
         from onnxruntime import __version__ as OrtVersion
         from packaging import version
-
-        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
-        config = config_cls(**config)
 
         if config.float16:
             if accelerator_spec.execution_provider == "TensorrtExecutionProvider":
@@ -210,14 +205,14 @@ class OrtTransformersOptimization(Pass):
         run_config["optimization_options"] = fusion_options
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime.transformers import optimizer as transformers_optimizer
 
-        num_kv_heads = config["num_key_value_heads"]
+        num_kv_heads = config.num_key_value_heads
 
         # start with a copy of the config
-        run_config = deepcopy(config)
+        run_config = config.dict()
         keys_to_remove = [
             "float16",
             "keep_io_types",
@@ -268,7 +263,7 @@ class OrtTransformersOptimization(Pass):
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        optimization_options = config["optimization_options"]
+        optimization_options = config.optimization_options
 
         if optimization_options:
             self._set_fusion_options(run_config)
@@ -296,22 +291,22 @@ class OrtTransformersOptimization(Pass):
 
         optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
-        if config["float16"]:
+        if config.float16:
             optimizer.convert_float_to_float16(
-                keep_io_types=config["keep_io_types"],
-                op_block_list=config["force_fp32_ops"],
-                node_block_list=config["force_fp32_nodes"],
-                force_fp16_inputs=config["force_fp16_inputs"],
+                keep_io_types=config.keep_io_types,
+                op_block_list=config.force_fp32_ops,
+                node_block_list=config.force_fp32_nodes,
+                force_fp16_inputs=config.force_fp16_inputs,
             )
 
-            if config["use_gqa"]:
+            if config.use_gqa:
                 world_size = model.model_attributes.get("world_size", 1) if model.model_attributes is not None else 1
                 optimizer = self._replace_mha_with_gqa(optimizer, kv_num_heads=num_kv_heads, world_size=world_size)
                 optimizer.prune_graph()
                 # add allow_remove_graph_inputs to pass config
                 optimizer.update_graph(allow_remove_graph_inputs=True)
 
-        if config["input_int32"]:
+        if config.input_int32:
             optimizer.change_graph_inputs_to_int32()
 
         # Topologically sort the graph at the end since previous optimizations may have broken it

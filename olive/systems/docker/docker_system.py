@@ -103,22 +103,13 @@ class DockerSystem(OliveSystem):
                     _print_docker_logs(e.build_log, logging.ERROR)
                     raise
 
-    def run_pass(
-        self,
-        the_pass: "Pass",
-        model_config: "ModelConfig",
-        output_model_path: str,
-    ) -> "ModelConfig":
+    def run_pass(self, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str) -> "ModelConfig":
         """Run the pass on the model."""
         with tempfile.TemporaryDirectory() as tempdir:
             return self._run_pass_container(Path(tempdir), the_pass, model_config, output_model_path)
 
     def _run_pass_container(
-        self,
-        workdir: Path,
-        the_pass: "Pass",
-        model_config: "ModelConfig",
-        output_model_path: str,
+        self, workdir: Path, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str
     ) -> "ModelConfig":
         pass_config = the_pass.to_json(check_object=True)
 
@@ -370,8 +361,9 @@ class DockerSystem(OliveSystem):
     def _create_data_mounts_for_pass(self, container_root_path: Path, the_pass: "Pass"):
         mounts = {}
         mount_strs = []
+        config_dict = the_pass.config.dict()
         for param, _, category in the_pass.path_params:
-            param_val = the_pass.config.get(param)
+            param_val = config_dict.get(param)
             if category == ParamCategory.DATA and param_val:
                 mount = str(container_root_path / param)
                 mounts[param] = mount

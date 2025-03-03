@@ -116,7 +116,6 @@
             "prepare_qnn_config": true
         }
     },
-    "pass_flows": [ [ "convert", "optimize" ] ],
     "log_severity_level": 0,
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

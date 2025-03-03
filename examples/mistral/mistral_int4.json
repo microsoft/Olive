@@ -57,7 +57,6 @@
             "all_tensors_to_one_file": true
         }
     },
-    "pass_flows": [ [ "convert", "optimize", "quantization" ] ],
     "evaluate_input_model": false,
     "evaluator": "common_evaluator",
     "host": "local_system",

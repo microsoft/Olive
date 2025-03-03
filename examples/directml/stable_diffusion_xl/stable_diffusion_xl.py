@@ -7,6 +7,7 @@ import json
 import shutil
 import sys
 import warnings
+from collections import OrderedDict
 from pathlib import Path
 from typing import Dict
 
@@ -289,9 +290,10 @@ def run_inference(
 
 
 def update_config_with_provider(config: Dict, provider: str, is_fp16: bool) -> Dict:
+    used_passes = {}
     if provider == "dml":
         # DirectML EP is the default, so no need to update config.
-        return config
+        used_passes = {"convert", "optimize"}
     elif provider == "cuda":
         if version.parse(OrtVersion) < version.parse("1.17.0"):
             # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
@@ -299,11 +301,13 @@ def update_config_with_provider(config: Dict, provider: str, is_fp16: bool) -> D
         # keep model fully in fp16 if use_fp16_fixed_vae is set
         if is_fp16:
             config["passes"]["optimize_cuda"].update({"float16": True, "keep_io_types": False})
-        config["pass_flows"] = [["convert", "optimize_cuda"]]
+        used_passes = {"convert", "optimize_cuda"}
         config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
-        return config
     else:
         raise ValueError(f"Unsupported provider: {provider}")
+
+    config["passes"] = OrderedDict([(k, v) for k, v in config["passes"].items() if k in used_passes])
+    return config
 
 
 def optimize(

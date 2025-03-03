@@ -8,7 +8,7 @@
 import inspect
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Type
+from typing import Any, ClassVar, Dict, List, Optional, Type
 
 import numpy as np
 import onnx
@@ -20,7 +20,8 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.onnx.onnx_dag import OnnxDAG
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
@@ -455,6 +456,205 @@ class ExposeQuantizedOutput(Surgeon):
         return self._add_zero_point(model, zero_point_value, zero_point_onnx_dtype, zero_point_np_dtype)
 
 
+class RMSNormToL2Norm(Surgeon):
+    """Replace RMSNorm subgraph with L2Norm subgraph.
+
+    RMSNorm pattern:
+        +-----------------------------------------------+
+        |                                               |
+        |                                               v
+    [Root] --> Pow --> ReduceMean --> Add --> Sqrt --> Div --> Mul
+              (y=2)     (axis=-1)   (B=E-6)
+
+    Also handles the case where [Root] is multiplied with rsqrt leading to Div -> Mul
+    instead of dividing by sqrt.
+
+    L2Norm pattern:
+    [Root] --> LpNormalization --> Mul
+                (p=2, axis=-1)
+
+    Where the weight of the Mul node is multiplied by sqrt(N) where N is equal to the reduced axis size.
+    If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        modified = 0
+        removed_nodes = set()
+        replaced_initializers = set()
+        for node_name in dag.get_node_names():
+            if node_name in removed_nodes or dag.get_node_op_type(node_name) != "Pow":
+                continue
+
+            rmsnorm_nodes = self.get_rmsnorm_nodes(node_name, dag)
+            if not rmsnorm_nodes:
+                continue
+
+            graph_idx = dag.get_graph_idx(node_name)
+
+            # name for the new L2Norm node
+            l2norm_node_name = node_name.replace("Pow", "L2Norm") if "Pow" in node_name else f"{node_name}_L2Norm"
+            node_output_name = dag.get_node_outputs(node_name)[0]
+            l2norm_node_output_name = (
+                node_output_name.replace("Pow", "L2Norm") if "Pow" in node_output_name else f"{node_output_name}_L2Norm"
+            )
+
+            # create L2Norm node
+            l2norm_node = onnx.helper.make_node(
+                "LpNormalization",
+                inputs=[dag.get_node_inputs(node_name)[0]],
+                outputs=[l2norm_node_output_name],
+                name=l2norm_node_name,
+                axis=-1,
+                p=2,
+            )
+
+            # Muliply weight by sqrt(N)
+            final_node_name = rmsnorm_nodes[-1]
+            final_node_children = dag.get_consumers(final_node_name)
+            # can be Cast or Mul
+            if len(final_node_children) != 1 or dag.get_node_op_type(final_node_children[0]) not in ["Cast", "Mul"]:
+                logger.debug("RMSNorm Pattern does not end with Cast or Mul. Found %s", final_node_children)
+                continue
+            final_node_output_name = dag.get_node_outputs(final_node_name)[0]
+
+            # Get the weight Mul node
+            if dag.get_node_op_type(final_node_children[0]) == "Mul":
+                rmsnorm_mul_node_name = final_node_children[0]
+            else:
+                cast_node_children = dag.get_consumers(final_node_children[0])
+                if len(cast_node_children) != 1 or dag.get_node_op_type(cast_node_children[0]) != "Mul":
+                    logger.debug("RMSNorm Pattern does not end with Cast -> Mul. Found %s", cast_node_children)
+                    continue
+                rmsnorm_mul_node_name = cast_node_children[0]
+
+            # Get the weight Mul node inputs
+            rmsnorm_weight_name = None
+            for input_name in dag.get_node_inputs(rmsnorm_mul_node_name):
+                if dag.is_initializer(input_name):
+                    rmsnorm_weight_name = input_name
+                    break
+            if rmsnorm_weight_name is None:
+                logger.debug("RMSNorm Mul node does not have initializer input")
+                continue
+
+            # update weight and replace initializer
+            if rmsnorm_weight_name not in replaced_initializers:
+                # rotated models have all 1s and might share initializer
+                # don't want to multiply by sqrt(N) multiple times even though it is fine in all 1s case
+                rmsnorm_weight = dag.get_initializer_np_array(rmsnorm_weight_name)
+                sqrt_n = np.sqrt(rmsnorm_weight.shape[-1])
+                if np.all(rmsnorm_weight == 1):
+                    # this is possible in a quarot/spinquant rotated model
+                    # Multiplying by 1D is probably faster
+                    rmsnorm_weight = np.array([1], dtype=rmsnorm_weight.dtype)
+                rmsnorm_weight = sqrt_n * rmsnorm_weight
+
+                dag.replace_initializer(onnx.numpy_helper.from_array(rmsnorm_weight, name=rmsnorm_weight_name))
+                replaced_initializers.add(rmsnorm_weight_name)
+
+            # add and replace nodes
+            dag.add_node(l2norm_node, graph_idx)
+            dag.replace_node_input(final_node_children[0], final_node_output_name, l2norm_node_output_name)
+            for rms_node_name in rmsnorm_nodes[::-1]:
+                dag.remove_node(rms_node_name)
+                removed_nodes.add(rms_node_name)
+
+            modified += 1
+
+        if modified > 0:
+            logger.debug("Replaced %d RMSNorm nodes with L2Norm nodes", modified)
+
+        dag.update()
+        return dag.model
+
+    @staticmethod
+    def get_rmsnorm_nodes(pow_node: str, dag: OnnxDAG) -> Optional[List[str]]:
+        # Two possible patterns:
+        # x / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div
+        # x * 1 / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div -> Mul
+        pattern = ["Pow", "ReduceMean", "Add", "Sqrt", "Div", "Mul"]
+        pow_node_input = dag.get_node_inputs(pow_node)[0]
+        current_node = pow_node
+        rmsnorm_nodes = [current_node]
+        for op_type in pattern[1:]:
+            child_nodes = dag.get_consumers(current_node)
+            if len(child_nodes) != 1 or dag.get_node_op_type(child_nodes[0]) != op_type:
+                return []
+            current_node = child_nodes[0]
+            rmsnorm_nodes.append(current_node)
+            if pow_node_input in dag.get_node_inputs(current_node):
+                # this can happen either at Div or Mul
+                # early stopping if it is Div
+                break
+
+        return rmsnorm_nodes if len(rmsnorm_nodes) >= (len(pattern) - 1) else []
+
+
+class ReplaceAttentionMaskValue(Surgeon):
+    """Replace the value of extended attention mask with a new value.
+
+    This surgery is useful if the default mask value does not quantize well due to numerical instability.
+    """
+
+    def __init__(self, threshold: float = -3e30, replacement: float = -1e4):
+        self.threshold = threshold
+        self.replacement = replacement
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+        modified = 0
+
+        # update any constant or constantofshape nodes with the threshold value
+        for node_name in dag.get_node_names():
+            op_type = dag.get_node_op_type(node_name)
+            node_proto = dag.get_node_proto(node_name)
+            if not (
+                op_type in {"Constant", "ConstantOfShape"}
+                and node_proto.attribute
+                and node_proto.attribute[0].t
+                and node_proto.attribute[0].t.data_type == onnx.TensorProto.FLOAT
+                and node_proto.attribute[0].t.dims in [[], [1]]
+            ):
+                continue
+
+            value = onnx.helper.get_attribute_value(node_proto.attribute[0])
+            tensor_value = onnx.numpy_helper.to_array(value)
+            if tensor_value < self.threshold:
+                node_proto.ClearField("attribute")
+                node_proto.attribute.extend(
+                    [
+                        onnx.helper.make_attribute(
+                            "value", onnx.numpy_helper.from_array(np.full_like(tensor_value, self.replacement))
+                        )
+                    ]
+                )
+                modified += 1
+
+        # update any initializer nodes with the threshold value
+        for init_name in dag.get_initializer_names():
+            init_proto = dag.get_initializer_proto(init_name)
+            if not (init_proto.data_type == onnx.TensorProto.FLOAT and init_proto.dims in [[], [1]]):
+                continue
+
+            tensor_value = onnx.numpy_helper.to_array(init_proto)
+            if tensor_value < self.threshold:
+                dag.replace_initializer(
+                    onnx.numpy_helper.from_array(np.full_like(tensor_value, self.replacement), name=init_name)
+                )
+                modified += 1
+
+        if modified > 0:
+            logger.debug("Replaced %d values below threshold with replacement.", modified)
+
+        dag.update()
+        return dag.model
+
+
 class GraphSurgeries(Pass):
     """ONNX graph surgeries collections.
 
@@ -493,11 +693,11 @@ class GraphSurgeries(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        surgeries = config["surgeries"]
+        surgeries = config.surgeries
         onnx_model = model.load_model()
         for surgery in surgeries:
             logger.info("Applying surgery: %s", surgery)
@@ -515,22 +715,33 @@ class GraphSurgeries(Pass):
         if not surgeon_class:
             raise ValueError(f"Surgeon '{surgeon_name}' does not exist. Available surgeons: {Surgeon.registry.keys()}")
 
-        required_params = self.get_surgeon_parameters(surgeon_class)
+        required_params, optional_params = self.get_surgeon_parameters(surgeon_class)
         provided_params = set(surgery.keys()) - {"surgeon"}
         missing_params = set(required_params) - provided_params
-        extra_params = provided_params - set(required_params)
+        extra_params = provided_params - set(required_params) - set(optional_params)
 
         if missing_params:
             raise ValueError(f"Missing parameters for surgery '{surgeon_name}': {missing_params}")
         if extra_params:
-            raise ValueError(f"Ignoring extra parameters for surgery '{surgeon_name}': {extra_params}")
+            logger.warning("Ignoring extra parameters for surgery '%s': %s", surgeon_name, extra_params)
 
         init_params = {param: surgery[param] for param in required_params}
+        init_params.update({param: surgery[param] for param in optional_params if param in surgery})
         return surgeon_class(**init_params)
 
     @staticmethod
     def get_surgeon_parameters(surgeon_class):
-        signature = inspect.signature(surgeon_class.__init__)
-        params = list(signature.parameters.keys())
-        params.remove("self")
-        return params
+        parameters = inspect.signature(surgeon_class.__init__).parameters
+
+        positional_args = [
+            name
+            for name, param in parameters.items()
+            if param.default == param.empty and param.kind in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD)
+        ]
+        positional_args.remove("self")
+        keyword_args = [
+            name
+            for name, param in parameters.items()
+            if param.default != param.empty or param.kind == param.KEYWORD_ONLY
+        ]
+        return positional_args, keyword_args

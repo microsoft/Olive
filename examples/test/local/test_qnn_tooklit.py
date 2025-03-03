@@ -17,6 +17,7 @@ from ..utils import check_output, download_conda_installer, download_qc_toolkit,
 set_verbosity_debug()
 
 
+# TODO(team): add test back to pipeline when update the qnn sdk to support python 3.10
 class TestQnnToolkit:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
@@ -24,7 +25,7 @@ class TestQnnToolkit:
         os.environ["QNN_SDK_ROOT"] = f"{download_qc_toolkit(tmp_path, 'qnn')}/opt/qcom/aistack"
         os.environ["CONDA_INSTALLER"] = download_conda_installer(tmp_path)
 
-    def _setup_resource(self, use_olive_env):
+    def _setup_resource(self, use_olive_env, mode):
         """Setups any state specific to the execution of the given module."""
         example_dir = get_example_dir("mobilenet")
         os.chdir(example_dir)
@@ -68,13 +69,14 @@ class TestQnnToolkit:
                     + os.environ["PATH"]
                 )
         retry_func(run_subprocess, kwargs={"cmd": "python download_files.py", "check": True})
-        retry_func(run_subprocess, kwargs={"cmd": "python prepare_config.py", "check": True})
+        retry_func(run_subprocess, kwargs={"cmd": f"python prepare_config.py --mode {mode}", "check": True})
 
     @pytest.mark.parametrize("use_olive_env", [True, False])
-    def test_mobilenet_qnn(self, use_olive_env):
+    @pytest.mark.parametrize("mode", ["convert", "quantize"])
+    def test_mobilenet_qnn(self, use_olive_env, mode):
         from olive.workflows import run as olive_run
 
-        self._setup_resource(use_olive_env)
+        self._setup_resource(use_olive_env, mode)
 
         footprint = olive_run("raw_qnn_sdk_config.json", tempdir=os.environ.get("OLIVE_TEMPDIR", None))
         check_output(footprint)

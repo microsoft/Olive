@@ -186,25 +186,23 @@ def main(raw_args=None):
             legacy_optimization_setting(template_json)
 
         # add pass flows
-        pass_flows = [[]]
+        used_passes = {}
         if args.finetune_method:
-            pass_flows[0].append(args.finetune_method)
+            used_passes.add(args.finetune_method)
             # torch fine tuning does not require execution provider, just set it to CUDAExecutionProvider
             update_accelerator(template_json, "gpu")
         if args.slicegpt:
-            pass_flows[0].extend(SUPPORTED_WORKFLOWS["slicegpt"][0])
+            used_passes.update(SUPPORTED_WORKFLOWS["slicegpt"][0])
             update_accelerator(template_json, "gpu")
             del template_json["input_model"]["io_config"]
 
         if model_type:
-            pass_flows[0].extend(SUPPORTED_WORKFLOWS[model_type][0])
-            template_json["pass_flows"] = pass_flows
+            used_passes.update(SUPPORTED_WORKFLOWS[model_type][0])
             if args.optimum_optimization:
                 legacy_optimization_setting(template_json)
-                for pass_flow in template_json["pass_flows"]:
-                    pass_flow[0] = "optimum_convert"
-                    if "session_params_tuning" in pass_flow:
-                        pass_flow.remove("session_params_tuning")
+                used_passes.pop("convert", None)
+                used_passes.pop("session_params_tuning", None)
+                used_passes.add("optimum_convert")
 
             if "cuda" in model_type:
                 update_accelerator(template_json, "gpu")
@@ -217,7 +215,6 @@ def main(raw_args=None):
             template_json["evaluate_input_model"] = False
             del template_json["evaluator"]
 
-        used_passes = {pass_name for pass_flow in pass_flows for pass_name in pass_flow}
         for pass_name in list(template_json["passes"].keys()):
             if pass_name not in used_passes:
                 del template_json["passes"][pass_name]

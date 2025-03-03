@@ -30,6 +30,25 @@ class BaseOliveCLICommand(ABC):
         if unknown_args and not self.allow_unknown_args:
             parser.error(f"Unknown arguments: {unknown_args}")
 
+    def _run_workflow(self):
+        import tempfile
+
+        from olive.workflows import run as olive_run
+
+        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
+            run_config = self._get_run_config(tempdir)
+            if self.args.save_config_file:
+                self._save_config_file(run_config)
+            return olive_run(run_config)
+
+    @staticmethod
+    def _save_config_file(config: Dict):
+        """Save the config file."""
+        config_file_path = Path(config["output_dir"]) / "config.json"
+        with open(config_file_path, "w") as f:
+            json.dump(config, f, indent=4)
+        print(f"Config file saved at {config_file_path}")
+
     @staticmethod
     @abstractmethod
     def register_subcommand(parser: ArgumentParser):
@@ -247,6 +266,16 @@ def add_logging_options(sub_parser: ArgumentParser):
     return sub_parser
 
 
+def add_save_config_file_options(sub_parser: ArgumentParser):
+    """Add save config file options to the sub_parser."""
+    sub_parser.add_argument(
+        "--save_config_file",
+        action="store_true",
+        help="Generate and save the config file for the command.",
+    )
+    return sub_parser
+
+
 def add_remote_options(sub_parser: ArgumentParser):
     """Add remote options to the sub_parser."""
     remote_group = sub_parser
@@ -452,6 +481,7 @@ def add_dataset_options(sub_parser, required=True, include_train=True, include_e
         type=unescaped_str,
         help=r"Template to generate text field from. E.g. '### Question: {prompt} \n### Answer: {response}'",
     )
+    text_group.add_argument("--use_chat_template", action="store_true", help="Use chat template for text field.")
     dataset_group.add_argument(
         "--max_seq_len",
         type=int,
@@ -497,6 +527,7 @@ def update_dataset_options(args, config):
         ),
         ((*preprocess_key, "text_cols"), args.text_field),
         ((*preprocess_key, "text_template"), args.text_template),
+        ((*preprocess_key, "chat_template"), args.use_chat_template),
         ((*preprocess_key, "max_seq_len"), args.max_seq_len),
         ((*preprocess_key, "add_special_tokens"), args.add_special_tokens),
         ((*preprocess_key, "max_samples"), args.max_samples),
@@ -590,16 +621,16 @@ def add_search_options(sub_parser: ArgumentParser):
         "--enable_search",
         type=str,
         default=None,
-        const="exhaustive",
+        const="sequential",
         nargs="?",
-        choices=["exhaustive", "tpe", "random"],
+        choices=["random", "sequential", "tpe"],
         help=(
             "Enable search to produce optimal model for the given criteria. "
-            "Optionally provide search algorithm from available choices. "
-            "Use exhastive search algorithm by default."
+            "Optionally provide sampler from available choices. "
+            "By default, uses sequential sampler."
         ),
     )
-    search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search algorithm")
+    search_strategy_group.add_argument("--seed", type=int, default=0, help="Random seed for search sampler")
 
 
 def update_search_options(args, config):
@@ -610,7 +641,7 @@ def update_search_options(args, config):
                 "search_strategy",
                 {
                     "execution_order": "joint",
-                    "search_algorithm": args.enable_search,
+                    "sampler": args.enable_search,
                     "seed": args.seed,
                 },
             ),

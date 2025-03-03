@@ -5,6 +5,9 @@ The following passes are available in Olive.
 
 Each pass is followed by a description of the pass and a list of the pass's configuration options.
 
+ONNX
+=================================
+
 .. _onnx_conversion:
 
 OnnxConversion
@@ -89,6 +92,12 @@ OnnxMatMul4Quantizer
 --------------------
 .. autoconfigclass:: olive.passes.OnnxMatMul4Quantizer
 
+.. _graph_surgeries:
+
+GraphSurgeries
+--------------------
+.. autoconfigclass:: olive.passes.GraphSurgeries
+
 .. _matmulnbits_to_qdq:
 
 MatMulNBitsToQDQ
@@ -143,17 +152,38 @@ ExtractAdapters
 ---------------
 .. autoconfigclass:: olive.passes.ExtractAdapters
 
-.. _capture_split_info:
-
-CaptureSplitInfo
-----------------
-.. autoconfigclass:: olive.passes.CaptureSplitInfo
-
 .. _split_model:
 
 SplitModel
 ----------
 .. autoconfigclass:: olive.passes.SplitModel
+
+.. _optimum_conversion:
+
+OptimumConversion
+-----------------
+.. autoconfigclass:: olive.passes.OptimumConversion
+
+.. _optimum_merging:
+
+OptimumMerging
+--------------
+.. autoconfigclass:: olive.passes.OptimumMerging
+
+.. _model_builder:
+
+ModelBuilder
+------------
+.. autoconfigclass:: olive.passes.ModelBuilder
+
+Pytorch
+=================================
+
+.. _capture_split_info:
+
+CaptureSplitInfo
+----------------
+.. autoconfigclass:: olive.passes.CaptureSplitInfo
 
 .. _lora:
 
@@ -161,11 +191,29 @@ LoRA
 ----
 .. autoconfigclass:: olive.passes.LoRA
 
+.. _loha:
+
+LoHa
+-----
+.. autoconfigclass:: olive.passes.LoHa
+
+.. _lokr:
+
+LoKr
+-----
+.. autoconfigclass:: olive.passes.LoKr
+
 .. _qlora:
 
 QLoRA
 -----
 .. autoconfigclass:: olive.passes.QLoRA
+
+.. _dora:
+
+DoRA
+-----
+.. autoconfigclass:: olive.passes.DoRA
 
 .. _loftq:
 
@@ -185,54 +233,6 @@ LoRA/QLoRA/LoftQ HFTrainingArguments
 QuantizationAwareTraining
 -------------------------
 .. autoconfigclass:: olive.passes.QuantizationAwareTraining
-
-.. _openvino_conversion:
-
-OpenVINOConversion
-------------------
-.. autoconfigclass:: olive.passes.OpenVINOConversion
-
-.. _openvino_quantization:
-
-OpenVINOQuantization
---------------------
-.. autoconfigclass:: olive.passes.OpenVINOQuantization
-
-.. _snpe_conversion:
-
-SNPEConversion
---------------
-.. autoconfigclass:: olive.passes.SNPEConversion
-
-.. _snpe_quantization:
-
-SNPEQuantization
-----------------
-.. autoconfigclass:: olive.passes.SNPEQuantization
-
-.. _snpe_to_onnx_conversion:
-
-SNPEtoONNXConversion
---------------------
-.. autoconfigclass:: olive.passes.SNPEtoONNXConversion
-
-.. _qnn_conversion:
-
-QNNConversion
--------------
-.. autoconfigclass:: olive.passes.QNNConversion
-
-.. _qnn_model_lib_generator:
-
-QNNModelLibGenerator
---------------------
-.. autoconfigclass:: olive.passes.QNNModelLibGenerator
-
-.. _qnn_context_binary_generator:
-
-QNNContextBinaryGenerator
--------------------------
-.. autoconfigclass:: olive.passes.QNNContextBinaryGenerator
 
 .. _merge_adapter_weights:
 
@@ -258,6 +258,12 @@ QuaRot
 ------
 .. autoconfigclass:: olive.passes.QuaRot
 
+.. _spinquant:
+
+SpinQuant
+---------
+.. autoconfigclass:: olive.passes.SpinQuant
+
 .. _gptq_quantizer:
 
 GptqQuantizer
@@ -276,20 +282,59 @@ TorchTRTConversion
 ------------------
 .. autoconfigclass:: olive.passes.TorchTRTConversion
 
-.. _optimum_conversion:
+OpenVINO
+=================================
 
-OptimumConversion
------------------
-.. autoconfigclass:: olive.passes.OptimumConversion
+.. _openvino_conversion:
 
-.. _optimum_merging:
+OpenVINOConversion
+------------------
+.. autoconfigclass:: olive.passes.OpenVINOConversion
 
-OptimumMerging
+.. _openvino_quantization:
+
+OpenVINOQuantization
+--------------------
+.. autoconfigclass:: olive.passes.OpenVINOQuantization
+
+SNPE
+=================================
+
+.. _snpe_conversion:
+
+SNPEConversion
 --------------
-.. autoconfigclass:: olive.passes.OptimumMerging
+.. autoconfigclass:: olive.passes.SNPEConversion
 
-.. model_builder:
+.. _snpe_quantization:
 
-ModelBuilder
-------------
-.. autoconfigclass:: olive.passes.ModelBuilder
+SNPEQuantization
+----------------
+.. autoconfigclass:: olive.passes.SNPEQuantization
+
+.. _snpe_to_onnx_conversion:
+
+SNPEtoONNXConversion
+--------------------
+.. autoconfigclass:: olive.passes.SNPEtoONNXConversion
+
+QNN
+=================================
+
+.. _qnn_conversion:
+
+QNNConversion
+-------------
+.. autoconfigclass:: olive.passes.QNNConversion
+
+.. _qnn_model_lib_generator:
+
+QNNModelLibGenerator
+--------------------
+.. autoconfigclass:: olive.passes.QNNModelLibGenerator
+
+.. _qnn_context_binary_generator:
+
+QNNContextBinaryGenerator
+-------------------------
+.. autoconfigclass:: olive.passes.QNNContextBinaryGenerator

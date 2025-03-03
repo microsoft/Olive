@@ -23,7 +23,7 @@ def setup():
     retry_func(run_subprocess, kwargs={"cmd": "python prepare_model_data.py", "check": True})
 
 
-@pytest.mark.parametrize("search_algorithm", ["random"])
+@pytest.mark.parametrize("sampler", ["random"])
 @pytest.mark.parametrize("execution_order", ["pass-by-pass"])
 @pytest.mark.parametrize("system", ["aml_system"])
 @pytest.mark.parametrize(
@@ -40,10 +40,10 @@ def setup():
     version.parse(OrtVersion) == version.parse("1.16.0"),
     reason="resnet is not supported in ORT 1.16.0 caused by https://github.com/microsoft/onnxruntime/issues/17627",
 )
-def test_resnet(search_algorithm, execution_order, system, olive_json):
+def test_resnet(sampler, execution_order, system, olive_json):
     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json, search_algorithm, execution_order, system)
+    olive_config = patch_config(olive_json, sampler, execution_order, system)
 
     footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     check_output(footprint)

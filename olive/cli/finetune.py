@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 from argparse import ArgumentParser
 from copy import deepcopy
 from typing import ClassVar, Dict
@@ -13,6 +12,7 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_remote_options,
+    add_save_config_file_options,
     add_shared_cache_options,
     get_input_model_config,
     update_dataset_options,
@@ -76,14 +76,11 @@ class FineTuneCommand(BaseOliveCLICommand):
         add_remote_options(sub_parser)
         add_shared_cache_options(sub_parser)
         add_logging_options(sub_parser)
+        add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=FineTuneCommand)
 
     def run(self):
-        from olive.workflows import run as olive_run
-
-        with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
-            run_config = self.get_run_config(tempdir)
-            olive_run(run_config)
+        self._run_workflow()
 
     def parse_training_args(self) -> Dict:
         if not self.unknown_args:
@@ -100,7 +97,7 @@ class FineTuneCommand(BaseOliveCLICommand):
 
         return {k: v for k, v in vars(training_args).items() if k in arg_keys}
 
-    def get_run_config(self, tempdir: str) -> Dict:
+    def _get_run_config(self, tempdir: str) -> Dict:
         input_model_config = get_input_model_config(self.args)
         assert input_model_config["type"].lower() == "hfmodel", "Only HfModel is supported in finetune command."
 
@@ -110,8 +107,8 @@ class FineTuneCommand(BaseOliveCLICommand):
             ((*finetune_key, "type"), self.args.method),
             ((*finetune_key, "torch_dtype"), self.args.torch_dtype),
             ((*finetune_key, "training_args"), self.parse_training_args()),
-            ((*finetune_key, "lora_r"), self.args.lora_r),
-            ((*finetune_key, "lora_alpha"), self.args.lora_alpha),
+            ((*finetune_key, "r"), self.args.lora_r),
+            ((*finetune_key, "alpha"), self.args.lora_alpha),
             ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
         ]

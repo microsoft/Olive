@@ -656,3 +656,150 @@ graph {
   output: "zero_point"
 }
 ```
+
+
+### RMSNormToL2Norm
+
+#### Description
+
+Replace RMSNorm subgraph with L2Norm subgraph.
+
+#### Example
+
+Initial model graph:
+
+```
+RMSNorm pattern:
+    +-----------------------------------------------+
+    |                                               |
+    |                                               v
+[Root] --> Pow --> ReduceMean --> Add --> Sqrt --> Div --> Mul
+          (y=2)     (axis=-1)   (B=E-6)
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RMSNormToL2Norm"
+        }
+    ]
+}
+```
+
+
+Transformed model graph:
+
+```
+[Root] --> LpNormalization --> Mul
+           (p=2, axis=-1)
+```
+
+### ReplaceAttentionMaskValue
+
+#### Description
+
+Replace the value of extended attention mask with a new value. This surgery is useful if the default mask value does not quantize well due to numerical instability.
+
+#### Example
+
+Initial model graph:
+
+```
+graph {
+  node {
+    input: "input1"
+    output: "output1"
+    name: "ConstantOfShape"
+    op_type: "ConstantOfShape"
+    attribute {
+      name: "value"
+      t {
+        dims: 1
+        data_type: 1
+        float_data: -3.4028234663852886e+38
+        name: ""
+      }
+      type: TENSOR
+    }
+  }
+  node {
+    output: "Constant_output"
+    name: "Constant"
+    op_type: "Constant"
+    attribute {
+      name: "value"
+      t {
+        data_type: 1
+        float_data: -3.4028234663852886e+38
+        name: ""
+      }
+      type: TENSOR
+    }
+  }
+  initializer {
+    data_type: 1
+    float_data: -3.4028234663852886e+38
+    name: "init"
+  }
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "ReplaceAttentionMaskValue"
+        }
+    ]
+}
+```
+
+
+Transformed model graph:
+
+```
+graph {
+  node {
+    input: "input1"
+    output: "output1"
+    name: "ConstantOfShape"
+    op_type: "ConstantOfShape"
+    attribute {
+      name: "value"
+      t {
+        dims: 1
+        data_type: 1
+        float_data: -10000.0
+        name: ""
+      }
+      type: TENSOR
+    }
+  }
+  node {
+    output: "Constant_output"
+    name: "Constant"
+    op_type: "Constant"
+    attribute {
+      name: "value"
+      t {
+        data_type: 1
+        float_data: -10000.0
+        name: ""
+      }
+      type: TENSOR
+    }
+  }
+  initializer {
+    data_type: 1
+    float_data: -10000.0
+    name: "init"
+  }
+}
+```

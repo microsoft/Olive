@@ -5,7 +5,7 @@ This folder contains examples of ResNet optimization using different workflows.
 - CPU: [with PyTorch QAT PyTorch Lightning Module and ORT optimizations](#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu)
 - AMD DPU: [with AMD Vitis-AI Quantization](#resnet-optimization-with-vitis-ai-ptq-on-amd-dpu)
 - Intel GPU: [with OpenVINO and DirectML execution providers in ONNX Runtime](#resnet-optimization-with-openvino-and-dml-execution-providers)
-
+- Qualcomm NPU: [with QNN execution provider in ONNX Runtime](#resnet-optimization-with-qnn-execution-providers)
 Go to [How to run](#how-to-run)
 
 ## Optimization Workflows
@@ -45,6 +45,12 @@ This example performs ResNet optimization with OpenVINO and DML execution provid
 - *ONNX Model -> ONNX Runtime performance tuning on multiple ep*
 
 Config file: [resnet_multiple_ep.json](resnet_multiple_ep.json)
+
+### ResNet optimization with QNN execution providers
+This example performs ResNet optimization with QNN execution providers in one workflow. It performs the optimization pipeline:
+- *PyTorch Model -> Onnx Model -> QNN Quantized Onnx Model*
+
+Config file: [resnet_ptq_qnn.json](resnet_ptq_qnn.json)
 ## How to run
 ### Pip requirements
 Install the necessary python packages:

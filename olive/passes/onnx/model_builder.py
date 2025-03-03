@@ -8,7 +8,7 @@ import copy
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Type, Union
 
 import onnx
 import transformers
@@ -19,6 +19,7 @@ from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pass_config import BasePassConfig
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,13 @@ class ModelBuilder(Pass):
         FP16 = "fp16"
         INT8 = "int8"
         INT4 = "int4"
+
+    class BlockSize(IntEnumBase):
+        B16 = 16
+        B32 = 32
+        B64 = 64
+        B128 = 128
+        B256 = 256
 
     class AccuracyLevel(IntEnumBase):
         fp32 = 1
@@ -59,7 +67,7 @@ class ModelBuilder(Pass):
                 type_=Dict[str, Any], required=False, description="Search options to use for generate loop."
             ),
             "int4_block_size": PassConfigParam(
-                type_=int,
+                type_=ModelBuilder.BlockSize,
                 required=False,
                 description="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
             ),
@@ -95,15 +103,11 @@ class ModelBuilder(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
-
-        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
-        config = config_cls(**config)
 
         # if device is GPU, but user choose CPU EP, the is_cpu should be True
         if (config.precision == ModelBuilder.Precision.FP16) and not (
@@ -124,13 +128,20 @@ class ModelBuilder(Pass):
     def _run_for_config(
         self,
         model: Union[HfModelHandler, ONNXModelHandler],
-        config: Dict[str, Any],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        from onnxruntime_genai.models.builder import create_model
+        try:
+            from onnxruntime_genai.models.builder import create_model
+        except ImportError:
+            raise ImportError(
+                "onnxruntime-genai package is required to run ModelBuilder pass. Please install the package"
+                " corresponding to your onnxruntime installation using pip. cpu: onnxruntime-genai, cuda:"
+                " onnxruntime-genai-cuda, directml: onnxruntime-genai-directml"
+            ) from None
 
-        precision = config["precision"]
-        metadata_only = config["metadata_only"]
+        precision = config.precision
+        metadata_only = config.metadata_only
 
         if metadata_only:
             if not isinstance(model, ONNXModelHandler):
@@ -166,23 +177,21 @@ class ModelBuilder(Pass):
             if model.adapter_path:
                 extra_args["adapter_path"] = model.adapter_path
 
-        if config.get("int4_block_size"):
-            if int(config["int4_block_size"]) not in [16, 32, 64, 128, 256]:
-                raise ValueError("Invalid int4_block_size. Accepted values: 16/32/64/128/256.")
-            extra_args["int4_block_size"] = config["int4_block_size"]
+        if config.int4_block_size:
+            extra_args["int4_block_size"] = config.int4_block_size.value
 
-        if config.get("int4_accuracy_level"):
-            extra_args["int4_accuracy_level"] = config["int4_accuracy_level"].value
+        if config.int4_accuracy_level:
+            extra_args["int4_accuracy_level"] = config.int4_accuracy_level.value
 
         # args that are only checked for presence, not value
         for arg in ["exclude_embeds", "exclude_lm_head"]:
-            if config[arg]:
+            if getattr(config, arg):
                 extra_args[arg] = True
 
         # args that are checked for presence and value (if present)
         for arg in ["enable_cuda_graph"]:
-            if config[arg] is not None:
-                extra_args[arg] = "1" if config[arg] else "0"
+            if getattr(config, arg) is not None:
+                extra_args[arg] = "1" if getattr(config, arg) else "0"
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
 
@@ -225,7 +234,7 @@ class ModelBuilder(Pass):
         with open(genai_config_filepath) as istrm:
             genai_config = json.load(istrm)
 
-        genai_config["search"] = {**(genai_config.get("search") or {}), **(config.get("search") or {})}
+        genai_config["search"] = {**(genai_config.get("search") or {}), **(config.search or {})}
 
         with open(genai_config_filepath, "w") as ostrm:
             json.dump(genai_config, ostrm, indent=4)

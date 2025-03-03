@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Optional, Type, Union
 
 import numpy as np
 import onnx
@@ -17,34 +17,47 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.onnx_dag import OnnxDAG
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
 
 class SplitModel(Pass):
+    """Split an ONNX model into multiple smaller sub-models based on predefined assignments."""
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
+            "split_assignments": PassConfigParam(
+                type_=Union[Dict[str, int], str],
+                default_value=None,
+                description=(
+                    "Set split assignments in the format of name1=0;name2=1 etc."
+                    " Overwrite the one from CaptureSplitInfo pass."
+                ),
+            ),
             **get_external_data_config(),
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> CompositeModelHandler:
         model_proto = model.load_model()
 
-        split_assignments = None
-        for metadata_prop in model_proto.metadata_props:
-            if metadata_prop.key == "split_assignments":
-                split_assignments = {
-                    key: int(value)
-                    for key, value in (assignment.split("=") for assignment in metadata_prop.value.split(";"))
-                }
-                break
+        split_assignments = config.split_assignments
+        if split_assignments is None:
+            for metadata_prop in model_proto.metadata_props:
+                if metadata_prop.key == "split_assignments":
+                    split_assignments = metadata_prop.value
+                    break
         # TODO(jambayk): Should we allow split assignments in the model attributes too?
         if not split_assignments:
             raise ValueError("No split assignments found in the model metadata")
+
+        if isinstance(split_assignments, str):
+            split_assignments = {
+                key: int(value) for key, value in (assignment.split("=") for assignment in split_assignments.split(";"))
+            }
 
         # TODO(jambayk): Make this more generic, for now only assume transformers layers are split
         # so depth of namespace is same for all split assignments

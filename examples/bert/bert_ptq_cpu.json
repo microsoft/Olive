@@ -67,7 +67,7 @@
         },
         "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mrpc" }
     },
-    "search_strategy": { "execution_order": "joint", "search_algorithm": "tpe", "num_samples": 3, "seed": 0 },
+    "search_strategy": { "execution_order": "joint", "sampler": "tpe", "max_samples": 3, "seed": 0 },
     "evaluator": "common_evaluator",
     "host": "local_system",
     "target": "local_system",

@@ -118,37 +118,6 @@ init_command = [
 ]
 
 [[linter]]
-code = 'MYPY'
-include_patterns = [
-  '**/*.py',
-  '**/*.pyi'
-]
-exclude_patterns = [
-  'examples/pytorch/*.py'
-]
-command = [
-  'python',
-  '-m',
-  'lintrunner_adapters',
-  'run',
-  'mypy_linter',
-  '--config=pyproject.toml',
-  '--show-notes',
-  '--show-disable',
-  '--',
-  '@{{PATHSFILE}}'
-]
-init_command = [
-  'python',
-  '-m',
-  'lintrunner_adapters',
-  'run',
-  'pip_init',
-  '--dry-run={{DRYRUN}}',
-  'mypy==1.0.0'
-]
-
-[[linter]]
 code = 'NOQA'
 include_patterns = ['**/*.py', '**/*.pyi']
 command = [
@@ -287,6 +256,7 @@ command = [
 code = "FORMAT-JSON"
 is_formatter = true
 include_patterns = ['**/*.json']
+exclude_patterns = ['**/vit_id2label.json']
 command = [
   'python',
   'scripts/format_json.py',

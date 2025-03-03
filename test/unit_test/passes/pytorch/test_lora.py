@@ -12,7 +12,7 @@ from olive.common.constants import OS
 from olive.data.template import huggingface_data_config_template
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch.lora import LoftQ, LoRA, QLoRA
+from olive.passes.pytorch.lora import DoRA, LoftQ, LoHa, LoKr, LoRA, QLoRA
 
 # pylint: disable=redefined-outer-name
 
@@ -42,9 +42,9 @@ def get_pass_config(model_name, task, **kwargs):
     return {
         "train_data_config": data_config,
         # hidden sizes are 4 or 16
-        # will have invalid adapter weights since `in_features` and/or `out_features` say 64 (lora_r) even though
+        # will have invalid adapter weights since `in_features` and/or `out_features` say 64 (r) even though
         # the actual weights are 4 or 16. Bug not from our code, it's from peft
-        "lora_r": 4,
+        "r": 4,
         "training_args": {
             "per_device_train_batch_size": 1,
             "per_device_eval_batch_size": 1,
@@ -73,7 +73,7 @@ def run_finetuning(pass_class, tmp_path, **pass_config_kwargs):
 
 # TODO(team): Failed in pipeline (linux gpu). Need to investigate.
 @pytest.mark.skipif(
-    not torch.cuda.is_available() or True,
+    not torch.cuda.is_available(),
     reason="lora finetuning requires GPU.",
 )
 def test_lora(tmp_path):
@@ -93,7 +93,7 @@ def test_lora(tmp_path):
 def test_qlora(tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
-    out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32")
+    out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32", device_map="current_device")
 
     # assert
     assert Path(out.get_resource("adapter_path")).exists()
@@ -107,8 +107,47 @@ def test_qlora(tmp_path):
 def test_loftq(tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
-    out = run_finetuning(LoftQ, tmp_path, torch_dtype="float32")
+    out = run_finetuning(LoftQ, tmp_path, torch_dtype="float32", device_map="current_device")
 
     # assert
     assert Path(out.get_resource("model_path")).exists()
+    assert Path(out.get_resource("adapter_path")).exists()
+
+
+@pytest.mark.skipif(
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
+    reason="bitsandbytes requires Linux GPU.",
+)
+def test_loha(tmp_path):
+    # execute
+    out = run_finetuning(
+        LoHa, tmp_path, torch_dtype="float16", training_args={"remove_unused_columns": False, "save_safetensors": False}
+    )
+
+    # assert
+    assert Path(out.get_resource("adapter_path")).exists()
+
+
+@pytest.mark.skipif(
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
+    reason="bitsandbytes requires Linux GPU.",
+)
+def test_lokr(tmp_path):
+    # execute
+    out = run_finetuning(
+        LoKr, tmp_path, torch_dtype="float16", training_args={"remove_unused_columns": False, "save_safetensors": False}
+    )
+
+    assert Path(out.get_resource("adapter_path")).exists()
+
+
+@pytest.mark.skipif(
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
+    reason="bitsandbytes requires Linux GPU.",
+)
+def test_dora(tmp_path):
+    # execute
+    out = run_finetuning(DoRA, tmp_path, torch_dtype="float32")
+
+    # assert
     assert Path(out.get_resource("adapter_path")).exists()

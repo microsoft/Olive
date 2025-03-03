@@ -5,7 +5,7 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
 from olive.common.pydantic_v1 import validator
 from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
@@ -92,7 +92,9 @@ class SubMetric(ConfigBase):
         return v
 
 
-class Metric(ConfigBase):
+class Metric(NestedConfig):
+    _nested_field_name = "user_config"
+
     name: str
     type: MetricType
     backend: Optional[str] = "torch_metrics"

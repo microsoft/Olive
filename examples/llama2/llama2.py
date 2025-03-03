@@ -48,8 +48,14 @@ def get_args(raw_args):
         help="Whether to use GQA(grouped query attention) instead of MHA(multi-head attention). Only supported on gpu.",
     )
     parser.add_argument(
-        "--use_gptq",
-        action="store_true",
+        "--quantize",
+        choices=["gptq", "blockwise", "dynamic"],
+        required=False,
+        help="Quantization method to use.",
+    )
+    parser.add_argument(
+        "--precision",
+        choices=["fp16", "fp32"],
         required=False,
         help="Whether to use GPTQ quantization instead of RTN quantization. Only supported on gpu.",
     )
@@ -102,6 +108,12 @@ def main(raw_args=None):
 
     if args.use_gqa and not args.gpu:
         raise ValueError("GQA is only supported on gpu.")
+
+    if args.gpu and args.quantize == "dynamic":
+        raise ValueError("Dynamic quantization is only supported on CPU.")
+
+    if args.gptq and not args.gpu:
+        raise ValueError("GPTQ is only supported on gpu.")
 
     if args.qlora:
         template_json, config_name = get_qlora_config()
@@ -173,17 +185,24 @@ def get_general_config(args):
     gqa = "gqa" if args.use_gqa else "mha"
     config_name = f"llama2_{device}_{gqa}"
 
-    # add pass flows
-    if not args.use_gptq:
-        template_json["pass_flows"] = [flow for flow in SUPPORTED_WORKFLOWS[device] if "gptq" not in flow[0]]
-    else:
-        template_json["pass_flows"] = [flow for flow in SUPPORTED_WORKFLOWS[device] if "gptq" in flow[0]]
+    precision = args.precision or ("fp16" if args.gpu else "fp32")
+
+    # add pass names
+    used_passes = {"conversion_merged"}
+    used_passes.add("transformers_optimization_fp16" if precision == "fp16" else "transformers_optimization_fp32")
+
+    if args.quantize == "gptq":
+        used_passes.add("gptq_quant_int4")
+
         auto_gptq_logger = logging.getLogger("auto_gptq")
         auto_gptq_logger.addHandler(logging.StreamHandler(sys.stdout))
         auto_gptq_logger.setLevel(logging.INFO)
+    elif args.quantize == "blockwise":
+        used_passes.add("blockwise_quant_int4")
+    elif args.quantize == "dynamic":
+        used_passes.add("onnx_dynamic_quant_int8")
 
     # remove unused passes and set gqa related configs
-    used_passes = {pass_name for pass_flow in SUPPORTED_WORKFLOWS[device] for pass_name in pass_flow}
     for pass_name in list(template_json["passes"].keys()):
         if pass_name not in used_passes:
             del template_json["passes"][pass_name]

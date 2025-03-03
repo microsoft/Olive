@@ -15,7 +15,7 @@ from olive.passes.onnx.nvmo_quantization import NVModelOptQuantization
 
 @pytest.mark.skipif(
     version.parse(onnxruntime.__version__) > version.parse("1.20.1"),
-    reason="Fails on onnxruntime 1.21",
+    reason="ORT 1.21 doesn't support Volta anymore. Reenable this test once we switch to a new SKU.",
 )
 def test_nvmo_quantization(tmp_path):
     ov_model = get_onnx_model()

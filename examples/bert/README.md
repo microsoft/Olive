@@ -5,6 +5,7 @@ This folder contains examples of BERT optimization using different workflows.
 - CPU: [Optimization with Intel® Neural Compressor PTQ](#bert-optimization-with-intel®-neural-compressor-ptq-on-cpu)
 - CPU: [Optimization with QAT Customized Training Loop](#bert-optimization-with-qat-customized-training-loop-on-cpu)
 - GPU: [Optimization with CUDA/TensorRT](#bert-optimization-with-cudatensorrt-on-gpu)
+- NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](#bert-optimization-with-ptq-on-npu)
 
 Go to [How to run](#how-to-run)
 
@@ -90,11 +91,23 @@ Config file: [bert_qat_customized_train_loop_cpu.json](bert_qat_customized_train
 ### BERT optimization with CUDA/TensorRT on GPU
 This workflow performs BERT optimization on GPU with CUDA/TensorRT. It performs the optimization pipeline:
 1. CUDA: `CUDAExecutionProvider`
+    - *PyTorch Model -> Onnx Model -> ONNX Runtime performance tuning*
+    Run: [bert.py](bert.py)
     - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model with fp16 -> ONNX Runtime performance tuning*
-    Config file: [bert_cuda_gpu.json](bert_cuda_gpu.json)
+    Run: [bert.py](bert.py) --optimize
 2. TensorRT: `TensorrtExecutionProvider`
     - *PyTorch Model -> Onnx Model -> ONNX Runtime performance tuning with trt_fp16_enable*
     Config file: [bert_trt_gpu.json](bert_trt_gpu.json)
+
+### BERT optimization with PTQ on NPU
+This workflow performs BERT optimization on Qualcomm NPU with ONNX Runtime PTQ. It performs the optimization pipeline:
+- *PyTorch Model -> Onnx Model -> Static shaped Onnx Model -> Quantized Onnx Model*
+
+It requires x86 python environment on a Windows ARM machine with `onnxruntime-qnn` installed.
+
+Config file: [bert_ptq_qnn.json](bert_ptq_qnn.json)
+
+**NOTE:** The model optimization part of the workflow can also be done on a Linux/Windows machine with a different onnxruntime package installed. Remove the `"evaluators"` and `"evaluator"` sections from the configuration file to skip the evaluation step.
 
 ## How to run
 ### Pip requirements
@@ -104,6 +117,9 @@ Install the necessary python packages:
 pip install git+https://github.com/microsoft/Olive#egg=olive-ai[cpu]
 # [GPU]
 pip install git+https://github.com/microsoft/Olive#egg=olive-ai[gpu]
+# [NPU]
+pip install git+https://github.com/microsoft/Olive#egg=olive-ai[qnn]
+```
 
 # Other dependencies
 python -m pip install -r requirements.txt
