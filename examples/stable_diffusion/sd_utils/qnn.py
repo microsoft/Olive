@@ -19,8 +19,9 @@ import sd_utils.config
 
 
 def update_qnn_config(config: Dict, submodel_name: str):
+    used_passes = {}
     if sd_utils.config.only_conversion:
-        config["pass_flows"] = [["convert"]]
+        used_passes = { "convert" }
     # TODO(hualxie): onnx or onnxruntime needs to fix this
     elif submodel_name == "unet":
         config["input_model"]["io_config"]["dynamic_axes"] = None
@@ -32,10 +33,16 @@ def update_qnn_config(config: Dict, submodel_name: str):
             [1]
         ]
         config["input_model"]["dummy_inputs_func"] = None
-        config["pass_flows"] = [["convert", "peephole", "qnn_preprocess", "quantization"]]
-        #config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "peephole", "qnn_preprocess", "quantization"]]
+        used_passes = {"convert", "peephole", "qnn_preprocess", "quantization"}
+    elif submodel_name == "text_encoder":
+        used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "peephole", "qnn_preprocess", "quantization"}
     else:
-        config["pass_flows"] = [["convert", "dynamic_shape_to_fixed", "peephole", "qnn_preprocess", "quantization"]]
+        used_passes = {"convert", "dynamic_shape_to_fixed", "peephole", "qnn_preprocess", "quantization"}
+
+    for pass_name in set(config["passes"].keys()):
+        if pass_name not in used_passes:
+            config["passes"].pop(pass_name, None)
+
     config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
     config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
     config["evaluator"] = None
