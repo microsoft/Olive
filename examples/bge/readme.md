@@ -11,17 +11,10 @@ This folder contains examples of [BAAI/bge-small-en-v1.5 ](https://huggingface.c
 This workflow performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> Static shaped Onnx Model -> Quantized Onnx Model*
 
-The precision will drop when Add or Softmax types of op are quantized, so they are not included.
-
-| Quantized Ops | precision | latency (avg) |
+| Model | precision | latency (avg) |
 |-|-|-|
-| None (original model) | 0.8574675324675324 | N/A |
-| All ("Mul", "Transpose", "Unsqueeze", "Add", "Softmax", "Gelu", "LayerNormalization", "Gather", "MatMul", "Sub", "Where", "Expand", "Gemm", "Tanh", "Reshape") | 0.19707792207792205 | 24.95298 |
-| Without Softmax | 0.19675324675324674 | 24.08456 |
-| Without Add | 0.1968831168831169 | 64.3278 |
-| Without Add, Softmax | 0.8511038961038961 | 40.48591 |
-
-TODO(anyone): debug Add and Softmax to add them back to improve latency
+| Original model | 0.8574675324675324 | N/A |
+| Quantized model | 0.8504870129870131 | 16.36546 |
 
 ## How to run
 ### Pip requirements
