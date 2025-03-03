@@ -104,18 +104,25 @@ So questions are:
 - Model: stabilityai/stable-diffusion-2-1
 - Num steps: 50
 - Guidance Scale: 7.5
-- Prompts: Use 3 captions from https://huggingface.co/datasets/laion/relaion2B-en-research-safe, 2 for training and 1 for testing
+- Prompts: Same
 
 ### Unet is quantized
 
 | Prompt | MSE |
 |-|-|
-| Arroyo Hondo Preserve Wedding | 312.977997 |
-| Budget-Friendly Thanksgiving Table Decor Ideas | 3263.403564 |
-| Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo | 211.961319 |
+| Arroyo Hondo Preserve Wedding | 309.682770 |
+| Budget-Friendly Thanksgiving Table Decor Ideas | 3247.779541 |
+| Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo | 209.519699 |
+| Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow | 1361.687744 |
+| Lovely Anthodium N Roses Arrangement with Cute Teddy | 897.913757 |
+| Everyone can join and learn how to cook delicious dishes with us. | 1341.339966 |
+| Image result for youth worker superhero | 811.186218 |
+| Road improvements coming along in west Gulfport | 364.869293 |
+| Butcher storefront and a companion work, Louis Hayet, Click for value | 395.311188 |
+| folding electric bike | 474.218903 |
 
-Average train error 1788.190796
-Average test error 211.961319
+Average train error 1067.997314
+Average test error 434.765045
 
 ## Data and Config (turbo)
 
