@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple, Union
 
 import numpy as np
 
-from olive.common.utils import load_weights, run_subprocess, save_weights
+from olive.common.utils import format_data, load_weights, run_subprocess, save_weights
 from olive.evaluator.metric import get_latency_config_from_metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluatorMixin, _OliveEvaluator
 from olive.evaluator.registry import Registry
@@ -171,7 +171,7 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             num_batches = 0
             for idx, (input_data, labels) in enumerate(dataloader):
                 # save input data
-                np.savez(input_dir / f"input_{idx}.npz", **self.format_input(input_data, io_config))
+                np.savez(input_dir / f"input_{idx}.npz", **format_data(input_data, io_config))
                 # save labels
                 targets.append(labels.cpu())
                 num_batches += 1
@@ -271,7 +271,7 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             output_dir.mkdir(parents=True, exist_ok=True)
 
             # save input data
-            np.savez(input_dir / "input.npz", **self.format_input(next(iter(dataloader))[0], io_config))
+            np.savez(input_dir / "input.npz", **format_data(next(iter(dataloader))[0], io_config))
 
             # save inference config
             config_path = temp_dir_path / "config.json"

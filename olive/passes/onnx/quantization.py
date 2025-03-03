@@ -226,9 +226,11 @@ _static_optional_config = {
 }
 
 
-def get_calibration_dataloader(config):
+def get_calibration_dataloader(config, model_path=None, io_config=None, calibration_providers=None):
     data_config = validate_config(config.data_config, DataConfig)
-    return data_config.to_data_container().create_calibration_dataloader()
+    return data_config.to_data_container().create_calibration_dataloader(
+        model_path=model_path, io_config=io_config, calibration_providers=calibration_providers
+    )
 
 
 class OnnxQuantization(Pass):
@@ -431,7 +433,9 @@ class OnnxQuantization(Pass):
 
         if is_static:
             # get the dataloader
-            dataloader = get_calibration_dataloader(config)
+            dataloader = get_calibration_dataloader(
+                config, model.model_path, model.io_config, config.calibration_providers
+            )
             # TODO(anyone): generalize this option to prepare_qdq_config so that other NPU eps can use it
             # to call get_qdq_config
             if config.prepare_qnn_config:
