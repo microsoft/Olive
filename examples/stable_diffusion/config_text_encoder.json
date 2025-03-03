@@ -107,20 +107,7 @@
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true,
-            "prepare_qnn_config": true,
-            "op_types_to_quantize": [
-                "MatMul",
-                "LayerNormalization",
-                "Reshape",
-                "Transpose",
-                "Mul",
-                "Gather",
-                "Gelu",
-                "Flatten",
-                "ArgMax"
-            ],
-            "append_first_op_types_to_quantize_list": false,
-            "nodes_to_exclude": [ "Add", "Softmax" ]
+            "prepare_qnn_config": true
         }
     },
     "log_severity_level": 0,

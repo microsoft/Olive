@@ -20,7 +20,7 @@ For all text encoder, unet and vae decoder model, I use the following passes fro
     + with quant_preprocess = true, prepare_qnn_config = true, activation_type = QUInt16 and weight_type = QUInt8
     + by default, it uses QDQ quant_format and MinMax as calibrate_method
 
-For text encoder, I didn't quantize Add and Softmax nodes. For unet and vae decoder, all nodes are quantized.
+For text encoder, an additional ReplaceAttentionMaskValue pass is used.
 
 ## Result
 
@@ -34,19 +34,19 @@ The images are in [optimized_text_encoder](./optimized_text_encoder).
 
 | Prompt | MSE |
 |-|-|
-| Arroyo Hondo Preserve Wedding | 54.031979 |
-| Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo | 218.897995 |
-| Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow | 942.312500 |
-| Lovely Anthodium N Roses Arrangement with Cute Teddy | 1964.954590 |
-| Everyone can join and learn how to cook delicious dishes with us. | 1232.637695 |
-| Budget-Friendly Thanksgiving Table Decor Ideas | 766.385925 |
-| Image result for youth worker superhero | 1346.230835 |
-| Road improvements coming along in west Gulfport | 1002.286438 |
-| Butcher storefront and a companion work, Louis Hayet, Click for value | 1519.580078 |
-| folding electric bike | 114.862068 |
+| Arroyo Hondo Preserve Wedding | 89.942192 |
+| Budget-Friendly Thanksgiving Table Decor Ideas | 806.491272 |
+| Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo | 221.874329 |
+| Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow | 809.603455 |
+| Lovely Anthodium N Roses Arrangement with Cute Teddy | 1888.589355 |
+| Everyone can join and learn how to cook delicious dishes with us. | 855.126892 |
+| Image result for youth worker superhero | 1048.559082 |
+| Road improvements coming along in west Gulfport | 1126.492798 |
+| Butcher storefront and a companion work, Louis Hayet, Click for value | 1524.231934 |
+| folding electric bike | 99.657501 |
 
-Average train error 940.967285
-Average test error 817.221069
+Average train error 855.834900
+Average test error 811.944702
 
 ### unet is quantized
 
@@ -105,6 +105,24 @@ So questions are:
 - Num steps: 50
 - Guidance Scale: 7.5
 - Prompts: Same
+
+### Text encoder is quantized
+
+| Prompt | MSE |
+|-|-|
+| Arroyo Hondo Preserve Wedding | 378.618042 |
+| Budget-Friendly Thanksgiving Table Decor Ideas | 1592.694946 |
+| Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo | 175.496658 |
+| Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow | 2615.081299 |
+| Lovely Anthodium N Roses Arrangement with Cute Teddy | 820.896179 |
+| Everyone can join and learn how to cook delicious dishes with us. | 1852.791504 |
+| Image result for youth worker superhero | 1056.542114 |
+| Road improvements coming along in west Gulfport | 689.256897 |
+| Butcher storefront and a companion work, Louis Hayet, Click for value | 310.129669 |
+| folding electric bike | 357.625122 |
+
+Average train error 1147.672119
+Average test error 333.877380
 
 ### Unet is quantized
 
