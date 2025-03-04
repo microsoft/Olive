@@ -1,8 +1,15 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
+# ruff: noqa: T201
+
 import json
-import shutil
 import random
+import shutil
 from pathlib import Path
-from typing import List, Dict
+from typing import Dict, List
 
 # Path to Detection\annotations\tablebank_latex_val.json
 tablebank_json_path = Path(r"path_to_tablebank_latex_val.json")
@@ -19,7 +26,7 @@ images: List[Dict] = data["images"]
 annotations: List[Dict] = data["annotations"]
 
 # Randomly select 256 images
-selected_images = random.sample(images, 256)
+selected_images: Dict = random.sample(images, 256)
 selected_image_ids = {img["id"] for img in selected_images}
 selected_annotations = [ann for ann in annotations if ann["image_id"] in selected_image_ids]
 small_data = {

@@ -7,15 +7,17 @@ import torch
 import torchvision.transforms as transforms
 from PIL import Image
 from torch.utils.data import Dataset
-from torch import from_numpy
 
 from olive.data.registry import Registry
 
+
 def resize_image_and_bbox(image, bbox: torch.Tensor, target_size=(800, 800)):
+    """Resize the image and convert bbox.
+
+    Resize the image to target_size,
+    while converting the bounding box from (x, y, w, h) to a normalized (cx, cy, w, h) format.
     """
-    Resize the image to `target_size` while converting the bounding box from (x, y, w, h) to a normalized (cx, cy, w, h) format.
-    """
-    original_w, original_h = image.size  
+    original_w, original_h = image.size
     target_w, target_h = target_size
     scale_w = target_w / original_w
     scale_h = target_h / original_h
@@ -35,22 +37,22 @@ def resize_image_and_bbox(image, bbox: torch.Tensor, target_size=(800, 800)):
 
     return image, bbox
 
-transform = transforms.Compose([
-    transforms.Resize(800),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-])
+
+transform = transforms.Compose(
+    [transforms.Resize(800), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])]
+)
+
 
 class TableBankDataset(Dataset):
     def __init__(self, data_dir, annotation_file):
-        """
-        Initialize the TableBank dataset.
+        """Initialize the TableBank dataset.
+
         :param data_dir: Directory containing table images.
         :param annotation_file: Path to the TableBank JSON annotation file.
         """
         self.data_dir = data_dir
-        
-        with open(annotation_file, "r", encoding="utf-8") as f:
+
+        with open(annotation_file, encoding="utf-8") as f:
             data = json.load(f)
 
         self.images = {img["id"]: img["file_name"] for img in data["images"]}
@@ -71,32 +73,32 @@ class TableBankDataset(Dataset):
 
         return {"input": self.transform(image)}, bbox
 
+
 @Registry.register_dataset()
 def dataset_load(data_dir, **kwargs):
     data_dir = Path(data_dir)
     return TableBankDataset(
         data_dir=data_dir / "tablebank_latex_val_small_images",
-        annotation_file=data_dir / "tablebank_latex_val_small.json"
+        annotation_file=data_dir / "tablebank_latex_val_small.json",
     )
+
 
 @Registry.register_post_process()
 def dataset_post_process(outputs):
-    m = outputs['logits'].softmax(-1).max(-1)
+    m = outputs["logits"].softmax(-1).max(-1)
     pred_labels = m.indices.detach().cpu().numpy()[0]
-    pred_bboxes = outputs['pred_boxes'].detach().cpu()[0]
+    pred_bboxes = outputs["pred_boxes"].detach().cpu()[0]
 
     # Select only label=0 (table)
     valid_indices = np.where(pred_labels == 0)[0]
     if len(valid_indices) == 0:
         return torch.tensor([[0.0, 0.0, 0.0, 0.0]], dtype=torch.float32)
 
-    valid_bboxes = pred_bboxes[valid_indices]
-    return valid_bboxes
+    return pred_bboxes[valid_indices]
+
 
 def cxcywh_to_xyxy(boxes):
-    """
-    Convert (cx, cy, w, h) to (x1, y1, x2, y2).
-    """
+    # Convert (cx, cy, w, h) to (x1, y1, x2, y2).
     cx, cy, w, h = boxes[..., 0], boxes[..., 1], boxes[..., 2], boxes[..., 3]
     x1 = cx - w / 2
     y1 = cy - h / 2
@@ -104,8 +106,10 @@ def cxcywh_to_xyxy(boxes):
     y2 = cy + h / 2
     return torch.stack([x1, y1, x2, y2], dim=-1)
 
+
 def compute_mean_of_max_iou(preds, targets):
-    """
+    """Compute mean of maximum IoU.
+
     The TableBank datasets consists with images containing multiple tables, while the annotation only mark one table.
     The model outputs preds with multiple tables.
     Therefore, compute mean of maximum IoU.
@@ -129,6 +133,7 @@ def compute_mean_of_max_iou(preds, targets):
     iou = inter_area / union_area.clamp(min=1e-6)
     max_iou, _ = iou.max(dim=1)
     return max_iou.mean().item()
+
 
 def evaluate(outputs, targets):
     return {"MeanOfMaxIoU": compute_mean_of_max_iou(outputs.preds, targets)}
