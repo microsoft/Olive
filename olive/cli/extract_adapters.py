@@ -2,15 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import math
 from argparse import ArgumentParser
-from typing import TYPE_CHECKING, Tuple
 
 from olive.cli.base import BaseOliveCLICommand, add_logging_options
 from olive.common.utils import WeightsFileFormat, save_weights
-
-if TYPE_CHECKING:
-    from numpy.typing import NDArray
 
 
 class ExtractAdaptersCommand(BaseOliveCLICommand):
@@ -77,13 +72,26 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         # Load LoRA config and LoRA model
         if is_peft:
             # Peft model
-            peft_config = PeftConfig.from_pretrained(self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True)
-            config = AutoConfig.from_pretrained(peft_config.base_model_name_or_path, cache_dir=self.args.cache_dir, trust_remote_code=True)
-            model = PeftModel.from_pretrained(peft_config.base_model_name_or_path, self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True)
+            peft_config = PeftConfig.from_pretrained(
+                self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True
+            )
+            config = AutoConfig.from_pretrained(
+                peft_config.base_model_name_or_path, cache_dir=self.args.cache_dir, trust_remote_code=True
+            )
+            model = PeftModel.from_pretrained(
+                peft_config.base_model_name_or_path,
+                self.args.model,
+                cache_dir=self.args.cache_dir,
+                trust_remote_code=True,
+            )
         else:
             # Transformers model
-            config = AutoConfig.from_pretrained(self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True)
-            model = AutoModelForCausalLM.from_pretrained(self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True)
+            config = AutoConfig.from_pretrained(
+                self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True
+            )
+            model = AutoModelForCausalLM.from_pretrained(
+                self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True
+            )
 
         head_size = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
         query_size = config.num_attention_heads * head_size
@@ -94,7 +102,11 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         for key, val in model.state_dict().items():
             # Map name in graph as key
             new_dict = {}
-            key_name = key.replace("self_attn", "attn").replace("lora_A", "lora_A.MatMul").replace("lora_B", "lora_B.MatMul")
+            key_name = (
+                key.replace("self_attn", "attn")
+                   .replace("lora_A", "lora_A.MatMul")
+                   .replace("lora_B", "lora_B.MatMul")
+            )
 
             if "lora_A" in key_name:
                 # LoRA_A is shared across projections
@@ -135,12 +147,12 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             if adapter_name not in adapter_sets:
                 adapter_sets[adapter_name] = {}
 
-            prefix = "base_model.model" if is_peft else "model"            
+            prefix = "base_model.model" if is_peft else "model"
             scale_val = eval(f"{prefix}.model.layers[{layer_id}].{class_name}.{class_attr_name}.scaling['{adapter_name}']")
             for new_key, new_val in new_dict.items():
-                new_key = new_key.replace(f".{adapter_name}", "")
-                np_data = new_val.detach().cpu().to(torch_dtype).numpy().transpose() * (scale_val if "lora_B" in key else 1)
-                adapter_sets[adapter_name][new_key] = np_data
+                np_data = new_val.detach().cpu().to(torch_dtype).numpy().transpose()
+                np_data *= (scale_val if lora_name == "lora_B" else 1)
+                adapter_sets[adapter_name][new_key.replace(f".{adapter_name}", "")] = np_data
 
         # Save each LoRA set to disk
         for adapter_name, adapter_set in adapter_sets.items():
