@@ -577,12 +577,10 @@ class OnnxQuantizationPreprocess(Pass):
                     skip_optimization=config.skip_optimization,
                     verbose=3,  # set verbose to 3 to get more information about the preprocessing
                 )
-            except Exception as e:
+            except Exception:
                 # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
                 logger.exception(
-                    "Failed to run quantization preprocessing with error of %s. Retry with `skip_optimization = True`",
-                    e,
-                    exc_info=True,
+                    "Failed to run quantization preprocessing with error. Please retry with `skip_optimization = True`"
                 )
                 raise
 
