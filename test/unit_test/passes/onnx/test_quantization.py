@@ -4,7 +4,9 @@
 # --------------------------------------------------------------------------
 import logging
 from test.unit_test.utils import get_onnx_model, get_pytorch_model_dummy_input
+from unittest.mock import patch
 
+import onnx
 import pytest
 from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.calibrate import CalibrationDataReader
@@ -77,20 +79,52 @@ def test_dynamic_quantization(tmp_path):
     config = {"quant_mode": "dynamic"}
     p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
 
-    ort_version = version.parse(OrtVersion)
-    if ort_version.major == 1 and ort_version.minor == 17:
-        # there is a bug in ort quantizer in versions 1.17.x
-        with pytest.raises(TypeError, match="missing 1 required positional argument: 'initial_type'"):
-            _ = p.run(input_model, tmp_path)
-    else:
-        out = p.run(input_model, tmp_path)
-        assert out is not None
+    out = p.run(input_model, tmp_path)
+    assert out is not None
 
 
-@pytest.mark.skipif(
-    version.parse(OrtVersion) < version.parse("1.17.0"),
-    reason="qnn quantization is only supported in onnxruntime>=1.17.0",
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        ({}, {"op_types_to_quantize": ["Gemm", "Sigmoid"]}),
+        ({"op_types_to_quantize": ["Gemm"]}, {"op_types_to_quantize": ["Gemm"]}),
+        ({"op_types_to_exclude": ["Gemm"]}, {"op_types_to_quantize": ["Sigmoid"], "nodes_to_exclude": ["/fc1/Gemm"]}),
+        (
+            # this node does not exist in the model but using this instead of "/fc1/Gemm"
+            # there is only one Gemm node so op_types_to_quantize differs after 1.21.0
+            {"nodes_to_exclude": ["/fc2/Gemm"]},
+            {"op_types_to_quantize": ["Gemm", "Sigmoid"], "nodes_to_exclude": ["/fc2/Gemm"]},
+        ),
+    ],
 )
+@patch("onnxruntime.quantization.quantize_static")
+def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected):
+    input_model = get_onnx_model()
+    config = {
+        "quant_mode": "static",
+        "prepare_qnn_config": True,
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quat_dataloader"),
+        ),
+        **kwargs,
+    }
+
+    def dummy_quantize_static(model_input, model_output, **kwargs):
+        onnx.save(onnx.load(model_input), model_output)
+
+    mock_quantize_static.side_effect = dummy_quantize_static
+
+    p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
+    out = p.run(input_model, tmp_path)
+    assert out is not None
+
+    mocked_kwargs = mock_quantize_static.call_args.kwargs
+    for key in ["op_types_to_quantize", "nodes_to_exclude"]:
+        assert set(mocked_kwargs[key]) == set(expected.get(key, []))
+
+
 def test_qnn_quantization(tmp_path):
     input_model = get_onnx_model()
     config = {

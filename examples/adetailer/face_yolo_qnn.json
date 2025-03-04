@@ -98,22 +98,7 @@
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
-            "op_types_to_quantize": [
-                "Reshape",
-                "Transpose",
-                "Softmax",
-                "Add",
-                "Split",
-                "AveragePool",
-                "Div",
-                "Conv",
-                "Sigmoid",
-                "Slice",
-                "MaxPool",
-                "Sub",
-                "Concat",
-                "Resize"
-            ]
+            "op_types_to_exclude": [ "Mul" ]
         }
     },
     "host": "qnn_system",
