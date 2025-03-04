@@ -551,7 +551,10 @@ class OnnxQuantizationPreprocess(Pass):
             "skip_optimization": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Skip model optimization step if true. This may result in ONNX shape inference failure for some models.",
+                description=(
+                    "Skip model optimization step if true."
+                    " This may result in ONNX shape inference failure for some models.",
+                ),
             ),
         }
         config.update(get_external_data_config())
@@ -576,12 +579,12 @@ class OnnxQuantizationPreprocess(Pass):
                 )
             except Exception as e:
                 # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
-                logger.error(
+                logger.exception(
                     "Failed to run quantization preprocessing with error of %s. Retry with `skip_optimization = True`",
                     e,
                     exc_info=True,
                 )
-                raise e
+                raise
 
             onnx_model = onnx.load(tmp_model_path)
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
