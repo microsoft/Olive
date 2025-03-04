@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 # ruff: noqa: T201
+# pylint: disable=unsubscriptable-object
 
 import json
 import random
@@ -26,7 +27,7 @@ images: List[Dict] = data["images"]
 annotations: List[Dict] = data["annotations"]
 
 # Randomly select 256 images
-selected_images: Dict = random.sample(images, 256)
+selected_images = random.sample(images, 256)
 selected_image_ids = {img["id"] for img in selected_images}
 selected_annotations = [ann for ann in annotations if ann["image_id"] in selected_image_ids]
 small_data = {
