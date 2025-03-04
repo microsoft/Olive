@@ -181,8 +181,20 @@ class PassModuleConfig(ConfigBase):
         FP32 = "fp32"
         NF4 = "nf4"
 
+    class Quant_Algorithm(StrEnumBase):
+        AWQ = "awq"
+        GPTQ = "gptq"
+        HQQ = "hqq"
+        RTN = "rtn"
+
+    class Quant_Encoding(StrEnumBase):
+        QDQ = "qdq"
+        QOP = "qop"
+
     ACCELERATORS: ClassVar[Set[str]] = {v.value for v in Device}
     PRECISIONS: ClassVar[Set[str]] = {v.value for v in Precision}
+    QUANT_ALGORITHMS: ClassVar[Set[str]] = {v.value for v in Quant_Algorithm}
+    QUANT_ENCODINGS: ClassVar[Set[str]] = {v.value for v in Quant_Encoding}
     EXECUTION_PROVIDERS: ClassVar[Set[str]] = {
         provider for provider_list in DEVICE_TO_EXECUTION_PROVIDERS.values() for provider in provider_list
     }
@@ -191,14 +203,19 @@ class PassModuleConfig(ConfigBase):
     supported_providers: Set[str] = Field(default_factory=set)
     supported_accelerators: Set[str] = Field(default_factory=set)
     supported_precisions: Set[str] = Field(default_factory=set)
+    supported_algorithms: Set[str] = Field(default_factory=set)
+    supported_quantization_encodings: Set[str] = Field(default_factory=set)
     module_dependencies: List[str] = Field(default_factory=list)
     extra_dependencies: List[str] = Field(default_factory=list)
 
     # Flag indicate whether the pass need to be run in target instead of host
     run_on_target: bool = False
 
+    # Flag indicate whether the pass requires dataset
+    dataset_required: bool = False
+
     def set_class_variables(self, cls):
-        attrs = {"supported_providers", "supported_accelerators", "supported_precisions", "run_on_target"}
+        attrs = {"supported_providers", "supported_accelerators", "supported_precisions", "supported_algorithms", "run_on_target", "dataset_required", "supported_quantization_encoding"}
         for attr in attrs:
             setattr(cls, attr, getattr(self, attr))
 
@@ -244,5 +261,31 @@ class PassModuleConfig(ConfigBase):
     @validator("supported_precisions", pre=True, each_item=True)
     def validate_supported_precision(cls, v, values):
         if v not in PassModuleConfig.PRECISIONS:
-            raise ValueError(f"Invalid precision: {v}")
+            raise ValueError(f"Invalid algorithm: {v}")
+        return v
+
+    @validator("supported_algorithms", pre=True)
+    def validate_supported_algorithm(cls, v, values):
+        v = v or []
+        if v == ["*"]:
+            v = PassModuleConfig.QUANT_ALGORITHMS
+        return v
+
+    @validator("supported_algorithms", pre=True, each_item=True)
+    def validate_supported_algorithms(cls, v, values):
+        if v not in PassModuleConfig.QUANT_ALGORITHMS:
+            raise ValueError(f"Invalid algorithm: {v}")
+        return v
+
+    @validator("supported_quantization_encodings", pre=True)
+    def validate_supported_quantization_encoding(cls, v, values):
+        v = v or []
+        if v == ["*"]:
+            v = PassModuleConfig.QUANT_ENCODINGS
+        return v
+
+    @validator("supported_quantization_encodings", pre=True, each_item=True)
+    def validate_supported_quantization_encodings(cls, v, values):
+        if v not in PassModuleConfig.QUANT_ENCODINGS:
+            raise ValueError(f"Invalid algorithm: {v}")
         return v
