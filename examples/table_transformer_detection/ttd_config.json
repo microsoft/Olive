@@ -10,10 +10,6 @@
         }
     },
     "systems": {
-        "cpu_system": {
-            "type": "LocalSystem",
-            "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
-        },
         "qnn_system": {
             "type": "LocalSystem",
             "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
@@ -40,6 +36,7 @@
                     "sub_types": [
                       {
                         "name": "MeanOfMaxIoU",
+                        "priority": 1,
                         "higher_is_better": true
                       }
                     ],
@@ -47,6 +44,12 @@
                       "user_script": "ttd.py",
                       "metric_func": "evaluate"
                     }
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "data_config": "tablebank_data_config",
+                    "sub_types": [ { "name": "avg", "priority": 2 } ]
                 }
             ]
         }
@@ -55,13 +58,11 @@
         "conversion": {
             "device": "cpu",
             "type": "OnnxConversion",
-            "target_opset": 17,
-            "save_as_external_data": true
+            "target_opset": 17
         },
         "QNNPreprocess": {
              "type": "QNNPreprocess",
-              "fuse_layernorm": true,
-            "save_as_external_data": true
+              "fuse_layernorm": true
             },
         "OnnxQuantization": {
             "type": "OnnxQuantization",
@@ -71,14 +72,12 @@
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true,
-            "prepare_qnn_config": true,
-            "save_as_external_data": true
+            "prepare_qnn_config": true
         }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,
-    "host": "cpu_system",
-    "target": "cpu_system",
+    "host": "qnn_system",
+    "target": "qnn_system",
     "output_dir": "results/ttd"
 }
-  
