@@ -24,7 +24,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
-
+from olive.package_config import OlivePackageConfig
 
 class QuantizeCommand(BaseOliveCLICommand):
 
@@ -48,7 +48,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--algorithm",
             type=str,
-            required=True,
+            default="rtn",
             choices=sorted(ALGORITHMS.keys()),
             help="List of quantization algorithms to run.",
         )
@@ -62,7 +62,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--implementation",
             type=str,
-            choices=sorted(TEMPLATE["passes"].keys()),
+            #choices=sorted(TEMPLATE["passes"].keys()),
             help="The specific implementation of quantization algorithms to use.",
         )
         sub_parser.add_argument(
@@ -85,47 +85,11 @@ class QuantizeCommand(BaseOliveCLICommand):
         update_shared_cache_options(config, self.args)
 
         is_hf_model = config["input_model"]["type"].lower() == "hfmodel"
-        if is_hf_model and self.args.algorithm not in ["awq", "gptq", "rtn"]:
-            raise ValueError("Selected algorithm is not supported for HuggingFace models.")
-        if not is_hf_model and "gptq" in self.args.algorithm and not self.args.data_name:
-            # hf model doesn't require user provided data
-            raise ValueError("data_name is required to use gptq.")
+
+        self.build_pass_list(self.args.precision, self.args.algorithm, self.args.implementation, is_hf_model)
+
         if self.args.data_name:
             config["passes"]["gptq"]["data_config"] = "default_data_config"
-
-        defaults_key = "hf_model_defaults" if is_hf_model else "onnx_model_defaults"
-
-        if not self.args.implementation:
-            self.args.implementation = ALGORITHMS[self.args.algorithm][defaults_key]["implementation"]
-        if not self.args.precision:
-            self.args.precision = ALGORITHMS[self.args.algorithm][defaults_key]["precision"]
-
-        if self.args.algorithm == "rtn" and self.args.precision == "nf4":
-            self.args.implementation = "bnb4"
-
-        if not self.args.implementation or not self.args.precision:
-            raise ValueError(
-                f"Could not select a valid implementation for algorithm={self.args.algorithm} "
-                f"and precision={self.args.precision} combination."
-            )
-
-        supported_precisions = IMPLEMENTATIONS[self.args.implementation]["supported_precisions"]
-        if supported_precisions and self.args.precision not in supported_precisions:
-            raise ValueError(
-                f"{IMPLEMENTATIONS[self.args.implementation]['name']} quantizer "
-                f"implementation supports only [{', '.join(supported_precisions)}] precisions."
-            )
-
-        precision = IMPLEMENTATIONS[self.args.implementation]["precision_mapping"].get(
-            self.args.precision, self.args.precision
-        )
-        quant_format = "QOperator"
-        if self.args.use_qdq_encoding:
-            quant_format = "QDQ"
-        if self.args.use_qdq_encoding and self.args.implementation == "matmul4":
-            self.args.implementation = [self.args.implementation, "mnb_to_qdq"]
-        else:
-            self.args.implementation = [self.args.implementation]
 
         to_replace = [
             (("passes", "awq", "w_bit"), precision),
@@ -147,6 +111,25 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         config["passes"] = OrderedDict([(k, v) for k, v in config["passes"].items() if k in self.args.implementation])
         return config
+
+    def build_pass_list(self, P, A, I, is_hf_model):
+        olive_config = OlivePackageConfig.load_default_config()
+        PList = []
+        available_passes_list = PT_QUANT_IMPLEMENTATION_MAPPING
+        if not is_hf_model:
+            available_passes_list = ONNX_QUANT_IMPLEMENTATION_MAPPING
+        for r in available_passes_list:
+            pinfo = olive_config.get_pass_module_config(r["implementation_class"])
+            if (I is None or r["implementation"] == I):
+                if (A is None or A in pinfo.supported_algorithms):
+                    if (P is None or P in pinfo.supported_precisions):
+                        if not self.args.use_qdq_encoding or "qdq" in pinfo.supported_quantization_encodings:
+                            if (pinfo.dataset_required and self.args.data_name) or (not pinfo.dataset_required):
+                                PList.append(r)
+
+        print(f'Pass List {PList}')
+        # 1. set precision
+        exit(0)
 
     def run(self):
         self._run_workflow()
@@ -191,6 +174,21 @@ TEMPLATE = {
     "target": "local_system",
     "no_artifacts": True,
 }
+
+PT_QUANT_IMPLEMENTATION_MAPPING = [
+    {"implementation":"awq", "implementation_class" : "AutoAWQQuantizer", "algorithms":["awq"], "precisions":["int4","uint4","int8","uint8","int16","uint16"], "model_type" : "PT"},
+    {"implementation":"autogptq", "implementation_class" : "GptqQuantizer", "algorithms":["gptq"], "precisions":["int4","uint4","int8","uint8","int16","uint16"],   "model_type" : "PT"}, 
+]
+
+ONNX_QUANT_IMPLEMENTATION_MAPPING = [
+    {"implementation":"bnb", "implementation_class" : "OnnxBnB4Quantization", "algorithms":["rtn"], "precisions":["nf4","fp4"], "model_type":"ONNX"},
+    {"implementation":"ort", "implementation_class" : "OnnxMatMul4Quantizer", "algorithms":["rtn","hqq"], "precisions":["int4"], "model_type":"ONNX", "QDQ":"YES"},
+    {"implementation":"ort", "implementation_class" : "OnnxDynamicQuantization", "algorithms":["rtn"], "precisions":["int8","uint8"], "model_type":"ONNX"},
+    {"implementation":"ort", "implementation_class" : "OnnxstaticQuantization", "algorithms":["rtn"], "precisions":["int8","uint8"], "model_type":"ONNX", "QDQ":"YES", "data":"required"},
+    {"implementation":"nvmo", "implementation_class" : "NVModelOptQuantization", "algorithms":["awq"], "precisions":["int4","int8","fp8"], "model_type" : "ONNX"},
+    {"implementation":"inc", "implementation_class" : "IncDynamicQuantization", "algorithms":["gptq"], "precisions":["int4"], "model_type":"ONNX"},
+    {"implementation":"inc", "implementation_class" : "IncStaticQuantization",  "algorithms":["gptq"], "precisions":["int4"], "model_type":"ONNX", "data":"required"},
+]
 
 ALGORITHMS = {
     "awq": {
