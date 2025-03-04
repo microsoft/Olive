@@ -543,7 +543,7 @@ class OnnxQuantization(Pass):
 
 
 class OnnxQuantizationPreprocess(Pass):
-    """ONNX Quantization Preprocess Pass. Same as OnnxQuantization quant_preprocess"""
+    """ONNX Quantization Preprocess Pass. Same as OnnxQuantization quant_preprocess."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
