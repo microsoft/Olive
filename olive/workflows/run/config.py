@@ -112,6 +112,7 @@ class RunConfig(NestedConfig):
     workflow_host: SystemConfig = Field(
         None, description="Workflow host. None by default. If provided, the workflow will be run on the specified host."
     )
+    metadata: Any = Field(description="Metadata to save embedded information for the workflow.")
 
     @root_validator(pre=True)
     def patch_evaluators(cls, values):
