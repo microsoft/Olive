@@ -1,5 +1,12 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+import logging
 from test.unit_test.utils import get_onnx_model, get_pytorch_model_dummy_input
+from unittest.mock import patch
 
+import onnx
 import pytest
 from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.calibrate import CalibrationDataReader
@@ -14,6 +21,7 @@ from olive.passes.onnx.quantization import OnnxMatMul4Quantizer, OnnxQuantizatio
 
 
 class DummyCalibrationDataReader(CalibrationDataReader):
+    # pylint: disable=W0223
     def __init__(self, batch_size: int = 16):
         super().__init__()
         self.sample_counter = 500
@@ -71,20 +79,52 @@ def test_dynamic_quantization(tmp_path):
     config = {"quant_mode": "dynamic"}
     p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
 
-    ort_version = version.parse(OrtVersion)
-    if ort_version.major == 1 and ort_version.minor == 17:
-        # there is a bug in ort quantizer in versions 1.17.x
-        with pytest.raises(TypeError, match="missing 1 required positional argument: 'initial_type'"):
-            _ = p.run(input_model, tmp_path)
-    else:
-        out = p.run(input_model, tmp_path)
-        assert out is not None
+    out = p.run(input_model, tmp_path)
+    assert out is not None
 
 
-@pytest.mark.skipif(
-    version.parse(OrtVersion) < version.parse("1.17.0"),
-    reason="qnn quantization is only supported in onnxruntime>=1.17.0",
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        ({}, {"op_types_to_quantize": ["Gemm", "Sigmoid"]}),
+        ({"op_types_to_quantize": ["Gemm"]}, {"op_types_to_quantize": ["Gemm"]}),
+        ({"op_types_to_exclude": ["Gemm"]}, {"op_types_to_quantize": ["Sigmoid"], "nodes_to_exclude": ["/fc1/Gemm"]}),
+        (
+            # this node does not exist in the model but using this instead of "/fc1/Gemm"
+            # there is only one Gemm node so op_types_to_quantize differs after 1.21.0
+            {"nodes_to_exclude": ["/fc2/Gemm"]},
+            {"op_types_to_quantize": ["Gemm", "Sigmoid"], "nodes_to_exclude": ["/fc2/Gemm"]},
+        ),
+    ],
 )
+@patch("onnxruntime.quantization.quantize_static")
+def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected):
+    input_model = get_onnx_model()
+    config = {
+        "quant_mode": "static",
+        "prepare_qnn_config": True,
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quat_dataloader"),
+        ),
+        **kwargs,
+    }
+
+    def dummy_quantize_static(model_input, model_output, **kwargs):
+        onnx.save(onnx.load(model_input), model_output)
+
+    mock_quantize_static.side_effect = dummy_quantize_static
+
+    p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
+    out = p.run(input_model, tmp_path)
+    assert out is not None
+
+    mocked_kwargs = mock_quantize_static.call_args.kwargs
+    for key in ["op_types_to_quantize", "nodes_to_exclude"]:
+        assert set(mocked_kwargs[key]) == set(expected.get(key, []))
+
+
 def test_qnn_quantization(tmp_path):
     input_model = get_onnx_model()
     config = {
@@ -112,15 +152,13 @@ def test_qnn_quantization(tmp_path):
     assert out is not None
 
 
-@pytest.mark.skipif(
-    version.parse(OrtVersion) < version.parse("1.16.2"),
-    reason="matmul 4bit quantization is only supported in onnxruntime>=1.16.2",
-)
 @pytest.mark.parametrize(
     ("algorithm", "weight_only_quant_configs"),
     [
         (None, None),
         ("RTN", {"ratios": {}}),
+        ("DEFAULT", None),
+        ("HQQ", None),
     ],
 )
 def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight_only_quant_configs):
@@ -142,37 +180,7 @@ def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight
     assert out is not None
 
 
-@pytest.mark.skipif(
-    version.parse(OrtVersion) < version.parse("1.18.0"),
-    reason="matmul 4bit quantization with `DEFAULT` and `HQQ` is only supported in onnxruntime<1.18.0",
-)
-@pytest.mark.parametrize(
-    ("algorithm", "weight_only_quant_configs"),
-    [
-        ("DEFAULT", None),
-        ("HQQ", None),
-    ],
-)
-def test_matmul_4bit_quantization_without_dataloader_ort_1_18(tmp_path, algorithm, weight_only_quant_configs):
-    input_model = get_onnx_model()
-    config = {
-        "block_size": 32,
-        "is_symmetric": True,
-        "nodes_to_exclude": [],
-        "accuracy_level": 4,
-        "algorithm": algorithm,
-        "weight_only_quant_configs": weight_only_quant_configs,
-    }
-    accelerator_spec = AcceleratorSpec(
-        accelerator_type="CPU",
-        execution_provider="CPUExecutionProvider",
-    )
-    p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
-    out = p.run(input_model, tmp_path)
-    assert out is not None
-
-
-def test_matmul_gptq_with_dataloader(tmp_path):
+def test_matmul_4bits_gptq_with_dataloader(tmp_path, caplog):
     input_model = get_onnx_model()
     config = {
         "block_size": 32,
@@ -191,15 +199,20 @@ def test_matmul_gptq_with_dataloader(tmp_path):
         accelerator_type="CPU",
         execution_provider="CPUExecutionProvider",
     )
+    # capture log
+    logger = logging.getLogger("olive")
+    logger.propagate = True
+
     p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
     out = p.run(input_model, tmp_path)
     assert out is not None
+    assert "Invalid weight_only_quant_configs: {'use_less_config'} for algorithm GPTQ" in caplog.text
+    assert (
+        "The pass config parameter block_size's value 32 is different from the algorithm config's value 128. The"
+        " algorithm config's value will be used." in caplog.text
+    )
 
 
-@pytest.mark.skipif(
-    version.parse(OrtVersion) < version.parse("1.16.2"),
-    reason="matmul 4bit quantization is only supported in onnxruntime>=1.16.2",
-)
 def test_invalid_config_for_matmul_4bits():
     config = {
         "block_size": 32,
