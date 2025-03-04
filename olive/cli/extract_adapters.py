@@ -55,26 +55,6 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             default="cache_dir",
             help="Cache dir to store temporary files in. Default is `cache_dir`.",
         )
-        # int4 quantization options for adapter weights
-        sub_parser.add_argument(
-            "--quantize_int4",
-            action="store_true",
-            help="Quantize the adapter weights to int4 using blockwise quantization.",
-        )
-        sub_parser.add_argument(
-            "--int4_block_size",
-            type=int,
-            default=32,
-            choices=[16, 32, 64, 128, 256],
-            help="Block size for int4 quantization of adapter weights. Default is 32.",
-        )
-        sub_parser.add_argument(
-            "--int4_quantization_mode",
-            type=str,
-            default="symmetric",
-            choices=["symmetric", "asymmetric"],
-            help="Quantization mode for int4 quantization of adapter weights. Default is symmetric.",
-        )
         add_logging_options(sub_parser)
         sub_parser.set_defaults(func=ExtractAdaptersCommand)
 
