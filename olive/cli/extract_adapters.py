@@ -55,12 +55,13 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
 
     def run(self):
         # Reference: https://huggingface.co/microsoft/Phi-4-multimodal-instruct-onnx/blob/05f620b467891affcb00b464e5a73e7cf2de61f9/onnx/builder.py#L318
-        from huggingface_hub import HfApi
-        from peft import PeftConfig, PeftModel
-        from transformers import AutoConfig, AutoModelForCausalLM
-        from torch import float16, float32
         import ast
         import os
+
+        from huggingface_hub import HfApi
+        from peft import PeftConfig, PeftModel
+        from torch import float16, float32
+        from transformers import AutoConfig, AutoModelForCausalLM
 
         torch_dtype = float16 if self.args.dtype == "float16" else float32
 
@@ -87,9 +88,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             )
         else:
             # Transformers model
-            config = AutoConfig.from_pretrained(
-                self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True
-            )
+            config = AutoConfig.from_pretrained(self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True)
             model = AutoModelForCausalLM.from_pretrained(
                 self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True
             )
@@ -104,9 +103,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             # Map name in graph as key
             new_dict = {}
             key_name = (
-                key.replace("self_attn", "attn")
-                   .replace("lora_A", "lora_A.MatMul")
-                   .replace("lora_B", "lora_B.MatMul")
+                key.replace("self_attn", "attn").replace("lora_A", "lora_A.MatMul").replace("lora_B", "lora_B.MatMul")
             )
 
             if "lora_A" in key_name:
@@ -124,12 +121,12 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             elif "lora_B" in key_name:
                 # LoRA_B is split across projections
                 if "qkv_proj" in key_name:
-                    new_dict[key_name.replace("qkv_proj", "q_proj")] = val[: query_size, :]
+                    new_dict[key_name.replace("qkv_proj", "q_proj")] = val[:query_size, :]
                     new_dict[key_name.replace("qkv_proj", "k_proj")] = val[query_size : query_size + key_value_size, :]
                     new_dict[key_name.replace("qkv_proj", "v_proj")] = val[query_size + key_value_size :, :]
                 elif "gate_up_proj" in key_name:
-                    new_dict[key_name.replace("gate_up_proj", "gate_proj")] = val[: intermediate_size, :]
-                    new_dict[key_name.replace("gate_up_proj", "up_proj")] = val[intermediate_size :, :]
+                    new_dict[key_name.replace("gate_up_proj", "gate_proj")] = val[:intermediate_size, :]
+                    new_dict[key_name.replace("gate_up_proj", "up_proj")] = val[intermediate_size:, :]
                 else:
                     new_dict[key_name] = val
 
@@ -154,7 +151,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             )
             for new_key, new_val in new_dict.items():
                 np_data = new_val.detach().cpu().to(torch_dtype).numpy().transpose()
-                np_data *= (scale_val if lora_name == "lora_B" else 1)
+                np_data *= scale_val if lora_name == "lora_B" else 1
                 adapter_sets[adapter_name][new_key.replace(f".{adapter_name}", "")] = np_data
 
         # Save each LoRA set to disk
