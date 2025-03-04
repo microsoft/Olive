@@ -510,7 +510,6 @@ class OnnxQuantization(Pass):
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
-
     def _quant_preprocess(self, model: ONNXModelHandler, output_model_path: Union[str, Path]) -> ONNXModelHandler:
         from onnxruntime.quantization.preprocess import quant_pre_process
 
@@ -584,7 +583,7 @@ class OnnxQuantizationPreprocess(Pass):
                 )
                 raise e
 
-            onnx_model = onnx.load(output_model_path)
+            onnx_model = onnx.load(tmp_model_path)
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
             return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
