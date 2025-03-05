@@ -601,7 +601,8 @@ class OnnxQuantizationPreprocess(Pass):
                 )
             except Exception:
                 logger.exception(
-                    "Failed to run quantization preprocessing with error. Please retry with `skip_optimization = True` etc"
+                    "Failed to run quantization preprocessing with error."
+                    " Please retry with `skip_optimization = True` etc"
                 )
                 raise
 
