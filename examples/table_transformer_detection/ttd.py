@@ -107,12 +107,12 @@ def cxcywh_to_xyxy(boxes):
     return torch.stack([x1, y1, x2, y2], dim=-1)
 
 
-def compute_mean_of_max_iou(preds, targets):
-    """Compute mean of maximum IoU.
+def calculate(preds, targets, iou_threshold=0.5):
+    """Compute mean of maximum IoU and F1-score.
 
-    The TableBank datasets consists with images containing multiple tables, while the annotation only mark one table.
+    The TableBank datasets consists of images containing multiple tables, while the annotation only marks one table.
     The model outputs preds with multiple tables.
-    Therefore, compute mean of maximum IoU.
+    Therefore, calculate mean of maximum IoU and F1-score.
     """
     preds_xyxy = cxcywh_to_xyxy(preds)
     targets_xyxy = cxcywh_to_xyxy(targets[:, None, :])
@@ -132,8 +132,20 @@ def compute_mean_of_max_iou(preds, targets):
     union_area = preds_area + targets_area - inter_area
     iou = inter_area / union_area.clamp(min=1e-6)
     max_iou, _ = iou.max(dim=1)
-    return max_iou.mean().item()
+    mean_iou = max_iou.mean().item()
+
+    tp = (max_iou >= iou_threshold).sum().item()
+    fp = (max_iou < iou_threshold).sum().item()
+    fn = targets.shape[0] - tp
+
+    precision = tp / (tp + fp + 1e-6)  # Avoid division by zero
+    recall = tp / (tp + fn + 1e-6)
+    f1_score = 2 * (precision * recall) / (precision + recall + 1e-6)
+
+    return mean_iou, f1_score
 
 
 def evaluate(outputs, targets):
-    return {"MeanOfMaxIoU": compute_mean_of_max_iou(outputs.preds, targets)}
+    mean_iou, f1_score = calculate(outputs.preds, targets)
+    return {"mean_of_max_iou": mean_iou, "f1_score": f1_score}
+
