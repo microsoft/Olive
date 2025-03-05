@@ -552,8 +552,28 @@ class OnnxQuantizationPreprocess(Pass):
                 type_=bool,
                 default_value=False,
                 description=(
-                    "Skip model optimization step if true."
-                    " This may result in ONNX shape inference failure for some models.",
+                    "Skip model optimization step if true. This may result in ONNX shape"
+                    " inference failure for some models."
+                ),
+            ),
+            "skip_onnx_shape": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Skip ONNX shape inference. Symbolic shape inference is most effective"
+                    " with transformer based models. Skipping all shape inferences may"
+                    " reduce the effectiveness of quantization, as a tensor with unknown"
+                    " shape can not be quantized."
+                ),
+            ),
+            "skip_symbolic_shape": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Skip symbolic shape inference. Symbolic shape inference is most"
+                    " effective with transformer based models. Skipping all shape"
+                    " inferences may reduce the effectiveness of quantization, as a tensor"
+                    " with unknown shape can not be quantized."
                 ),
             ),
         }
@@ -575,12 +595,13 @@ class OnnxQuantizationPreprocess(Pass):
                     auto_merge=True,
                     save_as_external_data=True,
                     skip_optimization=config.skip_optimization,
+                    skip_onnx_shape=config.skip_onnx_shape,
+                    skip_symbolic_shape=config.skip_symbolic_shape,
                     verbose=3,  # set verbose to 3 to get more information about the preprocessing
                 )
             except Exception:
-                # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
                 logger.exception(
-                    "Failed to run quantization preprocessing with error. Please retry with `skip_optimization = True`"
+                    "Failed to run quantization preprocessing with error. Please retry with `skip_optimization = True` etc"
                 )
                 raise
 

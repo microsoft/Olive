@@ -90,7 +90,7 @@ def test_dynamic_quantization(tmp_path):
 
 def test_quantization_preprocess(tmp_path):
     input_model = get_onnx_model()
-    config = {"skip_optimization": True}
+    config = {"skip_optimization": True, "skip_onnx_shape": False, "skip_symbolic_shape": True}
     p = create_pass_from_dict(OnnxQuantizationPreprocess, config, disable_search=True)
 
     out = p.run(input_model, tmp_path)
