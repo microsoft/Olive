@@ -17,7 +17,12 @@ from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.quantization import OnnxMatMul4Quantizer, OnnxQuantization, OnnxStaticQuantization
+from olive.passes.onnx.quantization import (
+    OnnxMatMul4Quantizer,
+    OnnxQuantization,
+    OnnxQuantizationPreprocess,
+    OnnxStaticQuantization,
+)
 
 
 class DummyCalibrationDataReader(CalibrationDataReader):
@@ -78,6 +83,15 @@ def test_dynamic_quantization(tmp_path):
     input_model = get_onnx_model()
     config = {"quant_mode": "dynamic"}
     p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
+
+    out = p.run(input_model, tmp_path)
+    assert out is not None
+
+
+def test_quantization_preprocess(tmp_path):
+    input_model = get_onnx_model()
+    config = {"skip_optimization": True, "skip_onnx_shape": False, "skip_symbolic_shape": True}
+    p = create_pass_from_dict(OnnxQuantizationPreprocess, config, disable_search=True)
 
     out = p.run(input_model, tmp_path)
     assert out is not None

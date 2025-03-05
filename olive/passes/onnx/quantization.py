@@ -546,6 +546,75 @@ class OnnxQuantization(Pass):
         return ONNXModelHandler(LocalFile({"path": output_model_path}))
 
 
+class OnnxQuantizationPreprocess(Pass):
+    """ONNX Quantization Preprocess Pass. Same as OnnxQuantization quant_preprocess."""
+
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        config = {
+            "skip_optimization": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Skip model optimization step if true. This may result in ONNX shape"
+                    " inference failure for some models."
+                ),
+            ),
+            "skip_onnx_shape": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Skip ONNX shape inference. Symbolic shape inference is most effective"
+                    " with transformer based models. Skipping all shape inferences may"
+                    " reduce the effectiveness of quantization, as a tensor with unknown"
+                    " shape can not be quantized."
+                ),
+            ),
+            "skip_symbolic_shape": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Skip symbolic shape inference. Symbolic shape inference is most"
+                    " effective with transformer based models. Skipping all shape"
+                    " inferences may reduce the effectiveness of quantization, as a tensor"
+                    " with unknown shape can not be quantized."
+                ),
+            ),
+        }
+        config.update(get_external_data_config())
+        return config
+
+    def _run_for_config(
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+    ) -> ONNXModelHandler:
+        from onnxruntime.quantization.preprocess import quant_pre_process
+
+        with tempfile.TemporaryDirectory(dir=tempfile.tempdir, prefix="olive_tmp") as tmp_dir:
+            tmp_dir_path = Path(tmp_dir)
+            tmp_model_path = resolve_onnx_path(tmp_dir_path)
+            try:
+                quant_pre_process(
+                    input_model_path=model.model_path,
+                    output_model_path=tmp_model_path,
+                    auto_merge=True,
+                    save_as_external_data=True,
+                    skip_optimization=config.skip_optimization,
+                    skip_onnx_shape=config.skip_onnx_shape,
+                    skip_symbolic_shape=config.skip_symbolic_shape,
+                    verbose=3,  # set verbose to 3 to get more information about the preprocessing
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to run quantization preprocessing with error."
+                    " Please retry with `skip_optimization = True` etc"
+                )
+                raise
+
+            onnx_model = onnx.load(tmp_model_path)
+            output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+            return model_proto_to_olive_model(onnx_model, output_model_path, config)
+
+
 class OnnxDynamicQuantization(OnnxQuantization):
     """ONNX Dynamic Quantization Pass."""
 
