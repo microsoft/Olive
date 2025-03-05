@@ -30,8 +30,10 @@
                     "name": "accuracy",
                     "type": "custom",
                     "data_config": "tablebank_data_config",
-                    "sub_types": [ { "name": "mean_of_max_iou", "priority": 1, "higher_is_better": true },
-                    { "name": "f1_score", "priority": 2, "higher_is_better": true } ],
+                    "sub_types": [
+                        { "name": "mean_of_max_iou", "priority": 1, "higher_is_better": true },
+                        { "name": "f1_score", "priority": 2, "higher_is_better": true }
+                    ],
                     "user_config": { "user_script": "ttd.py", "metric_func": "evaluate" }
                 },
                 {

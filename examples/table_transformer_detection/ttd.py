@@ -148,4 +148,3 @@ def calculate(preds, targets, iou_threshold=0.5):
 def evaluate(outputs, targets):
     mean_iou, f1_score = calculate(outputs.preds, targets)
     return {"mean_of_max_iou": mean_iou, "f1_score": f1_score}
-
