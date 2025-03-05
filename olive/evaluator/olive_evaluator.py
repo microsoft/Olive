@@ -1140,7 +1140,7 @@ class OliveEvaluatorConfig(NestedConfig):
             import_user_module(self.user_script, self.script_dir)
 
     @property
-    def is_accuracy_drop_tolerance(self):
+    def is_accuracy_drop_tolerant(self):
         for metric in self.metrics:
             for sub_metric in metric.sub_types:
                 if metric.type == MetricType.ACCURACY and sub_metric.higher_is_better:

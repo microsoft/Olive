@@ -75,7 +75,7 @@ class AutoOptimizer(RegulatePassConfigMixin):
 
         # if user can tolerate accuracy drop, we can enable more optimization
         default_precisions = [Precision.FP32]
-        if self.evaluator_config and self.evaluator_config.is_accuracy_drop_tolerance:
+        if self.evaluator_config and self.evaluator_config.is_accuracy_drop_tolerant:
             default_precisions = [Precision.FP32, Precision.FP16, Precision.INT8, Precision.INT4]
         self.auto_optimizer_config.precisions = self.auto_optimizer_config.precisions or default_precisions
 
