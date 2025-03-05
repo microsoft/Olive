@@ -361,7 +361,7 @@ class OnnxConversion(Pass):
             new_load_kwargs["torch_dtype"] = torch_dtype
             model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
 
-        if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config.load_in_4bit:
+        if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config["load_in_4bit"]:
             logger.debug(
                 "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
                 " from the load kwargs. Use OnnxBnb4Quantization pass after conversion to quantize the"
