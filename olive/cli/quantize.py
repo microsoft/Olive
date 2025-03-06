@@ -82,7 +82,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         sub_parser.set_defaults(func=QuantizeCommand)
 
     def _get_precision_bits(self):
-        PRECISION_TO_BITS = {
+        precision_to_bits = {
             "int4": 4,
             "int8": 8,
             "int16": 16,
@@ -90,16 +90,16 @@ class QuantizeCommand(BaseOliveCLICommand):
             "uint8": 8,
             "uint16": 16,
         }
-        return PRECISION_TO_BITS[self.args.precision]
+        return precision_to_bits[self.args.precision]
 
     def _get_precision_in_wtypes(self):
-        PRECISION_TO_WTYPES = {
+        precision_to_wtypes = {
             "int8": "QInt8",
             "uint8": "QUInt8",
             "int16": "QInt16",
             "uint16": "QUInt16",
         }
-        return PRECISION_TO_WTYPES[self.args.precision]
+        return precision_to_wtypes[self.args.precision]
 
     def _get_pass_list(self, P, A, I, is_hf_model):
         olive_config = OlivePackageConfig.load_default_config()
@@ -113,7 +113,9 @@ class QuantizeCommand(BaseOliveCLICommand):
                 if A is None or A in pinfo.supported_algorithms:
                     if P is None or P in pinfo.supported_precisions:
                         if not self.args.use_qdq_encoding or "qdq" in pinfo.supported_quantization_encodings:
-                            if (pinfo.dataset_required and self.args.data_name) or (not pinfo.dataset_required):
+                            if (pinfo.dataset_required and self.args.data_name) or (
+                                not pinfo.dataset_required and not self.args.data_name
+                            ):
                                 pass_list.append(r["pass_type"])
 
         if not pass_list:
@@ -137,6 +139,11 @@ class QuantizeCommand(BaseOliveCLICommand):
             "OnnxBnB4Quantization": {"quant_type": precision_in_bits},
             "NVModelOptQuantization": {"precision": precision_in_bits, "algorithm": self.args.algorithm.upper()},
             "OnnxDynamicQuantization": {"weight_type": wtypes, "quant_format": quant_format},
+            "OnnxStaticQuantization": {
+                "weight_type": wtypes,
+                "quant_format": quant_format,
+                "data_config": "default_data_config",
+            },
             "OnnxMatMul4Quantizer": {"quant_format": quant_format},
             "IncDynamicQuantization": {"algorithm": self.args.algorithm.upper(), "bits": precision_in_bits},
         }
@@ -215,8 +222,8 @@ ONNX_QUANT_IMPLEMENTATION_MAPPING = [
     {"impl_name": "bnb", "pass_type": "OnnxBnB4Quantization"},
     {"impl_name": "ort", "pass_type": "OnnxMatMul4Quantizer"},
     {"impl_name": "ort", "pass_type": "OnnxDynamicQuantization"},
-    #    {"impl_name": "ort", "pass_type": "OnnxstaticQuantization"},
+    {"impl_name": "ort", "pass_type": "OnnxStaticQuantization"},
     {"impl_name": "nvmo", "pass_type": "NVModelOptQuantization"},
     {"impl_name": "inc", "pass_type": "IncDynamicQuantization"},
-    #    {"impl_name": "inc", "pass_type": "IncStaticQuantization"},
+    # {"impl_name": "inc", "pass_type": "IncStaticQuantization"},
 ]
