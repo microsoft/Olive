@@ -215,7 +215,7 @@ class PassModuleConfig(ConfigBase):
     dataset_required: bool = False
 
     def set_class_variables(self, cls):
-        attrs = {"supported_providers", "supported_accelerators", "supported_precisions", "supported_algorithms", "run_on_target", "dataset_required", "supported_quantization_encoding"}
+        attrs = {"supported_providers", "supported_accelerators", "supported_precisions", "supported_algorithms", "run_on_target", "dataset_required", "supported_quantization_encodings"}
         for attr in attrs:
             setattr(cls, attr, getattr(self, attr))
 
