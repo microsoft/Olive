@@ -23,4 +23,3 @@
 ||inception|[Link](https://github.com/microsoft/Olive/tree/main/examples/inception)|`Qualcomm NPU`: with SNPE toolkit
 ||super resolution|[Link](https://github.com/microsoft/Olive/tree/main/examples/super_resolution)|`CPU`: with ONNX Runtime pre/post processing integration for a single ONNX model
 ||Vision Transformer|[Link](https://github.com/microsoft/Olive/tree/main/examples/vit)|`Qualcomm NPU`: with ONNX Runtime static QDQ quantization for ONNX Runtime QNN EP
-||Table Transformer Detection|[Link](https://github.com/microsoft/Olive/tree/main/examples/table_transformer_detection)|`Qualcomm NPU`: with ONNX Runtime static QDQ quantization for ONNX Runtime QNN EP
