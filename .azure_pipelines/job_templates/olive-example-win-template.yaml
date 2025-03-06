@@ -52,7 +52,6 @@ jobs:
       PIPELINE_TEST_ACCOUNT_NAME: $(pipeline-test-account-name)
       PIPELINE_TEST_CONTAINER_NAME: $(pipeline-test-container-name)
       KEYVAULT_NAME: $(keyvault-name)
-      HF_TOKEN: $(hf_token)
 
   - task: PublishTestResults@2
     condition: succeededOrFailed()
