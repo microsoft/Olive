@@ -7,7 +7,6 @@
 # ruff: noqa: RUF012
 
 from argparse import ArgumentParser
-from collections import OrderedDict
 from copy import deepcopy
 from typing import Any, Dict
 
@@ -25,6 +24,7 @@ from olive.cli.base import (
 )
 from olive.common.utils import set_nested_dict_value
 from olive.package_config import OlivePackageConfig
+
 
 class QuantizeCommand(BaseOliveCLICommand):
 
@@ -49,7 +49,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             "--algorithm",
             type=str,
             default="rtn",
-            choices=sorted(ALGORITHMS.keys()),
+            choices=["awq", "gptq", "rtn", "hqq"],
             help="List of quantization algorithms to run.",
         )
         sub_parser.add_argument(
@@ -62,7 +62,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--implementation",
             type=str,
-            #choices=sorted(TEMPLATE["passes"].keys()),
+            # choices=sorted(TEMPLATE["passes"].keys()),
             help="The specific implementation of quantization algorithms to use.",
         )
         sub_parser.add_argument(
@@ -78,6 +78,82 @@ class QuantizeCommand(BaseOliveCLICommand):
         add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=QuantizeCommand)
 
+    def _get_precision_bits(self):
+        PRECISION_TO_BITS = {
+            "int4": 4,
+            "int8": 8,
+            "int16": 16,
+            "uint4": 4,
+            "uint8": 8,
+            "uint16": 16,
+        }
+        return PRECISION_TO_BITS[self.args.precision]
+
+    def _get_precision_in_wtypes(self):
+        PRECISION_TO_WTYPES = {
+            "int8": "QInt8",
+            "uint8": "QUInt8",
+            "int16": "QInt16",
+            "uint16": "QUInt16",
+        }
+        return PRECISION_TO_WTYPES[self.args.precision]
+
+    def _build_pass_list(self, P, A, I, is_hf_model):
+        olive_config = OlivePackageConfig.load_default_config()
+        pass_list = []
+        available_passes_list = PT_QUANT_IMPLEMENTATION_MAPPING
+        if not is_hf_model:
+            available_passes_list = ONNX_QUANT_IMPLEMENTATION_MAPPING
+        for r in available_passes_list:
+            pinfo = olive_config.get_pass_module_config(r["implementation_class"])
+            if I is None or r["name"] == I:
+                if A is None or A in pinfo.supported_algorithms:
+                    if P is None or P in pinfo.supported_precisions:
+                        if not self.args.use_qdq_encoding or "qdq" in pinfo.supported_quantization_encodings:
+                            if (pinfo.dataset_required and self.args.data_name) or (not pinfo.dataset_required):
+                                pass_list.append(r)
+
+        print(f"_build_pass_list {pass_list}")
+        return pass_list
+
+    def _get_passes_dict(self, plist):
+        precision_in_bits = self._get_precision_bits()
+        wtypes = self._get_precision_in_wtypes()
+        quant_format = "QDQ"
+        if self.args.use_qdq_encoding:
+            quant_format = "QOP"
+
+        # config options to add for a given option
+        to_add = {
+            "awq": {"w_bits": precision_in_bits},
+            "gptq": {"bits", precision_in_bits},
+            "bnb4": {"quant_type": precision_in_bits},
+            "nvmo": {"precision": precision_in_bits, "algorithm": self.args.algorithm.upper()},
+            "OnnxDynamicQuantization": {"weight_type": wtypes, "quant_format": quant_format},
+            "matmul4": {"quant_format": quant_format},
+            "inc_dynamic": {"algorithm": self.args.algorithm.upper(), "bits": precision_in_bits},
+        }
+
+        nplist = {}
+        for p in plist:
+            pt = p["implementation_class"]
+            pd = {"type": pt}
+            if to_add.get(pt) is not None:
+                for k, v in to_add[pt].items():
+                    pd[k] = v
+            nplist[pt.lower()] = pd
+        print(nplist)
+        return nplist
+
+    def _customize_config(self, config):
+        to_replace = [
+            ("output_dir", self.args.output_path),
+            ("log_severity_level", self.args.log_level),
+        ]
+        for k, v in to_replace:
+            if v is not None:
+                set_nested_dict_value(config, k, v)
+
     def _get_run_config(self, tempdir: str) -> Dict[str, Any]:
         config = deepcopy(TEMPLATE)
         update_input_model_options(self.args, config)
@@ -86,50 +162,15 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         is_hf_model = config["input_model"]["type"].lower() == "hfmodel"
 
-        self.build_pass_list(self.args.precision, self.args.algorithm, self.args.implementation, is_hf_model)
+        # Build list of quantization passes to run
+        plist = self._build_pass_list(self.args.precision, self.args.algorithm, self.args.implementation, is_hf_model)
 
-        if self.args.data_name:
-            config["passes"]["gptq"]["data_config"] = "default_data_config"
+        # Get the passes dictionary for the config
+        config["passes"] = self._get_passes_dict(plist)
 
-        to_replace = [
-            (("passes", "awq", "w_bit"), precision),
-            (("passes", "gptq", "bits"), precision),
-            (("passes", "bnb4", "quant_type"), precision),
-            (("passes", "nvmo", "precision"), precision),
-            (("passes", "nvmo", "algorithm"), self.args.algorithm.upper()),
-            (("passes", "onnx_dynamic", "weight_type"), precision),
-            (("passes", "onnx_dynamic", "quant_format"), quant_format),
-            (("passes", "matmul4", "quant_format"), quant_format),
-            (("passes", "inc_dynamic", "algorithm"), self.args.algorithm.upper()),
-            (("passes", "inc_dynamic", "bits"), precision),
-            ("output_dir", self.args.output_path),
-            ("log_severity_level", self.args.log_level),
-        ]
-        for k, v in to_replace:
-            if v is not None:
-                set_nested_dict_value(config, k, v)
-
-        config["passes"] = OrderedDict([(k, v) for k, v in config["passes"].items() if k in self.args.implementation])
+        # Customize the config for user choices
+        self._customize_config(config)
         return config
-
-    def build_pass_list(self, P, A, I, is_hf_model):
-        olive_config = OlivePackageConfig.load_default_config()
-        PList = []
-        available_passes_list = PT_QUANT_IMPLEMENTATION_MAPPING
-        if not is_hf_model:
-            available_passes_list = ONNX_QUANT_IMPLEMENTATION_MAPPING
-        for r in available_passes_list:
-            pinfo = olive_config.get_pass_module_config(r["implementation_class"])
-            if (I is None or r["implementation"] == I):
-                if (A is None or A in pinfo.supported_algorithms):
-                    if (P is None or P in pinfo.supported_precisions):
-                        if not self.args.use_qdq_encoding or "qdq" in pinfo.supported_quantization_encodings:
-                            if (pinfo.dataset_required and self.args.data_name) or (not pinfo.dataset_required):
-                                PList.append(r)
-
-        print(f'Pass List {PList}')
-        # 1. set precision
-        exit(0)
 
     def run(self):
         self._run_workflow()
@@ -164,9 +205,8 @@ TEMPLATE = {
         "nvmo": {"type": "NVModelOptQuantization", "precision": "int4", "algorithm": "AWQ"},
         "onnx_dynamic": {"type": "OnnxDynamicQuantization", "weight_type": "QInt8"},
         "inc_dynamic": {"type": "IncDynamicQuantization", "quant_level": "auto", "algorithm": "RTN"},
-        # NOTE(all): Not supported yet!
-        # "onnx_static": {"type": "OnnxStaticQuantization", "data_config": "default_data_config"},
-        # "inc_static": {"type": "IncStaticQuantization", "data_config": "default_data_config"},
+        "onnx_static": {"type": "OnnxStaticQuantization", "data_config": "default_data_config"},
+        "inc_static": {"type": "IncStaticQuantization", "data_config": "default_data_config"},
         # "vitis": {"type": "VitisAIQuantization", "data_config": "default_data_config"},
     },
     "output_dir": "models",
@@ -176,116 +216,16 @@ TEMPLATE = {
 }
 
 PT_QUANT_IMPLEMENTATION_MAPPING = [
-    {"implementation":"awq", "implementation_class" : "AutoAWQQuantizer", "algorithms":["awq"], "precisions":["int4","uint4","int8","uint8","int16","uint16"], "model_type" : "PT"},
-    {"implementation":"autogptq", "implementation_class" : "GptqQuantizer", "algorithms":["gptq"], "precisions":["int4","uint4","int8","uint8","int16","uint16"],   "model_type" : "PT"}, 
+    {"name": "awq", "implementation_class": "AutoAWQQuantizer"},
+    {"name": "autogptq", "implementation_class": "GptqQuantizer"},
 ]
 
 ONNX_QUANT_IMPLEMENTATION_MAPPING = [
-    {"implementation":"bnb", "implementation_class" : "OnnxBnB4Quantization", "algorithms":["rtn"], "precisions":["nf4","fp4"], "model_type":"ONNX"},
-    {"implementation":"ort", "implementation_class" : "OnnxMatMul4Quantizer", "algorithms":["rtn","hqq"], "precisions":["int4"], "model_type":"ONNX", "QDQ":"YES"},
-    {"implementation":"ort", "implementation_class" : "OnnxDynamicQuantization", "algorithms":["rtn"], "precisions":["int8","uint8"], "model_type":"ONNX"},
-    {"implementation":"ort", "implementation_class" : "OnnxstaticQuantization", "algorithms":["rtn"], "precisions":["int8","uint8"], "model_type":"ONNX", "QDQ":"YES", "data":"required"},
-    {"implementation":"nvmo", "implementation_class" : "NVModelOptQuantization", "algorithms":["awq"], "precisions":["int4","int8","fp8"], "model_type" : "ONNX"},
-    {"implementation":"inc", "implementation_class" : "IncDynamicQuantization", "algorithms":["gptq"], "precisions":["int4"], "model_type":"ONNX"},
-    {"implementation":"inc", "implementation_class" : "IncStaticQuantization",  "algorithms":["gptq"], "precisions":["int4"], "model_type":"ONNX", "data":"required"},
+    {"name": "bnb", "implementation_class": "OnnxBnB4Quantization"},
+    {"name": "ort", "implementation_class": "OnnxMatMul4Quantizer"},
+    {"name": "ort", "implementation_class": "OnnxDynamicQuantization"},
+    {"name": "ort", "implementation_class": "OnnxstaticQuantization"},
+    {"name": "nvmo", "implementation_class": "NVModelOptQuantization"},
+    {"name": "inc", "implementation_class": "IncDynamicQuantization"},
+    {"name": "inc", "implementation_class": "IncStaticQuantization"},
 ]
-
-ALGORITHMS = {
-    "awq": {
-        "hf_model_defaults": {"implementation": "awq", "precision": "int4"},
-        "onnx_model_defaults": {"implementation": "nvmo", "precision": "int4"},
-        "description": "(HfModel, OnnxModel) WOQ with AWQ.",
-    },
-    "gptq": {
-        "hf_model_defaults": {"implementation": "gptq", "precision": "int4"},
-        "onnx_model_defaults": {"implementation": "matmul4", "precision": "int4"},
-        "description": "(HfModel, OnnxModel) WOQ with GPTQ.",
-    },
-    "rtn": {
-        "hf_model_defaults": {"implementation": None, "precision": None},
-        "onnx_model_defaults": {"implementation": "onnx_dynamic", "precision": "int8"},
-        "description": "(HfModel, OnnxModel) WOQ with RTN.",
-    },
-    "hqq": {
-        "hf_model_defaults": {"implementation": None, "precision": None},
-        "onnx_model_defaults": {"implementation": "matmul4", "precision": "int4"},
-        "description": "(OnnxModel) HQQ quantization using onnxruntime.",
-    },
-    # "static": {
-    #     "hf_model_defaults": {"implementation": None, "precision": None},
-    #     "onnx_model_defaults": {"implementation": "onnx_static", "precision": "int8"},
-    #     "description": "(OnnxModel) Static quantization using onnxruntime.",
-    # },
-    "dynamic": {
-        "hf_model_defaults": {"implementation": None, "precision": None},
-        "onnx_model_defaults": {"implementation": "onnx_dynamic", "precision": "int8"},
-        "description": "(OnnxModel) Dynamic quantization using onnxruntime.",
-    },
-}
-
-IMPLEMENTATIONS = {
-    "awq": {
-        "name": "WOQ with AWQ",
-        "supported_precisions": [],
-        "precision_mapping": {
-            "int4": 4,
-            "int8": 8,
-            "int16": 16,
-            "uint4": 4,
-            "uint8": 8,
-            "uint16": 16,
-        },
-    },
-    "gptq": {
-        "name": "WOQ with GPTQ",
-        "supported_precisions": [],
-        "precision_mapping": {
-            "int4": 4,
-            "int8": 8,
-            "int16": 16,
-            "uint4": 4,
-            "uint8": 8,
-            "uint16": 16,
-        },
-    },
-    "bnb4": {
-        "name": "Bits-n-Bytes",
-        "supported_precisions": ["fp4", "nf4"],
-        "precision_mapping": {},
-    },
-    "matmul4": {
-        "name": "4 biy WOQ",
-        "supported_precisions": ["int4"],
-        "precision_mapping": {},
-    },
-    "nvmo": {
-        "name": "nVidia ModelOpt",
-        "supported_precisions": ["int4", "int8", "fp8"],
-        "precision_mapping": {},
-    },
-    "onnx_static": {
-        "name": "Onnxruntime static",
-        "supported_precisions": ["int8", "uint8", "int16", "uint16"],
-        "precision_mapping": {
-            "int8": "QInt8",
-            "uint8": "QUInt8",
-            "uint16": "QUInt16",
-            "int16": "QInt16",
-        },
-    },
-    "onnx_dynamic": {
-        "name": "Onnxruntime dynamic",
-        "supported_precisions": ["int8", "uint8"],
-        "precision_mapping": {"int8": "QInt8", "uint8": "QUInt8"},
-    },
-    "inc_static": {
-        "name": "Intel® Neural Compressor static",
-        "supported_precisions": ["int4"],
-        "precision_mapping": {},
-    },
-    "inc_dynamic": {
-        "name": "Intel® Neural Compressor static",
-        "supported_precisions": ["int4"],
-        "precision_mapping": {},
-    },
-}

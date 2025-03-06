@@ -5,8 +5,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "DynamicToFixedShape": {
@@ -14,8 +14,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "GraphSurgeries": {
@@ -23,8 +23,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "ExtractAdapters": {
@@ -32,8 +32,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "ModelBuilder": {
@@ -41,8 +41,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "fp16", "fp32" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "IncDynamicQuantization": {
@@ -51,7 +51,7 @@
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int4", "int8" ],
             "supported_algorithms": [ "gptq" ],
-            "supported_quantization_encodings": [],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false,
             "extra_dependencies": [ "inc" ],
             "run_on_target": true
@@ -61,8 +61,8 @@
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int4", "int8" ],
-            "supported_algrithms" : [ "gptq"],
-            "supported_quantization_encodings": [],
+            "supported_algrithms": [ "gptq" ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false,
             "extra_dependencies": [ "inc" ],
             "run_on_target": true
@@ -73,7 +73,7 @@
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int4", "int8" ],
             "supported_algorithms": [ "gptq" ],
-            "supported_quantization_encodings": [],
+            "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "inc" ],
             "dataset_required": true,
             "run_on_target": true
@@ -83,8 +83,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "MatMulNBitsToQDQ": {
@@ -92,8 +92,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "MixedPrecisionOverrides": {
@@ -101,8 +101,8 @@
             "supported_providers": [ "QNNExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "MoEExpertsDistributor": {
@@ -110,8 +110,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "OnnxBnb4Quantization": {
@@ -119,8 +119,8 @@
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "fp4", "nf4" ],
-            "supported_algorithms" : [ "rtn" ],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [ "rtn" ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "OnnxConversion": {
@@ -128,8 +128,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "OnnxDynamicQuantization": {
@@ -138,7 +138,7 @@
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int8", "uint8" ],
             "supported_algorithms": [ "rtn" ],
-            "supported_quantization_encodings": [],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "OnnxFloatToFloat16": {
@@ -146,8 +146,8 @@
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "fp16" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "OnnxIODataTypeConverter": {
@@ -155,8 +155,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "OnnxMatMul4Quantizer": {
@@ -173,8 +173,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false,
             "extra_dependencies": [ "onnxoptimizer", "onnxscript" ]
         },
@@ -183,8 +183,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "OnnxQuantization": {
@@ -193,7 +193,7 @@
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int8" ],
             "supported_algorithms": [ "rtn" ],
-            "supported_quantization_encodings": [],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "OnnxStaticQuantization": {
@@ -211,8 +211,8 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
             "extra_dependencies": [ "optimum" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "OptimumMerging": {
@@ -220,8 +220,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false,
             "extra_dependencies": [ "optimum" ],
             "run_on_target": true
@@ -231,8 +231,8 @@
             "supported_providers": [ "CUDAExecutionProvider", "DmlExecutionProvider" ],
             "supported_accelerators": [ "gpu", "npu" ],
             "supported_precisions": [ "fp16" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "OrtSessionParamsTuning": {
@@ -240,8 +240,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false,
             "module_dependencies": [ "psutil" ],
             "run_on_target": true
@@ -251,8 +251,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "QNNPreprocess": {
@@ -260,8 +260,8 @@
             "supported_providers": [ "QNNExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "VitisAIQuantization": {
@@ -269,8 +269,8 @@
             "supported_providers": [ "VitisAIExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "int8" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false,
             "run_on_target": true
         },
@@ -279,7 +279,7 @@
             "supported_providers": [ "VitisAIExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "int8" ],
-            "supported_algorithms": [],
+            "supported_algorithms": [  ],
             "supported_quantization_encodings": [ "qdq" ],
             "dataset_required": false
         },
@@ -288,7 +288,7 @@
             "supported_providers": [ "VitisAIExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "int8" ],
-            "supported_algorithms": [],
+            "supported_algorithms": [  ],
             "supported_quantization_encodings": [ "qop" ],
             "dataset_required": false
         },
@@ -297,8 +297,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "SplitModel": {
@@ -306,8 +306,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "OpenVINOConversion": {
@@ -315,8 +315,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false,
             "extra_dependencies": [ "openvino" ]
         },
@@ -325,8 +325,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false,
             "extra_dependencies": [ "openvino" ]
         },
@@ -336,7 +336,7 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "int16", "uint4", "uint8", "uint16" ],
             "supported_algorithms": [ "awq" ],
-            "supported_quantization_encodings": [],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false,
             "module_dependencies": [ "autoawq" ]
         },
@@ -345,18 +345,18 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "int16", "uint4", "uint8", "uint16" ],
-            "supported_algorithms" : [ "gptq" ],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [ "gptq" ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false,
-          "module_dependencies": [ "auto-gptq", "optimum" ]
+            "module_dependencies": [ "auto-gptq", "optimum" ]
         },
         "CaptureSplitInfo": {
             "module_path": "olive.passes.pytorch.capture_split_info.CaptureSplitInfo",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "MergeAdapterWeights": {
@@ -364,8 +364,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "LoftQ": {
@@ -373,8 +373,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "LoRA": {
@@ -383,8 +383,8 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
             "extra_dependencies": [ "lora" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "LoHa": {
@@ -393,8 +393,8 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
             "extra_dependencies": [ "lora" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "LoKr": {
@@ -403,8 +403,8 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
             "extra_dependencies": [ "lora" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "PyTorchTensorParallel": {
@@ -412,8 +412,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "QLoRA": {
@@ -422,8 +422,8 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
             "extra_dependencies": [ "bnb", "lora" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "DoRA": {
@@ -432,8 +432,8 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
             "extra_dependencies": [ "bnb", "lora" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "QuantizationAwareTraining": {
@@ -442,8 +442,8 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
             "module_dependencies": [ "pytorch-lightning" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "QuaRot": {
@@ -451,8 +451,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "SparseGPT": {
@@ -460,8 +460,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "SpinQuant": {
@@ -469,8 +469,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "SliceGPT": {
@@ -478,8 +478,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "TorchTRTConversion": {
@@ -488,8 +488,8 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
             "extra_dependencies": [ "torch-tensorrt" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "QNNConversion": {
@@ -497,8 +497,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "QNNModelLibGenerator": {
@@ -506,8 +506,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "QNNContextBinaryGenerator": {
@@ -515,8 +515,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "SNPEConversion": {
@@ -524,8 +524,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "SNPEQuantization": {
@@ -533,8 +533,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "SNPEtoONNXConversion": {
@@ -542,8 +542,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": [],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
         "NVModelOptQuantization": {
@@ -552,9 +552,9 @@
             "supported_accelerators": [ "gpu" ],
             "supported_precisions": [ "int4", "int8", "fp8" ],
             "supported_algorithms": [ "awq" ],
-            "supported_quantization_encodings": [],
+            "supported_quantization_encodings": [  ],
             "dataset_required": false,
-           "extra_dependencies": [ "nvmo" ]
+            "extra_dependencies": [ "nvmo" ]
         }
     },
     "extra_dependencies": {
