@@ -101,7 +101,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         }
         return precision_to_wtypes[self.args.precision]
 
-    def _get_pass_list(self, P, A, I, is_hf_model):
+    def _get_pass_list(self, precision, algo, impl, is_hf_model):
         olive_config = OlivePackageConfig.load_default_config()
         pass_list = []
         available_passes_list = PT_QUANT_IMPLEMENTATION_MAPPING
@@ -109,18 +109,22 @@ class QuantizeCommand(BaseOliveCLICommand):
             available_passes_list = ONNX_QUANT_IMPLEMENTATION_MAPPING
         for r in available_passes_list:
             pinfo = olive_config.get_pass_module_config(r["pass_type"])
-            if I is None or r["impl_name"] == I:
-                if A is None or A in pinfo.supported_algorithms:
-                    if P is None or P in pinfo.supported_precisions:
-                        if not self.args.use_qdq_encoding or "qdq" in pinfo.supported_quantization_encodings:
-                            if (pinfo.dataset_required and self.args.data_name) or (
-                                not pinfo.dataset_required and not self.args.data_name
-                            ):
-                                pass_list.append(r["pass_type"])
+            if (
+                (impl is None or r["impl_name"] == impl)  # pylint: disable=R0916
+                and (algo is None or algo in pinfo.supported_algorithms)
+                and (precision is None or precision in pinfo.supported_precisions)
+                and (not self.args.use_qdq_encoding or "qdq" in pinfo.supported_quantization_encodings)
+                and (
+                    (pinfo.dataset_required and self.args.data_name)
+                    or (not pinfo.dataset_required and not self.args.data_name)
+                )
+            ):
+                pass_list.append(r["pass_type"])
 
         if not pass_list:
             raise ValueError(
-                f"The requested precision {P}, algorithm {A} and implementation {I} is not currently supported"
+                f"Quantiation for precision {precision}, algorithm {algo} "
+                f"and implementation {impl} is not supported"
             )
         logger.info("pass list: %s", pass_list)
         return pass_list
@@ -152,8 +156,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         for p in pass_list:
             pd = {"type": p}
             if to_add.get(p) is not None:
-                for k, v in to_add[p].items():
-                    pd[k] = v
+                pd.update(dict(to_add[p].items()))
             passes_dict[p.lower()] = pd
         logger.info("selected pass configs: %s", passes_dict)
         return passes_dict

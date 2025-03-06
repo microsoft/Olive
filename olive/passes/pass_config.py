@@ -181,20 +181,20 @@ class PassModuleConfig(ConfigBase):
         FP32 = "fp32"
         NF4 = "nf4"
 
-    class Quant_Algorithm(StrEnumBase):
+    class QuantAlgorithm(StrEnumBase):
         AWQ = "awq"
         GPTQ = "gptq"
         HQQ = "hqq"
         RTN = "rtn"
 
-    class Quant_Encoding(StrEnumBase):
+    class QuantEncoding(StrEnumBase):
         QDQ = "qdq"
         QOP = "qop"
 
     ACCELERATORS: ClassVar[Set[str]] = {v.value for v in Device}
     PRECISIONS: ClassVar[Set[str]] = {v.value for v in Precision}
-    QUANT_ALGORITHMS: ClassVar[Set[str]] = {v.value for v in Quant_Algorithm}
-    QUANT_ENCODINGS: ClassVar[Set[str]] = {v.value for v in Quant_Encoding}
+    QUANT_ALGORITHMS: ClassVar[Set[str]] = {v.value for v in QuantAlgorithm}
+    QUANT_ENCODINGS: ClassVar[Set[str]] = {v.value for v in QuantEncoding}
     EXECUTION_PROVIDERS: ClassVar[Set[str]] = {
         provider for provider_list in DEVICE_TO_EXECUTION_PROVIDERS.values() for provider in provider_list
     }
