@@ -153,7 +153,7 @@ pip install -r requirements-ov.txt
 This example requires onnxruntime and its openvino module to be installed:
 
 ```bash
-pip install onnxruntime onnxruntime-openvino
+pip install onnxruntime-openvino
 ```
 
 ### Convert to OpenVINO IR model
