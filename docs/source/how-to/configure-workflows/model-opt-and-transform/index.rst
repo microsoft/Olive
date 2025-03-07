@@ -17,11 +17,6 @@ Model Optimization
    :class-container: cards
 
    .. grid-item-card::
-      **ONNX**
-
-      :octicon:`arrow-right;1em;sd-text-info` `ONNX <onnx.html>`_
-
-   .. grid-item-card::
       **PyTorch**
 
       :octicon:`arrow-right;1em;sd-text-info` `PyTorch <pytorch.html>`_
@@ -46,7 +41,6 @@ Model Optimization
    :hidden:
 
    configure-model-path
-   onnx
    pytorch
    openvino
    qnn

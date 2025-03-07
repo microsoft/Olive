@@ -35,6 +35,14 @@ Features
 
       :octicon:`arrow-right;1em;sd-text-info` `Model splitting <model-splitting.html>`_
 
+   .. grid-item-card::
+
+      **ONNX Transformations**
+
+      Learn about ONNX graph transformations supported by Olive.
+
+      :octicon:`arrow-right;1em;sd-text-info` `ONNX Transformations <onnx-transformations.html>`_
+
 .. toctree::
    :maxdepth: 2
    :hidden:
@@ -43,4 +51,5 @@ Features
    azure-ai/index
    huggingface-integration
    model-splitting
+   onnx-transformations
 
