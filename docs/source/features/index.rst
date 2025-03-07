@@ -57,7 +57,15 @@ Features
 
       Olive supports PEFT adapters such as LoRA.
 
-      :octicon:`arrow-right;1em;sd-text-info` `ONNX Transformations <peft-adapters.html>`_
+      :octicon:`arrow-right;1em;sd-text-info` `PEFT Adapters <peft-adapters.html>`_
+
+   .. grid-item-card::
+
+      **Quantization**
+
+      Olive supports many model quantization techniques.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Quantization <quantization.html>`_
 
 .. toctree::
    :maxdepth: 2
@@ -70,4 +78,5 @@ Features
    model-splitting
    onnx-transformations
    peft-adapters
+   quantization
 

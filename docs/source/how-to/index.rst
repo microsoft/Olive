@@ -82,7 +82,6 @@ Configure Workflows (Advanced)
 
    configure-workflows/how-to-configure-model
    configure-workflows/pass/pass-configuration
-   configure-workflows/model-opt-and-transform/index
    configure-workflows/how-to-configure-data
    configure-workflows/metrics-configuration
    configure-workflows/model-packaging
@@ -108,14 +107,6 @@ For more complex scenarios, you can create fully customize workflows where you c
       Learn how to configure passes.
 
       :octicon:`arrow-right;1em;sd-text-info` `Configure pass <configure-workflows/pass/pass-configuration.html>`_
-
-   .. grid-item-card::
-
-      **How to configure models**
-
-      Learn how to configure and optimize models.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Configure models <configure-workflows/model-opt-and-transform/index.html>`_
 
    .. grid-item-card::
 
