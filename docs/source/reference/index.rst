@@ -19,13 +19,6 @@ Reference
       :octicon:`arrow-right;1em;sd-text-info` `Olive options <options.html>`_
 
    .. grid-item-card::
-      **Model**
-
-      Configure model-related parameters.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Model <model.html>`_
-
-   .. grid-item-card::
       **Pass**
 
       Learn about model optimization passes.
@@ -46,6 +39,5 @@ Reference
 
    cli
    options
-   model
    pass
    search-samplers
