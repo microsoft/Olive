@@ -29,6 +29,14 @@ Features
 
    .. grid-item-card::
 
+      **IHV Integration**
+
+      Olive provides integration with IHV toolkits.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Integrate with IHV toolkits <ihv-integration/index.html>`_
+
+   .. grid-item-card::
+
       **Model splitting**
 
       Olive provides ability to split a model into multiple components.
@@ -58,6 +66,7 @@ Features
    auto-opt
    azure-ai/index
    huggingface-integration
+   ihv-integration
    model-splitting
    onnx-transformations
    peft-adapters
