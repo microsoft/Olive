@@ -25,14 +25,6 @@ Reference
 
       :octicon:`arrow-right;1em;sd-text-info` `Pass <pass.html>`_
 
-   .. grid-item-card::
-      **Search Samplers**
-
-      Configure search samplers.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Search Samplers <search-samplers.html>`_
-
-
 .. toctree::
    :maxdepth: 2
    :hidden:
@@ -40,4 +32,3 @@ Reference
    cli
    options
    pass
-   search-samplers
