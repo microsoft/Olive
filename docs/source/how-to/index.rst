@@ -174,19 +174,10 @@ Integrations
    :maxdepth: 1
    :hidden:
 
-   configure-workflows/azure-ai/index
    configure-workflows/huggingface-integration
 
 .. grid:: 2 2 2 3
    :class-container: cards
-
-   .. grid-item-card::
-
-      **How to integrate with Azure AI**
-
-      Learn how to use integrations with Azure AI, such as model catalog, remote compute, and data/job artifacts.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Integrate with Azure AI <configure-workflows/azure-ai/index.html>`_
 
    .. grid-item-card::
 
