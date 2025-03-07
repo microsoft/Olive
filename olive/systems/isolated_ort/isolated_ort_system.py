@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import ModelConfig, ONNXModelHandler
-    from olive.passes.olive_pass import Pass
+    from olive.passes.olive_pass import FullPassConfig
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class IsolatedORTSystem(OliveSystem):
 
     def run_pass(
         self,
-        the_pass: "Pass",
+        full_pass_config: "FullPassConfig",
         model_config: "ModelConfig",
         output_model_path: str,
     ) -> "ModelConfig":

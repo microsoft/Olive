@@ -27,16 +27,19 @@ class TestLocalSystem:
 
     def test_run_pass(self):
         # setup
-        p = MagicMock()
-        p.run.return_value = PyTorchModelHandler("model_path")
-        olive_model = MagicMock()
+        full_pass_config = MagicMock()
+        model_config = MagicMock()
+        the_pass = MagicMock()
+
         output_model_path = "output_model_path"
+        full_pass_config.create_pass.return_value = the_pass
+        the_pass.run.return_value = PyTorchModelHandler("model_path")
 
         # execute
-        self.system.run_pass(p, olive_model, output_model_path)
+        self.system.run_pass(full_pass_config, model_config, output_model_path)
 
         # assert
-        p.run.assert_called_once_with(olive_model.create_model(), output_model_path)
+        the_pass.run.assert_called_once_with(model_config.create_model(), output_model_path)
 
     METRIC_TEST_CASE: ClassVar[List[Metric]] = [
         (partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE)),
