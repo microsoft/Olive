@@ -31,7 +31,7 @@ Features
 
       **Model splitting**
 
-      Learn how to split a model into multiple components.
+      Olive provides ability to split a model into multiple components.
 
       :octicon:`arrow-right;1em;sd-text-info` `Model splitting <model-splitting.html>`_
 
@@ -43,6 +43,14 @@ Features
 
       :octicon:`arrow-right;1em;sd-text-info` `ONNX Transformations <onnx-transformations.html>`_
 
+   .. grid-item-card::
+
+      **PEFT Adapters**
+
+      Olive supports PEFT adapters such as LoRA.
+
+      :octicon:`arrow-right;1em;sd-text-info` `ONNX Transformations <peft-adapters.html>`_
+
 .. toctree::
    :maxdepth: 2
    :hidden:
@@ -52,4 +60,5 @@ Features
    huggingface-integration
    model-splitting
    onnx-transformations
+   peft-adapters
 

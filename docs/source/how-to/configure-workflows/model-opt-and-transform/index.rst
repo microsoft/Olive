@@ -17,11 +17,6 @@ Model Optimization
    :class-container: cards
 
    .. grid-item-card::
-      **PyTorch**
-
-      :octicon:`arrow-right;1em;sd-text-info` `PyTorch <pytorch.html>`_
-
-   .. grid-item-card::
       **OpenVINO**
 
       :octicon:`arrow-right;1em;sd-text-info` `OpenVINO <openvino.html>`_
@@ -41,7 +36,6 @@ Model Optimization
    :hidden:
 
    configure-model-path
-   pytorch
    openvino
    qnn
    snpe

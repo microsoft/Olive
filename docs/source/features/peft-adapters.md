@@ -1,6 +1,6 @@
-# PyTorch
+# PEFT Adapaters
 
-PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
+Parameter Efficient Finetuning (PEFT) techniques, such as LoRA enables user to efficiently finetune a model.
 
 ## LoRA
 Low-Rank Adaptation, or `LoRA`, is a fine-tuning approach which freezes the pre-trained model weights and injects trainable rank decomposition matrices (called adapters) into the layers of the model.
