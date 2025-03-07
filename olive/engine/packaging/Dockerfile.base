@@ -1,3 +1,4 @@
+# DisableDockerDetector "Prevent warnings on 1ES builds"
 FROM <BASE_IMAGE>
 
 ENV DEBIAN_FRONTEND=noninteractive
