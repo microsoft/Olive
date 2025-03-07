@@ -211,6 +211,12 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ]
         },
+        "StaticLLM": {
+            "module_path": "olive.passes.onnx.static_llm.StaticLLM",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ]
+        },
         "OpenVINOConversion": {
             "module_path": "olive.passes.openvino.conversion.OpenVINOConversion",
             "supported_providers": [ "*" ],
