@@ -80,6 +80,7 @@ Configure Workflows (Advanced)
    :maxdepth: 2
    :hidden:
 
+   configure-workflows/how-to-configure-model
    configure-workflows/pass/pass-configuration
    configure-workflows/model-opt-and-transform/index
    configure-workflows/how-to-configure-data
@@ -91,6 +92,14 @@ For more complex scenarios, you can create fully customize workflows where you c
 
 .. grid:: 2 2 2 3
    :class-container: cards
+
+   .. grid-item-card::
+
+      **How to configure model**
+
+      Learn how to configure input model.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Configure models <configure-workflows/how-to-configure-model.html>`_
 
    .. grid-item-card::
 
