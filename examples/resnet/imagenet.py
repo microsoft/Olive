@@ -45,14 +45,14 @@ preprocess = transforms.Compose(
 @Registry.register_pre_process()
 def dataset_pre_process(output_data, **kwargs):
     cache_key = kwargs.get("cache_key")
+    size = kwargs.get("size", 256)
     cache_file = None
     if cache_key:
-        cache_file = Path(f"./cache/data/{cache_key}.npz")
+        cache_file = Path(f"./cache/data/{cache_key}_{size}.npz")
         if cache_file.exists():
             with np.load(Path(cache_file)) as data:
                 return ImagenetDataset(data)
 
-    size = kwargs.get("size", 256)
     labels = []
     images = []
     for i, sample in enumerate(output_data):

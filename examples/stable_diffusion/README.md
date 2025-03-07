@@ -148,6 +148,14 @@ cd olive/examples/stable_diffusion
 pip install -r requirements-ov.txt
 ```
 
+##### Install onnxruntime
+
+This example requires onnxruntime and its openvino module to be installed:
+
+```bash
+pip install onnxruntime-openvino
+```
+
 ### Convert to OpenVINO IR model
 
 The easiest way to optimize the pipeline is with the `stable_diffusion.py` helper script:

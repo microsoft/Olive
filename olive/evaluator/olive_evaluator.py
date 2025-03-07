@@ -20,7 +20,7 @@ from olive.common.import_lib import import_user_module
 from olive.common.ort_inference import OrtInferenceSession, prepare_io_bindings
 from olive.common.pydantic_v1 import Field, root_validator, validator
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import load_weights, tensor_data_to_device
+from olive.common.utils import format_data, load_weights, tensor_data_to_device
 from olive.constants import Framework
 from olive.data.config import DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
@@ -337,24 +337,6 @@ class _OliveEvaluator(OliveEvaluator):
 class OnnxEvaluatorMixin:
 
     @staticmethod
-    def format_input(input_data, io_config):
-        """Format input data to ONNX input format."""
-        input_names = io_config["input_names"]
-        name_to_type = dict(zip(io_config["input_names"], io_config["input_types"]))
-        if isinstance(input_data, list):
-            input_data = dict(zip(input_names, input_data))
-        elif not isinstance(input_data, dict):
-            input_data = dict(zip(input_names, [input_data]))
-        return {
-            k: np.ascontiguousarray(
-                input_data[k].cpu().numpy() if isinstance(input_data[k], torch.Tensor) else input_data[k],
-                dtype=name_to_type[k],
-            )
-            for k in input_data
-            if k in input_names
-        }
-
-    @staticmethod
     def get_inference_settings(metric: Metric, model: ONNXModelHandler) -> Dict[str, Any]:
         # user.config.inference_settings > model.inference_settings > default inference_settings
         # when user.config.inference_settings is None, the model.inference_settings
@@ -399,12 +381,12 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         use_fp16 = any(v == "float16" for v in io_config["input_types"])
         input_feed = None
         if io_bind and shared_kv_buffer and use_fp16:
-            input_feed = OnnxEvaluator.format_input(next(iter(dataloader))[0], io_config)
+            input_feed = format_data(next(iter(dataloader))[0], io_config)
 
         # load constant inputs if any
         constant_inputs = None
         if model.constant_inputs_path:
-            constant_inputs = OnnxEvaluator.format_input(load_weights(model.constant_inputs_path), io_config)
+            constant_inputs = format_data(load_weights(model.constant_inputs_path), io_config)
 
         # create session wrapper
         session_wrapper = OrtInferenceSession(
@@ -441,7 +423,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         output_names = io_config["output_names"]
         is_single_tensor_output = len(output_names) == 1
         for input_data, labels in dataloader:
-            input_feed = OnnxEvaluator.format_input(input_data, io_config)
+            input_feed = format_data(input_data, io_config)
             result = model.run_session(session, input_feed, **run_kwargs)
             if is_single_tensor_output:
                 result = torch.Tensor(result[0])
@@ -497,7 +479,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         io_config = model.io_config
 
         input_data, _ = next(iter(dataloader))
-        input_feed = OnnxEvaluator.format_input(input_data, io_config)
+        input_feed = format_data(input_data, io_config)
 
         latencies = session.time_run(
             input_feed,
@@ -546,7 +528,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         logits = []
         output_names = io_config["output_names"]
         for _, (input_data, labels) in enumerate(dataloader):
-            input_dict = OnnxEvaluator.format_input(input_data, io_config)
+            input_dict = format_data(input_data, io_config)
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
             output = session.run(None, input_dict)
             output = torch.Tensor(output[0]) if len(output_names) == 1 else torch.Tensor(output)
@@ -624,7 +606,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         io_config = model.io_config
 
         input_feed, _ = next(iter(dataloader))
-        input_feed = OnnxEvaluator.format_input(input_feed, io_config)
+        input_feed = format_data(input_feed, io_config)
         kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
 
         io_bind = OnnxEvaluator.io_bind_enabled(metric, model.inference_settings)
@@ -1158,7 +1140,7 @@ class OliveEvaluatorConfig(NestedConfig):
             import_user_module(self.user_script, self.script_dir)
 
     @property
-    def is_accuracy_drop_tolerance(self):
+    def is_accuracy_drop_tolerant(self):
         for metric in self.metrics:
             for sub_metric in metric.sub_types:
                 if metric.type == MetricType.ACCURACY and sub_metric.higher_is_better:

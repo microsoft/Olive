@@ -30,7 +30,7 @@ onnxconverter_common
 onnxmltools
 onnxoptimizer
 onnxruntime_extensions
-openvino==2023.2.0
+openvino>=2023.2.0
 optimum>=1.17.0
 pandas
 peft

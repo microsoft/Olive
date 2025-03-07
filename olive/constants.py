@@ -32,3 +32,19 @@ class ModelFileFormat(StrEnumBase):
     QNN_SERIALIZED_BIN = "QNN.SERIALIZED.BIN"
     OPENVINO_IR = "OpenVINO.IR"
     COMPOSITE_MODEL = "Composite"
+
+
+class Precision(StrEnumBase):
+    INT4 = "int4"
+    INT8 = "int8"
+    INT16 = "int16"
+    INT32 = "int32"
+    UINT4 = "uint4"
+    UINT8 = "uint8"
+    UINT16 = "uint16"
+    UINT32 = "uint32"
+    FP4 = "fp4"
+    FP8 = "fp8"
+    FP16 = "fp16"
+    FP32 = "fp32"
+    NF4 = "nf4"
