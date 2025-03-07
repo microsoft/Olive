@@ -166,23 +166,3 @@ For more complex scenarios, you can create fully customize workflows where you c
       Learn how to use ONNX Graph Surgeon to manipulate ONNX graphs.
 
       :octicon:`arrow-right;1em;sd-text-info` `ONNX Graph Surgeon <configure-workflows/onnx-graph-surgeon.html>`_
-
-Integrations
-------------
-
-.. toctree::
-   :maxdepth: 1
-   :hidden:
-
-   configure-workflows/huggingface-integration
-
-.. grid:: 2 2 2 3
-   :class-container: cards
-
-   .. grid-item-card::
-
-      **How to integrate with Hugging Face**
-
-      Learn how to use integrations with Hugging Face, such as models, data, and metrics.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Integrate with Hugging Face <configure-workflows/huggingface-integration.html>`_
