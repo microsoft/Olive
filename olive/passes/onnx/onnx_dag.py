@@ -478,6 +478,13 @@ class OnnxDAG:
         # delete the old output
         self.ios.pop(old_output)
 
+    def get_node_op_types(self) -> List[str]:
+        """Get all operator types in the graph.
+
+        :return: list of operator types.
+        """
+        return list({node.op_type for node in self.nodes.values()})
+
     def get_node_names(self) -> List[str]:
         """Get the names of all nodes in the graph.
 
@@ -618,6 +625,21 @@ class OnnxDAG:
         assert self.is_initializer(initializer_name)
         return self.ios[initializer_name].proto[-1]
 
+    def get_io_shape(self, io_name: str) -> List[Union[int, str]]:
+        """Get the shape of an input/output.
+
+        :param io_name: name of the input/output.
+        :return: shape of the input/output.
+        """
+        proto = self.ios[io_name].proto[0]
+        tensor_type = proto.type.tensor_type
+        if tensor_type.elem_type == 0:
+            # sequence type
+            # TODO(jambayk): add support for different types
+            # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
+            tensor_type = proto.type.sequence_type.elem_type.tensor_type
+        return [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
+
     def get_graph_idx(self, name: str) -> int:
         """Get the index of the graph containing the input/output or node."""
         if name in self.ios:
@@ -642,6 +664,13 @@ class OnnxDAG:
         :return: True if the input/output is an output.
         """
         return SpecialOutput.OUTPUT in self.ios[io_name].destination
+
+    def get_output_names(self) -> List[str]:
+        """Get the names of all outputs in the graph.
+
+        :return: list of output names.
+        """
+        return [i for i in self.ios if self.is_output(i)]
 
     def make_output(self, io_name: str):
         """Make an input/output an output.
