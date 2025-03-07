@@ -345,7 +345,7 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "int16", "uint4", "uint8", "uint16" ],
-            "supported_algorithms": [ "gptq" ],
+            "supported_algorithms": [ "gptq", "quarot", "spinquant" ],
             "supported_quantization_encodings": [  ],
             "dataset_required": false,
             "module_dependencies": [ "auto-gptq", "optimum" ]
@@ -451,7 +451,7 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
+            "supported_algorithms": [ "quarot" ],
             "supported_quantization_encodings": [  ],
             "dataset_required": false
         },
@@ -469,7 +469,7 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
+            "supported_algorithms": [ "spinquant" ],
             "supported_quantization_encodings": [  ],
             "dataset_required": false
         },

@@ -186,6 +186,8 @@ class PassModuleConfig(ConfigBase):
         GPTQ = "gptq"
         HQQ = "hqq"
         RTN = "rtn"
+        SPINQUANT = "spinquant"
+        QUAROT = "quarot"
 
     class QuantEncoding(StrEnumBase):
         QDQ = "qdq"

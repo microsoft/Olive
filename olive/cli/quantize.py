@@ -52,7 +52,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             "--algorithm",
             type=str,
             default="rtn",
-            choices=["awq", "gptq", "rtn", "hqq"],
+            choices=["awq", "gptq", "rtn", "hqq", "quarot", "spinquant"],
             help="List of quantization algorithms to run.",
         )
         sub_parser.add_argument(
@@ -90,7 +90,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             "uint8": 8,
             "uint16": 16,
         }
-        return precision_to_bits[self.args.precision]
+        return precision_to_bits.get(self.args.precision)
 
     def _get_precision_in_wtypes(self):
         precision_to_wtypes = {
@@ -99,7 +99,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             "int16": "QInt16",
             "uint16": "QUInt16",
         }
-        return precision_to_wtypes[self.args.precision]
+        return precision_to_wtypes.get(self.args.precision)
 
     def _get_pass_list(self, precision, algo, impl, is_hf_model):
         olive_config = OlivePackageConfig.load_default_config()
@@ -139,7 +139,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         # config options to add for a given option
         to_add = {
             "AutoAWQQuantizer": {"w_bits": precision_in_bits},
-            "GptqQuantizer": {"bits", precision_in_bits},
+            "GptqQuantizer": {"bits": precision_in_bits},
             "OnnxBnB4Quantization": {"quant_type": precision_in_bits},
             "NVModelOptQuantization": {"precision": precision_in_bits, "algorithm": self.args.algorithm.upper()},
             "OnnxDynamicQuantization": {"weight_type": wtypes, "quant_format": quant_format},
@@ -216,11 +216,15 @@ TEMPLATE = {
     "no_artifacts": True,
 }
 
+# Pass order in this mapping is important. More than one passes could be selected from this mapping.
 PT_QUANT_IMPLEMENTATION_MAPPING = [
+    {"impl_name": "quarot", "pass_type": "QuaRot"},
+    {"impl_name": "spinquant", "pass_type": "SpinQuant"},
     {"impl_name": "awq", "pass_type": "AutoAWQQuantizer"},
     {"impl_name": "autogptq", "pass_type": "GptqQuantizer"},
 ]
 
+# Pass order in this mapping is important. More than one passes could be selected from this mapping.
 ONNX_QUANT_IMPLEMENTATION_MAPPING = [
     {"impl_name": "bnb", "pass_type": "OnnxBnB4Quantization"},
     {"impl_name": "ort", "pass_type": "OnnxMatMul4Quantizer"},
