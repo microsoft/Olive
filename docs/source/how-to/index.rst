@@ -87,7 +87,6 @@ Configure Workflows (Advanced)
    configure-workflows/model-packaging
    configure-workflows/systems
    configure-workflows/auto-opt
-   configure-workflows/model-splitting
    configure-workflows/onnx-graph-surgeon
 
 For more complex scenarios, you can create fully customize workflows where you can run any of the 40+ supported optimization techniques in a sequence.
@@ -150,14 +149,6 @@ For more complex scenarios, you can create fully customize workflows where you c
       Learn how to use Auto Optimizer - a tool that automatically creates the best model for you - in a workflow.
 
       :octicon:`arrow-right;1em;sd-text-info` `Auto Optimizer <configure-workflows/auto-opt.html>`_
-
-   .. grid-item-card::
-
-      **Model splitting**
-
-      Learn how to split a model into multiple components.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Model splitting <configure-workflows/model-splitting.html>`_
 
    .. grid-item-card::
 

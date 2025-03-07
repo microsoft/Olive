@@ -5,7 +5,7 @@ Features
    :class-container: cards
 
    .. grid-item-card::
-      **How to integrate with Azure AI**
+      **Azure AI Integration**
 
       Learn how to use integrations with Azure AI, such as model catalog, remote compute, and data/job artifacts.
 
@@ -13,11 +13,19 @@ Features
 
    .. grid-item-card::
 
-      **How to integrate with Hugging Face**
+      **Hugging Face Integration**
 
       Learn how to use integrations with Hugging Face, such as models, data, and metrics.
 
-      :octicon:`arrow-right;1em;sd-text-info` `Integrate with Hugging Face <configure-workflows/huggingface-integration.html>`_
+      :octicon:`arrow-right;1em;sd-text-info` `Integrate with Hugging Face <huggingface-integration.html>`_
+
+   .. grid-item-card::
+
+      **Model splitting**
+
+      Learn how to split a model into multiple components.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Model splitting <model-splitting.html>`_
 
 .. toctree::
    :maxdepth: 2
@@ -25,4 +33,5 @@ Features
 
    azure-ai/index
    huggingface-integration
+   model-splitting
 
