@@ -34,7 +34,7 @@ Working with the CLI
    cli/cli-quantize
    cli/cli-run
 
-The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx-graph-capture`, `auto-opt` that enable you to *easily* optimize models and experiment with different cutting-edge optimization strategies without the need to define workflows.
+The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx-graph-capture`, `auto-opt` that enable you to *easily* optimize select models and experiment with different cutting-edge optimization strategies without the need to define workflows.
 
 .. tip:: For users new to Olive, we recommend that you start with the CLI.
 

@@ -21,7 +21,7 @@ Reference
    .. grid-item-card::
       **Pass**
 
-      Learn about model optimization passes.
+      Explore Olive passes.
 
       :octicon:`arrow-right;1em;sd-text-info` `Pass <pass.html>`_
 
