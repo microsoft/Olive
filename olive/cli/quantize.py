@@ -24,6 +24,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
+from olive.constants import QuantAlgorithm
 from olive.package_config import OlivePackageConfig
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             "--algorithm",
             type=str,
             default="rtn",
-            choices=["awq", "gptq", "rtn", "hqq", "quarot", "spinquant"],
+            choices=[a.value for a in QuantAlgorithm],
             help="List of quantization algorithms to run.",
         )
         sub_parser.add_argument(
