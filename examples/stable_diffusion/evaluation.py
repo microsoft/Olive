@@ -39,6 +39,7 @@ def parse_args(raw_args):
     )
     parser.add_argument("--data_dir", default="quantize_data", type=str)
     parser.add_argument("--num_data", default=10, type=int)
+    parser.add_argument("--clip", action="store_true")
     return parser.parse_args(raw_args)
 
 
@@ -64,23 +65,58 @@ def run_inference(pipeline, args, prompt: str, output_path: Path):
     result.images[0].save(output_path / f"{prompt}.png")
 
 
+def get_clip_score(prompt: str, path: Path, clip_score_fn):
+    import torch
+
+    with torch.no_grad():
+        image = Image.open(path / f"{prompt}.png")
+        image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1)
+        score = clip_score_fn(image, prompt)
+        return score.detach()
+
+
+def get_clip_scores(prompts: list[str], path: Path, clip_score_fn):
+    scores = []
+    with open(path / "clip_scores.txt", "w") as f:
+        f.write("| Prompt | Score |\n")
+        for prompt in prompts:
+            score = get_clip_score(prompt, path, clip_score_fn)
+            scores.append(score)
+            f.write(f"| {prompt} | {score} |\n")
+        logger.info("Scores avg: %s", np.mean(np.array(scores)))
+        f.write(f"| Avg | {np.mean(np.array(scores))} |\n")
+
+
 def main(raw_args=None):
     args = parse_args(raw_args)
 
-    # Some selected captions from https://huggingface.co/datasets/laion/relaion2B-en-research-safe
-    prompts = [
-        "Arroyo Hondo Preserve Wedding",
-        "Budget-Friendly Thanksgiving Table Decor Ideas",
-        "Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo",
-        "Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow",
-        "Lovely Anthodium N Roses Arrangement with Cute Teddy",
-        "Everyone can join and learn how to cook delicious dishes with us.",
-        "Image result for youth worker superhero",
-        "Road improvements coming along in west Gulfport",
-        "Butcher storefront and a companion work, Louis Hayet, Click for value",
-        "folding electric bike"
-    ][:args.num_data]
-    train_num = math.floor(len(prompts) * 0.8)
+    if args.clip:
+        from datasets import load_dataset
+
+        dataset = load_dataset("phiyodr/coco2017", streaming=True)
+        train_data = dataset['train']
+        prompts = [example["captions"][0] for i, example in enumerate(train_data) if i < args.num_data]
+        train_num = 0
+
+        from torchmetrics.functional.multimodal import clip_score
+        from functools import partial
+
+        clip_score_fn = partial(clip_score, model_name_or_path="openai/clip-vit-base-patch16")
+    else:
+        # Some selected captions from https://huggingface.co/datasets/laion/relaion2B-en-research-safe
+        prompts = [
+            "Arroyo Hondo Preserve Wedding",
+            "Budget-Friendly Thanksgiving Table Decor Ideas",
+            "Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo",
+            "Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow",
+            "Lovely Anthodium N Roses Arrangement with Cute Teddy",
+            "Everyone can join and learn how to cook delicious dishes with us.",
+            "Image result for youth worker superhero",
+            "Road improvements coming along in west Gulfport",
+            "Butcher storefront and a companion work, Louis Hayet, Click for value",
+            "folding electric bike"
+        ][:args.num_data]
+        train_num = math.floor(len(prompts) * 0.8)
 
     script_dir = Path(__file__).resolve().parent
     unoptimized_path = script_dir / args.data_dir / 'unoptimized'
@@ -106,26 +142,32 @@ def main(raw_args=None):
             else:
                 pipeline.save_data_dir = None
             run_inference(pipeline, args, prompt, unoptimized_path)
+        if args.clip:
+            get_clip_scores(prompts, unoptimized_path, clip_score_fn)
+
     else:
         os.makedirs(optimized_path, exist_ok=True)
         for i, prompt in enumerate(prompts):
             logger.info(prompt)
             run_inference(pipeline, args, prompt, optimized_path)
 
-        train_error = []
-        test_error = []
-        for i, prompt in enumerate(prompts):
-            error = calc_error(unoptimized_path / f'{prompt}.png', optimized_path / f'{prompt}.png')
-            logger.info("| %s | %f |", prompt, error)
-            if i < train_num:
-                train_error.append(error)
-            else:
-                test_error.append(error)
+        if args.clip:
+            get_clip_scores(prompts, optimized_path, clip_score_fn)
+        else:
+            train_error = []
+            test_error = []
+            for i, prompt in enumerate(prompts):
+                error = calc_error(unoptimized_path / f'{prompt}.png', optimized_path / f'{prompt}.png')
+                logger.info("| %s | %f |", prompt, error)
+                if i < train_num:
+                    train_error.append(error)
+                else:
+                    test_error.append(error)
 
-        train_error = np.array(train_error)
-        test_error = np.array(test_error)
-        logger.info("Average train error %f", np.mean(train_error))
-        logger.info("Average test error %f", np.mean(test_error))
+            train_error = np.array(train_error)
+            test_error = np.array(test_error)
+            logger.info("Average train error %f", np.mean(train_error))
+            logger.info("Average test error %f", np.mean(test_error))
 
 
 if __name__ == "__main__":
