@@ -4,14 +4,13 @@
 # --------------------------------------------------------------------------
 
 import os
-import shutil
 from pathlib import Path
-import subprocess
 from PIL import Image
 import logging
 import sys
 import math
 import numpy as np
+from sd_utils.qnn import QnnStableDiffusionPipeline
 
 
 logger = logging.getLogger(__name__)
@@ -52,6 +51,19 @@ def calc_error(image1, image2):
     return mse
 
 
+def run_inference(pipeline, args, prompt: str, output_path: Path):
+    generator = None if args.seed is None else np.random.RandomState(seed=args.seed)
+    result = pipeline(
+        [prompt],
+        num_inference_steps = args.num_inference_steps,
+        height=512,
+        width=512,
+        guidance_scale=args.guidance_scale,
+        generator=generator
+    )
+    result.images[0].save(output_path / f"{prompt}.png")
+
+
 def main(raw_args=None):
     args = parse_args(raw_args)
 
@@ -68,36 +80,37 @@ def main(raw_args=None):
         "Butcher storefront and a companion work, Louis Hayet, Click for value",
         "folding electric bike"
     ][:args.num_data]
-    command_base = [
-        "python", "stable_diffusion.py",
-        "--model_id", args.model_id,
-        "--provider", "qnn",
-        "--num_inference_steps", str(args.num_inference_steps),
-        "--seed", str(args.seed),
-        "--guidance_scale", str(args.guidance_scale),
-        "--data_dir", args.data_dir + "/data",
-    ]
     train_num = math.floor(len(prompts) * 0.8)
-    data_path = Path(args.data_dir)
-    unoptimized_path = data_path / 'unoptimized'
-    optimized_path = data_path / 'optimized'
+
+    script_dir = Path(__file__).resolve().parent
+    unoptimized_path = script_dir / args.data_dir / 'unoptimized'
+    optimized_path = script_dir / args.data_dir / 'optimized'
+
+    unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
+    optimized_dir_name = "optimized-qnn"
+    optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
+
+    model_dir = unoptimized_model_dir if args.save_data else optimized_model_dir
+    pipeline = QnnStableDiffusionPipeline.from_pretrained(
+        model_dir, provider="CPUExecutionProvider"
+    )
+    pipeline.save_data_dir = None
 
     if args.save_data:
         os.makedirs(unoptimized_path, exist_ok=True)
         for i, prompt in enumerate(prompts):
-            command = command_base + ["--test_unoptimized", "--prompt", prompt]
+            logger.info(prompt)
             if i < train_num:
-                command.append("--save_data")
-            logger.info(command)
-            subprocess.run(command)
-            shutil.move('result_0.png', unoptimized_path / f'{prompt}.png')
+                pipeline.save_data_dir = script_dir / args.data_dir / "data" / prompt
+                os.makedirs(pipeline.save_data_dir, exist_ok=True)
+            else:
+                pipeline.save_data_dir = None
+            run_inference(pipeline, args, prompt, unoptimized_path)
     else:
         os.makedirs(optimized_path, exist_ok=True)
         for i, prompt in enumerate(prompts):
-            command = command_base + ["--prompt", prompt]
-            logger.info(command)
-            subprocess.run(command)
-            shutil.move('result_0.png', optimized_path / f'{prompt}.png')
+            logger.info(prompt)
+            run_inference(pipeline, args, prompt, optimized_path)
 
         train_error = []
         test_error = []
