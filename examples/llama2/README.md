@@ -196,7 +196,7 @@ To use this feature, you will need a `remote_config.json` file to configure your
 }
 ```
 
-More details about `keyvault_name` can be found [here](https://microsoft.github.io/Olive/how-to/configure-workflows/huggingface-integration.html#huggingface-login).
+More details about `keyvault_name` can be found [here](https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login).
 
 Make sure you have installed Olive Azure ML extra by running:
 
