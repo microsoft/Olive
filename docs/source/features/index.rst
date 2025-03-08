@@ -37,6 +37,14 @@ Features
 
    .. grid-item-card::
 
+      **Model Conversion**
+
+      Olive provides ability to convert Models from one format to another.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Model splitting <model-conversion/index.html>`_
+
+   .. grid-item-card::
+
       **Model splitting**
 
       Olive provides ability to split a model into multiple components.
@@ -75,6 +83,7 @@ Features
    azure-ai/index
    huggingface-integration
    ihv-integration
+   model-conversion
    model-splitting
    onnx-transformations
    peft-adapters
