@@ -15,7 +15,7 @@ from olive.common.config_utils import (
 )
 from olive.common.pydantic_v1 import Field, create_model, validator
 from olive.common.utils import StrEnumBase
-from olive.constants import Precision
+from olive.constants import Precision, QuantAlgorithm, QuantEncoding
 from olive.hardware.accelerator import Device
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import validate_resource_path
@@ -167,18 +167,6 @@ def create_config_class(
 
 
 class PassModuleConfig(ConfigBase):
-
-    class QuantAlgorithm(StrEnumBase):
-        AWQ = "awq"
-        GPTQ = "gptq"
-        HQQ = "hqq"
-        RTN = "rtn"
-        SPINQUANT = "spinquant"
-        QUAROT = "quarot"
-
-    class QuantEncoding(StrEnumBase):
-        QDQ = "qdq"
-        QOP = "qop"
 
     ACCELERATORS: ClassVar[Set[str]] = {v.value for v in Device}
     PRECISIONS: ClassVar[Set[str]] = {v.value for v in Precision}
