@@ -41,7 +41,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             "--dtype",
             type=str,
             default="float32",
-            choices=["float32", "float16", "int4"],
+            choices=["float32", "float16"],
             help="Data type to save LoRAs as. Default is float32.",
         )
         sub_parser.add_argument(
@@ -55,41 +55,46 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
 
     def run(self):
         # Reference: https://huggingface.co/microsoft/Phi-4-multimodal-instruct-onnx/blob/05f620b467891affcb00b464e5a73e7cf2de61f9/onnx/builder.py#L318
-        import ast
         import os
 
         from huggingface_hub import HfApi
-        from peft import PeftConfig, PeftModel
+        from peft import AutoPeftModelForCausalLM
         from torch import float16, float32
         from transformers import AutoConfig, AutoModelForCausalLM
 
         torch_dtype = float16 if self.args.dtype == "float16" else float32
 
         # Check if model is Transformers or Peft
+        adapter_paths = []
         if os.path.exists(self.args.model):
-            is_peft = os.path.exists(os.path.join(self.args.model, "adapter_config.json"))
+            for root, _, files in os.walk(self.args.model):
+                for f in files:
+                    path = os.path.join(root, f)
+                    print(f"path = {path}")
+                    if "adapter_config.json" in path:
+                        print(f"root = {root}")
+                        adapter_paths.append(root)
+                        is_peft = True
         else:
             is_peft = "adapter_config.json" in HfApi().list_repo_files(self.args.model)
 
         # Load LoRA config and LoRA model
+        config = AutoConfig.from_pretrained(self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True)
         if is_peft:
             # Peft model
-            peft_config = PeftConfig.from_pretrained(
-                self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True
-            )
-            config = AutoConfig.from_pretrained(
-                peft_config.base_model_name_or_path, cache_dir=self.args.cache_dir, trust_remote_code=True
-            )
-            model = PeftModel.from_pretrained(
-                peft_config.base_model_name_or_path,
-                self.args.model,
+            first_adapter_name = adapter_paths[0].split(os.sep)[-1]
+            peft_model = AutoPeftModelForCausalLM.from_pretrained(
+                os.path.join(self.args.model, first_adapter_name),
+                adapter_name=first_adapter_name,
                 cache_dir=self.args.cache_dir,
                 trust_remote_code=True,
             )
+            for adapter_path in adapter_paths[1:]:
+                adapter_name = adapter_path.split(os.sep)[-1]
+                peft_model.load_adapter(adapter_path, adapter_name)
         else:
             # Transformers model
-            config = AutoConfig.from_pretrained(self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True)
-            model = AutoModelForCausalLM.from_pretrained(
+            peft_model = AutoModelForCausalLM.from_pretrained(
                 self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True
             )
 
@@ -99,7 +104,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         intermediate_size = config.intermediate_size
 
         adapter_sets = {}
-        for key, val in model.state_dict().items():
+        for key, val in peft_model.state_dict().items():
             # Map name in graph as key
             new_dict = {}
             key_name = (
@@ -145,9 +150,9 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             if adapter_name not in adapter_sets:
                 adapter_sets[adapter_name] = {}
 
-            prefix = "base_model.model" if is_peft else "model"
-            scale_val = ast.literal_eval(
-                f"{prefix}.model.layers[{layer_id}].{class_name}.{class_attr_name}.scaling['{adapter_name}']"
+            prefix = "base_model.model.model" if is_peft else "model"
+            scale_val = eval(
+                f"peft_model.{prefix}.layers[{layer_id}].{class_name}.{class_attr_name}.scaling['{adapter_name}']"
             )
             for new_key, new_val in new_dict.items():
                 np_data = new_val.detach().cpu().to(torch_dtype).numpy().transpose()

@@ -7,6 +7,7 @@ azureml-evaluate-mlflow>=0.0.60, <0.0.66
 azureml-fsspec
 # Pin azureml-metrics[all] greater than 0.0.26 to avoid breaking change in azureml-evaluate-mlflow
 azureml-metrics[all]>=0.0.26
+backoff
 coverage
 cppimport
 datasets
@@ -34,12 +35,16 @@ openvino==2023.2.0
 optimum>=1.17.0
 pandas
 peft
+pillow
 plotly
 protobuf==3.20.3
 psutil
 pytest
 pytorch_lightning
+requests
+scipy
 sentencepiece
+soundfile
 tabulate
 torchvision
 # num_logits_to_keep is causing extra input.
