@@ -81,7 +81,7 @@ Configure Workflows (Advanced)
    :hidden:
 
    configure-workflows/how-to-configure-model
-   configure-workflows/pass/pass-configuration
+   configure-workflows/pass-configuration
    configure-workflows/how-to-configure-data
    configure-workflows/metrics-configuration
    configure-workflows/model-packaging
