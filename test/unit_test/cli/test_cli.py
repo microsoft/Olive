@@ -301,7 +301,7 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     from transformers import AutoModelForCausalLM
     import os
 
-    base_model = AutoModelForCausalLM.from_pretrained("hf-internal-testing/tiny-random-LlamaForCausalLM", cache_dir="./cache_dir")
+    base_model = AutoModelForCausalLM.from_pretrained("hf-internal-testing/tiny-random-LlamaForCausalLM")
     base_model.generation_config.pad_token_id = 0
 
     speech_config = LoraConfig(
