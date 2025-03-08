@@ -65,6 +65,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         torch_dtype = float16 if self.args.dtype == "float16" else float32
 
         # Check if model is Transformers or Peft
+        is_peft = False
         adapter_paths = []
         if os.path.exists(self.args.model):
             for root, _, files in os.walk(self.args.model):
@@ -80,7 +81,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         config = AutoConfig.from_pretrained(self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True)
         if is_peft:
             # Peft model
-            first_adapter_name = adapter_paths[0].split(os.sep)[-1]
+            first_adapter_name = Path(adapter_paths[0]).name
             peft_model = AutoPeftModelForCausalLM.from_pretrained(
                 os.path.join(self.args.model, first_adapter_name),
                 adapter_name=first_adapter_name,
@@ -88,7 +89,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
                 trust_remote_code=True,
             )
             for adapter_path in adapter_paths[1:]:
-                adapter_name = adapter_path.split(os.sep)[-1]
+                adapter_name = Path(adapter_path).name
                 peft_model.load_adapter(adapter_path, adapter_name)
         else:
             # Transformers model
@@ -149,7 +150,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
                 adapter_sets[adapter_name] = {}
 
             prefix = "base_model.model.model" if is_peft else "model"
-            scale_val = eval(
+            scale_val = eval(  # pylint: disable=eval-used
                 f"peft_model.{prefix}.layers[{layer_id}].{class_name}.{class_attr_name}.scaling['{adapter_name}']"
             )
             for new_key, new_val in new_dict.items():
