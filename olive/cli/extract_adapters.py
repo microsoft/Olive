@@ -4,9 +4,9 @@
 # --------------------------------------------------------------------------
 from argparse import ArgumentParser
 
+from transformers.utils import TRANSFORMERS_CACHE
 from olive.cli.base import BaseOliveCLICommand, add_logging_options
 from olive.common.utils import WeightsFileFormat, save_weights
-from transformers.utils import TRANSFORMERS_CACHE
 
 
 class ExtractAdaptersCommand(BaseOliveCLICommand):
@@ -56,8 +56,6 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
 
     def run(self):
         # Reference: https://huggingface.co/microsoft/Phi-4-multimodal-instruct-onnx/blob/05f620b467891affcb00b464e5a73e7cf2de61f9/onnx/builder.py#L318
-        import os
-
         from huggingface_hub import HfApi
         from pathlib import Path
         from peft import AutoPeftModelForCausalLM
