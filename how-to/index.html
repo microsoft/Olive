@@ -170,6 +170,13 @@
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
 <li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
     Reference
   </a>
@@ -315,6 +322,13 @@
 
 
 <li class="nav-item ">
+  <a class="nav-link nav-internal" href="../features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class="nav-item ">
   <a class="nav-link nav-internal" href="../reference/index.html">
     Reference
   </a>
@@ -454,7 +468,7 @@
 <h2>Working with the CLI<a class="headerlink" href="#working-with-the-cli" title="Link to this heading">#</a></h2>
 <div class="toctree-wrapper compound">
 </div>
-<p>The Olive CLI provides a set of primitives such as <cite>quantize</cite>, <cite>finetune</cite>, <cite>onnx-graph-capture</cite>, <cite>auto-opt</cite> that enable you to <em>easily</em> optimize models and experiment with different cutting-edge optimization strategies without the need to define workflows.</p>
+<p>The Olive CLI provides a set of primitives such as <cite>quantize</cite>, <cite>finetune</cite>, <cite>onnx-graph-capture</cite>, <cite>auto-opt</cite> that enable you to <em>easily</em> optimize select models and experiment with different cutting-edge optimization strategies without the need to define workflows.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>For users new to Olive, we recommend that you start with the CLI.</p>
@@ -510,18 +524,18 @@
 <div class="sd-col sd-d-flex-row docutils">
 <div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
 <div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to configure passes</strong></p>
-<p class="sd-card-text">Learn how to configure passes.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/pass/pass-configuration.html">Configure pass</a></p>
+<p class="sd-card-text"><strong>How to configure model</strong></p>
+<p class="sd-card-text">Learn how to configure input model.</p>
+<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/how-to-configure-model.html">Configure models</a></p>
 </div>
 </div>
 </div>
 <div class="sd-col sd-d-flex-row docutils">
 <div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
 <div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to configure models</strong></p>
-<p class="sd-card-text">Learn how to configure and optimize models.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/model-opt-and-transform/index.html">Configure models</a></p>
+<p class="sd-card-text"><strong>How to configure passes</strong></p>
+<p class="sd-card-text">Learn how to configure passes.</p>
+<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/pass/pass-configuration.html">Configure pass</a></p>
 </div>
 </div>
 </div>
@@ -558,60 +572,6 @@
 <p class="sd-card-text"><strong>How to configure systems</strong></p>
 <p class="sd-card-text">Learn how to configure systems such as local compute and remote compute to be a <em>host</em> (machine that executes optimization) and/or a <em>target</em> (machine that model will inference on).</p>
 <p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/systems.html">Configure systems</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to use Auto Optimizer</strong></p>
-<p class="sd-card-text">Learn how to use Auto Optimizer - a tool that automatically creates the best model for you - in a workflow.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/auto-opt.html">Auto Optimizer</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>Model splitting</strong></p>
-<p class="sd-card-text">Learn how to split a model into multiple components.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/model-splitting.html">Model splitting</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>ONNX Graph Surgeon</strong></p>
-<p class="sd-card-text">Learn how to use ONNX Graph Surgeon to manipulate ONNX graphs.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/onnx-graph-surgeon.html">ONNX Graph Surgeon</a></p>
-</div>
-</div>
-</div>
-</div>
-</div>
-</section>
-<section id="integrations">
-<h2>Integrations<a class="headerlink" href="#integrations" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-</div>
-<div class="sd-container-fluid sd-sphinx-override sd-mb-4 cards docutils">
-<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-3 docutils">
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to integrate with Azure AI</strong></p>
-<p class="sd-card-text">Learn how to use integrations with Azure AI, such as model catalog, remote compute, and data/job artifacts.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/azure-ai/index.html">Integrate with Azure AI</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to integrate with Hugging Face</strong></p>
-<p class="sd-card-text">Learn how to use integrations with Hugging Face, such as models, data, and metrics.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/huggingface-integration.html">Integrate with Hugging Face</a></p>
 </div>
 </div>
 </div>
@@ -670,7 +630,6 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set-up</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#working-with-the-cli">Working with the CLI</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-workflows-advanced">Configure Workflows (Advanced)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integrations">Integrations</a></li>
 </ul>
   </nav></div>
 

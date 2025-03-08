@@ -1,0 +1,1763 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>ONNX &#8212; Olive  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'features/onnx-transformations';</script>
+    <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="PEFT Adapaters" href="peft-adapters.html" />
+    <link rel="prev" title="Model Splitting" href="model-splitting.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="latest" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Olive  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../examples.html">
+    Examples
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" current active">
+  <a class="nav-link dropdown-item nav-internal" href="index.html">
+    Features
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../examples.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Features
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Features</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">ONNX</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="onnx">
+<h1>ONNX<a class="headerlink" href="#onnx" title="Link to this heading">#</a></h1>
+<p><a class="reference external" href="https://onnx.ai/">ONNX</a> is an open graph format to represent machine learning models. <a class="reference external" href="https://onnxruntime.ai/docs/">ONNX Runtime</a> is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.</p>
+<p>Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.</p>
+<section id="peeophole-optimizer">
+<h2>Peeophole Optimizer<a class="headerlink" href="#peeophole-optimizer" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">OnnxPeepholeOptimizer</span></code> optimizes an ONNX model. The optimization process involves analyzing the structure of the ONNX model and identifying opportunities.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">OnnxPeepholeOptimizer</span></code> leverages <code class="docutils literal notranslate"><span class="pre">onnxscript</span></code> (https://onnxscript.ai/tutorial/optimizer/optimize.html) and <code class="docutils literal notranslate"><span class="pre">onnxoptimizer</span></code>(https://github.com/onnx/optimizer) underneath.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Optimization</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Constant Folding</strong></p></td>
+<td><p>Applies constant folding optimization to the model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Constant Propagation</strong></p></td>
+<td><p>Applies constant propagation optimization to the model. Applied as part of constant folding.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Sequence Simplification</strong></p></td>
+<td><p>Simplifies Sequence-based ops (e.g., SequenceConstruct, ConcatFromSequence). Part of constant folding.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Remove Unused Nodes</strong></p></td>
+<td><p>Removes unused nodes from the model.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Remove Unused Functions</strong></p></td>
+<td><p>Removes unused function protos from the model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Inline Functions with Unused Outputs</strong></p></td>
+<td><p>Inlines function nodes with unused outputs.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Inline Simple Functions</strong></p></td>
+<td><p>Inlines simple functions based on a node count threshold.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Nop Cast</strong></p></td>
+<td><p>Eliminates no-operation (nop) Casts.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Nop Dropout</strong></p></td>
+<td><p>Eliminates no-operation Dropouts.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Nop Flatten</strong></p></td>
+<td><p>Eliminates no-operation Flattens.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Extract Constant to Initializer</strong></p></td>
+<td><p>Extracts constants to initializers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate If with Const Cond</strong></p></td>
+<td><p>Eliminates If nodes with constant conditions.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Nop Monotone ArgMax</strong></p></td>
+<td><p>Eliminates nop monotone ArgMax.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Nop Pad</strong></p></td>
+<td><p>Eliminates no-operation Pads.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Nop Concat</strong></p></td>
+<td><p>Eliminates no-operation Concats.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Nop Split</strong></p></td>
+<td><p>Eliminates no-operation Splits.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Nop Expand</strong></p></td>
+<td><p>Eliminates no-operation Expands.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Shape Gather</strong></p></td>
+<td><p>Eliminates Shape Gather operations.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Slice after Shape</strong></p></td>
+<td><p>Eliminates Slice nodes that occur after Shape nodes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Nop Transpose</strong></p></td>
+<td><p>Eliminates no-operation Transposes.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Add Bias into Conv</strong></p></td>
+<td><p>Fuses Add operations as biases into Conv layers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse BN into Conv</strong></p></td>
+<td><p>Fuses BatchNormalization into Conv layers.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Consecutive Concats</strong></p></td>
+<td><p>Fuses consecutive Concat operations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Consecutive LogSoftmax</strong></p></td>
+<td><p>Fuses consecutive LogSoftmax operations.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Consecutive Reduce+Unsqueeze</strong></p></td>
+<td><p>Fuses consecutive Reduce and Unsqueeze operations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Consecutive Squeezes</strong></p></td>
+<td><p>Fuses consecutive Squeeze operations.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Consecutive Transposes</strong></p></td>
+<td><p>Fuses consecutive Transpose operations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse MatMul+Add Bias into GEMM</strong></p></td>
+<td><p>Fuses MatMul and Add operations into GEMM layers.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Pad into Conv</strong></p></td>
+<td><p>Fuses Pad operations into Conv layers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Pad into Pool</strong></p></td>
+<td><p>Fuses Pad operations into Pool layers.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Transpose into GEMM</strong></p></td>
+<td><p>Fuses Transpose operations into GEMM layers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse Concat into Reshape</strong></p></td>
+<td><p>Fuses Concat operations into Reshape layers.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Nop Reshape</strong></p></td>
+<td><p>Eliminates no-operation Reshapes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Nop with Unit</strong></p></td>
+<td><p>Eliminates no-operation nodes with unit values.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Common Subexpression</strong></p></td>
+<td><p>Eliminates common sub-expressions.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Fuse QKV</strong></p></td>
+<td><p>Fuses query, key, and value layers in transformer models.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Consecutive Unsqueezes</strong></p></td>
+<td><p>Fuses consecutive Unsqueeze operations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Deadend Nodes</strong></p></td>
+<td><p>Eliminates dead-end nodes.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Identity Nodes</strong></p></td>
+<td><p>Eliminates Identity nodes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Shape Ops</strong></p></td>
+<td><p>Eliminates Shape operations where possible.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Fuse Consecutive Slices</strong></p></td>
+<td><p>Fuses consecutive Slice operations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Eliminate Unused Initializer</strong></p></td>
+<td><p>Eliminates unused initializers.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Eliminate Duplicate Initializer</strong></p></td>
+<td><p>Eliminates duplicate initializers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Broadcast to MatMul</strong></p></td>
+<td><p>Converts broadcast patterns into MatMul operations for better efficiency.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Cast Constant of Shape</strong></p></td>
+<td><p>Simplifies constant casting for shape operations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>GEMM to MatMul+Add</strong></p></td>
+<td><p>Converts GEMM operations into MatMul and Add for improved compatibility.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>No-Op Removal</strong></p></td>
+<td><p>Removes redundant or no-op operations in the computation graph.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Please refer to <a class="reference internal" href="#../../../reference/pass.rst#onnx_peephole_optimizer"><span class="xref myst">OnnxPeepholeOptimizer</span></a> for more details about the pass and its config parameters.</p>
+<section id="example-configuration">
+<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxPeepholeOptimizer&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="ort-transformers-optimization">
+<h2>ORT Transformers Optimization<a class="headerlink" href="#ort-transformers-optimization" title="Link to this heading">#</a></h2>
+<p>While ONNX Runtime automatically applies most optimizations while loading transformer models, some of the latest optimizations that have not
+yet been integrated into ONNX Runtime.
+<code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code> provides an offline capability to optimize <a class="reference external" href="https://huggingface.co/docs/transformers/index">transformers</a> models
+in scenarios where ONNX Runtime does not apply the optimization at load time.
+These optimizations are provided by onnxruntime through
+<a class="reference external" href="https://github.com/microsoft/onnxruntime/tree/main/onnxruntime/python/tools/transformers">onnxruntime.transformers</a>. Please
+refer to the <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/README.md">corresponding documentation</a>
+for more details on the optimizations done by this tool.</p>
+<p>Please refer to <a class="reference internal" href="#../../../reference/pass.rst#ort_transformers_optimization"><span class="xref myst">OrtTransformersOptimization</span></a> for more details about the pass and its config parameters.</p>
+<section id="id1">
+<h3>Example Configuration<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtTransformersOptimization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bert&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="onnx-surgeries">
+<h2>ONNX Surgeries<a class="headerlink" href="#onnx-surgeries" title="Link to this heading">#</a></h2>
+<p>Olive provides ability to apply many graph <code class="docutils literal notranslate"><span class="pre">surgeries</span></code> on the ONNX model. In the examples, the <code class="docutils literal notranslate"><span class="pre">surgeries</span></code> Pass represents a list of surgeries to be applied sequentially on the ONNX model. You can combine multiple surgeries in the list to perform consecutive modifications in a single operation.</p>
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RenameInputs&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;old_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;input2&quot;</span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;new_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;renamed_input1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;renamed_input2&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RenameOutputs&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;old_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;output1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;output2&quot;</span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;new_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;renamed_output1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;renamed_output2&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InferShapes&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="renameinputs">
+<h3><code class="docutils literal notranslate"><span class="pre">RenameInputs</span></code><a class="headerlink" href="#renameinputs" title="Link to this heading">#</a></h3>
+<section id="description">
+<h4>Description<a class="headerlink" href="#description" title="Link to this heading">#</a></h4>
+<p>Renames specific inputs in the ONNX model.</p>
+</section>
+<section id="configurations">
+<h4>Configurations<a class="headerlink" href="#configurations" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">old_names</span></code>: List of original input names to rename.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">new_names</span></code>: List of new input names.</p></li>
+</ul>
+</section>
+<section id="id2">
+<h4>Example<a class="headerlink" href="#id2" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RenameInputs&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;old_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;input2&quot;</span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;new_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;renamed_input1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;renamed_input2&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;renamed_input1&quot;</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;renamed_input2&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;renamed_input1&quot;</span><span class="p">,</span> <span class="s2">&quot;renamed_input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="renameoutputs">
+<h3><code class="docutils literal notranslate"><span class="pre">RenameOutputs</span></code><a class="headerlink" href="#renameoutputs" title="Link to this heading">#</a></h3>
+<section id="id3">
+<h4>Description<a class="headerlink" href="#id3" title="Link to this heading">#</a></h4>
+<p>Renames specific outputs in the ONNX model.</p>
+</section>
+<section id="id4">
+<h4>Configurations<a class="headerlink" href="#id4" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">old_names</span></code>: List of original output names to rename.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">new_names</span></code>: List of new output names.</p></li>
+</ul>
+</section>
+<section id="id5">
+<h4>Example<a class="headerlink" href="#id5" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output1&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RenameOutputs&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;old_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;output1&quot;</span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;new_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;renamed_output1&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;renamed_output1&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="infershapes">
+<h3><code class="docutils literal notranslate"><span class="pre">InferShapes</span></code><a class="headerlink" href="#infershapes" title="Link to this heading">#</a></h3>
+<section id="id6">
+<h4>Description<a class="headerlink" href="#id6" title="Link to this heading">#</a></h4>
+<p>Performs shape inference on the ONNX model to populate missing shape information.</p>
+</section>
+<section id="id7">
+<h4>Example<a class="headerlink" href="#id7" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;add_output&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InferShapes&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph (with inferred shapes):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;add_output&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="removeshapes">
+<h3><code class="docutils literal notranslate"><span class="pre">RemoveShapes</span></code><a class="headerlink" href="#removeshapes" title="Link to this heading">#</a></h3>
+<section id="id8">
+<h4>Description<a class="headerlink" href="#id8" title="Link to this heading">#</a></h4>
+<p>Removes all shape information (<code class="docutils literal notranslate"><span class="pre">value_info</span></code>) from the ONNX model.</p>
+</section>
+<section id="id9">
+<h4>Example<a class="headerlink" href="#id9" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="n">test</span><span class="o">-</span><span class="n">model</span> <span class="p">{</span>
+  <span class="c1"># Inputs</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+  <span class="c1"># Value Info</span>
+  <span class="n">value_info</span><span class="p">:</span> <span class="s2">&quot;intermediate&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+  <span class="c1"># Nodes</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;intermediate&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Relu&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;Relu&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;intermediate&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output1&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+
+  <span class="c1"># Outputs</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;output1&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveShapes&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="n">test</span><span class="o">-</span><span class="n">model</span> <span class="p">{</span>
+  <span class="c1"># Inputs</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+  <span class="c1"># Nodes</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;intermediate&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Relu&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;Relu&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;intermediate&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output1&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+
+  <span class="c1"># Outputs</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;output1&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">)</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="removeinitializerfrominputs">
+<h3><code class="docutils literal notranslate"><span class="pre">RemoveInitializerFromInputs</span></code><a class="headerlink" href="#removeinitializerfrominputs" title="Link to this heading">#</a></h3>
+<section id="id10">
+<h4>Description<a class="headerlink" href="#id10" title="Link to this heading">#</a></h4>
+<p>Removes initializers from the input list (<code class="docutils literal notranslate"><span class="pre">graph.input</span></code>) of an ONNX model.</p>
+</section>
+<section id="id11">
+<h4>Example<a class="headerlink" href="#id11" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span>
+  <span class="n">initializer</span> <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">FLOAT</span>
+    <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+    <span class="n">raw_data</span><span class="p">:</span> <span class="s2">&quot;</span><span class="se">\000\000\200</span><span class="s2">?</span><span class="se">\000\000\000</span><span class="s2">@</span><span class="se">\000\000</span><span class="s2">@@&quot;</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveInitializerFromInputs&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+  <span class="n">initializer</span> <span class="p">{</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">FLOAT</span>
+    <span class="n">dims</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+    <span class="n">raw_data</span><span class="p">:</span> <span class="s2">&quot;</span><span class="se">\000\000\200</span><span class="s2">?</span><span class="se">\000\000\000</span><span class="s2">@</span><span class="se">\000\000</span><span class="s2">@@&quot;</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="reorderinputs">
+<h3><code class="docutils literal notranslate"><span class="pre">ReorderInputs</span></code><a class="headerlink" href="#reorderinputs" title="Link to this heading">#</a></h3>
+<section id="id12">
+<h4>Description<a class="headerlink" href="#id12" title="Link to this heading">#</a></h4>
+<p>Reorders the inputs of the ONNX model according to a specified permutation.</p>
+</section>
+<section id="id13">
+<h4>Configurations<a class="headerlink" href="#id13" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">permutation</span></code>: A list specifying the new order of inputs, as a permutation of the original indices.</p></li>
+</ul>
+</section>
+<section id="id14">
+<h4>Example<a class="headerlink" href="#id14" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ReorderInputs&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;permutation&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="replaceerfwithtanh">
+<h3><code class="docutils literal notranslate"><span class="pre">ReplaceErfWithTanh</span></code><a class="headerlink" href="#replaceerfwithtanh" title="Link to this heading">#</a></h3>
+<section id="id15">
+<h4>Description<a class="headerlink" href="#id15" title="Link to this heading">#</a></h4>
+<p>Replaces <code class="docutils literal notranslate"><span class="pre">Erf</span></code> nodes in the ONNX model with an equivalent computation using <code class="docutils literal notranslate"><span class="pre">Tanh</span></code>. The replacement involves scaling the input and applying the <code class="docutils literal notranslate"><span class="pre">Tanh</span></code> function to produce a result that approximates the <code class="docutils literal notranslate"><span class="pre">Erf</span></code> behavior.</p>
+</section>
+<section id="id16">
+<h4>Example<a class="headerlink" href="#id16" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input&quot;</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;erf_output&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Erf&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;erf_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ReplaceErfWithTanh&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input&quot;</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;scale_0&quot;</span> <span class="p">(</span><span class="n">FLOAT</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="mf">1.203</span><span class="p">)</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Mul&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="s2">&quot;scale_0&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;mul_0&quot;</span><span class="p">]</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;Sub_Mul_0&quot;</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Tanh&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;mul_0&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;erf_output&quot;</span><span class="p">]</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;Sub_Tanh_0&quot;</span>
+  <span class="p">}</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;erf_output&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="zerooutinput">
+<h3><code class="docutils literal notranslate"><span class="pre">ZeroOutInput</span></code><a class="headerlink" href="#zerooutinput" title="Link to this heading">#</a></h3>
+<section id="id17">
+<h4>Description<a class="headerlink" href="#id17" title="Link to this heading">#</a></h4>
+<p>Replaces a specific input of a node with a constant tensor of zeros.</p>
+</section>
+<section id="id18">
+<h4>Configurations<a class="headerlink" href="#id18" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">node_name</span></code>: Name of the node whose input is to be replaced.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">input_idx</span></code>: Index of the input to be replaced.</p></li>
+</ul>
+</section>
+<section id="id19">
+<h4>Example<a class="headerlink" href="#id19" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ZeroOutInput&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;node_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AddNode&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;input_idx&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Constant&quot;</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Add_zero_output_0&quot;</span><span class="p">]</span>
+    <span class="n">value</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;Add_zero_output_0&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="removeinputs">
+<h3><code class="docutils literal notranslate"><span class="pre">RemoveInputs</span></code><a class="headerlink" href="#removeinputs" title="Link to this heading">#</a></h3>
+<section id="id20">
+<h4>Description<a class="headerlink" href="#id20" title="Link to this heading">#</a></h4>
+<p>Removes specific inputs from the ONNX model.</p>
+</section>
+<section id="id21">
+<h4>Configurations<a class="headerlink" href="#id21" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">names</span></code>: List of input names to remove.</p></li>
+</ul>
+</section>
+<section id="id22">
+<h4>Example<a class="headerlink" href="#id22" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveInputs&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input2&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="exposeoutputs">
+<h3><code class="docutils literal notranslate"><span class="pre">ExposeOutputs</span></code><a class="headerlink" href="#exposeoutputs" title="Link to this heading">#</a></h3>
+<section id="id23">
+<h4>Description<a class="headerlink" href="#id23" title="Link to this heading">#</a></h4>
+<p>Exposes the outputs of specific nodes in the ONNX model as graph outputs.</p>
+</section>
+<section id="id24">
+<h4>Configurations<a class="headerlink" href="#id24" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">names</span></code>: List of node names whose outputs should be exposed as graph outputs.</p></li>
+</ul>
+</section>
+<section id="id25">
+<h4>Example<a class="headerlink" href="#id25" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Relu&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relu_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExposeOutputs&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;ReluNode&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Relu&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relu_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;relu_output&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="exposequantizedoutput">
+<h3><code class="docutils literal notranslate"><span class="pre">ExposeQuantizedOutput</span></code><a class="headerlink" href="#exposequantizedoutput" title="Link to this heading">#</a></h3>
+<section id="id26">
+<h4>Description<a class="headerlink" href="#id26" title="Link to this heading">#</a></h4>
+<p>Replaces a specified output with its quantized version and exposes its <code class="docutils literal notranslate"><span class="pre">scale</span></code> and <code class="docutils literal notranslate"><span class="pre">zero_point</span></code> as graph outputs.</p>
+</section>
+<section id="id27">
+<h4>Configurations<a class="headerlink" href="#id27" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">output_name</span></code>: Name of the output to replace with its quantized version.</p></li>
+</ul>
+</section>
+<section id="id28">
+<h4>Example<a class="headerlink" href="#id28" title="Link to this heading">#</a></h4>
+<p>Initial ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;DequantizeLinear&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;quantized_tensor&quot;</span><span class="p">,</span> <span class="s2">&quot;scale&quot;</span><span class="p">,</span> <span class="s2">&quot;zero_point&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output1&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExposeQuantizedOutput&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;output_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;output1&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed ONNX model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;quantized_tensor&quot;</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;scale&quot;</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;zero_point&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="rmsnormtol2norm">
+<h3>RMSNormToL2Norm<a class="headerlink" href="#rmsnormtol2norm" title="Link to this heading">#</a></h3>
+<section id="id29">
+<h4>Description<a class="headerlink" href="#id29" title="Link to this heading">#</a></h4>
+<p>Replace RMSNorm subgraph with L2Norm subgraph.</p>
+</section>
+<section id="id30">
+<h4>Example<a class="headerlink" href="#id30" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">RMSNorm</span> <span class="n">pattern</span><span class="p">:</span>
+    <span class="o">+-----------------------------------------------+</span>
+    <span class="o">|</span>                                               <span class="o">|</span>
+    <span class="o">|</span>                                               <span class="n">v</span>
+<span class="p">[</span><span class="n">Root</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">Pow</span> <span class="o">--&gt;</span> <span class="n">ReduceMean</span> <span class="o">--&gt;</span> <span class="n">Add</span> <span class="o">--&gt;</span> <span class="n">Sqrt</span> <span class="o">--&gt;</span> <span class="n">Div</span> <span class="o">--&gt;</span> <span class="n">Mul</span>
+          <span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>     <span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>   <span class="p">(</span><span class="n">B</span><span class="o">=</span><span class="n">E</span><span class="o">-</span><span class="mi">6</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RMSNormToL2Norm&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">Root</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">LpNormalization</span> <span class="o">--&gt;</span> <span class="n">Mul</span>
+           <span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="replaceattentionmaskvalue">
+<h3>ReplaceAttentionMaskValue<a class="headerlink" href="#replaceattentionmaskvalue" title="Link to this heading">#</a></h3>
+<section id="id31">
+<h4>Description<a class="headerlink" href="#id31" title="Link to this heading">#</a></h4>
+<p>Replace the value of extended attention mask with a new value. This surgery is useful if the default mask value does not quantize well due to numerical instability.</p>
+</section>
+<section id="id32">
+<h4>Example<a class="headerlink" href="#id32" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+    <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;output1&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;ConstantOfShape&quot;</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;ConstantOfShape&quot;</span>
+    <span class="n">attribute</span> <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span>
+      <span class="n">t</span> <span class="p">{</span>
+        <span class="n">dims</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">3.4028234663852886e+38</span>
+        <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+      <span class="p">}</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">TENSOR</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;Constant_output&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;Constant&quot;</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Constant&quot;</span>
+    <span class="n">attribute</span> <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span>
+      <span class="n">t</span> <span class="p">{</span>
+        <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">3.4028234663852886e+38</span>
+        <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+      <span class="p">}</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">TENSOR</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">initializer</span> <span class="p">{</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">3.4028234663852886e+38</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;init&quot;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ReplaceAttentionMaskValue&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+    <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;output1&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;ConstantOfShape&quot;</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;ConstantOfShape&quot;</span>
+    <span class="n">attribute</span> <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span>
+      <span class="n">t</span> <span class="p">{</span>
+        <span class="n">dims</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">10000.0</span>
+        <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+      <span class="p">}</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">TENSOR</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;Constant_output&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;Constant&quot;</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Constant&quot;</span>
+    <span class="n">attribute</span> <span class="p">{</span>
+      <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span>
+      <span class="n">t</span> <span class="p">{</span>
+        <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">10000.0</span>
+        <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;&quot;</span>
+      <span class="p">}</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">TENSOR</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">initializer</span> <span class="p">{</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="n">float_data</span><span class="p">:</span> <span class="o">-</span><span class="mf">10000.0</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;init&quot;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="append-pre-post-processing-ops">
+<h2>Append Pre/Post Processing Ops<a class="headerlink" href="#append-pre-post-processing-ops" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AppendPrePostProcessingOps</span></code> inserts pre and post processing ops into the ONNX graph.</p>
+<section id="id33">
+<h3>Example Configuration<a class="headerlink" href="#id33" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;superresolution&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tool_command_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;output_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;png&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;whisper&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tool_command_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;use_audio_decoder&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">AppendPrePostProcessingOps</span></code> also supports pre/post processing ops by leveraging the <a class="reference external" href="https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps">onnxruntime-extension steps</a> and <code class="docutils literal notranslate"><span class="pre">PrePostProcessor</span></code>.
+You can refer to <a class="reference external" href="https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/Example%20usage%20of%20the%20PrePostProcessor.md">here</a> to see how to leverage <code class="docutils literal notranslate"><span class="pre">PrePostProcessor</span></code> to customize pre and post processing ops.</p>
+<ul class="simple">
+<li><p>Olive introduces two placeholders to represent the model input/output shape dimension value: <code class="docutils literal notranslate"><span class="pre">__model_input__</span></code> and <code class="docutils literal notranslate"><span class="pre">__model_output__</span></code>.</p></li>
+<li><p>To support the IoMapEntry, the step need choose use the full form. For example:</p></li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;YCbCrToPixels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BGR&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">[</span><span class="s2">&quot;Y1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">            </span><span class="p">[</span><span class="s2">&quot;Cb1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span>
+<span class="w">            </span><span class="p">[</span><span class="s2">&quot;Cr1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">tool_command_args</span></code> will be used to describe the input parameters to create the <code class="docutils literal notranslate"><span class="pre">PrePostProcessor</span></code> instance. It is list of <code class="docutils literal notranslate"><span class="pre">PrePostProcessorInput</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">name</span></code> is the tensor name. The <code class="docutils literal notranslate"><span class="pre">data_type</span></code> and <code class="docutils literal notranslate"><span class="pre">shape</span></code> will be used to create the tensor type. The <code class="docutils literal notranslate"><span class="pre">shape</span></code> can be a list of integers or a list of string.</p></li>
+</ul>
+<p>Users that write their own pre/post processing steps need to have the knowledge about whether the step includes the operators that is built-in support or supported in onnxruntime-extensions.
+For example, for some ops like <code class="docutils literal notranslate"><span class="pre">ConvertImageToBGR</span></code> which requires other extensions may be incompatible with ort-web, user need to exclude this kind of ops to generate proper models.</p>
+<p>Here are some examples to describe the pre/post processing which is exactly same with <a class="reference external" href="https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/add_pre_post_processing_to_model.py#L89">superresolution</a></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;pre&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;ConvertImageToBGR&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;Resize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;resize_to&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;CenterCrop&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;height&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;width&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;PixelsToYCbCr&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BGR&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;ImageBytesToFloat&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;Unsqueeze&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]}},</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;post&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;Squeeze&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]}},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;FloatToImageBytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Y1_uint8&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;Resize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;resize_to&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">                    </span><span class="p">],</span>
+<span class="w">                    </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HW&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">&quot;PixelsToYCbCr&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]],</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;FloatToImageBytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;multiplier&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cb1_uint8&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;Resize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;resize_to&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">                    </span><span class="p">],</span>
+<span class="w">                    </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HW&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">&quot;PixelsToYCbCr&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]],</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;FloatToImageBytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;multiplier&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cr1_uint8&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;YCbCrToPixels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BGR&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="p">[</span><span class="s2">&quot;Y1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">                    </span><span class="p">[</span><span class="s2">&quot;Cb1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span>
+<span class="w">                    </span><span class="p">[</span><span class="s2">&quot;Cr1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">                </span><span class="p">],</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;ConvertBGRToImage&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;image_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;png&quot;</span><span class="p">}},</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;tool_command_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint8&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;num_bytes&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="insert-beam-search-op">
+<h2>Insert Beam Search Op<a class="headerlink" href="#insert-beam-search-op" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">InsertBeamSearch</span></code> chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.</p>
+<section id="id34">
+<h3>Example Configuration<a class="headerlink" href="#id34" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InsertBeamSearch&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;no_repeat_ngram_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="ort-performance-tuning">
+<h2>ORT Performance Tuning<a class="headerlink" href="#ort-performance-tuning" title="Link to this heading">#</a></h2>
+<p>ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
+environments.
+For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
+improve performance.
+<code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
+<section id="id35">
+<h3>Example Configuration<a class="headerlink" href="#id35" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtSessionParamsTuning&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;session_params_tuning_data_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;providers_list&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">[</span>
+<span class="w">            </span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;device_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;arena_extend_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kNextPowerOfTwo&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;gpu_mem_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2147483648</span><span class="p">,</span><span class="w"> </span><span class="c1">// 2 * 1024 * 1024 * 1024,</span>
+<span class="w">                </span><span class="nt">&quot;cudnn_conv_algo_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;EXHAUSTIVE&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;do_copy_in_default_stream&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;enable_profiling&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py">this file</a>
+for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;calib_data_config/dataloader_config/type&quot;</span></code>.</p>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="model-splitting.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Model Splitting</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="peft-adapters.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">PEFT Adapaters</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#peeophole-optimizer">Peeophole Optimizer</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-configuration">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ort-transformers-optimization">ORT Transformers Optimization</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#onnx-surgeries">ONNX Surgeries</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example">Example</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#renameinputs"><code class="docutils literal notranslate"><span class="pre">RenameInputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#description">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#configurations">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#renameoutputs"><code class="docutils literal notranslate"><span class="pre">RenameOutputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#infershapes"><code class="docutils literal notranslate"><span class="pre">InferShapes</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeshapes"><code class="docutils literal notranslate"><span class="pre">RemoveShapes</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id9">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeinitializerfrominputs"><code class="docutils literal notranslate"><span class="pre">RemoveInitializerFromInputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id10">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id11">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reorderinputs"><code class="docutils literal notranslate"><span class="pre">ReorderInputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id12">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id13">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id14">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replaceerfwithtanh"><code class="docutils literal notranslate"><span class="pre">ReplaceErfWithTanh</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id15">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id16">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#zerooutinput"><code class="docutils literal notranslate"><span class="pre">ZeroOutInput</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id17">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id18">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id19">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeinputs"><code class="docutils literal notranslate"><span class="pre">RemoveInputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id20">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id21">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id22">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#exposeoutputs"><code class="docutils literal notranslate"><span class="pre">ExposeOutputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id23">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id24">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id25">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#exposequantizedoutput"><code class="docutils literal notranslate"><span class="pre">ExposeQuantizedOutput</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id26">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id27">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id28">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rmsnormtol2norm">RMSNormToL2Norm</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id29">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id30">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replaceattentionmaskvalue">ReplaceAttentionMaskValue</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id31">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id32">Example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#append-pre-post-processing-ops">Append Pre/Post Processing Ops</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id33">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#insert-beam-search-op">Insert Beam Search Op</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id34">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ort-performance-tuning">ORT Performance Tuning</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id35">Example Configuration</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2025, Olive Dev team.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

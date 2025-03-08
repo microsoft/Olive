@@ -54,7 +54,7 @@
     <script src="../_static/js/custom_version.js?v=3856a39b"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="OliveModels" href="model.html" />
+    <link rel="next" title="Passes" href="pass.html" />
     <link rel="prev" title="Command Line Tools" href="cli.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -169,6 +169,13 @@
                 </button>
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../features/index.html">
+    Features
+  </a>
+</li>
+
+
 <li class=" current active">
   <a class="nav-link dropdown-item nav-internal" href="index.html">
     Reference
@@ -310,6 +317,13 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../examples.html">
     Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../features/index.html">
+    Features
   </a>
 </li>
 
@@ -546,7 +560,7 @@ The default value is 3. User can increase if there are network issues and the op
 <p>User should specify input model type and configuration using <code class="docutils literal notranslate"><span class="pre">input</span> <span class="pre">model</span></code> dictionary. It contains following items:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> Type of the input model which is case insensitive.. The supported types contain <code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">PyTorchModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">ONNXModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">OpenVINOModelHandler</span></code>,<code class="docutils literal notranslate"><span class="pre">SNPEModelHandler</span></code> and etc. You can
-find more details in <a class="reference internal" href="model.html"><span class="std std-doc">Olive Models</span></a>.</p></li>
+find more details in <a class="reference internal" href="#model.rst"><span class="xref myst">Olive Models</span></a>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The configuration of the pass. Its fields can be provided directly to the parent dictionary. For example, for <code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code>, the input model config dictionary specifies following items:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">model_path:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The model path can be a string or a dictionary. If it is a string, it is a huggingface hub model id or a local directory. If it is a dictionary, it contains information about the model path. Please refer to <a class="reference internal" href="#../configure-workflows/model-opt-and-transform/configure-model-path.md"><span class="xref myst">Configuring Model Path</span></a> for the more information of the model path dictionary.</p></li>
@@ -613,28 +627,28 @@ The dynamic axis of the present key value cache. If it is null, Olive will infer
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="model.html#_hf_model"><span class="std std-ref">HfModelHandler</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="#model.rst#_hf_model"><span class="xref myst">HfModelHandler</span></a></p></td>
 <td class="text-left"><p>Hf model</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="model.html#_distributed_hf_model"><span class="std std-ref">DistributedHfModelHandler</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="#model.rst#_distributed_hf_model"><span class="xref myst">DistributedHfModelHandler</span></a></p></td>
 <td class="text-left"><p>Distributed Hf Model</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="model.html#_pytorch_model"><span class="std std-ref">PytorchModelHandler</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="#model.rst#_pytorch_model"><span class="xref myst">PytorchModelHandler</span></a></p></td>
 <td class="text-left"><p>Pytorch model</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="model.html#_onnx_model"><span class="std std-ref">ONNXModelHandler</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="#model.rst#_onnx_model"><span class="xref myst">ONNXModelHandler</span></a></p></td>
 <td class="text-left"><p>ONNX model</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="model.html#_distributed_onnx_model"><span class="std std-ref">DistributedOnnxModelHandler</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="#model.rst#_distributed_onnx_model"><span class="xref myst">DistributedOnnxModelHandler</span></a></p></td>
 <td class="text-left"><p>ONNX model</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="model.html#_openvino_model"><span class="std std-ref">OpenVINOModelHandler</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="#model.rst#_openvino_model"><span class="xref myst">OpenVINOModelHandler</span></a></p></td>
 <td class="text-left"><p>OpenVINO IR model</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="model.html#_snpe_model"><span class="std std-ref">SNPEModelHandler</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="#model.rst#_snpe_model"><span class="xref myst">SNPEModelHandler</span></a></p></td>
 <td class="text-left"><p>SNPE DLC model</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="model.html#_composite_model"><span class="std std-ref">CompositeModelHandler</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="#model.rst#_composite_model"><span class="xref myst">CompositeModelHandler</span></a></p></td>
 <td class="text-left"><p>Composite Model</p></td>
 </tr>
 </tbody>
@@ -1122,11 +1136,11 @@ under the current working directory.</p></li>
       </div>
     </a>
     <a class="right-next"
-       href="model.html"
+       href="pass.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">OliveModels</p>
+        <p class="prev-next-title">Passes</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
