@@ -12,7 +12,7 @@ Reference
       :octicon:`arrow-right;1em;sd-text-info` `CLI <cli.html>`_
 
    .. grid-item-card::
-      **Explore Olive configuration options**
+      **Olive options**
 
       Explore Olive configuration options.
 

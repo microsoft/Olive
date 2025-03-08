@@ -37,6 +37,14 @@ Features
 
    .. grid-item-card::
 
+      **Model Compression**
+
+      Olive provides ability to compress or prune Models.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Model compression <model-compression.html>`_
+
+   .. grid-item-card::
+
       **Model Conversion**
 
       Olive provides ability to convert Models from one format to another.
@@ -83,6 +91,7 @@ Features
    azure-ai/index
    huggingface-integration
    ihv-integration/index
+   model-compression
    model-conversion/index
    model-splitting
    onnx-transformations
