@@ -1,4 +1,4 @@
-Model Optimization
+IHV Toolkit Integration
 ========================
 
 .. grid:: 2 2 2 3
@@ -23,7 +23,6 @@ Model Optimization
    :maxdepth: 1
    :hidden:
 
-   configure-model-path
    openvino
    qnn
    snpe
