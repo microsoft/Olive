@@ -7,13 +7,11 @@ azureml-evaluate-mlflow>=0.0.60, <0.0.66
 azureml-fsspec
 # Pin azureml-metrics[all] greater than 0.0.26 to avoid breaking change in azureml-evaluate-mlflow
 azureml-metrics[all]>=0.0.26
-backoff
 coverage
 cppimport
 datasets
 docker>=7.1.0
 evaluate
-flash-attn
 # microsoft/TransformerCompression has dependency on transformers==4.41.0
 # and it's not compatible with transformers>=4.42.0.
 # Use the forked version of TransformerCompression for now.
@@ -35,14 +33,11 @@ onnxruntime_extensions
 openvino==2023.2.0
 optimum>=1.17.0
 pandas
-peft
-pillow
 plotly
 protobuf==3.20.3
 psutil
 pytest
 pytorch_lightning
-requests
 scipy
 sentencepiece
 soundfile
