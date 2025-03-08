@@ -349,5 +349,6 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     assert (output_dir / "vision.onnx_adapter").exists()
     assert (output_dir / "speech.onnx_adapter").exists()
 
+
 # TODO(anyone): Add tests for ManageAMLComputeCommand
 # Test for ConvertAdaptersCommand is added as part of test/unit_test/passes/onnx/test_extract_adapters.py
