@@ -304,7 +304,8 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     from transformers import AutoModelForCausalLM
     import os
 
-    base_model = AutoModelForCausalLM.from_pretrained("hf-internal-testing/tiny-random-LlamaForCausalLM")
+    cache_dir = tmp_path / "cache_dir"
+    base_model = AutoModelForCausalLM.from_pretrained("hf-internal-testing/tiny-random-LlamaForCausalLM", cache_dir=cache_dir)
     base_model.generation_config.pad_token_id = 0
 
     speech_config = LoraConfig(
@@ -330,7 +331,6 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     peft_model.base_model.save_pretrained(model_name_or_path)
 
     output_dir = tmp_path / "output_dir"
-    cache_dir = tmp_path / "cache_dir"
     command_args = [
         "extract-adapters",
         "-m",
