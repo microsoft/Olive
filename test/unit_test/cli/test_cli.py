@@ -276,6 +276,7 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
 def test_extract_adapters_command_from_transformers_model(mock_repo_exists, tmp_path):
     # setup
     output_dir = tmp_path / "output_dir"
+    cache_dir = tmp_path / "cache_dir"
     model_id = "microsoft/Phi-4-multimodal-instruct"
     command_args = [
         "extract-adapters",
@@ -285,6 +286,8 @@ def test_extract_adapters_command_from_transformers_model(mock_repo_exists, tmp_
         str(output_dir),
         "-f",
         "onnx_adapter",
+        "--cache_dir",
+        str(cache_dir),
     ]
 
     # execute
@@ -322,11 +325,12 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     )
     peft_model.add_adapter("vision", vision_config)
 
-    model_name_or_path = os.path.join(".", "test_peft")
+    model_name_or_path = tmp_path / test_peft
     peft_model.save_pretrained(model_name_or_path)
     peft_model.base_model.save_pretrained(model_name_or_path)
 
     output_dir = tmp_path / "output_dir"
+    cache_dir = tmp_path / "cache_dir"
     command_args = [
         "extract-adapters",
         "-m",
@@ -335,6 +339,8 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
         str(output_dir),
         "-f",
         "onnx_adapter",
+        "--cache_dir",
+        str(cache_dir),
     ]
 
     # execute

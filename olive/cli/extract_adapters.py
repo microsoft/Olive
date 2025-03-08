@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 
 from olive.cli.base import BaseOliveCLICommand, add_logging_options
 from olive.common.utils import WeightsFileFormat, save_weights
+from transformers.utils import TRANSFORMERS_CACHE
 
 
 class ExtractAdaptersCommand(BaseOliveCLICommand):
@@ -47,8 +48,8 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--cache_dir",
             type=str,
-            default="cache_dir",
-            help="Cache dir to store temporary files in. Default is `cache_dir`.",
+            default=TRANSFORMERS_CACHE,
+            help="Cache dir to store temporary files in. Default is Hugging Face's default cache dir.",
         )
         add_logging_options(sub_parser)
         sub_parser.set_defaults(func=ExtractAdaptersCommand)
@@ -58,6 +59,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         import os
 
         from huggingface_hub import HfApi
+        from pathlib import Path
         from peft import AutoPeftModelForCausalLM
         from torch import float16, float32
         from transformers import AutoConfig, AutoModelForCausalLM
