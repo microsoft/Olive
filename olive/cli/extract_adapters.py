@@ -57,9 +57,9 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
     def run(self):
         # Reference: https://huggingface.co/microsoft/Phi-4-multimodal-instruct-onnx/blob/05f620b467891affcb00b464e5a73e7cf2de61f9/onnx/builder.py#L318
         import os
+        from pathlib import Path
 
         from huggingface_hub import HfApi
-        from pathlib import Path
         from peft import AutoPeftModelForCausalLM
         from torch import float16, float32
         from transformers import AutoConfig, AutoModelForCausalLM

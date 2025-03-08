@@ -300,7 +300,7 @@ def test_extract_adapters_command_from_transformers_model(mock_repo_exists, tmp_
 @patch("huggingface_hub.repo_exists", return_value=True)
 def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     # setup
-    from peft import get_peft_model, LoraConfig
+    from peft import LoraConfig, get_peft_model
     from transformers import AutoModelForCausalLM
 
     cache_dir = tmp_path / "cache_dir"
