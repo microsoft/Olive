@@ -221,6 +221,7 @@ def optimize(
     # The model_id and base_model_id are identical when optimizing a standard stable diffusion model like
     # CompVis/stable-diffusion-v1-4. These variables are only different when optimizing a LoRA variant.
     base_model_id = get_base_model_name(model_id)
+    print(f"\nModel {base_model_id}")
 
     # Load the entire PyTorch pipeline to ensure all models and their configurations are downloaded and cached.
     # This avoids an issue where the non-ONNX components (tokenizer, scheduler, and feature extractor) are not

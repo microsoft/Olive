@@ -28,7 +28,7 @@ Olive uses the `model_type` for the HuggingFace model and divides the transforme
 
 The following shows the final split models:
 
-```{figure} ../../images/model_splitting/num_splits.png
+```{figure} ../images/model_splitting/num_splits.png
 :width: 500px
 :align: center
 
@@ -47,7 +47,7 @@ Olive uses the memory specs of the device and the cost model to automatically ch
 
 The following shows the final split models:
 
-```{figure} ../../images/model_splitting/cost_model.png
+```{figure} ../images/model_splitting/cost_model.png
 :width: 400px
 :align: center
 

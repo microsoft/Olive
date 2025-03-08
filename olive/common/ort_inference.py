@@ -91,7 +91,8 @@ def get_ort_inference_session(
             sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         elif execution_mode == 1:
             sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
-    if graph_optimization_level:
+    if graph_optimization_level is not None:
+        # level can be 0, 1, 2, 3
         sess_options.graph_optimization_level = ort.GraphOptimizationLevel(graph_optimization_level)
     if extra_session_config:
         for key, value in extra_session_config.items():

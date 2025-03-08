@@ -12,7 +12,7 @@ from pathlib import Path
 import onnxruntime as ort
 from prepare_whisper_configs import download_audio_test_data
 
-from olive.evaluator.olive_evaluator import OnnxEvaluator
+from olive.common.utils import format_data
 from olive.model import ONNXModelHandler
 
 sys.path.append(str(Path(__file__).parent / "code"))
@@ -112,7 +112,7 @@ def main(raw_args=None):
 
     # get output
     input_data, _ = dataset[0]
-    input_data = OnnxEvaluator.format_input(input_data, olive_model.io_config)
+    input_data = format_data(input_data, olive_model.io_config)
     # output is an list of numpy arrays, first element is the transcription 1Xnum_return_sequences
     # [["transcription1", "transcription2"]]
     output = olive_model.run_session(session, input_data)

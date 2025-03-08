@@ -7,7 +7,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Callable, Dict, List, Type, Union
+from typing import Callable, Dict, Type, Union
 
 import onnx
 from packaging import version
@@ -54,11 +54,12 @@ _onnx_quantization_config = {
             List of operator types to quantize. If None, all quantizable.
         """,
     ),
-    "append_first_op_types_to_quantize_list": PassConfigParam(
-        type_=bool,
-        default_value=False,
+    "op_types_to_exclude": PassConfigParam(
+        type_=list,
+        default_value=None,
         description="""
-            If True, append operator types which firstly appear in the model to op_types_to_quantize.
+            List of operator types to exclude from quantization. If None, all quantizable. op_types_to_quantize takes
+            precedence over op_types_to_exclude. If both are set, op_types_to_quantize will be used.
         """,
     ),
     "nodes_to_quantize": PassConfigParam(
@@ -165,10 +166,14 @@ _static_optional_config = {
         type_=str,
         default_value="MinMax",
         search_defaults=Categorical(["MinMax", "Entropy", "Percentile"]),
+        description="Supported calibration methods are MinMax, Entropy and Percentile.",
+    ),
+    "calibration_providers": PassConfigParam(
+        type_=list,
+        default_value=None,
         description="""
-            Current calibration methods supported are MinMax and Entropy,
-            Please use CalibrationMethod.MinMax or CalibrationMethod.Entropy as options.
-            Percentile is not supported for onnxruntime==1.16.0, please avoid to set/search it.
+            Execution providers to run the session during calibration.
+            Default is None which uses [ "CPUExecutionProvider" ].
         """,
     ),
     "quant_format": PassConfigParam(
@@ -213,51 +218,19 @@ _static_optional_config = {
         type_=dict,
         default_value=None,
         description="""
-            Extra options for QNN quantization. Please refer to
-            onnxruntime.quantization.execution_providers.qnn.get_qnn_qdq_config.
-            By default, the options are set to None. Options are only used if
-            prepare_qnn_config is set to True. Available options are:
-            - `init_overrides:dict = None`: Initial tensor-level quantization overrides. Defaults to None. This function
-                updates of a copy of these overrides with any necessary adjustments and includes them in the returned
-                configuration object (i.e., config.extra_options['TensorQuantOverrides']).
-
-                The key is a tensor name and the value is a list of dictionaries. For per-tensor quantization, the list
-                contains a single dictionary. For per-channel quantization, the list contains either a dictionary for
-                each channel in the tensor or a single dictionary that is assumed to apply to all channels. An 'axis'
-                key must be present in the first dictionary for per-channel quantization.
-
-                Each dictionary contains optional overrides with the following keys and values.
-                    'quant_type' = QuantType : The tensor's quantization data type.
-                    'axis' = Int             : The per-channel axis. Must be present for per-channel weights.
-                    'scale' =  Float         : The scale value to use. Must also specify `zero_point` if set.
-                    'zero_point' = Int       : The zero-point value to use. Must also specify `scale` is set.
-                    'symmetric' = Bool       : If the tensor should use symmetric quantization. Invalid if also
-                                                set `scale` or `zero_point`.
-                    'reduce_range' = Bool    : If the quantization range should be reduced. Invalid if also
-                                                set `scale` or `zero_point`. Only valid for initializers.
-                    'rmax' = Float           : Override the maximum real tensor value in calibration data.
-                                                Invalid if also set `scale` or `zero_point`.
-                    'rmin' = Float           : Override the minimum real tensor value in calibration data.
-                                                Invalid if also set `scale` or `zero_point`.
-                    'convert' = Dict         : A nested dictionary with the same keys for an activation
-                                            tensor that should be converted to another quantization type.
-                    'convert["recv_nodes"] = Set : Set of node names that consume the converted activation,
-                                                other nodes get the original type. If not specified,
-                                                assume all consumer nodes get the converted type.
-            - `add_qtype_converts: bool = True`: True if this function should automatically add "convert" entries to
-                the provided `init_overrides` to ensure that operators use valid input/output types (activations only).
-                Ex: if you override the output of an Add to 16-bit, this option ensures that the activation inputs
-                of the Add are also up-converted to 16-bit and that data types for surrounding ops are converted
-                appropriately. Refer to the documentation in mixed_precision_overrides_utils.py for additional details.
-            To be noted that the options might be updated in the further version of onnxruntime.
+            Extra options for QNN quantization. Please refer to get_qnn_qdq_config at
+            https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/execution_providers/qnn/quant_config.py.
+            By default, the options are set to None. Options are only used if prepare_qnn_config is set to True.
         """,
     ),
 }
 
 
-def get_calibration_dataloader(config):
+def get_calibration_dataloader(config, model_path=None, io_config=None, calibration_providers=None):
     data_config = validate_config(config.data_config, DataConfig)
-    return data_config.to_data_container().create_calibration_dataloader()
+    return data_config.to_data_container().create_calibration_dataloader(
+        model_path=model_path, io_config=io_config, calibration_providers=calibration_providers
+    )
 
 
 class OnnxQuantization(Pass):
@@ -358,6 +331,13 @@ class OnnxQuantization(Pass):
             return model
 
         from onnxruntime import __version__ as OrtVersion
+
+        if version.parse(OrtVersion) < version.parse("1.18.0"):
+            raise ValueError("Onnx Quantization is only supported for onnxruntime>=1.18.0")
+
+        # use .release so that nightly releases are counted as above the version
+        ort_less_than_1_21 = version.parse(OrtVersion).release < version.parse("1.21.0").release
+
         from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
         from onnxruntime.quantization.calibrate import CalibrationMethod
 
@@ -366,12 +346,6 @@ class OnnxQuantization(Pass):
         is_static = run_config["quant_mode"] == "static"
         if is_static:
             assert config.data_config, "data_config is required for static quantization."
-            # whether to prepare qnn config
-            # we do the version check here and not in `validate_config` since search point validation
-            # is done by the engine. Unless the host is local system, the ort version of the host is
-            # not known by the engine when the search point is validated.
-            if config.prepare_qnn_config and version.parse(OrtVersion) < version.parse("1.17.0"):
-                raise OlivePassError("prepare_qnn_config is only supported by onnxruntime>=1.17.0")
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
@@ -405,18 +379,13 @@ class OnnxQuantization(Pass):
                 logger.info("Already processed model for quantization, skipping preprocessing")
                 model = ONNXModelHandler(LocalFile({"path": preprocessed_temp_model_path}))
 
-        # if enable _append_first_op_types_to_quantize_list
-        if run_config["append_first_op_types_to_quantize_list"]:
-            run_config["op_types_to_quantize"] = _append_first_op_types_to_quantize_list(
-                model, run_config["op_types_to_quantize"], run_config["nodes_to_exclude"]
-            )
-
         # keys not needed for quantization
         to_delete = [
             "quant_mode",
             "quant_preprocess",
             "prepare_qnn_config",
-            "append_first_op_types_to_quantize_list",
+            "qnn_extra_options",
+            "op_types_to_exclude",
             *_dataloader_config.keys(),
             *get_external_data_config().keys(),
         ]
@@ -432,6 +401,10 @@ class OnnxQuantization(Pass):
                     "extra_options": extra_options,
                 }
             )
+            if ort_less_than_1_21:
+                if run_config["calibration_providers"]:
+                    logger.warning("calibration_providers is not supported for onnxruntime<1.21.0. It will be ignored.")
+                to_delete += ["calibration_providers"]
         else:
             to_delete += list(_static_optional_config.keys())
             run_config.update(
@@ -444,36 +417,43 @@ class OnnxQuantization(Pass):
         # remove keys not needed for quantization
         run_config = exclude_keys(run_config, to_delete)
 
-        # for ORT version < 1.16.0, set optimize_model to False
-        # always set it to False since it is not recommended and is removed in ORT 1.16.0
-        # user needs to call pre-process to optimize the model, we already have pre-process option
-        if version.parse(OrtVersion) < version.parse("1.16.0"):
-            run_config["optimize_model"] = False
+        # there is no op_types_to_exclude in the quantizer, will exclude indirectly through nodes_to_exclude
+        nodes_to_exclude = run_config["nodes_to_exclude"] or []
+        if config.op_types_to_exclude:
+            for node in onnx.load(model.model_path, load_external_data=False).graph.node:
+                if node.op_type in config.op_types_to_exclude:
+                    nodes_to_exclude.append(node.name)
+        run_config["nodes_to_exclude"] = nodes_to_exclude
 
         # to be safe, run the quantizer with use_external_data_format set to `True` and
         # `model_output` to a temporary directory
         # reload the model and save to output_model_path using the external data config
-        # TODO(jambayk): don't default to use_external_data_format=True if the loading and saving model makes
-        # the pass inefficient
         new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
         tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
 
         if is_static:
             # get the dataloader
-            dataloader = get_calibration_dataloader(config)
+            dataloader = get_calibration_dataloader(
+                config, model.model_path, model.io_config, config.calibration_providers
+            )
+            # TODO(anyone): generalize this option to prepare_qdq_config so that other NPU eps can use it
+            # to call get_qdq_config
             if config.prepare_qnn_config:
                 from onnxruntime.quantization.execution_providers.qnn import get_qnn_qdq_config
 
-                symmetric_options, qnn_extra_options = {}, {}
+                qnn_extra_options = config.qnn_extra_options or {}
+                if init_overrides := _get_qnn_init_overrides(model, config):
+                    qnn_extra_options["init_overrides"] = init_overrides
 
-                if version.parse(OrtVersion) >= version.parse("1.18.0"):
-                    symmetric_options = {
-                        "activation_symmetric": config.ActivationSymmetric,
-                        "weight_symmetric": config.WeightSymmetric,
+                # TODO(anyone): remove the version check once minimum version is 1.21.0
+                additional_options = {}
+                if not ort_less_than_1_21:
+                    additional_options = {
+                        "calibration_providers": run_config["calibration_providers"],
+                        "op_types_to_quantize": run_config["op_types_to_quantize"],
+                        "nodes_to_exclude": run_config["nodes_to_exclude"],
                     }
-                    qnn_extra_options = config.qnn_extra_options or {}
-                    if init_overrides := _get_qnn_init_overrides(model, config):
-                        qnn_extra_options["init_overrides"] = init_overrides
+
                 qnn_config = get_qnn_qdq_config(
                     model_input=model.model_path,
                     calibration_data_reader=dataloader,
@@ -481,18 +461,28 @@ class OnnxQuantization(Pass):
                     activation_type=run_config["activation_type"],
                     weight_type=run_config["weight_type"],
                     per_channel=run_config["per_channel"],
-                    **symmetric_options,
+                    activation_symmetric=config.ActivationSymmetric,
+                    weight_symmetric=config.WeightSymmetric,
                     **qnn_extra_options,
+                    **additional_options,
                 )
                 # override the run_config with qnn_config
                 # get all attributes of qnn_config
                 run_config = {k: v for k, v in inspect.getmembers(qnn_config) if not k.startswith("_")}
                 # remove the calibration_data_reader from run_config
+                run_config = exclude_keys(run_config, ("calibration_data_reader", "use_external_data_format"))
+                # TODO(jambayk): raise this > 1.21.0 if quantizer tool changes don't make it to 1.20.0
+                if ort_less_than_1_21:
+                    if nodes_to_exclude:
+                        run_config["nodes_to_exclude"].extend(nodes_to_exclude)
+                    if config.op_types_to_quantize:
+                        run_config["op_types_to_quantize"] = config.op_types_to_quantize
+                    elif config.op_types_to_exclude:
+                        # op_types_to_quantize takes precedence over op_types_to_exclude
+                        run_config["op_types_to_quantize"] = list(
+                            set(run_config["op_types_to_quantize"]) - set(config.op_types_to_exclude)
+                        )
 
-            run_config = exclude_keys(
-                run_config,
-                ("calibration_data_reader", "use_external_data_format", "qnn_extra_options"),
-            )
             try:
                 quantize_static(
                     model_input=model.model_path,
@@ -554,6 +544,75 @@ class OnnxQuantization(Pass):
 
         # since this is only used internally, we will just treat it as a model file
         return ONNXModelHandler(LocalFile({"path": output_model_path}))
+
+
+class OnnxQuantizationPreprocess(Pass):
+    """ONNX Quantization Preprocess Pass. Same as OnnxQuantization quant_preprocess."""
+
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        config = {
+            "skip_optimization": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Skip model optimization step if true. This may result in ONNX shape"
+                    " inference failure for some models."
+                ),
+            ),
+            "skip_onnx_shape": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Skip ONNX shape inference. Symbolic shape inference is most effective"
+                    " with transformer based models. Skipping all shape inferences may"
+                    " reduce the effectiveness of quantization, as a tensor with unknown"
+                    " shape can not be quantized."
+                ),
+            ),
+            "skip_symbolic_shape": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Skip symbolic shape inference. Symbolic shape inference is most"
+                    " effective with transformer based models. Skipping all shape"
+                    " inferences may reduce the effectiveness of quantization, as a tensor"
+                    " with unknown shape can not be quantized."
+                ),
+            ),
+        }
+        config.update(get_external_data_config())
+        return config
+
+    def _run_for_config(
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+    ) -> ONNXModelHandler:
+        from onnxruntime.quantization.preprocess import quant_pre_process
+
+        with tempfile.TemporaryDirectory(dir=tempfile.tempdir, prefix="olive_tmp") as tmp_dir:
+            tmp_dir_path = Path(tmp_dir)
+            tmp_model_path = resolve_onnx_path(tmp_dir_path)
+            try:
+                quant_pre_process(
+                    input_model_path=model.model_path,
+                    output_model_path=tmp_model_path,
+                    auto_merge=True,
+                    save_as_external_data=True,
+                    skip_optimization=config.skip_optimization,
+                    skip_onnx_shape=config.skip_onnx_shape,
+                    skip_symbolic_shape=config.skip_symbolic_shape,
+                    verbose=3,  # set verbose to 3 to get more information about the preprocessing
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to run quantization preprocessing with error."
+                    " Please retry with `skip_optimization = True` etc"
+                )
+                raise
+
+            onnx_model = onnx.load(tmp_model_path)
+            output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+            return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
 
 class OnnxDynamicQuantization(OnnxQuantization):
@@ -809,22 +868,6 @@ def _validate_weight_only_quant_config(v, values, field):
         )
         v = {key: v[key] for key in default_config_keys if key in v}
     return v
-
-
-def _append_first_op_types_to_quantize_list(
-    model_handler: ONNXModelHandler, op_types_to_quantize: List[str] = None, exclude_node: List[str] = None
-) -> List[str]:
-    from collections import defaultdict
-
-    op_types_to_quantize = op_types_to_quantize or []
-    exclude_node = exclude_node or []
-    onnx_model = model_handler.load_model()
-    ops = defaultdict(int)
-    for node in onnx_model.graph.node:
-        ops[node.op_type] += 1
-        if ops[node.op_type] == 1 and node.op_type not in exclude_node:
-            op_types_to_quantize.append(node.op_type)
-    return op_types_to_quantize
 
 
 def _get_qnn_init_overrides(model_handler: ONNXModelHandler, config: Type[BasePassConfig]):
