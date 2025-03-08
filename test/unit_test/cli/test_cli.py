@@ -305,7 +305,7 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
 
     cache_dir = tmp_path / "cache_dir"
     base_model = AutoModelForCausalLM.from_pretrained(
-        "hf-internal-testing/tiny-random-LlamaForCausalLM", cache_dir=cache_dir
+        "hf-internal-testing/tiny-random-LlamaForCausalLM", cache_dir=str(cache_dir)
     )
     base_model.generation_config.pad_token_id = 0
 
@@ -327,8 +327,8 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     )
     peft_model.add_adapter("vision", vision_config)
 
-    peft_model.save_pretrained(tmp_path)
-    peft_model.base_model.save_pretrained(tmp_path)
+    peft_model.save_pretrained(str(tmp_path))
+    peft_model.base_model.save_pretrained(str(tmp_path))
 
     output_dir = tmp_path / "output_dir"
     command_args = [
