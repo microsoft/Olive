@@ -67,7 +67,7 @@ In this example, Auto Optimizer will search for the best passes combination for 
 
 Here the available pass flows for given accelerator, execution providers and precision:
 
-```{figure} ../../images/olive-design.png
+```{figure} ../images/olive-design.png
 :width: 700px
 :align: center
 

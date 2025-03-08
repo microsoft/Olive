@@ -1,6 +1,66 @@
-# ONNX Quantization
+# Quantization
 
-[ONNX](https://onnx.ai/) is an open graph format to represent machine learning models. [ONNX Runtime](https://onnxruntime.ai/docs/) is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.
+## AutoGPTQ
+Olive integrates [AutoGPTQ](https://github.com/AutoGPTQ/AutoGPTQ) for quantization.
+
+AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, based on GPTQ algorithm (weight-only quantization). With GPTQ quantization, you can quantize your favorite language model to 8, 4, 3 or even 2 bits. This comes without a big drop of performance and with faster inference speed. This is supported by most GPU hardwares.
+
+Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.
+
+Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass and its config parameters.
+
+### Example Configuration
+```json
+{
+    "type": "GptqQuantizer",
+    "data_config": "wikitext2_train"
+}
+```
+
+Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/llama2/llama2_template.json)
+for an example implementation of `"wikitext2_train"`.
+
+## AutoAWQ
+AutoAWQ is an easy-to-use package for 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16. AutoAWQ implements the Activation-aware Weight Quantization (AWQ) algorithm for quantizing LLMs. AutoAWQ was created and improved upon from the original work from MIT.
+
+Olive integrates [AutoAWQ](https://github.com/casper-hansen/AutoAWQ) for quantization and make it possible to convert the AWQ quantized torch model to onnx model.
+
+Please refer to [AutoAWQQuantizer](awq_quantizer) for more details about the pass and its config parameters.
+
+### Example Configuration
+```json
+{
+    "type": "AutoAWQQuantizer",
+    "w_bit": 4
+}
+```
+
+## QuaRot
+`QuaRot` is a technique that rotates the weights of a model to make them more conducive to quantization. It is based on the [QuaRot paper](https://arxiv.org/abs/2305.14314) but only performs offline weight rotation. Can be followed by a pass such as GPTQ to quantize the rotated model weights.
+
+This pass only supports HuggingFace transformer PyTorch models.
+
+### Example Configuration
+```json
+{
+    "type": "QuaRot",
+    "rotate_mode": "hadamard"
+}
+```
+
+## SpinQuant
+`SpinQuant` is a technique simlar to QuaRot that rotates the weights of a model to make them more conducive to quantization. The rotation weights are trained on a calibration dataset to improve activation quantization quality. It is based on the [SpinQuant paper](https://arxiv.org/pdf/2405.16406) but only performs offline weight rotation. Can be followed by a pass such as GPTQ to quantize the rotated model weights.
+
+This pass only supports HuggingFace transformer PyTorch models.
+
+### Example Configuration
+```json
+{
+    "type": "SpinQuant",
+    "rotate_mode": "hadamard",
+    "a_bits": 8
+}
+```
 
 ## Quantize with onnxruntime
 Quantization is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This
@@ -138,5 +198,4 @@ Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into
 ```
 
 Please refer to [Phi3 example](https://github.com/microsoft/Olive/tree/main/examples/phi3#quantize-using-nvidia-tensorrt-model-optimizer)  for usability and setup details.
-
 

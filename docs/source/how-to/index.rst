@@ -34,7 +34,7 @@ Working with the CLI
    cli/cli-quantize
    cli/cli-run
 
-The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx-graph-capture`, `auto-opt` that enable you to *easily* optimize models and experiment with different cutting-edge optimization strategies without the need to define workflows.
+The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx-graph-capture`, `auto-opt` that enable you to *easily* optimize select models and experiment with different cutting-edge optimization strategies without the need to define workflows.
 
 .. tip:: For users new to Olive, we recommend that you start with the CLI.
 
@@ -80,15 +80,12 @@ Configure Workflows (Advanced)
    :maxdepth: 2
    :hidden:
 
-   configure-workflows/pass/pass-configuration
-   configure-workflows/model-opt-and-transform/index
+   configure-workflows/how-to-configure-model
+   configure-workflows/pass-configuration
    configure-workflows/how-to-configure-data
    configure-workflows/metrics-configuration
    configure-workflows/model-packaging
    configure-workflows/systems
-   configure-workflows/auto-opt
-   configure-workflows/model-splitting
-   configure-workflows/onnx-graph-surgeon
 
 For more complex scenarios, you can create fully customize workflows where you can run any of the 40+ supported optimization techniques in a sequence.
 
@@ -97,19 +94,19 @@ For more complex scenarios, you can create fully customize workflows where you c
 
    .. grid-item-card::
 
+      **How to configure model**
+
+      Learn how to configure input model.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Configure models <configure-workflows/how-to-configure-model.html>`_
+
+   .. grid-item-card::
+
       **How to configure passes**
 
       Learn how to configure passes.
 
       :octicon:`arrow-right;1em;sd-text-info` `Configure pass <configure-workflows/pass/pass-configuration.html>`_
-
-   .. grid-item-card::
-
-      **How to configure models**
-
-      Learn how to configure and optimize models.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Configure models <configure-workflows/model-opt-and-transform/index.html>`_
 
    .. grid-item-card::
 
@@ -142,56 +139,3 @@ For more complex scenarios, you can create fully customize workflows where you c
       Learn how to configure systems such as local compute and remote compute to be a *host* (machine that executes optimization) and/or a *target* (machine that model will inference on).
 
       :octicon:`arrow-right;1em;sd-text-info` `Configure systems <configure-workflows/systems.html>`_
-
-   .. grid-item-card::
-
-      **How to use Auto Optimizer**
-
-      Learn how to use Auto Optimizer - a tool that automatically creates the best model for you - in a workflow.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Auto Optimizer <configure-workflows/auto-opt.html>`_
-
-   .. grid-item-card::
-
-      **Model splitting**
-
-      Learn how to split a model into multiple components.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Model splitting <configure-workflows/model-splitting.html>`_
-
-   .. grid-item-card::
-
-      **ONNX Graph Surgeon**
-
-      Learn how to use ONNX Graph Surgeon to manipulate ONNX graphs.
-
-      :octicon:`arrow-right;1em;sd-text-info` `ONNX Graph Surgeon <configure-workflows/onnx-graph-surgeon.html>`_
-
-Integrations
-------------
-
-.. toctree::
-   :maxdepth: 1
-   :hidden:
-
-   configure-workflows/azure-ai/index
-   configure-workflows/huggingface-integration
-
-.. grid:: 2 2 2 3
-   :class-container: cards
-
-   .. grid-item-card::
-
-      **How to integrate with Azure AI**
-
-      Learn how to use integrations with Azure AI, such as model catalog, remote compute, and data/job artifacts.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Integrate with Azure AI <configure-workflows/azure-ai/index.html>`_
-
-   .. grid-item-card::
-
-      **How to integrate with Hugging Face**
-
-      Learn how to use integrations with Hugging Face, such as models, data, and metrics.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Integrate with Hugging Face <configure-workflows/huggingface-integration.html>`_

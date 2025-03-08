@@ -36,13 +36,3 @@ Here is an example of how to configure the `OnnxQuantization` Pass:
 ```{Note}
 `type` is case insensitive.
 ```
-
-
-```{toctree}
-:maxdepth: 1
-:hidden:
-
-convert-onnx
-convert-pytorch
-quantization-onnx
-quantization-pytorch

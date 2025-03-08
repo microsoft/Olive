@@ -1,6 +1,6 @@
-# PyTorch
+# PEFT Adapaters
 
-PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
+Parameter Efficient Finetuning (PEFT) techniques, such as LoRA enables user to efficiently finetune a model.
 
 ## LoRA
 Low-Rank Adaptation, or `LoRA`, is a fine-tuning approach which freezes the pre-trained model weights and injects trainable rank decomposition matrices (called adapters) into the layers of the model.
@@ -133,43 +133,33 @@ Merge Lora weights into a complete model. After running the LoRA pass, the model
 }
 ```
 
-## SparseGPT
-`SparseGPT` prunes GPT like models using a pruning method called [SparseGPT](https://arxiv.org/abs/2301.00774). This one-shot pruning method can perform unstructured
-sparsity up to 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
-as 2:4 and 4:8 patterns.
+## Extract Adapters
 
-Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.
-
-This pass only supports HfModels. Please refer to [SparseGPT](sparsegpt) for more details on the types of transformers models supported.
-
-**Note:** TensorRT can accelerate inference on 2:4 sparse models as described in [this blog](https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/).
+LoRA, QLoRA and related techniques allow us to fine-tune a pre-trained model by adding a small number of trainable matrices called adapters. The same base model can be used for multiple tasks by adding different adapters for each task. To support using multiple adapters with the same optimized onnx model, the `ExtractAdapters` pass extracts the adapters weights from the model and saves them to a separate file. The model graph is then modified in one of the following ways:
+- Adapters weights are set as external tensors pointing to a non-existent file. The onnx model is thus invalid by itself as it cannot be loaded. In order to create an inference session using this model, the adapter weights must be added to a sessions options object using `add_initializer` or `add_external_initializers`.
+- Adapter weights are converted into model inputs. The onnx model is valid. During inference, the adapter weights must be provided as part of the inputs. We call them constant inputs here since these weights don't change between runs when using the one set of adapters.
 
 ### Example Configuration
+
+a. As external initializers
+
 ```json
 {
-    "type": "SparseGPT",
-    "sparsity": 0.5
-}
-```
-```json
-{
-    "type": "SparseGPT",
-    "sparsity": [2,4]
+    "type": "ExtractAdapters",
+    "make_inputs": false
 }
 ```
 
-## SliceGPT
-`SliceGPT` is post-training sparsification scheme that makes transformer networks smaller by applying orthogonal transformations to each transformer layer that reduces the model size by slicing off the least-significant rows and columns of the weight matrices. This results in speedups and a reduced memory footprint.
+b. As constant inputs with packed weights
 
-Please refer to the original [paper](https://arxiv.org/abs/2401.15024) for more details on the algorithm and expected results for different models, sparsities and datasets.
-
-This pass only supports HuggingFace transformer PyTorch models. Please refer to [SliceGPT](slicegpt) for more details on the types of transformers models supported.
-
-### Example Configuration
 ```json
 {
-    "type": "SliceGPT",
-    "sparsity": 0.4,
-    "calibration_data_config": "wikitext2"
+    "type": "ExtractAdapters",
+    "make_inputs": true,
+    "pack_inputs": true
 }
 ```
+
+Please refer to [ExtractAdapters](../../../reference/pass.rst#extract_adapters) for more details about the pass and its config parameters.
+
+Olive also provides a command line tool to convert adapters saved after peft fine-tuning to a format compatible with a model that has been optimized with the `ExtractAdapters` pass. More details on the ``olive convert-adapters`` command can be found at [Command Line Tools](../../../reference/cli.rst).
