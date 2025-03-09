@@ -74,7 +74,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             for root, _, files in os.walk(self.args.model):
                 for f in files:
                     path = os.path.join(root, f)
-                    if "adapter_config.json" in path:
+                    if "adapter_config.json" in path and self.args.cache_dir not in path:
                         adapter_paths.append(root)
                         is_peft = True
         else:

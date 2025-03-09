@@ -272,7 +272,7 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
     assert mock_run.call_count == 1
 
 
-# TODO: resolve CI package installation issues later and then re-enable this unit test
+# TODO(anyone): resolve CI package installation issues later and then re-enable this unit test
 # @patch("huggingface_hub.repo_exists", return_value=True)
 # def test_extract_adapters_command_from_transformers_model(mock_repo_exists, tmp_path):
 #     # setup
@@ -335,7 +335,7 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     command_args = [
         "extract-adapters",
         "-m",
-        tmp_path,
+        str(tmp_path),
         "-o",
         str(output_dir),
         "-f",
