@@ -797,11 +797,12 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">is_generative_model</span> <span class="n">IS_GENERATIVE_MODEL</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="o">--</span><span class="n">algorithm</span> <span class="p">{</span><span class="n">awq</span><span class="p">,</span><span class="n">dynamic</span><span class="p">,</span><span class="n">gptq</span><span class="p">,</span><span class="n">hqq</span><span class="p">,</span><span class="n">rtn</span><span class="p">}</span>
+                      <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">algorithm</span> <span class="p">{</span><span class="n">awq</span><span class="p">,</span><span class="n">gptq</span><span class="p">,</span><span class="n">hqq</span><span class="p">,</span><span class="n">rtn</span><span class="p">,</span><span class="n">spinquant</span><span class="p">,</span><span class="n">quarot</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">uint4</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">uint16</span><span class="p">,</span><span class="n">fp4</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">nf4</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">implementation</span> <span class="p">{</span><span class="n">awq</span><span class="p">,</span><span class="n">bnb4</span><span class="p">,</span><span class="n">gptq</span><span class="p">,</span><span class="n">inc_dynamic</span><span class="p">,</span><span class="n">matmul4</span><span class="p">,</span><span class="n">mnb_to_qdq</span><span class="p">,</span><span class="n">nvmo</span><span class="p">,</span><span class="n">onnx_dynamic</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">enable</span><span class="o">-</span><span class="n">qdq</span><span class="o">-</span><span class="n">encoding</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">subset</span> <span class="n">SUBSET</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">split</span> <span class="n">SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">data_files</span> <span class="n">DATA_FILES</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">implementation</span> <span class="n">IMPLEMENTATION</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_qdq_encoding</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">subset</span> <span class="n">SUBSET</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">split</span> <span class="n">SPLIT</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">data_files</span> <span class="n">DATA_FILES</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">text_field</span> <span class="n">TEXT_FIELD</span> <span class="o">|</span> <span class="o">--</span><span class="n">text_template</span> <span class="n">TEXT_TEMPLATE</span> <span class="o">|</span> <span class="o">--</span><span class="n">use_chat_template</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">max_seq_len</span> <span class="n">MAX_SEQ_LEN</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">add_special_tokens</span> <span class="n">ADD_SPECIAL_TOKENS</span><span class="p">]</span>
@@ -846,8 +847,9 @@
 <p>Default: quantized-model</p>
 </dd>
 <dt><kbd>--algorithm</kbd></dt>
-<dd><p>Possible choices: awq, dynamic, gptq, hqq, rtn</p>
+<dd><p>Possible choices: awq, gptq, hqq, rtn, spinquant, quarot</p>
 <p>List of quantization algorithms to run.</p>
+<p>Default: “rtn”</p>
 </dd>
 <dt><kbd>--precision</kbd></dt>
 <dd><p>Possible choices: int4, int8, int16, uint4, uint8, uint16, fp4, fp8, fp16, nf4</p>
@@ -855,10 +857,9 @@
 <p>Default: “int4”</p>
 </dd>
 <dt><kbd>--implementation</kbd></dt>
-<dd><p>Possible choices: awq, bnb4, gptq, inc_dynamic, matmul4, mnb_to_qdq, nvmo, onnx_dynamic</p>
-<p>The specific implementation of quantization algorithms to use.</p>
+<dd><p>The specific implementation of quantization algorithms to use.</p>
 </dd>
-<dt><kbd>--enable-qdq-encoding</kbd></dt>
+<dt><kbd>--use_qdq_encoding</kbd></dt>
 <dd><p>Use QDQ encoding in ONNX model for the quantized nodes.</p>
 <p>Default: False</p>
 </dd>

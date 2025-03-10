@@ -546,6 +546,27 @@ with output path. The method should return a valid OliveModelHandler which can b
 </pre></div>
 </div>
 </section>
+<section id="update-olive-config-json">
+<h2>4. Update olive_config.json<a class="headerlink" href="#update-olive-config-json" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">olive_config.json</span></code> lists the features of the new Pass to help Olive determine when to use the pass. Add an entry
+for the new pass with relevant info.</p>
+<section id="id1">
+<h3>Example<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>        <span class="s2">&quot;NewOptimizationTrick&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;module_path&quot;</span><span class="p">:</span> <span class="s2">&quot;olive.passes.onnx.new_opt_pass.NewOptimizationTrick&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;supported_providers&quot;</span><span class="p">:</span> <span class="p">[</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span> <span class="p">],</span>
+            <span class="s2">&quot;supported_accelerators&quot;</span><span class="p">:</span> <span class="p">[</span> <span class="s2">&quot;cpu&quot;</span> <span class="p">],</span>
+            <span class="s2">&quot;supported_precisions&quot;</span><span class="p">:</span> <span class="p">[</span> <span class="s2">&quot;int8&quot;</span> <span class="p">],</span>
+            <span class="s2">&quot;supported_algorithms&quot;</span><span class="p">:</span> <span class="p">[</span> <span class="s2">&quot;new_algorithm&quot;</span> <span class="p">],</span>
+            <span class="s2">&quot;supported_quantization_encodings&quot;</span><span class="p">:</span> <span class="p">[</span>  <span class="p">],</span>
+            <span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+            <span class="s2">&quot;extra_dependencies&quot;</span><span class="p">:</span> <span class="p">[</span> <span class="s2">&quot;dependent_on_this_external_pkg&quot;</span> <span class="p">],</span>
+            <span class="s2">&quot;run_on_target&quot;</span><span class="p">:</span> <span class="n">true</span>
+        <span class="p">},</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 
 
@@ -601,6 +622,10 @@ with output path. The method should return a valid OliveModelHandler which can b
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#implement-the-run-function">3. Implement the run function</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#update-olive-config-json">4. Update olive_config.json</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Example</a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 
