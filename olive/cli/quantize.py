@@ -102,6 +102,15 @@ class QuantizeCommand(BaseOliveCLICommand):
         }
         return precision_to_wtypes.get(self.args.precision)
 
+    def _check_data_name_arg(self, pinfo):
+        from olive.constants import DatasetRequirement
+
+        if pinfo.dataset == DatasetRequirement.OPTIONAL:
+            return True
+        if pinfo.dataset == DatasetRequirement.REQUIRED and self.args.data_name:
+            return True
+        return pinfo.dataset == DatasetRequirement.NOT_REQUIRED and not self.args.data_name
+
     def _get_pass_list(self, precision, algo, impl, is_hf_model):
         olive_config = OlivePackageConfig.load_default_config()
         pass_list = []
@@ -115,10 +124,7 @@ class QuantizeCommand(BaseOliveCLICommand):
                 and (algo is None or algo in pinfo.supported_algorithms)
                 and (precision is None or precision in pinfo.supported_precisions)
                 and (not self.args.use_qdq_encoding or "qdq" in pinfo.supported_quantization_encodings)
-                and (
-                    (pinfo.dataset_required and self.args.data_name)
-                    or (not pinfo.dataset_required and not self.args.data_name)
-                )
+                and self._check_data_name_arg(pinfo)
             ):
                 pass_list.append(r["pass_type"])
 
@@ -233,5 +239,5 @@ ONNX_QUANT_IMPLEMENTATION_MAPPING = [
     {"impl_name": "ort", "pass_type": "OnnxStaticQuantization"},
     {"impl_name": "nvmo", "pass_type": "NVModelOptQuantization"},
     {"impl_name": "inc", "pass_type": "IncDynamicQuantization"},
-    # {"impl_name": "inc", "pass_type": "IncStaticQuantization"},
+    # "impl_name": "inc", "pass_type": "IncStaticQuantization"},
 ]

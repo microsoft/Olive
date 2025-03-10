@@ -118,7 +118,7 @@ for the new pass with relevant info.
             "supported_precisions": [ "int8" ],
             "supported_algorithms": [ "new_algorithm" ],
             "supported_quantization_encodings": [  ],
-            "dataset_required": false,
+            "dataset": false,
             "extra_dependencies": [ "dependent_on_this_external_pkg" ],
             "run_on_target": true
         },

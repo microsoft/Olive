@@ -15,7 +15,7 @@ from olive.common.config_utils import (
 )
 from olive.common.pydantic_v1 import Field, create_model, validator
 from olive.common.utils import StrEnumBase
-from olive.constants import Precision, QuantAlgorithm, QuantEncoding
+from olive.constants import DatasetRequirement, Precision, QuantAlgorithm, QuantEncoding
 from olive.hardware.accelerator import Device
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import validate_resource_path
@@ -189,7 +189,7 @@ class PassModuleConfig(ConfigBase):
     run_on_target: bool = False
 
     # Flag indicate whether the pass requires dataset
-    dataset_required: bool = False
+    dataset: str = DatasetRequirement.NOT_REQUIRED
 
     def set_class_variables(self, cls):
         attrs = {
@@ -198,7 +198,7 @@ class PassModuleConfig(ConfigBase):
             "supported_precisions",
             "supported_algorithms",
             "run_on_target",
-            "dataset_required",
+            "dataset",
             "supported_quantization_encodings",
         }
         for attr in attrs:
