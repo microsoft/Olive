@@ -103,3 +103,23 @@ with output path. The method should return a valid OliveModelHandler which can b
 ```python
     def _run_for_config(self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str) -> ONNXModelHandler:
 ```
+
+## 4. Update olive_config.json
+
+The `olive_config.json` lists the features of the new Pass to help Olive determine when to use the pass. Add an entry
+for the new pass with relevant info.
+
+### Example
+```
+        "NewOptimizationTrick": {
+            "module_path": "olive.passes.onnx.new_opt_pass.NewOptimizationTrick",
+            "supported_providers": [ "CPUExecutionProvider" ],
+            "supported_accelerators": [ "cpu" ],
+            "supported_precisions": [ "int8" ],
+            "supported_algorithms": [ "new_algorithm" ],
+            "supported_quantization_encodings": [  ],
+            "dataset_required": false,
+            "extra_dependencies": [ "dependent_on_this_external_pkg" ],
+            "run_on_target": true
+        },
+```
