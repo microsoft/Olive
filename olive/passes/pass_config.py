@@ -15,7 +15,7 @@ from olive.common.config_utils import (
 )
 from olive.common.pydantic_v1 import Field, create_model, validator
 from olive.common.utils import StrEnumBase
-from olive.constants import Precision
+from olive.constants import DatasetRequirement, Precision, QuantAlgorithm, QuantEncoding
 from olive.hardware.accelerator import Device
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import validate_resource_path
@@ -167,8 +167,11 @@ def create_config_class(
 
 
 class PassModuleConfig(ConfigBase):
+
     ACCELERATORS: ClassVar[Set[str]] = {v.value for v in Device}
     PRECISIONS: ClassVar[Set[str]] = {v.value for v in Precision}
+    QUANT_ALGORITHMS: ClassVar[Set[str]] = {v.value for v in QuantAlgorithm}
+    QUANT_ENCODINGS: ClassVar[Set[str]] = {v.value for v in QuantEncoding}
     EXECUTION_PROVIDERS: ClassVar[Set[str]] = {
         provider for provider_list in DEVICE_TO_EXECUTION_PROVIDERS.values() for provider in provider_list
     }
@@ -177,14 +180,27 @@ class PassModuleConfig(ConfigBase):
     supported_providers: Set[str] = Field(default_factory=set)
     supported_accelerators: Set[str] = Field(default_factory=set)
     supported_precisions: Set[str] = Field(default_factory=set)
+    supported_algorithms: Set[str] = Field(default_factory=set)
+    supported_quantization_encodings: Set[str] = Field(default_factory=set)
     module_dependencies: List[str] = Field(default_factory=list)
     extra_dependencies: List[str] = Field(default_factory=list)
 
     # Flag indicate whether the pass need to be run in target instead of host
     run_on_target: bool = False
 
+    # Flag indicate whether the pass requires dataset
+    dataset: str = DatasetRequirement.NOT_REQUIRED
+
     def set_class_variables(self, cls):
-        attrs = {"supported_providers", "supported_accelerators", "supported_precisions", "run_on_target"}
+        attrs = {
+            "supported_providers",
+            "supported_accelerators",
+            "supported_precisions",
+            "supported_algorithms",
+            "run_on_target",
+            "dataset",
+            "supported_quantization_encodings",
+        }
         for attr in attrs:
             setattr(cls, attr, getattr(self, attr))
 
@@ -230,5 +246,31 @@ class PassModuleConfig(ConfigBase):
     @validator("supported_precisions", pre=True, each_item=True)
     def validate_supported_precision(cls, v, values):
         if v not in PassModuleConfig.PRECISIONS:
-            raise ValueError(f"Invalid precision: {v}")
+            raise ValueError(f"Invalid algorithm: {v}")
+        return v
+
+    @validator("supported_algorithms", pre=True)
+    def validate_supported_algorithm(cls, v, values):
+        v = v or []
+        if v == ["*"]:
+            v = PassModuleConfig.QUANT_ALGORITHMS
+        return v
+
+    @validator("supported_algorithms", pre=True, each_item=True)
+    def validate_supported_algorithms(cls, v, values):
+        if v not in PassModuleConfig.QUANT_ALGORITHMS:
+            raise ValueError(f"Invalid algorithm: {v}")
+        return v
+
+    @validator("supported_quantization_encodings", pre=True)
+    def validate_supported_quantization_encoding(cls, v, values):
+        v = v or []
+        if v == ["*"]:
+            v = PassModuleConfig.QUANT_ENCODINGS
+        return v
+
+    @validator("supported_quantization_encodings", pre=True, each_item=True)
+    def validate_supported_quantization_encodings(cls, v, values):
+        if v not in PassModuleConfig.QUANT_ENCODINGS:
+            raise ValueError(f"Invalid algorithm: {v}")
         return v

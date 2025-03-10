@@ -48,3 +48,23 @@ class Precision(StrEnumBase):
     FP16 = "fp16"
     FP32 = "fp32"
     NF4 = "nf4"
+
+
+class QuantAlgorithm(StrEnumBase):
+    AWQ = "awq"
+    GPTQ = "gptq"
+    HQQ = "hqq"
+    RTN = "rtn"
+    SPINQUANT = "spinquant"
+    QUAROT = "quarot"
+
+
+class QuantEncoding(StrEnumBase):
+    QDQ = "qdq"
+    QOP = "qop"
+
+
+class DatasetRequirement(StrEnumBase):
+    REQUIRED = "dataset_required"
+    OPTIONAL = "dataset_optional"
+    NOT_REQUIRED = "dataset_not_required"
