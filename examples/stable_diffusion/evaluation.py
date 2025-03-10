@@ -19,6 +19,7 @@ from torchvision.transforms import functional as F
 import torch
 from torchmetrics.image.fid import FrechetInceptionDistance
 import io
+import requests
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -140,14 +141,41 @@ def get_fid_scores(prompts: list[str], path: Path, real_images):
             logger.info("FID: %f", score)
             f.write(f"| FID | {score} |\n")
 
+def download_file(url, save_path):
+    try:
+        # Send a GET request to the URL
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Raise an error for bad status codes
+
+        # Write the content to the specified file
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        with open(save_path, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+
+        print(f"File successfully downloaded and saved to {save_path}")
+    except requests.exceptions.MissingSchema:
+        print("Error: Invalid URL. Please provide a valid URL.")
+    except requests.exceptions.ConnectionError:
+        print("Error: Network issue. Please check your internet connection.")
+    except requests.exceptions.HTTPError as http_err:
+        print(f"HTTP error occurred: {http_err}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 
 def get_real_images(train_data, num_data):
+    script_dir = Path(__file__).resolve().parent
+    data_dir = script_dir / "quantize_data_coco2017"
     with torch.no_grad():
         images = []
         for i, example in enumerate(train_data):
             if i >= num_data:
                 break
-            image = Image.open(io.BytesIO(example["image"])).convert("RGB")
+            image_path = data_dir / example["file_name"]
+            if not image_path.exists():
+                download_file(example["coco_url"], image_path)
+            image = Image.open(image_path).convert("RGB")
             image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1)
             images.append(image)
         return torch.cat(images)
