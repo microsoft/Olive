@@ -4045,6 +4045,37 @@
 </dd></dl>
 
 </section>
+<section id="staticllm">
+<span id="static-llm"></span><h2>StaticLLM<a class="headerlink" href="#staticllm" title="Link to this heading">#</a></h2>
+<p>Convert a dynamic shaped LLM into a static shaped LLM.
+
+    Expects a CompositeModelHandler with at least 3 components: embeddings, transformer layers, and lm_head.
+    transformer layers can be split into multiple components. Each transformer layers component produces two
+    new components:
+        - context model (sequence length = context_length)
+        - iterator model (sequence length = 1)
+    embeddings and lm_head keep their original shapes.</p>
+<p><strong>Input:</strong> handler.composite.CompositeModelHandler</p>
+<p><strong>Output:</strong> handler.composite.CompositeModelHandler</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-batch_size">
+<span class="sig-name descname"><span class="pre">batch_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-batch_size" title="Link to this definition">#</a></dt>
+<dd><p>Batch size of the model.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 1</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-context_length">
+<span class="sig-name descname"><span class="pre">context_length</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-context_length" title="Link to this definition">#</a></dt>
+<dd><p>Input length of the context model.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 64</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+</section>
 <section id="optimumconversion">
 <span id="optimum-conversion"></span><h2>OptimumConversion<a class="headerlink" href="#optimumconversion" title="Link to this heading">#</a></h2>
 <p>Convert a Hugging Face PyTorch model to ONNX model using the Optimum export function.</p>
@@ -6496,6 +6527,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#insertbeamsearch">InsertBeamSearch</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#extractadapters">ExtractAdapters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#splitmodel">SplitModel</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#staticllm">StaticLLM</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimumconversion">OptimumConversion</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimummerging">OptimumMerging</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#modelbuilder">ModelBuilder</a></li>
