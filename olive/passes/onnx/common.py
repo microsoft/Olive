@@ -233,7 +233,11 @@ def get_context_bin_file_names(model_path: Union[str, Path]) -> List[str]:
         if node.op_type == "EPContext":
             for attr in node.attribute:
                 if attr.name == "ep_cache_context":
-                    file_names.add(attr.s.decode("utf-8"))
+                    try:
+                        file_names.add(attr.s.decode("utf-8"))
+                    except UnicodeDecodeError:
+                        # embedded context binary file
+                        continue
     return list(file_names)
 
 
@@ -256,7 +260,7 @@ def resave_model(
     :param ignore_missing_cb_bin: If True, ignore missing context binary files.
     :return: True if the model has external data, False otherwise.
     """
-    saved_external_files = saved_external_files or {}
+    saved_external_files = {} if saved_external_files is None else saved_external_files
 
     model_path = Path(model_path).resolve()
     new_model_path = Path(new_model_path).resolve()
