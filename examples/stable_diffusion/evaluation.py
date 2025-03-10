@@ -11,7 +11,13 @@ import sys
 import math
 import numpy as np
 from sd_utils.qnn import QnnStableDiffusionPipeline
-
+from datasets import load_dataset
+from torchmetrics.functional.multimodal import clip_score
+from functools import partial
+from torchvision.transforms import functional as F
+import torch
+from torchmetrics.image.fid import FrechetInceptionDistance
+import io
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -39,7 +45,8 @@ def parse_args(raw_args):
     )
     parser.add_argument("--data_dir", default="quantize_data", type=str)
     parser.add_argument("--num_data", default=10, type=int)
-    parser.add_argument("--clip", action="store_true")
+    parser.add_argument("--dataset", default="phiyodr/coco2017", type=str)
+    parser.add_argument("--train_ratio", default=0.5, type=float)
     return parser.parse_args(raw_args)
 
 
@@ -66,8 +73,6 @@ def run_inference(pipeline, args, prompt: str, output_path: Path):
 
 
 def get_clip_score(prompt: str, path: Path, clip_score_fn):
-    import torch
-
     with torch.no_grad():
         image = Image.open(path / f"{prompt}.png")
         image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1)
@@ -83,25 +88,71 @@ def get_clip_scores(prompts: list[str], path: Path, clip_score_fn):
             score = get_clip_score(prompt, path, clip_score_fn)
             scores.append(score)
             f.write(f"| {prompt} | {score} |\n")
+
         logger.info("Scores avg: %s", np.mean(np.array(scores)))
         f.write(f"| Avg | {np.mean(np.array(scores))} |\n")
 
 
+def get_mse_scores(prompts: list[str], unoptimized_path: Path, optimized_path: Path, train_num: int):
+    train_error = []
+    test_error = []
+    with open(optimized_path / "mse_scores.txt", "w") as f:
+        f.write("| Prompt | Error |\n")
+        for i, prompt in enumerate(prompts):
+            error = calc_error(unoptimized_path / f'{prompt}.png', optimized_path / f'{prompt}.png')
+            f.write(f"| {prompt} | {error} |\n")
+            if i < train_num:
+                train_error.append(error)
+            else:
+                test_error.append(error)
+
+        train_error = np.mean(np.array(train_error))
+        test_error = np.mean(np.array(test_error))
+        logger.info("Average train error %f", train_error)
+        logger.info("Average test error %f", test_error)
+        f.write(f"| Avg Train | {train_error} |\n")
+        f.write(f"| Avg Test | {test_error} |\n")
+
+def get_fid_scores(prompts: list[str], path: Path, real_images):
+    with torch.no_grad():
+        with open(path / "fid_scores.txt", "w") as f:
+            f.write("| Prompt | Score |\n")
+            images = []
+            for prompt in prompts:
+                image = Image.open(path / f"{prompt}.png")
+                image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1)
+                images.append(image)
+            images = torch.cat(images)
+
+            fid = FrechetInceptionDistance()
+            fid.update(real_images, real=True)
+            fid.update(images, real=False)
+
+            score = fid.compute()
+            logger.info("FID: %f", score)
+            f.write(f"| FID | {score} |\n")
+
+
+def get_real_images(train_data, num_data):
+    with torch.no_grad():
+        images = []
+        for i, example in enumerate(train_data):
+            if i >= num_data:
+                break
+            image = Image.open(io.BytesIO(example["image"])).convert("RGB")
+            image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1)
+            images.append(image)
+        return torch.cat(images)
+
+
 def main(raw_args=None):
     args = parse_args(raw_args)
-
-    if args.clip:
-        from datasets import load_dataset
-
-        dataset = load_dataset("phiyodr/coco2017", streaming=True)
+    real_images = None
+    if args.dataset != "relaion2B-en-research-safe":
+        dataset = load_dataset(args.dataset, streaming=True)
         train_data = dataset['train']
         prompts = [example["captions"][0] for i, example in enumerate(train_data) if i < args.num_data]
-        train_num = 0
-
-        from torchmetrics.functional.multimodal import clip_score
-        from functools import partial
-
-        clip_score_fn = partial(clip_score, model_name_or_path="openai/clip-vit-base-patch16")
+        real_images = get_real_images(train_data, args.num_data)
     else:
         # Some selected captions from https://huggingface.co/datasets/laion/relaion2B-en-research-safe
         prompts = [
@@ -116,7 +167,9 @@ def main(raw_args=None):
             "Butcher storefront and a companion work, Louis Hayet, Click for value",
             "folding electric bike"
         ][:args.num_data]
-        train_num = math.floor(len(prompts) * 0.8)
+    
+    train_num = math.floor(len(prompts) * args.train_ratio)
+    clip_score_fn = partial(clip_score, model_name_or_path="openai/clip-vit-base-patch16")
 
     script_dir = Path(__file__).resolve().parent
     unoptimized_path = script_dir / args.data_dir / 'unoptimized'
@@ -142,8 +195,8 @@ def main(raw_args=None):
             else:
                 pipeline.save_data_dir = None
             run_inference(pipeline, args, prompt, unoptimized_path)
-        if args.clip:
-            get_clip_scores(prompts, unoptimized_path, clip_score_fn)
+        get_clip_scores(prompts, unoptimized_path, clip_score_fn)
+        get_fid_scores(prompts, unoptimized_path, real_images)
 
     else:
         os.makedirs(optimized_path, exist_ok=True)
@@ -151,23 +204,9 @@ def main(raw_args=None):
             logger.info(prompt)
             run_inference(pipeline, args, prompt, optimized_path)
 
-        if args.clip:
-            get_clip_scores(prompts, optimized_path, clip_score_fn)
-        else:
-            train_error = []
-            test_error = []
-            for i, prompt in enumerate(prompts):
-                error = calc_error(unoptimized_path / f'{prompt}.png', optimized_path / f'{prompt}.png')
-                logger.info("| %s | %f |", prompt, error)
-                if i < train_num:
-                    train_error.append(error)
-                else:
-                    test_error.append(error)
-
-            train_error = np.array(train_error)
-            test_error = np.array(test_error)
-            logger.info("Average train error %f", np.mean(train_error))
-            logger.info("Average test error %f", np.mean(test_error))
+        get_clip_scores(prompts, optimized_path, clip_score_fn)
+        get_fid_scores(prompts, optimized_path, real_images)
+        get_mse_scores(prompts, unoptimized_path, optimized_path, train_num)
 
 
 if __name__ == "__main__":
