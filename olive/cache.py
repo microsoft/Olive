@@ -11,7 +11,7 @@ import shutil
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
@@ -385,20 +385,51 @@ class OliveCache:
         if model_json["type"].lower() == "compositemodel":
             model_json_config = model_json["config"]
             copied_components = []
-            for component_names, component in zip(
+            saved_external_files = {}
+            for component_name, component in zip(
                 model_json_config["model_component_names"], model_json_config["model_components"]
             ):
-                copied_components.append(
-                    self._save_model(
-                        component,
-                        output_dir=output_dir,
-                        overwrite=overwrite,
-                        only_cache_files=only_cache_files,
-                        path_prefix=component_names,
+                if component["type"].lower() != "onnxmodel":
+                    # save each component with a prefix
+                    # e.g. "component_1" -> "component_1_{resource_name}"
+                    copied_components.append(
+                        self._save_model(
+                            component,
+                            output_dir=output_dir,
+                            overwrite=overwrite,
+                            only_cache_files=only_cache_files,
+                            path_prefix=component_name,
+                        )
                     )
-                )
+                else:
+                    # save all onnx files into the same directory
+                    component_model_json, component_local_resource_names = self._replace_with_local_resources(
+                        component, only_cache_files=only_cache_files
+                    )
+
+                    for resource_name in component_local_resource_names:
+                        if resource_name != "model_path":
+                            # this case does not exist in the current code
+                            # but we need to handle it for future use
+                            component_model_json["config"][resource_name] = component_model_json["config"][
+                                resource_name
+                            ].save_to_dir(output_dir, resource_name, overwrite)
+                        else:
+                            from olive.passes.onnx.common import resave_model
+
+                            resave_model(
+                                ModelConfig.parse_obj(component_model_json).create_model().model_path,
+                                output_dir / "model" / f"{component_name}.onnx",
+                                saved_external_files=saved_external_files,
+                            )
+                            component_model_json["config"][resource_name] = str(output_dir / "model")
+                            component_model_json["config"]["onnx_file_name"] = f"{component_name}.onnx"
+
+                    copied_components.append(component_model_json)
+
             model_json_config["model_components"] = copied_components
-            model_json = self._save_additional_files(model_json, output_dir)
+            # save additional files
+            model_json = self._save_additional_files(model_json, output_dir / "model")
         else:
             model_json = self._save_model(model_json, output_dir, overwrite)
 
@@ -415,10 +446,32 @@ class OliveCache:
         only_cache_files: bool = False,
         path_prefix: str = None,
     ) -> dict:
-        # create model object so that we can get the resource paths
-        model_config: ModelConfig = ModelConfig.from_json(model_json)
-        resource_paths = model_config.get_resource_paths()
-        for resource_name, resource_path in resource_paths.items():
+        # get updated model json with local resources
+        model_json, local_resource_names = self._replace_with_local_resources(
+            model_json, only_cache_files=only_cache_files
+        )
+
+        # save local resources to output directory
+        for resource_name in local_resource_names:
+            path_name = resource_name.replace("_path", "")
+            if path_prefix:
+                path_name = f"{path_prefix}_{path_name}"
+            # TODO(anyone): consider using hardlink_copy_file/dir instead of copy
+            # to avoid copying large files
+            model_json["config"][resource_name] = model_json["config"][resource_name].save_to_dir(
+                output_dir, path_name, overwrite
+            )
+
+        # we only have additional files for onnx models so saving to "model" is safe
+        model_path_name = "model"
+        if path_prefix:
+            model_path_name = f"{path_prefix}_{model_path_name}"
+        return self._save_additional_files(model_json, output_dir / model_path_name)
+
+    def _replace_with_local_resources(self, model_json: dict, only_cache_files: bool = False) -> Tuple[dict, List[str]]:
+        local_resource_names = []
+        # get the resource paths from the model config
+        for resource_name, resource_path in ModelConfig.from_json(model_json).get_resource_paths().items():
             if (
                 not resource_path
                 or resource_path.is_string_name()
@@ -448,17 +501,10 @@ class OliveCache:
                         model_json["config"][resource_name] = resource_json["source"]
                         continue
 
-            # save resource to output directory
-            path_name = resource_name.replace("_path", "")
-            if path_prefix:
-                path_name = f"{path_prefix}_{path_name}"
-            model_json["config"][resource_name] = local_resource_path.save_to_dir(output_dir, path_name, overwrite)
+            model_json["config"][resource_name] = local_resource_path
+            local_resource_names.append(resource_name)
 
-        # we only have additional files for onnx models so saving to "model" is safe
-        model_path_name = "model"
-        if path_prefix:
-            model_path_name = f"{path_prefix}_{model_path_name}"
-        return self._save_additional_files(model_json, output_dir / model_path_name)
+        return model_json, local_resource_names
 
     def _save_additional_files(self, model_json: dict, output_dir: Path) -> dict:
         # Copy "additional files" to the model folder

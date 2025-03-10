@@ -4,18 +4,20 @@
 # --------------------------------------------------------------------------
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Type
+from typing import Any, Callable, Dict, List, Type
 
 from olive.common.pydantic_v1 import root_validator
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import (
+    fix_dim_params,
+    fix_input_shapes,
+    get_external_data_config,
+    model_proto_to_olive_model,
+)
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-
-if TYPE_CHECKING:
-    from onnx import ModelProto
 
 logger = logging.getLogger(__name__)
 
@@ -69,35 +71,16 @@ class DynamicToFixedShape(Pass):
         config: Type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        from onnxruntime.tools.onnx_model_utils import make_dim_param_fixed, make_input_shape_fixed
 
         onnx_model = model.load_model()
         output_model_path = resolve_onnx_path(output_model_path)
 
         if config.dim_param:
-            for param, value in zip(config.dim_param, config.dim_value):
-                make_dim_param_fixed(onnx_model.graph, param, value)
+            fix_dim_params(onnx_model, config.dim_param, config.dim_value)
         elif config.input_name:
-            for name, shape in zip(config.input_name, config.input_shape):
-                make_input_shape_fixed(onnx_model.graph, name, shape)
-        # update the output shapes to make them fixed
-        # onnxruntime.tools.onnx_model_utils.fix_output_shapes cannot handle models > 2GB
-        self.fix_output_shapes(onnx_model)
+            fix_input_shapes(onnx_model, config.input_name, config.input_shape)
+
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
-
-    def fix_output_shapes(self, model_proto: "ModelProto"):
-        """Run shape inference on the model and update the output shapes to make them fixed."""
-        from onnxruntime.tools.onnx_model_utils import is_fixed_size_tensor
-        from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
-
-        # use the onnxruntime shape inference tool since it can handle large models as well as contrib ops
-        inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True, guess_output_rank=True)
-
-        for idx, o in enumerate(model_proto.graph.output):
-            if not is_fixed_size_tensor(o):
-                new_o = inferred_proto.graph.output[idx]
-                if is_fixed_size_tensor(new_o):
-                    o.type.tensor_type.shape.CopyFrom(new_o.type.tensor_type.shape)
 
 
 def _jointly_validate_configs(cls, values):
