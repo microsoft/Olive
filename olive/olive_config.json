@@ -16,16 +16,24 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
-        "GraphSurgeries": {
-            "module_path": "olive.passes.onnx.graph_surgeries.GraphSurgeries",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
+        "EPContextBinaryGenerator": {
+            "module_path": "olive.passes.onnx.context_binary.EPContextBinaryGenerator",
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
         "ExtractAdapters": {
             "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "GraphSurgeries": {
+            "module_path": "olive.passes.onnx.graph_surgeries.GraphSurgeries",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
