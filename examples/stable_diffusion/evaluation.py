@@ -11,6 +11,7 @@ import sys
 import math
 import numpy as np
 from sd_utils.qnn import QnnStableDiffusionPipeline
+import re
 
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,9 @@ def calc_error(image1, image2):
 
 
 def run_inference(pipeline, args, prompt: str, output_path: Path):
+    output = output_path / f"{prompt}.png"
+    if output.exists():
+        return
     generator = None if args.seed is None else np.random.RandomState(seed=args.seed)
     result = pipeline(
         [prompt],
@@ -62,7 +66,7 @@ def run_inference(pipeline, args, prompt: str, output_path: Path):
         guidance_scale=args.guidance_scale,
         generator=generator
     )
-    result.images[0].save(output_path / f"{prompt}.png")
+    result.images[0].save(output)
 
 
 def get_clip_score(prompt: str, path: Path, clip_score_fn):
@@ -86,6 +90,10 @@ def get_clip_scores(prompts: list[str], path: Path, clip_score_fn):
         logger.info("Scores avg: %s", np.mean(np.array(scores)))
         f.write(f"| Avg | {np.mean(np.array(scores))} |\n")
 
+def sanitize_path(input_string):
+    sanitized_string = re.sub(r'[^\w\-., ]', '', input_string)
+    return sanitized_string
+
 
 def main(raw_args=None):
     args = parse_args(raw_args)
@@ -95,7 +103,7 @@ def main(raw_args=None):
 
         dataset = load_dataset("phiyodr/coco2017", streaming=True)
         train_data = dataset['train']
-        prompts = [example["captions"][0] for i, example in enumerate(train_data) if i < args.num_data]
+        prompts = [sanitize_path(example["captions"][0]) for i, example in enumerate(train_data) if i < args.num_data]
         train_num = 0
 
         from torchmetrics.functional.multimodal import clip_score
