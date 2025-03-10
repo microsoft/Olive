@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import collections
+import functools
 import inspect
 import logging
 import multiprocessing
@@ -13,7 +14,9 @@ from typing import Dict, Optional, Tuple, Type, Union
 
 import onnx
 import torch
+import transformers
 from packaging import version
+from transformers.modeling_utils import PreTrainedModel
 
 from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
@@ -204,6 +207,9 @@ class OnnxConversion(Pass):
         if torch_dtype:
             pytorch_model = pytorch_model.to(torch_dtype)
 
+        # Apply any necessary patches
+        OnnxConversion._patch_model_if_necessary(pytorch_model)
+
         # get input and output names, and dynamic axes
         assert io_config is not None, "Cannot get io_config for the model."
         io_config = validate_config(io_config, IoConfig)
@@ -389,6 +395,88 @@ class OnnxConversion(Pass):
         model_config["model_attributes"] = model_attributes
         return HfModelHandler(**model_config)
 
+    @staticmethod
+    def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
+        if not isinstance(pytorch_model, PreTrainedModel):
+            return
+
+        transformers_version = version.parse(transformers.__version__)
+        if transformers_version < version.parse("4.45"):
+            return
+
+        orig_forward_name = "forward" if hasattr(pytorch_model, "forward") else "call"
+        orig_forward = getattr(pytorch_model, orig_forward_name)
+        signature = inspect.signature(orig_forward)
+
+        logits_to_keep_name = (
+            "logits_to_keep" if transformers_version >= version.parse("4.49") else "num_logits_to_keep"
+        )
+        # num_logits_to_keep was added in transformers 4.45 and isn't added as inputs when exporting the model
+        logits_to_keep_index = (
+            list(signature.parameters.keys()).index(logits_to_keep_name)
+            if logits_to_keep_name in signature.parameters
+            else None
+        )
+        pkv_index = (
+            list(signature.parameters.keys()).index("past_key_values")
+            if "past_key_values" in signature.parameters
+            else None
+        )
+
+        @functools.wraps(orig_forward)
+        def patched_forward(*args, **kwargs):
+            from transformers.cache_utils import DynamicCache, EncoderDecoderCache
+
+            args = list(args) if args else []
+            kwargs = kwargs or {}
+
+            if logits_to_keep_name in kwargs or (
+                logits_to_keep_index is not None and len(args) <= logits_to_keep_index
+            ):
+                kwargs[logits_to_keep_name] = 0
+            elif logits_to_keep_index is not None:
+                args[logits_to_keep_index] = 0
+
+            if (
+                pkv_index
+                and pkv_index < len(args)  # pkv is in args
+                and isinstance(args[pkv_index], (list, tuple))
+                and isinstance(args[pkv_index][0], (list, tuple))
+            ):
+                if len(args[pkv_index][0]) == 2:
+                    args[pkv_index] = DynamicCache.from_legacy_cache(args[pkv_index])
+                elif len(args[pkv_index][0]) == 4:
+                    args[pkv_index] = EncoderDecoderCache.from_legacy_cache(args[pkv_index])
+                else:
+                    raise ValueError(
+                        f"past_key_values should have either 2 or 4 elements, "
+                        f"but it has {len(args[pkv_index][0])} elements"
+                    )
+            elif (
+                "past_key_values" in kwargs  # pkv is in kwargs
+                and isinstance(kwargs["past_key_values"], (list, tuple))
+                and isinstance(kwargs["past_key_values"][0], (list, tuple))
+            ):
+                if len(kwargs["past_key_values"][0]) == 2:
+                    kwargs["past_key_values"] = DynamicCache.from_legacy_cache(kwargs["past_key_values"])
+                elif len(kwargs["past_key_values"][0]) == 4:
+                    kwargs["past_key_values"] = EncoderDecoderCache.from_legacy_cache(kwargs["past_key_values"])
+                else:
+                    raise ValueError(
+                        f"past_key_values should have either 2 or 4 elements, "
+                        f"but it has {len(kwargs['past_key_values'][0])} elements"
+                    )
+
+            outputs = orig_forward(*args, **kwargs)
+
+            if isinstance(outputs.get("past_key_values"), (DynamicCache, EncoderDecoderCache)):
+                outputs["past_key_values"] = outputs["past_key_values"].to_legacy_cache()
+
+            return outputs
+
+        setattr(pytorch_model, orig_forward_name, patched_forward)
+        logger.debug("PyTorch model patched for transformers v%s.", transformers.__version__)
+
     def _convert_model_on_device(
         self,
         model: Union[HfModelHandler, PyTorchModelHandler],
@@ -411,6 +499,7 @@ class OnnxConversion(Pass):
         # get dummy inputs
         dummy_inputs = self._get_dummy_inputs(model, config)
         io_config = model.io_config
+
         converted_onnx_model = OnnxConversion._export_pytorch_model(
             pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
         )

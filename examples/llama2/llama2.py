@@ -112,7 +112,7 @@ def main(raw_args=None):
     if args.gpu and args.quantize == "dynamic":
         raise ValueError("Dynamic quantization is only supported on CPU.")
 
-    if args.gptq and not args.gpu:
+    if args.quantize == "gptq" and not args.gpu:
         raise ValueError("GPTQ is only supported on gpu.")
 
     if args.qlora:
