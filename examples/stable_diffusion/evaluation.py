@@ -89,7 +89,7 @@ def get_fid_scores(prompts: list[str], path: Path, real_images):
             images = []
             for prompt in prompts:
                 image = Image.open(path / f"{prompt}.png")
-                image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1)
+                image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1).unsqueeze(0)
                 images.append(image)
             images = torch.cat(images)
 
@@ -144,7 +144,7 @@ def get_real_images(train_data, num_data):
             if not image_path.exists():
                 download_file(example["coco_url"], image_path)
             image = Image.open(image_path).convert("RGB")
-            image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1)
+            image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1).unsqueeze(0)
             # TODO: use resize?
             image = F.center_crop(image, (256, 256))
             images.append(image)
