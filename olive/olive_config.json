@@ -284,6 +284,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "StaticLLM": {
+            "module_path": "olive.passes.onnx.static_llm.StaticLLM",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "OpenVINOConversion": {
             "module_path": "olive.passes.openvino.conversion.OpenVINOConversion",
             "supported_providers": [ "*" ],

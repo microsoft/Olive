@@ -158,6 +158,12 @@ SplitModel
 ----------
 .. autoconfigclass:: olive.passes.SplitModel
 
+.. _static_llm:
+
+StaticLLM
+----------
+.. autoconfigclass:: olive.passes.StaticLLM
+
 .. _optimum_conversion:
 
 OptimumConversion
