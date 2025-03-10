@@ -39,7 +39,9 @@ protobuf==3.20.3
 psutil
 pytest
 pytorch_lightning
+scipy
 sentencepiece
+soundfile
 tabulate
 torchvision
 # num_logits_to_keep is causing extra input.
