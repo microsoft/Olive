@@ -35,9 +35,9 @@ def assert_metrics(footprints):
 
 def patch_config(
     config_json_path: str,
-    sampler: str,
-    execution_order: str,
-    system: str,
+    sampler: str = None,
+    execution_order: str = None,
+    system: str = None,
     is_gpu: bool = False,
     hf_token: bool = False,
 ):
