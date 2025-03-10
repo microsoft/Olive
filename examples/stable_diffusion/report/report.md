@@ -1,5 +1,16 @@
 # Static Quantize Stable Diffusion via Olive Report
 
+## TL;DR
+
+The quantized vae decoder model is good, so please help with the text encoder and unet model [model](https://github.com/xieofxie/Olive/releases/tag/2-1_50_iter).
+
+The clip score and fid score are similar (tested on 100 samples) for sd-turbo, so we could guide user to use sd-turbo?
+
+|model|CLIP score|FID score|
+|-|-|-|
+|sd-turbo|31.5|177.5|
+|sd-turbo quantized|31.5|176.7|
+
 ## Data and Config
 
 These are the parameters I used to generate the quantization data and evaluate the original and generated model
