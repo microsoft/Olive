@@ -177,6 +177,7 @@ def get_real_images(train_data, num_data):
                 download_file(example["coco_url"], image_path)
             image = Image.open(image_path).convert("RGB")
             image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1)
+            image = F.center_crop(image, (256, 256))
             images.append(image)
         return torch.cat(images)
 
