@@ -25,57 +25,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 
-
-def parse_args(raw_args):
-    import argparse
-
-    parser = argparse.ArgumentParser("Common arguments")
-    parser.add_argument("--save_data", action="store_true")
-    parser.add_argument("--model_id", default="CompVis/stable-diffusion-v1-4", type=str)
-    parser.add_argument(
-        "--guidance_scale",
-        default=7.5,
-        type=float,
-        help="Guidance scale as defined in Classifier-Free Diffusion Guidance",
-    )
-    parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
-    parser.add_argument(
-        "--seed",
-        default=None,
-        type=int,
-        help="The seed to give to the generator to generate deterministic results.",
-    )
-    parser.add_argument("--data_dir", default="quantize_data", type=str)
-    parser.add_argument("--num_data", default=10, type=int)
-    parser.add_argument("--dataset", default="phiyodr/coco2017", type=str)
-    parser.add_argument("--train_ratio", default=0.5, type=float)
-    return parser.parse_args(raw_args)
-
-
-def calc_error(image1, image2):
-    image1 = Image.open(image1)
-    image2 = Image.open(image2)
-    image1 = np.array(image1, dtype=np.float32)
-    image2 = np.array(image2, dtype=np.float32)
-    mse = np.mean((image1 - image2) ** 2)
-    return mse
-
-
-def run_inference(pipeline, args, prompt: str, output_path: Path):
-    output = output_path / f"{prompt}.png"
-    if output.exists():
-        return
-    generator = None if args.seed is None else np.random.RandomState(seed=args.seed)
-    result = pipeline(
-        [prompt],
-        num_inference_steps = args.num_inference_steps,
-        height=512,
-        width=512,
-        guidance_scale=args.guidance_scale,
-        generator=generator
-    )
-    result.images[0].save(output)
-
+# Clip score
 
 def get_clip_score(prompt: str, path: Path, clip_score_fn):
     with torch.no_grad():
@@ -97,9 +47,16 @@ def get_clip_scores(prompts: list[str], path: Path, clip_score_fn):
         logger.info("Scores avg: %s", np.mean(np.array(scores)))
         f.write(f"| Avg | {np.mean(np.array(scores))} |\n")
 
-def sanitize_path(input_string):
-    sanitized_string = re.sub(r'[^\w\-., ]', '', input_string)
-    return sanitized_string
+
+# MSE score
+
+def calc_error(image1, image2):
+    image1 = Image.open(image1)
+    image2 = Image.open(image2)
+    image1 = np.array(image1, dtype=np.float32)
+    image2 = np.array(image2, dtype=np.float32)
+    mse = np.mean((image1 - image2) ** 2)
+    return mse
 
 
 def get_mse_scores(prompts: list[str], unoptimized_path: Path, optimized_path: Path, train_num: int):
@@ -122,6 +79,9 @@ def get_mse_scores(prompts: list[str], unoptimized_path: Path, optimized_path: P
         f.write(f"| Avg Train | {train_error} |\n")
         f.write(f"| Avg Test | {test_error} |\n")
 
+
+# FID score
+
 def get_fid_scores(prompts: list[str], path: Path, real_images):
     with torch.no_grad():
         with open(path / "fid_scores.txt", "w") as f:
@@ -140,6 +100,14 @@ def get_fid_scores(prompts: list[str], path: Path, real_images):
             score = fid.compute()
             logger.info("FID: %f", score)
             f.write(f"| FID | {score} |\n")
+
+
+# prepare data
+
+def sanitize_path(input_string):
+    sanitized_string = re.sub(r'[^\w\-., ]', '', input_string)
+    return sanitized_string
+
 
 def download_file(url, save_path):
     try:
@@ -177,9 +145,52 @@ def get_real_images(train_data, num_data):
                 download_file(example["coco_url"], image_path)
             image = Image.open(image_path).convert("RGB")
             image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1)
+            # TODO: use resize?
             image = F.center_crop(image, (256, 256))
             images.append(image)
         return torch.cat(images)
+
+
+def run_inference(pipeline, args, prompt: str, output_path: Path):
+    output = output_path / f"{prompt}.png"
+    if output.exists():
+        return
+    generator = None if args.seed is None else np.random.RandomState(seed=args.seed)
+    result = pipeline(
+        [prompt],
+        num_inference_steps = args.num_inference_steps,
+        height=512,
+        width=512,
+        guidance_scale=args.guidance_scale,
+        generator=generator
+    )
+    result.images[0].save(output)
+
+
+def parse_args(raw_args):
+    import argparse
+
+    parser = argparse.ArgumentParser("Common arguments")
+    parser.add_argument("--save_data", action="store_true")
+    parser.add_argument("--model_id", default="CompVis/stable-diffusion-v1-4", type=str)
+    parser.add_argument(
+        "--guidance_scale",
+        default=7.5,
+        type=float,
+        help="Guidance scale as defined in Classifier-Free Diffusion Guidance",
+    )
+    parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
+    parser.add_argument(
+        "--seed",
+        default=None,
+        type=int,
+        help="The seed to give to the generator to generate deterministic results.",
+    )
+    parser.add_argument("--data_dir", default="quantize_data", type=str)
+    parser.add_argument("--num_data", default=10, type=int)
+    parser.add_argument("--dataset", default="phiyodr/coco2017", type=str)
+    parser.add_argument("--train_ratio", default=0.5, type=float)
+    return parser.parse_args(raw_args)
 
 
 def main(raw_args=None):
@@ -232,7 +243,7 @@ def main(raw_args=None):
             else:
                 pipeline.save_data_dir = None
             run_inference(pipeline, args, prompt, unoptimized_path)
-        get_clip_scores(prompts, unoptimized_path, clip_score_fn)
+        #get_clip_scores(prompts, unoptimized_path, clip_score_fn)
         get_fid_scores(prompts, unoptimized_path, real_images)
 
     else:
@@ -241,7 +252,7 @@ def main(raw_args=None):
             logger.info(prompt)
             run_inference(pipeline, args, prompt, optimized_path)
 
-        get_clip_scores(prompts, optimized_path, clip_score_fn)
+        #get_clip_scores(prompts, optimized_path, clip_score_fn)
         get_fid_scores(prompts, optimized_path, real_images)
         get_mse_scores(prompts, unoptimized_path, optimized_path, train_num)
 
