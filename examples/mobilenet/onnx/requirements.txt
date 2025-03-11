@@ -1,2 +1,3 @@
-evaluate 
+evaluate
+scikit-learn
 timm
