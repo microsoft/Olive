@@ -111,10 +111,10 @@ class OnnxConversion(Pass):
             "optimize": PassConfigParam(
                 type_=bool,
                 default_value=True,
-                description=("Whether to export the model with constant folding and redundancies elimination."),
+                description="Whether to export the model with constant folding and redundancies elimination.",
             ),
             "dynamic": PassConfigParam(
-                type_=bool, default_value=True, description=("Whether to export the model with dynamic axes/shapes.")
+                type_=bool, default_value=True, description="Whether to export the model with dynamic axes/shapes."
             ),
         }
 
@@ -449,7 +449,7 @@ class OnnxConversion(Pass):
                     args[pkv_index] = EncoderDecoderCache.from_legacy_cache(args[pkv_index])
                 else:
                     raise ValueError(
-                        f"past_key_values should have either 2 or 4 elements, "
+                        "past_key_values should have either 2 or 4 elements, "
                         f"but it has {len(args[pkv_index][0])} elements"
                     )
             elif (
@@ -463,7 +463,7 @@ class OnnxConversion(Pass):
                     kwargs["past_key_values"] = EncoderDecoderCache.from_legacy_cache(kwargs["past_key_values"])
                 else:
                     raise ValueError(
-                        f"past_key_values should have either 2 or 4 elements, "
+                        "past_key_values should have either 2 or 4 elements, "
                         f"but it has {len(kwargs['past_key_values'][0])} elements"
                     )
 

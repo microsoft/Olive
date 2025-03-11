@@ -27,11 +27,11 @@ def input_model_info_fixture(request, tmp_path_factory):
     all_models = {}
 
     # input model
-    model_name = "katuni4ka/tiny-random-phi3"
-    input_model = HfModelHandler(
-        model_path=model_name,
-        load_kwargs={"trust_remote_code": False, "revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"},
-    )
+    # phi-3 has issues with calibration for transformers 4.48.0
+    # might be something to do with the how qkv projection is split
+    # TODO(jambayk): consider adding phi-3 to test once the issue is investigated and fixed
+    model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    input_model = HfModelHandler(model_path=model_name)
 
     # add split info to the model
     capture_config = {}
@@ -78,7 +78,7 @@ def input_model_info_fixture(request, tmp_path_factory):
         disable_search=True,
     ).run(all_models["convert_fp32"], tmp_path / "qdq")
 
-    return all_models, request.param, 4 if request.param else 2
+    return all_models, request.param, 3 if request.param else 2
 
 
 @pytest.mark.parametrize(

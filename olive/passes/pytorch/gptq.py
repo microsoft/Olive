@@ -306,16 +306,16 @@ class GptqQuantizer(Pass):
         from transformers import __version__ as transformers_version
 
         # almost all model types have rotary embeddings at model.model.rotary_emb so won't keep a mapping
-        rotart_embed_module_name = "model.rotary_emb"
+        rotary_embed_module_name = "model.rotary_emb"
         if (
             version.parse(transformers_version) >= version.parse("4.43")
             and version.parse(autogptq_version).release < version.parse("0.8.0").release
-            and get_attr(gptq_model.model, rotart_embed_module_name)
+            and get_attr(gptq_model.model, rotary_embed_module_name)
         ):
-            rotary_embed_module = get_attr(gptq_model.model, rotart_embed_module_name)
+            rotary_embed_module = get_attr(gptq_model.model, rotary_embed_module_name)
 
-            if rotart_embed_module_name not in gptq_model.outside_layer_modules:
-                gptq_model.outside_layer_modules.append(rotart_embed_module_name)
+            if rotary_embed_module_name not in gptq_model.outside_layer_modules:
+                gptq_model.outside_layer_modules.append(rotary_embed_module_name)
 
             # add a dummy parameter to the module so that it gets moved to device
             rotary_embed_module.register_parameter("dummy", torch.nn.Parameter(torch.zeros(0), requires_grad=False))

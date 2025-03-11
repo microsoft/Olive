@@ -106,7 +106,7 @@ For more complex scenarios, you can create fully customize workflows where you c
 
       Learn how to configure passes.
 
-      :octicon:`arrow-right;1em;sd-text-info` `Configure pass <configure-workflows/pass/pass-configuration.html>`_
+      :octicon:`arrow-right;1em;sd-text-info` `Configure pass <configure-workflows/pass-configuration.html>`_
 
    .. grid-item-card::
 

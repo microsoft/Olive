@@ -1,6 +1,6 @@
 -r requirements-test.txt
-auto-gptq
-autoawq
+auto-gptq==0.7.1
+autoawq==0.2.8
 bitsandbytes
 onnxruntime-genai-cuda
 triton
