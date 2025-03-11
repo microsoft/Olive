@@ -241,6 +241,46 @@ def get_context_bin_file_names(model_path: Union[str, Path]) -> List[str]:
     return list(file_names)
 
 
+def copy_context_bin_files(
+    model_path: Union[str, Path],
+    model_dir: Union[str, Path],
+    saved_cb_files: Dict[str, str],
+    ignore_missing_cb_bin: bool = False,
+) -> bool:
+    """Copy the context binary files to the model directory.
+
+    :param model_path: Path to the original model file.
+    :param model_dir: Directory to save the copied context binary files.
+    :param saved_cb_files: A dictionary of original file paths to new file names for context binary files.
+    :param ignore_missing_cb_bin: If True, ignore missing context binary files.
+    :return: True if the model has context binary files, False otherwise.
+    """
+    saved_cb_files = {} if saved_cb_files is None else saved_cb_files
+
+    model_path = Path(model_path).resolve()
+    model_dir = Path(model_dir).resolve()
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    # TODO(jambayk): consider renaming cb files
+    cb_file_names = get_context_bin_file_names(model_path)
+    for cb_file_name in cb_file_names:
+        cb_file_path = str(model_path.parent / cb_file_name)
+        if not Path(cb_file_path).exists() and ignore_missing_cb_bin:
+            # happens when weight sharing is enabled but hasn't been stopped yet
+            continue
+        if cb_file_path in saved_cb_files:
+            continue
+        elif cb_file_name in saved_cb_files.values():
+            raise RuntimeError(
+                f"Context binary file name {cb_file_name} already exists in {model_dir}. Please rename the file."
+            )
+
+        hardlink_copy_file(cb_file_path, model_dir / cb_file_name)
+        saved_cb_files[cb_file_path] = cb_file_name
+
+    return bool(cb_file_names)
+
+
 def resave_model(
     model_path: Union[str, Path],
     new_model_path: Union[str, Path],
@@ -268,17 +308,12 @@ def resave_model(
     new_model_path.parent.mkdir(parents=True, exist_ok=True)
 
     # copy over context binary files
-    # TODO(jambayk): consider renaming cb files
-    cb_file_names = get_context_bin_file_names(model_path)
-    for cb_file_name in cb_file_names:
-        cb_file_path = str(model_path.parent / cb_file_name)
-        if not Path(cb_file_path).exists() and ignore_missing_cb_bin:
-            # happens when weight sharing is enabled but hasn't been stopped yet
-            continue
-        if cb_file_path not in saved_external_files:
-            hardlink_copy_file(cb_file_path, new_model_path.parent / cb_file_name)
-            saved_external_files[cb_file_path] = cb_file_name
-    has_cb_files = bool(cb_file_names)
+    has_cb_files = copy_context_bin_files(
+        model_path,
+        new_model_path.parent,
+        saved_cb_files=saved_external_files,
+        ignore_missing_cb_bin=ignore_missing_cb_bin,
+    )
 
     external_file_names = get_external_data_file_names(model_path)
 
