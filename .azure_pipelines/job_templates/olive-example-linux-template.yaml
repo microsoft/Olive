@@ -63,6 +63,7 @@ jobs:
       -e PIPELINE_TEST_ACCOUNT_NAME=$(pipeline-test-account-name) \
       -e PIPELINE_TEST_CONTAINER_NAME=$(pipeline-test-container-name) \
       -e KEYVAULT_NAME=$(keyvault-name) \
+      -e HF_TOKEN=$(hf_token) \
       ${{ parameters.docker_image }} \
       bash .azure_pipelines/scripts/${{ parameters.test_script }} \
       ${{ parameters.torch }} \
