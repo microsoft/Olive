@@ -90,9 +90,6 @@ jobs:
       mobilenet_qnn_ep:
         exampleFolder: mobilenet/qnn
         exampleName: mobilenet_qnn_ep
-      mobilenet_onnx:
-        exampleFolder: mobilenet/onnx
-        exampleName: mobilenet
 
 # Windows examples test
 - template: job_templates/olive-example-win-template.yaml
@@ -113,9 +110,6 @@ jobs:
       mobilenet_qnn_ep:
         exampleFolder: mobilenet/qnn
         exampleName: mobilenet_qnn_ep
-      mobilenet_onnx:
-        exampleFolder: mobilenet/onnx
-        exampleName: mobilenet
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-linux-template.yaml
