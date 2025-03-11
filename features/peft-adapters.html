@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>PEFT Adapaters &#8212; Olive  documentation</title>
+    <title>PEFT Adapters &#8212; Olive  documentation</title>
   
   
   
@@ -429,7 +429,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Features</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">PEFT Adapaters</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">PEFT Adapters</span></li>
   </ul>
 </nav>
 </div>
@@ -446,8 +446,8 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="peft-adapaters">
-<h1>PEFT Adapaters<a class="headerlink" href="#peft-adapaters" title="Link to this heading">#</a></h1>
+  <section id="peft-adapters">
+<h1>PEFT Adapters<a class="headerlink" href="#peft-adapters" title="Link to this heading">#</a></h1>
 <p>Parameter Efficient Finetuning (PEFT) techniques, such as LoRA enables user to efficiently finetune a model.</p>
 <section id="lora">
 <h2>LoRA<a class="headerlink" href="#lora" title="Link to this heading">#</a></h2>
@@ -516,55 +516,11 @@ and <a class="reference external" href="https://github.com/yxli2123/LoftQ">code<
 </div>
 <p>Please refer to <a class="reference internal" href="../reference/pass.html#lora-hf-training-arguments"><span class="std std-ref">LoftQ HFTrainingArguments</span></a> for more details on supported the <code class="docutils literal notranslate"><span class="pre">&quot;training_args&quot;</span></code> and their default values.</p>
 </section>
-<section id="quantization-aware-training">
-<h2>Quantization Aware Training<a class="headerlink" href="#quantization-aware-training" title="Link to this heading">#</a></h2>
-<p>The Quantization Aware Training (QAT) technique is used to improve the performance and efficiency of deep learning models by quantizing their
-weights and activations to lower bit-widths. The technique is applied during training, where the weights and activations are fake quantized
-to lower bit-widths using the specified QConfig.</p>
-<p>Olive provides <code class="docutils literal notranslate"><span class="pre">QuantizationAwareTraining</span></code> that performs QAT on a PyTorch model.</p>
-<p>Please refer to <a class="reference internal" href="../reference/pass.html#quantization-aware-training"><span class="std std-ref">QuantizationAwareTraining</span></a> for more details about the pass and its config parameters.</p>
-<section id="id2">
-<h3>Example Configuration<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
-<p>Olive provides the 3 ways to run QAT training process:</p>
-<p>a. Run QAT training with customized training loop.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuantizationAwareTraining&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;training_loop_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;training_loop_func&quot;</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py">this file</a>
-for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;training_loop_func&quot;</span></code>.</p>
-<p>b. Run QAT training with PyTorch Lightning.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuantizationAwareTraining&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;num_epochs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;ptl_data_module&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PTLDataModule&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;ptl_module&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PTLModule&quot;</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py">this file</a>
-for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;PTLDataModule&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;PTLModule&quot;</span></code>.</p>
-<p>c. Run QAT training with default training loop.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuantizationAwareTraining&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;num_epochs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data_config&quot;</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py">this file</a>
-for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;train_data_config/dataloader_config/type&quot;</span></code>.</p>
-</section>
-</section>
 <section id="mergeadapterweights">
 <h2>MergeAdapterWeights<a class="headerlink" href="#mergeadapterweights" title="Link to this heading">#</a></h2>
 <p>Merge Lora weights into a complete model. After running the LoRA pass, the model will only have LoRA adapters. This pass merges the LoRA adapters into the original model and download the context(config/generation_config/tokenizer) of the model.</p>
-<section id="id3">
-<h3>Example Configuration<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
+<section id="id2">
+<h3>Example Configuration<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MergeAdapterWeights&quot;</span>
 <span class="p">}</span>
@@ -579,8 +535,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <li><p>Adapters weights are set as external tensors pointing to a non-existent file. The onnx model is thus invalid by itself as it cannot be loaded. In order to create an inference session using this model, the adapter weights must be added to a sessions options object using <code class="docutils literal notranslate"><span class="pre">add_initializer</span></code> or <code class="docutils literal notranslate"><span class="pre">add_external_initializers</span></code>.</p></li>
 <li><p>Adapter weights are converted into model inputs. The onnx model is valid. During inference, the adapter weights must be provided as part of the inputs. We call them constant inputs here since these weights don’t change between runs when using the one set of adapters.</p></li>
 </ul>
-<section id="id4">
-<h3>Example Configuration<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
+<section id="id3">
+<h3>Example Configuration<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
 <p>a. As external initializers</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExtractAdapters&quot;</span><span class="p">,</span>
@@ -658,16 +614,12 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#loftq">LoftQ</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantization-aware-training">Quantization Aware Training</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mergeadapterweights">MergeAdapterWeights</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mergeadapterweights">MergeAdapterWeights</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Example Configuration</a></li>
-</ul>
-</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#extract-adapters">Extract Adapters</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Example Configuration</a></li>
 </ul>
 </li>
 </ul>

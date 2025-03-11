@@ -457,14 +457,55 @@
 <p class="admonition-title">Note</p>
 <p>Some methods require a GPU and/or a calibration dataset.</p>
 </div>
-<p>| Implementation | Description | Model format(s) | Algorithm | GPU required |
-| —— | ———— | ———— | —————— | —————— | ——————- |
-| AWQ | Activation-aware Weight Quantization (AWQ) creates 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16.  | PyTorch <br> ONNX| Awq | ✔️ |
-| GPTQ | Generative Pre-trained Transformer Quantization (GPTQ) is a one-shot weight quantization method. You can quantize your favorite language model to 8, 4, 3 or even 2 bits.  | PyTorch <br> ONNX |  GptQ  | ✔️ |
-| BitsAndBytes | Is a MatMul with weight quantized with N bits (e.g., 2, 3, 4, 5, 6, 7). | ONNX | RTN | ❌ |
-| ORT | Static and dynamic quantizations. | ONNX | RTN | ❌ |
-| INC | Intel® Neural Compressor model compression tool. | ONNX | GPTQ | ❌ |
-| NVMO | NVIDIA TensorRT Model Optimizer is a library comprising state-of-the-art model optimization techniques including quantization, sparsity, distillation, and pruning to compress models. | ONNX | AWQ | ❌ |</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Implementation</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Model format(s)</p></th>
+<th class="head"><p>Algorithm</p></th>
+<th class="head"><p>GPU required</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>AWQ</p></td>
+<td><p>Activation-aware Weight Quantization (AWQ) creates 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16.</p></td>
+<td><p>PyTorch <br> ONNX</p></td>
+<td><p>Awq</p></td>
+<td><p>✔️</p></td>
+</tr>
+<tr class="row-odd"><td><p>GPTQ</p></td>
+<td><p>Generative Pre-trained Transformer Quantization (GPTQ) is a one-shot weight quantization method. You can quantize your favorite language model to 8, 4, 3 or even 2 bits.</p></td>
+<td><p>PyTorch <br> ONNX</p></td>
+<td><p>GptQ</p></td>
+<td><p>✔️</p></td>
+</tr>
+<tr class="row-even"><td><p>BitsAndBytes</p></td>
+<td><p>Is a MatMul with weight quantized with N bits (e.g., 2, 3, 4, 5, 6, 7).</p></td>
+<td><p>ONNX</p></td>
+<td><p>RTN</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-odd"><td><p>ORT</p></td>
+<td><p>Static and dynamic quantizations.</p></td>
+<td><p>ONNX</p></td>
+<td><p>RTN</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-even"><td><p>INC</p></td>
+<td><p>Intel® Neural Compressor model compression tool.</p></td>
+<td><p>ONNX</p></td>
+<td><p>GPTQ</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-odd"><td><p>NVMO</p></td>
+<td><p>NVIDIA TensorRT Model Optimizer is a library comprising state-of-the-art model optimization techniques including quantization, sparsity, distillation, and pruning to compress models.</p></td>
+<td><p>ONNX</p></td>
+<td><p>AWQ</p></td>
+<td><p>❌</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
 <section id="quickstart">
 <h2><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-zap" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"></path></svg> Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading">#</a></h2>
