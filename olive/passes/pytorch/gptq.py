@@ -5,6 +5,7 @@
 import json
 import logging
 from argparse import Namespace
+from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, Union
@@ -15,6 +16,7 @@ from transformers import PreTrainedModel
 
 from olive.common.config_utils import validate_config
 from olive.common.hf.wrapper import ModelWrapper
+from olive.common.utils import get_attr
 from olive.data.config import DataConfig
 from olive.data.template import huggingface_data_config_template
 from olive.hardware.accelerator import AcceleratorSpec
@@ -167,7 +169,9 @@ class GptqQuantizer(Pass):
             else:
                 raise ValueError(f"Can't get {key} to quantize automatically, please provide it in config.")
 
-        quantized_model.quantize(dataset)
+        # quantize the model
+        with self._maybe_patch_gptq_model(quantized_model) as quantized_model:
+            quantized_model.quantize(dataset)
 
         # until https://github.com/AutoGPTQ/AutoGPTQ/pull/602, bias was always present
         # in the quantized model, so we need to remove it
@@ -295,3 +299,31 @@ class GptqQuantizer(Pass):
                 "trust_remote_code": trust_remote_code,
             },
         )
+
+    @contextmanager
+    def _maybe_patch_gptq_model(self, gptq_model):
+        from auto_gptq import __version__ as autogptq_version
+        from transformers import __version__ as transformers_version
+
+        # almost all model types have rotary embeddings at model.model.rotary_emb so won't keep a mapping
+        rotart_embed_module_name = "model.rotary_emb"
+        if (
+            version.parse(transformers_version) >= version.parse("4.43")
+            and version.parse(autogptq_version).release < version.parse("0.8.0").release
+            and get_attr(gptq_model.model, rotart_embed_module_name)
+        ):
+            rotary_embed_module = get_attr(gptq_model.model, rotart_embed_module_name)
+
+            if rotart_embed_module_name not in gptq_model.outside_layer_modules:
+                gptq_model.outside_layer_modules.append(rotart_embed_module_name)
+
+            # add a dummy parameter to the module so that it gets moved to device
+            rotary_embed_module.register_parameter("dummy", torch.nn.Parameter(torch.zeros(0), requires_grad=False))
+
+            yield gptq_model
+
+            # remove the dummy parameter
+            del rotary_embed_module.dummy
+            return
+
+        yield gptq_model
