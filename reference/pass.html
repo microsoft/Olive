@@ -4076,6 +4076,48 @@
 </dd></dl>
 
 </section>
+<section id="epcontextbinarygenerator">
+<span id="ep-context-binary-generator"></span><h2>EPContextBinaryGenerator<a class="headerlink" href="#epcontextbinarygenerator" title="Link to this heading">#</a></h2>
+<p>Generate EP specific context binary for the model.</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler | handler.composite.CompositeModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler | handler.composite.CompositeModelHandler</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-embed_context">
+<span class="sig-name descname"><span class="pre">embed_context</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-embed_context" title="Link to this definition">#</a></dt>
+<dd><p>Whether to embed context bin into the model.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-weight_sharing">
+<span class="sig-name descname"><span class="pre">weight_sharing</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-weight_sharing" title="Link to this definition">#</a></dt>
+<dd><p>Whether to enable weight sharing between the component models. Only applicable to composite models.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-provider_options">
+<span class="sig-name descname"><span class="pre">provider_options</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-provider_options" title="Link to this definition">#</a></dt>
+<dd><p>Provider options for the EP.</p>
+<p><strong>type:</strong> dict</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-disable_cpu_fallback">
+<span class="sig-name descname"><span class="pre">disable_cpu_fallback</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-disable_cpu_fallback" title="Link to this definition">#</a></dt>
+<dd><p>Whether to disable CPU fallback.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+</section>
 <section id="optimumconversion">
 <span id="optimum-conversion"></span><h2>OptimumConversion<a class="headerlink" href="#optimumconversion" title="Link to this heading">#</a></h2>
 <p>Convert a Hugging Face PyTorch model to ONNX model using the Optimum export function.</p>
@@ -6528,6 +6570,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#extractadapters">ExtractAdapters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#splitmodel">SplitModel</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#staticllm">StaticLLM</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#epcontextbinarygenerator">EPContextBinaryGenerator</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimumconversion">OptimumConversion</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimummerging">OptimumMerging</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#modelbuilder">ModelBuilder</a></li>
