@@ -182,11 +182,6 @@ class AutoAWQQuantizer(Pass):
         from awq import __version__ as autoawq_version
         from transformers import __version__ as transformers_version
 
-        # https://github.com/huggingface/transformers/issues/32420
-        # there is an issue in transformers with the rotary embedding where some tensors are still on CPU
-        # causing device mismatch error
-        # max limit on awq version in case fix is released
-        # transformers releases too frequently so we can't keep track of all versions
         if version.parse(transformers_version) >= version.parse("4.43") and version.parse(
             autoawq_version
         ) <= version.parse("0.2.6"):
