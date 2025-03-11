@@ -222,11 +222,31 @@ def change_external_data_location(model_proto: onnx.ModelProto, new_location: st
             )
 
 
+def get_context_bin_file_names(model_path: Union[str, Path]) -> List[str]:
+    """Get the context binary file names from the model.
+
+    :param model_path: Path to the model file.
+    :return: List of context binary file names.
+    """
+    file_names = set()
+    for node in onnx.load(model_path, load_external_data=False).graph.node:
+        if node.op_type == "EPContext":
+            for attr in node.attribute:
+                if attr.name == "ep_cache_context":
+                    try:
+                        file_names.add(attr.s.decode("utf-8"))
+                    except UnicodeDecodeError:
+                        # embedded context binary file
+                        continue
+    return list(file_names)
+
+
 def resave_model(
     model_path: Union[str, Path],
     new_model_path: Union[str, Path],
     force_external_data: bool = False,
     saved_external_files: Optional[Dict[str, str]] = None,
+    ignore_missing_cb_bin: bool = False,
 ) -> bool:
     """Resave the model along with external data files.
 
@@ -237,12 +257,28 @@ def resave_model(
         Reuse the same file name if the the original file path is already in the dictionary.
         Else, the new file name will be <new_model_path>.data and this dictionary will be updated with the new
         file name.
+    :param ignore_missing_cb_bin: If True, ignore missing context binary files.
     :return: True if the model has external data, False otherwise.
     """
+    saved_external_files = {} if saved_external_files is None else saved_external_files
+
     model_path = Path(model_path).resolve()
     new_model_path = Path(new_model_path).resolve()
     assert new_model_path.suffix == ".onnx", "new_model_path must be .onnx file"
     new_model_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # copy over context binary files
+    # TODO(jambayk): consider renaming cb files
+    cb_file_names = get_context_bin_file_names(model_path)
+    for cb_file_name in cb_file_names:
+        cb_file_path = str(model_path.parent / cb_file_name)
+        if not Path(cb_file_path).exists() and ignore_missing_cb_bin:
+            # happens when weight sharing is enabled but hasn't been stopped yet
+            continue
+        if cb_file_path not in saved_external_files:
+            hardlink_copy_file(cb_file_path, new_model_path.parent / cb_file_name)
+            saved_external_files[cb_file_path] = cb_file_name
+    has_cb_files = bool(cb_file_names)
 
     external_file_names = get_external_data_file_names(model_path)
 
@@ -254,7 +290,7 @@ def resave_model(
 
         # no external data, so we can just copy the model
         hardlink_copy_file(model_path, new_model_path)
-        return False
+        return has_cb_files or False
 
     if len(external_file_names) > 1:
         # save the model with single external data file
@@ -262,16 +298,15 @@ def resave_model(
         return True
 
     external_file_path = str(model_path.parent / external_file_names[0])
-    if saved_external_files and external_file_path in saved_external_files:
+    if external_file_path in saved_external_files:
         # already saved, model will refer to the same file
         new_external_file_name = saved_external_files[external_file_path]
     else:
         new_external_file_name = f"{new_model_path.name}.data"
         # copy the external data file to the new location
         hardlink_copy_file(external_file_path, new_model_path.parent / new_external_file_name)
-        if saved_external_files is not None:
-            # update the saved external files mapping
-            saved_external_files[external_file_path] = new_external_file_name
+        # update the saved external files mapping
+        saved_external_files[external_file_path] = new_external_file_name
 
     # change the external data location and save the model file
     model_proto = onnx.load(model_path, load_external_data=False)

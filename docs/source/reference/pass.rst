@@ -164,6 +164,12 @@ StaticLLM
 ----------
 .. autoconfigclass:: olive.passes.StaticLLM
 
+.. _ep_context_binary_generator:
+
+EPContextBinaryGenerator
+------------------------
+.. autoconfigclass:: olive.passes.EPContextBinaryGenerator
+
 .. _optimum_conversion:
 
 OptimumConversion
