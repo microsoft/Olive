@@ -67,6 +67,10 @@ class Surgeon:
                 return initializer
         return None
 
+    @staticmethod
+    def create_new_name(name: str, old_op: str, new_op: str) -> str:
+        return name.replace(old_op, new_op) if old_op in name else f"{name}_{new_op}"
+
 
 class RenameInputs(Surgeon):
     def __init__(self, old_names: List[str], new_names: List[str]):
@@ -473,7 +477,7 @@ class RMSNormToL2Norm(Surgeon):
     [Root] --> LpNormalization --> Mul
                 (p=2, axis=-1)
 
-    Where the weight of the Mul node is multiplied by sqrt(N) where N is equal to the reduced axis size.
+    The weight of the Mul node is multiplied by sqrt(N) where N is equal to the reduced axis size.
     If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
     """
 
@@ -497,11 +501,8 @@ class RMSNormToL2Norm(Surgeon):
             graph_idx = dag.get_graph_idx(node_name)
 
             # name for the new L2Norm node
-            l2norm_node_name = node_name.replace("Pow", "L2Norm") if "Pow" in node_name else f"{node_name}_L2Norm"
-            node_output_name = dag.get_node_outputs(node_name)[0]
-            l2norm_node_output_name = (
-                node_output_name.replace("Pow", "L2Norm") if "Pow" in node_output_name else f"{node_output_name}_L2Norm"
-            )
+            l2norm_node_name = self.create_new_name(node_name, "Pow", "L2Norm")
+            l2norm_node_output_name = f"{l2norm_node_name}_output_0"
 
             # create L2Norm node
             l2norm_node = onnx.helper.make_node(
@@ -521,6 +522,12 @@ class RMSNormToL2Norm(Surgeon):
                 logger.debug("RMSNorm Pattern does not end with Cast or Mul. Found %s", final_node_children)
                 continue
             final_node_output_name = dag.get_node_outputs(final_node_name)[0]
+            # add value info for the new L2Norm node output
+            if final_node_output_vi := dag.get_value_info_proto(final_node_output_name):
+                l2norm_node_output_vi = onnx.ValueInfoProto()
+                l2norm_node_output_vi.CopyFrom(final_node_output_vi)
+                l2norm_node_output_vi.name = l2norm_node_output_name
+                dag.add_value_info(l2norm_node_output_vi, graph_idx)
 
             # Get the weight Mul node
             if dag.get_node_op_type(final_node_children[0]) == "Mul":
@@ -593,6 +600,139 @@ class RMSNormToL2Norm(Surgeon):
                 break
 
         return rmsnorm_nodes if len(rmsnorm_nodes) >= (len(pattern) - 1) else []
+
+
+class SimplifiedLayerNormToL2Norm(Surgeon):
+    """Replace Skip/SimplifiedLayerNormalization subgraph with L2Norm subgraph.
+
+    SimplifiedLayerNormalization is replaced with:
+    [Root] --> LpNormalization --> Mul
+               (p=2, axis=-1)
+
+    SkipSimplifiedLayerNormalization is replaced with:
+    [Root] --> Add --> LpNormalization --> Mul
+                        (p=2, axis=-1)
+
+    Second input to Mul is the weight of the layer norm multiplied by sqrt(N) where N is equal to the hidden size.
+    If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        modified = 0
+        for node_name in dag.get_node_names():
+            op_type = dag.get_node_op_type(node_name)
+            if op_type not in {"SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization"}:
+                continue
+
+            if len(dag.get_node_inputs(node_name, True)) != 2 + int(op_type == "SkipSimplifiedLayerNormalization"):
+                # SimplifiedLayerNormalization: X, scale supported
+                # SkipSimplifiedLayerNormalization: input, skip, gamma supported
+                continue
+            if len(dag.get_node_outputs(node_name, True)) > 1 + int(op_type == "SkipSimplifiedLayerNormalization"):
+                # SimplifiedLayerNormalization: output supported
+                # SkipSimplifiedLayerNormalization: output, input_skip_bias_sum (optional) supported
+                continue
+
+            graph_idx = dag.get_graph_idx(node_name)
+
+            if op_type == "SkipSimplifiedLayerNormalization":
+                # SimplifiedLayerNormalization preceded by an Add node
+                add_node_name = self.create_new_name(node_name, op_type, "Add")
+                add_node_output_name = f"{add_node_name}_output_0"
+                dag.add_node(
+                    onnx.helper.make_node(
+                        "Add",
+                        inputs=dag.get_node_inputs(node_name, True)[:2],
+                        outputs=[add_node_output_name],
+                        name=add_node_name,
+                    ),
+                    graph_idx,
+                )
+
+                # input_skip_bias_sum is used downstream
+                if len(dag.get_node_outputs(node_name, True)) == 2:
+                    skip_output_name = dag.get_node_outputs(node_name, True)[1]
+                    if skip_output_vi := dag.get_value_info_proto(skip_output_name):
+                        add_output_vi = onnx.ValueInfoProto()
+                        add_output_vi.CopyFrom(skip_output_vi)
+                        add_output_vi.name = add_node_output_name
+                        dag.add_value_info(add_output_vi, graph_idx)
+
+                    for child_name in dag.get_consumers(skip_output_name):
+                        dag.replace_node_input(child_name, skip_output_name, add_node_output_name)
+
+                l2norm_node_input_name = add_node_output_name
+            else:
+                l2norm_node_input_name = dag.get_node_inputs(node_name, True)[0]
+
+            layernorm_node_output_name = dag.get_node_outputs(node_name, True)[0]
+
+            # add L2Norm node
+            l2norm_node_name = self.create_new_name(node_name, op_type, "L2Norm")
+            l2norm_node_output_name = f"{l2norm_node_name}_output_0"
+            dag.add_node(
+                onnx.helper.make_node(
+                    "LpNormalization",
+                    inputs=[l2norm_node_input_name],
+                    outputs=[l2norm_node_output_name],
+                    name=l2norm_node_name,
+                    axis=-1,
+                    p=2,
+                ),
+                graph_idx,
+            )
+            if layernorm_node_output_vi := dag.get_value_info_proto(layernorm_node_output_name):
+                l2norm_node_output_vi = onnx.ValueInfoProto()
+                l2norm_node_output_vi.CopyFrom(layernorm_node_output_vi)
+                l2norm_node_output_vi.name = l2norm_node_output_name
+                dag.add_value_info(l2norm_node_output_vi, graph_idx)
+
+            # add Mul node
+            mul_weight_name = dag.get_node_inputs(node_name, True)[-1]
+            mul_weight = dag.get_initializer_np_array(mul_weight_name)
+            sqrt_n = np.sqrt(mul_weight.shape[-1])
+            if np.all(mul_weight == 1):
+                # this is possible in a quarot/spinquant rotated model
+                # Multiplying by 1D is probably faster
+                mul_weight = np.array([1], dtype=mul_weight.dtype)
+            mul_weight = sqrt_n * mul_weight
+            dag.replace_initializer(onnx.numpy_helper.from_array(mul_weight, name=mul_weight_name))
+
+            mul_node_name = self.create_new_name(node_name, op_type, "Mul")
+            mul_node_output_name = f"{mul_node_name}_output_0"
+            dag.add_node(
+                onnx.helper.make_node(
+                    "Mul",
+                    inputs=[l2norm_node_output_name, mul_weight_name],
+                    outputs=[mul_node_output_name],
+                    name=mul_node_name,
+                ),
+                graph_idx,
+            )
+            if layernorm_node_output_vi := dag.get_value_info_proto(layernorm_node_output_name):
+                mul_output_vi = onnx.ValueInfoProto()
+                mul_output_vi.CopyFrom(layernorm_node_output_vi)
+                mul_output_vi.name = mul_node_output_name
+                dag.add_value_info(mul_output_vi, graph_idx)
+
+            for child_name in dag.get_consumers(layernorm_node_output_name):
+                dag.replace_node_input(child_name, layernorm_node_output_name, mul_node_output_name)
+
+            # remove node
+            dag.remove_node(node_name)
+
+            modified += 1
+
+        if modified > 0:
+            logger.debug("Replaced %d Skip/SimplifiedLayerNormalization nodes with L2Norm nodes", modified)
+
+        dag.update()
+        return dag.model
 
 
 class ReplaceAttentionMaskValue(Surgeon):
