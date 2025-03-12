@@ -748,21 +748,21 @@ class RemoveRopeMultiCache(Surgeon):
         if not supported_consumer_ops.intersection(set(dag.get_node_op_types())):
             return dag.model
 
-        # get the first GroupQueryAttention node
-        consumer_op_type = None
+        # get the first GQA/RotaryEmbedding node
+        first_node = None
         for node in dag.get_node_names():
             op_type = dag.get_node_op_type(node)
             if op_type in supported_consumer_ops:
-                consumer_op_type = op_type
+                first_node = node
                 break
-        node_inputs = dag.get_node_inputs(node)
+        first_node_inputs = dag.get_node_inputs(first_node)
 
         # check if the GQA node has cos_cache and sin_cache inputs
-        if consumer_op_type == "GroupQueryAttention" and len(dag.get_node_inputs(node)) != 9:
+        if dag.get_node_op_type(first_node) == "GroupQueryAttention" and len(first_node_inputs) != 9:
             return dag.model
 
         # check if cos_cache and sin_cache come from an If node
-        cache_names = {"cos_cache": node_inputs[-2], "sin_cache": node_inputs[-1]}
+        cache_names = {"cos_cache": first_node_inputs[-2], "sin_cache": first_node_inputs[-1]}
         for cache_name in cache_names.values():
             if dag.is_input(cache_name) or dag.is_initializer(cache_name):
                 return dag.model
@@ -796,6 +796,62 @@ class RemoveRopeMultiCache(Surgeon):
         dag.remove_node(greater_node_name)
 
         logger.debug("Removed rope multi cache")
+
+        dag.update()
+        return dag.model
+
+
+class AttentionMaskToSequenceLengths(Surgeon):
+    """Replace attention_mask subgraph in GQA model with past_seq_len and total_seq_len."""
+
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        if "GroupQueryAttention" not in dag.get_node_op_types():
+            return dag.model
+
+        # get first GQA node
+        first_node = None
+        for node in dag.get_node_names():
+            if dag.get_node_op_type(node) == "GroupQueryAttention":
+                first_node = node
+                break
+        first_node_inputs = dag.get_node_inputs(first_node)
+
+        seq_len_names = {"past_seq_len": first_node_inputs[5], "total_seq_len": first_node_inputs[6]}
+        # check that both are not already inputs
+        for seq_len_name in seq_len_names.values():
+            if dag.is_input(seq_len_name):
+                return dag.model
+
+        batch_size, _ = dag.get_io_shape("input_ids")
+        seq_len_shapes = {"past_seq_len": [batch_size], "total_seq_len": []}
+        for key, seq_len_name in seq_len_names.items():
+            input_proto = onnx.helper.make_tensor_value_info(key, onnx.TensorProto.INT32, seq_len_shapes[key])
+            dag.add_input(input_proto, 0)
+            for node in dag.get_consumers(seq_len_name):
+                dag.replace_node_input(node, seq_len_name, key)
+
+        # remove attention mask subgraph
+        nodes_to_remove = []
+        visit_stack = dag.get_consumers("attention_mask")
+        while visit_stack:
+            node = visit_stack.pop(0)
+            assert not dag.is_output_producer(node), "Unexpected graph structure"
+            for consumer in dag.get_consumers(node):
+                if dag.get_node_op_type(consumer) == "GroupQueryAttention":
+                    for node_o in dag.get_node_outputs(node):
+                        assert dag.get_node_inputs(consumer).index(node_o) in {5, 6}, "Rope multi cache not supported"
+                    continue
+                visit_stack.append(consumer)
+            nodes_to_remove.append(node)
+        for node in nodes_to_remove[::-1]:
+            dag.remove_node(node)
+
+        logger.debug("atttention mask replaced with sequence length inputs")
 
         dag.update()
         return dag.model

@@ -556,12 +556,12 @@ def test_simplifiedlayernorm_to_l2norm_skip(tmp_path, all_ones, output_skip_sum)
     )
 
     # execute
-    onnx_model = p.run(input_model, output_folder)
+    output_model = p.run(input_model, output_folder)
 
     # assert
     check_l2norm(
         str(tmp_path / "input_model.onnx"),
-        onnx_model.model_path,
+        output_model.model_path,
         hidden_size,
         4 + int(output_skip_sum),
         all_ones,
@@ -596,7 +596,7 @@ def test_remove_rope_multi_cache(tmp_path, use_large_cache):
         disable_search=True,
     ).run(HfModelHandler(local_tiny_path), str(tmp_path / "onnx"))
 
-    output_folder = str(tmp_path / "onnx")
+    output_folder = str(tmp_path / "output")
     p = create_pass_from_dict(
         GraphSurgeries,
         {"surgeries": [{"surgeon": "RemoveRopeMultiCache", "use_large_cache": use_large_cache}]},
@@ -604,12 +604,37 @@ def test_remove_rope_multi_cache(tmp_path, use_large_cache):
     )
 
     # execute
-    onnx_model = p.run(input_model, output_folder)
+    output_model = p.run(input_model, output_folder)
 
     # assert
-    dag = OnnxDAG.from_model_path(onnx_model.model_path)
+    dag = OnnxDAG.from_model_path(output_model.model_path)
     assert "If" not in dag.get_node_op_types()
     assert dag.get_initializer_np_array("cos_cache_single").shape[0] == 10000 if use_large_cache else 4096
+
+
+def test_attention_mask_to_sequence_lengths(tmp_path):
+    # setup
+    input_model = create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32"},
+        disable_search=True,
+    ).run(HfModelHandler("katuni4ka/tiny-random-phi3"), str(tmp_path / "onnx"))
+
+    output_folder = str(tmp_path / "output")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "AttentionMaskToSequenceLengths"}]},
+        disable_search=True,
+    )
+
+    # execute
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    output_model_input_names = output_model.io_config["input_names"]
+    assert "attention_mask" not in output_model_input_names
+    assert "past_seq_len" in output_model_input_names
+    assert "total_seq_len" in output_model_input_names
 
 
 def test_replace_attention_mask_value(tmp_path):
