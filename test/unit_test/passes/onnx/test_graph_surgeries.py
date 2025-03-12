@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 from pathlib import Path
 
 import numpy as np
@@ -11,9 +12,10 @@ import torch
 from onnx import TensorProto, helper, numpy_helper
 from onnxruntime import InferenceSession
 
-from olive.model.handler.onnx import ONNXModelHandler
+from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
+from olive.passes.onnx.model_builder import ModelBuilder
 from olive.passes.onnx.onnx_dag import OnnxDAG
 
 
@@ -565,6 +567,49 @@ def test_simplifiedlayernorm_to_l2norm_skip(tmp_path, all_ones, output_skip_sum)
         all_ones,
         has_skip=True,
     )
+
+
+@pytest.mark.parametrize("use_large_cache", [True, False])
+def test_remove_rope_multi_cache(tmp_path, use_large_cache):
+    # setup
+    tiny_model = HfModelHandler("katuni4ka/tiny-random-phi3")
+    local_tiny_path = tmp_path / "input_model"
+    tiny_model.load_model().save_pretrained(local_tiny_path)
+    tiny_model.save_metadata(local_tiny_path)
+    config_json_path = local_tiny_path / "config.json"
+    with config_json_path.open() as f:
+        config = json.load(f)
+    # change the max position embedding to 10000
+    config["max_position_embeddings"] = 10000
+    config["rope_scaling"] = {
+        "long_factor": [1] * 12,
+        "short_factor": [1] * 12,
+        "type": "longrope",
+    }
+    del config["auto_map"]
+    with config_json_path.open("w") as f:
+        json.dump(config, f)
+
+    input_model = create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32"},
+        disable_search=True,
+    ).run(HfModelHandler(local_tiny_path), str(tmp_path / "onnx"))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveRopeMultiCache", "use_large_cache": use_large_cache}]},
+        disable_search=True,
+    )
+
+    # execute
+    onnx_model = p.run(input_model, output_folder)
+
+    # assert
+    dag = OnnxDAG.from_model_path(onnx_model.model_path)
+    assert "If" not in dag.get_node_op_types()
+    assert dag.get_initializer_np_array("cos_cache_single").shape[0] == 10000 if use_large_cache else 4096
 
 
 def test_replace_attention_mask_value(tmp_path):

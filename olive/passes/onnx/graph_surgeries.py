@@ -735,6 +735,72 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
         return dag.model
 
 
+class RemoveRopeMultiCache(Surgeon):
+    """Remove the multi rope cache from the model."""
+
+    def __init__(self, use_large_cache: bool = False):
+        self.use_large_cache = use_large_cache
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        supported_consumer_ops = {"GroupQueryAttention", "RotaryEmbedding"}
+        if not supported_consumer_ops.intersection(set(dag.get_node_op_types())):
+            return dag.model
+
+        # get the first GroupQueryAttention node
+        consumer_op_type = None
+        for node in dag.get_node_names():
+            op_type = dag.get_node_op_type(node)
+            if op_type in supported_consumer_ops:
+                consumer_op_type = op_type
+                break
+        node_inputs = dag.get_node_inputs(node)
+
+        # check if the GQA node has cos_cache and sin_cache inputs
+        if consumer_op_type == "GroupQueryAttention" and len(dag.get_node_inputs(node)) != 9:
+            return dag.model
+
+        # check if cos_cache and sin_cache come from an If node
+        cache_names = {"cos_cache": node_inputs[-2], "sin_cache": node_inputs[-1]}
+        for cache_name in cache_names.values():
+            if dag.is_input(cache_name) or dag.is_initializer(cache_name):
+                return dag.model
+            if dag.get_node_op_type(dag.get_producer(cache_name)) != "If":
+                return dag.model
+
+        for key, cache_name in cache_names.items():
+            cache_to_use = f"{key}_large" if self.use_large_cache else f"{key}_small"
+            new_cache_name = f"{key}_single"
+
+            if dag.is_initializer(cache_to_use):
+                cache_initializer = onnx.TensorProto()
+                cache_initializer.CopyFrom(dag.get_initializer_proto(cache_to_use))
+                cache_initializer.name = new_cache_name
+            else:
+                cache_producer_name = dag.get_producer(cache_to_use)
+                assert dag.get_node_op_type(cache_producer_name) == "Constant"
+                cache_value = onnx.numpy_helper.to_array(
+                    onnx.helper.get_attribute_value(dag.get_node_proto(cache_producer_name).attribute[0])
+                )
+                cache_initializer = onnx.numpy_helper.from_array(cache_value, new_cache_name)
+
+            dag.add_initializer(cache_initializer, 0)
+            for consumer in dag.get_consumers(cache_name):
+                dag.replace_node_input(consumer, cache_name, new_cache_name)
+
+        # remove the Greater -> If Nodes
+        if_node_name = dag.get_producer(cache_names["cos_cache"])
+        greater_node_name = dag.get_parents(if_node_name)[0]
+        dag.remove_node(if_node_name)
+        dag.remove_node(greater_node_name)
+
+        logger.debug("Removed rope multi cache")
+
+        dag.update()
+        return dag.model
+
+
 class ReplaceAttentionMaskValue(Surgeon):
     """Replace the value of extended attention mask with a new value.
 
