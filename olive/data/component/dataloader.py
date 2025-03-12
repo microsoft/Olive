@@ -115,6 +115,7 @@ class LLMAugmentedDataLoader:
         self.calibration_providers = calibration_providers
 
         self.position_ids = "position_ids" in self.io_config["input_names"]
+        self.past_seq_len = "past_seq_len" in self.io_config["input_names"]
         self.kv_info = self.get_kv_info(self.io_config)
         self.has_gqa = False
         for node in onnx.load(self.model_path, load_external_data=False).graph.node:
@@ -154,10 +155,6 @@ class LLMAugmentedDataLoader:
                 label = None
             assert isinstance(batch, dict), "Only support dict type batch data"
 
-            if self.position_ids and "position_ids" not in batch:
-                # create position ids from attention mask
-                batch["position_ids"] = self.get_position_ids(batch["input_ids"], batch["attention_mask"])
-
             if self.kv_info and self.kv_info["past_names"][0] not in batch:
                 # GQA: use all tokens for prefill
                 # No GQA: use all - 1 tokens for prefill, last token for decode
@@ -176,8 +173,7 @@ class LLMAugmentedDataLoader:
                     "attention_mask": attention_mask[:, prefill_slice],
                     **self.get_empty_kv_cache(batch["input_ids"].shape[0], self.kv_info, self.has_gqa),
                 }
-                if self.position_ids:
-                    prefill_batch["position_ids"] = batch["position_ids"][:, prefill_slice]
+                self.add_extra_inputs(prefill_batch)
 
                 prefill_label = (
                     label[:, prefill_slice]
@@ -201,8 +197,7 @@ class LLMAugmentedDataLoader:
                     "attention_mask": attention_mask,
                     **{v: session_outputs[k] for k, v in self.kv_info["present_to_past"].items()},
                 }
-                if self.position_ids:
-                    decode_batch["position_ids"] = batch["position_ids"][:, -1:]
+                self.add_extra_inputs(decode_batch)
 
                 decode_label = (
                     label[:, -1:]
@@ -228,17 +223,23 @@ class LLMAugmentedDataLoader:
         self._session = InferenceSession(self.model_path, providers=self.calibration_providers)
         return self._session
 
-    @staticmethod
-    def get_position_ids(input_ids: torch.tensor, attention_mask: torch.tensor) -> torch.tensor:
-        """Return the position ids for the input ids based on the attention mask.
+    def add_extra_inputs(self, batch: Dict[str, torch.Tensor]):
+        """Add extra inputs to the batch.
 
-        :param input_ids: A tensor of input ids.
-        :param attention_mask: A tensor of attention masks.
-        :return: A tensor of position ids.
+        :param batch: A dictionary containing the batch data.
+        :return: The updated batch with extra inputs added.
         """
-        # position ids correspond to input ids
-        # attention mask past + current tokens
-        return (attention_mask.cumsum(-1) - 1)[:, -input_ids.shape[-1] :]
+        attention_mask = batch["attention_mask"]
+        if self.position_ids and "position_ids" not in batch:
+            # position ids: current tokens
+            # attention mask: past + current tokens
+            batch["position_ids"] = (attention_mask.cumsum(-1) - 1)[:, -batch["input_ids"].shape[-1] :]
+        if self.past_seq_len and "past_seq_len" not in batch:
+            # past seq len: past tokens
+            # attention mask: past + current tokens
+            batch["past_seq_len"] = attention_mask.sum(-1) - 1
+            batch["total_seq_len"] = torch.tensor(attention_mask.shape[-1])
+            del batch["attention_mask"]
 
     @staticmethod
     def get_kv_info(io_config: Dict) -> Optional[Dict]:
