@@ -385,7 +385,7 @@ class ORTGenerator:
                 inputs["attention_mask"].update_inplace(np_buffers["attention_mask"])
 
             if self.use_past_seq_len:
-                past_seq_len = (np_buffers["attention_mask"].sum(-1) - 1).astype(np.int32)
+                past_seq_len = (np_buffers["attention_mask"].sum(-1, keepdims=True) - 1).astype(np.int32)
                 total_seq_len = np.array(np_buffers["attention_mask"].shape[1], dtype=np.int32)
                 if use_io_binding:
                     inputs["past_seq_len"].update_inplace(past_seq_len)
@@ -435,7 +435,6 @@ class ORTGenerator:
         encodings_dict = self.tokenizer(prompt, return_tensors="np", padding=True)
         input_ids = encodings_dict["input_ids"].astype(self.input_info["input_ids"]["dtype"])
         batch_size, prompt_length = input_ids.shape
-
         attention_mask = encodings_dict["attention_mask"]
         if "attention_mask" in self.input_info:
             attention_mask = attention_mask.astype(self.input_info["attention_mask"]["dtype"])
@@ -452,7 +451,7 @@ class ORTGenerator:
             position_ids = np.broadcast_to(position_ids, (batch_size, prompt_length))
             inputs["position_ids"] = position_ids.astype(self.input_info["position_ids"]["dtype"])
         if self.use_past_seq_len:
-            inputs["past_seq_len"] = (attention_mask.sum(-1) - 1).astype(np.int32)
+            inputs["past_seq_len"] = (attention_mask.sum(-1, keepdims=True) - 1).astype(np.int32)
             inputs["total_seq_len"] = np.array(attention_mask.shape[1], dtype=np.int32)
         if use_io_binding:
             inputs = {k: OrtValue.ortvalue_from_numpy(v, self.device, self.device_id) for k, v in inputs.items()}

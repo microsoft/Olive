@@ -209,6 +209,7 @@ class LLMAugmentedDataLoader:
                 if progress_bar:
                     progress_bar.update(1)
             else:
+                self.add_extra_inputs(batch)
                 yield batch, label
                 if progress_bar:
                     progress_bar.update(1)
@@ -237,7 +238,7 @@ class LLMAugmentedDataLoader:
         if self.past_seq_len and "past_seq_len" not in batch:
             # past seq len: past tokens
             # attention mask: past + current tokens
-            batch["past_seq_len"] = attention_mask.sum(-1) - 1
+            batch["past_seq_len"] = attention_mask.sum(-1, keepdim=True) - 1
             batch["total_seq_len"] = torch.tensor(attention_mask.shape[-1])
             del batch["attention_mask"]
 
