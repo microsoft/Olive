@@ -828,7 +828,7 @@ class AttentionMaskToSequenceLengths(Surgeon):
                 return dag.model
 
         batch_size, _ = dag.get_io_shape("input_ids")
-        seq_len_shapes = {"past_seq_len": [batch_size], "total_seq_len": []}
+        seq_len_shapes = {"past_seq_len": [batch_size, 1], "total_seq_len": []}
         for key, seq_len_name in seq_len_names.items():
             input_proto = onnx.helper.make_tensor_value_info(key, onnx.TensorProto.INT32, seq_len_shapes[key])
             dag.add_input(input_proto, 0)
