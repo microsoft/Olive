@@ -39,6 +39,7 @@
     ],
     "passes": {
         "conversion": { "device": "cpu", "type": "OnnxConversion", "target_opset": 17 },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
         "QNNPreprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
         "OnnxQuantization": {
             "type": "OnnxQuantization",

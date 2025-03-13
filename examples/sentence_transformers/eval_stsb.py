@@ -1,5 +1,6 @@
 import onnxruntime
 import numpy as np
+import time
 from datasets import load_dataset
 from scipy.stats import pearsonr, spearmanr
 from transformers import AutoTokenizer
@@ -37,9 +38,15 @@ def encode_onnx(session, sentence):
 
 cosine_similarities = []
 
+inference_times = []
 for s1, s2 in zip(sentences1, sentences2):
+    start_time = time.time()
     emb1 = encode_onnx(session, s1)
+    inference_times.append(time.time() - start_time)
+
+    start_time = time.time()
     emb2 = encode_onnx(session, s2)
+    inference_times.append(time.time() - start_time)
 
     cosine_sim = np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2))
     cosine_similarities.append(cosine_sim)
@@ -52,3 +59,4 @@ spearman_corr, _ = spearmanr(gold_scores, cosine_similarities)
 
 print(f"Pearson Correlation: {pearson_corr:.4f}")
 print(f"Spearman Correlation: {spearman_corr:.4f}")
+print(f"Average Inference Time: {np.mean(inference_times):.4f} seconds")
