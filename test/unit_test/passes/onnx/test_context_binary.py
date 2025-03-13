@@ -95,7 +95,13 @@ def test_ep_context_binary_generator_composite(tmp_path, is_llm):
     assert isinstance(output_model, CompositeModelHandler)
     output_component_map = dict(output_model.get_model_components())
     assert len(output_component_map) == len(component_models)
-    assert output_model.model_attributes == model_attributes
+    if is_llm:
+        assert output_model.model_attributes["llm_pipeline"] == {
+            "embeddings": "embeddings",
+            "context": ["component_0_ctx", "component_1_ctx"],
+            "iterator": ["component_2_ctx", "component_3_ctx"],
+            "lm_head": "lm_head",
+        }
     for name in component_names:
         # print(output_component_map[name].model_path)
         is_skipped = name in ["embeddings", "lm_head"]

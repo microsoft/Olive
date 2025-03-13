@@ -233,6 +233,10 @@ class SplitModel(Pass):
         component_models = []
         component_names = []
         for i, split_dag in enumerate(split_dags):
+            if not split_dag.get_node_names():
+                # no nodes got assigned to this split
+                logger.debug("Skipping empty split %d", i)
+                continue
             split_name = f"split_{i}"
             split_dir = Path(output_model_path).with_suffix("") / split_name
             split_path = resolve_onnx_path(split_dir, f"{split_name}.onnx")

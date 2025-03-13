@@ -405,12 +405,18 @@ class OnnxDAG:
 
         # remove node from the connections
         for i in node.inputs:
+            if i == "":
+                # some nodes have unnamed, unused inputs
+                continue
             self.ios[i].destination.remove(node_name)
             parent = self.ios[i].source
             if parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
                 self.connections[parent].remove(node_name)
 
         for o in node.outputs:
+            if o == "":
+                # some nodes have unnamed, unused outputs
+                continue
             del self.ios[o]
 
         del self.connections[node_name]
