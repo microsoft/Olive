@@ -62,7 +62,7 @@ class ClientPatch(Client):
         negotiated_version = self._negotiate_request_version(
             self._get_resource_location(self.normalized_url, location_id), version
         )
-        negotiated_version = cast(str, negotiated_version)
+        negotiated_version = cast("str", negotiated_version)
 
         if version != negotiated_version:
             logger.info(

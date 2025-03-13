@@ -69,6 +69,7 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
     global binding_device
     binding_device = device
 
+    # ruff: noqa: PTH208
     for model_name in os.listdir(optimized_directory):
         available_models[model_name] = {"model_dir": os.path.join(optimized_directory, model_name)}
 
