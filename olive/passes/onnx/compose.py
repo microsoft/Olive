@@ -27,7 +27,18 @@ logger = logging.getLogger(__name__)
 
 
 class ComposeOnnxModels(Pass):
-    """Compose multiple ONNX models into a single model."""
+    """Compose multiple ONNX models into a single model.
+
+    This pass chains multiple ONNX models together by itertively connecting the output of the preceding model to the
+    input of the next model. The final inputs and outputs are the set of all inputs and outputs of the models excluding
+    those used to connect the models together.
+
+    It also handles llm_pipeline models:
+    - embeddings: the embeddings model is saved as is
+    - context: the context model is composed of all models in the context group
+    - iterator: the iterator model is composed of all models in the iterator group
+    - lm_head: the lm_head model is saved as is
+    """
 
     _accepts_composite_model = True
 
