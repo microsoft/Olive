@@ -16,7 +16,7 @@ from ..utils import get_example_dir
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    os.chdir(get_example_dir("mobilenet"))
+    os.chdir(get_example_dir("mobilenet/qnn"))
 
     retry_func(run_subprocess, kwargs={"cmd": "python download_files.py", "check": True})
 
