@@ -226,6 +226,14 @@ class EPContextBinaryGenerator(Pass):
 
         output_model_path = Path(output_model_path)
         output_model_path.parent.mkdir(parents=True, exist_ok=True)
+        # clean up files that may be present from previous failed runs
+        if output_model_path.exists():
+            logger.debug("Context binary onnx file %s already exists. Deleting it.", str(output_model_path))
+            output_model_path.unlink()
+        for file_name in output_model_path.parent.glob(f"{output_model_path.stem}*.bin"):
+            logger.debug("Context binary bin file %s already exists. Deleting it.", str(file_name))
+            file_name.unlink()
+        # set the context file path
         session_options.add_session_config_entry("ep.context_file_path", str(output_model_path))
 
         # create the inference session
