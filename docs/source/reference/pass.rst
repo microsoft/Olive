@@ -170,6 +170,12 @@ EPContextBinaryGenerator
 ------------------------
 .. autoconfigclass:: olive.passes.EPContextBinaryGenerator
 
+.. _compose_onnx_models:
+
+ComposeOnnxModels
+-----------------
+.. autoconfigclass:: olive.passes.ComposeOnnxModels
+
 .. _optimum_conversion:
 
 OptimumConversion

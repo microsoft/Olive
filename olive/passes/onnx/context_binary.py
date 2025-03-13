@@ -96,38 +96,51 @@ class EPContextBinaryGenerator(Pass):
         component_map = dict(model.get_model_components())
 
         new_component_models = {}
+        new_model_attributes = deepcopy(model.model_attributes) or {}
         if llm_pipeline := (model.model_attributes or {}).get("llm_pipeline"):
+            new_llm_pipeline = {}
+
             # resave embeddings model
             embeddings_model_path = output_model_path / "embeddings.onnx"
-            resave_model(component_map["embeddings"].model_path, embeddings_model_path)
+            resave_model(component_map[llm_pipeline["embeddings"]].model_path, embeddings_model_path)
             new_component_models["embeddings"] = ONNXModelHandler(
                 model_path=output_model_path, onnx_file_name=embeddings_model_path.name
             )
+            new_llm_pipeline["embeddings"] = "embeddings"
 
             # iterate over the context/iterator models
+            new_llm_pipeline["context"] = []
+            new_llm_pipeline["iterator"] = []
             for ctx_model_name, iter_model_name in zip(llm_pipeline["context"], llm_pipeline["iterator"]):
                 # potentially share context binary between corresponding context/iterator components
+                new_ctx_model_name = f"{ctx_model_name}_ctx"
+                new_iter_model_name = f"{iter_model_name}_ctx"
                 new_component_models.update(
                     self._generate_composite_binaries(
                         model_paths_map={
-                            ctx_model_name: component_map[ctx_model_name].model_path,
-                            iter_model_name: component_map[iter_model_name].model_path,
+                            new_ctx_model_name: component_map[ctx_model_name].model_path,
+                            new_iter_model_name: component_map[iter_model_name].model_path,
                         },
                         output_model_dir=output_model_path,
                         generate_kwargs=generate_kwargs,
                         weight_sharing=config.weight_sharing,
                     )
                 )
+                new_llm_pipeline["context"].append(new_ctx_model_name)
+                new_llm_pipeline["iterator"].append(new_iter_model_name)
 
             # resave the lm_head model
             lm_head_model_path = output_model_path / "lm_head.onnx"
-            resave_model(component_map["lm_head"].model_path, lm_head_model_path)
+            resave_model(component_map[llm_pipeline["lm_head"]].model_path, lm_head_model_path)
             new_component_models["lm_head"] = ONNXModelHandler(
                 model_path=output_model_path, onnx_file_name=lm_head_model_path.name
             )
+            new_llm_pipeline["lm_head"] = "lm_head"
+
+            new_model_attributes["llm_pipeline"] = new_llm_pipeline
         else:
             new_component_models = self._generate_composite_binaries(
-                model_paths_map={name: component.model_path for name, component in component_map.items()},
+                model_paths_map={f"{name}_ctx": component.model_path for name, component in component_map.items()},
                 output_model_dir=output_model_path,
                 generate_kwargs=generate_kwargs,
                 weight_sharing=config.weight_sharing,
@@ -135,7 +148,7 @@ class EPContextBinaryGenerator(Pass):
         return CompositeModelHandler(
             list(new_component_models.values()),
             list(new_component_models.keys()),
-            model_attributes=model.model_attributes,
+            model_attributes=new_model_attributes,
         )
 
     @classmethod
@@ -163,9 +176,9 @@ class EPContextBinaryGenerator(Pass):
                 generate_kwargs["embed_context"] = False
                 generate_kwargs["ignore_missing_cb_bin"] = idx != len(model_paths_map) - 1
 
-            new_models[f"{model_name}_ctx"] = cls._generate_context_binary(
+            new_models[model_name] = cls._generate_context_binary(
                 model_path=model_path,
-                output_model_path=Path(output_model_dir) / f"{model_name}_ctx.onnx",
+                output_model_path=Path(output_model_dir) / f"{model_name}.onnx",
                 **generate_kwargs,
             )
 

@@ -5,7 +5,7 @@
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 import onnx
 from onnx import AttributeProto, GraphProto, NodeProto, TensorProto, ValueInfoProto
@@ -253,6 +253,18 @@ class OnnxDAG:
             raise ValueError(f"{name} is not an initializer.")
         proto_list = self.ios[name].proto[:-1] + [initializer]
         self.ios[name].proto = proto_list
+
+    def add_output(self, output_proto: ValueInfoProto, graph_idx: int):
+        """Add an output to the graph.
+
+        :param output_proto: ValueInfoProto of the output.
+        :param graph_idx: index of the graph in the model.
+        """
+        if output_proto.name in self.ios:
+            raise ValueError(f"Output {output_proto.name} already exists in the graph.")
+        self.ios[output_proto.name] = OnnxIO(
+            proto=[output_proto], destination=[SpecialOutput.OUTPUT], graph_idx=graph_idx
+        )
 
     def add_value_info(self, value_info: ValueInfoProto, graph_idx: int, overwrite: bool = False):
         """Add a value info to the graph.
@@ -607,6 +619,13 @@ class OnnxDAG:
         """
         return [i for i in self.ios if self.is_initializer(i)]
 
+    def get_intermediate_names(self) -> List[str]:
+        """Get the names of all intermediate inputs/outputs in the graph.
+
+        :return: list of intermediate input/output names.
+        """
+        return [i for i in self.ios if not any([self.is_input(i), self.is_initializer(i), self.is_output(i)])]
+
     def get_input_proto(self, input_name: str) -> ValueInfoProto:
         """Get the input proto.
 
@@ -625,11 +644,29 @@ class OnnxDAG:
         assert self.is_initializer(initializer_name)
         return self.ios[initializer_name].proto[-1]
 
-    def get_io_shape(self, io_name: str) -> List[Union[int, str]]:
-        """Get the shape of an input/output.
+    def get_output_proto(self, output_name: str) -> ValueInfoProto:
+        """Get the output proto.
+
+        :param output_name: name of the output.
+        :return: ValueInfoProto object.
+        """
+        assert self.is_output(output_name)
+        return self.ios[output_name].proto[0]
+
+    def get_value_info_proto(self, value_info_name: str) -> Optional[ValueInfoProto]:
+        """Get the value info proto.
+
+        :param value_info_name: name of the value info.
+        :return: ValueInfoProto object.
+        """
+        assert value_info_name in self.ios, f"{value_info_name} is not a value info."
+        return self.ios[value_info_name].proto[0] if self.ios[value_info_name].proto else None
+
+    def _get_io_tensor_type(self, io_name: str):
+        """Get the tensor type of an input/output.
 
         :param io_name: name of the input/output.
-        :return: shape of the input/output.
+        :return: tensor type of the input/output.
         """
         proto = self.ios[io_name].proto[0]
         tensor_type = proto.type.tensor_type
@@ -638,7 +675,25 @@ class OnnxDAG:
             # TODO(jambayk): add support for different types
             # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
             tensor_type = proto.type.sequence_type.elem_type.tensor_type
+        return tensor_type
+
+    def get_io_shape(self, io_name: str) -> List[Union[int, str]]:
+        """Get the shape of an input/output.
+
+        :param io_name: name of the input/output.
+        :return: shape of the input/output.
+        """
+        tensor_type = self._get_io_tensor_type(io_name)
         return [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
+
+    def get_io_dtype(self, io_name: str) -> str:
+        """Get the data type of an input/output.
+
+        :param io_name: name of the input/output.
+        :return: data type of the input/output.
+        """
+        tensor_type = self._get_io_tensor_type(io_name)
+        return str(onnx.helper.tensor_dtype_to_np_dtype(tensor_type.elem_type))
 
     def get_graph_idx(self, name: str) -> int:
         """Get the index of the graph containing the input/output or node."""
