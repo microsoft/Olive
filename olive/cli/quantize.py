@@ -59,7 +59,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--precision",
             type=str,
-            default="int4",
+            default="int8",
             choices=["int4", "int8", "int16", "uint4", "uint8", "uint16", "fp4", "fp8", "fp16", "nf4"],
             help="The precision of the quantized model.",
         )
