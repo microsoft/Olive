@@ -90,7 +90,10 @@ def get_export_config(model_name: str, task: str, **kwargs) -> Optional["OnnxCon
         # need kv cache for both input and output
         export_config = export_config.__class__(
             model_config,
-            use_past=export_config.use_past,
+            # if use_cache is False, there is no kv cache output
+            # else both text-generation and text-generation-with-past have kv cache output
+            use_past=kwargs.get("use_cache", True),
+            # only text-generation-with-past has kv cache input
             use_past_in_inputs=export_config.use_past,
             # text-generation-with-past doesn't return position_ids
             task="text-generation",
