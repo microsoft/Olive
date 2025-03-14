@@ -603,15 +603,18 @@ class RMSNormToL2Norm(Surgeon):
 
 
 class SimplifiedLayerNormToL2Norm(Surgeon):
-    """Replace Skip/SimplifiedLayerNormalization subgraph with L2Norm subgraph.
+    """Replace Skip/SimplifiedLayerNormalization node with L2Norm subgraph.
 
     SimplifiedLayerNormalization is replaced with:
     [Root] --> LpNormalization --> Mul
                (p=2, axis=-1)
 
     SkipSimplifiedLayerNormalization is replaced with:
-    [Root] --> Add --> LpNormalization --> Mul
-                        (p=2, axis=-1)
+    [Root1] -------> Add
+                      |
+                      v
+    [Root2] --> LpNormalization --> Mul
+                (p=2, axis=-1)
 
     Second input to Mul is the weight of the layer norm multiplied by sqrt(N) where N is equal to the hidden size.
     If the weight is all 1s, it is replaced with a 1D array of sqrt(N).

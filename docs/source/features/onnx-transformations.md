@@ -746,7 +746,7 @@ graph {
 ```
 
 
-### RMSNormToL2Norm
+### `RMSNormToL2Norm`
 
 #### Description
 
@@ -786,7 +786,55 @@ Transformed model graph:
            (p=2, axis=-1)
 ```
 
-### ReplaceAttentionMaskValue
+### `SimplifiedLayerNormToL2Norm`
+
+#### Description
+Replace Skip/SimplifiedLayerNormalization nodes with L2Norm subgraph.
+
+#### Example
+Initial model graph:
+
+```
+SimplifiedLayerNorm pattern:
+[Root] --> SimplifiedLayerNormalization
+             (axis=-1, epsilon=1e-6)
+
+SkipSimpleLayerNorm pattern:
+[Root1] ------------+
+                    v
+[Root2] --> SkipSimpleLayerNormalization
+               (epsilon=1e-6)
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "SimplifiedLayerNormToL2Norm"
+        }
+    ]
+}
+```
+
+
+Transformed model graph:
+
+```
+[Root] --> LpNormalization -> Mul
+           (p=2, axis=-1)
+
+[Root1] -------> Add
+                  |
+                  v
+[Root2] --> LpNormalization --> Mul
+            (p=2, axis=-1)
+```
+
+
+### `ReplaceAttentionMaskValue`
 
 #### Description
 
