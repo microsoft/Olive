@@ -104,11 +104,11 @@
         "conversion": {
             "device": "cpu",
             "type": "OnnxConversion",
-            "target_opset": 17,
+            "target_opset": 18,
             "save_as_external_data": true,
             "all_tensors_to_one_file": true,
             "dynamic": false,
-            "use_dynamo_exporter": true
+            "use_dynamo_exporter": false
         },
         "QNNPreprocess": { "type": "QNNPreprocess" },
         "OnnxQuantization": {
