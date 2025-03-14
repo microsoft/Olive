@@ -22,7 +22,9 @@ The model optimization process includes the following steps:
 2. **4-bit Per-Channel Symmetric Quantization with [GPTQ](https://arxiv.org/abs/2210.17323)**: Applies weight-only quantization (4-bit) to the transformer linear layers to reduce model size.
 3. **ONNX Graph Capture**: Captures the ONNX graph for subsequent optimizations.
 4. **4-bit Block-wise Quantization**: Quantizes the embedding layer and the language modeling head using weight-only 4-bit quantization.
-5. **16-bit Activation Quantization**: Uses the [ONNX Runtime Quantizer Tool](https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html) to quantize activations to 16-bits for improved model efficiency.
+5. **16-bit Activation Quantization**: Quantize activations to 16-bits, balancing efficiency and precision.
+
+The resulting model is a quantized QDQ (Quantize-Dequantize) model with 4-bit weights and 16-bit activations.
 
 ## Handling Dynamic and Static Input Shapes
 
@@ -41,7 +43,7 @@ To optimize resource usage:
 - **Transformer Layers**: These layers are executed on the NPU, which requires static input shapes.
 - **Weight Sharing**: The prefill and token generation models share weights (with different input shapes), minimizing memory usage.
 
-Additionally, we use **[GroupQueryAttention](https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.GroupQueryAttention)** to enable dynamic key-value caching, which supports long-context processing and generation during text tasks.
+Additionally, we use **[GroupQueryAttention](https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.GroupQueryAttention)** to enable dynamic key-value caching, which supports long-context processing and token generation.
 
 ## Compilation for NPU Deployment
 
@@ -53,7 +55,7 @@ After optimization, the model is compiled for deployment on the Qualcomm NPU usi
 
 ## Summary of Key Steps
 
-- **Model Quantization**: Apply 4-bit weight-only and 16-bit activation quantization.
+- **Model Quantization**: Apply 4-bit weight and 16-bit activation quantization.
 - **Prefill and Token Generation Optimization**: Create two instances of the model to handle dynamic and static input shapes.
 - **Deployment on Qualcomm NPU**: Use ONNX Runtime QNNExecutionProvider for AOT compilation.
 
@@ -61,7 +63,7 @@ This approach ensures efficient execution on Qualcomm NPUs, optimizing memory an
 
 ## Requirements
 
-The optimization process requires several computationally intensive quantization steps, and therefore demands GPU resources. In an x64 Python environment with olive-ai installed, the following packages are required:
+The optimization process requires several computationally intensive quantization steps, and therefore demands GPU resources. In an [x64 Python environment with olive-ai installed](https://github.com/microsoft/Olive/tree/main/examples#important), the following packages are required:
 
 ```bash
 # Common requirements
@@ -81,7 +83,7 @@ For AOT compilation, the latest nightly x64 build of onnxruntime-qnn is required
 pip install -r requirements.txt
 
 # ONNX Runtime packages
-# Note: Only Windows AMD64 package is available in this feed; contact the team for the Linux x64 package
+# Note: Only Windows x64 package is available in this feed; contact the team for the Linux x64 package
 pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
 pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple onnxruntime-qnn --no-deps
 ```
