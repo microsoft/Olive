@@ -108,7 +108,7 @@
             "save_as_external_data": true,
             "all_tensors_to_one_file": true,
             "dynamic": false,
-            "use_dynamo_exporter": false
+            "use_dynamo_exporter": true
         },
         "QNNPreprocess": { "type": "QNNPreprocess" },
         "OnnxQuantization": {
