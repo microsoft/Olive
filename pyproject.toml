@@ -148,6 +148,7 @@ ignore = [
   "N999", # Module names
   "NPY002", # np.random.Generator may not always fit our use cases
   "PERF203", # "try-except-in-loop" only affects Python <3.11, and the improvement is minor; can have false positives
+  "PGH004", # used to make ruff ignore the file
   "PLW0603", # TODO: temp disable global variable check
   "PT004", # Ignore pytest fixture name
   "PT019", # Ignore pytest fixture name
