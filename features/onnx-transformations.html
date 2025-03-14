@@ -1255,7 +1255,7 @@ for more details on the optimizations done by this tool.</p>
 </section>
 </section>
 <section id="rmsnormtol2norm">
-<h3>RMSNormToL2Norm<a class="headerlink" href="#rmsnormtol2norm" title="Link to this heading">#</a></h3>
+<h3><code class="docutils literal notranslate"><span class="pre">RMSNormToL2Norm</span></code><a class="headerlink" href="#rmsnormtol2norm" title="Link to this heading">#</a></h3>
 <section id="id29">
 <h4>Description<a class="headerlink" href="#id29" title="Link to this heading">#</a></h4>
 <p>Replace RMSNorm subgraph with L2Norm subgraph.</p>
@@ -1289,14 +1289,58 @@ for more details on the optimizations done by this tool.</p>
 </div>
 </section>
 </section>
-<section id="replaceattentionmaskvalue">
-<h3>ReplaceAttentionMaskValue<a class="headerlink" href="#replaceattentionmaskvalue" title="Link to this heading">#</a></h3>
+<section id="simplifiedlayernormtol2norm">
+<h3><code class="docutils literal notranslate"><span class="pre">SimplifiedLayerNormToL2Norm</span></code><a class="headerlink" href="#simplifiedlayernormtol2norm" title="Link to this heading">#</a></h3>
 <section id="id31">
 <h4>Description<a class="headerlink" href="#id31" title="Link to this heading">#</a></h4>
-<p>Replace the value of extended attention mask with a new value. This surgery is useful if the default mask value does not quantize well due to numerical instability.</p>
+<p>Replace Skip/SimplifiedLayerNormalization nodes with L2Norm subgraph.</p>
 </section>
 <section id="id32">
 <h4>Example<a class="headerlink" href="#id32" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">SimplifiedLayerNorm</span> <span class="n">pattern</span><span class="p">:</span>
+<span class="p">[</span><span class="n">Root</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">SimplifiedLayerNormalization</span>
+             <span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+
+<span class="n">SkipSimpleLayerNorm</span> <span class="n">pattern</span><span class="p">:</span>
+<span class="p">[</span><span class="n">Root1</span><span class="p">]</span> <span class="o">------------+</span>
+                    <span class="n">v</span>
+<span class="p">[</span><span class="n">Root2</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">SkipSimpleLayerNormalization</span>
+               <span class="p">(</span><span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SimplifiedLayerNormToL2Norm&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">Root</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">LpNormalization</span> <span class="o">-&gt;</span> <span class="n">Mul</span>
+           <span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="p">[</span><span class="n">Root1</span><span class="p">]</span> <span class="o">-------&gt;</span> <span class="n">Add</span>
+                  <span class="o">|</span>
+                  <span class="n">v</span>
+<span class="p">[</span><span class="n">Root2</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">LpNormalization</span> <span class="o">--&gt;</span> <span class="n">Mul</span>
+            <span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="replaceattentionmaskvalue">
+<h3><code class="docutils literal notranslate"><span class="pre">ReplaceAttentionMaskValue</span></code><a class="headerlink" href="#replaceattentionmaskvalue" title="Link to this heading">#</a></h3>
+<section id="id33">
+<h4>Description<a class="headerlink" href="#id33" title="Link to this heading">#</a></h4>
+<p>Replace the value of extended attention mask with a new value. This surgery is useful if the default mask value does not quantize well due to numerical instability.</p>
+</section>
+<section id="id34">
+<h4>Example<a class="headerlink" href="#id34" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="n">node</span> <span class="p">{</span>
@@ -1394,8 +1438,8 @@ for more details on the optimizations done by this tool.</p>
 <section id="append-pre-post-processing-ops">
 <h2>Append Pre/Post Processing Ops<a class="headerlink" href="#append-pre-post-processing-ops" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">AppendPrePostProcessingOps</span></code> inserts pre and post processing ops into the ONNX graph.</p>
-<section id="id33">
-<h3>Example Configuration<a class="headerlink" href="#id33" title="Link to this heading">#</a></h3>
+<section id="id35">
+<h3>Example Configuration<a class="headerlink" href="#id35" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;superresolution&quot;</span><span class="p">,</span>
@@ -1519,8 +1563,8 @@ For example, for some ops like <code class="docutils literal notranslate"><span 
 <section id="insert-beam-search-op">
 <h2>Insert Beam Search Op<a class="headerlink" href="#insert-beam-search-op" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">InsertBeamSearch</span></code> chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.</p>
-<section id="id34">
-<h3>Example Configuration<a class="headerlink" href="#id34" title="Link to this heading">#</a></h3>
+<section id="id36">
+<h3>Example Configuration<a class="headerlink" href="#id36" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InsertBeamSearch&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;no_repeat_ngram_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
@@ -1536,8 +1580,8 @@ environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
 <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
-<section id="id35">
-<h3>Example Configuration<a class="headerlink" href="#id35" title="Link to this heading">#</a></h3>
+<section id="id37">
+<h3>Example Configuration<a class="headerlink" href="#id37" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtSessionParamsTuning&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;session_params_tuning_data_config&quot;</span><span class="p">,</span>
@@ -1684,28 +1728,33 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id28">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rmsnormtol2norm">RMSNormToL2Norm</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rmsnormtol2norm"><code class="docutils literal notranslate"><span class="pre">RMSNormToL2Norm</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id29">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id30">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replaceattentionmaskvalue">ReplaceAttentionMaskValue</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#simplifiedlayernormtol2norm"><code class="docutils literal notranslate"><span class="pre">SimplifiedLayerNormToL2Norm</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id31">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id32">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replaceattentionmaskvalue"><code class="docutils literal notranslate"><span class="pre">ReplaceAttentionMaskValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id33">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id34">Example</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#append-pre-post-processing-ops">Append Pre/Post Processing Ops</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id33">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id35">Example Configuration</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#insert-beam-search-op">Insert Beam Search Op</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id34">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id36">Example Configuration</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ort-performance-tuning">ORT Performance Tuning</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id35">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id37">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
