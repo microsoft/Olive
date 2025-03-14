@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 from pathlib import Path
+from test.unit_test.utils import make_local_tiny_llama
 
 import numpy as np
 import onnx
@@ -618,7 +619,7 @@ def test_attention_mask_to_sequence_lengths(tmp_path):
         ModelBuilder,
         {"precision": "fp32"},
         disable_search=True,
-    ).run(HfModelHandler("katuni4ka/tiny-random-phi3"), str(tmp_path / "onnx"))
+    ).run(make_local_tiny_llama(tmp_path), str(tmp_path / "onnx"))
 
     output_folder = str(tmp_path / "output")
     p = create_pass_from_dict(

@@ -230,6 +230,10 @@ class LLMAugmentedDataLoader:
         :param batch: A dictionary containing the batch data.
         :return: The updated batch with extra inputs added.
         """
+        if "attention_mask" not in batch:
+            # no attention mask
+            return
+
         attention_mask = batch["attention_mask"]
         if self.position_ids and "position_ids" not in batch:
             # position ids: current tokens
