@@ -13,7 +13,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 
 
 @pytest.mark.parametrize("use_gqa", [True, False])
-def test_llm_augmeted_dataloader(tmp_path, use_gqa):
+def test_llm_augmented_dataloader(tmp_path, use_gqa):
     pytorch_model = make_local_tiny_llama(tmp_path)
     if use_gqa:
         from olive.passes.onnx.model_builder import ModelBuilder

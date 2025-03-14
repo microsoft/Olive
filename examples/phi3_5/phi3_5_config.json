@@ -1,0 +1,83 @@
+{
+    "input_model": { "type": "HfModel", "model_path": "microsoft/Phi-3.5-mini-instruct" },
+    "systems": {
+        "local_cuda_system": { "type": "LocalSystem" },
+        "qnn_system": {
+            "type": "PythonEnvironment",
+            "python_environment_path": "/path/to/qnn/env/bin",
+            "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ]
+        }
+    },
+    "data_configs": [
+        {
+            "name": "wikitext2_train",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": { "data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train" },
+            "pre_process_data_config": {
+                "strategy": "line-by-line",
+                "add_special_tokens": false,
+                "max_samples": 128,
+                "max_seq_len": 512
+            }
+        }
+    ],
+    "passes": {
+        "q": { "type": "QuaRot" },
+        "g": { "type": "GptqQuantizer", "sym": true, "group_size": -1 },
+        "cs": { "type": "CaptureSplitInfo", "num_splits": 4, "unique_embeds_lm_head_splits": true },
+        "mb": {
+            "type": "ModelBuilder",
+            "precision": "int4",
+            "int4_block_size": 32,
+            "int4_accuracy_level": 4,
+            "int4_op_types_to_quantize": [ "MatMul", "Gather" ],
+            "save_as_external_data": true
+        },
+        "mq": {
+            "type": "MatMulNBitsToQDQ",
+            "use_int4": true,
+            "add_zero_point": true,
+            "nodes_to_exclude": [ "/lm_head/MatMul_Q4" ],
+            "save_as_external_data": true
+        },
+        "gs": {
+            "type": "GraphSurgeries",
+            "surgeries": [
+                { "surgeon": "RemoveRopeMultiCache" },
+                { "surgeon": "AttentionMaskToSequenceLengths" },
+                { "surgeon": "SimplifiedLayerNormToL2Norm" }
+            ],
+            "save_as_external_data": true
+        },
+        "sq": {
+            "type": "OnnxStaticQuantization",
+            "data_config": "wikitext2_train",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8",
+            "calibration_providers": [ "CUDAExecutionProvider" ],
+            "prepare_qnn_config": true,
+            "quant_preprocess": true,
+            "op_types_to_exclude": [ "GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits" ],
+            "save_as_external_data": true
+        },
+        "sp": { "type": "SplitModel" },
+        "st": { "type": "StaticLLM", "batch_size": 1, "context_length": 64 },
+        "cb": {
+            "type": "EPContextBinaryGenerator",
+            "provider_options": {
+                "htp_graph_finalization_optimization_mode": "3",
+                "soc_model": "60",
+                "htp_arch": "73",
+                "vtcm_mb": "8"
+            },
+            "weight_sharing": true
+        },
+        "cp": { "type": "ComposeOnnxModels" }
+    },
+    "host": "local_cuda_system",
+    "target": "qnn_system",
+    "log_severity_level": 0,
+    "output_dir": "models",
+    "cache_dir": "cache",
+    "no_artifacts": true
+}

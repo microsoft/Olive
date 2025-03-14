@@ -176,6 +176,11 @@ class AcceleratorNormalizer:
                     eps.append(ep)
 
             # remove the unsupported execution providers
+            if not self.skip_supported_eps_check and not eps:
+                raise ValueError(
+                    f"None of the execution providers {accelerator.execution_providers} cannot be found in the target"
+                    " system but at least one is required to run the workflow."
+                )
             accelerator.execution_providers = eps or ["CPUExecutionProvider"]
 
         if ep_not_supported:

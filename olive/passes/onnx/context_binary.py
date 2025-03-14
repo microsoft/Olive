@@ -4,19 +4,17 @@
 # --------------------------------------------------------------------------
 import logging
 import platform
-import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Dict, Type, Union
 
-import onnx
 from packaging import version
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import model_proto_to_file, resave_model
+from olive.passes.onnx.common import get_context_bin_file_names, resave_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -228,41 +226,37 @@ class EPContextBinaryGenerator(Pass):
 
         output_model_path = Path(output_model_path)
         output_model_path.parent.mkdir(parents=True, exist_ok=True)
+        # clean up files that may be present from previous failed runs
+        if output_model_path.exists():
+            logger.debug("Context binary onnx file %s already exists. Deleting it.", str(output_model_path))
+            output_model_path.unlink()
+        for file_name in output_model_path.parent.glob(f"{output_model_path.stem}*.bin"):
+            logger.debug("Context binary bin file %s already exists. Deleting it.", str(file_name))
+            file_name.unlink()
+        # set the context file path
+        session_options.add_session_config_entry("ep.context_file_path", str(output_model_path))
 
-        # hardlink/copy the original model into a tempdir under parent_dir
-        # for easier clean up and file management
-        # TODO(jambayk): avoid this if the cost is too high
-        with tempfile.TemporaryDirectory(dir=output_model_path.parent, prefix="olive_tmp") as tmp_dir:
-            # resave the model to a temp dir
-            temp_model_path = Path(tmp_dir) / Path(model_path).name
-            resave_model(model_path, temp_model_path)
+        # create the inference session
+        logger.debug("Creating context binary for model %s", str(model_path))
+        InferenceSession(
+            model_path,
+            sess_options=session_options,
+            providers=[execution_provider],
+            provider_options=[provider_options],
+        )
 
-            # path to create the context binary
-            tmp_ctx_path = Path(tmp_dir) / output_model_path.name
-            session_options.add_session_config_entry("ep.context_file_path", str(tmp_ctx_path))
+        assert output_model_path.exists(), f"Context binary not found at {output_model_path}"
 
-            # create the inference session
-            logger.debug("Creating context binary for model %s", str(model_path))
-            InferenceSession(
-                str(temp_model_path),
-                sess_options=session_options,
-                providers=[execution_provider],
-                provider_options=[provider_options],
-            )
+        if not embed_context:
+            cb_file_names = get_context_bin_file_names(output_model_path)
+            assert cb_file_names, f"Context binary files not found for model {output_model_path}"
 
-            assert tmp_ctx_path.exists(), f"Context binary not found at {tmp_ctx_path}"
-
-            # load and resave the _ctx.onnx model so that it doesn't refer to the original external data files
-            model_proto = onnx.load(str(tmp_ctx_path))
-            tmp_ctx_path.unlink()
-            model_proto_to_file(model_proto, tmp_ctx_path)
-
-            # move _ctx.onnx, .bin and external data files to the output model path
-            has_external_data = resave_model(
-                tmp_ctx_path, output_model_path, ignore_missing_cb_bin=ignore_missing_cb_bin
-            )
+            if not ignore_missing_cb_bin:
+                for cb_file_name in cb_file_names:
+                    if not (output_model_path.parent / cb_file_name).exists():
+                        raise FileNotFoundError(f"Context binary file {cb_file_name} not found.")
 
         return ONNXModelHandler(
-            model_path=output_model_path.parent if has_external_data else output_model_path,
-            onnx_file_name=output_model_path.name if has_external_data else None,
+            model_path=output_model_path if embed_context else output_model_path.parent,
+            onnx_file_name=None if embed_context else output_model_path.name,
         )

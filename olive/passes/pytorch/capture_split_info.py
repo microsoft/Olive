@@ -6,7 +6,7 @@ import csv
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Type, Union
+from typing import TYPE_CHECKING, Dict, Tuple, Type, Union
 
 import numpy as np
 
@@ -16,6 +16,9 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, ParamCategory, PassConfigParam
+
+if TYPE_CHECKING:
+    from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +51,10 @@ class CaptureSplitInfo(Pass):
                     " FLOPs(batch_size=1, seqlen=1) the module uses when in the desired precision."
                 ),
             ),
-            "exclude_embeds": PassConfigParam(
+            "unique_embeds_lm_head_splits": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Exclude the embeddings layer/s from the split calculation. Only used with cost_model.",
-            ),
-            "exclude_lm_head": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description=(
-                    "Exclude the language model head layer/s from the split calculation. Only used with cost_model."
-                ),
+                description="Assign embeddings and lm_head layers to their own splits.",
             ),
         }
 
@@ -130,10 +126,19 @@ class CaptureSplitInfo(Pass):
             for child_name, _ in block.named_children()
         ]
 
-        split_assignments = {}
+        split_assignments, used_splits, modules_to_exclude = self._init_split_assignments(
+            model, loaded_model, config.unique_embeds_lm_head_splits
+        )
+
         for split_idx, split_members in enumerate(np.array_split(block_members, config.num_splits)):
             for member_name in split_members:
-                split_assignments[member_name] = split_idx
+                if member_name in modules_to_exclude:
+                    continue
+                split_assignments[member_name] = split_idx + used_splits
+
+        if config.unique_embeds_lm_head_splits:
+            # assign lm_head layer to its own split
+            split_assignments["lm_head"] = config.num_splits + used_splits
 
         return split_assignments
 
@@ -152,17 +157,10 @@ class CaptureSplitInfo(Pass):
 
         loaded_model = model.load_model(cache_model=False)
 
-        modules_to_exclude = set()
-        if config.exclude_embeds and isinstance(model, HfModelHandler):
-            model_wrapper = ModelWrapper.from_model(loaded_model)
-            modules_to_exclude.update(model_wrapper.get_embeds()[1])
-        elif config.exclude_embeds:
-            modules_to_exclude.add("model.embed_tokens")
-        if config.exclude_lm_head:
-            modules_to_exclude.add("lm_head")
+        split_assignments, split_idx, modules_to_exclude = self._init_split_assignments(
+            model, loaded_model, config.unique_embeds_lm_head_splits
+        )
 
-        split_assignments = {}
-        split_idx = 0
         split_bytes = 0
         node_idx = 0
         mem_intensive = False
@@ -190,6 +188,43 @@ class CaptureSplitInfo(Pass):
             split_bytes += num_bytes
             node_idx += 1
             mem_intensive = curr_mem_intensive
+
+        if config.unique_embeds_lm_head_splits:
+            # assign lm_head layer to its own split
+            split_idx += 1
+            split_assignments["lm_head"] = split_idx
+
         logger.info("Split the model into %d splits based on the cost model.", split_idx + 1)
 
         return split_assignments
+
+    def _init_split_assignments(
+        self,
+        model: Union[HfModelHandler, PyTorchModelHandler],
+        pytorch_model: "nn.Module",
+        unique_embeds_lm_head_splits: bool,
+    ) -> Tuple[Dict[str, int], int, set]:
+        """Initialize the split assignments for the model.
+
+        :param model: The input model to split.
+        :param pytorch_model: The loaded input model.
+        :param unique_embeds_lm_head_splits: Whether to assign embedding and lm_head layers to their own splits.
+        :return: A dictionary of split assignments, next split index, and set of modules to exclude.
+        """
+        split_assignments = {}
+        split_idx = 0
+        modules_to_exclude = set()
+        if unique_embeds_lm_head_splits:
+            # assign embedding layer to its own split
+            if isinstance(model, HfModelHandler):
+                embed_names = ModelWrapper.from_model(pytorch_model).get_embeds()[1]
+            else:
+                embed_names = ["model.embed_tokens"]
+            for embed_name in embed_names:
+                split_assignments[embed_name] = split_idx
+            split_idx += 1
+
+            # exclude embedding and lm head from split calculation
+            modules_to_exclude.update([*embed_names, "lm_head"])
+
+        return split_assignments, split_idx, modules_to_exclude
