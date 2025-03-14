@@ -23,7 +23,7 @@ from olive.systems.utils import create_new_environ, get_package_name_from_ep, ru
 if TYPE_CHECKING:
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
     from olive.hardware.accelerator import AcceleratorSpec
-    from olive.passes.olive_pass import Pass
+    from olive.passes.olive_pass import FullPassConfig
 
 
 logger = logging.getLogger(__name__)
@@ -107,15 +107,14 @@ class PythonEnvironmentSystem(OliveSystem):
 
     def run_pass(
         self,
-        the_pass: "Pass",
-        model_config: ModelConfig,
+        full_pass_config: "FullPassConfig",
+        model_config: "ModelConfig",
         output_model_path: str,
-    ) -> ModelConfig:
+    ) -> "ModelConfig":
         """Run the pass on the model."""
-        pass_config = the_pass.to_json(check_object=True)
         config_jsons = {
             "model_config": model_config.to_json(check_object=True),
-            "pass_config": pass_config,
+            "pass_config": full_pass_config.to_json(check_object=True),
         }
         output_model_json = self._run_command(
             self.pass_runner_path,
