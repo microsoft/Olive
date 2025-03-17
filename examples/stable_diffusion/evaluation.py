@@ -243,7 +243,7 @@ def main(raw_args=None):
             else:
                 pipeline.save_data_dir = None
             run_inference(pipeline, args, prompt, unoptimized_path)
-        #get_clip_scores(prompts, unoptimized_path, clip_score_fn)
+        get_clip_scores(prompts, unoptimized_path, clip_score_fn)
         get_fid_scores(prompts, unoptimized_path, real_images)
 
     else:
@@ -252,7 +252,7 @@ def main(raw_args=None):
             logger.info(prompt)
             run_inference(pipeline, args, prompt, optimized_path)
 
-        #get_clip_scores(prompts, optimized_path, clip_score_fn)
+        get_clip_scores(prompts, optimized_path, clip_score_fn)
         get_fid_scores(prompts, optimized_path, real_images)
         get_mse_scores(prompts, unoptimized_path, optimized_path, train_num)
 

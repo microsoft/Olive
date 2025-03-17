@@ -95,3 +95,25 @@ The figure below is a high-level overview of the Stable Diffusion pipeline, and 
 The figure below shows the flow and relationship between the base and the refiner model, and is based on a figure from the [SDXL Refiner Hugging Face Repository](https://huggingface.co/stabilityai/stable-diffusion-xl-refiner-1.0).
 
 ![sdxl flow](readme/sdxl_flow.png)
+
+# Stable Diffusion XL Optimization with QNN
+
+## Generate data for static quantization
+
+To get better result, we need to generate real data from original model instead of using random data for static quantization.
+
+First generate onnx unoptimized model:
+
+`python stable_diffusion_xl.py --model_id stabilityai/sdxl-turbo --provider qnn --optimize --only_conversion`
+
+Then generate data (updating the prompts to generate more will be better):
+
+`python .\evaluation.py --save_data --model_id stabilityai/stable-diffusion-2-1 --num_inference_steps 10 --seed 0`
+
+## Optimize
+
+`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1 --provider qnn --optimize --clean_cache`
+
+## Test and evaluate
+
+`python .\evaluation.py --model_id stabilityai/stable-diffusion-2-1 --num_inference_steps 10 --seed 0`

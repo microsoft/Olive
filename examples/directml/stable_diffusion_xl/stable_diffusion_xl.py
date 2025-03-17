@@ -19,6 +19,7 @@ from diffusers.utils import load_image
 from onnxruntime import __version__ as OrtVersion
 from optimum.onnxruntime import ORTStableDiffusionXLImg2ImgPipeline, ORTStableDiffusionXLPipeline
 from packaging import version
+from huggingface_hub import hf_hub_download
 
 from olive.common.utils import set_tempdir
 from olive.model import ONNXModelHandler
@@ -289,9 +290,12 @@ def run_inference(
         )
 
 
-def update_config_with_provider(config: Dict, provider: str, is_fp16: bool) -> Dict:
+def update_config_with_provider(config: Dict, provider: str, is_fp16: bool, only_conversion: bool) -> Dict:
     used_passes = {}
-    if provider == "dml":
+    if only_conversion:
+        used_passes = {"convert"}
+        config["evaluator"] = None
+    elif provider == "dml":
         # DirectML EP is the default, so no need to update config.
         used_passes = {"convert", "optimize"}
     elif provider == "cuda":
@@ -309,6 +313,9 @@ def update_config_with_provider(config: Dict, provider: str, is_fp16: bool) -> D
     config["passes"] = OrderedDict([(k, v) for k, v in config["passes"].items() if k in used_passes])
     return config
 
+def save_config(configs: Dict, module_name: str, model_info: Dict, optimized: bool = False):
+    config_path = hf_hub_download(repo_id=configs[module_name], filename="config.json", subfolder=module_name)
+    shutil.copyfile(config_path, model_info[module_name]["optimized" if optimized else "unoptimized"]["path"].parent / "config.json")
 
 def optimize(
     model_id: str,
@@ -317,6 +324,7 @@ def optimize(
     use_fp16_fixed_vae: bool,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
+    only_conversion: bool,
 ):
     from google.protobuf import __version__ as protobuf_version
 
@@ -349,6 +357,7 @@ def optimize(
     if not is_refiner_model:
         submodel_names.append("text_encoder")
 
+    configs = {}
     for submodel_name in submodel_names:
         print(f"\nOptimizing {submodel_name}")
 
@@ -368,6 +377,8 @@ def optimize(
         else:
             olive_config["input_model"]["model_path"] = model_id
 
+        configs[submodel_name] = olive_config["input_model"]["model_path"]
+
         olive_run(olive_config)
 
         footprints_file_path = Path(__file__).resolve().parent / "footprints" / submodel_name / "footprints.json"
@@ -377,9 +388,12 @@ def optimize(
             conversion_footprint = None
             optimizer_footprint = None
             for footprint in footprints.values():
-                if footprint["from_pass"] == "OnnxConversion":
+                from_pass = footprint["from_pass"].lower() if footprint["from_pass"] else ""
+                if from_pass == "OnnxConversion".lower():
                     conversion_footprint = footprint
-                elif footprint["from_pass"] == "OrtTransformersOptimization":
+                    if only_conversion:
+                        optimizer_footprint = footprint
+                elif from_pass == "OrtTransformersOptimization".lower():
                     optimizer_footprint = footprint
 
             assert conversion_footprint
@@ -412,13 +426,17 @@ def optimize(
     vae_encoder_session = OnnxRuntimeModel.load_model(
         model_info["vae_encoder"]["unoptimized"]["path"].parent / "model.onnx"
     )
+    save_config(configs, "vae_encoder", model_info)
     vae_decoder_session = OnnxRuntimeModel.load_model(
         model_info["vae_decoder"]["unoptimized"]["path"].parent / "model.onnx"
     )
+    save_config(configs, "vae_decoder", model_info)
     text_encoder_2_session = OnnxRuntimeModel.load_model(
         model_info["text_encoder_2"]["unoptimized"]["path"].parent / "model.onnx"
     )
+    save_config(configs, "text_encoder_2", model_info)
     unet_session = OnnxRuntimeModel.load_model(model_info["unet"]["unoptimized"]["path"].parent / "model.onnx")
+    save_config(configs, "unet", model_info)
 
     if is_refiner_model:
         onnx_pipeline = ORTStableDiffusionXLImg2ImgPipeline(
@@ -435,6 +453,7 @@ def optimize(
         text_encoder_session = OnnxRuntimeModel.load_model(
             model_info["text_encoder"]["unoptimized"]["path"].parent / "model.onnx"
         )
+        save_config(configs, "text_encoder", model_info)
 
         onnx_pipeline = ORTStableDiffusionXLPipeline(
             vae_encoder_session=vae_encoder_session,
@@ -446,7 +465,6 @@ def optimize(
             tokenizer_2=pipeline.tokenizer_2,
             scheduler=pipeline.scheduler,
             feature_extractor=feature_extractor,
-            config=dict(pipeline.config),
         )
 
     print("Saving unoptimized models...")
@@ -462,6 +480,7 @@ def optimize(
     print("Copying optimized models...")
     shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
     for submodel_name in submodel_names:
+        save_config(configs, submodel_name, model_info, optimized=True)
         src_path = model_info[submodel_name]["optimized"]["path"]
         dst_path = optimized_model_dir / submodel_name / "model.onnx"
         shutil.copyfile(src_path, dst_path)
@@ -478,7 +497,7 @@ def main(raw_args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", default="stabilityai/stable-diffusion-xl-base-1.0", type=str)
     parser.add_argument(
-        "--provider", default="dml", type=str, choices=["dml", "cuda"], help="Execution provider to use"
+        "--provider", default="dml", type=str, choices=["dml", "cuda", "qnn"], help="Execution provider to use"
     )
     parser.add_argument(
         "--use_fp16_fixed_vae",
@@ -521,6 +540,7 @@ def main(raw_args=None):
     )
     parser.add_argument("--dynamic_dims", action="store_true", help="Disable static shape optimization")
     parser.add_argument("--tempdir", default=None, type=str, help="Root directory for tempfile directories and files")
+    parser.add_argument("--only_conversion", action="store_true")
     args = parser.parse_args(raw_args)
 
     if args.static_dims:
@@ -605,6 +625,7 @@ def main(raw_args=None):
                 args.use_fp16_fixed_vae,
                 unoptimized_model_dir,
                 optimized_model_dir,
+                args.only_conversion,
             )
 
     # Run inference on the models
