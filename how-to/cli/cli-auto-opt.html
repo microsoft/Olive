@@ -507,48 +507,52 @@ Python</label><div class="sd-tab-content docutils">
 <span class="c1"># since otherwise it will be set to the entire context length</span>
 <span class="n">search_options</span> <span class="o">=</span> <span class="p">{}</span>
 <span class="n">search_options</span><span class="p">[</span><span class="s1">&#39;max_length&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">200</span>
-<span class="n">search_options</span><span class="p">[</span><span class="s1">&#39;past_present_share_buffer&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
 
-<span class="n">chat_template</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;&lt;|begin_of_text|&gt;&lt;|start_header_id|&gt;system&lt;|end_header_id|&gt;</span>
+<span class="c1"># Encode the system prompt</span>
+<span class="n">system_template</span> <span class="o">=</span> <span class="s2">&quot;&lt;|begin_of_text|&gt;&lt;|start_header_id|&gt;system&lt;|end_header_id|&gt;You are a helpful assistant&lt;|eot_id|&gt;&quot;</span>
+<span class="n">system_tokens</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">system_prompt</span><span class="p">)</span>
 
-<span class="s2">You are a helpful assistant&lt;|eot_id|&gt;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;</span>
+<span class="n">chat_template</span> <span class="o">=</span> <span class="s2">&quot;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;</span><span class="si">{input}</span><span class="s2">&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;&quot;</span>
 
-<span class="si">{input}</span><span class="s2">&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;</span>
-<span class="s2">&quot;&quot;&quot;</span>
-
-<span class="n">text</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Input: &quot;</span><span class="p">)</span>
-
-<span class="c1"># Keep asking for input phrases</span>
-<span class="k">while</span> <span class="n">text</span> <span class="o">!=</span> <span class="s2">&quot;exit&quot;</span><span class="p">:</span>
+<span class="c1"># Keep asking for input prompts in a loop</span>
+<span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Prompt (Use quit() to exit): &quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">text</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error, input cannot be empty&quot;</span><span class="p">)</span>
-        <span class="n">exit</span>
+        <span class="k">continue</span>
 
-    <span class="c1"># generate prompt (prompt template + input)</span>
+    <span class="k">if</span> <span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;quit()&quot;</span><span class="p">:</span>
+        <span class="k">break</span>
+
+    <span class="c1"># Generate prompt (prompt template + input)</span>
     <span class="n">prompt</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">chat_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="n">text</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span>
 
     <span class="c1"># encode the prompt using the tokenizer</span>
     <span class="n">input_tokens</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
 
+    <span class="c1"># Create params and generator</span>
     <span class="n">params</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">GeneratorParams</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
     <span class="n">params</span><span class="o">.</span><span class="n">set_search_options</span><span class="p">(</span><span class="o">**</span><span class="n">search_options</span><span class="p">)</span>
-    <span class="n">params</span><span class="o">.</span><span class="n">input_ids</span> <span class="o">=</span> <span class="n">input_tokens</span>
     <span class="n">generator</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Generator</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
 
+    <span class="c1"># Append system and input tokens to the generator</span>
+    <span class="n">generator</span><span class="o">.</span><span class="n">append_tokens</span><span class="p">(</span><span class="n">system_tokens</span> <span class="o">+</span> <span class="n">input_tokens</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output: &quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="c1"># stream the output</span>
+    <span class="c1"># Stream the output</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">while</span> <span class="ow">not</span> <span class="n">generator</span><span class="o">.</span><span class="n">is_done</span><span class="p">():</span>
-            <span class="n">generator</span><span class="o">.</span><span class="n">compute_logits</span><span class="p">()</span>
             <span class="n">generator</span><span class="o">.</span><span class="n">generate_next_token</span><span class="p">()</span>
 
             <span class="n">new_token</span> <span class="o">=</span> <span class="n">generator</span><span class="o">.</span><span class="n">get_next_tokens</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
             <span class="nb">print</span><span class="p">(</span><span class="n">tokenizer_stream</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">new_token</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  --control+c pressed, aborting generation--&quot;</span><span class="p">)</span>
-
     <span class="nb">print</span><span class="p">()</span>
-    <span class="n">text</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Input: &quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">()</span>
+
+    <span class="k">del</span> <span class="n">generator</span>
 </pre></div>
 </div>
 </div>

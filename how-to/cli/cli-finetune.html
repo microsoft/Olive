@@ -531,7 +531,6 @@ Azure AI</label><div class="sd-tab-content docutils">
 Python</label><div class="sd-tab-content docutils">
 <p>Copy-and-paste the code below into a new Python file called <code class="docutils literal notranslate"><span class="pre">app.py</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime_genai</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">og</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;loading model and adapters...&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">model</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="s2">&quot;models/llama/onnx/model&quot;</span><span class="p">)</span>
@@ -544,17 +543,18 @@ Python</label><div class="sd-tab-content docutils">
 
 <span class="n">params</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">GeneratorParams</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
 <span class="n">params</span><span class="o">.</span><span class="n">set_search_options</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">past_present_share_buffer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="n">user_input</span> <span class="o">=</span> <span class="s2">&quot;cricket is a wonderful sport&quot;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">input_ids</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;</span><span class="se">\n</span><span class="si">{</span><span class="n">user_input</span><span class="si">}</span><span class="s2">&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
 
 <span class="n">generator</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Generator</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
-
 <span class="n">generator</span><span class="o">.</span><span class="n">set_active_adapter</span><span class="p">(</span><span class="n">adapters</span><span class="p">,</span> <span class="s2">&quot;phrase_classifier&quot;</span><span class="p">)</span>
+
+<span class="n">user_input</span> <span class="o">=</span> <span class="s2">&quot;cricket is a wonderful sport&quot;</span>
+<span class="n">generator</span><span class="o">.</span><span class="n">append_tokens</span><span class="p">(</span>
+    <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;</span><span class="se">\n</span><span class="si">{</span><span class="n">user_input</span><span class="si">}</span><span class="s2">&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">user_input</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 <span class="k">while</span> <span class="ow">not</span> <span class="n">generator</span><span class="o">.</span><span class="n">is_done</span><span class="p">():</span>
-    <span class="n">generator</span><span class="o">.</span><span class="n">compute_logits</span><span class="p">()</span>
     <span class="n">generator</span><span class="o">.</span><span class="n">generate_next_token</span><span class="p">()</span>
 
     <span class="n">new_token</span> <span class="o">=</span> <span class="n">generator</span><span class="o">.</span><span class="n">get_next_tokens</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
