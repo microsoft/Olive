@@ -60,7 +60,6 @@ import onnxruntime_genai as og
 
 model = og.Model("model_path")
 tokenizer = og.Tokenizer(model)
-tokenizer_stream = tokenizer.create_stream()
 
 prompt = '''def print_prime(n):
     """
@@ -71,11 +70,13 @@ tokens = tokenizer.encode(prompt)
 
 params = og.GeneratorParams(model)
 params.set_search_options(max_length=200)
-params.input_ids = tokens
+generator = og.Generator(model, params)
+generator.append_tokens(tokens)
 
-output_tokens = model.generate(params)
+while not generator.is_done():
+  generator.generate_next_token()
 
-text = tokenizer.decode(output_tokens)
+text = tokenizer.decode(generator.get_sequence(0))
 
 print("Output:")
 print(text)

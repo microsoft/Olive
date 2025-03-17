@@ -95,7 +95,6 @@ Copy-and-paste the code below into a new Python file called `app.py`:
 
 ```python
 import onnxruntime_genai as og
-import numpy as np
 
 print("loading model and adapters...", end="", flush=True)
 model = og.Model("models/llama/onnx/model")
@@ -108,17 +107,18 @@ tokenizer_stream = tokenizer.create_stream()
 
 params = og.GeneratorParams(model)
 params.set_search_options(max_length=100, past_present_share_buffer=False)
-user_input = "cricket is a wonderful sport"
-params.input_ids = tokenizer.encode(f"<|start_header_id|>user<|end_header_id|>\n{user_input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n")
 
 generator = og.Generator(model, params)
-
 generator.set_active_adapter(adapters, "phrase_classifier")
+
+user_input = "cricket is a wonderful sport"
+generator.append_tokens(
+    tokenizer.encode(f"<|start_header_id|>user<|end_header_id|>\n{user_input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n")
+)
 
 print(f"{user_input}")
 
 while not generator.is_done():
-    generator.compute_logits()
     generator.generate_next_token()
 
     new_token = generator.get_next_tokens()[0]
