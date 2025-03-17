@@ -83,19 +83,18 @@ For AOT compilation, the latest nightly x64 build of onnxruntime-qnn is required
 pip install -r requirements.txt
 
 # ONNX Runtime packages
-# Note: Only Windows x64 package is available in this feed; contact the team for the Linux x64 package
 pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
 pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple onnxruntime-qnn --no-deps
 ```
 
 ## Usage
 
-The entire workflow is configured via the [phi3_5_config.json](phi3_5_config.json) file. Update the `/path/to/qnn/env/bin` in the config file to point to the Python environment where `onnxruntime-qnn` is installed.
+The entire workflow is configured via the [config.json](config.json) file. Update the `/path/to/qnn/env/bin` in the config file to point to the Python environment where `onnxruntime-qnn` is installed.
 
 To begin the optimization process, run the following command in the first Python environment:
 
 ```bash
-olive run --config phi3_5_config.json
+olive run --config config.json
 ```
 
 The optimization process will take some time to complete. Once finished, the optimized model will be saved in the `models` directory.

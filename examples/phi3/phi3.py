@@ -287,8 +287,8 @@ def genai_run(prompt, model_path, max_length):
         "repetition_penalty": 1.0,
     }
     params.set_search_options(**search_options)
-    params.input_ids = input_tokens
     generator = og.Generator(model, params)
+    generator.append_tokens(input_tokens)
     print("Generator created")
 
     first = True
@@ -299,7 +299,6 @@ def genai_run(prompt, model_path, max_length):
 
     try:
         while not generator.is_done():
-            generator.compute_logits()
             generator.generate_next_token()
             if first:
                 first_token_timestamp = time.time()

@@ -62,10 +62,10 @@ jobs:
         exampleFolder: super_resolution
         exampleName: super_resolution
       mobilenet_qnn_toolkit:
-        exampleFolder: mobilenet
+        exampleFolder: mobilenet/qnn
         exampleName: qnn_tooklit
       inception_snpe_toolkit:
-        exampleFolder: inception
+        exampleFolder: inception/qnn
         exampleName: snpe_toolkit
 
 # Linux GPU examples testing.

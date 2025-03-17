@@ -281,14 +281,18 @@ def genai_run(prompts, model_path, max_length=200):
     print("Model loaded in {:.2f} seconds".format(model_loaded_timestamp - app_started_timestamp))
     tokenizer = og.Tokenizer(model)
 
+    input_tokens = tokenizer.encode_batch(prompts)
+
     print("Creating generator ...")
     params = og.GeneratorParams(model)
     params.set_search_options(max_length=max_length)
-    params.input_ids = tokenizer.encode_batch(prompts)
+    generator = og.Generator(model, params)
+    generator.append_tokens(input_tokens)
 
     print("Generating tokens ...")
     start_time = time.time()
-    output_tokens = model.generate(params)
+    while not generator.is_done():
+        generator.generate_next_token()
     run_time = time.time() - start_time
 
     print("Decoding generated tokens ...")
@@ -296,9 +300,9 @@ def genai_run(prompts, model_path, max_length=200):
 
     for i, prompt in enumerate(prompts):
         print(f"Prompt #{i+1:02d}: {prompt}")
-        print(tokenizer.decode(output_tokens[i]))
-        output_token_count += len(output_tokens[i])
+        print(tokenizer.decode(generator.get_sequence(i)))
 
+    output_token_count = sum(len(generator.get_sequence(i)) for i in range(len(prompts)))
     print(f"Tokens: {output_token_count}, Time: {run_time:.2f}, Tokens per second: {output_token_count / run_time:.2f}")
 
 
