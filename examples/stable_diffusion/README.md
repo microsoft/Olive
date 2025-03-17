@@ -12,7 +12,7 @@ The OpenVINO optimization sample will convert each PyTorch model to OpenVINO IR 
 
 - ONNX Runtime with
     - [CUDA EP](#stable-diffusion-and-stable-diffusion-xl-optimization-with-onnx-runtime-cuda-ep)
-    - DirectML EP: go to examples [Stable Diffusion](../directml/stable_diffusion/README.md), [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md)
+    - DirectML EP: go to examples [Stable Diffusion](./README_directml.md), [Stable Diffusion XL](../stable_diffusion_xl/README.md)
 - [OpenVINO](#stable-diffusion-optimization-with-openvino)
 
 ## Stable Diffusion and Stable Diffusion XL Optimization with ONNX Runtime CUDA EP
@@ -48,7 +48,7 @@ cd examples/stable_diffusion
 
 **_Stable Diffusion XL_**
 ```bash
-cd examples/directml/stable_diffusion_xl
+cd examples/stable_diffusion_xl
 ```
 
 ##### Install onnxruntime
@@ -117,8 +117,8 @@ python stable_diffusion_xl.py --provider cuda --num_images 2
 The result will be saved as `result_<i>.png` on disk.
 
 Refer to the corresponding section in the DirectML READMEs for more details on the test inference options:
-- [Stable Diffusion](../directml/stable_diffusion/README.md#test-inference)
-- [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md#test-inference)
+- [Stable Diffusion](./README_directml.md#test-inference)
+- [Stable Diffusion XL](../stable_diffusion_xl/README.md#test-inference)
 
 
 ## Stable Diffusion Optimization with OpenVINO
