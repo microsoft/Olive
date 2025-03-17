@@ -1,0 +1,877 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Packaging Olive artifacts &#8212; Olive  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/configure-workflows/model-packaging';</script>
+    <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="How To Configure Systems" href="systems.html" />
+    <link rel="prev" title="How To Configure Metrics" href="metrics-configuration.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.8.0" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Olive  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../examples.html">
+    Examples
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../examples.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">How-to</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Packaging Olive artifacts</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="packaging-olive-artifacts">
+<h1>Packaging Olive artifacts<a class="headerlink" href="#packaging-olive-artifacts" title="Link to this heading">#</a></h1>
+<section id="what-is-olive-packaging">
+<h2>What is Olive Packaging<a class="headerlink" href="#what-is-olive-packaging" title="Link to this heading">#</a></h2>
+<p>Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user requires. Olive packaging can be used in different scenarios. There are 4 packaging types: <code class="docutils literal notranslate"><span class="pre">Zipfile</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLModels</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLData</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLDeployment</span></code> and <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code>.</p>
+<section id="zipfile">
+<h3>Zipfile<a class="headerlink" href="#zipfile" title="Link to this heading">#</a></h3>
+<p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>, and a <code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code> file in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>: top ranked output model set</p>
+<ul>
+<li><p>Model file</p></li>
+<li><p>Olive Pass run history configurations for candidate model</p></li>
+<li><p>Inference settings (<code class="docutils literal notranslate"><span class="pre">onnx</span></code> model only)</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code>: A JSON file containing a list that ranks all output models based on specific metrics across all accelerators.</p></li>
+</ul>
+<section id="candidatemodels">
+<h4>CandidateModels<a class="headerlink" href="#candidatemodels" title="Link to this heading">#</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code> includes k folders where k is the number of ranked output models, with name <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_1</span></code>, <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_2</span></code>, … and <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_k</span></code>. The order is ranked by metrics priorities, starting from 1. e.g., if you have 3 metrics <code class="docutils literal notranslate"><span class="pre">metric_1</span></code>, <code class="docutils literal notranslate"><span class="pre">metric_2</span></code> and <code class="docutils literal notranslate"><span class="pre">metric_3</span></code> with priority <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">2</span></code> and <code class="docutils literal notranslate"><span class="pre">3</span></code>. The output models will be sorted firstly by <code class="docutils literal notranslate"><span class="pre">metric_1</span></code>. If the value of <code class="docutils literal notranslate"><span class="pre">metric_1</span></code> of 2 output models are same, they will be sorted by <code class="docutils literal notranslate"><span class="pre">metric_2</span></code>, and followed by next lower priority metric.</p>
+<p>Each <code class="docutils literal notranslate"><span class="pre">BestCandidateModel</span></code> folder will include model file/folder. The folder also includes a json file which includes the Olive Pass run history configurations since input model, a json file with performance metrics and a json file for inference settings for the candidate model if the candidate model is an ONNX model.</p>
+</section>
+<section id="models-rank-json-file">
+<h4>Models rank JSON file<a class="headerlink" href="#models-rank-json-file" title="Link to this heading">#</a></h4>
+<p>A file that contains a JSON list for ranked model info across all accelerators, e.g.:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/model.onnx&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;inference_settings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;execution_provider&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                        </span><span class="s2">&quot;CPUExecutionProvider&quot;</span>
+<span class="w">                    </span><span class="p">],</span>
+<span class="w">                    </span><span class="nt">&quot;provider_options&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                        </span><span class="p">{}</span>
+<span class="w">                    </span><span class="p">],</span>
+<span class="w">                    </span><span class="nt">&quot;io_bind&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;session_options&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nt">&quot;execution_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;graph_optimization_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">99</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;inter_op_num_threads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;intra_op_num_threads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;use_ort_extensions&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;model_attributes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;&lt;model_attributes_key&gt;&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;model_attributes_value&gt;&quot;</span><span class="p">},</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;metrics&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;accuracy-accuracy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8602941176470589</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;higher_is_better&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;latency-avg&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">36.2313</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;higher_is_better&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;model_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;model_config&gt;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;metrics&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;metrics&gt;&quot;</span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;model_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;model_config&gt;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;metrics&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;metrics&gt;&quot;</span><span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="azuremlmodels">
+<h3>AzureMLModels<a class="headerlink" href="#azuremlmodels" title="Link to this heading">#</a></h3>
+<p>AzureMLModels packaging will register the output models to your Azure Machine Learning workspace. The asset name will be set as <code class="docutils literal notranslate"><span class="pre">&lt;packaging_config_name&gt;_&lt;accelerator_spec&gt;_&lt;model_rank&gt;</span></code>. The order is ranked by metrics priorities, starting from 1. For instance, if the output model is ONNX model and the packaging config is:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureMLModels&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;olive_output_model&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;description&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>and for CPU, the best execution provider is CPUExecutionProvider, so the first ranked model name registered on AML will be <code class="docutils literal notranslate"><span class="pre">olive_output_model_cpu-cpu_1</span></code>.</p>
+<p>Olive will also upload model configuration file, inference config file, metrics file and model info file to the Azure ML.</p>
+</section>
+<section id="azuremldata">
+<h3>AzureMLData<a class="headerlink" href="#azuremldata" title="Link to this heading">#</a></h3>
+<p>AzureMLData packaging will upload the output models to your Azure Machine Learning workspace as Data assets. The asset name will be set as <code class="docutils literal notranslate"><span class="pre">&lt;packaging_config_name&gt;_&lt;accelerator_spec&gt;_&lt;model_rank&gt;</span></code>. The order is ranked by metrics priorities, starting from 1. For instance, if the output model is ONNX model and the packaging config is:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureMLData&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;olive_output_model&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;description&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>and for CPU, the best execution provider is CPUExecutionProvider, so the first ranked model Data name on AML will be <code class="docutils literal notranslate"><span class="pre">olive_output_model_cpu-cpu_1</span></code>.</p>
+<p>Olive will also upload model configuration file, inference config file, metrics file and model info file to the Azure ML.</p>
+</section>
+<section id="azuremldeployment">
+<h3>AzureMLDeployment<a class="headerlink" href="#azuremldeployment" title="Link to this heading">#</a></h3>
+<p>AzureMLDeployment packaging will <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-package-models?view=azureml-api-2&amp;amp;tabs=sdk">package</a> ranked No. 1 model across all output models to Azure ML workspace, and create an endpoint for it if the endpoint doesn’t exist, then deploy the output model to this endpoint.</p>
+</section>
+<section id="dockerfile">
+<h3>Dockerfile<a class="headerlink" href="#dockerfile" title="Link to this heading">#</a></h3>
+<p>Dockerfile packaging will generate a Dockerfile. You can simple run <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">build</span></code> for this Dockerfile to build a docker image which includes <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code> Python package and first ranked output model.</p>
+</section>
+</section>
+<section id="how-to-package-olive-artifacts">
+<h2>How to package Olive artifacts<a class="headerlink" href="#how-to-package-olive-artifacts" title="Link to this heading">#</a></h2>
+<p>Olive packaging configuration is configured in <code class="docutils literal notranslate"><span class="pre">PackagingConfig</span></code> in Engine configuration. <code class="docutils literal notranslate"><span class="pre">PackagingConfig</span></code> can be a single packaging configuration. Alternatively, if you want to apply multiple packaging types, you can also define a list of packaging configurations.</p>
+<p>If not specified, Olive will not package artifacts.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">PackagingConfig</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span> <span class="pre">[PackagingType]</span></code>:
+Olive packaging type. Olive will package different artifacts based on <code class="docutils literal notranslate"><span class="pre">type</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span> <span class="pre">[str]</span></code>:
+For <code class="docutils literal notranslate"><span class="pre">PackagingType.Zipfile</span></code> type, Olive will generate a ZIP file with <code class="docutils literal notranslate"><span class="pre">name</span></code> prefix: <code class="docutils literal notranslate"><span class="pre">&lt;name&gt;.zip</span></code>.
+For <code class="docutils literal notranslate"><span class="pre">PackagingType.AzureMLModels</span></code> and <code class="docutils literal notranslate"><span class="pre">PackagingType.AzureMLData</span></code>, Olive will use this <code class="docutils literal notranslate"><span class="pre">name</span></code> for Azure ML resource.
+The default value is <code class="docutils literal notranslate"><span class="pre">OutputModels</span></code>.
+For <code class="docutils literal notranslate"><span class="pre">PackagingType.AzureMLDeployment</span></code> and <code class="docutils literal notranslate"><span class="pre">PackagingType.Dockerfile</span></code> type, Olive will ignore this attribute.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">config</span> <span class="pre">[dict]</span></code>:
+The packaging config.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Zipfile</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">export_in_mlflow_format</span> <span class="pre">[bool]</span></code>:
+Export model in mlflow format. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AzureMLModels</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">export_in_mlflow_format</span> <span class="pre">[bool]</span></code>:
+Export model in mlflow format. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">version</span> <span class="pre">[int</span> <span class="pre">|</span> <span class="pre">str]</span></code>：
+The version for this model registration. This is <code class="docutils literal notranslate"><span class="pre">1</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span> <span class="pre">[str]</span></code>
+The description for this model registration. This is <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AzureMLData</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">export_in_mlflow_format</span> <span class="pre">[bool]</span></code>:
+Export model in mlflow format. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">version</span> <span class="pre">[int</span> <span class="pre">|</span> <span class="pre">str]</span></code>：
+The version for this data asset. This is <code class="docutils literal notranslate"><span class="pre">1</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span> <span class="pre">[str]</span></code>
+The description for this data asset. This is <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AzureMLDeployment</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_name</span> <span class="pre">[str]</span></code>:
+The model name when registering your output model to your Azure ML workspace. <code class="docutils literal notranslate"><span class="pre">olive-deployment-model</span></code> by default</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_version</span> <span class="pre">[int</span> <span class="pre">|</span> <span class="pre">str]</span></code>:
+The model version when registering your output model to your Azure ML workspace. Please note if there is already a model with the same name and the same version in your workspace, this will override your existing registered model. <code class="docutils literal notranslate"><span class="pre">1</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span> <span class="pre">[str]</span></code>
+The description for this model registration. This is <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_package</span> <span class="pre">[ModelPackageConfig]</span></code>:
+The configurations for model packaging.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">target_environment</span> <span class="pre">[str]</span></code>:
+The environment name for the environment created by Olive. <code class="docutils literal notranslate"><span class="pre">olive-target-environment</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">target_environment_version</span> <span class="pre">[str]</span></code>
+The environment version for the environment created by Olive. Please note if there is already an environment with the same name and the same version in your workspace, your existing environment version will plus 1. This <code class="docutils literal notranslate"><span class="pre">target_environment_version</span></code> will not be applied for your environment. <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">inferencing_server</span> <span class="pre">[InferenceServerConfig]</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span> <span class="pre">[str]</span></code>
+The targeted inferencing server type. <code class="docutils literal notranslate"><span class="pre">AzureMLOnline</span></code> or <code class="docutils literal notranslate"><span class="pre">AzureMLBatch</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">code_folder</span> <span class="pre">[str]</span></code>
+The folder path to your scoring script.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scoring_script</span> <span class="pre">[str]</span></code>
+The scoring script name.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">base_environment_id</span> <span class="pre">[str]</span></code>
+The base environment id that will be used for Azure ML packaging. The format is <code class="docutils literal notranslate"><span class="pre">azureml:&lt;base-environment-name&gt;:&lt;base-environment-version&gt;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">environment_variables</span> <span class="pre">[dict]</span></code>
+Env vars that are required for the package to run, but not necessarily known at Environment creation time. <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">deployment_config</span> <span class="pre">[DeploymentConfig]</span></code>
+The deployment configuration.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">endpoint_name</span> <span class="pre">[str]</span></code>
+The endpoint name for the deployment. If the endpoint doesn’t exist, Olive will create one endpoint with this name. <code class="docutils literal notranslate"><span class="pre">olive-default-endpoint</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">deployment_name</span> <span class="pre">[str]</span></code>
+The name of the deployment. <code class="docutils literal notranslate"><span class="pre">olive-default-deployment</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">instance_type</span> <span class="pre">[str]</span></code>
+Azure compute sku. ManagedOnlineDeployment only. <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">compute</span> <span class="pre">[str]</span></code>
+Compute target for batch inference operation. BatchDeployment only. <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">instance_count</span> <span class="pre">[str]</span></code>
+Number of instances the interfering will run on. <code class="docutils literal notranslate"><span class="pre">1</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mini_batch_size</span> <span class="pre">[str]</span></code>
+Size of the mini-batch passed to each batch invocation. <code class="docutils literal notranslate"><span class="pre">10</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">extra_config</span> <span class="pre">[dict]</span></code>
+Extra configurations for deployment. <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">requirements_file</span> <span class="pre">[str]</span></code>:
+<code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> file path. The packages will be installed to docker image.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">include_runtime_packages</span> <span class="pre">[bool]</span></code>:
+Whether or not to include runtime packages (like onnxruntime) in zip file. Defaults to True</p></li>
+</ul>
+</li>
+</ul>
+<p>You can add different types <code class="docutils literal notranslate"><span class="pre">PackagingConfig</span></code> as a list to Engine configurations. e.g.:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;search_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;execution_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;joint&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;sampler&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tpe&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;max_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;seed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;evaluator&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;common_evaluator&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;host&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_system&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_system&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;packaging_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Zipfile&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OutputModels&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureMLModels&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OutputModels&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureMLData&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OutputModels&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureMLDeployment&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;model_package&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;inferencing_server&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureMLOnline&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;code_folder&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;code&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;scoring_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;score.py&quot;</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;base_environment_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml:olive-aml-packaging:1&quot;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="w">    </span><span class="nt">&quot;cache_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cache&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="packaged-files">
+<h2>Packaged files<a class="headerlink" href="#packaged-files" title="Link to this heading">#</a></h2>
+<section id="inference-config-file">
+<h3>Inference config file<a class="headerlink" href="#inference-config-file" title="Link to this heading">#</a></h3>
+<p>The inference config file is a json file including <code class="docutils literal notranslate"><span class="pre">execution_provider</span></code> and <code class="docutils literal notranslate"><span class="pre">session_options</span></code>. e.g.:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;execution_provider&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">[</span>
+<span class="w">            </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="p">{}</span>
+<span class="w">        </span><span class="p">]</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;session_options&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;execution_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;graph_optimization_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">99</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;extra_session_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;inter_op_num_threads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;intra_op_num_threads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="model-configuration-file">
+<h3>Model configuration file<a class="headerlink" href="#model-configuration-file" title="Link to this heading">#</a></h3>
+<p>The model configuration file is a json file including the history of applied Passes history to the output model. e.g.:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;53fc6781998a4624b61959bb064622ce&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;0_OnnxConversion-53fc6781998a4624b61959bb064622ce-7a320d6d630bced3548f242238392730&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;1_OrtTransformersOptimization-0-c499e39e42693aaab050820afd31e0c3-cpu-cpu&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;2_OnnxQuantization-1-1431c563dcfda9c9c3bf26c5d61ef58e&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;3_OrtSessionParamsTuning-2-a843d77ae4964c04e145b83567fb5b05-cpu-cpu&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="metrics-file">
+<h3>Metrics file<a class="headerlink" href="#metrics-file" title="Link to this heading">#</a></h3>
+<p>The metrics file is a json file including input model metrics and output model metrics.</p>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="metrics-configuration.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">How To Configure Metrics</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="systems.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">How To Configure Systems</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-olive-packaging">What is Olive Packaging</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#zipfile">Zipfile</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#candidatemodels">CandidateModels</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#models-rank-json-file">Models rank JSON file</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#azuremlmodels">AzureMLModels</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#azuremldata">AzureMLData</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#azuremldeployment">AzureMLDeployment</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dockerfile">Dockerfile</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-package-olive-artifacts">How to package Olive artifacts</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#packaged-files">Packaged files</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#inference-config-file">Inference config file</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#model-configuration-file">Model configuration file</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#metrics-file">Metrics file</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2025, Olive Dev team.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
