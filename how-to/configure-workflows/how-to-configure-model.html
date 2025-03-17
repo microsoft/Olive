@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>How To Set Model Path &#8212; Olive  documentation</title>
+    <title>How To Configure Model &#8212; Olive  documentation</title>
   
   
   
@@ -429,7 +429,7 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">How-to</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How To Set Model Path</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How To Configure Model</span></li>
   </ul>
 </nav>
 </div>
@@ -446,11 +446,189 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="how-to-set-model-path">
-<h1>How To Set Model Path<a class="headerlink" href="#how-to-set-model-path" title="Link to this heading">#</a></h1>
-<p>This document describes how to configure model paths in Olive for both local and remote model resources.</p>
+  <section id="how-to-configure-model">
+<h1>How To Configure Model<a class="headerlink" href="#how-to-configure-model" title="Link to this heading">#</a></h1>
+<p>This document describes how to configure the different types of Models in Olive.</p>
+<section id="model-types">
+<h2>Model Types<a class="headerlink" href="#model-types" title="Link to this heading">#</a></h2>
+<section id="hfmodel">
+<h3>HfModel<a class="headerlink" href="#hfmodel" title="Link to this heading">#</a></h3>
+<p>Hf Model is a model type that is used to load HuggingFace transformers model.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_name_or_path&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-generation-with-past&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;adapter_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;adapter_path&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;load_kwargs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;attention_implementation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eager&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;torch_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;float16&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model_path</span></code> can be a local path or a string name (such as a model hub id). Olive will automatically infer if it is a string name or local file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">task</span></code> is a string that specifies the task type. The default task is <code class="docutils literal notranslate"><span class="pre">text-generation-with-past</span></code> which is equivalent to a causal language model with key-value cache enabled.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adapter_path</span></code> is an optional field that is used to load HuggingFace Peft adapters, such as LoRA, to the base model. It can be a local path or a string name (such as a model hub id).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_kwargs</span></code> is an optional field that is used to pass additional arguments to the <code class="docutils literal notranslate"><span class="pre">from_pretrained</span></code> methods used to load the model, config, and tokenizer.</p></li>
+</ul>
+<p>If optimum is installed, Olive will use it to automatically obtain the model’s input/output config and dummy inputs for conversion to ONNX. Else, the model’s io_config must be provided. Refer to <a class="reference internal" href="../../reference/options.html#input-model-information"><span class="std std-ref">options</span></a> for more details.</p>
+</section>
+<section id="pytorchmodel">
+<h3>PytorchModel<a class="headerlink" href="#pytorchmodel" title="Link to this heading">#</a></h3>
+<p>Pytorch Model is a model type that is used to load PyTorch models. It can be used to load any PyTorch model.</p>
+<section id="entire-model">
+<h4>Entire Model<a class="headerlink" href="#entire-model" title="Link to this heading">#</a></h4>
+<p>If the <code class="docutils literal notranslate"><span class="pre">model_path</span></code> is a file with the full model (e.g. <code class="docutils literal notranslate"><span class="pre">model.pt</span></code>) and can be loaded directly using the <code class="docutils literal notranslate"><span class="pre">torch.load</span></code> method:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PytorchModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_path&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="custom-model">
+<h4>Custom Model<a class="headerlink" href="#custom-model" title="Link to this heading">#</a></h4>
+<p>If the <code class="docutils literal notranslate"><span class="pre">model_path</span></code> is a file/folder/string with model artifaces (e.g. <code class="docutils literal notranslate"><span class="pre">model_dir</span></code>) and requires a custom loading function:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PytorchModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load_model.py&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_loader&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load_model&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model_script</span></code> is the path to the script that contains the custom loading function.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_loader</span></code> is the name of the function that loads the model. It should take the <code class="docutils literal notranslate"><span class="pre">model_path</span></code> as an argument and return the loaded PyTorch model.</p></li>
+</ul>
+</section>
+<section id="io-config-and-dummy-inputs">
+<h4>IO Config and Dummy Inputs<a class="headerlink" href="#io-config-and-dummy-inputs" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">io_config</span></code> is required in the model configuration for conversion to ONNX. It can be a dict similar to the one used in <code class="docutils literal notranslate"><span class="pre">HfModel</span></code> or a function defined in the <code class="docutils literal notranslate"><span class="pre">model_script</span></code>. The function should take the model handler as an argument and return the io_config.</p></li>
+<li><p>If the <code class="docutils literal notranslate"><span class="pre">io_config</span></code> has <code class="docutils literal notranslate"><span class="pre">input_shapes</span></code> and optionally <code class="docutils literal notranslate"><span class="pre">input_types</span></code>, it can be used to create dummy inputs for the model. Alternatively, the <code class="docutils literal notranslate"><span class="pre">dummy_inputs_func</span></code> field can be used to specify a function that generates dummy inputs. The function should take the model handler as an argument and return the dummy inputs.</p></li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PytorchModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load_model.py&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_loader&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load_model&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;attention_mask&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;output_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;logits&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;dummy_inputs_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;generate_dummy_inputs&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="onnx-model">
+<h3>ONNX Model<a class="headerlink" href="#onnx-model" title="Link to this heading">#</a></h3>
+<p>ONNX Model is a model type that is used to load ONNX models.</p>
+<section id="no-external-data">
+<h4>No external data<a class="headerlink" href="#no-external-data" title="Link to this heading">#</a></h4>
+<p>If there is just the ONNX model file and no external data files:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/model.onnx&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="external-data">
+<h4>External data<a class="headerlink" href="#external-data" title="Link to this heading">#</a></h4>
+<p>If the model has external data file(s) in the same directory as the ONNX model file, specify the parent directory as the <code class="docutils literal notranslate"><span class="pre">model_path</span></code> and the ONNX model file name as <code class="docutils literal notranslate"><span class="pre">onnx_file_name</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/parent_dir&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;onnx_file_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model.onnx&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="openvino-model">
+<h3>OpenVINO Model<a class="headerlink" href="#openvino-model" title="Link to this heading">#</a></h3>
+<p>OpenVINO Model is a model type that is used to load OpenVINO models.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model_path</span></code> is the path to the OpenVINO model directory. The directory should contain the <code class="docutils literal notranslate"><span class="pre">model.xml</span></code> and <code class="docutils literal notranslate"><span class="pre">model.bin</span></code> files.</p></li>
+</ul>
+</section>
+<section id="qnn-model">
+<h3>QNN Model<a class="headerlink" href="#qnn-model" title="Link to this heading">#</a></h3>
+<p>QNN Model is a model type that is used to load QNN models.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_file_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNN.CPP&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model_file_format</span></code> is the format of the QNN model file. It can be <code class="docutils literal notranslate"><span class="pre">QNN.CPP</span></code>, <code class="docutils literal notranslate"><span class="pre">QNN.LIB</span></code>, or <code class="docutils literal notranslate"><span class="pre">QNN.SERIALIZED.BIN</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_path</span></code> is the path to the model file for <code class="docutils literal notranslate"><span class="pre">QNN.CPP</span></code> and <code class="docutils literal notranslate"><span class="pre">QNN.SERIALIZED.BIN</span></code> formats, or the path to the model directory for <code class="docutils literal notranslate"><span class="pre">QNN.LIB</span></code> format.</p></li>
+</ul>
+</section>
+<section id="snpe-model">
+<h3>SNPE Model<a class="headerlink" href="#snpe-model" title="Link to this heading">#</a></h3>
+<p>SNPE Model is a model type that is used to load SNPE models.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SNPEModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model.dlc&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model_path</span></code> is the path to the SNPE DLC file.</p></li>
+</ul>
+</section>
+<section id="tensorflow-model">
+<h3>TensorFlow Model<a class="headerlink" href="#tensorflow-model" title="Link to this heading">#</a></h3>
+<p>TensorFlow Model is a model type that is used to load TensorFlow models.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TensorFlowModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model_path</span></code> is the path to the TensorFlow model directory.</p></li>
+</ul>
+</section>
+<section id="composite-model">
+<h3>Composite Model<a class="headerlink" href="#composite-model" title="Link to this heading">#</a></h3>
+<p>Composite Model is a model type that is used to load composite models. Composite models are models that are composed of multiple sub-models.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CompositeModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_component_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;model1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;model2&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;model_components&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/model1.onnx&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/model2.onnx&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="configuring-model-path">
+<h2>Configuring Model Path<a class="headerlink" href="#configuring-model-path" title="Link to this heading">#</a></h2>
+<p>The model path is specified in the model config under the <code class="docutils literal notranslate"><span class="pre">model_path</span></code> key. The model path can be a local file, a local folder, or a remote resource.</p>
 <section id="local-model-path">
-<h2>Local Model Path<a class="headerlink" href="#local-model-path" title="Link to this heading">#</a></h2>
+<h3>Local Model Path<a class="headerlink" href="#local-model-path" title="Link to this heading">#</a></h3>
 <p>If the model path is a local path or a string name (such as a model hub id), it can be directly specified as a string. Olive will automatically
 infer if it is a string name, local file or local directory.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -460,7 +638,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 <p>You can also specify the resource type explicitly.</p>
 <section id="local-file">
-<h3>Local File<a class="headerlink" href="#local-file" title="Link to this heading">#</a></h3>
+<h4>Local File<a class="headerlink" href="#local-file" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
@@ -471,7 +649,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 </section>
 <section id="local-folder">
-<h3>Local Folder<a class="headerlink" href="#local-folder" title="Link to this heading">#</a></h3>
+<h4>Local Folder<a class="headerlink" href="#local-folder" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;folder&quot;</span><span class="p">,</span>
@@ -482,7 +660,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 </section>
 <section id="string-name">
-<h3>String Name<a class="headerlink" href="#string-name" title="Link to this heading">#</a></h3>
+<h4>String Name<a class="headerlink" href="#string-name" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;string_name&quot;</span><span class="p">,</span>
@@ -494,10 +672,10 @@ infer if it is a string name, local file or local directory.</p>
 </section>
 </section>
 <section id="remote-model-path">
-<h2>Remote Model Path<a class="headerlink" href="#remote-model-path" title="Link to this heading">#</a></h2>
+<h3>Remote Model Path<a class="headerlink" href="#remote-model-path" title="Link to this heading">#</a></h3>
 <p>Olive supports remote model resources. Currently, it supports AzureML model, AzureML datastore and AzureML job output.</p>
 <section id="azureml-model">
-<h3>AzureML Model<a class="headerlink" href="#azureml-model" title="Link to this heading">#</a></h3>
+<h4>AzureML Model<a class="headerlink" href="#azureml-model" title="Link to this heading">#</a></h4>
 <p>Models registered in an Azure Machine Learning workspace.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -515,7 +693,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 </section>
 <section id="azureml-registry-model">
-<h3>AzureML Registry Model<a class="headerlink" href="#azureml-registry-model" title="Link to this heading">#</a></h3>
+<h4>AzureML Registry Model<a class="headerlink" href="#azureml-registry-model" title="Link to this heading">#</a></h4>
 <p>Models curated in an Azure Machine Learning or models in your own registry. Azure ML curated model doesn’t require an <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> config section, but you can still add this section for additional <code class="docutils literal notranslate"><span class="pre">mlclient</span></code> configuration.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -529,7 +707,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 </section>
 <section id="azureml-datastore">
-<h3>AzureML Datastore<a class="headerlink" href="#azureml-datastore" title="Link to this heading">#</a></h3>
+<h4>AzureML Datastore<a class="headerlink" href="#azureml-datastore" title="Link to this heading">#</a></h4>
 <p>Model files or folders stored in an Azure Machine Learning datastore.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -547,7 +725,7 @@ infer if it is a string name, local file or local directory.</p>
 </div>
 </section>
 <section id="azureml-job-output">
-<h3>AzureML Job Output<a class="headerlink" href="#azureml-job-output" title="Link to this heading">#</a></h3>
+<h4>AzureML Job Output<a class="headerlink" href="#azureml-job-output" title="Link to this heading">#</a></h4>
 <p>Model files or folders generated by an Azure Machine Learning job and saved in the job output.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -583,6 +761,7 @@ workflow will automatically use the top level <code class="docutils literal notr
 <span class="p">}</span>
 </pre></div>
 </div>
+</section>
 </section>
 </section>
 </section>
@@ -634,17 +813,40 @@ workflow will automatically use the top level <code class="docutils literal notr
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#local-model-path">Local Model Path</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local-file">Local File</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local-folder">Local Folder</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#string-name">String Name</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-types">Model Types</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#hfmodel">HfModel</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pytorchmodel">PytorchModel</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#entire-model">Entire Model</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-model">Custom Model</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#io-config-and-dummy-inputs">IO Config and Dummy Inputs</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#remote-model-path">Remote Model Path</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-model">AzureML Model</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-registry-model">AzureML Registry Model</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-datastore">AzureML Datastore</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-job-output">AzureML Job Output</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#onnx-model">ONNX Model</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#no-external-data">No external data</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#external-data">External data</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#openvino-model">OpenVINO Model</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#qnn-model">QNN Model</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#snpe-model">SNPE Model</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tensorflow-model">TensorFlow Model</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#composite-model">Composite Model</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-model-path">Configuring Model Path</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local-model-path">Local Model Path</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#local-file">Local File</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#local-folder">Local Folder</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#string-name">String Name</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#remote-model-path">Remote Model Path</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-model">AzureML Model</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-registry-model">AzureML Registry Model</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-datastore">AzureML Datastore</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-job-output">AzureML Job Output</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
