@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Union
 import onnxruntime as ort
 import numpy as np
 import torch
-from pyinstaller.dist.olive._internal.optimum.onnxruntime.modeling_diffusion import ORTDiffusionPipeline, ORTModelTextEncoder, ORTModelUnet, ORTModelVaeDecoder, ORTModelVaeEncoder, ORTWrapperVae
+from optimum.onnxruntime.modeling_diffusion import ORTDiffusionPipeline, ORTModelTextEncoder, ORTModelUnet, ORTModelVaeDecoder, ORTModelVaeEncoder, ORTWrapperVae
 from transformers.modeling_outputs import ModelOutput
 from diffusers import StableDiffusionXLPipeline
 

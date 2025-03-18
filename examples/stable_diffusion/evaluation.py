@@ -20,7 +20,7 @@ import torch
 from torchmetrics.image.fid import FrechetInceptionDistance
 import io
 import requests
-from ..directml.stable_diffusion_xl.qnn import ORTStableDiffusionXLPipelineWithSave
+from sd_utils.qnn_xl import ORTStableDiffusionXLPipelineWithSave
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -45,7 +45,7 @@ def get_clip_scores(prompts: list[str], path: Path, clip_score_fn):
             scores.append(score)
             f.write(f"| {prompt} | {score} |\n")
 
-        logger.info("Scores avg: %s", np.mean(np.array(scores)))
+        logger.info("CLIP Scores avg: %s", np.mean(np.array(scores)))
         f.write(f"| Avg | {np.mean(np.array(scores))} |\n")
 
 
@@ -106,7 +106,7 @@ def get_fid_scores(prompts: list[str], path: Path, real_images):
 # prepare data
 
 def sanitize_path(input_string):
-    sanitized_string = re.sub(r'[^\w\-., ]', '', input_string)
+    sanitized_string = re.sub(r'[^\w\-, ]', '', input_string.strip())
     return sanitized_string
 
 

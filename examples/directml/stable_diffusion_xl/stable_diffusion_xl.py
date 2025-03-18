@@ -247,6 +247,7 @@ def run_inference(
     provider_map = {
         "dml": "DmlExecutionProvider",
         "cuda": "CUDAExecutionProvider",
+        "qnn": "CPUExecutionProvider",
     }
     assert provider in provider_map, f"Unsupported provider: {provider}"
 
@@ -364,7 +365,7 @@ def optimize(
         olive_config = None
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
-        olive_config = update_config_with_provider(olive_config, provider, use_fp16_fixed_vae)
+        olive_config = update_config_with_provider(olive_config, provider, use_fp16_fixed_vae, only_conversion)
 
         if is_refiner_model and submodel_name == "vae_encoder" and not use_fp16_fixed_vae:
             # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen

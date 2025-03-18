@@ -108,12 +108,12 @@ First generate onnx unoptimized model:
 
 Then generate data (updating the prompts to generate more will be better):
 
-`python .\evaluation.py --save_data --model_id stabilityai/stable-diffusion-2-1 --num_inference_steps 10 --seed 0`
+`python ..\..\stable_diffusion\evaluation.py --save_data --model_id stabilityai/sdxl-turbo --num_inference_steps 1 --data_dir quantize_data_turbo --guidance_scale 0 --seed 0 --xl`
 
 ## Optimize
 
-`python stable_diffusion.py --model_id stabilityai/stable-diffusion-2-1 --provider qnn --optimize --clean_cache`
+`python stable_diffusion_xl.py --model_id stabilityai/sdxl-turbo --provider qnn --optimize --clean_cache`
 
 ## Test and evaluate
 
-`python .\evaluation.py --model_id stabilityai/stable-diffusion-2-1 --num_inference_steps 10 --seed 0`
+`python ..\..\stable_diffusion\evaluation.py --model_id stabilityai/sdxl-turbo --num_inference_steps 1 --data_dir quantize_data_turbo --guidance_scale 0 --seed 0 --xl`
