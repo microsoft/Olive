@@ -65,7 +65,7 @@ jobs:
         exampleFolder: whisper
         exampleName: whisper
       mobilenet_qnn_ep:
-        exampleFolder: mobilenet
+        exampleFolder: mobilenet/qnn
         exampleName: mobilenet_qnn_ep
 
 # # Windows examples test
