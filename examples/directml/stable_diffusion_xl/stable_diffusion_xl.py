@@ -589,7 +589,7 @@ def main(raw_args=None):
 
     # Optimize the models
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
-    optimized_dir_name = "optimized" if args.provider == "dml" else "optimized-cuda"
+    optimized_dir_name = "optimized" if args.provider == "dml" else f"optimized-{args.provider}"
     optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     model_config = model_to_config.get(args.model_id, {})

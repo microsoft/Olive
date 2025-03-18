@@ -20,6 +20,7 @@ import torch
 from torchmetrics.image.fid import FrechetInceptionDistance
 import io
 import requests
+from ..directml.stable_diffusion_xl.qnn import ORTStableDiffusionXLPipelineWithSave
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -159,8 +160,8 @@ def run_inference(pipeline, args, prompt: str, output_path: Path):
     result = pipeline(
         [prompt],
         num_inference_steps = args.num_inference_steps,
-        height=512,
-        width=512,
+        height=args.image_size,
+        width=args.image_size,
         guidance_scale=args.guidance_scale,
         generator=generator
     )
@@ -190,6 +191,8 @@ def parse_args(raw_args):
     parser.add_argument("--num_data", default=10, type=int)
     parser.add_argument("--dataset", default="phiyodr/coco2017", type=str)
     parser.add_argument("--train_ratio", default=0.5, type=float)
+    parser.add_argument("--image_size", default=512, type=int, help="Width and height of the images to generate")
+    parser.add_argument("--xl", action="store_true")
     return parser.parse_args(raw_args)
 
 
@@ -219,7 +222,7 @@ def main(raw_args=None):
     train_num = math.floor(len(prompts) * args.train_ratio)
     clip_score_fn = partial(clip_score, model_name_or_path="openai/clip-vit-base-patch16")
 
-    script_dir = Path(__file__).resolve().parent
+    script_dir = Path(".") #Path(__file__).resolve().parent
     unoptimized_path = script_dir / args.data_dir / 'unoptimized'
     optimized_path = script_dir / args.data_dir / 'optimized'
 
@@ -228,9 +231,14 @@ def main(raw_args=None):
     optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     model_dir = unoptimized_model_dir if args.save_data else optimized_model_dir
-    pipeline = QnnStableDiffusionPipeline.from_pretrained(
-        model_dir, provider="CPUExecutionProvider"
-    )
+    if args.xl:
+        pipeline = ORTStableDiffusionXLPipelineWithSave.from_pretrained(
+            model_dir, provider="CPUExecutionProvider"
+        )
+    else:
+        pipeline = QnnStableDiffusionPipeline.from_pretrained(
+            model_dir, provider="CPUExecutionProvider"
+        )
     pipeline.save_data_dir = None
 
     if args.save_data:
