@@ -196,7 +196,7 @@ To use this feature, you will need a `remote_config.json` file to configure your
 }
 ```
 
-More details about `keyvault_name` can be found [here](https://microsoft.github.io/Olive/how-to/configure-workflows/huggingface-integration.html#huggingface-login).
+More details about `keyvault_name` can be found [here](https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login).
 
 Make sure you have installed Olive Azure ML extra by running:
 
@@ -210,11 +210,11 @@ Then you can run the following command:
 python llama2.py --qlora --remote_config remote_config.json
 ```
 
-Olive will submit the workflow to the compute resources in your Azure Machine Learning workspace and execute the workflow there. The output artifacts will be automatically exported to the Datastore. For more detailed information, please refer to [the official documentation](https://microsoft.github.io/Olive/how-to/configure-workflows/azure-ai/remote-workflow.html).
+Olive will submit the workflow to the compute resources in your Azure Machine Learning workspace and execute the workflow there. The output artifacts will be automatically exported to the Datastore. For more detailed information, please refer to [the official documentation](https://microsoft.github.io/Olive/features/azure-ai/remote-workflow.html).
 
 ### Accelerating Workflows with shared cache
 
-The shared cache is a system where Olive stores intermediate models in Azure Blob Storage. For more detailed information, please refer to [the documentation](https://microsoft.github.io/Olive/how-to/configure-workflows/azure-ai/shared-model-cache.html).
+The shared cache is a system where Olive stores intermediate models in Azure Blob Storage. For more detailed information, please refer to [the documentation](https://microsoft.github.io/Olive/features/azure-ai/shared-model-cache.html).
 
 You can run the following command:
 

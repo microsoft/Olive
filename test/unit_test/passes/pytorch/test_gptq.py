@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
+from test.unit_test.utils import make_local_tiny_llama
 
 import pytest
 import torch
@@ -39,12 +40,15 @@ test_gptq_dc_config = DataConfig(
     [
         ("katuni4ka/tiny-random-phi3", "Phi3ForCausalLM", None),
         ("katuni4ka/tiny-random-phi3", "Phi3ForCausalLM", test_gptq_dc_config),
-        ("facebook/opt-125m", "OPTForCausalLM", test_gptq_dc_config),
+        ("tiny-llama", "LlamaForCausalLM", None),
     ],
 )
 def test_gptq_default(tmp_path: Path, model_path: str, expected_model_type: str, data_config: DataConfig):
     # setup
-    input_model = HfModelHandler(model_path=model_path)
+    if model_path == "tiny-llama":
+        input_model = make_local_tiny_llama(tmp_path / "input_model")
+    else:
+        input_model = HfModelHandler(model_path=model_path)
     p = create_pass_from_dict(
         GptqQuantizer,
         {"data_config": data_config},

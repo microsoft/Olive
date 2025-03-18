@@ -14,6 +14,9 @@ from typing import TYPE_CHECKING, Optional, Union
 if TYPE_CHECKING:
     from lintrunner_adapters import LintMessage
 
+
+logger = logging.getLogger(__name__)
+
 LINTER_CODE = "FORMAT-JSON"
 
 
@@ -118,7 +121,7 @@ def check_file(
                 description=f"Failed to parse JSON: {e}",
             )
 
-        logging.exception("Failed to parse JSON file %s", filename)
+        logger.exception("Failed to parse JSON file %s", filename)
         return 1
 
 
@@ -179,7 +182,7 @@ def main() -> None:
                     result.display()
 
             except Exception:
-                logging.critical('Failed at "%s".', futures[future])
+                logger.critical('Failed at "%s".', futures[future])
                 raise
 
     if not args.linter_mode:

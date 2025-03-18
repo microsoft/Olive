@@ -67,6 +67,10 @@ class Surgeon:
                 return initializer
         return None
 
+    @staticmethod
+    def create_new_name(name: str, old_op: str, new_op: str) -> str:
+        return name.replace(old_op, new_op) if old_op in name else f"{name}_{new_op}"
+
 
 class RenameInputs(Surgeon):
     def __init__(self, old_names: List[str], new_names: List[str]):
@@ -473,7 +477,7 @@ class RMSNormToL2Norm(Surgeon):
     [Root] --> LpNormalization --> Mul
                 (p=2, axis=-1)
 
-    Where the weight of the Mul node is multiplied by sqrt(N) where N is equal to the reduced axis size.
+    The weight of the Mul node is multiplied by sqrt(N) where N is equal to the reduced axis size.
     If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
     """
 
@@ -497,11 +501,8 @@ class RMSNormToL2Norm(Surgeon):
             graph_idx = dag.get_graph_idx(node_name)
 
             # name for the new L2Norm node
-            l2norm_node_name = node_name.replace("Pow", "L2Norm") if "Pow" in node_name else f"{node_name}_L2Norm"
-            node_output_name = dag.get_node_outputs(node_name)[0]
-            l2norm_node_output_name = (
-                node_output_name.replace("Pow", "L2Norm") if "Pow" in node_output_name else f"{node_output_name}_L2Norm"
-            )
+            l2norm_node_name = self.create_new_name(node_name, "Pow", "L2Norm")
+            l2norm_node_output_name = f"{l2norm_node_name}_output_0"
 
             # create L2Norm node
             l2norm_node = onnx.helper.make_node(
@@ -521,6 +522,12 @@ class RMSNormToL2Norm(Surgeon):
                 logger.debug("RMSNorm Pattern does not end with Cast or Mul. Found %s", final_node_children)
                 continue
             final_node_output_name = dag.get_node_outputs(final_node_name)[0]
+            # add value info for the new L2Norm node output
+            if final_node_output_vi := dag.get_value_info_proto(final_node_output_name):
+                l2norm_node_output_vi = onnx.ValueInfoProto()
+                l2norm_node_output_vi.CopyFrom(final_node_output_vi)
+                l2norm_node_output_vi.name = l2norm_node_output_name
+                dag.add_value_info(l2norm_node_output_vi, graph_idx)
 
             # Get the weight Mul node
             if dag.get_node_op_type(final_node_children[0]) == "Mul":
@@ -593,6 +600,264 @@ class RMSNormToL2Norm(Surgeon):
                 break
 
         return rmsnorm_nodes if len(rmsnorm_nodes) >= (len(pattern) - 1) else []
+
+
+class SimplifiedLayerNormToL2Norm(Surgeon):
+    """Replace Skip/SimplifiedLayerNormalization node with L2Norm subgraph.
+
+    SimplifiedLayerNormalization is replaced with:
+    [Root] --> LpNormalization --> Mul
+               (p=2, axis=-1)
+
+    SkipSimplifiedLayerNormalization is replaced with:
+    [Root1] -------> Add
+                      |
+                      v
+    [Root2] --> LpNormalization --> Mul
+                (p=2, axis=-1)
+
+    Second input to Mul is the weight of the layer norm multiplied by sqrt(N) where N is equal to the hidden size.
+    If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        modified = 0
+        for node_name in dag.get_node_names():
+            op_type = dag.get_node_op_type(node_name)
+            if op_type not in {"SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization"}:
+                continue
+
+            if len(dag.get_node_inputs(node_name, True)) != 2 + int(op_type == "SkipSimplifiedLayerNormalization"):
+                # SimplifiedLayerNormalization: X, scale supported
+                # SkipSimplifiedLayerNormalization: input, skip, gamma supported
+                continue
+            if len(dag.get_node_outputs(node_name, True)) > 1 + int(op_type == "SkipSimplifiedLayerNormalization"):
+                # SimplifiedLayerNormalization: output supported
+                # SkipSimplifiedLayerNormalization: output, input_skip_bias_sum (optional) supported
+                continue
+
+            graph_idx = dag.get_graph_idx(node_name)
+
+            if op_type == "SkipSimplifiedLayerNormalization":
+                # SimplifiedLayerNormalization preceded by an Add node
+                add_node_name = self.create_new_name(node_name, op_type, "Add")
+                add_node_output_name = f"{add_node_name}_output_0"
+                dag.add_node(
+                    onnx.helper.make_node(
+                        "Add",
+                        inputs=dag.get_node_inputs(node_name, True)[:2],
+                        outputs=[add_node_output_name],
+                        name=add_node_name,
+                    ),
+                    graph_idx,
+                )
+
+                # input_skip_bias_sum is used downstream
+                if len(dag.get_node_outputs(node_name, True)) == 2:
+                    skip_output_name = dag.get_node_outputs(node_name, True)[1]
+                    if skip_output_vi := dag.get_value_info_proto(skip_output_name):
+                        add_output_vi = onnx.ValueInfoProto()
+                        add_output_vi.CopyFrom(skip_output_vi)
+                        add_output_vi.name = add_node_output_name
+                        dag.add_value_info(add_output_vi, graph_idx)
+
+                    for child_name in dag.get_consumers(skip_output_name):
+                        dag.replace_node_input(child_name, skip_output_name, add_node_output_name)
+
+                l2norm_node_input_name = add_node_output_name
+            else:
+                l2norm_node_input_name = dag.get_node_inputs(node_name, True)[0]
+
+            layernorm_node_output_name = dag.get_node_outputs(node_name, True)[0]
+
+            # add L2Norm node
+            l2norm_node_name = self.create_new_name(node_name, op_type, "L2Norm")
+            l2norm_node_output_name = f"{l2norm_node_name}_output_0"
+            dag.add_node(
+                onnx.helper.make_node(
+                    "LpNormalization",
+                    inputs=[l2norm_node_input_name],
+                    outputs=[l2norm_node_output_name],
+                    name=l2norm_node_name,
+                    axis=-1,
+                    p=2,
+                ),
+                graph_idx,
+            )
+            if layernorm_node_output_vi := dag.get_value_info_proto(layernorm_node_output_name):
+                l2norm_node_output_vi = onnx.ValueInfoProto()
+                l2norm_node_output_vi.CopyFrom(layernorm_node_output_vi)
+                l2norm_node_output_vi.name = l2norm_node_output_name
+                dag.add_value_info(l2norm_node_output_vi, graph_idx)
+
+            # add Mul node
+            mul_weight_name = dag.get_node_inputs(node_name, True)[-1]
+            mul_weight = dag.get_initializer_np_array(mul_weight_name)
+            sqrt_n = np.sqrt(mul_weight.shape[-1])
+            if np.all(mul_weight == 1):
+                # this is possible in a quarot/spinquant rotated model
+                # Multiplying by 1D is probably faster
+                mul_weight = np.array([1], dtype=mul_weight.dtype)
+            mul_weight = sqrt_n * mul_weight
+            dag.replace_initializer(onnx.numpy_helper.from_array(mul_weight, name=mul_weight_name))
+
+            mul_node_name = self.create_new_name(node_name, op_type, "Mul")
+            mul_node_output_name = f"{mul_node_name}_output_0"
+            dag.add_node(
+                onnx.helper.make_node(
+                    "Mul",
+                    inputs=[l2norm_node_output_name, mul_weight_name],
+                    outputs=[mul_node_output_name],
+                    name=mul_node_name,
+                ),
+                graph_idx,
+            )
+            if layernorm_node_output_vi := dag.get_value_info_proto(layernorm_node_output_name):
+                mul_output_vi = onnx.ValueInfoProto()
+                mul_output_vi.CopyFrom(layernorm_node_output_vi)
+                mul_output_vi.name = mul_node_output_name
+                dag.add_value_info(mul_output_vi, graph_idx)
+
+            for child_name in dag.get_consumers(layernorm_node_output_name):
+                dag.replace_node_input(child_name, layernorm_node_output_name, mul_node_output_name)
+
+            # remove node
+            dag.remove_node(node_name)
+
+            modified += 1
+
+        if modified > 0:
+            logger.debug("Replaced %d Skip/SimplifiedLayerNormalization nodes with L2Norm nodes", modified)
+
+        dag.update()
+        return dag.model
+
+
+class RemoveRopeMultiCache(Surgeon):
+    """Remove the multi rope cache from the model."""
+
+    def __init__(self, use_large_cache: bool = False):
+        self.use_large_cache = use_large_cache
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        supported_consumer_ops = {"GroupQueryAttention", "RotaryEmbedding"}
+        if not supported_consumer_ops.intersection(set(dag.get_node_op_types())):
+            return dag.model
+
+        # get the first GQA/RotaryEmbedding node
+        first_node = None
+        for node in dag.get_node_names():
+            op_type = dag.get_node_op_type(node)
+            if op_type in supported_consumer_ops:
+                first_node = node
+                break
+        first_node_inputs = dag.get_node_inputs(first_node)
+
+        # check if the GQA node has cos_cache and sin_cache inputs
+        if dag.get_node_op_type(first_node) == "GroupQueryAttention" and len(first_node_inputs) != 9:
+            return dag.model
+
+        # check if cos_cache and sin_cache come from an If node
+        cache_names = {"cos_cache": first_node_inputs[-2], "sin_cache": first_node_inputs[-1]}
+        for cache_name in cache_names.values():
+            if dag.is_input(cache_name) or dag.is_initializer(cache_name):
+                return dag.model
+            if dag.get_node_op_type(dag.get_producer(cache_name)) != "If":
+                return dag.model
+
+        for key, cache_name in cache_names.items():
+            cache_to_use = f"{key}_large" if self.use_large_cache else f"{key}_small"
+            new_cache_name = f"{key}_single"
+
+            if dag.is_initializer(cache_to_use):
+                cache_initializer = onnx.TensorProto()
+                cache_initializer.CopyFrom(dag.get_initializer_proto(cache_to_use))
+                cache_initializer.name = new_cache_name
+            else:
+                cache_producer_name = dag.get_producer(cache_to_use)
+                assert dag.get_node_op_type(cache_producer_name) == "Constant"
+                cache_value = onnx.numpy_helper.to_array(
+                    onnx.helper.get_attribute_value(dag.get_node_proto(cache_producer_name).attribute[0])
+                )
+                cache_initializer = onnx.numpy_helper.from_array(cache_value, new_cache_name)
+
+            dag.add_initializer(cache_initializer, 0)
+            for consumer in dag.get_consumers(cache_name):
+                dag.replace_node_input(consumer, cache_name, new_cache_name)
+
+        # remove the Greater -> If Nodes
+        if_node_name = dag.get_producer(cache_names["cos_cache"])
+        greater_node_name = dag.get_parents(if_node_name)[0]
+        dag.remove_node(if_node_name)
+        dag.remove_node(greater_node_name)
+
+        logger.debug("Removed rope multi cache")
+
+        dag.update()
+        return dag.model
+
+
+class AttentionMaskToSequenceLengths(Surgeon):
+    """Replace attention_mask subgraph in GQA model with past_seq_len and total_seq_len."""
+
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        if "GroupQueryAttention" not in dag.get_node_op_types():
+            return dag.model
+
+        # get first GQA node
+        first_node = None
+        for node in dag.get_node_names():
+            if dag.get_node_op_type(node) == "GroupQueryAttention":
+                first_node = node
+                break
+        first_node_inputs = dag.get_node_inputs(first_node)
+
+        seq_len_names = {"past_seq_len": first_node_inputs[5], "total_seq_len": first_node_inputs[6]}
+        # check that both are not already inputs
+        for seq_len_name in seq_len_names.values():
+            if dag.is_input(seq_len_name):
+                return dag.model
+
+        batch_size, _ = dag.get_io_shape("input_ids")
+        seq_len_shapes = {"past_seq_len": [batch_size, 1], "total_seq_len": []}
+        for key, seq_len_name in seq_len_names.items():
+            input_proto = onnx.helper.make_tensor_value_info(key, onnx.TensorProto.INT32, seq_len_shapes[key])
+            dag.add_input(input_proto, 0)
+            for node in dag.get_consumers(seq_len_name):
+                dag.replace_node_input(node, seq_len_name, key)
+
+        # remove attention mask subgraph
+        nodes_to_remove = []
+        visit_stack = dag.get_consumers("attention_mask")
+        while visit_stack:
+            node = visit_stack.pop(0)
+            assert not dag.is_output_producer(node), "Unexpected graph structure"
+            for consumer in dag.get_consumers(node):
+                if dag.get_node_op_type(consumer) == "GroupQueryAttention":
+                    for node_o in dag.get_node_outputs(node):
+                        assert dag.get_node_inputs(consumer).index(node_o) in {5, 6}, "Rope multi cache not supported"
+                    continue
+                visit_stack.append(consumer)
+            nodes_to_remove.append(node)
+        for node in nodes_to_remove[::-1]:
+            dag.remove_node(node)
+
+        logger.debug("atttention mask replaced with sequence length inputs")
+
+        dag.update()
+        return dag.model
 
 
 class ReplaceAttentionMaskValue(Surgeon):

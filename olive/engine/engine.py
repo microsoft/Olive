@@ -360,13 +360,8 @@ class Engine:
             logger.warning("Flow %s is pruned due to failed or invalid config for pass '%s'", pass_flow, failed_pass)
             return Footprint()
 
-        # use output_model_dir if there is only one pass flow
-        # else output_model_dir/pass_flow
-        flow_output_dir = output_model_dir / "-".join(pass_flow) if len(pass_flow) > 1 else output_model_dir
-        flow_output_dir.mkdir(parents=True, exist_ok=True)
-
         if signal is not None and not self.skip_saving_artifacts:
-            results_path = flow_output_dir / "metrics.json"
+            results_path = output_model_dir / "metrics.json"
             with open(results_path, "w") as f:
                 json.dump(signal.to_json(), f, indent=4)
             logger.info("Saved evaluation results of output model to %s", results_path)

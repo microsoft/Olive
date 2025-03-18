@@ -12,14 +12,14 @@ Currently, Olive supports the following techniques:
 Some methods require a GPU and/or a calibration dataset.
 ```
 
-| Method | Description | GPU required | Calibration dataset required | Input model format(s) | Output model format |
-| ------ | ------------ | ------------ | ------------------ | ------------------ | ------------------- |
-| AWQ | Activation-aware Weight Quantization (AWQ) creates 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16.  | ✔️ | ❌ | PyTorch <br> HuggingFace | PyTorch |
-| GPTQ | Generative Pre-trained Transformer Quantization (GPTQ) is a one-shot weight quantization method. You can quantize your favorite language model to 8, 4, 3 or even 2 bits.  | ✔️ | ✔️  | PyTorch <br> HuggingFace |  PyTorch  |
-| bnb4 | Is a MatMul with weight quantized with N bits (e.g., 2, 3, 4, 5, 6, 7). | ❌ | ❌ | ONNX | ONNX |
-| ONNX Dynamic | Dynamic quantization calculates the quantization parameters (scale and zero point) for activations dynamically. | ❌ | ❌ | ONNX | ONNX |
-| INC Dynamic | Intel® Neural Compressor model compression tool.  | ❌ | ❌ | ONNX | ONNX |
-| NVMO | NVIDIA TensorRT Model Optimizer is a library comprising state-of-the-art model optimization techniques including quantization, sparsity, distillation, and pruning to compress models. | ❌ | ❌ | ONNX | ONNX |
+| Implementation | Description | Model format(s) | Algorithm | GPU required |
+| -------------- | ----------- | --------------- | --------- | ------------ |
+| AWQ | Activation-aware Weight Quantization (AWQ) creates 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16.  | PyTorch <br> ONNX| Awq | ✔️ |
+| GPTQ | Generative Pre-trained Transformer Quantization (GPTQ) is a one-shot weight quantization method. You can quantize your favorite language model to 8, 4, 3 or even 2 bits.  | PyTorch <br> ONNX |  GptQ  | ✔️ |
+| BitsAndBytes | Is a MatMul with weight quantized with N bits (e.g., 2, 3, 4, 5, 6, 7). | ONNX | RTN | ❌ |
+| ORT | Static and dynamic quantizations. | ONNX | RTN | ❌ |
+| INC | Intel® Neural Compressor model compression tool. | ONNX | GPTQ | ❌ |
+| NVMO | NVIDIA TensorRT Model Optimizer is a library comprising state-of-the-art model optimization techniques including quantization, sparsity, distillation, and pruning to compress models. | ONNX | AWQ | ❌ |
 
 ## {octicon}`zap` Quickstart
 

@@ -20,6 +20,7 @@ jobs:
     name: Linux_Examples
     pool: $(OLIVE_POOL_UBUNTU2004)
     onnxruntime: onnxruntime
+    hf_token: true
     examples:
       bert_inc:
         exampleFolder: bert
@@ -33,6 +34,9 @@ jobs:
       super_resolution:
         exampleFolder: super_resolution
         exampleName: super_resolution
+      mobilenet_onnx:
+        exampleFolder: mobilenet/onnx
+        exampleName: mobilenet
 
 # Windows examples test
 - template: job_templates/olive-example-win-template.yaml
@@ -40,6 +44,7 @@ jobs:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     onnxruntime: onnxruntime
+    hf_token: true
     examples:
       bert_inc:
         exampleFolder: bert

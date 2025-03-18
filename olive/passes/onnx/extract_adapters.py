@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExtractAdapters(Pass):
-    """Extract adapter weights from model and save them as external weights file.
+    """Extract adapter weights from ONNX model and save them as external weights file.
 
     If make_inputs is False, model proto is invalid after this pass as the adapter weights point to non-existent
     external files. Inference session must be created by first loading the adapter weights using

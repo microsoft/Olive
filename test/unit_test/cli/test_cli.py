@@ -272,5 +272,84 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
     assert mock_run.call_count == 1
 
 
+# TODO(anyone): resolve CI package installation issues later and then re-enable this unit test
+# @patch("huggingface_hub.repo_exists", return_value=True)
+# def test_extract_adapters_command_from_transformers_model(mock_repo_exists, tmp_path):
+#     # setup
+#     output_dir = tmp_path / "output_dir"
+#     cache_dir = tmp_path / "cache_dir"
+#     model_id = "microsoft/Phi-4-multimodal-instruct"
+#     command_args = [
+#         "extract-adapters",
+#         "-m",
+#         model_id,
+#         "-o",
+#         str(output_dir),
+#         "-f",
+#         "onnx_adapter",
+#         "--cache_dir",
+#         str(cache_dir),
+#     ]
+
+#     # execute
+#     cli_main(command_args)
+
+#     assert (output_dir / "vision.onnx_adapter").exists()
+#     assert (output_dir / "speech.onnx_adapter").exists()
+
+
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
+    # setup
+    from peft import LoraConfig, get_peft_model
+    from transformers import AutoModelForCausalLM
+
+    cache_dir = tmp_path / "cache_dir"
+    base_model = AutoModelForCausalLM.from_pretrained(
+        "hf-internal-testing/tiny-random-LlamaForCausalLM", cache_dir=str(cache_dir)
+    )
+    base_model.generation_config.pad_token_id = 0
+
+    speech_config = LoraConfig(
+        r=2,
+        lora_alpha=4.0,
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        lora_dropout=0.0,
+        task_type="CAUSAL_LM",
+    )
+    peft_model = get_peft_model(base_model, speech_config, adapter_name="speech")
+
+    vision_config = LoraConfig(
+        r=4,
+        lora_alpha=12.0,
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        lora_dropout=0.0,
+        task_type="CAUSAL_LM",
+    )
+    peft_model.add_adapter("vision", vision_config)
+
+    peft_model.save_pretrained(str(tmp_path))
+    peft_model.base_model.save_pretrained(str(tmp_path))
+
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "extract-adapters",
+        "-m",
+        str(tmp_path),
+        "-o",
+        str(output_dir),
+        "-f",
+        "onnx_adapter",
+        "--cache_dir",
+        str(cache_dir),
+    ]
+
+    # execute
+    cli_main(command_args)
+
+    assert (output_dir / "vision.onnx_adapter").exists()
+    assert (output_dir / "speech.onnx_adapter").exists()
+
+
 # TODO(anyone): Add tests for ManageAMLComputeCommand
 # Test for ConvertAdaptersCommand is added as part of test/unit_test/passes/onnx/test_extract_adapters.py

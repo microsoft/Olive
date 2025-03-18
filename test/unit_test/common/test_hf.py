@@ -93,19 +93,22 @@ def test_get_model_dummy_input(with_past):
     assert set(dummy_input.keys()) == set(expected_keys)
 
 
+@pytest.mark.parametrize("use_cache", [True, False, None])
 @pytest.mark.parametrize("with_past", [True, False])
-def test_get_model_io_config(with_past):
+def test_get_model_io_config(use_cache, with_past):
     model_name, task = get_model_name_task(with_past)
-    model = load_model_from_task(task, model_name)
-    io_config = get_model_io_config(model_name, task, model)
+    kwargs = {"use_cache": use_cache} if use_cache is not None else {}
+    model = load_model_from_task(task, model_name, **kwargs)
+    io_config = get_model_io_config(model_name, task, model, **kwargs)
     expected_keys = ["input_names", "output_names", "dynamic_axes", "dynamic_shapes"]
     assert set(io_config.keys()) == set(expected_keys)
     expected_input_names = ["input_ids", "attention_mask", "position_ids"]
     expected_output_names = ["logits"]
-    if with_past:
-        for layer_id in range(model.config.num_hidden_layers):
-            expected_input_names.extend([f"past_key_values.{layer_id}.key", f"past_key_values.{layer_id}.value"])
+    for layer_id in range(model.config.num_hidden_layers):
+        if use_cache is None or use_cache:
             expected_output_names.extend([f"present.{layer_id}.key", f"present.{layer_id}.value"])
+        if with_past:
+            expected_input_names.extend([f"past_key_values.{layer_id}.key", f"past_key_values.{layer_id}.value"])
     assert io_config["input_names"] == expected_input_names
     assert io_config["output_names"] == expected_output_names
     assert set(io_config["dynamic_axes"].keys()) == set(expected_input_names + expected_output_names)

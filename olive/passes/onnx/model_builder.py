@@ -8,7 +8,7 @@ import copy
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Type, Union
+from typing import Any, Dict, List, Type, Union
 
 import onnx
 import transformers
@@ -75,6 +75,14 @@ class ModelBuilder(Pass):
                 type_=ModelBuilder.AccuracyLevel,
                 required=False,
                 description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
+            ),
+            "int4_op_types_to_quantize": PassConfigParam(
+                type_=List[str],
+                required=False,
+                description=(
+                    'Specify the op types to quantize for int4 quantization. Default is None (= [ "MatMul" ]). Example:'
+                    ' ["MatMul", "Gemm"]'
+                ),
             ),
             "exclude_embeds": PassConfigParam(
                 type_=bool,
@@ -183,6 +191,9 @@ class ModelBuilder(Pass):
         if config.int4_accuracy_level:
             extra_args["int4_accuracy_level"] = config.int4_accuracy_level.value
 
+        if config.int4_op_types_to_quantize:
+            extra_args["int4_op_types_to_quantize"] = config.int4_op_types_to_quantize
+
         # args that are only checked for presence, not value
         for arg in ["exclude_embeds", "exclude_lm_head"]:
             if getattr(config, arg):
@@ -196,6 +207,7 @@ class ModelBuilder(Pass):
         model_attributes = copy.deepcopy(model.model_attributes or {})
 
         try:
+            logger.debug("Building model with the following args: %s", extra_args)
             create_model(
                 model_name=model_path,
                 input_path=input_path,

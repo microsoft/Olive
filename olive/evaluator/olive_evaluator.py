@@ -444,7 +444,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         if is_single_tensor_output:
             logits = torch.cat(logits, dim=0)
         else:
-            logits = {k: torch.cat(logits[k], dim=0) for k in output_names}
+            logits = {k: torch.cat(logits_dict[k], dim=0) for k in output_names}
 
         tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:

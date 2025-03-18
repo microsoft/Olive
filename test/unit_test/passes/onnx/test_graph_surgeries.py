@@ -2,7 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 from pathlib import Path
+from test.unit_test.utils import make_local_tiny_llama
 
 import numpy as np
 import onnx
@@ -11,9 +13,10 @@ import torch
 from onnx import TensorProto, helper, numpy_helper
 from onnxruntime import InferenceSession
 
-from olive.model.handler.onnx import ONNXModelHandler
+from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
+from olive.passes.onnx.model_builder import ModelBuilder
 from olive.passes.onnx.onnx_dag import OnnxDAG
 
 
@@ -377,6 +380,47 @@ class RMSNorm(torch.nn.Module):
         return self.weight * (hidden_states.to(input_dtype) if self.use_cast else hidden_states)
 
 
+def check_l2norm(
+    original_model_path: str,
+    modified_model_path: str,
+    hidden_size: int,
+    expected_num_nodes: int,
+    check_all_ones: int,
+    has_skip: bool = False,
+):
+    # check output values match
+    input_session = InferenceSession(original_model_path)
+    output_session = InferenceSession(modified_model_path)
+    input_feed = {"x": np.random.randn(1, hidden_size).astype(np.float32)}
+    if has_skip:
+        input_feed["skip"] = np.random.randn(1, hidden_size).astype(np.float32)
+    input_result = input_session.run(None, input_feed)
+    output_result = output_session.run(None, input_feed)
+    for i_r, o_r in zip(input_result, output_result):
+        np.testing.assert_allclose(i_r, o_r, rtol=1e-3, atol=1e-3)
+
+    # count nodes
+    dag = OnnxDAG.from_model_path(modified_model_path)
+    assert len(dag.nodes) == expected_num_nodes
+    assert "LpNormalization" in dag.get_node_op_types()
+
+    # check all ones case
+    if check_all_ones:
+        mul_name = None
+        for node in dag.get_node_names():
+            if dag.get_node_op_type(node) == "Mul":
+                mul_name = node
+                break
+        mul_weight_name = None
+        for input_name in dag.get_node_inputs(mul_name):
+            if dag.is_initializer(input_name):
+                mul_weight_name = input_name
+                break
+        mul_weight = dag.get_initializer_np_array(mul_weight_name)
+        assert mul_weight.shape == (1,)
+        assert np.allclose(mul_weight, np.sqrt(hidden_size))
+
+
 @pytest.mark.parametrize("use_rsqrt", [True, False])
 @pytest.mark.parametrize("use_cast", [True, False])
 @pytest.mark.parametrize("all_ones", [True, False])
@@ -402,32 +446,196 @@ def test_rmsnorm_to_l2norm(tmp_path, use_rsqrt, use_cast, all_ones):
     onnx_model = p.run(input_model, output_folder)
 
     # assert
-    # check output values match
-    input_session = InferenceSession(input_model_path)
-    output_session = InferenceSession(onnx_model.model_path)
-    input_feed = {"x": np.random.randn(1, hidden_size).astype(np.float32)}
-    input_result = input_session.run(None, input_feed)
-    output_result = output_session.run(None, input_feed)
-    np.testing.assert_allclose(input_result[0], output_result[0], rtol=1e-3, atol=1e-3)
-    # count nodes
-    dag = OnnxDAG.from_model_path(onnx_model.model_path)
-    expected_num_nodes = 2 + 2 * int(use_cast)
-    assert len(dag.nodes) == expected_num_nodes
-    # check all ones case
-    if all_ones:
-        mul_name = None
-        for node in dag.get_node_names():
-            if dag.get_node_op_type(node) == "Mul":
-                mul_name = node
-                break
-        mul_weight_name = None
-        for input_name in dag.get_node_inputs(mul_name):
-            if dag.is_initializer(input_name):
-                mul_weight_name = input_name
-                break
-        mul_weight = dag.get_initializer_np_array(mul_weight_name)
-        assert mul_weight.shape == (1,)
-        assert np.allclose(mul_weight, np.sqrt(hidden_size))
+    check_l2norm(
+        str(input_model_path),
+        onnx_model.model_path,
+        hidden_size,
+        2 + 2 * int(use_cast),
+        all_ones,
+    )
+
+
+@pytest.mark.parametrize("all_ones", [True, False])
+def test_simplifiedlayernorm_to_l2norm(tmp_path, all_ones):
+    # setup
+    hidden_size = 3
+    inputs = [
+        onnx.helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, hidden_size]),
+    ]
+    outputs = [
+        onnx.helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, hidden_size]),
+    ]
+    weight = (np.ones(hidden_size) if all_ones else np.random.randn(hidden_size)).astype(np.float32)
+    initializers = [onnx.numpy_helper.from_array(weight, name="weight")]
+    nodes = [
+        onnx.helper.make_node(
+            "SimplifiedLayerNormalization",
+            inputs=["x", "weight"],
+            outputs=["layernorm_output"],
+            name="layernorm/LayerNorm",
+        ),
+        onnx.helper.make_node("Identity", inputs=["layernorm_output"], outputs=["y"], name="Identity"),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=inputs,
+        outputs=outputs,
+        initializer=initializers,
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    onnx.save(model, str(tmp_path / "input_model.onnx"))
+    input_model = ONNXModelHandler(model_path=str(tmp_path / "input_model.onnx"))
+
+    output_folder = str(tmp_path / "output")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "SimplifiedLayerNormToL2Norm"}]},
+        disable_search=True,
+    )
+
+    # execute
+    onnx_model = p.run(input_model, output_folder)
+
+    # assert
+    check_l2norm(str(tmp_path / "input_model.onnx"), onnx_model.model_path, hidden_size, 3, all_ones)
+
+
+@pytest.mark.parametrize("all_ones", [True, False])
+@pytest.mark.parametrize("output_skip_sum", [True, False])
+def test_simplifiedlayernorm_to_l2norm_skip(tmp_path, all_ones, output_skip_sum):
+    # setup
+    hidden_size = 3
+    inputs = [
+        onnx.helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, hidden_size]),
+        onnx.helper.make_tensor_value_info("skip", TensorProto.FLOAT, [1, hidden_size]),
+    ]
+    outputs = [
+        onnx.helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, hidden_size]),
+    ]
+    if output_skip_sum:
+        outputs.append(
+            onnx.helper.make_tensor_value_info("skip_sum", TensorProto.FLOAT, [1, hidden_size]),
+        )
+    initializers = [
+        onnx.numpy_helper.from_array(
+            (np.ones(hidden_size) if all_ones else np.random.randn(hidden_size)).astype(np.float32), name="weight"
+        )
+    ]
+    nodes = [
+        onnx.helper.make_node(
+            "SkipSimplifiedLayerNormalization",
+            inputs=["x", "skip", "weight"],
+            outputs=["layernorm_output"] if not output_skip_sum else ["layernorm_output", "", "", "layernorm_skip_sum"],
+            name="layernorm/LayerNorm",
+            domain="com.microsoft",
+        ),
+        onnx.helper.make_node("Identity", inputs=["layernorm_output"], outputs=["y"], name="Identity"),
+    ]
+    if output_skip_sum:
+        nodes.append(
+            onnx.helper.make_node(
+                "Identity", inputs=["layernorm_skip_sum"], outputs=["skip_sum"], name="Identity_skip_sum"
+            )
+        )
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=inputs,
+        outputs=outputs,
+        initializer=initializers,
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    onnx.save(model, str(tmp_path / "input_model.onnx"))
+    input_model = ONNXModelHandler(model_path=str(tmp_path / "input_model.onnx"))
+
+    output_folder = str(tmp_path / "output")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "SimplifiedLayerNormToL2Norm"}]},
+        disable_search=True,
+    )
+
+    # execute
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    check_l2norm(
+        str(tmp_path / "input_model.onnx"),
+        output_model.model_path,
+        hidden_size,
+        4 + int(output_skip_sum),
+        all_ones,
+        has_skip=True,
+    )
+
+
+@pytest.mark.parametrize("use_large_cache", [True, False])
+def test_remove_rope_multi_cache(tmp_path, use_large_cache):
+    # setup
+    tiny_model = HfModelHandler("katuni4ka/tiny-random-phi3")
+    local_tiny_path = tmp_path / "input_model"
+    tiny_model.load_model().save_pretrained(local_tiny_path)
+    tiny_model.save_metadata(local_tiny_path)
+    config_json_path = local_tiny_path / "config.json"
+    with config_json_path.open() as f:
+        config = json.load(f)
+    # change the max position embedding to 10000
+    config["max_position_embeddings"] = 10000
+    config["rope_scaling"] = {
+        "long_factor": [1] * 12,
+        "short_factor": [1] * 12,
+        "type": "longrope",
+    }
+    del config["auto_map"]
+    with config_json_path.open("w") as f:
+        json.dump(config, f)
+
+    input_model = create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32"},
+        disable_search=True,
+    ).run(HfModelHandler(local_tiny_path), str(tmp_path / "onnx"))
+
+    output_folder = str(tmp_path / "output")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveRopeMultiCache", "use_large_cache": use_large_cache}]},
+        disable_search=True,
+    )
+
+    # execute
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    assert "If" not in dag.get_node_op_types()
+    assert dag.get_initializer_np_array("cos_cache_single").shape[0] == 10000 if use_large_cache else 4096
+
+
+def test_attention_mask_to_sequence_lengths(tmp_path):
+    # setup
+    input_model = create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32"},
+        disable_search=True,
+    ).run(make_local_tiny_llama(tmp_path), str(tmp_path / "onnx"))
+
+    output_folder = str(tmp_path / "output")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "AttentionMaskToSequenceLengths"}]},
+        disable_search=True,
+    )
+
+    # execute
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    output_model_input_names = output_model.io_config["input_names"]
+    assert "attention_mask" not in output_model_input_names
+    assert "past_seq_len" in output_model_input_names
+    assert "total_seq_len" in output_model_input_names
 
 
 def test_replace_attention_mask_value(tmp_path):

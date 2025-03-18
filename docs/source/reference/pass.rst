@@ -158,6 +158,24 @@ SplitModel
 ----------
 .. autoconfigclass:: olive.passes.SplitModel
 
+.. _static_llm:
+
+StaticLLM
+----------
+.. autoconfigclass:: olive.passes.StaticLLM
+
+.. _ep_context_binary_generator:
+
+EPContextBinaryGenerator
+------------------------
+.. autoconfigclass:: olive.passes.EPContextBinaryGenerator
+
+.. _compose_onnx_models:
+
+ComposeOnnxModels
+-----------------
+.. autoconfigclass:: olive.passes.ComposeOnnxModels
+
 .. _optimum_conversion:
 
 OptimumConversion

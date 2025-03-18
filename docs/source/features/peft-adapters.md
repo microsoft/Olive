@@ -1,4 +1,4 @@
-# PEFT Adapaters
+# PEFT Adapters
 
 Parameter Efficient Finetuning (PEFT) techniques, such as LoRA enables user to efficiently finetune a model.
 
@@ -71,57 +71,6 @@ This pass only supports HfModels. Please refer to [LoftQ](loftq) for more detail
 }
 ```
 Please refer to [LoftQ HFTrainingArguments](lora_hf_training_arguments) for more details on supported the `"training_args"` and their default values.
-
-## Quantization Aware Training
-The Quantization Aware Training (QAT) technique is used to improve the performance and efficiency of deep learning models by quantizing their
-weights and activations to lower bit-widths. The technique is applied during training, where the weights and activations are fake quantized
-to lower bit-widths using the specified QConfig.
-
-Olive provides `QuantizationAwareTraining` that performs QAT on a PyTorch model.
-
-Please refer to [QuantizationAwareTraining](quantization_aware_training) for more details about the pass and its config parameters.
-
-### Example Configuration
-Olive provides the 3 ways to run QAT training process:
-
-a. Run QAT training with customized training loop.
-```json
-{
-    "type": "QuantizationAwareTraining",
-    "user_script": "user_script.py",
-    "training_loop_func": "training_loop_func"
-}
-```
-
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
-for an example implementation of `"user_script.py"` and `"training_loop_func"`.
-
-b. Run QAT training with PyTorch Lightning.
-```json
-{
-    "type": "QuantizationAwareTraining",
-    "user_script": "user_script.py",
-    "num_epochs": 5,
-    "ptl_data_module": "PTLDataModule",
-    "ptl_module": "PTLModule"
-}
-```
-
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py)
-for an example implementation of `"user_script.py"`, `"PTLDataModule"` and `"PTLModule"`.
-
-
-c. Run QAT training with default training loop.
-```json
-{
-    "type": "QuantizationAwareTraining",
-    "num_epochs": 5,
-    "train_data_config": "train_data_config"
-}
-```
-
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py)
-for an example implementation of `"user_script.py"` and `"train_data_config/dataloader_config/type"`.
 
 ## MergeAdapterWeights
 Merge Lora weights into a complete model. After running the LoRA pass, the model will only have LoRA adapters. This pass merges the LoRA adapters into the original model and download the context(config/generation_config/tokenizer) of the model.
