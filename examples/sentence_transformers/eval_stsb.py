@@ -1,6 +1,14 @@
-import onnxruntime
-import numpy as np
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
+# ruff: noqa: T201
+
 import time
+
+import numpy as np
+import onnxruntime
 from datasets import load_dataset
 from scipy.stats import pearsonr, spearmanr
 from transformers import AutoTokenizer
@@ -12,18 +20,20 @@ sentences2 = dataset["sentence2"]
 tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 
 options = onnxruntime.SessionOptions()
-session = onnxruntime.InferenceSession(
+st_session = onnxruntime.InferenceSession(
     r"path_to_model.onnx",
     sess_options=options,
     providers=["QNNExecutionProvider"],
     provider_options=[{"backend_path": "QnnHtp.dll"}],
 )
 
+
 def mean_pooling(embeddings, attention_mask):
     mask = np.expand_dims(attention_mask, axis=-1)
     sum_embeddings = np.sum(embeddings * mask, axis=1)
     sum_mask = np.clip(np.sum(mask, axis=1), a_min=1e-9, a_max=None)
     return sum_embeddings / sum_mask
+
 
 def encode_onnx(session, sentence):
     tokens = tokenizer(
@@ -44,16 +54,17 @@ def encode_onnx(session, sentence):
     embedding = mean_pooling(np.array(outputs[0]), attention_mask)
     return embedding.squeeze(0)
 
+
 cosine_similarities = []
 inference_times = []
 
 for s1, s2 in zip(sentences1, sentences2):
     start_time = time.time()
-    emb1 = encode_onnx(session, s1)
+    emb1 = encode_onnx(st_session, s1)
     inference_times.append(time.time() - start_time)
 
     start_time = time.time()
-    emb2 = encode_onnx(session, s2)
+    emb2 = encode_onnx(st_session, s2)
     inference_times.append(time.time() - start_time)
 
     cosine_sim = np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2))

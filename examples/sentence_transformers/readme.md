@@ -31,6 +31,6 @@ You can then select the best model and config from the candidates and run the mo
 ### Evaluate with sentence-transformers/stsb datasets
 *The Semantic Textual Similarity Benchmark* is a collection of sentence pairs drawn from news headlines, video and image captions, and natural language inference data. We are evaluating the output model's performance using Pearson correlation and Spearman correlation to measure the alignment between predicted similarity scores and human-labeled scores.
 ```
-pip install scipy 
+pip install scipy
 python eval_stsb.py
 ```
