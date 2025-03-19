@@ -52,7 +52,7 @@
         }
     },
     "passes": {
-        "convert": { "type": "OnnxConversion", "target_opset": 14 },
+        "convert": { "type": "OnnxConversion", "target_opset": 17 },
         "optimize": {
             "type": "OrtTransformersOptimization",
             "model_type": "vae",
