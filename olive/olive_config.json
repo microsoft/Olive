@@ -260,6 +260,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "OnnxQuantizationPreprocess": {
+            "module_path": "olive.passes.onnx.quantization.OnnxQuantizationPreprocess",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "VitisAIQuantization": {
             "module_path": "olive.passes.onnx.vitis_ai_quantization.VitisAIQuantization",
             "supported_providers": [ "VitisAIExecutionProvider" ],

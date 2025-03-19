@@ -26,7 +26,7 @@ class BaseDataLoader:
 
     def __getitem__(self, idx):
         if idx >= len(self.data) or idx >= self.total:
-            return None
+            raise StopIteration
         print(f"Process data {idx}")
         return self.data[idx]
     

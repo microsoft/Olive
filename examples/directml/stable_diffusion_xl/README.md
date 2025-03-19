@@ -112,7 +112,7 @@ Then generate data (updating the prompts to generate more will be better):
 
 ## Optimize
 
-`python stable_diffusion_xl.py --model_id stabilityai/sdxl-turbo --provider qnn --optimize --clean_cache`
+`python stable_diffusion_xl.py --model_id stabilityai/sdxl-turbo --provider qnn --optimize --data_dir quantize_data_turbo/data --clean_cache`
 
 ## Test and evaluate
 

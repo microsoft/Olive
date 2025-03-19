@@ -310,10 +310,12 @@ def update_config_with_provider(config: Dict, provider: str, is_fp16: bool, only
         config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
     elif provider == "qnn":
         if submodel_name == "text_encoder" or submodel_name == "text_encoder_2":
-            used_passes = {"dynamic_shape_to_fixed", "surgery", "peephole", "qnn_preprocess", "quant_preprocess", "quantization"}
+            used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "qnn_preprocess", "quant_preprocess", "quantization"}
         else:
-            used_passes = {"dynamic_shape_to_fixed", "peephole", "qnn_preprocess", "quant_preprocess", "quantization"}
+            used_passes = {"convert", "dynamic_shape_to_fixed", "qnn_preprocess", "quant_preprocess", "quantization"}
         # TODO
+        config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
         config["evaluator"] = None
     else:
         raise ValueError(f"Unsupported provider: {provider}")
@@ -401,7 +403,7 @@ def optimize(
                     conversion_footprint = footprint
                     if only_conversion:
                         optimizer_footprint = footprint
-                elif from_pass == "OrtTransformersOptimization".lower():
+                elif from_pass == "OrtTransformersOptimization".lower() or from_pass == "OnnxStaticQuantization".lower():
                     optimizer_footprint = footprint
 
             assert conversion_footprint
@@ -549,6 +551,7 @@ def main(raw_args=None):
     parser.add_argument("--dynamic_dims", action="store_true", help="Disable static shape optimization")
     parser.add_argument("--tempdir", default=None, type=str, help="Root directory for tempfile directories and files")
     parser.add_argument("--only_conversion", action="store_true")
+    parser.add_argument("--data_dir", default="quantize_data/data", type=str)
     args = parser.parse_args(raw_args)
 
     if args.static_dims:
@@ -591,6 +594,7 @@ def main(raw_args=None):
         )
 
     script_dir = Path(__file__).resolve().parent
+    config.data_dir = script_dir / args.data_dir
 
     if args.clean_cache:
         shutil.rmtree(script_dir / "cache", ignore_errors=True)
