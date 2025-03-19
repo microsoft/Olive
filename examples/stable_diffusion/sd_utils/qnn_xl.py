@@ -210,7 +210,7 @@ class ORTModelVaeDecoderWithSave(ORTModelVaeDecoder):
             np.savez(self.save_data_dir / f"vae_decoder.npz", **onnx_inputs)
         onnx_outputs = self.session.run(None, onnx_inputs)
         if self.save_data_dir:
-            np.savez(self.save_data_dir / f"vae_decoder_output.npz", **onnx_outputs)
+            np.savez(self.save_data_dir / f"vae_decoder_output.npz", sample = onnx_outputs[0])
         model_outputs = self.prepare_onnx_outputs(use_torch, *onnx_outputs)
 
         if "latent_sample" in model_outputs:

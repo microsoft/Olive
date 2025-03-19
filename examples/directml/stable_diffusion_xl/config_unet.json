@@ -116,7 +116,7 @@
                 "unet_time_ids_batch",
                 "unet_time_ids_size"
             ],
-            "dim_value": [ 1, 4, 64, 64, 1, 1, 77, 1, 77, 1, 10 ],
+            "dim_value": [ 1, 4, 64, 64, 1, 1, 77, 1, 1280, 1, 6 ],
             "save_as_external_data": true
         },
         "peephole": {
