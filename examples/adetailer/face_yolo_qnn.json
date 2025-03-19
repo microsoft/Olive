@@ -1,5 +1,11 @@
 {
-    "input_model": { "type": "ONNXModel", "model_path": "models/face/face_yolov9c.onnx" },
+    "input_model": {
+        "type": "PytorchModel",
+        "model_path": "Bingsu/adetailer",
+        "model_loader": "load_model",
+        "model_script": "user_script.py",
+        "io_config": "get_io_config"
+    },
     "systems": {
         "qnn_system": {
             "type": "LocalSystem",
@@ -90,6 +96,7 @@
         }
     },
     "passes": {
+        "conversion": { "type": "OnnxConversion" },
         "QNNPreprocess": { "type": "QNNPreprocess" },
         "OnnxQuantization": {
             "type": "OnnxStaticQuantization",

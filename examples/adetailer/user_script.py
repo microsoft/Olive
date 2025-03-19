@@ -8,8 +8,10 @@ from pathlib import Path
 import numpy as np
 import torch
 import torchvision.ops as ops
+from huggingface_hub import hf_hub_download
 from torch.utils.data import Dataset
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
+from ultralytics import YOLO
 
 from olive.data.registry import Registry
 
@@ -21,6 +23,32 @@ logger = getLogger(__name__)
 # So, this cache is used as a workaround.
 # pylint: disable=global-statement
 _curlabels_np = None
+
+
+class WrappedYOLO(torch.nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, images):
+        return self.model(images)
+
+
+def load_model(model_name: str):
+    path = hf_hub_download(model_name, "face_yolov9c.pt")
+    return WrappedYOLO(YOLO(path).model).eval()
+
+
+def get_io_config(model):
+    return {
+        "input_names": ["images"],
+        "input_shapes": [[1, 3, 640, 640]],
+        "output_names": ["output0"],
+        "dynamic_axes": {
+            "images": {"0": "batch", "2": "height", "3": "width"},
+            "output0": {"0": "batch", "2": "anchors"},
+        },
+    }
 
 
 class FaceDataset(Dataset):
@@ -77,6 +105,11 @@ def face_get_boxes(output):
         keep_scores.append(scores[i])
 
     return keep_boxes, keep_scores
+
+
+@Registry.register_post_process()
+def face_post_process(output):
+    return output["output0"] if isinstance(output, dict) else output[0]
 
 
 @Registry.register_pre_process()
