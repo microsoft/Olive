@@ -291,7 +291,7 @@ def run_inference(
         )
 
 
-def update_config_with_provider(config: Dict, provider: str, is_fp16: bool, only_conversion: bool) -> Dict:
+def update_config_with_provider(config: Dict, provider: str, is_fp16: bool, only_conversion: bool, submodel_name: str) -> Dict:
     used_passes = {}
     if only_conversion:
         used_passes = {"convert"}
@@ -308,6 +308,13 @@ def update_config_with_provider(config: Dict, provider: str, is_fp16: bool, only
             config["passes"]["optimize_cuda"].update({"float16": True, "keep_io_types": False})
         used_passes = {"convert", "optimize_cuda"}
         config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
+    elif provider == "qnn":
+        if submodel_name == "text_encoder" or submodel_name == "text_encoder_2":
+            used_passes = {"dynamic_shape_to_fixed", "surgery", "peephole", "qnn_preprocess", "quant_preprocess", "quantization"}
+        else:
+            used_passes = {"dynamic_shape_to_fixed", "peephole", "qnn_preprocess", "quant_preprocess", "quantization"}
+        # TODO
+        config["evaluator"] = None
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
@@ -365,7 +372,7 @@ def optimize(
         olive_config = None
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
-        olive_config = update_config_with_provider(olive_config, provider, use_fp16_fixed_vae, only_conversion)
+        olive_config = update_config_with_provider(olive_config, provider, use_fp16_fixed_vae, only_conversion, submodel_name)
 
         if is_refiner_model and submodel_name == "vae_encoder" and not use_fp16_fixed_vae:
             # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen

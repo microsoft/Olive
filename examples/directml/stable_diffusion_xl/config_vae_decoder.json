@@ -106,6 +106,25 @@
             "opt_level": 0,
             "float16": false,
             "use_gpu": true
+        },
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [ "batch_size", "num_channels_latent", "height_latent", "width_latent" ],
+            "dim_value": [ 1, 4, 64, 64 ]
+        },
+        "peephole": {
+            "type": "OnnxPeepholeOptimizer", "save_as_external_data": true
+        },
+        "qnn_preprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
+        "quant_preprocess": { "type": "OnnxQuantizationPreprocess" },
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "data_config": "quantize_data_config",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8",
+            "calibrate_method": "MinMax",
+            "quant_preprocess": false,
+            "prepare_qnn_config": true
         }
     },
     "evaluator": "common_evaluator",
