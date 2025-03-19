@@ -13,32 +13,40 @@ tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v
 
 options = onnxruntime.SessionOptions()
 session = onnxruntime.InferenceSession(
-    r"C:\repo\Olive\examples\sentence_transformers\results\st\model.onnx",
+    r"path_to_model.onnx",
     sess_options=options,
     providers=["QNNExecutionProvider"],
     provider_options=[{"backend_path": "QnnHtp.dll"}],
 )
 
 def mean_pooling(embeddings, attention_mask):
-    mask = attention_mask[:, :, None]
-    sentence_embeddings = (embeddings * mask).sum(axis=1) / mask.sum(axis=1)
-    return sentence_embeddings
+    mask = np.expand_dims(attention_mask, axis=-1)
+    sum_embeddings = np.sum(embeddings * mask, axis=1)
+    sum_mask = np.clip(np.sum(mask, axis=1), a_min=1e-9, a_max=None)
+    return sum_embeddings / sum_mask
 
 def encode_onnx(session, sentence):
-    tokens = tokenizer(sentence, padding="max_length", truncation=True, max_length=128, return_tensors="np")
+    tokens = tokenizer(
+        sentence,
+        padding="max_length",
+        max_length=128,
+        truncation=True,
+        add_special_tokens=True,
+        return_tensors="pt",
+    )
+    input_ids = tokens["input_ids"]
+    attention_mask = tokens["attention_mask"]
     inputs = {
-        "input_ids": tokens["input_ids"].astype(np.int64),
-        "attention_mask": tokens["attention_mask"].astype(np.int64),
-        "token_type_ids": tokens["token_type_ids"].astype(np.int64),
+        "input_ids": input_ids.int().cpu().numpy(),
+        "attention_mask": attention_mask.float().cpu().numpy(),
     }
-    
     outputs = session.run(None, inputs)
-    embedding = mean_pooling(np.array(outputs[0]), inputs["attention_mask"])
+    embedding = mean_pooling(np.array(outputs[0]), attention_mask)
     return embedding.squeeze(0)
 
 cosine_similarities = []
-
 inference_times = []
+
 for s1, s2 in zip(sentences1, sentences2):
     start_time = time.time()
     emb1 = encode_onnx(session, s1)
