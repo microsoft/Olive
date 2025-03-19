@@ -3,8 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
-import logging
-import sys
 import numpy as np
 import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel
@@ -15,14 +13,9 @@ from transformers.models.clip.modeling_clip import CLIPTextModel
 import random
 from olive.data.registry import Registry
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-# The same script will be loaded multiple times, so only add handler once
-if not logger.handlers:
-    logger.addHandler(logging.StreamHandler(sys.stdout))
+# ruff: noqa: T201
 
 # Generated data helpers
-
 
 class BaseDataLoader:
     def __init__(self, total):
@@ -34,7 +27,7 @@ class BaseDataLoader:
     def __getitem__(self, idx):
         if idx >= len(self.data) or idx >= self.total:
             return None
-        logger.info("Process data %d", idx)
+        print(f"Process data {idx}")
         return self.data[idx]
     
     def load(self, file):

@@ -2,12 +2,85 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import os
+import random
+
+import numpy as np
 import config
 import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from transformers.models.clip.modeling_clip import CLIPTextModel, CLIPTextModelWithProjection
 
 from olive.data.registry import Registry
+
+# ruff: noqa: T201
+
+# Generated data helpers
+
+class BaseDataLoader:
+    def __init__(self, total):
+        self.data = []
+        self.total = total
+        self.data_folders = [config.data_dir / f.name for f in os.scandir(config.data_dir) if f.is_dir()]
+        self.data_folders.sort()
+
+    def __getitem__(self, idx):
+        if idx >= len(self.data) or idx >= self.total:
+            return None
+        print(f"Process data {idx}")
+        return self.data[idx]
+    
+    def load(self, file):
+        self.data.append({key: torch.from_numpy(value) for key, value in np.load(file).items()})
+
+    def finish_load(self):
+        if len(self.data) > self.total:
+            self.data = random.sample(self.data, self.total)
+
+class UnetGeneratedDataLoader(BaseDataLoader):
+    def __init__(self, total):
+        super().__init__(total)
+        for f in self.data_folders:
+            i = 0
+            while True:
+                file = f / f"unet_{i}.npz"
+                if not os.path.exists(file):
+                    break
+                self.load(file)
+                i += 1
+        self.finish_load()
+
+
+class TextEncoderGeneratedDataLoader(BaseDataLoader):
+    def __init__(self, total):
+        super().__init__(total)
+        for f in self.data_folders:
+            self.load(f / "text_encoder_10.npz")
+        self.finish_load()
+
+
+class TextEncoder2GeneratedDataLoader(BaseDataLoader):
+    def __init__(self, total):
+        super().__init__(total)
+        for f in self.data_folders:
+            self.load(f / "text_encoder_20.npz")
+        self.finish_load()
+
+
+class VaeDecoderGeneratedDataLoader(BaseDataLoader):
+    def __init__(self, total):
+        super().__init__(total)
+        for f in self.data_folders:
+            self.load(f / "vae_decoder.npz")
+        self.finish_load()
+
+
+class VaeEncoderGeneratedDataLoader(BaseDataLoader):
+    def __init__(self, total):
+        super().__init__(total)
+        for f in self.data_folders:
+            self.load(f / "vae_decoder_output.npz")
+        self.finish_load()
 
 
 # Helper latency-only dataloader that creates random tensors with no label
@@ -47,6 +120,11 @@ def text_encoder_dataloader(dataset, batch_size, **kwargs):
     return RandomDataLoader(text_encoder_inputs, batch_size, torch.int32)
 
 
+@Registry.register_dataloader()
+def text_encoder_quantize_data_loader(dataset, data_num, *args, **kwargs):
+    return TextEncoderGeneratedDataLoader(data_num)
+
+
 # -----------------------------------------------------------------------------
 # TEXT ENCODER 2
 # -----------------------------------------------------------------------------
@@ -70,6 +148,11 @@ def text_encoder_2_conversion_inputs(model):
 @Registry.register_dataloader()
 def text_encoder_2_dataloader(dataset, batch_size, **kwargs):
     return RandomDataLoader(text_encoder_2_inputs, batch_size, torch.int64)
+
+
+@Registry.register_dataloader()
+def text_encoder_2_quantize_data_loader(dataset, data_num, *args, **kwargs):
+    return TextEncoder2GeneratedDataLoader(data_num)
 
 
 # -----------------------------------------------------------------------------
@@ -111,6 +194,11 @@ def unet_data_loader(dataset, batch_size, **kwargs):
     return RandomDataLoader(unet_inputs, batch_size, torch.float16)
 
 
+@Registry.register_dataloader()
+def unet_quantize_data_loader(dataset, data_num, *args, **kwargs):
+    return UnetGeneratedDataLoader(data_num)
+
+
 # -----------------------------------------------------------------------------
 # VAE ENCODER
 # -----------------------------------------------------------------------------
@@ -137,6 +225,11 @@ def vae_encoder_conversion_inputs(model):
 @Registry.register_dataloader()
 def vae_encoder_dataloader(dataset, batch_size, **kwargs):
     return RandomDataLoader(vae_encoder_inputs, batch_size, torch.float16)
+
+
+@Registry.register_dataloader()
+def vae_encoder_quantize_data_loader(dataset, data_num, *args, **kwargs):
+    return VaeEncoderGeneratedDataLoader(data_num)
 
 
 # -----------------------------------------------------------------------------
@@ -167,3 +260,8 @@ def vae_decoder_conversion_inputs(model):
 @Registry.register_dataloader()
 def vae_decoder_dataloader(dataset, batch_size, **kwargs):
     return RandomDataLoader(vae_decoder_inputs, batch_size, torch.float16)
+
+
+@Registry.register_dataloader()
+def vae_decoder_quantize_data_loader(dataset, data_num, *args, **kwargs):
+    return VaeDecoderGeneratedDataLoader(data_num)

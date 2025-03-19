@@ -89,9 +89,9 @@ class ORTDiffusionPipelineWithSave(ORTDiffusionPipeline):
     @save_data_dir.setter
     def save_data_dir(self, dir: Path):
         self.text_encoder.save_data_dir = dir
-        self.text_encoder.save_data_index = 0
+        self.text_encoder.save_data_index = 10
         self.text_encoder_2.save_data_dir = dir
-        self.text_encoder_2.save_data_index = 1
+        self.text_encoder_2.save_data_index = 20
         self.unet.save_data_dir = dir
         self.unet.save_data_index = 0
         self.vae_decoder.save_data_dir = dir
@@ -135,6 +135,7 @@ class ORTModelTextEncoderWithSave(ORTModelTextEncoder):
         onnx_inputs = self.prepare_onnx_inputs(use_torch, **model_inputs)
         if self.save_data_dir:
             np.savez(self.save_data_dir / f"text_encoder_{self.save_data_index}.npz", **onnx_inputs)
+            self.save_data_index += 1
         onnx_outputs = self.session.run(None, onnx_inputs)
         model_outputs = self.prepare_onnx_outputs(use_torch, *onnx_outputs)
 
@@ -208,6 +209,8 @@ class ORTModelVaeDecoderWithSave(ORTModelVaeDecoder):
         if self.save_data_dir:
             np.savez(self.save_data_dir / f"vae_decoder.npz", **onnx_inputs)
         onnx_outputs = self.session.run(None, onnx_inputs)
+        if self.save_data_dir:
+            np.savez(self.save_data_dir / f"vae_decoder_output.npz", **onnx_outputs)
         model_outputs = self.prepare_onnx_outputs(use_torch, *onnx_outputs)
 
         if "latent_sample" in model_outputs:
