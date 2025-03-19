@@ -10,7 +10,7 @@ This workflow performs the optimization pipeline:
 
 | Model | Pearson Correlation | Spearman Correlation | latency (avg) |
 |-|-|-| -|
-| Original model |  0.8274 | 0.8203 | 0.1457 |
+| Original model |  0.8274 | 0.8203 | 0.1457s |
 | Quantized model | 0.8272 | 0.8198 | 0.0289s |
 
 ## How to run
