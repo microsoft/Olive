@@ -139,9 +139,9 @@ class QuantizeCommand(BaseOliveCLICommand):
     def _get_passes_dict(self, pass_list):
         precision_in_bits = self._get_precision_bits()
         wtypes = self._get_precision_in_wtypes()
-        quant_format = "QDQ"
+        quant_format = "QOperator"
         if self.args.use_qdq_encoding:
-            quant_format = "QOP"
+            quant_format = "QDQ"
 
         # config options to add for a given option
         to_add = {

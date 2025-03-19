@@ -301,7 +301,6 @@ def generate(model_path):
         generator = og.Generator(model, params)
 
         while not generator.is_done():
-            generator.compute_logits()
             generator.generate_next_token()
 
             new_token = generator.get_next_tokens()[0]

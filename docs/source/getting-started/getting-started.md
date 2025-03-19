@@ -121,48 +121,52 @@ tokenizer_stream = tokenizer.create_stream()
 # since otherwise it will be set to the entire context length
 search_options = {}
 search_options['max_length'] = 200
-search_options['past_present_share_buffer'] = False
 
-chat_template = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+# Encode the system prompt
+system_template = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>You are a helpful assistant<|eot_id|>"
+system_tokens = tokenizer.encode(system_prompt)
 
-You are a helpful assistant<|eot_id|><|start_header_id|>user<|end_header_id|>
+chat_template = "<|start_header_id|>user<|end_header_id|>{input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
 
-{input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
-"""
-
-text = input("Input: ")
-
-# Keep asking for input phrases
-while text != "exit":
+# Keep asking for input prompts in a loop
+while True:
+    text = input("Prompt (Use quit() to exit): ")
     if not text:
         print("Error, input cannot be empty")
-        exit
+        continue
 
-    # generate prompt (prompt template + input)
+    if text == "quit()":
+        break
+
+    # Generate prompt (prompt template + input)
     prompt = f'{chat_template.format(input=text)}'
 
     # encode the prompt using the tokenizer
     input_tokens = tokenizer.encode(prompt)
 
+    # Create params and generator
     params = og.GeneratorParams(model)
     params.set_search_options(**search_options)
-    params.input_ids = input_tokens
     generator = og.Generator(model, params)
 
+    # Append system and input tokens to the generator
+    generator.append_tokens(system_tokens + input_tokens)
+
+    print("")
     print("Output: ", end='', flush=True)
-    # stream the output
+    # Stream the output
     try:
         while not generator.is_done():
-            generator.compute_logits()
             generator.generate_next_token()
 
             new_token = generator.get_next_tokens()[0]
             print(tokenizer_stream.decode(new_token), end='', flush=True)
     except KeyboardInterrupt:
         print("  --control+c pressed, aborting generation--")
-
     print()
-    text = input("Input: ")
+    print()
+
+    del generator
 ```
 :::
 
