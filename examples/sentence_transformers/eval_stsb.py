@@ -5,6 +5,7 @@
 
 # ruff: noqa: T201
 
+import argparse
 import time
 
 import numpy as np
@@ -12,6 +13,10 @@ import onnxruntime
 from datasets import load_dataset
 from scipy.stats import pearsonr, spearmanr
 from transformers import AutoTokenizer
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-m", "--model", required=True, help="Path to the ONNX model.")
+args = parser.parse_args()
 
 dataset = load_dataset("sentence-transformers/stsb", split="test")
 sentences1 = dataset["sentence1"]
@@ -21,7 +26,7 @@ tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v
 
 options = onnxruntime.SessionOptions()
 st_session = onnxruntime.InferenceSession(
-    r"path_to_model.onnx",
+    args.model,
     sess_options=options,
     providers=["QNNExecutionProvider"],
     provider_options=[{"backend_path": "QnnHtp.dll"}],
