@@ -258,7 +258,7 @@ class Pass(ABC):
         if not input_model_path.is_dir():
             return
 
-        input_model_additional_files = (input_model.model_attributes or {}).get("additional_files") or []
+        input_model_additional_files = set((input_model.model_attributes or {}).get("additional_files") or [])
         if not input_model_additional_files:
             return
 
@@ -276,46 +276,30 @@ class Pass(ABC):
                 logger.warning("Expecting the output model to be in a directory but found a file.")
                 return
 
-        output_model.model_attributes = output_model_attributes = output_model.model_attributes or {}
-        output_model_attributes["additional_files"] = Pass._copy_additional_files(
-            input_model_additional_files,
-            output_model_attributes.get("additional_files") or [],
-            output_model_path,
-        )
-
-    @staticmethod
-    def _copy_additional_files(
-        input_additional_files: List[str], output_additional_files: List[str], output_path: Union[str, Path]
-    ) -> List[str]:
-        """Copy additional files from input model to output model.
-
-        :param input_additional_files: Name of the additional files from input model.
-        :param output_additional_files: Names of the additional files from output model.
-        :param output_path: Path to the output model.
-        :return: Final list of additional files for the output model.
-        """
-        output_path = Path(output_path)
-        assert output_path.is_dir(), "Output path must be a directory."
-
+        output_model_attributes = output_model.model_attributes or {}
         # output model might have inherited model_attributes from input model
         # remove the input model's additional files from the output model's additional files
         # we will add the files that are not already present in the output model
-        output_additional_files = set(output_additional_files) - set(input_additional_files)
+        output_model_additional_files = (
+            set(output_model_attributes.get("additional_files", [])) - input_model_additional_files
+        )
 
-        for filepath in input_additional_files:
+        for filepath in input_model_additional_files:
             input_filepath = Path(filepath)
 
             # Make sure we don't overwrite an existing file in the output's directory.
             # The follow up pass could have *potentially* generated a file with the same name.
-            output_filepath = output_path / input_filepath.name
+            output_filepath = output_model_path / input_filepath.name
             if not output_filepath.exists():
+                # TODO(team): Use symlinks instead of copying the files.
                 shutil.copy(str(input_filepath), str(output_filepath))
             # always add the file_path to the output model's additional files
             # this covers the case where the output model_path is the same as the input model_path
             # like for perf-tuning pass
-            output_additional_files.add(str(output_filepath))
+            output_model_additional_files.add(str(output_filepath))
 
-        return sorted(output_additional_files)
+        output_model_attributes["additional_files"] = sorted(output_model_additional_files)
+        output_model.model_attributes = output_model_attributes
 
     def to_json(self, check_object: bool = False) -> Dict[str, Any]:
         """Convert the pass to json."""
