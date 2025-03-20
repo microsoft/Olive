@@ -428,6 +428,7 @@ TEMPLATE = {
             ("model_builder", {"type": "ModelBuilder", "precision": "fp32"}),
             ("genai_config_only", {"type": "ModelBuilder", "precision": "fp32", "metadata_only": True}),
             # model optimization passes
+            ("peephole_optimizer", {"type": "OnnxPeepholeOptimizer"}),
             # use transformer optimizer for fp16 conversion too
             # opt_level set to 0 to avoid graph transformations done by onnxruntime inference sessions
             # that are incompatible with later passes. opt_level > 0 is optional and can be done during session creation
@@ -435,7 +436,6 @@ TEMPLATE = {
                 "transformer_optimizer",
                 {"type": "OrtTransformersOptimization", "opt_level": 0, "float16": False, "keep_io_types": False},
             ),
-            ("peephole_optimizer", {"type": "OnnxPeepholeOptimizer"}),
             # change io types to fp32
             ("fp16_to_fp32", {"type": "OnnxIODataTypeConverter"}),
             # qnn preparation passes
