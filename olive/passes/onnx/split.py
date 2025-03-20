@@ -15,7 +15,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model, model_proto_to_file
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
@@ -232,19 +232,23 @@ class SplitModel(Pass):
 
         component_models = []
         component_names = []
+        output_model_dir = Path(output_model_path).with_suffix("")
+        output_model_dir.mkdir(parents=True, exist_ok=True)
+        # will save the split models directly in the output dir
         for i, split_dag in enumerate(split_dags):
             if not split_dag.get_node_names():
                 # no nodes got assigned to this split
                 logger.debug("Skipping empty split %d", i)
                 continue
-            split_name = f"split_{i}"
-            split_dir = Path(output_model_path).with_suffix("") / split_name
-            split_path = resolve_onnx_path(split_dir, f"{split_name}.onnx")
             split_dag.update()
-            component_models.append(model_proto_to_olive_model(split_dag.model, split_path, config))
+            split_name = f"split_{i}"
+            split_path = resolve_onnx_path(output_model_dir, f"{split_name}.onnx")
+            component_models.append(
+                model_proto_to_olive_model(split_dag.model, split_path, config, force_model_dir=True)
+            )
             component_names.append(split_name)
 
-        return CompositeModelHandler(component_models, component_names)
+        return CompositeModelHandler(component_models, component_names, model_path=output_model_dir)
 
     def get_assignment(self, node_name: str, split_assignments: Dict[str, int]) -> Optional[int]:
         name_components = node_name.replace("/", ".").lstrip(".").split(".")

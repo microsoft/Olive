@@ -73,7 +73,13 @@ pip install -r requirements.txt
 pip install "onnxruntime-gpu>=1.21.0" "onnxruntime-genai-cuda>=0.6.0"
 
 # AutoGPTQ: Install from source (stable package may be slow for weight packing)
-BUILD_CUDA_EXT=0 pip install -vvv --no-build-isolation git+https://github.com/PanQiWei/AutoGPTQ.git
+# set the environment variable to disable the CUDA extension build, not required since we are not doing inference
+# Linux
+export BUILD_CUDA_EXT=0
+# Windows
+# set BUILD_CUDA_EXT=0
+# Install AutoGPTQ from source
+pip install --no-build-isolation git+https://github.com/PanQiWei/AutoGPTQ.git
 ```
 
 For AOT compilation, the latest nightly x64 build of onnxruntime-qnn is required. In a separate Python environment with olive-ai installed, the following packages are required:

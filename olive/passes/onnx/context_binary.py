@@ -146,6 +146,7 @@ class EPContextBinaryGenerator(Pass):
         return CompositeModelHandler(
             list(new_component_models.values()),
             list(new_component_models.keys()),
+            model_path=output_model_path,
             model_attributes=new_model_attributes,
         )
 

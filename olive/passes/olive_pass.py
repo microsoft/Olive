@@ -224,32 +224,26 @@ class Pass(ABC):
                 inference_settings=model.inference_settings,
                 model_attributes=model.model_attributes,
             )
-            Pass._carry_forward_additional_files(model, output_model)
         elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
             components = []
             component_names = []
+            # all components will be saved in the same parent directory
+            model_dir = Path(output_model_path).with_suffix("")
+            model_dir.mkdir(parents=True, exist_ok=True)
             for component_name, component_model in model.get_model_components():
-                component_output_path = Path(output_model_path).with_suffix("") / component_name
-                output_model_component = self._run_for_config(component_model, self.config, str(component_output_path))
-                output_model_component.model_attributes = (
-                    output_model_component.model_attributes or component_model.model_attributes
-                )
+                component_output_path = model_dir / component_name
+                output_model_component = self.run(component_model, str(component_output_path))
                 components.append(output_model_component)
                 component_names.append(component_name)
-                Pass._carry_forward_additional_files(component_model, output_model_component)
-            output_model = CompositeModelHandler(components, component_names)
-            output_model.model_attributes = output_model.model_attributes or model.model_attributes
+            output_model = CompositeModelHandler(components, component_names, model_path=model_dir)
         else:
             output_model = self._run_for_config(model, self.config, output_model_path)
-            # assumption: the model attributes from passes, if any, are more important than
-            # the input model attributes, we should not update/extend anymore outside of the pass run
-            output_model.model_attributes = output_model.model_attributes or model.model_attributes
-            if not isinstance(output_model, CompositeModelHandler):
-                # save and carry forward additional files into the the output model path
-                # for composite model, the additional_files attribute is already present in the parent
-                # model_attributes
-                Pass._carry_forward_additional_files(model, output_model)
 
+        # assumption: the model attributes from passes, if any, are more important than
+        # the input model attributes, we should not update/extend anymore outside of the pass run
+        output_model.model_attributes = output_model.model_attributes or model.model_attributes
+        # save and carry forward additional files into the the output model path
+        Pass._carry_forward_additional_files(model, output_model)
         return output_model
 
     @staticmethod
@@ -264,12 +258,16 @@ class Pass(ABC):
         if not input_model_path.is_dir():
             return
 
-        input_model_attributes = input_model.model_attributes or {}
-        input_model_additional_files = set(input_model_attributes.get("additional_files", []))
+        input_model_additional_files = (input_model.model_attributes or {}).get("additional_files") or []
         if not input_model_additional_files:
             return
 
-        output_model_path = Path(output_model.get_resource("model_path"))
+        output_model_resource = output_model.get_resource("model_path")
+        if not output_model_resource:
+            logger.warning("Expecting the output model to have a model_path resource but found none.")
+            return
+
+        output_model_path = Path(output_model_resource)
         if not output_model_path.is_dir():
             if isinstance(output_model, ONNXModelHandler):
                 # change the "model_path" resource to the parent directory of the model file
@@ -278,30 +276,46 @@ class Pass(ABC):
                 logger.warning("Expecting the output model to be in a directory but found a file.")
                 return
 
-        output_model_attributes = output_model.model_attributes or {}
+        output_model.model_attributes = output_model_attributes = output_model.model_attributes or {}
+        output_model_attributes["additional_files"] = Pass._copy_additional_files(
+            input_model_additional_files,
+            output_model_attributes.get("additional_files") or [],
+            output_model_path,
+        )
+
+    @staticmethod
+    def _copy_additional_files(
+        input_additional_files: List[str], output_additional_files: List[str], output_path: Union[str, Path]
+    ) -> List[str]:
+        """Copy additional files from input model to output model.
+
+        :param input_additional_files: Name of the additional files from input model.
+        :param output_additional_files: Names of the additional files from output model.
+        :param output_path: Path to the output model.
+        :return: Final list of additional files for the output model.
+        """
+        output_path = Path(output_path)
+        assert output_path.is_dir(), "Output path must be a directory."
+
         # output model might have inherited model_attributes from input model
         # remove the input model's additional files from the output model's additional files
         # we will add the files that are not already present in the output model
-        output_model_additional_files = (
-            set(output_model_attributes.get("additional_files", [])) - input_model_additional_files
-        )
+        output_additional_files = set(output_additional_files) - set(input_additional_files)
 
-        for filepath in input_model_additional_files:
+        for filepath in input_additional_files:
             input_filepath = Path(filepath)
 
             # Make sure we don't overwrite an existing file in the output's directory.
             # The follow up pass could have *potentially* generated a file with the same name.
-            output_filepath = output_model_path / input_filepath.name
+            output_filepath = output_path / input_filepath.name
             if not output_filepath.exists():
-                # TODO(team): Use symlinks instead of copying the files.
                 shutil.copy(str(input_filepath), str(output_filepath))
             # always add the file_path to the output model's additional files
             # this covers the case where the output model_path is the same as the input model_path
             # like for perf-tuning pass
-            output_model_additional_files.add(str(output_filepath))
+            output_additional_files.add(str(output_filepath))
 
-        output_model_attributes["additional_files"] = sorted(output_model_additional_files)
-        output_model.model_attributes = output_model_attributes
+        return sorted(output_additional_files)
 
     def to_json(self, check_object: bool = False) -> Dict[str, Any]:
         """Convert the pass to json."""

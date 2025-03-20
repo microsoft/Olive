@@ -12,6 +12,7 @@ from olive.hardware.accelerator import Device
 from olive.model.config.model_config import ModelConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +32,11 @@ class CompositeModelHandler(OliveModelHandler):
         self,
         model_components: List[Union[OliveModelHandler, Dict[str, Any]]],
         model_component_names: List[str],
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
-            model_path=None,
+            model_path=model_path,
             framework=Framework.ONNX,
             model_file_format=ModelFileFormat.COMPOSITE_MODEL,
             model_attributes=model_attributes,

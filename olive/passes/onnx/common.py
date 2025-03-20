@@ -145,6 +145,7 @@ def model_proto_to_olive_model(
     check_model: bool = False,
     external_initializers_file_name: Optional[str] = None,
     constant_inputs_file_name: Optional[str] = None,
+    force_model_dir: bool = False,
 ) -> ONNXModelHandler:
     """Save the ONNX model to the specified path and return the ONNXModelHandler.
 
@@ -155,6 +156,8 @@ def model_proto_to_olive_model(
     :param check_model: If True, run onnx.checker.check_model on the model before returning.
     :param external_initializers_file_name: The name of the external initializers file.
     :param constant_inputs_file_name: The name of the constant inputs file.
+    :param force_model_dir: If True, use the parent directory of the output model path as the model directory
+        regardless of whether external data is used.
 
     :return: The ONNXModelHandler.
     """
@@ -170,7 +173,7 @@ def model_proto_to_olive_model(
     has_external_data = model_proto_to_file(
         model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys if k in external_data_config}
     )
-    if has_external_data or external_initializers_file_name or constant_inputs_file_name:
+    if has_external_data or external_initializers_file_name or constant_inputs_file_name or force_model_dir:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
 
         onnx_file_name = Path(output_model_path).name
