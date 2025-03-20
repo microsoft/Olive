@@ -1,27 +1,7 @@
 import torch
 from torch.utils.data import Dataset
-from transformers import AutoModel
 
 from olive.data.registry import Registry
-
-
-def load_model(model_name: str):
-    return AutoModel.from_pretrained(model_name, trust_remote_code=True).eval()
-
-
-def get_io_config(model):
-    return {
-        "input_names": ["input_ids", "token_type_ids", "attention_mask"],
-        "input_shapes": [[1, 128], [1, 128], [1, 128]],
-        "input_types": ["int64", "int64", "int64"],
-        "output_names": ["last_hidden_state"],
-        "dynamic_axes": {
-            "input_ids": {"0": "batch_size", "1": "seq_len"},
-            "token_type_ids": {"0": "batch_size", "1": "seq_len"},
-            "attention_mask": {"0": "batch_size", "1": "seq_len"},
-            "last_hidden_state": {"0": "batch_size", "1": "seq_len"},
-        },
-    }
 
 
 class TextDataset(Dataset):

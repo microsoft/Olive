@@ -1,10 +1,21 @@
 {
     "input_model": {
-        "type": "PytorchModel",
+        "type": "HfModel",
         "model_path": "Alibaba-NLP/gte-large-en-v1.5",
-        "model_script": "user_script.py",
-        "io_config": "get_io_config",
-        "model_loader": "load_model"
+        "load_kwargs": { "trust_remote_code": true },
+        "task": "feature-extraction",
+        "io_config": {
+            "input_names": [ "input_ids", "token_type_ids", "attention_mask" ],
+            "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
+            "input_types": [ "int64", "int64", "int64" ],
+            "output_names": [ "last_hidden_state" ],
+            "dynamic_axes": {
+                "input_ids": { "0": "batch_size", "1": "seq_len" },
+                "token_type_ids": { "0": "batch_size", "1": "seq_len" },
+                "attention_mask": { "0": "batch_size", "1": "seq_len" },
+                "last_hidden_state": { "0": "batch_size", "1": "seq_len" }
+            }
+        }
     },
     "data_configs": [
         {
