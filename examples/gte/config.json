@@ -1,0 +1,40 @@
+{
+    "input_model": {
+        "type": "PytorchModel",
+        "model_path": "Alibaba-NLP/gte-large-en-v1.5",
+        "model_script": "user_script.py",
+        "io_config": "get_io_config",
+        "model_loader": "load_model"
+    },
+    "data_configs": [
+        {
+            "name": "c4",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "load_dataset_config": {
+                "data_name": "allenai/c4",
+                "subset": "en",
+                "split": "validation",
+                "streaming": true
+            },
+            "pre_process_data_config": {
+                "type": "dataset_pre_process",
+                "max_samples": 128,
+                "model_name": "Alibaba-NLP/gte-large-en-v1.5"
+            }
+        }
+    ],
+    "evaluators": {
+        "evaluator": {
+            "metrics": [
+                { "name": "latency", "type": "latency", "sub_types": [ { "name": "avg" } ], "data_config": "c4" }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": { "type": "OnnxConversion" },
+        "OnnxQuantization": { "type": "OnnxStaticQuantization", "quant_preprocess": true, "data_config": "c4" }
+    },
+    "evaluator": "evaluator",
+    "output_dir": "models/gte-large-en-v1.5"
+}
