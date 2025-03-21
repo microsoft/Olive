@@ -493,7 +493,7 @@ def process_llm_pipeline(
                 decoder_config[key] = value
 
         # get group session options
-        group_session_options = group_session_options or decoder_config.get("pipeline", {}).get(
+        group_session_options = group_session_options or decoder_config.get("pipeline", [{}])[0].get(
             llm_pipeline["context"][0], {}
         ).get("session_options")
 
