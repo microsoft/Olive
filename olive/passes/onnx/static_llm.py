@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
 from pathlib import Path
 from typing import Dict, Type
@@ -88,6 +89,13 @@ class StaticLLM(Pass):
             "iterator": {batch_size: config.batch_size, sequence_length: 1},
         }
         pipeline = {"embeddings": "embeddings", "context": [], "iterator": []}
+        genai_pipeline = {
+            "embeddings": {
+                "filename": embeddings_model_path.name,
+                "inputs": new_components["embeddings"].io_config["input_names"],
+                "outputs": new_components["embeddings"].io_config["output_names"],
+            }
+        }
 
         # update the param mapping with the new shapes from the embeddings model
         for param_mapping in param_mapping_dict.values():
@@ -117,6 +125,12 @@ class StaticLLM(Pass):
                     model_path=output_model_path, onnx_file_name=component_model_path.name
                 )
                 pipeline[key].append(component_name)
+                genai_pipeline[component_name] = {
+                    "filename": component_model_path.name,
+                    "inputs": new_components[component_name].io_config["input_names"],
+                    "outputs": new_components[component_name].io_config["output_names"],
+                    "run_on_token_gen": key == "iterator",
+                }
 
             # delete the intermediate model
             intermediate_model_path.unlink()
@@ -128,6 +142,11 @@ class StaticLLM(Pass):
             model_path=output_model_path, onnx_file_name=lm_head_model_path.name
         )
         pipeline["lm_head"] = "lm_head"
+        genai_pipeline["lm_head"] = {
+            "filename": lm_head_model_path.name,
+            "inputs": new_components["lm_head"].io_config["input_names"],
+            "outputs": new_components["lm_head"].io_config["output_names"],
+        }
 
         model_attributes = model.model_attributes or {}
         model_attributes["llm_pipeline"] = pipeline
@@ -163,3 +182,68 @@ class StaticLLM(Pass):
                             param_mapping[old_dim] == new_dim
                         ), f"Param {old_dim} already exists with different value. Something is wrong."
                     param_mapping[old_dim] = new_dim
+
+    @staticmethod
+    def _update_additional_file(
+        input_model: CompositeModelHandler, output_model: CompositeModelHandler, config: Type[BasePassConfig]
+    ):
+        """Update the genai_config.json file if present."""
+        # carry over additional files if any
+        Pass._carry_forward_additional_files(input_model, output_model)
+
+        # update the genai_config.json file if present
+        genai_config_file_path = Path(output_model.model_path) / "genai_config.json"
+        if not genai_config_file_path.exists():
+            return
+
+        component_map = {component.name: component for component in output_model.model_components}
+        llm_pipeline = output_model.model_attributes["llm_pipeline"]
+
+        # only support GQA model with "past_seq_len" and "total_seq_len" inputs for now
+        # TODO(jambayk): check support for other model types:
+        #  - GQA with no sliding window
+        #  - non-GQA with/without sliding window
+        # sliding window in ort-genai has assumptions about the model and kv-cache ios
+        if "past_seq_len" not in component_map[llm_pipeline["context"][0]].io_config["input_names"]:
+            logger.info(
+                "genai_config.json file not updated since model's input config is unexpected. Expected 'past_seq_len'"
+                " input."
+            )
+            return
+
+        with genai_config_file_path.open() as f:
+            genai_config = json.load(f)
+
+        # update model_type and decoder properties
+        genai_config["model"]["model_type"] = "decoder-pipeline"
+        decoder_config = genai_config["model"]["decoder"]
+        decoder_config["inputs"].update(
+            {"past_sequence_length": "past_seq_len", "total_sequence_length": "total_seq_len"}
+        )
+        decoder_config["sliding_window"] = {
+            "window_size": config.context_length,
+            "pad_value": 0,
+            "alignment": "left",
+            "slide_key_value_cache": False,
+        }
+
+        # add pipeline components
+        del decoder_config["filename"]
+        decoder_config["pipeline"] = pipeline_config = {}
+        for name in [
+            llm_pipeline["embeddings"],
+            *llm_pipeline["context"],
+            *llm_pipeline["iterator"],
+            llm_pipeline["lm_head"],
+        ]:
+            component = component_map[name]
+            component_io_config = component.io_config
+            pipeline_config[name] = {
+                "filename": Path(component.model_path).name,
+                "inputs": component_io_config["input_names"],
+                "outputs": component_io_config["output_names"],
+            }
+
+        for group, run_on_token_gen in zip(["context", "iterator"], [True, False]):
+            for name in llm_pipeline[group]:
+                pipeline_config[name]["run_on_token_gen"] = run_on_token_gen
