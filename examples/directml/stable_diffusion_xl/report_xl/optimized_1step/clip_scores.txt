@@ -1,0 +1,102 @@
+| Prompt | Score |
+| A man with a red helmet on a small moped on a dirt road | 32.29853820800781 |
+| A woman wearing a net on her head cutting a cake | 31.899621963500977 |
+| A child holding a flowered umbrella and petting a yak | 39.718109130859375 |
+| A young boy standing in front of a computer keyboard | 35.558719635009766 |
+| a boy wearing headphones using one computer in a long row of computers | 32.92610168457031 |
+| A woman in a room with a cat | 32.80949783325195 |
+| A young girl inhales with the intent of blowing out a candle | 34.42055130004883 |
+| A commercial stainless kitchen with a pot of food cooking | 31.65049934387207 |
+| Two men wearing aprons working in a commercial-style kitchen | 29.050138473510742 |
+| Two chefs in a restaurant kitchen preparing food | 30.73343849182129 |
+| this is a very dark picture of a room with a shelf | 33.907745361328125 |
+| A kitchen filled with black appliances and lots of counter top space | 30.591833114624023 |
+| A professional kitchen filled with sinks and appliances | 30.526018142700195 |
+| A man on a bicycle riding next to a train | 32.98477554321289 |
+| A narrow kitchen filled with appliances and cooking utensils | 31.697601318359375 |
+| A kitchen with wood floors and lots of furniture | 32.097618103027344 |
+| A woman eating vegetables in front of a stove | 32.26540756225586 |
+| A kitchen is shown with a variety of items on the counters | 30.15121841430664 |
+| A boy performing a kickflip on his skateboard on a city street | 32.91020584106445 |
+| A kitchen with a stove, microwave and refrigerator | 30.732995986938477 |
+| A group of people riding on the back of a loaded red pickup truck | 33.821434020996094 |
+| A wooden ball on top of a wooden stick | 36.951412200927734 |
+| Multiple wooden spoons are shown on a table top | 35.06449890136719 |
+| A large boat filled with mean on wheels | 26.514720916748047 |
+| several young students working at a desk with multiple computers | 33.569950103759766 |
+| A man riding an elephant into some water of a creek | 34.53335189819336 |
+| a couple of women  are in a kitchen | 30.14146614074707 |
+| The woman in the kitchen is holding a huge pan | 30.000436782836914 |
+| A baby is laying down with a teddy bear | 32.38930130004883 |
+| Two bikers, one in front of a building, the other in the city | 27.662879943847656 |
+| People riding bicycles down the road approaching a bird | 35.481422424316406 |
+| A little girl holding a kitten next to a blue fence | 33.7907600402832 |
+| A toilet and a sink in small bathroom | 27.03435707092285 |
+| A bicycle store shows two males leaning toward a bike | 30.52821159362793 |
+| A shower stall with interesting tile is the focal point | 31.760591506958008 |
+| A view of a very large bathroom with mirrored walls | 35.19813537597656 |
+| a long beige bathroom with a door to a bedroom and another to the hallway | 30.714353561401367 |
+| The view of a large bathroom with a walk in closet | 32.94995880126953 |
+| A white toilet sitting next to a green wall under a picture | 39.20207214355469 |
+| A bathroom with an enclosed shower next to a sink and a toilet | 30.43743896484375 |
+| people on bicycles ride down a busy street | 30.91690444946289 |
+| This is an image of the inside of a nice bathroom | 28.23018455505371 |
+| Two dogs are looking up while they stand near the toilet in the bathroom | 34.99089050292969 |
+| A bathroom with a walk in shower currently under repair | 28.397348403930664 |
+| The bathroom is clean for the guests to use | 26.142871856689453 |
+| A white bath tub sitting next to a bathroom sink | 27.352067947387695 |
+| A full view of a shower with glass | 32.372032165527344 |
+| A toilet sitting in a bathroom next to a sink | 26.98487091064453 |
+| Blue dust pan and brush on floor next to white commode | 31.2235107421875 |
+| A bathroom with a sink and toilet and a window | 31.112293243408203 |
+| There are two sinks next to two mirrors | 25.770095825195312 |
+| A large porcelain toilet posed with a tan flower pot | 35.85947036743164 |
+| a gray bicycle is locked to some metal doors | 32.74687194824219 |
+| A woman rides a bicycle on a road next to the median | 29.43920135498047 |
+| A man takes a picture in the bathroom mirror | 31.808557510375977 |
+| A bathroom with a white toilet sitting next to a bathroom sink | 28.8365535736084 |
+| A bathroom with two sinks and a shower | 29.957120895385742 |
+| The bathroom is clean and ready to be used | 24.96056365966797 |
+| A bath tub sitting next to a sink in a bathroom | 26.589929580688477 |
+| an image of a cars driving on the highway | 31.32069969177246 |
+| This shot is of a crowded highway full of traffic | 29.791467666625977 |
+| Mirror view of a bathroom with a sink and tub | 28.50048828125 |
+| A city street filled with traffic and parking lights | 30.531808853149414 |
+| A white toilet and a sink in a room | 28.387725830078125 |
+| A bathroom sink shapped like a glass bowl | 30.24240493774414 |
+| A door opens to a bare, white bathroom | 30.215110778808594 |
+| A row of parked cars sitting next to parking meters | 30.093019485473633 |
+| An elegant bathroom features a tub, sink, mirror, and decorations | 33.781612396240234 |
+| A clean bathroom is seen in this image | 28.781879425048828 |
+| A bathroom sink sitting under a large mirror | 26.93701934814453 |
+| A white urinal mounted to a bathroom wall | 32.746551513671875 |
+| A glazed donut hanging from a metal rod | 35.84126663208008 |
+| An orange striped tabby cat laying on top of a red vehicles wheel | 34.45098876953125 |
+| A large jetliner flying over a traffic filled street | 33.04948806762695 |
+| A silver and red bus in parking lot next to cars | 31.423885345458984 |
+| A red helmet is on a yellow toilet in the dirt | 33.53401565551758 |
+| a little kid riding a skateboard at a park | 31.62003517150879 |
+| A young man wearing black attire and a flowered tie is standing and smiling | 32.330711364746094 |
+| A car with some surfboards in a field | 38.118263244628906 |
+| A person on a street next to a motor bike | 28.390575408935547 |
+| A man looking down with a backpack on in a house | 32.6392936706543 |
+| A cat on the lid of a toilet looking perturbed | 31.583425521850586 |
+| A toilet sitting in a bathroom next to a mirror | 26.319385528564453 |
+| Bathroom with white fixtures, tiles and corner shower | 29.45374870300293 |
+| An older building with birds flying near it | 32.78388977050781 |
+| a motorcycle in a driveway with a vanity license plate | 28.520450592041016 |
+| A picture of a wooden container with crosses on it | 36.412906646728516 |
+| There is a man picking bananas next to a street | 35.07857894897461 |
+| A restroom has a toilet and a decorative sun wall plaque | 35.533016204833984 |
+| some horses grazing in front of a church | 39.26236343383789 |
+| A horse drawn carriage is parked along the curb | 30.807268142700195 |
+| a toilet on the ground outdoors in front of a house | 34.7557487487793 |
+| The shiny motorcycle is being shown on a display | 30.774032592773438 |
+| Horses graze in front of a large building amid snow | 39.432891845703125 |
+| A large clock tower with a wind indicator on top | 32.87179946899414 |
+| A woman is riding a motorcycle down the street | 27.36553192138672 |
+| A motorcycle sitting on the side of a street corner | 30.385812759399414 |
+| A small white toilet sitting next to a metal trash can | 28.871095657348633 |
+| A purple motorcycle parked in front of a red brick building | 35.85553741455078 |
+| A few people working on various computers in an office | 30.566116333007812 |
+| Avg | 31.697303771972656 |
