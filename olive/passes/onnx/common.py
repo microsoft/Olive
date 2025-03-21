@@ -452,7 +452,7 @@ def process_llm_pipeline(
 
     # process the context and iterator models
     new_groups = process_func(component_models, llm_pipeline, output_dir)
-    for key, group in new_groups.item():
+    for key, group in new_groups.items():
         new_component_models.update(group)
         new_llm_pipeline[key] = list(group.keys())
 
@@ -468,7 +468,7 @@ def process_llm_pipeline(
 
     # update genai_config if it exists
     genai_config_path = None
-    for file_path in new_model_attributes.get("additional_file") or []:
+    for file_path in new_model_attributes.get("additional_files") or []:
         if Path(file_path).name == "genai_config.json":
             genai_config_path = file_path
             break
@@ -478,12 +478,12 @@ def process_llm_pipeline(
             genai_config = json.load(f)
 
         # update model_type
-        genai_config["model"]["model_type"] = "decoder-pipeline"
+        genai_config["model"]["type"] = "decoder-pipeline"
 
         # update decoder config
         decoder_config = genai_config["model"]["decoder"]
-        decoder_config.pop("file_name", None)
-        for key, value in decoder_config_extra.items():
+        decoder_config.pop("filename", None)
+        for key, value in (decoder_config_extra or {}).items():
             exisiting_value = decoder_config.get(key)
             if isinstance(exisiting_value, dict):
                 exisiting_value.update(value)
@@ -498,7 +498,7 @@ def process_llm_pipeline(
         ).get("session_options")
 
         # update pipeline config
-        decoder_config["pipeline"] = pipeline_config = {}
+        pipeline_config = {}
         for name in [
             new_llm_pipeline["embeddings"],
             *new_llm_pipeline["context"],
@@ -513,15 +513,24 @@ def process_llm_pipeline(
                 "outputs": component_io_config["output_names"],
             }
 
-        for group, run_on_token_gen in zip(["context", "iterator"], [True, False]):
-            for name in llm_pipeline[group]:
+        for group, run_on_token_gen in zip(["context", "iterator"], [False, True]):
+            for name in new_llm_pipeline[group]:
                 if group_session_options:
                     pipeline_config[name]["session_options"] = group_session_options
                 pipeline_config[name]["run_on_token_gen"] = run_on_token_gen
+
+        decoder_config["pipeline"] = [pipeline_config]
 
         # save the updated genai_config
         new_genai_config_path = output_dir / "genai_config.json"
         with new_genai_config_path.open("w") as f:
             json.dump(genai_config, f, indent=4)
-        new_model_attributes["additional_file"].remove(genai_config_path)
-        new_model_attributes["additional_file"].append(str(new_genai_config_path))
+        new_model_attributes["additional_files"].remove(genai_config_path)
+        new_model_attributes["additional_files"].append(str(new_genai_config_path))
+
+    return CompositeModelHandler(
+        list(new_component_models.values()),
+        list(new_component_models.keys()),
+        model_path=output_dir,
+        model_attributes=new_model_attributes,
+    )

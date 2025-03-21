@@ -6,7 +6,7 @@ import logging
 import platform
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Type, Union
+from typing import Dict, Optional, Type, Union
 
 from packaging import version
 
@@ -14,7 +14,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_context_bin_file_names, resave_model
+from olive.passes.onnx.common import get_context_bin_file_names, process_llm_pipeline
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -46,6 +46,11 @@ class EPContextBinaryGenerator(Pass):
                 default_value=None,
                 description="Provider options for the EP.",
             ),
+            "session_options": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                description="Session options for the EP.",
+            ),
             "disable_cpu_fallback": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -74,6 +79,7 @@ class EPContextBinaryGenerator(Pass):
         generate_kwargs = {
             "execution_provider": self.accelerator_spec.execution_provider,
             "provider_options": config.provider_options,
+            "session_options": config.session_options,
             "embed_context": config.embed_context,
             "disable_cpu_fallback": config.disable_cpu_fallback,
         }
@@ -95,54 +101,53 @@ class EPContextBinaryGenerator(Pass):
 
         new_component_models = {}
         new_model_attributes = deepcopy(model.model_attributes) or {}
-        if llm_pipeline := (model.model_attributes or {}).get("llm_pipeline"):
-            new_llm_pipeline = {}
+        if pipeline := (model.model_attributes or {}).get("llm_pipeline"):
 
-            # resave embeddings model
-            embeddings_model_path = output_model_path / "embeddings.onnx"
-            resave_model(component_map[llm_pipeline["embeddings"]].model_path, embeddings_model_path)
-            new_component_models["embeddings"] = ONNXModelHandler(
-                model_path=output_model_path, onnx_file_name=embeddings_model_path.name
-            )
-            new_llm_pipeline["embeddings"] = "embeddings"
-
-            # iterate over the context/iterator models
-            new_llm_pipeline["context"] = []
-            new_llm_pipeline["iterator"] = []
-            for ctx_model_name, iter_model_name in zip(llm_pipeline["context"], llm_pipeline["iterator"]):
-                # potentially share context binary between corresponding context/iterator components
-                new_ctx_model_name = f"{ctx_model_name}_ctx"
-                new_iter_model_name = f"{iter_model_name}_ctx"
-                new_component_models.update(
-                    self._generate_composite_binaries(
+            def process_context_iterator(component_models, llm_pipeline, output_dir):
+                new_groups = {
+                    "context": {},
+                    "iterator": {},
+                }
+                for ctx_model_name, iter_model_name in zip(llm_pipeline["context"], llm_pipeline["iterator"]):
+                    # potentially share context binary between corresponding context/iterator components
+                    new_ctx_model_name = f"{ctx_model_name}_ctx"
+                    new_iter_model_name = f"{iter_model_name}_ctx"
+                    composite_binaries = self._generate_composite_binaries(
                         model_paths_map={
-                            new_ctx_model_name: component_map[ctx_model_name].model_path,
-                            new_iter_model_name: component_map[iter_model_name].model_path,
+                            new_ctx_model_name: component_models[ctx_model_name].model_path,
+                            new_iter_model_name: component_models[iter_model_name].model_path,
                         },
-                        output_model_dir=output_model_path,
+                        output_model_dir=output_dir,
                         generate_kwargs=generate_kwargs,
                         weight_sharing=config.weight_sharing,
                     )
-                )
-                new_llm_pipeline["context"].append(new_ctx_model_name)
-                new_llm_pipeline["iterator"].append(new_iter_model_name)
+                    new_groups["context"][new_ctx_model_name] = composite_binaries[new_ctx_model_name]
+                    new_groups["iterator"][new_iter_model_name] = composite_binaries[new_iter_model_name]
 
-            # resave the lm_head model
-            lm_head_model_path = output_model_path / "lm_head.onnx"
-            resave_model(component_map[llm_pipeline["lm_head"]].model_path, lm_head_model_path)
-            new_component_models["lm_head"] = ONNXModelHandler(
-                model_path=output_model_path, onnx_file_name=lm_head_model_path.name
-            )
-            new_llm_pipeline["lm_head"] = "lm_head"
+                return new_groups
 
-            new_model_attributes["llm_pipeline"] = new_llm_pipeline
-        else:
-            new_component_models = self._generate_composite_binaries(
-                model_paths_map={f"{name}_ctx": component.model_path for name, component in component_map.items()},
-                output_model_dir=output_model_path,
-                generate_kwargs=generate_kwargs,
-                weight_sharing=config.weight_sharing,
+            group_session_options = config.session_options or {}
+            provider_options = config.provider_options or {}
+            if self.accelerator_spec.execution_provider == "QNNExecutionProvider":
+                provider_options["backend_path"] = "QnnHtp.dll"
+            group_session_options["provider_options"] = [
+                {self.accelerator_spec.execution_provider.lower().replace("executionprovider", ""): provider_options}
+            ]
+
+            return process_llm_pipeline(
+                model,
+                pipeline,
+                process_context_iterator,
+                output_model_path,
+                group_session_options=group_session_options,
             )
+
+        new_component_models = self._generate_composite_binaries(
+            model_paths_map={f"{name}_ctx": component.model_path for name, component in component_map.items()},
+            output_model_dir=output_model_path,
+            generate_kwargs=generate_kwargs,
+            weight_sharing=config.weight_sharing,
+        )
         return CompositeModelHandler(
             list(new_component_models.values()),
             list(new_component_models.keys()),
@@ -188,7 +193,8 @@ class EPContextBinaryGenerator(Pass):
         model_path: str,
         output_model_path: Union[str, Path],
         execution_provider: str,
-        provider_options: dict,
+        provider_options: Optional[dict] = None,
+        session_options: Optional[dict] = None,
         embed_context: bool = False,
         disable_cpu_fallback: bool = False,
         share_ep_contexts: bool = False,
@@ -218,12 +224,19 @@ class EPContextBinaryGenerator(Pass):
                 provider_options["enable_htp_weight_sharing"] = "1"
 
         # prepare session options
-        session_options = SessionOptions()
-        session_options.add_session_config_entry("ep.context_enable", "1")
-        session_options.add_session_config_entry("ep.context_embed_mode", str(int(embed_context)))
-        session_options.add_session_config_entry("session.disable_cpu_ep_fallback", str(int(disable_cpu_fallback)))
-        session_options.add_session_config_entry("ep.share_ep_contexts", str(int(share_ep_contexts)))
-        session_options.add_session_config_entry("ep.stop_share_ep_contexts", str(int(stop_share_ep_contexts)))
+        session_options = session_options or {}
+        session_options.update(
+            {
+                "ep.context_enable": "1",
+                "ep.context_embed_mode": int(embed_context),
+                "session.disable_cpu_ep_fallback": int(disable_cpu_fallback),
+                "ep.share_ep_contexts": int(share_ep_contexts),
+                "ep.stop_share_ep_contexts": int(stop_share_ep_contexts),
+            }
+        )
+        sess_options = SessionOptions()
+        for key, value in session_options.items():
+            sess_options.add_session_config_entry(key, str(value))
 
         output_model_path = Path(output_model_path)
         output_model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -235,13 +248,13 @@ class EPContextBinaryGenerator(Pass):
             logger.debug("Context binary bin file %s already exists. Deleting it.", str(file_name))
             file_name.unlink()
         # set the context file path
-        session_options.add_session_config_entry("ep.context_file_path", str(output_model_path))
+        sess_options.add_session_config_entry("ep.context_file_path", str(output_model_path))
 
         # create the inference session
         logger.debug("Creating context binary for model %s", str(model_path))
         InferenceSession(
             model_path,
-            sess_options=session_options,
+            sess_options=sess_options,
             providers=[execution_provider],
             provider_options=[provider_options],
         )
