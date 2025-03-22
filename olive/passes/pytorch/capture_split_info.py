@@ -77,8 +77,8 @@ class CaptureSplitInfo(Pass):
 
         return True
 
-    @staticmethod
-    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+    @classmethod
+    def is_accelerator_agnostic(cls, accelerator_spec: AcceleratorSpec) -> bool:
         return False
 
     def _run_for_config(
