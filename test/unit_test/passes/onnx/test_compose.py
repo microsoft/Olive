@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 from pathlib import Path
 from test.unit_test.utils import make_local_tiny_llama
 
@@ -81,6 +82,19 @@ def test_compose_onnx_models_llm_pipeline(tmp_path):
     llm_model = create_pass_from_dict(StaticLLM, {"batch_size": 1, "context_length": 64}, disable_search=True).run(
         split_model, tmp_path / "llm_model"
     )
+    # change genai config so that the context_0 model has session options
+    # will check if it got carried over
+    llm_genai_config_path = tmp_path / "llm_model" / "genai_config.json"
+    with llm_genai_config_path.open() as f:
+        llm_genai_config = json.load(f)
+    session_options = {
+        "provider_options": [{"qnn": {"backend_path": "QnnHtp.dll"}}],
+        "intra_op_num_threads": 2,
+        "inter_op_num_threads": 1,
+    }
+    llm_genai_config["model"]["decoder"]["pipeline"][0]["context_0"]["session_options"] = session_options
+    with llm_genai_config_path.open("w") as f:
+        json.dump(llm_genai_config, f, indent=4)
 
     p = create_pass_from_dict(ComposeOnnxModels, {}, disable_search=True)
 
@@ -97,3 +111,7 @@ def test_compose_onnx_models_llm_pipeline(tmp_path):
         "lm_head": "lm_head",
     }
     assert len(list(output_model.model_components)) == 4
+    with (output_model_path / "genai_config.json").open() as f:
+        genai_config = json.load(f)
+    assert genai_config["model"]["decoder"]["pipeline"][0]["context"]["session_options"] == session_options
+    assert genai_config["model"]["decoder"]["pipeline"][0]["iterator"]["session_options"] == session_options

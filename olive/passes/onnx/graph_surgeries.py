@@ -554,7 +554,7 @@ class RMSNormToL2Norm(Surgeon):
                 # rotated models have all 1s and might share initializer
                 # don't want to multiply by sqrt(N) multiple times even though it is fine in all 1s case
                 rmsnorm_weight = dag.get_initializer_np_array(rmsnorm_weight_name)
-                sqrt_n = np.sqrt(rmsnorm_weight.shape[-1])
+                sqrt_n = np.sqrt(rmsnorm_weight.shape[-1]).astype(rmsnorm_weight.dtype)
                 if np.all(rmsnorm_weight == 1):
                     # this is possible in a quarot/spinquant rotated model
                     # Multiplying by 1D is probably faster
@@ -698,7 +698,7 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
             # add Mul node
             mul_weight_name = dag.get_node_inputs(node_name, True)[-1]
             mul_weight = dag.get_initializer_np_array(mul_weight_name)
-            sqrt_n = np.sqrt(mul_weight.shape[-1])
+            sqrt_n = np.sqrt(mul_weight.shape[-1]).astype(mul_weight.dtype)
             if np.all(mul_weight == 1):
                 # this is possible in a quarot/spinquant rotated model
                 # Multiplying by 1D is probably faster

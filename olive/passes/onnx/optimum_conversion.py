@@ -127,4 +127,4 @@ class OptimumConversion(Pass):
             )
             model_component_names.append(component_name)
 
-        return CompositeModelHandler(model_components, model_component_names)
+        return CompositeModelHandler(model_components, model_component_names, model_path=output_model_path)

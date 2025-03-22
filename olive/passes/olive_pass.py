@@ -224,52 +224,40 @@ class Pass(ABC):
                 inference_settings=model.inference_settings,
                 model_attributes=model.model_attributes,
             )
-            Pass._carry_forward_additional_files(model, output_model)
         elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
             components = []
             component_names = []
+            # all components will be saved in the same parent directory
+            model_dir = Path(output_model_path).with_suffix("")
+            model_dir.mkdir(parents=True, exist_ok=True)
             for component_name, component_model in model.get_model_components():
-                component_output_path = Path(output_model_path).with_suffix("") / component_name
-                output_model_component = self._run_for_config(component_model, self.config, str(component_output_path))
-                output_model_component.model_attributes = (
-                    output_model_component.model_attributes or component_model.model_attributes
-                )
+                component_output_path = model_dir / component_name
+                output_model_component = self.run(component_model, str(component_output_path))
                 components.append(output_model_component)
                 component_names.append(component_name)
-                Pass._carry_forward_additional_files(component_model, output_model_component)
-            output_model = CompositeModelHandler(components, component_names)
-            output_model.model_attributes = output_model.model_attributes or model.model_attributes
+            output_model = CompositeModelHandler(components, component_names, model_path=model_dir)
         else:
             output_model = self._run_for_config(model, self.config, output_model_path)
-            # assumption: the model attributes from passes, if any, are more important than
-            # the input model attributes, we should not update/extend anymore outside of the pass run
-            output_model.model_attributes = output_model.model_attributes or model.model_attributes
-            if not isinstance(output_model, CompositeModelHandler):
-                # save and carry forward additional files into the the output model path
-                # for composite model, the additional_files attribute is already present in the parent
-                # model_attributes
-                Pass._carry_forward_additional_files(model, output_model)
 
+        # assumption: the model attributes from passes, if any, are more important than
+        # the input model attributes, we should not update/extend anymore outside of the pass run
+        output_model.model_attributes = output_model.model_attributes or model.model_attributes
+        # save and carry forward additional files into the the output model path
+        Pass._carry_forward_additional_files(model, output_model)
         return output_model
 
     @staticmethod
     def _carry_forward_additional_files(input_model: OliveModelHandler, output_model: OliveModelHandler):
-        # NOTE: Can't use model.model_path because that always gets resolved to a filepath.
-        # We need the directory path here.
-        input_model_path = input_model.get_resource("model_path")
-        if not input_model_path:
-            return
-
-        input_model_path = Path(input_model_path)
-        if not input_model_path.is_dir():
-            return
-
-        input_model_attributes = input_model.model_attributes or {}
-        input_model_additional_files = set(input_model_attributes.get("additional_files", []))
+        input_model_additional_files = set((input_model.model_attributes or {}).get("additional_files") or [])
         if not input_model_additional_files:
             return
 
-        output_model_path = Path(output_model.get_resource("model_path"))
+        output_model_resource = output_model.get_resource("model_path")
+        if not output_model_resource:
+            logger.warning("Expecting the output model to have a model_path resource but found none.")
+            return
+
+        output_model_path = Path(output_model_resource)
         if not output_model_path.is_dir():
             if isinstance(output_model, ONNXModelHandler):
                 # change the "model_path" resource to the parent directory of the model file

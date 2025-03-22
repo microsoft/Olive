@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Dict, Type, Union
+from typing import Dict, Type
 
 from onnx import ModelProto
 
@@ -44,7 +44,7 @@ class OptimumMerging(Pass):
 
     def _run_for_config(
         self, model: CompositeModelHandler, config: Type[BasePassConfig], output_model_path: str
-    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+    ) -> ONNXModelHandler:
         import onnxruntime
 
         assert len(model.model_components) == 2
