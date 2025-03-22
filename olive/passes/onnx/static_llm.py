@@ -11,7 +11,7 @@ import onnx
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes import Pass
-from olive.passes.onnx.common import fix_dim_params, resave_model
+from olive.passes.onnx.common import fix_dim_params, process_llm_pipeline, resave_model
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
@@ -61,23 +61,14 @@ class StaticLLM(Pass):
             "GroupQueryAttention"
             in OnnxDAG(onnx.load(model_components[1].model_path, load_external_data=False)).get_node_op_types()
         ), "Only GQA models are supported for now."
-
-        output_model_path = Path(output_model_path).with_suffix("")
-
-        new_components = {}
-        # resave embeddings model
-        embeddings_model_path = output_model_path / "embeddings.onnx"
-        resave_model(model_components[0].model_path, embeddings_model_path)
-        new_components["embeddings"] = ONNXModelHandler(
-            model_path=output_model_path, onnx_file_name=embeddings_model_path.name
-        )
-
         # get dimension params from embeddings model
-        batch_size, sequence_length = OnnxDAG(onnx.load(embeddings_model_path, load_external_data=False)).get_io_shape(
-            "input_ids"
-        )
+        batch_size, sequence_length = OnnxDAG(
+            onnx.load(model_components[0].model_path, load_external_data=False)
+        ).get_io_shape("input_ids")
         assert isinstance(batch_size, str), "Batch size must be a symbolic dimension"
         assert isinstance(sequence_length, str), "Sequence length must be a symbolic dimension"
+
+        output_model_path = Path(output_model_path).with_suffix("")
 
         # mapping from params to fixed values
         param_mapping_dict = {
@@ -87,53 +78,73 @@ class StaticLLM(Pass):
             },
             "iterator": {batch_size: config.batch_size, sequence_length: 1},
         }
-        pipeline = {"embeddings": "embeddings", "context": [], "iterator": []}
 
         # update the param mapping with the new shapes from the embeddings model
         for param_mapping in param_mapping_dict.values():
             self.fix_shape(
-                onnx.load(embeddings_model_path, load_external_data=False),
+                onnx.load(model_components[0].model_path, load_external_data=False),
                 param_mapping,
             )
 
-        is_split = len(model_components) > 3
-        for idx, component in enumerate(model_components[1:-1]):
-            suffix = f"_{idx}" if is_split else ""
+        def process_context_iterator(component_models, llm_pipeline, output_dir):
+            new_groups = {
+                "context": {},
+                "iterator": {},
+            }
+            is_split = len(llm_pipeline["context"]) > 1
+            for idx, component_name in enumerate(llm_pipeline["context"]):
+                suffix = f"_{idx}" if is_split else ""
 
-            # resave the model with external data
-            intermediate_model_path = output_model_path / f"transformer{suffix}.onnx"
-            resave_model(component.model_path, intermediate_model_path, force_external_data=True)
-
-            for key, param_mapping in param_mapping_dict.items():
-                component_name = f"{key}{suffix}"
-
-                component_proto = onnx.load(intermediate_model_path, load_external_data=False)
-                self.fix_shape(component_proto, param_mapping)
-
-                # save the model with fixed shapes
-                component_model_path = output_model_path / f"{component_name}.onnx"
-                onnx.save_model(component_proto, component_model_path)
-                new_components[component_name] = ONNXModelHandler(
-                    model_path=output_model_path, onnx_file_name=component_model_path.name
+                # resave the model with external data
+                intermediate_model_path = output_dir / f"transformer{suffix}.onnx"
+                resave_model(
+                    component_models[component_name].model_path, intermediate_model_path, force_external_data=True
                 )
-                pipeline[key].append(component_name)
 
-            # delete the intermediate model
-            intermediate_model_path.unlink()
+                for key, param_mapping in param_mapping_dict.items():
+                    new_component_name = f"{key}{suffix}"
 
-        # resave the lm_head model
-        lm_head_model_path = output_model_path / "lm_head.onnx"
-        resave_model(model_components[-1].model_path, lm_head_model_path)
-        new_components["lm_head"] = ONNXModelHandler(
-            model_path=output_model_path, onnx_file_name=lm_head_model_path.name
-        )
-        pipeline["lm_head"] = "lm_head"
+                    component_proto = onnx.load(intermediate_model_path, load_external_data=False)
+                    self.fix_shape(component_proto, param_mapping)
 
-        model_attributes = model.model_attributes or {}
-        model_attributes["llm_pipeline"] = pipeline
+                    # save the model with fixed shapes
+                    component_model_path = output_dir / f"{new_component_name}.onnx"
+                    onnx.save_model(component_proto, component_model_path)
+                    new_groups[key][new_component_name] = ONNXModelHandler(
+                        model_path=output_dir, onnx_file_name=component_model_path.name
+                    )
 
-        return CompositeModelHandler(
-            list(new_components.values()), list(new_components.keys()), model_attributes=model_attributes
+                # delete the intermediate model
+                intermediate_model_path.unlink()
+
+            return new_groups
+
+        # need to update the genai_config with the new pipeline
+        # only support GQA model with "past_seq_len" and "total_seq_len" inputs for now
+        # ort-genai only supports static shaped models with sliding window with assumptions about
+        # the model and kv-cache ios
+        decoder_config_extra = {
+            "inputs": {
+                "past_sequence_length": "past_seq_len",
+                "total_sequence_length": "total_seq_len",
+            },
+            "sliding_window": {
+                "window_size": config.context_length,
+                "pad_value": 0,
+                "alignment": "left",
+                "slide_key_value_cache": False,
+            },
+        }
+        # dummy pipeline to get the context and iterator models
+        pipeline = {
+            "embeddings": model.model_component_names[0],
+            "context": model.model_component_names[1:-1],
+            "iterator": model.model_component_names[1:-1],
+            "lm_head": model.model_component_names[-1],
+        }
+
+        return process_llm_pipeline(
+            model, pipeline, process_context_iterator, output_model_path, decoder_config_extra=decoder_config_extra
         )
 
     @staticmethod

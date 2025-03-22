@@ -118,7 +118,7 @@ The ONNX Runtime (ORT) is a fast and light-weight cross-platform inference engin
 The following code creates a simple console-based chat interface that inferences your optimized model - **select Python and/or C# to expand the code:**
 
 <details>
-<summary><b>Python</b></summary
+<summary><b>Python</b></summary>
 
 Create a Python file called `app.py` and copy and paste the following code:
 ```python
