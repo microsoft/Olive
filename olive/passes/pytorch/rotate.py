@@ -319,7 +319,7 @@ class SpinQuant(RotateBase):
                 "training_args": PassConfigParam(
                     type_=Union[HFTrainingArguments, Dict],
                     default_value=None,
-                    description=("Training arguments. If None, will use default arguments."),
+                    description="Training arguments. If None, will use default arguments.",
                 ),
             }
         )

@@ -513,11 +513,11 @@ def process_llm_pipeline(
                 "outputs": component_io_config["output_names"],
             }
 
-        for group, run_on_token_gen in zip(["context", "iterator"], [False, True]):
+        for group, dont_run_on in zip(["context", "iterator"], ["token_gen", "prompt"]):
             for name in new_llm_pipeline[group]:
                 if group_session_options:
                     pipeline_config[name]["session_options"] = group_session_options
-                pipeline_config[name]["run_on_token_gen"] = run_on_token_gen
+                pipeline_config[name][f"run_on_{dont_run_on}"] = False
 
         decoder_config["pipeline"] = [pipeline_config]
 

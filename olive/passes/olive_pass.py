@@ -248,16 +248,6 @@ class Pass(ABC):
 
     @staticmethod
     def _carry_forward_additional_files(input_model: OliveModelHandler, output_model: OliveModelHandler):
-        # NOTE: Can't use model.model_path because that always gets resolved to a filepath.
-        # We need the directory path here.
-        input_model_path = input_model.get_resource("model_path")
-        if not input_model_path:
-            return
-
-        input_model_path = Path(input_model_path)
-        if not input_model_path.is_dir():
-            return
-
         input_model_additional_files = set((input_model.model_attributes or {}).get("additional_files") or [])
         if not input_model_additional_files:
             return

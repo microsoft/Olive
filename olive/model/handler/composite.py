@@ -28,6 +28,9 @@ class CompositeModelHandler(OliveModelHandler):
     CompositeModelHandler is a collection of Models. All the child model in the container should have same model type.
     """
 
+    resource_keys: Tuple[str, ...] = ("model_path",)
+    json_config_keys: Tuple[str, ...] = ("model_component_names",)
+
     def __init__(
         self,
         model_components: List[Union[OliveModelHandler, Dict[str, Any]]],
@@ -60,10 +63,7 @@ class CompositeModelHandler(OliveModelHandler):
             yield m
 
     def to_json(self, check_object: bool = False):
-        json_dict = {
-            "type": self.model_type,
-            "config": {"model_attributes": self.model_attributes, "model_component_names": self.model_component_names},
-        }
+        json_dict = super().to_json(check_object)
         json_dict["config"]["model_components"] = []
         for m in self._model_components:
             component_json = m.to_json(check_object)

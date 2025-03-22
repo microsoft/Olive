@@ -62,3 +62,5 @@ def test_static_llm(tmp_path):
         assert i_name in genai_config["model"]["decoder"]["inputs"]
     assert genai_config["model"]["decoder"]["sliding_window"]["window_size"] == 64
     assert set(genai_config["model"]["decoder"]["pipeline"][0].keys()) == set(output_model.model_component_names)
+    assert not genai_config["model"]["decoder"]["pipeline"][0]["context_0"]["run_on_token_gen"]
+    assert not genai_config["model"]["decoder"]["pipeline"][0]["iterator_0"]["run_on_prompt"]

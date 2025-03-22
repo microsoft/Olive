@@ -261,7 +261,7 @@ class ModelWrapper:
             self.config.tie_word_embeddings = False
             self.model.config.tie_word_embeddings = False
 
-            self.get_lm_head(False).weight.data = self.get_embeds(False)[0].weight.data.clone()
+            self.get_lm_head(False).weight = torch.nn.Parameter(self.get_embeds(False)[0].weight.clone().detach())
             logger.debug("Untied word embeddings.")
 
     def maybe_unpack_qkv(self):

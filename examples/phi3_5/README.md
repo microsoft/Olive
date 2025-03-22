@@ -13,6 +13,7 @@ To enable efficient deployment on NPU, we perform a series of optimizations, inc
 5. [Summary of Key Steps](#summary-of-key-steps)
 6. [Requirements](#requirements)
 7. [Usage](#usage)
+8. [Inference](#inference)
 
 ## Optimization Process
 
@@ -95,7 +96,15 @@ pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/Pub
 
 ## Usage
 
-The entire workflow is configured via the [config.json](config.json) file. Update the `/path/to/qnn/env/bin` in the config file to point to the Python environment where `onnxruntime-qnn` is installed.
+The entire workflow is configured via the [config.json](config.json) file. Update the `/path/to/qnn/env/bin` in the config file to point to the Python environment where `onnxruntime-qnn` is installed. You can find this path by running the following command in the second Python environment:
+
+```bash
+# Linux
+command -v python
+# Windows
+# where python
+```
+This command will return the path to the Python executable. Set the parent directory of the executable as the `/path/to/qnn/env/bin` in the config file.
 
 To begin the optimization process, run the following command in the first Python environment:
 
@@ -106,3 +115,79 @@ olive run --config config.json
 The optimization process will take some time to complete. Once finished, the optimized model will be saved in the `models` directory.
 
 *Note*: If the optimization process fails silently during the context binary generation step, simply rerun the command. The process will resume from the last completed step.
+
+## Inference
+The optimized model can be used for inference using the ONNX Runtime QNNExecutionProvider and ONNX Runtime GenAI. The inference must be run on a Windows Copilot+ PC with Qualcomm NPU.
+
+In an arm64 Python environment, the following packages are required:
+
+```bash
+# ONNX Runtime packages
+pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
+pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple onnxruntime-qnn --no-deps
+
+# ONNX Runtime GenAI
+pip install "onnxruntime-genai>=0.7.0rc2"
+```
+
+The following code creates a simple console-based chat interface that inferences your optimized model.
+Create a Python file called app.py and copy and paste the following code:
+
+```python
+# app.py
+import onnxruntime_genai as og
+
+model_folder = "models/phi3_5/model"
+
+# Load the base model and tokenizer
+model = og.Model(model_folder)
+tokenizer = og.Tokenizer(model)
+tokenizer_stream = tokenizer.create_stream()
+
+# Set the max length to something sensible by default,
+# since otherwise it will be set to the entire context length
+search_options = {}
+search_options['max_length'] = 200
+
+chat_template = "<|user|>\n{input} <|end|>\n<|assistant|>"
+
+# Keep asking for input prompts in a loop
+while True:
+    text = input("Prompt (Use quit() to exit): ")
+    if not text:
+        print("Error, input cannot be empty")
+        continue
+
+    if text == "quit()":
+        break
+
+    # Generate prompt (prompt template + input)
+    prompt = f'{chat_template.format(input=text)}'
+
+    # Encode the prompt using the tokenizer
+    input_tokens = tokenizer.encode(prompt)
+
+    # Create params and generator
+    params = og.GeneratorParams(model)
+    params.set_search_options(**search_options)
+    generator = og.Generator(model, params)
+
+    # Append input tokens to the generator
+    generator.append_tokens(input_tokens)
+
+    print("")
+    print("Output: ", end='', flush=True)
+    # Stream the output
+    try:
+        while not generator.is_done():
+            generator.generate_next_token()
+
+            new_token = generator.get_next_tokens()[0]
+            print(tokenizer_stream.decode(new_token), end='', flush=True)
+    except KeyboardInterrupt:
+        print("  --control+c pressed, aborting generation--")
+    print()
+    print()
+
+    del generator
+```
