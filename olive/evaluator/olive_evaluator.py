@@ -730,12 +730,16 @@ class PyTorchEvaluator(_OliveEvaluator):
             # it is expensive to convert to list and then convert back to torch tensor
             preds.append(outputs.cpu())
             targets.append(labels.cpu())
-            if not isinstance(result, torch.Tensor) and getattr(result, "logits", None) is not None:
-                logits.append(result.logits.cpu())
-            elif isinstance(result, tuple):
-                logits.append(result[0].cpu())
-            else:
-                logits.append(result.cpu())
+            try:
+                if not isinstance(result, torch.Tensor) and getattr(result, "logits", None) is not None:
+                    logits.append(result.logits.cpu())
+                elif isinstance(result, tuple):
+                    logits.append(result[0].cpu())
+                else:
+                    logits.append(result.cpu())
+            except Exception as e:
+                logger.warning("Error getting logits from PyTorch model output: %s", e)
+                logits.append(torch.tensor([]))
         # concatenate along the batch dimension
         preds = torch.cat(preds, dim=0)
         targets = torch.cat(targets, dim=0)
