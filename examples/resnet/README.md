@@ -1,6 +1,6 @@
 # ResNet Optimization
 This folder contains examples of ResNet optimization using different workflows.
-- CPU: [with ONNX Runtime optimizations and static/dynamic quantization](#resnet-optimization-with-ptq-on-cpu)
+- CPU: [with ONNX Runtime optimizations and QDQ static/dynamic quantization](#resnet-optimization-with-ptq-on-cpu)
 - CPU: [with PyTorch QAT Default Training Loop and ORT optimizations](#resnet-optimization-with-qat-default-training-loop-on-cpu)
 - CPU: [with PyTorch QAT PyTorch Lightning Module and ORT optimizations](#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu)
 - AMD DPU: [with AMD Vitis-AI Quantization](#resnet-optimization-with-vitis-ai-ptq-on-amd-dpu)

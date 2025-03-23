@@ -1,12 +1,21 @@
 # CLIP VIT Optimization
 This folder contains examples of CLIP VIT optimization using different workflows.
 
+- CPU: [Optimization with PTQ on CPU](#optimization-with-ptq-on-cpu)
 - NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](#clip-vit-optimization-with-ptq-on-npu)
 
 Go to [How to run](#how-to-run)
 
-
 ## Optimization Workflows
+
+### Optimization with PTQ on CPU
+This workflow performs CLIP VIT optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
+- *PyTorch Model -> Onnx Model -> QDQ INT8 Quantized Onnx Model*
+
+OpenAI clip model config file: [openai_clip-vit-base-patch16_ptq_cpu.json](openai_clip-vit-base-patch16_ptq_cpu.json)
+[openai_clip-vit-base-patch32_ptq_cpu.json](openai_clip-vit-base-patch32_ptq_cpu.json)
+
+Open clip model config file: [laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_cpu.json](laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_cpu.json)
 
 ### CLIP VIT optimization with PTQ on NPU
 This workflow performs CLIP VIT optimization on Qualcomm NPU with ONNX Runtime PTQ. It performs the optimization pipeline:
