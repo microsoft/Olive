@@ -24,7 +24,16 @@ Config file: [bert_ptq_cpu.json](bert_ptq_cpu.json)
 
 - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> QDQ Quantized Onnx Model -> ONNX Runtime performance tuning*
 
-Config file: [bert_ptq_qdq_cpu.json](bert_ptq_qdq_cpu.json)
+Config file: [bert_ptq_qdq.json](bert_ptq_qdq.json)
+
+#### Accuracy / latency
+
+| Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  |
+|-----------------------|---------------------|----------------------|
+| PyTorch FP32          | 86.0%               | 2406                 | 
+| ONNX INT8 (QDQ)       | 85.0%               | 25.0                 | 
+
+*Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
 #### AzureML Model Source and No Auto-tuning
 The workflow in [bert_ptq_cpu_aml.json](bert_ptq_cpu_aml.json) is similar to the above workflow, but uses AzureML Model Source to load the model and does not perform auto-tuning. Without auto-tuning, the passes will be run with the default parameters (no search space) and the final model and metrics will be saved in the output directory.

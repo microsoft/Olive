@@ -1,7 +1,7 @@
 # CLIP VIT Optimization
 This folder contains examples of CLIP VIT optimization using different workflows.
 
-- CPU: [Optimization with PTQ on CPU](#optimization-with-ptq-on-cpu)
+- CPU: [Optimization with PTQ on CPU with QDQ format](#optimization-with-ptq-on-cpu)
 - NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](#clip-vit-optimization-with-ptq-on-npu)
 
 Go to [How to run](#how-to-run)
@@ -10,12 +10,38 @@ Go to [How to run](#how-to-run)
 
 ### Optimization with PTQ on CPU
 This workflow performs CLIP VIT optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
-- *PyTorch Model -> Onnx Model -> QDQ INT8 Quantized Onnx Model*
+- *PyTorch Model -> Onnx Model -> INT8 Quantized Onnx Model with QDQ format*
 
-OpenAI clip model config file: [openai_clip-vit-base-patch16_ptq_cpu.json](openai_clip-vit-base-patch16_ptq_cpu.json)
-[openai_clip-vit-base-patch32_ptq_cpu.json](openai_clip-vit-base-patch32_ptq_cpu.json)
+OpenAI clip model config file:
+#### [openai_clip-vit-base-patch16_ptq_qdq.json](openai_clip-vit-base-patch16_ptq_qdq.json)
 
-Open clip model config file: [laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_cpu.json](laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_cpu.json)
+Accuracy / latency
+
+| Model Version         | Accuracy           | Latency (ms/sample)|
+|-----------------------|--------------------|--------------------|
+| PyTorch FP32          | 100%               | 6190.6             |
+| ONNX INT8 (QDQ)       | 100%               | 1525.3             |
+
+
+#### [openai_clip-vit-base-patch32_ptq_qdq.json](openai_clip-vit-base-patch32_ptq_qdq.json)
+
+Accuracy / latency
+
+| Model Version         | Accuracy           | Latency (ms/sample)  |
+|-----------------------|--------------------|----------------------|
+| PyTorch FP32          | 100%               | 5899.4               |
+| ONNX INT8 (QDQ)       | 100%               | 1117.66              |
+
+#### Open clip model config file: [laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_qdq.json](laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_qdq.json)
+
+Accuracy / latency
+
+| Model Version         | Accuracy          | Latency (ms/sample)|
+|-----------------------|-------------------|--------------------|
+| PyTorch FP32          | 100%              | 5702               |
+| ONNX INT8 (QDQ)       | 100%              | 1192.7             |
+
+*Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
 ### CLIP VIT optimization with PTQ on NPU
 This workflow performs CLIP VIT optimization on Qualcomm NPU with ONNX Runtime PTQ. It performs the optimization pipeline:

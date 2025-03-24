@@ -1,21 +1,30 @@
 # Vision Transformer (ViT) Optimization
 This folder contains examples of ViT optimization using different workflows.
-- CPU: [Optimization with PTQ on CPU](#vit-optimization-with-cpu)
+- CPU: [Optimization with PTQ on CPU with QDQ format](#vit-optimization-with-cpu)
 - Qualcomm NPU: [with QNN execution provider in ONNX Runtime](#vit-optimization-with-qnn-execution-providers)
 
 ## Optimization Workflows
 
 ### ViT optimization with CPU
 This example performs ViT optimization with CPU in one workflow. It performs the optimization pipeline:
-- *Huggingface Model -> Onnx Model -> QDQ Quantized Onnx Model*
+- *Huggingface Model -> Onnx Model -> Quantized Onnx Model with QDQ format*
 
-Config file: [vit_cpu_config.json](vit_cpu_config.json)
+Config file: [vit_qdq.json](vit_qdq.json)
+
+#### Accuracy / latency
+
+| Model Version         | Accuracy            |  Latency (ms/sample) |
+|-----------------------|---------------------|----------------------|
+| PyTorch FP32          | 77.3%               | 1892.2               |
+| ONNX INT8 (QDQ)       | 77.3%               | 287.5                |
+
+*Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
 ### ViT optimization with QNN execution providers
 This example performs ViT optimization with QNN execution providers in one workflow. It performs the optimization pipeline:
 - *Huggingface Model -> Onnx Model -> QNN Quantized Onnx Model*
 
-Config file: [vit_qnn_config.json](vit_qnn_config.json)
+Config file: [vit_qnn.json](vit_qnn.json)
 
 ## How to run
 ```

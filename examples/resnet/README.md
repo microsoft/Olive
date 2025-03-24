@@ -1,6 +1,7 @@
 # ResNet Optimization
 This folder contains examples of ResNet optimization using different workflows.
-- CPU: [with ONNX Runtime optimizations and QDQ static/dynamic quantization](#resnet-optimization-with-ptq-on-cpu)
+- CPU: [with ONNX Runtime optimizations and static/dynamic quantization](#resnet-optimization-with-ptq-on-cpu)
+- CPU: [with ONNX Runtime optimizations and static quantization with QDQ format](#resnet-optimization-with-ptq-qdq)
 - CPU: [with PyTorch QAT Default Training Loop and ORT optimizations](#resnet-optimization-with-qat-default-training-loop-on-cpu)
 - CPU: [with PyTorch QAT PyTorch Lightning Module and ORT optimizations](#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu)
 - AMD DPU: [with AMD Vitis-AI Quantization](#resnet-optimization-with-vitis-ai-ptq-on-amd-dpu)
@@ -15,6 +16,21 @@ This workflow performs ResNet optimization on CPU with ONNX Runtime PTQ. It perf
 Note that: this case also demonstrates how to leverage the dataset hosted in [AML Datastore](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-datastore?view=azureml-api-2&tabs=cli-identity-based-access%2Ccli-adls-identity-based-access%2Ccli-azfiles-account-key%2Ccli-adlsgen1-identity-based-access). User can set correct local file/folder path or aml datastore url for `data_dir`.
 
 Config file: [resnet_ptq_cpu.json](resnet_ptq_cpu.json)
+
+### ResNet optimization with PTQ QDQ format
+This workflow performs ResNet optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
+- *PyTorch Model -> Onnx Model -> QDQ Quantized Onnx Model -> ONNX Runtime performance tuning*
+
+Config file: [resnet_ptq_qdq.json](resnet_ptq_qdq.json)
+
+#### Accuracy / latency
+
+| Model Version         | Accuracy (Top-1) | Latency (ms/sample) |
+|-----------------------|---------------------|----------------------|
+| PyTorch FP32          | 76.1%               | 2599                 | 
+| ONNX INT8 (QDQ)       | 72.6%               | 74.7                 | 
+
+*Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
 #### Static Quantization
 The workflow in [resnet_static_ptq_cpu.json](resnet_static_ptq_cpu.json) is similar to the above workflow, but specifically uses static quantization instead of static/dynamic quantization.

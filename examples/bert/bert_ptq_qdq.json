@@ -5,14 +5,6 @@
         "task": "text-classification",
         "load_kwargs": { "attn_implementation": "eager" }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "accelerators": [
-                { "device": "cpu", "execution_providers": [ "CPUExecutionProvider", "OpenVINOExecutionProvider" ] }
-            ]
-        }
-    },
     "data_configs": [
         {
             "name": "glue_mrpc",
@@ -70,8 +62,6 @@
     },
     "search_strategy": { "execution_order": "joint", "sampler": "tpe", "max_samples": 3, "seed": 0 },
     "evaluator": "common_evaluator",
-    "host": "local_system",
-    "target": "local_system",
     "cache_dir": "cache",
     "output_dir": "models/bert_ptq_cpu"
 }
