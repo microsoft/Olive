@@ -205,6 +205,11 @@ class RunConfig(NestedConfig):
             v["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
         return v
 
+    @validator("auto_optimizer_config", pre=True)
+    def validate_auto_optimizer_config(cls, v, values):
+        _resolve_all_data_configs(v, values)
+        return v
+
     @validator("engine", pre=True)
     def validate_engine(cls, v, values):
         v = _resolve_system(v, values, "host")

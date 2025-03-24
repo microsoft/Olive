@@ -13,13 +13,15 @@ from typing import Any, Dict, List, Type, Union
 import onnx
 import transformers
 
-from olive.common.utils import IntEnumBase, StrEnumBase
+from olive.common.utils import IntEnumBase
+from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pass_config import BasePassConfig
+from olive.search.search_parameter import Categorical
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +31,6 @@ class ModelBuilder(Pass):
 
     See https://github.com/microsoft/onnxruntime-genai
     """
-
-    class Precision(StrEnumBase):
-        FP32 = "fp32"
-        FP16 = "fp16"
-        INT8 = "int8"
-        INT4 = "int4"
 
     class BlockSize(IntEnumBase):
         B16 = 16
@@ -53,8 +49,9 @@ class ModelBuilder(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "precision": PassConfigParam(
-                type_=ModelBuilder.Precision,
-                required=True,
+                type_=Precision,
+                default_value=Precision.FP32,
+                search_defaults=Categorical([Precision.FP32, Precision.FP16, Precision.INT8, Precision.INT4]),
                 description="Precision of model.",
             ),
             "metadata_only": PassConfigParam(
@@ -118,7 +115,7 @@ class ModelBuilder(Pass):
             return False
 
         # if device is GPU, but user choose CPU EP, the is_cpu should be True
-        if (config.precision == ModelBuilder.Precision.FP16) and not (
+        if (config.precision == Precision.FP16) and not (
             accelerator_spec.accelerator_type == Device.GPU
             and accelerator_spec.execution_provider != "CPUExecutionProvider"
         ):
@@ -286,3 +283,14 @@ class ModelBuilder(Pass):
             )
 
         return output_model
+
+
+class ModelBuilderMetadataOnly(ModelBuilder):
+    def _run_for_config(
+        self,
+        model: Union[HfModelHandler, ONNXModelHandler],
+        config: Type[BasePassConfig],
+        output_model_path: str,
+    ) -> ONNXModelHandler:
+        self.config.metadata_only = True
+        return super()._run_for_config(model, config, output_model_path)

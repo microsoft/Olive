@@ -52,8 +52,8 @@
         "sq": {
             "type": "OnnxStaticQuantization",
             "data_config": "wikitext2_train",
-            "activation_type": "QUInt16",
-            "weight_type": "QUInt8",
+            "activation_type": "uint16",
+            "weight_type": "uint8",
             "calibration_providers": [ "CUDAExecutionProvider" ],
             "prepare_qnn_config": true,
             "quant_preprocess": true,

@@ -29,7 +29,7 @@ Here is an example of how to configure the `OnnxQuantization` Pass:
     // redundant since disable_search is false
     "reduce_range": "SEARCHABLE_VALUES",
     // user defined value for weight_type
-    "weight_type": "QUInt8"
+    "weight_type": "uint8"
 }
 ```
 

@@ -15,7 +15,7 @@ from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.package_config import OlivePackageConfig
 from olive.workflows.run.config import RunConfig
-from olive.workflows.run.run import get_pass_module_path, is_execution_provider_required
+from olive.workflows.run.run import is_execution_provider_required
 
 # pylint: disable=attribute-defined-outside-init, unsubscriptable-object
 
@@ -146,8 +146,7 @@ class TestRunConfig:
 
     @pytest.mark.parametrize(("pass_type", "is_onnx"), [("IncQuantization", True), ("LoRA", False)])
     def test_get_module_path(self, pass_type, is_onnx):
-        pass_module = get_pass_module_path(pass_type, self.package_config)
-        assert pass_module.startswith("olive.passes.onnx") == is_onnx
+        assert self.package_config.is_onnx_module(pass_type) == is_onnx
 
     @pytest.mark.parametrize(
         ("passes", "is_onnx"),

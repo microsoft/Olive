@@ -444,7 +444,7 @@ Please also find the detailed options from following table for each pass:
     "onnx_quantization": {
         "type": "OnnxQuantization",
         "data_config": "calib_data_coonfig",
-        "weight_type": "QUInt8"
+        "weight_type": "uint8"
     }
 }
 ```

@@ -171,8 +171,8 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
     "type": "VitisAIQuantization",
     "calibrate_method":"NonOverflow",
     "quant_format":"QDQ",
-    "activation_type":"QUInt8",
-    "weight_type":"QInt8",
+    "activation_type":"uint8",
+    "weight_type":"int8",
     "data_config": "calib_data_config"
 }
 ```
@@ -198,4 +198,3 @@ Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into
 ```
 
 Please refer to [Phi3 example](https://github.com/microsoft/Olive/tree/main/examples/phi3#quantize-using-nvidia-tensorrt-model-optimizer)  for usability and setup details.
-

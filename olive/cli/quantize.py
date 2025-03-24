@@ -82,26 +82,6 @@ class QuantizeCommand(BaseOliveCLICommand):
         add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=QuantizeCommand)
 
-    def _get_precision_bits(self):
-        precision_to_bits = {
-            "int4": 4,
-            "int8": 8,
-            "int16": 16,
-            "uint4": 4,
-            "uint8": 8,
-            "uint16": 16,
-        }
-        return precision_to_bits.get(self.args.precision)
-
-    def _get_precision_in_wtypes(self):
-        precision_to_wtypes = {
-            "int8": "QInt8",
-            "uint8": "QUInt8",
-            "int16": "QInt16",
-            "uint16": "QUInt16",
-        }
-        return precision_to_wtypes.get(self.args.precision)
-
     def _check_data_name_arg(self, pinfo):
         from olive.constants import DatasetRequirement
 
@@ -137,26 +117,24 @@ class QuantizeCommand(BaseOliveCLICommand):
         return pass_list
 
     def _get_passes_dict(self, pass_list):
-        precision_in_bits = self._get_precision_bits()
-        wtypes = self._get_precision_in_wtypes()
         quant_format = "QOperator"
         if self.args.use_qdq_encoding:
             quant_format = "QDQ"
 
         # config options to add for a given option
         to_add = {
-            "AutoAWQQuantizer": {"w_bits": precision_in_bits},
-            "GptqQuantizer": {"bits": precision_in_bits},
-            "OnnxBnB4Quantization": {"quant_type": precision_in_bits},
-            "NVModelOptQuantization": {"precision": precision_in_bits, "algorithm": self.args.algorithm.upper()},
-            "OnnxDynamicQuantization": {"weight_type": wtypes, "quant_format": quant_format},
+            "AutoAWQQuantizer": {"w_bit": self.args.precision},
+            "GptqQuantizer": {"bits": self.args.precision},
+            "OnnxBnB4Quantization": {"quant_type": self.args.precision},
+            "NVModelOptQuantization": {"precision": self.args.precision, "algorithm": self.args.algorithm.upper()},
+            "OnnxDynamicQuantization": {"weight_type": self.args.precision, "quant_format": quant_format},
             "OnnxStaticQuantization": {
-                "weight_type": wtypes,
+                "weight_type": self.args.precision,
                 "quant_format": quant_format,
                 "data_config": "default_data_config",
             },
             "OnnxMatMul4Quantizer": {"quant_format": quant_format},
-            "IncDynamicQuantization": {"algorithm": self.args.algorithm.upper(), "bits": precision_in_bits},
+            "IncDynamicQuantization": {"algorithm": self.args.algorithm.upper(), "bits": self.args.precision},
         }
 
         passes_dict = {}

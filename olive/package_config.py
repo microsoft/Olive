@@ -59,3 +59,7 @@ class OlivePackageConfig(ConfigBase):
             return self.passes.get(pass_type)
 
         raise ValueError(f"Package configuration for pass of type '{pass_type}' not found")
+
+    def is_onnx_module(self, pass_type: str) -> bool:
+        pass_module = self.get_pass_module_config(pass_type)
+        return pass_module.module_path.startswith("olive.passes.onnx")

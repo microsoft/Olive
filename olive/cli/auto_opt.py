@@ -23,6 +23,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
+from olive.constants import Precision
 from olive.package_config import OlivePackageConfig
 
 
@@ -279,18 +280,18 @@ class AutoOptCommand(BaseOliveCLICommand):
             (("capture_split_info", "cost_model"), self.args.cost_model),
             (("conversion", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
             (("conversion", "save_metadata_for_token_generation"), self.args.use_ort_genai),
-            (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
+            (("bnb4", "quant_type"), self.args.precision),
             (
                 ("dynamic_quant", "weight_type"),
-                PRECISION_MAPPING["dynamic_quant"].get(self.args.precision, self.args.precision),
+                self.args.precision,
             ),
             (
                 ("model_builder", "precision"),
-                PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
+                self.args.precision,
             ),
             (
                 ("genai_config_only", "precision"),
-                PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
+                self.args.precision,
             ),
             # select the float dtype based on the precision, int4 only quantizes matmuls so we still need to set
             # the float precision separately
@@ -443,7 +444,7 @@ TEMPLATE = {
             ("qnn_preprocess", {"type": "QNNPreprocess"}),
             ("mixed_precision_overrides", {"type": "MixedPrecisionOverrides", "overrides_config": None}),
             # quantization passes
-            ("dynamic_quant", {"type": "OnnxDynamicQuantization", "weight_type": "QInt8"}),
+            ("dynamic_quant", {"type": "OnnxDynamicQuantization", "weight_type": Precision.INT8}),
             ("matmul4", {"type": "OnnxMatMul4Quantizer"}),
             ("bnb4", {"type": "OnnxBnb4Quantization", "quant_type": "nf4"}),
             # post processing passes
@@ -457,23 +458,4 @@ TEMPLATE = {
     "evaluator": "common_evaluator",
     "target": "local_system",
     "no_artifacts": True,
-}
-
-PRECISION_MAPPING = {
-    "capture_split_info": {},
-    "conversion": {},
-    "model_builder": {},
-    "transformer_optimizer": {},
-    "peephole_optimizer": {},
-    "fp16_to_fp32": {},
-    "qnn_preprocess": {},
-    "dynamic_quant": {"int8": "QInt8", "uint8": "QUInt8"},
-    "matmul4": {},
-    "bnb4": {},
-    "to_fixed_shape": {},
-    "mixed_precision_overrides": {},
-    "mixed_precision": {},
-    "mnb_to_qdq": {},
-    "split_model": {},
-    "extract_adapters": {},
 }

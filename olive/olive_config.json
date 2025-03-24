@@ -57,6 +57,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "ModelBuilderMetadataOnly": {
+            "module_path": "olive.passes.onnx.model_builder.ModelBuilderMetadataOnly",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "fp16", "fp32" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "IncDynamicQuantization": {
             "module_path": "olive.passes.onnx.inc_quantization.IncDynamicQuantization",
             "supported_providers": [ "CPUExecutionProvider" ],
@@ -138,6 +146,18 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ],
             "dataset": "dataset_optional"
+        },
+        "OnnxConversionUsingTorchScript": {
+            "module_path": "olive.passes.onnx.conversion.OnnxConversionUsingTorchScript",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ]
+        },
+        "OnnxConversionUsingDynamoExporter": {
+            "module_path": "olive.passes.onnx.conversion.OnnxConversionUsingDynamoExporter",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ]
         },
         "OnnxDynamicQuantization": {
             "module_path": "olive.passes.onnx.quantization.OnnxDynamicQuantization",

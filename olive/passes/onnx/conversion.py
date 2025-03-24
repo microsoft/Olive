@@ -679,6 +679,28 @@ class OnnxOpVersionConversion(Pass):
         return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
 
 
+class OnnxConversionUsingTorchScript(OnnxConversion):
+    def _run_for_config(
+        self,
+        model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
+        config: Type[BasePassConfig],
+        output_model_path: str,
+    ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
+        config.use_dynamo_exporter = False
+        return super()._run_for_config(model, config, output_model_path)
+
+
+class OnnxConversionUsingDynamoExporter(OnnxConversion):
+    def _run_for_config(
+        self,
+        model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
+        config: Type[BasePassConfig],
+        output_model_path: str,
+    ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
+        config.use_dynamo_exporter = True
+        return super()._run_for_config(model, config, output_model_path)
+
+
 def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
     """Validate dynamic_shapes.
 

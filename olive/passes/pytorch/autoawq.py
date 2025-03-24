@@ -10,12 +10,14 @@ import torch
 from packaging import version
 
 from olive.common.utils import StrEnumBase, get_attr
+from olive.constants import PrecisionBits
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 from olive.passes.pytorch.common import inherit_hf_from_hf
+from olive.search.search_parameter import Categorical
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +66,9 @@ class AutoAWQQuantizer(Pass):
                 ),
             ),
             "w_bit": PassConfigParam(
-                type_=int,
-                default_value=4,
+                type_=PrecisionBits,
+                default_value=PrecisionBits.INT4,
+                search_defaults=Categorical([PrecisionBits.INT4, PrecisionBits.INT8, PrecisionBits.INT16]),
                 description="The number of bits to quantize to.",
             ),
             "version": PassConfigParam(
@@ -149,7 +152,7 @@ class AutoAWQQuantizer(Pass):
             quant_config={
                 "zero_point": config.zero_point,
                 "q_group_size": config.q_group_size,
-                "w_bit": config.w_bit,
+                "w_bit": config.w_bit.value,
                 "version": config.version,
                 "modules_to_not_convert": config.modules_to_not_convert,
             },

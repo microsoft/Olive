@@ -59,8 +59,8 @@
         "onnx_quantization": {
             "type": "OnnxQuantization",
             "data_config": "quant_data_config",
-            "weight_type": "QUInt8",
-            "activation_type": "QUInt8"
+            "weight_type": "uint8",
+            "activation_type": "uint8"
         },
         "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "cifar10_data_config" }
     },

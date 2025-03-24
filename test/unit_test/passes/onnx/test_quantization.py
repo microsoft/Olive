@@ -13,6 +13,7 @@ from onnxruntime.quantization.calibrate import CalibrationDataReader
 from packaging import version
 
 from olive.common.pydantic_v1 import ValidationError
+from olive.constants import Precision
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.hardware.accelerator import AcceleratorSpec
@@ -70,8 +71,8 @@ def test_static_quantization(calibrate_method, tmp_path):
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
             dataloader_config=DataComponentConfig(type="_test_quat_dataloader"),
         ),
-        "weight_type": "QUInt8",
-        "activation_type": "QUInt8",
+        "weight_type": "uint8",
+        "activation_type": "uint8",
         "quant_preprocess": True,
     }
     p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
@@ -148,8 +149,8 @@ def test_qnn_quantization(tmp_path):
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
             dataloader_config=DataComponentConfig(type="_test_quat_dataloader"),
         ),
-        "weight_type": "QUInt8",
-        "activation_type": "QUInt16",
+        "weight_type": Precision.UINT8,
+        "activation_type": Precision.UINT16,
         "WeightSymmetric": None,
         "ActivationSymmetric": True,
         "qnn_extra_options": {
