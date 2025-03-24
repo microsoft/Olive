@@ -99,8 +99,8 @@
                 "Conv",
                 "Transpose"
             ],
-            "activation_type": "QUInt16",
-            "weight_type": "QUInt8",
+            "activation_type": "uint16",
+            "precision": "uint8",
             "calibrate_method": "MinMax"
         }
     },

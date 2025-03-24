@@ -13,7 +13,8 @@ from typing import Any, Union
 import onnx
 import transformers
 
-from olive.common.utils import IntEnumBase, StrEnumBase
+from olive.common.utils import IntEnumBase
+from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -29,12 +30,6 @@ class ModelBuilder(Pass):
 
     See https://github.com/microsoft/onnxruntime-genai
     """
-
-    class Precision(StrEnumBase):
-        FP32 = "fp32"
-        FP16 = "fp16"
-        INT8 = "int8"
-        INT4 = "int4"
 
     class BlockSize(IntEnumBase):
         B16 = 16
@@ -53,7 +48,8 @@ class ModelBuilder(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "precision": PassConfigParam(
-                type_=ModelBuilder.Precision,
+                type_=Precision,
+                default_value=Precision.FP32,
                 required=True,
                 description="Precision of model.",
             ),
@@ -127,7 +123,7 @@ class ModelBuilder(Pass):
             return False
 
         # if device is GPU, but user choose CPU EP, the is_cpu should be True
-        if (config.precision == ModelBuilder.Precision.FP16) and not (
+        if (config.precision == Precision.FP16) and not (
             accelerator_spec.accelerator_type == Device.GPU
             and accelerator_spec.execution_provider != "CPUExecutionProvider"
         ):
@@ -136,7 +132,9 @@ class ModelBuilder(Pass):
                 "provider combinations are: FP32 CPU, FP32 CUDA, FP16 CUDA, INT4 CPU, INT4 CUDA"
             )
             return False
-        return True
+
+        # Support for limited precision types
+        return config.precision in {Precision.FP32, Precision.FP16, Precision.INT8, Precision.INT4}
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:

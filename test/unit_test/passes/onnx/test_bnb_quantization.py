@@ -8,6 +8,13 @@ import pytest
 import torch
 from packaging import version
 
+try:
+    # pydantic v2
+    from pydantic.v1.error_wrappers import ValidationError
+except ImportError:
+    # pydantic v1
+    from pydantic.error_wrappers import ValidationError
+
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.bnb_quantization import OnnxBnb4Quantization
@@ -44,9 +51,9 @@ def get_onnx_gemm_model(model_path=None, model_attributes=None):
 @pytest.mark.parametrize(
     ("pass_config", "model_attributes", "expected_error"),
     [
-        ({"quant_type": "fp4"}, None, None),  # quant_type from config is fp4
-        ({"quant_type": "invalid"}, None, AssertionError),  # quant_type from config is invalid
-        (None, None, AssertionError),  # quant_type is not specified
+        ({"precision": "fp4"}, None, None),  # precision from config is fp4
+        ({"precision": "invalid"}, None, ValidationError),  # precision from config is invalid
+        (None, None, AssertionError),  # precision is not specified
         (
             None,
             {"quantization_config": {"bnb_4bit_quant_type": "nf4"}},
@@ -71,14 +78,18 @@ def get_onnx_gemm_model(model_path=None, model_attributes=None):
         (None, {"dummy_attribute": None}, ValueError),  # quantization_config is not specified
     ],
 )
-def test_validate_quant_type(pass_config, model_attributes, expected_error, tmp_path):
+def test_validate_precision(pass_config, model_attributes, expected_error, tmp_path):
     input_model = get_onnx_gemm_model(model_attributes=model_attributes)
 
-    p = create_pass_from_dict(OnnxBnb4Quantization, pass_config, disable_search=True)
-    if expected_error:
+    if expected_error is ValidationError:
+        with pytest.raises(expected_error):
+            create_pass_from_dict(OnnxBnb4Quantization, pass_config, disable_search=True)
+    elif expected_error:
+        p = create_pass_from_dict(OnnxBnb4Quantization, pass_config, disable_search=True)
         with pytest.raises(expected_error):
             p.run(input_model, str(tmp_path / "model.onnx"))
     else:
+        p = create_pass_from_dict(OnnxBnb4Quantization, pass_config, disable_search=True)
         p.run(input_model, str(tmp_path / "model.onnx"))
 
 
@@ -115,6 +126,6 @@ def count_matmulbnb4_nodes(model: onnx.ModelProto):
 )
 def test_quantized_modules(tmp_path, model_generator, quantized_modules, expected_count):
     input_model = model_generator(str(tmp_path / "model.onnx"))
-    p = create_pass_from_dict(OnnxBnb4Quantization, {"quant_type": "nf4", "quantized_modules": quantized_modules})
+    p = create_pass_from_dict(OnnxBnb4Quantization, {"precision": "nf4", "quantized_modules": quantized_modules})
     output_model = p.run(input_model, (tmp_path / "output_model.onnx"))
     assert count_matmulbnb4_nodes(output_model.load_model()) == expected_count

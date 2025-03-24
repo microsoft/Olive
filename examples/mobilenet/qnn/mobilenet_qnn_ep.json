@@ -45,8 +45,8 @@
         "quantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "mobilenet_data_config",
-            "activation_type": "QUInt16",
-            "weight_type": "QUInt8"
+            "activation_type": "uint16",
+            "precision": "uint8"
         }
     },
     "host": "local_system",
