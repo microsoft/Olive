@@ -22,6 +22,10 @@ This workflow also demonstrates how to use:
 
 Config file: [bert_ptq_cpu.json](bert_ptq_cpu.json)
 
+- *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> QDQ Quantized Onnx Model -> ONNX Runtime performance tuning*
+
+Config file: [bert_ptq_qdq_cpu.json](bert_ptq_qdq_cpu.json)
+
 #### AzureML Model Source and No Auto-tuning
 The workflow in [bert_ptq_cpu_aml.json](bert_ptq_cpu_aml.json) is similar to the above workflow, but uses AzureML Model Source to load the model and does not perform auto-tuning. Without auto-tuning, the passes will be run with the default parameters (no search space) and the final model and metrics will be saved in the output directory.
 
