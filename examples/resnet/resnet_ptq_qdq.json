@@ -9,12 +9,6 @@
             "dynamic_axes": { "input": { "0": "batch_size" }, "output": { "0": "batch_size" } }
         }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "accelerators": [ { "execution_providers": [ "CPUExecutionProvider" ] } ]
-        }
-    },
     "data_configs": [
         {
             "name": "cifar10_data_config",
@@ -74,8 +68,6 @@
         "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "cifar10_data_config" }
     },
     "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
-    "host": "local_system",
-    "target": "local_system",
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
     "output_dir": "models/resnet_ptq_qdq"

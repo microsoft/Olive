@@ -30,8 +30,8 @@ Config file: [bert_ptq_qdq.json](bert_ptq_qdq.json)
 
 | Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  |
 |-----------------------|---------------------|----------------------|
-| PyTorch FP32          | 86.0%               | 2406                 | 
-| ONNX INT8 (QDQ)       | 85.0%               | 25.0                 | 
+| PyTorch FP32          | 86.0%               | 2406                 |
+| ONNX INT8 (QDQ)       | 85.0%               | 25.0                 |
 
 *Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
