@@ -1,15 +1,15 @@
 # CLIP VIT Quantization
 This folder contains examples of CLIP VIT quantization using different workflows.
 
-- QDQ: [PTQ on CPU with QDQ format](#ptq-on-cpu-with-qdq)
+- QDQ: [CLIP VIT Quantization encoded in QDQ format](#clip-vit-quantization-encoded-in-qdq-format)
 - NPU: [PTQ on Qualcomm NPU using QNN EP](#ptq-on-npu)
 
 Go to [How to run](#how-to-run)
 
 ## Workflows
 
-### PTQ on CPU with QDQ
-This workflow performs CLIP VIT quantization on CPU with ONNX Runtime PTQ. It performs the pipeline:
+### CLIP VIT Quantization encoded in QDQ format
+This workflow quantizes CLIP VIT model. It performs the pipeline:
 - *PyTorch Model -> Onnx Model -> INT8 Quantized Onnx Model with QDQ format*
 
 OpenAI clip model config file:
@@ -17,10 +17,10 @@ OpenAI clip model config file:
 
 Accuracy / latency / throughput
 
-| Model Version         | Accuracy           | Latency (ms/sample)| Throughput (token per second)|
-|-----------------------|--------------------|--------------------|------------------------------|
-| PyTorch FP32          | 100%               | 6190.6             | 0.16                         |
-| ONNX INT8 (QDQ)       | 100%               | 1525.3             | 0.65                         |
+| Model Version         | Accuracy           | Latency (ms/sample)| Throughput (token per second)| Dataset           |
+|-----------------------|--------------------|--------------------|------------------------------|-------------------|
+| PyTorch FP32          | 100%               | 6190.6             | 0.16                         | nlphuji/flickr30k |
+| ONNX INT8 (QDQ)       | 100%               | 1525.3             | 0.65                         | nlphuji/flickr30k |
 
 
 #### [openai_clip-vit-base-patch32_ptq_qdq.json](openai_clip-vit-base-patch32_ptq_qdq.json)
@@ -41,7 +41,7 @@ Accuracy / latency
 | PyTorch FP32          | 100%              | 5702               | 0.17                         |
 | ONNX INT8 (QDQ)       | 100%              | 1192.7             | 0.91                         |
 
-*Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
+*Note: Latency can vary significantly depending on the hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
 ### PTQ on NPU
 This workflow performs CLIP VIT quantization on Qualcomm NPU with ONNX Runtime PTQ. It performs the pipeline:
