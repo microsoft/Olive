@@ -7,11 +7,10 @@ This repository demonstrates the optimization of the [Microsoft Phi-3.5 Mini Ins
    - Produces an ONNX QDQ model optimized for general inference.
    - Configured via [qdq_config.json](qdq_config.json).
 
-2. **PTQ + AOT Compilation for Qualcomm NPUs**
+2. **PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**
    - Optimized for deployment on Qualcomm NPUs.
    - Configured via [qnn_config.json](qnn_config.json).
 
----
 
 ## **Table of Contents**
 1. [Optimization Process](#optimization-process)
@@ -22,7 +21,6 @@ This repository demonstrates the optimization of the [Microsoft Phi-3.5 Mini Ins
 6. [Usage](#usage)
 7. [Inference](#inference)
 
----
 
 ## **Optimization Process**
 
@@ -45,7 +43,6 @@ The model is optimized using **weight-only quantization** and **activation quant
 
 The final output is a **QDQ model** with **4-bit weights** and **16-bit activations**.
 
----
 
 ## **Handling Dynamic and Static Input Shapes**
 
@@ -58,7 +55,6 @@ To support both efficiently, we create **two model instances**:
 1. **Prefill model**: Optimized for batch processing.
 2. **Token generation model**: Optimized for one-token-at-a-time inference.
 
----
 
 ## **Resource Optimization Strategy**
 
@@ -71,7 +67,6 @@ To maximize efficiency while supporting dynamic input handling:
 Additionally, we use **[GroupQueryAttention (GQA)](https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.GroupQueryAttention)** for **efficient long-context processing and long generation**.
 > ⚠️ **Note:** GQA is an ONNX Runtime *contrib operator* and must be run on the CPU. The model graph is partitioned into **CPU (GQA nodes)** and **NPU (other nodes)** for execution.
 
----
 
 ## **Compilation for Qualcomm NPU Deployment**
 
@@ -88,7 +83,6 @@ Once optimized, the model is compiled for Qualcomm NPUs using **ONNX Runtime QNN
 3. **Compile using QNNExecutionProvider**:
    - Leverages **weight sharing** across the prefill and token generation models.
 
----
 
 ## **Requirements**
 
@@ -124,8 +118,8 @@ pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/head
 pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple onnxruntime-qnn --no-deps
 ```
 
-**Note:** Both environments require Olive to be installed. Refer to the [main examples README](https://github.com/microsoft/Olive/tree/main/examples#important) for instructions on how to set up python environments and install Olive.
----
+**Note:** Both environments require Olive to be installed. Refer to the [main examples README](../README.md#important) for instructions on how to set up python environments and install Olive.
+
 
 ## **Usage**
 
@@ -138,7 +132,6 @@ olive run --config qdq_config.json
 
 ✅ Optimized model saved in: `models/phi3_5_qdq/`
 
----
 
 ### **2️⃣ PTQ + AOT Compilation for Qualcomm NPU**
 To configure AOT compilation, update the path to the **2nd Python environment** in `qnn_config.json`.
@@ -161,7 +154,6 @@ olive run --config qnn_config.json
 
 > **⚠️ If optimization fails during context binary generation, simply rerun the command.** The process will resume from the last completed step.
 
----
 
 ## **Inference on Qualcomm NPU**
 
@@ -175,7 +167,7 @@ pip install "onnxruntime-genai>=0.7.0rc2"
 ```
 
 ### **Run Console-Based Chat Interface**
-Save the provided [`app.py`](app.py) script and execute:
+Execute the provided [`app.py`](app.py) script:
 ```bash
 python app.py
 ```
