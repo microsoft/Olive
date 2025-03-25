@@ -58,6 +58,11 @@ class EPContextBinaryGenerator(Pass):
             ),
         }
 
+    @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Override this method to return False by using the accelerator spec information."""
+        return False
+
     def _run_for_config(
         self,
         model: Union[ONNXModelHandler, CompositeModelHandler],
