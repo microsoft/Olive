@@ -1,76 +1,105 @@
-# Phi3.5 Model Optimization for Qualcomm NPU
+# Phi-3.5 Model Optimization
 
-This repository demonstrates the optimization of the [Microsoft Phi-3.5 Mini Instruct](https://huggingface.co/microsoft/Phi-3.5-mini-instruct) model for deployment on Qualcomm NPUs (such as Snapdragon X Series) using the ONNX Runtime QNNExecutionProvider.
+This repository demonstrates the optimization of the [Microsoft Phi-3.5 Mini Instruct](https://huggingface.co/microsoft/Phi-3.5-mini-instruct) model using **post-training quantization (PTQ)** techniques. The optimized model is deployed on **Qualcomm NPUs** (e.g., Snapdragon X Series) using the **ONNX Runtime QNNExecutionProvider**.
 
-To enable efficient deployment on NPU, we perform a series of optimizations, including quantization, ahead-of-time (AOT) compilation, and handling of dynamic and static input shapes. The result is a model compiled for optimal execution on Qualcomm NPUs.
+### **Workflows**
+1. **QDQ Model with 4-bit Weights & 16-bit Activations**
+   - Produces an ONNX QDQ model optimized for general inference.
+   - Configured via [qdq_config.json](qdq_config.json).
 
-## Table of Contents
+2. **PTQ + AOT Compilation for Qualcomm NPUs**
+   - Optimized for deployment on Qualcomm NPUs.
+   - Configured via [qnn_config.json](qnn_config.json).
 
+---
+
+## **Table of Contents**
 1. [Optimization Process](#optimization-process)
 2. [Handling Dynamic and Static Input Shapes](#handling-dynamic-and-static-input-shapes)
 3. [Resource Optimization Strategy](#resource-optimization-strategy)
-4. [Compilation for NPU Deployment](#compilation-for-npu-deployment)
-5. [Summary of Key Steps](#summary-of-key-steps)
-6. [Requirements](#requirements)
-7. [Usage](#usage)
-8. [Inference](#inference)
+4. [Compilation for Qualcomm NPU Deployment](#compilation-for-qualcomm-npu-deployment)
+5. [Requirements](#requirements)
+6. [Usage](#usage)
+7. [Inference](#inference)
 
-## Optimization Process
+---
 
-The model optimization process includes the following steps:
+## **Optimization Process**
 
-1. **Weight Rotation with [QuaRot](https://arxiv.org/abs/2404.00456)**: This step adjusts the model’s weights to make it more suitable for quantization.
-2. **4-bit Per-Channel Symmetric Quantization with [GPTQ](https://arxiv.org/abs/2210.17323)**: Applies weight-only quantization (4-bit) to the transformer linear layers to reduce model size.
-3. **ONNX Graph Capture**: Captures the ONNX graph for subsequent optimizations.
-4. **4-bit Block-wise Quantization**: Quantizes the embedding layer and the language modeling head using weight-only 4-bit quantization.
-5. **16-bit Activation Quantization**: Quantize activations to 16-bits, balancing efficiency and precision.
+The model is optimized using **weight-only quantization** and **activation quantization** for efficient deployment. The process includes:
 
-The resulting model is a quantized QDQ (Quantize-Dequantize) model with 4-bit weights and 16-bit activations.
+1. **Weight Rotation ([QuaRot](https://arxiv.org/abs/2404.00456))**
+   - Prepares model weights for better quantization.
 
-## Handling Dynamic and Static Input Shapes
+2. **4-bit Per-Channel Symmetric Quantization ([GPTQ](https://arxiv.org/abs/2210.17323))**
+   - Reduces transformer layer size while preserving accuracy.
 
-NPUs require pre-compiled graphs, which means the model must use static input shapes. The text generation process consists of two main stages with different input shape requirements:
+3. **ONNX Graph Capture**
+   - Exports the model to ONNX for further optimization.
 
-- **Prefill (Context/Prompt Processing)**: This stage processes multiple tokens simultaneously.
-- **Token Generation (Iteration)**: This stage processes one token at a time.
+4. **4-bit Block-wise Quantization**
+   - Applies weight-only quantization to the **embedding layer** and **language modeling head**.
 
-To accommodate these differing requirements, we optimize the model by creating two instances: one for prefill and one for token generation. This allows the model to handle both static and dynamic input shapes effectively.
+5. **16-bit Activation Quantization**
+   - Uses 16-bit activations to balance precision and efficiency.
 
-## Resource Optimization Strategy
+The final output is a **QDQ model** with **4-bit weights** and **16-bit activations**.
 
-To optimize resource usage:
+---
 
-- **Embedding Layer and Language Model Head**: These components are executed on the CPU and can handle dynamic input shapes.
-- **Transformer Layers**: These layers are executed on the NPU, which requires static input shapes.
-- **Weight Sharing**: The prefill and token generation models share weights (with different input shapes), minimizing memory usage.
+## **Handling Dynamic and Static Input Shapes**
 
-Additionally, we use **[GroupQueryAttention](https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.GroupQueryAttention)** to enable dynamic key-value caching, which supports long-context processing and token generation.
+NPUs require **precompiled graphs**, meaning the model must use **static input shapes**. However, **text generation** involves two distinct processing stages:
 
-## Compilation for NPU Deployment
+- **Prefill (Prompt Processing)**: Processes multiple tokens simultaneously.
+- **Token Generation (Iteration)**: Processes one token at a time.
 
-After optimization, the model is compiled for deployment on the Qualcomm NPU using the ONNX Runtime QNNExecutionProvider. The process includes the following steps:
+To support both efficiently, we create **two model instances**:
+1. **Prefill model**: Optimized for batch processing.
+2. **Token generation model**: Optimized for one-token-at-a-time inference.
 
-1. **Split the Quantized Model**: Divide the model into three parts: embedding layer, transformer layers, and language model head.
-2. **Fix Static Input Shape for Transformer Layers**: Set static input shapes for transformer layers—(1, 64) for prefill (batch size, sequence length) and (1, 1) for token generation.
-3. **Compile with ONNX Runtime QNNExecutionProvider**: Use the QNNExecutionProvider to compile the model with weight sharing.
+---
 
-## Summary of Key Steps
+## **Resource Optimization Strategy**
 
-- **Model Quantization**: Apply 4-bit weight and 16-bit activation quantization.
-- **Prefill and Token Generation Optimization**: Create two instances of the model to handle dynamic and static input shapes.
-- **Deployment on Qualcomm NPU**: Use ONNX Runtime QNNExecutionProvider for AOT compilation.
+To maximize efficiency while supporting dynamic input handling:
 
-This approach ensures efficient execution on Qualcomm NPUs, optimizing memory and computational resources for text generation tasks.
+- **Embedding Layer & Language Model Head** → Executed on CPU (handles dynamic input).
+- **Transformer Layers** → Executed on NPU (requires static input shapes).
+- **Weight Sharing** → Prefill & token generation models reuse weights to minimize memory usage.
 
-## Requirements
+Additionally, we use **[GroupQueryAttention (GQA)](https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.GroupQueryAttention)** for **efficient long-context processing and long generation**.
+> ⚠️ **Note:** GQA is an ONNX Runtime *contrib operator* and must be run on the CPU. The model graph is partitioned into **CPU (GQA nodes)** and **NPU (other nodes)** for execution.
 
-The optimization process requires several computationally intensive quantization steps, and therefore demands GPU resources. In an [x64 Python environment with olive-ai installed](https://github.com/microsoft/Olive/tree/main/examples#important), the following packages are required:
+---
+
+## **Compilation for Qualcomm NPU Deployment**
+
+Once optimized, the model is compiled for Qualcomm NPUs using **ONNX Runtime QNNExecutionProvider**.
+
+### **Compilation Steps**
+1. **Split the Quantized Model** → Divide into three parts:
+   - **Embedding Layer**
+   - **Transformer Layers**
+   - **Language Model Head**
+2. **Set Static Input Shapes**:
+   - **(1, 64)** for prefill (batch size, sequence length).
+   - **(1, 1)** for token generation.
+3. **Compile using QNNExecutionProvider**:
+   - Leverages **weight sharing** across the prefill and token generation models.
+
+---
+
+## **Requirements**
+
+### **1st x64 Python Environment (QDQ/PTQ Optimization)**
+> Requires GPU resources for quantization.
 
 ```bash
-# Common requirements
+# Install common dependencies
 pip install -r requirements.txt
 
-# ONNX Runtime packages
+# Install ONNX Runtime GPU packages
 pip install "onnxruntime-gpu>=1.21.0" "onnxruntime-genai-cuda>=0.6.0"
 
 # AutoGPTQ: Install from source (stable package may be slow for weight packing)
@@ -83,20 +112,36 @@ export BUILD_CUDA_EXT=0
 pip install --no-build-isolation git+https://github.com/PanQiWei/AutoGPTQ.git
 ```
 
-For AOT compilation, the latest nightly x64 build of onnxruntime-qnn is required. In a separate Python environment with olive-ai installed, the following packages are required:
+### **2nd x64 Python Environment (QNN AOT Compilation)**
+> Requires **ONNX Runtime QNN nightly build** for AOT compilation.
 
 ```bash
-# Common requirements
+# Install common dependencies
 pip install -r requirements.txt
 
-# ONNX Runtime packages
+# Install ONNX Runtime QNN
 pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
 pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple onnxruntime-qnn --no-deps
 ```
 
-## Usage
+**Note:** Both environments require Olive to be installed. Refer to the [main examples README](https://github.com/microsoft/Olive/tree/main/examples#important) for instructions on how to set up python environments and install Olive.
+---
 
-The entire workflow is configured via the [config.json](config.json) file. Update the `/path/to/qnn/env/bin` in the config file to point to the Python environment where `onnxruntime-qnn` is installed. You can find this path by running the following command in the second Python environment:
+## **Usage**
+
+### **1️⃣ PTQ with QDQ Format**
+To generate a **QDQ model**, run the following command in the **1st Python environment**:
+
+```bash
+olive run --config qdq_config.json
+```
+
+✅ Optimized model saved in: `models/phi3_5_qdq/`
+
+---
+
+### **2️⃣ PTQ + AOT Compilation for Qualcomm NPU**
+To configure AOT compilation, update the path to the **2nd Python environment** in `qnn_config.json`.
 
 ```bash
 # Linux
@@ -104,90 +149,33 @@ command -v python
 # Windows
 # where python
 ```
-This command will return the path to the Python executable. Set the parent directory of the executable as the `/path/to/qnn/env/bin` in the config file.
+Use the parent directory of output path to update `/path/to/qnn/env/bin` in the config file.
 
-To begin the optimization process, run the following command in the first Python environment:
+Then, run the following command in the **1st Python environment**:
 
 ```bash
-olive run --config config.json
+olive run --config qnn_config.json
 ```
 
-The optimization process will take some time to complete. Once finished, the optimized model will be saved in the `models` directory.
+✅ Optimized model saved in: `models/phi3_5_qnn/`
 
-*Note*: If the optimization process fails silently during the context binary generation step, simply rerun the command. The process will resume from the last completed step.
+> **⚠️ If optimization fails during context binary generation, simply rerun the command.** The process will resume from the last completed step.
 
-## Inference
-The optimized model can be used for inference using the ONNX Runtime QNNExecutionProvider and ONNX Runtime GenAI. The inference must be run on a Windows Copilot+ PC with Qualcomm NPU.
+---
 
-In an arm64 Python environment, the following packages are required:
+## **Inference on Qualcomm NPU**
 
+> **Must be run on a Windows Copilot+ PC with a Qualcomm NPU.**
+
+### **Install Required Packages (arm64 Python)**
 ```bash
-# ONNX Runtime packages
 pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
 pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple onnxruntime-qnn --no-deps
-
-# ONNX Runtime GenAI
 pip install "onnxruntime-genai>=0.7.0rc2"
 ```
 
-The following code creates a simple console-based chat interface that inferences your optimized model.
-Create a Python file called app.py and copy and paste the following code:
-
-```python
-# app.py
-import onnxruntime_genai as og
-
-model_folder = "models/phi3_5/model"
-
-# Load the base model and tokenizer
-model = og.Model(model_folder)
-tokenizer = og.Tokenizer(model)
-tokenizer_stream = tokenizer.create_stream()
-
-# Set the max length to something sensible by default,
-# since otherwise it will be set to the entire context length
-search_options = {}
-search_options['max_length'] = 200
-
-chat_template = "<|user|>\n{input} <|end|>\n<|assistant|>"
-
-# Keep asking for input prompts in a loop
-while True:
-    text = input("Prompt (Use quit() to exit): ")
-    if not text:
-        print("Error, input cannot be empty")
-        continue
-
-    if text == "quit()":
-        break
-
-    # Generate prompt (prompt template + input)
-    prompt = f'{chat_template.format(input=text)}'
-
-    # Encode the prompt using the tokenizer
-    input_tokens = tokenizer.encode(prompt)
-
-    # Create params and generator
-    params = og.GeneratorParams(model)
-    params.set_search_options(**search_options)
-    generator = og.Generator(model, params)
-
-    # Append input tokens to the generator
-    generator.append_tokens(input_tokens)
-
-    print("")
-    print("Output: ", end='', flush=True)
-    # Stream the output
-    try:
-        while not generator.is_done():
-            generator.generate_next_token()
-
-            new_token = generator.get_next_tokens()[0]
-            print(tokenizer_stream.decode(new_token), end='', flush=True)
-    except KeyboardInterrupt:
-        print("  --control+c pressed, aborting generation--")
-    print()
-    print()
-
-    del generator
+### **Run Console-Based Chat Interface**
+Save the provided [`app.py`](app.py) script and execute:
+```bash
+python app.py
 ```
