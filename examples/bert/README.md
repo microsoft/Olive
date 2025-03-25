@@ -2,6 +2,7 @@
 This folder contains examples of BERT optimization using different workflows.
 
 - CPU: [Optimization with PTQ for model from HF/AML](#bert-optimization-with-ptq-on-cpu)
+- QDQ: [Optimization with PTQ for model from HF/AML with QDQ format](#bert-optimization-with-ptq-on-cpu)
 - CPU: [Optimization with Intel® Neural Compressor PTQ](#bert-optimization-with-intel®-neural-compressor-ptq-on-cpu)
 - CPU: [Optimization with QAT Customized Training Loop](#bert-optimization-with-qat-customized-training-loop-on-cpu)
 - GPU: [Optimization with CUDA/TensorRT](#bert-optimization-with-cudatensorrt-on-gpu)

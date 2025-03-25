@@ -1,12 +1,12 @@
-# Vision Transformer (ViT) Optimization
-This folder contains examples of ViT optimization using different workflows.
-- CPU: [Optimization with PTQ on CPU with QDQ format](#vit-optimization-with-cpu)
-- Qualcomm NPU: [with QNN execution provider in ONNX Runtime](#vit-optimization-with-qnn-execution-providers)
+# Vision Transformer (ViT) Quantization
+This folder contains examples of ViT quantization using different workflows.
+- QDQ: [PTQ on CPU with QDQ format](#vit-with-qdq)
+- Qualcomm NPU: [with QNN execution provider in ONNX Runtime](#vit-quantization-with-qnn-execution-providers)
 
-## Optimization Workflows
+## Workflows
 
-### ViT optimization with CPU
-This example performs ViT optimization with CPU in one workflow. It performs the optimization pipeline:
+### ViT with QDQ
+This example performs ViT quantization with CPU in one workflow. It performs the pipeline:
 - *Huggingface Model -> Onnx Model -> Quantized Onnx Model with QDQ format*
 
 Config file: [vit_qdq.json](vit_qdq.json)
@@ -20,8 +20,8 @@ Config file: [vit_qdq.json](vit_qdq.json)
 
 *Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
-### ViT optimization with QNN execution providers
-This example performs ViT optimization with QNN execution providers in one workflow. It performs the optimization pipeline:
+### ViT quantization with QNN execution providers
+This example performs ViT quantization with QNN execution providers in one workflow. It performs the pipeline:
 - *Huggingface Model -> Onnx Model -> QNN Quantized Onnx Model*
 
 Config file: [vit_qnn.json](vit_qnn.json)
