@@ -20,10 +20,10 @@ Config file: [bert_ptq_qdq.json](bert_ptq_qdq.json)
 
 #### Accuracy / latency
 
-| Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  | Throughput (token per second)|
-|-----------------------|---------------------|----------------------|------------------------------|
-| PyTorch FP32          | 90%                 | 2406                 | 0.41                         |
-| ONNX INT8 (QDQ)       | 90%                 | 401                  | 2.51                         |
+| Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  | Throughput (token per second)| Dataset   |
+|-----------------------|---------------------|----------------------|------------------------------|-----------|
+| PyTorch FP32          | 90%                 | 2406                 | 0.41                         | glue-mrpc |
+| ONNX INT8 (QDQ)       | 90%                 | 401                  | 2.51                         | glue-mrpc |
 
 *Note: Latency can vary significantly depending on the hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 

@@ -19,10 +19,10 @@ Config file: [resnet_ptq_qdq.json](resnet_ptq_qdq.json)
 
 #### Accuracy / latency
 
-| Model Version         | Accuracy (Top-1) | Latency (ms/sample) |
-|-----------------------|---------------------|----------------------|
-| PyTorch FP32          | 81.2%               | 2599                 |
-| ONNX INT8 (QDQ)       | 78.1%               | 74.7                 |
+| Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  | Dataset  |
+|-----------------------|---------------------|----------------------|----------|
+| PyTorch FP32          | 81.2%               | 2599                 | Imagenet |
+| ONNX INT8 (QDQ)       | 78.1%               | 74.7                 | Imagenet |
 
 *Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 

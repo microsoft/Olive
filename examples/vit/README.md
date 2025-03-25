@@ -15,10 +15,10 @@ Config file: [vit_qdq.json](vit_qdq.json)
 
 #### Accuracy / latency
 
-| Model Version         | Accuracy            |  Latency (ms/sample) |
-|-----------------------|---------------------|----------------------|
-| PyTorch FP32          | 77.3%               | 1892.2               |
-| ONNX INT8 (QDQ)       | 77.3%               | 287.5                |
+| Model Version         | Accuracy            |  Latency (ms/sample) | Dataset  |
+|-----------------------|---------------------|----------------------|----------|
+| PyTorch FP32          | 77.3%               | 1892.2               | Imagenet |
+| ONNX INT8 (QDQ)       | 77.3%               | 287.5                | Imagenet |
 
 *Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 

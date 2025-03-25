@@ -17,10 +17,10 @@ OpenAI clip model config file:
 
 Accuracy / latency / throughput
 
-| Model Version         | Accuracy           | Latency (ms/sample)| Throughput (token per second)|
-|-----------------------|--------------------|--------------------|------------------------------|
-| PyTorch FP32          | 100%               | 6190.6             | 0.16                         |
-| ONNX INT8 (QDQ)       | 100%               | 1525.3             | 0.65                         |
+| Model Version         | Accuracy           | Latency (ms/sample)| Throughput (token per second)| Dataset           |
+|-----------------------|--------------------|--------------------|------------------------------|-------------------|
+| PyTorch FP32          | 100%               | 6190.6             | 0.16                         | nlphuji/flickr30k |
+| ONNX INT8 (QDQ)       | 100%               | 1525.3             | 0.65                         | nlphuji/flickr30k |
 
 
 #### [openai_clip-vit-base-patch32_ptq_qdq.json](openai_clip-vit-base-patch32_ptq_qdq.json)
