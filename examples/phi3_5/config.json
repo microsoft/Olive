@@ -55,7 +55,6 @@
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
             "calibration_providers": [ "CUDAExecutionProvider" ],
-            "prepare_qnn_config": true,
             "quant_preprocess": true,
             "op_types_to_exclude": [ "GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits" ],
             "save_as_external_data": true

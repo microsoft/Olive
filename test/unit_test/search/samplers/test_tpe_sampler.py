@@ -115,34 +115,12 @@ class TestTPESampler:
                                         ),
                                     ),
                                     (
-                                        "prepare_qnn_config",
+                                        "prepare_qdq_config",
                                         Conditional(
                                             parents=("quant_mode",),
                                             support={
                                                 ("static",): Categorical([False]),
                                                 ("dynamic",): Conditional.get_ignored_choice(),
-                                            },
-                                            default=Conditional.get_invalid_choice(),
-                                        ),
-                                    ),
-                                    (
-                                        "qnn_extra_options",
-                                        Conditional(
-                                            parents=("quant_mode",),
-                                            support={
-                                                ("static",): Categorical([None]),
-                                                ("dynamic",): Conditional.get_ignored_choice(),
-                                            },
-                                            default=Conditional.get_invalid_choice(),
-                                        ),
-                                    ),
-                                    (
-                                        "MatMulConstBOnly",
-                                        Conditional(
-                                            parents=("quant_mode",),
-                                            support={
-                                                ("dynamic",): Categorical([True]),
-                                                ("static",): Categorical([False]),
                                             },
                                             default=Conditional.get_invalid_choice(),
                                         ),
