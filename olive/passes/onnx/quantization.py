@@ -29,7 +29,7 @@ from olive.passes.onnx.common import (
 )
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile
-from olive.search.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault, SpecialParamValue
+from olive.search.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
 logger = logging.getLogger(__name__)
 
@@ -224,11 +224,12 @@ def get_calibration_dataloader(config, model_path=None, io_config=None, calibrat
     )
 
 
+# extra options name: (param_name, use in dynamic quantization)
 _param_extra_options_mapping = {
-    "ActivationSymmetric": "activation_symmetric",
-    "WeightSymmetric": "weight_symmetric",
-    "MinimumRealRange": "min_real_range",
-    "TensorQuantOverrides": "tensor_quant_overrides",
+    "ActivationSymmetric": ("activation_symmetric", True),
+    "WeightSymmetric": ("weight_symmetric", True),
+    "MinimumRealRange": ("min_real_range", False),
+    "TensorQuantOverrides": ("tensor_quant_overrides", False),
 }
 
 
@@ -354,8 +355,8 @@ class OnnxQuantization(Pass):
                 " the corresponding pass config parameter values.",
                 intersection,
             )
-        for key, value in _param_extra_options_mapping.items():
-            if run_config.get(value) is not None and not isinstance(run_config[value], SpecialParamValue):
+        for key, (value, use_in_dynamic) in _param_extra_options_mapping.items():
+            if run_config.get(value) is not None and (is_static or use_in_dynamic):
                 # add the value to extra_options
                 extra_options[key] = run_config[value]
             # remove the key from run_config
@@ -520,7 +521,7 @@ class OnnxQuantization(Pass):
                 get_qdq_config_kwargs[key] = run_config[key]
         # put the exposed extra options in the get_qdq_config_kwargs
         extra_options = deepcopy(run_config["extra_options"])
-        for key, qdq_key in _param_extra_options_mapping.items():
+        for key, (qdq_key, _) in _param_extra_options_mapping.items():
             if key in extra_options:
                 get_qdq_config_kwargs[qdq_key] = extra_options[key]
                 # remove the key from extra_options
