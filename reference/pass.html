@@ -4043,7 +4043,12 @@
     new components:
         - context model (sequence length = context_length)
         - iterator model (sequence length = 1)
-    embeddings and lm_head keep their original shapes.</p>
+    embeddings and lm_head keep their original shapes.
+    The output model has an attribute “llm_pipeline” that contains the mapping of the components with keys:
+        - embeddings: name of the embeddings model
+        - context: list of context model names
+        - iterator: list of iterator model names
+        - lm_head: name of the lm_head model</p>
 <p><strong>Input:</strong> handler.composite.CompositeModelHandler</p>
 <p><strong>Output:</strong> handler.composite.CompositeModelHandler</p>
 <dl class="std option">
@@ -4092,6 +4097,15 @@
 <dt class="sig sig-object std" id="cmdoption-arg-provider_options">
 <span class="sig-name descname"><span class="pre">provider_options</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-provider_options" title="Link to this definition">#</a></dt>
 <dd><p>Provider options for the EP.</p>
+<p><strong>type:</strong> dict</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-session_options">
+<span class="sig-name descname"><span class="pre">session_options</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-session_options" title="Link to this definition">#</a></dt>
+<dd><p>Session options for the EP.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
@@ -4241,7 +4255,7 @@
 <span id="optimum-merging"></span><h2>OptimumMerging<a class="headerlink" href="#optimummerging" title="Link to this heading">#</a></h2>
 <p>Merges a decoder_model with its decoder_with_past_model via the Optimum library.</p>
 <p><strong>Input:</strong> handler.composite.CompositeModelHandler</p>
-<p><strong>Output:</strong> handler.onnx.ONNXModelHandler | handler.composite.CompositeModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-strict">
 <span class="sig-name descname"><span class="pre">strict</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-strict" title="Link to this definition">#</a></dt>
