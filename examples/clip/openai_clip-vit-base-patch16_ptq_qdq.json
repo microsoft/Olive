@@ -12,12 +12,6 @@
             "output_shapes": [ [ 1, 2 ] ]
         }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
-        }
-    },
     "data_configs": [
         {
             "name": "quant_data_config",
@@ -58,27 +52,14 @@
                     ]
                 },
                 {
-                    "name": "latency_qnn",
+                    "name": "latency",
                     "type": "latency",
                     "data_config": "metric_data_config",
                     "sub_types": [
-                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
+                        { "name": "avg", "goal": { "type": "percent-min-improvement", "value": 0.1 } },
                         { "name": "max" },
                         { "name": "min" }
                     ]
-                },
-                {
-                    "name": "latency_cpu",
-                    "type": "latency",
-                    "data_config": "metric_data_config",
-                    "sub_types": [
-                        { "name": "avg", "priority": 3, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
-                        { "name": "max" },
-                        { "name": "min" }
-                    ],
-                    "user_config": {
-                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
-                    }
                 },
                 {
                     "name": "throughput",
@@ -91,7 +72,6 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
-        "qnn_preprocess": { "type": "QNNPreprocess" },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "quant_preprocess": true,
@@ -103,10 +83,7 @@
         }
     },
     "evaluator": "common_evaluator",
-    "evaluate_input_model": false,
-    "host": "local_system",
-    "target": "local_system",
     "cache_dir": "cache",
     "clean_cache": true,
-    "output_dir": "models/clip-vit-base-patch16-qnn"
+    "output_dir": "models/clip-vit-base-patch16"
 }

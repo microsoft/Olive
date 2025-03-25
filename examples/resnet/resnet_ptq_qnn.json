@@ -4,9 +4,9 @@
         "model_path": "microsoft/resnet-50",
         "task": "image-classification",
         "io_config": {
-            "input_names": [ "input" ],
+            "input_names": [ "pixel_values" ],
             "input_shapes": [ [ 1, 3, 224, 224 ] ],
-            "output_names": [ "output" ]
+            "output_names": [ "logits" ]
         }
     },
     "systems": {

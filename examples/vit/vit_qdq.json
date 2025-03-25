@@ -1,7 +1,7 @@
 {
     "input_model": {
         "type": "HfModel",
-        "model_path": "microsoft/resnet-50",
+        "model_path": "google/vit-base-patch16-224",
         "task": "image-classification",
         "io_config": {
             "input_names": [ "pixel_values" ],
@@ -11,7 +11,7 @@
     },
     "data_configs": [
         {
-            "name": "data_config",
+            "name": "quantize_data_config",
             "type": "HuggingfaceContainer",
             "user_script": "imagenet.py",
             "load_dataset_config": {
@@ -20,8 +20,8 @@
                 "streaming": true,
                 "trust_remote_code": true
             },
-            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet" },
-            "post_process_data_config": { "type": "imagenet_post_fun" }
+            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet256" },
+            "post_process_data_config": { "type": "dataset_post_process" }
         }
     ],
     "evaluators": {
@@ -30,7 +30,7 @@
                 {
                     "name": "accuracy",
                     "type": "accuracy",
-                    "data_config": "data_config",
+                    "data_config": "quantize_data_config",
                     "sub_types": [
                         {
                             "name": "accuracy_score",
@@ -42,19 +42,30 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "data_config": "data_config",
-                    "sub_types": [ { "name": "avg" } ]
+                    "data_config": "quantize_data_config",
+                    "sub_types": [ { "name": "avg", "priority": 2 } ]
                 }
             ]
         }
     },
     "passes": {
-        "onnx_conversion": { "type": "OnnxConversion", "target_opset": 13 },
-        "onnx_static_quantization": { "type": "OnnxStaticQuantization", "data_config": "data_config" },
-        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "data_config" }
+        "conversion": {
+            "device": "cpu",
+            "type": "OnnxConversion",
+            "target_opset": 17,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "use_dynamo_exporter": false
+        },
+        "OnnxQuantization": {
+            "type": "OnnxQuantization",
+            "data_config": "quantize_data_config",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8",
+            "calibrate_method": "MinMax",
+            "quant_preprocess": true
+        }
     },
-    "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "evaluator": "common_evaluator",
-    "cache_dir": "cache",
-    "output_dir": "models/resnet_static_ptq_cpu"
+    "output_dir": "models/vit-base-patch16-224"
 }

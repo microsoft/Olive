@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import torchvision.transforms as transforms
+import transformers
 from torch import from_numpy
 from torch.utils.data import Dataset
 
@@ -21,12 +22,16 @@ class ImagenetDataset(Dataset):
         return min(len(self.images), len(self.labels))
 
     def __getitem__(self, idx):
-        return {"input": self.images[idx]}, self.labels[idx]
+        return {"pixel_values": self.images[idx]}, self.labels[idx]
 
 
 @Registry.register_post_process()
 def dataset_post_process(output):
-    return output.argmax(axis=1)
+    return (
+        output.logits.argmax(axis=1)
+        if isinstance(output, transformers.modeling_outputs.ModelOutput)
+        else output.argmax(axis=1)
+    )
 
 
 preprocess = transforms.Compose(

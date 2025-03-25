@@ -1,18 +1,12 @@
 {
     "input_model": {
         "type": "HfModel",
-        "model_path": "google/vit-base-patch16-224",
+        "model_path": "microsoft/resnet-50",
         "task": "image-classification",
         "io_config": {
-            "input_names": [ "input" ],
+            "input_names": [ "pixel_values" ],
             "input_shapes": [ [ 1, 3, 224, 224 ] ],
-            "output_names": [ "output" ]
-        }
-    },
-    "systems": {
-        "qnn_system": {
-            "type": "LocalSystem",
-            "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
+            "output_names": [ "logits" ]
         }
     },
     "data_configs": [
@@ -26,8 +20,8 @@
                 "streaming": true,
                 "trust_remote_code": true
             },
-            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet256" },
-            "post_process_data_config": { "type": "dataset_post_process" }
+            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet" },
+            "post_process_data_config": { "type": "imagenet_post_fun" }
         }
     ],
     "evaluators": {
@@ -49,7 +43,7 @@
                     "name": "latency",
                     "type": "latency",
                     "data_config": "quantize_data_config",
-                    "sub_types": [ { "name": "avg", "priority": 2 } ]
+                    "sub_types": [ { "name": "avg" } ]
                 }
             ]
         }
@@ -61,21 +55,19 @@
             "target_opset": 17,
             "save_as_external_data": true,
             "all_tensors_to_one_file": true,
+            "dynamic": false,
             "use_dynamo_exporter": false
         },
-        "QNNPreprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
         "OnnxQuantization": {
             "type": "OnnxQuantization",
             "data_config": "quantize_data_config",
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
-            "calibrate_method": "MinMax",
-            "quant_preprocess": true
+            "calibrate_method": "MinMax"
         }
     },
-    "host": "qnn_system",
-    "target": "qnn_system",
     "evaluator": "common_evaluator",
-    "output_dir": "model_output",
-    "evaluate_input_model": false
+    "cache_dir": "cache",
+    "clean_cache": true,
+    "output_dir": "models/resnet_ptq_qdq"
 }
