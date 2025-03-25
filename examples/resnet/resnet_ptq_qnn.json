@@ -117,8 +117,7 @@
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
-            "quant_preprocess": true,
-            "prepare_qnn_config": true
+            "quant_preprocess": true
         }
     },
     "host": "qnn_system",
