@@ -16,7 +16,7 @@ Go to [How to run](#how-to-run)
 This workflow quantizes the model. It performs the pipeline:
 - *HF Model-> ONNX Model ->Quantized Onnx Model*
 
-Config file: [bert_ptq_qdq.json](bert_ptq_qdq.json)
+Config file: [Intel/bert-base-uncased](bert_ptq_qdq.json)
 
 #### Accuracy / latency
 
@@ -26,6 +26,15 @@ Config file: [bert_ptq_qdq.json](bert_ptq_qdq.json)
 | ONNX INT8 (QDQ)       | 90%                 | 401                  | 2.51                         | glue-mrpc |
 
 *Note: Latency can vary significantly depending on the hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
+
+Config file: [google-bert/bert-base-multilingual-cased](google_bert_qdq.json)
+
+#### latency
+
+| Model Version         | Latency (ms/sample)  | Throughput (token per second)| Dataset       |
+|-----------------------|----------------------|------------------------------|---------------|
+| PyTorch FP32          | 6157                 | 0.13                         | facebook/xnli |
+| ONNX INT8 (QDQ)       | 173                  | 5.58                         | facebook/xnli |
 
 ### BERT optimization with PTQ on CPU
 This workflow performs BERT optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
