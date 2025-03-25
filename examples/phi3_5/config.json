@@ -64,11 +64,11 @@
         "cb": {
             "type": "EPContextBinaryGenerator",
             "provider_options": {
+                "htp_performance_mode": "burst",
                 "htp_graph_finalization_optimization_mode": "3",
-                "soc_model": "60",
-                "htp_arch": "73",
-                "vtcm_mb": "8"
+                "soc_model": "60"
             },
+            "session_options": { "intra_op_num_threads": 2, "inter_op_num_threads": 1 },
             "weight_sharing": true
         },
         "cp": { "type": "ComposeOnnxModels" }
@@ -76,7 +76,7 @@
     "host": "local_cuda_system",
     "target": "qnn_system",
     "log_severity_level": 0,
-    "output_dir": "models",
-    "cache_dir": "cache",
+    "output_dir": "models/phi3_5",
+    "cache_dir": "cache/phi3_5",
     "no_artifacts": true
 }
