@@ -145,7 +145,7 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         # config options to add for a given option
         to_add = {
-            "AutoAWQQuantizer": {"w_bits": precision_in_bits},
+            "AutoAWQQuantizer": {"w_bit": precision_in_bits},
             "GptqQuantizer": {"bits": precision_in_bits},
             "OnnxBnB4Quantization": {"quant_type": precision_in_bits},
             "NVModelOptQuantization": {"precision": precision_in_bits, "algorithm": self.args.algorithm.upper()},
