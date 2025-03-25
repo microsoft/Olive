@@ -304,18 +304,18 @@ class OnnxQuantization(Pass):
         if not super().validate_config(config, accelerator_spec):
             return False
 
-        if config.quant_mode == "static":
-            if (
-                config.weight_type == "QInt8"
-                and config.activation_type == "QInt8"
-                and config.quant_format == "QOperator"
-            ):
-                # S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general.
-                # https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html#data-type-selection
-                # But we still allow it for users to try at their own risk. Olive just warns this to users.
-                logger.warning(
-                    "S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general, try QDQ instead."
-                )
+        if (
+            config.quant_mode == "static"
+            and config.weight_type == "QInt8"
+            and config.activation_type == "QInt8"
+            and config.quant_format == "QOperator"
+        ):
+            # S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general.
+            # https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html#data-type-selection
+            # But we still allow it for users to try at their own risk. Olive just warns this to users.
+            logger.warning(
+                "S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general, try QDQ instead."
+            )
         return True
 
     def _run_for_config(
