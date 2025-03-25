@@ -34,5 +34,6 @@ def main():
     with tarfile.open(data_download_path) as tar:
         tar.extractall(data_dir)  # lgtm
 
+
 if __name__ == "__main__":
     main()

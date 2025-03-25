@@ -7,9 +7,9 @@ from pathlib import Path
 
 import numpy as np
 import torchvision.transforms as transforms
+import transformers
 from torch import from_numpy
 from torch.utils.data import Dataset
-import transformers
 
 from olive.data.registry import Registry
 
@@ -35,6 +35,7 @@ def imagenet_post_fun(output):
         if isinstance(output, transformers.modeling_outputs.ModelOutput)
         else output.argmax(axis=1)
     )
+
 
 preprocess = transforms.Compose(
     [

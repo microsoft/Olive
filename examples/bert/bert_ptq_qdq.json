@@ -10,7 +10,12 @@
             "name": "glue_mrpc",
             "type": "HuggingfaceContainer",
             "load_dataset_config": { "data_name": "glue", "subset": "mrpc", "split": "validation" },
-            "pre_process_data_config": { "input_cols": [ "sentence1", "sentence2" ] },
+            "pre_process_data_config": {
+                "max_length": 128,
+                "padding": "max_length",
+                "input_cols": [ "sentence1", "sentence2" ],
+                "max_samples": 100
+            },
             "dataloader_config": { "batch_size": 1 }
         }
     ],
@@ -47,14 +52,18 @@
         }
     },
     "passes": {
-        "conversion": { "type": "OnnxConversion", "target_opset": 13 },
+        "conversion": { "type": "OnnxConversion", "target_opset": 17 },
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [ "batch_size", "sequence_length" ],
+            "dim_value": [ 1, 128 ]
+        },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
         "quantization": {
-            "type": "OnnxQuantization",
-            "quant_preprocess": true,
-            "per_channel": false,
-            "reduce_range": false,
-            "calibrate_method": "MinMax",
-            "data_config": "glue_mrpc"
+            "type": "OnnxStaticQuantization",
+            "data_config": "glue_mrpc",
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8"
         }
     },
     "evaluator": "common_evaluator",

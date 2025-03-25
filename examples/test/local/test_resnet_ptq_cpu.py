@@ -20,7 +20,7 @@ def setup():
 
     # prepare model and data
     # retry since it fails randomly
-    retry_func(run_subprocess, kwargs={"cmd": "python prepare_model_data.py", "check": True})
+    retry_func(run_subprocess, kwargs={"cmd": "python prepare_data.py", "check": True})
 
 
 @pytest.mark.parametrize("sampler", ["random"])

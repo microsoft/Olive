@@ -37,7 +37,7 @@
         }
     },
     "passes": {
-        "conversion": { "type": "OnnxConversion", "target_opset": 14 },
+        "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
             "float16": false,
