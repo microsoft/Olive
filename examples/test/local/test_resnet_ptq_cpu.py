@@ -8,7 +8,6 @@ import pytest
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
-from olive.common.hf.login import huggingface_login
 from olive.common.utils import retry_func, run_subprocess
 
 from ..utils import check_output, get_example_dir, patch_config
@@ -43,9 +42,6 @@ def setup():
 )
 def test_resnet(sampler, execution_order, system, olive_json):
     from olive.workflows import run as olive_run
-
-    hf_token = os.environ.get("HF_TOKEN")
-    huggingface_login(hf_token)
 
     olive_config = patch_config(olive_json, sampler, execution_order, system)
 

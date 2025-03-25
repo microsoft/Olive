@@ -15,8 +15,8 @@
             "type": "HuggingfaceContainer",
             "user_script": "imagenet.py",
             "load_dataset_config": {
-                "data_name": "imagenet-1k",
-                "split": "validation",
+                "data_name": "evanarlian/imagenet_1k_resized_256",
+                "split": "val",
                 "streaming": true,
                 "trust_remote_code": true
             },
