@@ -18,7 +18,7 @@ This workflow quantizes the model. It performs the pipeline:
 
 Config file: [Intel/bert-base-uncased](bert_ptq_qdq.json)
 
-#### Accuracy / latency
+#### Accuracy / Latency / Throughput
 
 | Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  | Throughput (token per second)| Dataset   |
 |-----------------------|---------------------|----------------------|------------------------------|-----------|
@@ -29,7 +29,7 @@ Config file: [Intel/bert-base-uncased](bert_ptq_qdq.json)
 
 Config file: [google-bert/bert-base-multilingual-cased](google_bert_qdq.json)
 
-#### latency
+#### Latency / Throughput
 
 | Model Version         | Latency (ms/sample)  | Throughput (token per second)| Dataset       |
 |-----------------------|----------------------|------------------------------|---------------|
