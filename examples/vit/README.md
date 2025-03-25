@@ -1,12 +1,14 @@
 # Vision Transformer (ViT) Quantization
 This folder contains examples of ViT quantization using different workflows.
-- QDQ: [PTQ on CPU with QDQ format](#vit-with-qdq)
+- QDQ: [VIT with QDQ format](#vit-with-qdq)
 - Qualcomm NPU: [with QNN execution provider in ONNX Runtime](#vit-quantization-with-qnn-execution-providers)
+
+Go to [How to run](#how-to-run)
 
 ## Workflows
 
 ### ViT with QDQ
-This example performs ViT quantization with CPU in one workflow. It performs the pipeline:
+This example performs ViT quantization in one workflow. It performs the pipeline:
 - *Huggingface Model -> Onnx Model -> Quantized Onnx Model with QDQ format*
 
 Config file: [vit_qdq.json](vit_qdq.json)
