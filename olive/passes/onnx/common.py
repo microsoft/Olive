@@ -466,71 +466,109 @@ def process_llm_pipeline(
     new_model_attributes = deepcopy(model.model_attributes) or {}
     new_model_attributes["llm_pipeline"] = new_llm_pipeline
 
+    return update_llm_pipeline_genai_config(
+        CompositeModelHandler(
+            list(new_component_models.values()),
+            list(new_component_models.keys()),
+            model_path=output_dir,
+            model_attributes=new_model_attributes,
+        ),
+        source_llm_pipeline=llm_pipeline,
+        decoder_config_extra=decoder_config_extra,
+        group_session_options=group_session_options,
+    )
+
+
+def update_llm_pipeline_genai_config(
+    model: CompositeModelHandler,
+    source_llm_pipeline: Optional[Dict[str, Any]] = None,
+    decoder_config_extra: Optional[Dict[str, Any]] = None,
+    group_session_options: Optional[Dict[str, Any]] = None,
+) -> CompositeModelHandler:
+    """Update the LLM pipeline in the model's genai_config.json file.
+
+    :param model: The composite model to update.
+    :param source_llm_pipeline: The source LLM pipeline to use for the update.
+    :param decoder_config_extra: Extra configuration for the decoder.
+    :param group_session_options: Session options for the context and iterator groups.
+    :return: The updated composite model.
+    """
+    if not model.model_path or not Path(model.model_path).is_dir():
+        logger.warning("Model path is not set or is not a directory. Cannot update genai_config.json.")
+        return model
+
+    if not model.model_attributes or ({"llm_pipeline", "additional_files"} - model.model_attributes.keys()):
+        # no llm_pipeline or additional_files, so just return the model
+        return model
+
+    additional_files = model.model_attributes["additional_files"]
+    llm_pipeline = model.model_attributes["llm_pipeline"]
+
     # update genai_config if it exists
     genai_config_path = None
-    for file_path in new_model_attributes.get("additional_files") or []:
+    for file_path in additional_files:
         if Path(file_path).name == "genai_config.json":
             genai_config_path = file_path
             break
 
-    if genai_config_path:
-        with open(genai_config_path) as f:
-            genai_config = json.load(f)
+    if not genai_config_path:
+        # no genai_config, so just return the model
+        return model
 
-        # update model_type
-        genai_config["model"]["type"] = "decoder-pipeline"
+    with open(genai_config_path) as f:
+        genai_config = json.load(f)
 
-        # update decoder config
-        decoder_config = genai_config["model"]["decoder"]
-        decoder_config.pop("filename", None)
-        for key, value in (decoder_config_extra or {}).items():
-            exisiting_value = decoder_config.get(key)
-            if isinstance(exisiting_value, dict):
-                exisiting_value.update(value)
-            elif isinstance(exisiting_value, list):
-                exisiting_value.extend(value)
-            else:
-                decoder_config[key] = value
+    # update model_type
+    genai_config["model"]["type"] = "decoder-pipeline"
 
-        # get group session options
+    # update decoder config
+    decoder_config = genai_config["model"]["decoder"]
+    decoder_config.pop("filename", None)
+    for key, value in (decoder_config_extra or {}).items():
+        exisiting_value = decoder_config.get(key)
+        if isinstance(exisiting_value, dict):
+            exisiting_value.update(value)
+        elif isinstance(exisiting_value, list):
+            exisiting_value.extend(value)
+        else:
+            decoder_config[key] = value
+
+    # get group session options
+    if source_llm_pipeline:
         group_session_options = group_session_options or decoder_config.get("pipeline", [{}])[0].get(
-            llm_pipeline["context"][0], {}
+            source_llm_pipeline["context"][0], {}
         ).get("session_options")
+    # update pipeline config
+    component_models = dict(model.get_model_components())
+    pipeline_config = {}
+    for name in [
+        llm_pipeline["embeddings"],
+        *llm_pipeline["context"],
+        *llm_pipeline["iterator"],
+        llm_pipeline["lm_head"],
+    ]:
+        component = component_models[name]
+        component_io_config = component.io_config
+        pipeline_config[name] = {
+            "filename": Path(component.model_path).name,
+            "inputs": component_io_config["input_names"],
+            "outputs": component_io_config["output_names"],
+        }
 
-        # update pipeline config
-        pipeline_config = {}
-        for name in [
-            new_llm_pipeline["embeddings"],
-            *new_llm_pipeline["context"],
-            *new_llm_pipeline["iterator"],
-            new_llm_pipeline["lm_head"],
-        ]:
-            component = new_component_models[name]
-            component_io_config = component.io_config
-            pipeline_config[name] = {
-                "filename": Path(component.model_path).name,
-                "inputs": component_io_config["input_names"],
-                "outputs": component_io_config["output_names"],
-            }
+    for group, dont_run_on in zip(["context", "iterator"], ["token_gen", "prompt"]):
+        for name in llm_pipeline[group]:
+            if group_session_options:
+                pipeline_config[name]["session_options"] = group_session_options
+            pipeline_config[name][f"run_on_{dont_run_on}"] = False
 
-        for group, dont_run_on in zip(["context", "iterator"], ["token_gen", "prompt"]):
-            for name in new_llm_pipeline[group]:
-                if group_session_options:
-                    pipeline_config[name]["session_options"] = group_session_options
-                pipeline_config[name][f"run_on_{dont_run_on}"] = False
+    decoder_config["pipeline"] = [pipeline_config]
 
-        decoder_config["pipeline"] = [pipeline_config]
+    # save the updated genai_config
+    new_genai_config_path = Path(model.model_path) / "genai_config.json"
+    with new_genai_config_path.open("w") as f:
+        json.dump(genai_config, f, indent=4)
+    # update the model attributes
+    additional_files.remove(genai_config_path)
+    additional_files.append(str(new_genai_config_path))
 
-        # save the updated genai_config
-        new_genai_config_path = output_dir / "genai_config.json"
-        with new_genai_config_path.open("w") as f:
-            json.dump(genai_config, f, indent=4)
-        new_model_attributes["additional_files"].remove(genai_config_path)
-        new_model_attributes["additional_files"].append(str(new_genai_config_path))
-
-    return CompositeModelHandler(
-        list(new_component_models.values()),
-        list(new_component_models.keys()),
-        model_path=output_dir,
-        model_attributes=new_model_attributes,
-    )
+    return model

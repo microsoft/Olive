@@ -27,6 +27,11 @@ class StaticLLM(Pass):
         - context model (sequence length = context_length)
         - iterator model (sequence length = 1)
     embeddings and lm_head keep their original shapes.
+    The output model has an attribute "llm_pipeline" that contains the mapping of the components with keys:
+        - embeddings: name of the embeddings model
+        - context: list of context model names
+        - iterator: list of iterator model names
+        - lm_head: name of the lm_head model
     """
 
     _accepts_composite_model = True
