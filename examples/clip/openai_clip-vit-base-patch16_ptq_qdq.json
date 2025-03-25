@@ -79,7 +79,6 @@
             "op_types_to_quantize": [ "MatMul", "LayerNormalization", "Gemm", "Sigmoid", "Gelu" ],
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
-            "quant_format": "QDQ",
             "calibrate_method": "MinMax"
         }
     },

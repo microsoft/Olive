@@ -51,7 +51,6 @@
         "transformers_optimization": { "type": "OrtTransformersOptimization" },
         "quantization": {
             "type": "OnnxQuantization",
-            "quant_format": "QDQ",
             "quant_preprocess": true,
             "per_channel": false,
             "reduce_range": false,
