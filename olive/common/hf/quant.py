@@ -273,6 +273,8 @@ def make_auto_awq_qlinear4bit(qlinear):
         dtype=qlinear.scales.dtype,
     )
     new_qlinear.pack(iweight, izeros, scales)
+    if qlinear.bias is not None:
+        new_qlinear.bias = qlinear.bias.clone()
 
     return new_qlinear
 
@@ -302,6 +304,8 @@ def make_auto_gptq_qlinear4bit(qlinear):
         dtype=qlinear.scales.dtype,
     )
     new_qlinear.pack(iweight, izeros, scales, g_idx)
+    if qlinear.bias is not None:
+        new_qlinear.bias = qlinear.bias.clone()
 
     return new_qlinear
 
