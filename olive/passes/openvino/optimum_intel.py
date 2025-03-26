@@ -67,7 +67,7 @@ class OpenVINOOptimumConversion(Pass):
             ),
             "device": PassConfigParam(
                 type_=Device,
-                default_value=accelerator_spec.accelerator_type.CPU,
+                default_value=Device.CPU,
                 description=(
                     "The device to use to do the export. Defaults to 'cpu'."
                     "This is the parameter that is directly passed to Optimum Intel export function in certain cases."
