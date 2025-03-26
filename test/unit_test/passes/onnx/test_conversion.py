@@ -12,13 +12,13 @@ from unittest.mock import patch
 
 import pytest
 import torch
+from onnxscript import ir
 
 from olive.common.config_utils import validate_config
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
-from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pytorch.gptq import GptqQuantizer
 
 
@@ -65,8 +65,34 @@ def test_onnx_conversion_pass_quant_model(tmp_path):
 
     # assert
     assert Path(onnx_model.model_path).exists()
-    dag = OnnxDAG(onnx_model.load_model())
-    num_mnb = sum(dag.get_node_op_type(name) == "MatMulNBits" for name in dag.get_node_names())
+    model_ir = ir.load(onnx_model.model_path)
+    num_mnb = sum(node.op_type == "MatMulNBits" for node in model_ir.graph)
+    # 2 layers X 1 qkv, 1 o, 1 gate_up, 1 down
+    assert num_mnb == 2 * 4
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="GPU is not available")
+@pytest.mark.skipif(not hasattr(torch.onnx, "ops"), reason="requires torch>=2.8")
+def test_onnx_conversion_pass_quant_model_dynamo(tmp_path):
+    # setup
+    base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
+    # awq has minimum hidden size of 64 or 64 multiples so this model is not compatible
+    # only testing with gptq quantized model
+    quantizer_pass = create_pass_from_dict(GptqQuantizer, disable_search=True)
+    quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
+
+    p = create_pass_from_dict(
+        OnnxConversion, {"torch_dtype": "float32", "use_dynamo_exporter": True}, disable_search=True
+    )
+    output_folder = str(tmp_path / "onnx")
+
+    # run
+    onnx_model = p.run(quantized_model, output_folder)
+
+    # assert
+    assert Path(onnx_model.model_path).exists()
+    model_ir = ir.load(onnx_model.model_path)
+    num_mnb = sum(node.op_type == "MatMulNBits" for node in model_ir.graph)
     # 2 layers X 1 qkv, 1 o, 1 gate_up, 1 down
     assert num_mnb == 2 * 4
 

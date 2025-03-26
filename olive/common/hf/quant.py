@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 import math
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 import torch
 import transformers
@@ -150,9 +150,41 @@ class QuantLinearTorchFunction(torch.autograd.Function):
         return output
 
     @staticmethod
-    def forward(ctx, x, qweight, scales, qzeros, g_idx, bits, group_size, in_features, out_features):
+    def forward(
+        ctx,
+        x: torch.Tensor,
+        qweight: torch.Tensor,
+        scales: torch.Tensor,
+        qzeros: torch.Tensor,
+        g_idx: Optional[torch.Tensor],
+        bits: int,
+        group_size: int,
+        in_features: int,
+        out_features: int,
+    ):
         if torch.onnx.is_in_onnx_export():
-            return torch.zeros(x.shape[:-1] + (out_features,), dtype=x.dtype, device=x.device)
+            if hasattr(torch.onnx, "ops"):
+                # torch.onnx.ops was introduced in 2.8
+                tensor_args = [x, qweight, scales, qzeros]
+                if g_idx is not None:
+                    tensor_args.append(g_idx)
+                attrs = {
+                    "K": in_features,
+                    "N": out_features,
+                    "bits": bits,
+                    "block_size": group_size,
+                }
+                return torch.onnx.ops.symbolic(
+                    "com.microsoft::MatMulNBits",
+                    tensor_args,
+                    attrs=attrs,
+                    dtype=x.dtype,
+                    shape=[*x.shape[:-1], out_features],
+                    version=1,
+                )
+            else:
+                return torch.zeros(x.shape[:-1] + (out_features,), dtype=x.dtype, device=x.device)
+
         raise NotImplementedError("QuantLinearTorchFunction forward is only implemented for onnx export")
 
 
