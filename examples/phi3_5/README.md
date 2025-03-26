@@ -83,7 +83,7 @@ olive run --config qdq_config.json
 
 ## **PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**
 
-This process extends the **QDQ Model with 4-bit Weights & 16-bit Activations** by compiling it specifically for **Qualcomm NPUs** using the **QNN Execution Provider**.
+This process extends the [**QDQ Model with 4-bit Weights & 16-bit Activations**](#qdq-model-with-4-bit-weights--16-bit-activations) by compiling it specifically for **Qualcomm NPUs** using the **QNN Execution Provider**.
 
 ### **Resource Optimization Strategy**
 
@@ -110,23 +110,23 @@ Once optimized, the model is compiled for Qualcomm NPUs using **ONNX Runtime QNN
    - Leverages **weight sharing** across the prefill and token generation models.
 
 ### **Usage**
+This workflow is configured using the [`qnn_config.json`](qnn_config.json) file. It contains all of the quantization and compilation steps. It is a standalone config and is run independently of the `qdq_config.json` workflow. It requires two separate Python environments described below.
 
 #### Quantization Python Environment Setup
 Follow the steps outlined in the [previous section](#quantization-python-environment-setup) to set up the environment.
+
+> ⚠️ Only set up the environment and install the packages. Do not run the `olive run` command at this point.
 
 #### AOT Compilation Python Environment Setup
 Model compilation using QNN Execution Provider requires a Python environment with onnxruntime-qnn installed. In a separate Python environment with Olive installed, install the required packages:
 
 ```bash
-# Install common dependencies
-pip install -r requirements.txt
-
 # Install ONNX Runtime QNN
 pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
 pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple onnxruntime-qnn --no-deps
 ```
 
-Replace `/path/to/qnn/env/bin` in [qnn_config.json](qnn_config.json) with the path to your QNN environment's Python executable. This path can be found by running the following command in the environment:
+Replace `/path/to/qnn/env/bin` in [qnn_config.json](qnn_config.json) with the path to the directory containing your QNN environment's Python executable. This path can be found by running the following command in the environment:
 
 ```bash
 # Linux
@@ -135,12 +135,16 @@ command -v python
 # where python
 ```
 
+This command will return the path to the Python executable. Set the parent directory of the executable as the `/path/to/qnn/env/bin` in the config file.
+
 #### **Run the Quantization + Compilation Config**
-In the **Quantization Python Environment**, run the workflow:
+Activate the **Quantization Python Environment** and run the workflow:
 
 ```bash
 olive run --config qnn_config.json
 ```
+
+Olive will run the AOT compilation step in the **AOT Compilation Python Environment** specified in the config file using a subprocess. All other steps will run in the **Quantization Python Environment** natively.
 
 ✅ Optimized model saved in: `models/phi3_5_qnn/`
 
