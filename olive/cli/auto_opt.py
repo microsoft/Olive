@@ -3,10 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from argparse import ArgumentParser
-from collections import OrderedDict
 from copy import deepcopy
 from typing import Any
 
+from olive.auto_optimizer import AutoOptimizer, AutoOptimizerConfig
 from olive.cli.base import (
     BaseOliveCLICommand,
     add_accelerator_options,
@@ -24,7 +24,8 @@ from olive.cli.base import (
 )
 from olive.common.utils import set_nested_dict_value
 from olive.constants import Precision
-from olive.package_config import OlivePackageConfig
+from olive.hardware.accelerator import AcceleratorSpec
+from olive.model import ModelConfig
 
 
 class AutoOptCommand(BaseOliveCLICommand):
@@ -157,7 +158,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             nargs="*",
             default=None,
             help=(
-                "Dictionary of name to precision. Has to be even number of entreis with even "
+                "Dictionary of name to precision. Has to be even number of entries with even "
                 "entries being the keys and odd entries being the values. "
                 'Required only when output precision is "fp16" and MixedPrecisionOverrides pass is enabled.'
             ),
@@ -165,6 +166,10 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         sub_parser.add_argument(
             "--use_ort_genai", action="store_true", help="Use OnnxRuntime generate() API to run the model"
+        )
+
+        sub_parser.add_argument(
+            "--surgeries", type=str, nargs="*", default=None, help="List of graph surgeries to apply."
         )
 
         add_search_options(sub_parser)
@@ -177,9 +182,30 @@ class AutoOptCommand(BaseOliveCLICommand):
     def run(self):
         self._run_workflow()
 
+    @property
+    def _auto_optimizer_config(self):
+        return AutoOptimizerConfig.parse_obj(
+            {
+                "precision": self.args.precision,
+                "accelerator": AcceleratorSpec(
+                    accelerator_type=self.args.device,
+                    execution_provider=self.args.provider,
+                    memory=self.args.memory,
+                ),
+                "finetune": False,
+                "eval_data_config": None,
+                "train_data_config": None,
+                "calibration_data_config": None,
+                "convert_to_onnx": True,
+                "use_model_builder": self.args.use_model_builder,
+                "use_dynamo_exporter": self.args.use_dynamo_exporter,
+                "quantize": True,
+                "generate_config_only": False,
+            }
+        )
+
     def _get_run_config(self, tempdir) -> dict:
         config = deepcopy(TEMPLATE)
-        olive_config = OlivePackageConfig.load_default_config()
 
         # TODO(anyone): Change add_accelerator_options to have no default device, this can be inferred
         # by create_accelerators
@@ -197,21 +223,14 @@ class AutoOptCommand(BaseOliveCLICommand):
         to_replace = [
             ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
+            ("passes", self._get_passes_config(config)),
         ]
-        if self.args.enable_search is None:
-            to_replace.append(("passes", self._get_passes_config(config, olive_config)))
-        elif self.args.enable_search:
-            excluded_passes = [
-                "OrtPerfTuning",
-                "OnnxConversion" if self.args.use_model_builder else "ModelBuilder",
-            ]
+
+        if self.args.enable_search:
             to_replace.extend(
                 [
                     ("data_configs", self._get_data_config()),
-                    (
-                        "auto_optimizer_config",
-                        {"precisions": [self.args.precision], "excluded_passes": excluded_passes},
-                    ),
+                    ("auto_optimizer_config", self._auto_optimizer_config),
                 ]
             )
 
@@ -224,15 +243,15 @@ class AutoOptCommand(BaseOliveCLICommand):
         update_remote_options(config, self.args, "auto-opt", tempdir)
         update_shared_cache_options(config, self.args)
 
-        if self.args.enable_search is None:
+        if self.args.enable_search:
+            if not config["data_configs"]:
+                raise ValueError("Dataset is required when search is enabled")
+        else:
+            del config["data_configs"]
             del config["evaluators"]
             del config["evaluator"]
             del config["search_strategy"]
             del config["auto_optimizer_config"]
-        elif self.args.enable_search:
-            del config["passes"]
-            if not config["data_configs"]:
-                raise ValueError("Dataset is required when search is enabled")
 
         return config
 
@@ -260,11 +279,21 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         return [data_config]
 
-    def _get_passes_config(self, config: dict[str, Any], olive_config: OlivePackageConfig) -> dict[str, Any]:
+    def _get_passes_config(self, config: dict[str, Any]) -> dict[str, Any]:
         if self.args.mixed_precision_overrides_config and len(self.args.mixed_precision_overrides_config) % 2 != 0:
             raise ValueError("Even number of entries required for mixed precision overrides config.")
 
-        passes_config: dict[str, Any] = config["passes"]
+        if self.args.cost_model is not None and self.args.memory is None:
+            raise ValueError("memory is required if cost_model is provided.")
+
+        if self.args.provider == "QNNExecutionProvider" and not (
+            self.args.dynamic_to_fixed_shape_dim_param and self.args.dynamic_to_fixed_shape_dim_value
+        ):
+            raise ValueError(
+                "dynamic-to-fixed-shape-dim-param and dynamic-to-fixed-shape-dim-value are required "
+                "when using QNNExecutionProvider."
+            )
+
         mixed_precision_overrides_config = (
             {
                 self.args.mixed_precision_overrides_config[i]: self.args.mixed_precision_overrides_config[i + 1]
@@ -274,17 +303,15 @@ class AutoOptCommand(BaseOliveCLICommand):
             else None
         )
 
+        surgeries = [{"surgeon": surgeon} for surgeon in self.args.surgeries] if self.args.surgeries else None
+
         to_replace = [
             (("capture_split_info", "num_splits"), self.args.num_splits),
             (("capture_split_info", "cost_model"), self.args.cost_model),
-            (("conversion", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
             (("conversion", "save_metadata_for_token_generation"), self.args.use_ort_genai),
-            (("bnb4", "precision"), self.args.precision),
-            (("dynamic_quant", "precision"), self.args.precision),
-            (("model_builder", "precision"), self.args.precision),
-            (("genai_config_only", "precision"), self.args.precision),
-            # select the float dtype based on the precision, int4 only quantizes matmuls so we still need to set
-            # the float precision separately
+            (("model_builder", "metadata_only"), self.args.use_model_builder or not self.args.use_ort_genai),
+            # select the float dtype based on the precision, int4 only quantizes matmuls
+            # so we still need to set the float precision separately
             (
                 ("transformer_optimizer", "float16"),
                 self.args.precision == Precision.FP16
@@ -293,87 +320,28 @@ class AutoOptCommand(BaseOliveCLICommand):
             (("to_fixed_shape", "dim_param"), self.args.dynamic_to_fixed_shape_dim_param),
             (("to_fixed_shape", "dim_value"), self.args.dynamic_to_fixed_shape_dim_value),
             (("mixed_precision_overrides", "overrides_config"), mixed_precision_overrides_config),
+            (("surgeries", "surgeries"), surgeries),
         ]
+
+        passes_configs: dict[str, Any] = config["passes"]
         for keys, value in to_replace:
             if value is not None:
-                set_nested_dict_value(passes_config, keys, value)
+                set_nested_dict_value(passes_configs, keys, value)
 
-        passes_to_remove = set()
-        if config["input_model"]["type"].lower() == "onnxmodel":
-            # remove passes that only operate on PyTorch/Hf models
-            passes_to_remove.update(["capture_split_info", "conversion", "model_builder", "split_model"])
-        else:
-            # only one graph capture pass is used
-            passes_to_remove.add("conversion" if self.args.use_model_builder else "model_builder")
-
-        # optional split passes
-        if self.args.num_splits is None and self.args.cost_model is None:
-            passes_to_remove.update(["capture_split_info", "split_model"])
-        if self.args.cost_model is not None and self.args.memory is None:
-            raise ValueError("memory is required if cost_model is provided.")
-
-        if self.args.provider != "QNNExecutionProvider":
-            # Use the DynamicToFixedShape pass only for QNNExecutionProvider
-            # becase QNN doesn't support dynamic shaped inputs
-            passes_to_remove.add("to_fixed_shape")
-        else:
-            # qnn ep might not supported optimized model
-            # will re-enable it if needed in the future
-            passes_to_remove.update(["transformer_optimizer", "peephole_optimizer"])
-
-        if self.args.provider not in {"JsExecutionProvider", "WebGpuExecutionProvider"}:
-            # JS EP doesn't support fp16 io
-            passes_to_remove.add("fp16_to_fp32")
-
-        if self.args.use_model_builder:
-            # Don't run optimizers when using model builder
-            passes_to_remove.add("transformer_optimizer")
-            passes_to_remove.add("peephole_optimizer")
-            # model already comes in int4
-            passes_to_remove.add("matmul4")
-
-        if self.args.use_model_builder or not self.args.use_ort_genai:
-            passes_to_remove.add("genai_config_only")
-
-        if mixed_precision_overrides_config is None:
-            # Remove mixed_precision_overrides pass if not required
-            passes_to_remove.add("mixed_precision_overrides")
-
-        if not self.args.use_qdq_encoding:
-            # Remove QDQ encoding pass if not required
-            passes_to_remove.add("mnb_to_qdq")
-
-        # remove passes that are incompatible with the selected precision, provider, or device
-        for pass_name in list(passes_config.keys()):
-            pass_run_config = passes_config[pass_name]
-            pass_module_config = olive_config.get_pass_module_config(pass_run_config["type"])
-            if (
-                (self.args.precision not in pass_module_config.supported_precisions)
-                or (self.args.provider not in pass_module_config.supported_providers)
-                or (self.args.device not in pass_module_config.supported_accelerators)
-            ):
-                passes_to_remove.add(pass_name)
-
-        for pass_name in passes_to_remove:
-            del passes_config[pass_name]
-
-        if "to_fixed_shape" in passes_config and not (
-            self.args.dynamic_to_fixed_shape_dim_param and self.args.dynamic_to_fixed_shape_dim_value
-        ):
-            raise ValueError(
-                "dynamic-to-fixed-shape-dim-param and dynamic-to-fixed-shape-dim-value are required "
-                "when using QNNExecutionProvider."
-            )
+        auto_optimizer = AutoOptimizer(
+            model_config=ModelConfig.parse_obj(config["input_model"]),
+            optimizer_config=self._auto_optimizer_config,
+        )
+        passes_configs = auto_optimizer.generate_run_passes_configs(passes_configs)
+        passes_configs = {
+            name: [rpc.dict() for rpc in run_pass_configs] for name, run_pass_configs in passes_configs.items()
+        }
 
         # check that there is at least one capture pass for non-onnx models
-        if (
-            (config["input_model"]["type"].lower() != "onnxmodel")
-            and ("conversion" not in passes_config)
-            and ("model_builder" not in passes_config)
-        ):
+        if (config["input_model"]["type"].lower() != "onnxmodel") and ("onnx_conversion" not in passes_configs):
             raise ValueError("Cannot export an onnx model with combination of provided options.")
 
-        return passes_config
+        return passes_configs
 
 
 EVALUATE_TEMPLATE = {
@@ -402,7 +370,8 @@ EVALUATE_TEMPLATE = {
 
 TEMPLATE = {
     "input_model": {"type": "HfModel"},
-    "auto_optimizer_config": {},
+    "auto_optimizer_config": None,
+    "data_configs": {},
     "search_strategy": {"execution_order": "joint", "sampler": "tpe", "max_samples": 5, "seed": 0},
     "systems": {
         "local_system": {
@@ -410,39 +379,26 @@ TEMPLATE = {
             "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
         }
     },
-    "passes": OrderedDict(
-        [
-            # pytorch related passes
-            ("capture_split_info", {"type": "CaptureSplitInfo"}),
-            # always convert in float32 since float16 doesn't work for all models
-            ("conversion", {"type": "OnnxConversion", "torch_dtype": "float32", "use_dynamo_exporter": False}),
-            ("model_builder", {"type": "ModelBuilder", "precision": Precision.FP32}),
-            ("genai_config_only", {"type": "ModelBuilder", "precision": Precision.FP32, "metadata_only": True}),
-            # model optimization passes
-            ("peephole_optimizer", {"type": "OnnxPeepholeOptimizer"}),
-            # use transformer optimizer for fp16 conversion too
-            # opt_level set to 0 to avoid graph transformations done by onnxruntime inference sessions
-            # that are incompatible with later passes. opt_level > 0 is optional and can be done during session creation
-            (
-                "transformer_optimizer",
-                {"type": "OrtTransformersOptimization", "opt_level": 0, "float16": False, "keep_io_types": False},
-            ),
-            # change io types to fp32
-            ("fp16_to_fp32", {"type": "OnnxIODataTypeConverter"}),
-            # qnn preparation passes
-            ("to_fixed_shape", {"type": "DynamicToFixedShape", "dim_param": None, "dim_value": None}),
-            ("qnn_preprocess", {"type": "QNNPreprocess"}),
-            ("mixed_precision_overrides", {"type": "MixedPrecisionOverrides", "overrides_config": None}),
-            # quantization passes
-            ("dynamic_quant", {"type": "OnnxDynamicQuantization", "precision": Precision.INT8}),
-            ("matmul4", {"type": "OnnxMatMul4Quantizer"}),
-            ("bnb4", {"type": "OnnxBnb4Quantization", "precision": Precision.NF4}),
-            # post processing passes
-            ("mnb_to_qdq", {"type": "MatMulNBitsToQDQ"}),
-            ("split_model", {"type": "SplitModel"}),
-            ("extract_adapters", {"type": "ExtractAdapters"}),
-        ]
-    ),
+    "passes": {
+        # pytorch related passes
+        "capture_split_info": {"type": "CaptureSplitInfo"},
+        "conversion": {"type": "OnnxConversion", "torch_dtype": "float32", "save_metadata_for_token_generation": False},
+        "model_builder": {"type": "ModelBuilder", "precision": Precision.FP32, "metadata_only": False},
+        # use transformer optimizer for fp16 conversion too
+        # opt_level set to 0 to avoid graph transformations done by onnxruntime inference sessions
+        # that are incompatible with later passes. opt_level > 0 is optional and can be done during session creation
+        "transformer_optimizer": {
+            "type": "OrtTransformersOptimization",
+            "opt_level": 0,
+            "float16": False,
+            "keep_io_types": False,
+        },
+        # qnn preparation passes
+        "to_fixed_shape": {"type": "DynamicToFixedShape", "dim_param": None, "dim_value": None},
+        "mixed_precision_overrides": {"type": "MixedPrecisionOverrides", "overrides_config": None},
+        # post processing passes
+        "surgeries": {"type": "GraphSurgeries", "surgeries": []},
+    },
     "host": "local_system",
     "evaluators": EVALUATE_TEMPLATE,
     "evaluator": "common_evaluator",

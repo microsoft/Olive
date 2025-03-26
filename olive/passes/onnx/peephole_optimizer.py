@@ -267,6 +267,17 @@ class OnnxPeepholeOptimizer(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return get_external_data_config()
 
+    @classmethod
+    def validate_config(cls, config: type[BasePassConfig], accelerator_spec: AcceleratorSpec) -> bool:
+        if not super().validate_config(config, accelerator_spec):
+            return False
+
+        if accelerator_spec.execution_provider == "QNNExecutionProvider":
+            logger.info("QNNExecutionProvider doesn't support optimized model.")
+            return False
+
+        return True
+
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:

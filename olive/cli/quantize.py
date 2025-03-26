@@ -118,7 +118,7 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         if not pass_list:
             raise ValueError(
-                f"Quantiation for precision {precision}, algorithm {algo} and implementation {impl} "
+                f"Quantization for precision {precision}, algorithm {algo} and implementation {impl} "
                 f"with QDQ {self.args.use_qdq_encoding} is not supported"
             )
         print(f"pass list: {pass_list}")

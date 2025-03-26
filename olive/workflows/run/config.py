@@ -142,10 +142,7 @@ class RunConfig(NestedConfig):
         ),
     )
     passes: dict[str, list[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
-    auto_optimizer_config: AutoOptimizerConfig = Field(
-        default_factory=AutoOptimizerConfig,
-        description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
-    )
+    auto_optimizer_config: AutoOptimizerConfig = Field(None, description="Auto optimizer configuration.")
     workflow_host: SystemConfig = Field(
         None, description="Workflow host. None by default. If provided, the workflow will be run on the specified host."
     )

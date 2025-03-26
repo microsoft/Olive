@@ -136,11 +136,7 @@ class OrtTransformersOptimization(Pass):
         return config
 
     @classmethod
-    def validate_config(
-        cls,
-        config: type[BasePassConfig],
-        accelerator_spec: AcceleratorSpec,
-    ) -> bool:
+    def validate_config(cls, config: type[BasePassConfig], accelerator_spec: AcceleratorSpec) -> bool:
         if not super().validate_config(config, accelerator_spec):
             return False
 
@@ -157,6 +153,10 @@ class OrtTransformersOptimization(Pass):
             if accelerator_spec.execution_provider == "CPUExecutionProvider":
                 logger.info("CPUExecutionProvider does not support float16 very well, please avoid to use float16.")
                 return False
+
+        if accelerator_spec.execution_provider == "QNNExecutionProvider":
+            logger.info("QNNExecutionProvider doesn't support optimized model.")
+            return False
         if not config.float16 and config.use_gqa:
             logger.info("use_gqa is only supported when float16 is True.")
             return False
