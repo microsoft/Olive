@@ -1,0 +1,11 @@
+{
+    "input_model": { "type": "ONNXModel", "model_path": "my_model/model/model.onnx"},
+    "passes": {
+        "lets_fuse_ops" : {
+            "type": "OnnxScriptFusion",
+            "enable_blah_x": true
+        }
+    },
+    "cache_dir": "my_cache_dir",
+    "output_dir": "my_output_dir"
+}
