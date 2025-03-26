@@ -77,7 +77,7 @@ python -m pip install -r requirements.txt
 
 ### Prepare data and model
 ```
-python prepare_data.py
+python prepare_model_data.py
 ```
 
 ### Run sample using config
