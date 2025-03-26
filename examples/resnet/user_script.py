@@ -10,6 +10,7 @@ from pytorch_lightning import LightningDataModule, LightningModule
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
+import transformers
 
 from olive.constants import Framework
 from olive.data.registry import Registry
@@ -74,11 +75,11 @@ class PytorchResNetDataset(Dataset):
 
 @Registry.register_post_process()
 def cifar10_post_process(output):
-    # max_elements, max_indices = torch.max(input_tensor, dim)
-    # This is a two classes classification task, result is a 2D array [[ 1.1541, -0.6622],[[-0.2137,  0.0360]]]
-    # the index of this array among dimension 1 will be [1, 0], which are labels of this task
-    _, preds = torch.max(output, 1)
-    return preds
+    return (
+        output.logits.argmax(axis=1)
+        if isinstance(output, transformers.modeling_outputs.ModelOutput)
+        else output.argmax(axis=1)
+    )
 
 
 # -------------------------------------------------------------------------
