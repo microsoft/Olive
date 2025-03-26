@@ -8,6 +8,7 @@ dependencies:
       - datasets
       - evaluate
       - optimum
+      - onnxruntime-gpu
       - psutil
       - scipy
       - scikit-learn==1.5.2 # https://github.com/huggingface/evaluate/issues/655
