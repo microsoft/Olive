@@ -71,7 +71,8 @@ def test_onnx_conversion_pass_quant_model(tmp_path):
     assert num_mnb == 2 * 4
 
 
-@pytest.mark.skipif(not (torch.cuda.is_available() and hasattr(torch.onnx, "ops")), reason="GPU is not available")
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="GPU is not available")
+@pytest.mark.skipif(not hasattr(torch.onnx, "ops"), reason="requires torch>=2.8")
 def test_onnx_conversion_pass_quant_model_dynamo(tmp_path):
     # setup
     base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
