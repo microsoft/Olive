@@ -5,12 +5,12 @@
 
 import torch
 import torchmetrics
+import transformers
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 from pytorch_lightning import LightningDataModule, LightningModule
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
-import transformers
 
 from olive.constants import Framework
 from olive.data.registry import Registry
