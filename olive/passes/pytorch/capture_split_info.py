@@ -6,7 +6,7 @@ import csv
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Tuple, Type, Union
+from typing import TYPE_CHECKING, Dict, List, Tuple, Type, Union
 
 import numpy as np
 
@@ -34,7 +34,7 @@ class CaptureSplitInfo(Pass):
                 description="Number of splits to divide the model layers into.",
             ),
             "block_to_split": PassConfigParam(
-                type_=Union[str, list[str]],
+                type_=Union[str, List[str]],
                 default_value=None,
                 description=(
                     "Names of the model blocks to split. Children of the block will be divided into the splits. For"
