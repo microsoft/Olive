@@ -88,7 +88,10 @@ vai_q_onnx_quantization_config = {
     "subgraphs_to_exclude": PassConfigParam(
         type_=Union[None, list],
         default_value=None,
-        description="List of start and end node names of subgraphs to be excluded from quantization. Default is an empty list.",
+        description="""
+            List of start and end node names of subgraphs to be excluded from quantization.
+            Default is an empty list.
+        """,
     ),
     "specific_tensor_precision": PassConfigParam(
         type_=Union[None, bool],
@@ -273,7 +276,7 @@ class VitisAIQuantization(Pass):
             # common quantization config
             **deepcopy(vai_q_onnx_quantization_config),
             # exposed extra options config
-            **dict(),
+            **{},
             **deepcopy(_extra_options_config),
             # external data config
             **get_external_data_config(),
@@ -285,7 +288,7 @@ class VitisAIQuantization(Pass):
         if model_has_adapters(model.model_path):
             logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")
             return model
-        from quark.onnx.quantize import quantize_static, PowerOfTwoMethod, QuantFormat, QuantType
+        from quark.onnx.quantize import PowerOfTwoMethod, QuantFormat, QuantType
 
         # start with a copy of the config
         run_config = config.dict()
