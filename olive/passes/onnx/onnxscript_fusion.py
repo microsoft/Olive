@@ -5,6 +5,7 @@
 from pathlib import Path
 from typing import Dict, Type
 
+from onnxscript import ir
 from onnxscript.rewriter import ort_fusions
 
 from olive.hardware.accelerator import AcceleratorSpec
@@ -35,16 +36,18 @@ class OnnxScriptFusion(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        from onnxruntime.transformers.onnx_model import OnnxModel
-
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        onnx_model = OnnxModel(model.load_model())
+        model_proto = model.load_model()
+        # ort_fusion only supports onnx ir
+        model_ir = ir.from_proto(model_proto)
+
         config_dict = config.dict()
 
         # TODO(titaiwang): Different fusions support different devices
         if config_dict["decive"] in ("cuda", "cpu"):
-            ort_fusions.optimize_for_ort(onnx_model)
+            ort_fusions.optimize_for_ort(model_ir)
 
+        model_proto = model_ir.to_proto()
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model.model, output_model_path, config)
+        return model_proto_to_olive_model(model_proto, output_model_path, config)
