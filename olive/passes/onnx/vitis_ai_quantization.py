@@ -34,14 +34,21 @@ logger = logging.getLogger(__name__)
 
 # common config for Vitis-AI quantization
 vai_q_onnx_quantization_config = {
+    "config_template": PassConfigParam(
+        type_=Union[None, str],
+        default_value=None,
+        required=True,
+        description="Quark configuration template to apply in quantization.",
+    ),
     "data_config": PassConfigParam(
-        type_=Union[DataConfig, Dict],
+        type_=Union[None, DataConfig, Dict],
+        default_value=None,
         required=True,
         description="Data config for calibration.",
     ),
     "weight_type": PassConfigParam(
-        type_=str,
-        default_value="QInt8",
+        type_=Union[None, str],
+        default_value=None,
         search_defaults=Categorical(["QInt8"]),
         description="""
             Data type for quantizing weights which is used in vai_q_onnx quantization.
@@ -49,68 +56,110 @@ vai_q_onnx_quantization_config = {
         """,
     ),
     "input_nodes": PassConfigParam(
-        type_=list,
+        type_=Union[None, list],
         default_value=None,
-        description="""
-            Start node that needs quantization. If None, all quantizable.
-        """,
+        description="List of input nodes to be quantized. Default is an empty list.",
     ),
     "output_nodes": PassConfigParam(
-        type_=list,
+        type_=Union[None, list],
         default_value=None,
-        description="""
-            End node that needs quantization. If None, all quantizable.
-        """,
+        description="List of output nodes to be quantized. Default is an empty list.",
     ),
     "op_types_to_quantize": PassConfigParam(
-        type_=list,
+        type_=Union[None, list],
         default_value=None,
-        description="""
-            List of operator types to quantize. If None, all quantizable.
-        """,
+        description="List of operation types to be quantized. Default is an empty list.",
+    ),
+    "extra_op_types_to_quantize": PassConfigParam(
+        type_=Union[None, list],
+        default_value=None,
+        description="List of additional operation types to be quantized. Default is an empty list.",
     ),
     "nodes_to_quantize": PassConfigParam(
-        type_=list,
+        type_=Union[None, list],
         default_value=None,
-        description="""
-            List of node names to quantize. If None, all quantizable.
-        """,
+        description="List of node names to be quantized. Default is an empty list.",
     ),
     "nodes_to_exclude": PassConfigParam(
-        type_=list,
+        type_=Union[None, list],
         default_value=None,
-        description="""
-            List of node names to exclude from quantization. If None, all quantizable.
-        """,
+        description="List of node names to be excluded from quantization. Default is an empty list.",
+    ),
+    "subgraphs_to_exclude": PassConfigParam(
+        type_=Union[None, list],
+        default_value=None,
+        description="List of start and end node names of subgraphs to be excluded from quantization. Default is an empty list.",
+    ),
+    "specific_tensor_precision": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to enable specific tensor precision. Default is False.",
+    ),
+    "execution_providers": PassConfigParam(
+        type_=Union[None, list],
+        default_value=None,
+        description="List of execution providers. Default is ['CPUExecutionProvider'].",
     ),
     "per_channel": PassConfigParam(
-        type_=bool,
-        default_value=False,
+        type_=Union[None, bool],
+        default_value=None,
         search_defaults=Boolean(),
-        description="""
-            Quantize weights per channel.
-        """,
+        description="Flag to enable per-channel quantization. Default is False.",
+    ),
+    "reduce_range": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to reduce quantization range. Default is False.",
     ),
     "optimize_model": PassConfigParam(
-        type_=bool,
-        default_value=False,
+        type_=Union[None, bool],
+        default_value=None,
         search_defaults=Boolean(),
-        description="""
-            Deprecating Soon in ONNX! Optimize model before quantization. NOT recommended, optimization will
-            change the computation graph, making debugging of quantization loss difficult.
-        """,
+        description="Flag to optimize the model. Default is True.",
     ),
-    # TODO(xiaosheng): enable search if we support onnx external data format
+    "use_dynamic_quant": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to use dynamic quantization. Default is False.",
+    ),
     "use_external_data_format": PassConfigParam(
-        type_=bool,
-        default_value=True,
-        description="""
-            option used for large size (>2GB) model. Set to True by default.
-        """,
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to use external data format. Default is False.",
+    ),
+    "convert_fp16_to_fp32": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to convert FP16 to FP32. Default is False.",
+    ),
+    "convert_nchw_to_nhwc": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to convert NCHW to NHWC. Default is False.",
+    ),
+    "include_sq": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to include square root in quantization. Default is False.",
+    ),
+    "include_cle": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to include CLE in quantization. Default is False.",
+    ),
+    "include_auto_mp": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to include automatic mixed precision. Default is False.",
+    ),
+    "include_fast_ft": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to include fast fine-tuning. Default is False.",
     ),
     "quant_preprocess": PassConfigParam(
-        type_=bool,
-        default_value=True,
+        type_=Union[None, bool],
+        default_value=None,
         search_defaults=Boolean(),
         description="""
             Shape inference and model optimization, in preparation for quantization.
@@ -118,79 +167,68 @@ vai_q_onnx_quantization_config = {
         """,
     ),
     "calibrate_method": PassConfigParam(
-        type_=str,
-        default_value="MinMSE",
+        type_=Union[None, str],
+        default_value=None,
         search_defaults=Categorical(["NonOverflow", "MinMSE"]),
         description="""
-            Current calibration methods supported are NonOverflow and MinMSE,
-            Please use NonOverflow or MinMSE as options.
+            Method used for calibration. Default is CalibrationMethod.MinMax.
         """,
     ),
     "quant_format": PassConfigParam(
-        type_=str,
-        default_value="QDQ",
+        type_=Union[None, str],
+        default_value=None,
         search_defaults=Categorical(["QDQ", "QOperator"]),
         description="""
-            QDQ format quantize the model by inserting QuantizeLinear/DeQuantizeLinear on the tensor.
-        """,
-    ),
-    "need_layer_fusing": PassConfigParam(
-        type_=bool,
-        default_value=False,
-        search_defaults=Boolean(),
-        description="""
-            Perform layer fusion for conv-relu type operations
+            Format of quantization. Default is QuantFormat.QDQ.
         """,
     ),
     "activation_type": PassConfigParam(
-        type_=str,
-        default_value="QUInt8",
-        # the search space is conditional on quant_format and weight_type
-        # the equivalent joint search space for (quant_format, weight_type, activation) is
-        # {(QDQ, QInt8, QInt8), (QDQ, QUInt8, QUInt8), (QOperator, QUInt8, QUInt8)}
+        type_=Union[None, str],
+        default_value=None,
         search_defaults=Conditional(
             parents=("quant_format", "weight_type"),
             support={
                 ("QDQ", "QInt8"): Categorical(["QInt8"]),
                 ("QDQ", "QUInt8"): Categorical(["QUInt8"]),
                 ("QOperator", "QUInt8"): Categorical(["QUInt8"]),
-                # invalid choice for QOperator, QInt8
                 ("QOperator", "QInt8"): Conditional.get_invalid_choice(),
             },
         ),
         description="""
-            Quantization data type of activation.
+            Type of quantization for activations. Default is QuantType.QInt8.
         """,
     ),
     "enable_npu_cnn": PassConfigParam(
         type_=Union[None, bool],
         default_value=None,
         search_defaults=Boolean(),
-        description="""
-            Use QDQ format optimized specifically for DPU.
-        """,
+        description="Flag to enable NPU CNN. Default is False.",
     ),
     "enable_npu_transformer": PassConfigParam(
         type_=Union[None, bool],
         default_value=None,
         search_defaults=Boolean(),
-        description="""
-            Use QDQ format optimized specifically for DPU.
-        """,
+        description="Flag to enable NPU Transformer. Default is False.",
     ),
-}
-
-_exposed_extra_options_config = {
-    "ActivationSymmetric": PassConfigParam(
-        type_=bool, default_value=False, description="symmetrize calibration data for activations"
+    "debug_mode": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to enable debug mode. Default is False.",
     ),
-    "WeightSymmetric": PassConfigParam(
-        type_=bool, default_value=True, description="symmetrize calibration data for weights"
+    "print_summary": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to print summary of quantization. Default is True.",
     ),
-    "AddQDQPairToWeight": PassConfigParam(
-        type_=bool,
-        default_value=False,
-        description="remains floating-point weight and inserts both QuantizeLinear/DeQuantizeLinear nodes to weight",
+    "ignore_warnings": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        description="Flag to suppress the warnings globally. Default is True.",
+    ),
+    "log_severity_level": PassConfigParam(
+        type_=Union[None, int],
+        default_value=None,
+        description="0:DEBUG, 1:INFO, 2:WARNING. 3:ERROR, 4:CRITICAL/FATAL. Default is 1.",
     ),
 }
 
@@ -199,9 +237,7 @@ _extra_options_config = {
         type_=dict,
         default_value=None,
         description=f"""
-            Key value pair dictionary for `extra_options` in quantization. If an option is one of
-            {list(_exposed_extra_options_config.keys())}, it will be overwritten by the corresponding config parameter
-            value.
+            Key value pair dictionary for `extra_options` in quantization.
         """,
     ),
 }
@@ -237,7 +273,7 @@ class VitisAIQuantization(Pass):
             # common quantization config
             **deepcopy(vai_q_onnx_quantization_config),
             # exposed extra options config
-            **deepcopy(_exposed_extra_options_config),
+            **dict(),
             **deepcopy(_extra_options_config),
             # external data config
             **get_external_data_config(),
@@ -249,11 +285,7 @@ class VitisAIQuantization(Pass):
         if model_has_adapters(model.model_path):
             logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")
             return model
-
-        from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
-
-        from olive.passes.onnx.vitis_ai import quantize_static
-        from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
+        from quark.onnx.quantize import quantize_static, PowerOfTwoMethod, QuantFormat, QuantType
 
         # start with a copy of the config
         run_config = config.dict()
@@ -262,17 +294,6 @@ class VitisAIQuantization(Pass):
 
         # extra config
         extra_options = deepcopy(config.extra_options) if config.extra_options else {}
-        # keys in extra_options that are already exposed
-        intersection = set(extra_options.keys()).intersection(set(_exposed_extra_options_config.keys()))
-        if intersection:
-            logger.warning(
-                "Extra config keys %s are already exposed in the pass config. They will be overwritten by"
-                " the corresponding pass config parameter values.",
-                intersection,
-            )
-        for key in _exposed_extra_options_config:
-            extra_options[key] = run_config[key]
-            del run_config[key]
 
         # preprocess the model
         # we hash the entire path of the input model to ensure we are not accidentally using a preprocessed model
@@ -290,22 +311,26 @@ class VitisAIQuantization(Pass):
                 logger.info("Already processed model for quantization, skipping preprocessing")
                 model = ONNXModelHandler(LocalFile({"path": preprocessed_temp_model_path}))
 
+        config_template = run_config["config_template"]
         # keys not needed for quantization
         to_delete = [
             "data_config",
             "quant_mode",
             "quant_preprocess",
+            "config_template",
         ]
         to_delete += list(get_external_data_config().keys())
 
         # update string values to enum values
+        def map_to_enum(enum, value):
+            return enum[value] if value is not None else None
         run_config.update(
             {
-                "calibrate_method": PowerOfTwoMethod[run_config["calibrate_method"]],
-                "quant_format": QuantFormat[run_config["quant_format"]],
-                "activation_type": QuantType[run_config["activation_type"]],
-                "weight_type": QuantType[run_config["weight_type"]],
-                "extra_options": extra_options,
+            "calibrate_method": map_to_enum(PowerOfTwoMethod, run_config["calibrate_method"]),
+            "quant_format": map_to_enum(QuantFormat, run_config["quant_format"]),
+            "activation_type": map_to_enum(QuantType, run_config["activation_type"]),
+            "weight_type": map_to_enum(QuantType, run_config["weight_type"]),
+            "extra_options": extra_options,
             }
         )
 
@@ -327,15 +352,20 @@ class VitisAIQuantization(Pass):
             data_config = validate_config(config.data_config, DataConfig)
             dataloader = data_config.to_data_container().create_calibration_dataloader()
 
-        execution_provider = self.accelerator_spec.execution_provider
+        from quark.onnx.quantization.config import (Config, get_default_config)
+        from quark.onnx import ModelQuantizer
 
-        quantize_static(
-            model_input=model.model_path,
-            model_output=tmp_model_path,
-            calibration_data_reader=dataloader,
-            execution_providers=[execution_provider],
-            **run_config,  # use_external_data_format has been set to `True` by default in run_config
-        )
+        quant_config = get_default_config(config_template)
+        for k, v in run_config.items():
+            if k == "extra_options":
+                quant_config.extra_options.update(v)
+            elif v is None:
+                continue
+            else:
+                setattr(quant_config, k, v)
+        quantizer = ModelQuantizer(Config(global_quant_config=quant_config))
+        quantizer.quantize_model(model.model_path, tmp_model_path, dataloader)
+
         # load the model
         onnx_model = onnx.load(tmp_model_path)
         # the model is loaded into memory, so it's safe to delete previously exported files
