@@ -162,9 +162,17 @@ vai_q_onnx_quantization_config = {
             Quantization data type of activation.
         """,
     ),
-    "enable_dpu": PassConfigParam(
-        type_=bool,
-        default_value=False,
+    "enable_npu_cnn": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
+        search_defaults=Boolean(),
+        description="""
+            Use QDQ format optimized specifically for DPU.
+        """,
+    ),
+    "enable_npu_transformer": PassConfigParam(
+        type_=Union[None, bool],
+        default_value=None,
         search_defaults=Boolean(),
         description="""
             Use QDQ format optimized specifically for DPU.
