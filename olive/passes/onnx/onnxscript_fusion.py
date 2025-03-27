@@ -3,7 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Dict, List, Type
+from typing import Dict, Type
+
+from onnxscript.rewriter import ort_fusions
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -14,15 +16,17 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 
 class OnnxScriptFusion(Pass):
-    """Fuse Ops using onnxscript.
-
-    """
+    """Fuse Ops using onnxscript."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
-            "enable_blah_x": PassConfigParam(
-                type_=bool, default_value=False, description="Whether model inputs/outputs should be left as float32"
+            "device": PassConfigParam(
+                type_=str,
+                description=(
+                    "The device to use for conversion, e.g., 'cuda' or 'cpu'. If not specified, will use 'cpu' for"
+                    " PyTorch model and 'cuda' for DistributedHfModel."
+                ),
             ),
         }
         config.update(get_external_data_config())
@@ -37,10 +41,10 @@ class OnnxScriptFusion(Pass):
 
         onnx_model = OnnxModel(model.load_model())
         config_dict = config.dict()
-        if config_dict["enable_blah_x"]:
-            print("Do something")
 
-        # fused_model = ....
+        # TODO(titaiwang): Different fusions support different devices
+        if config_dict["decive"] in ("cuda", "cpu"):
+            ort_fusions.optimize_for_ort(onnx_model)
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(fused_model.model, output_model_path, config)
+        return model_proto_to_olive_model(onnx_model.model, output_model_path, config)
