@@ -7,6 +7,8 @@ import os
 
 import pytest
 
+from olive.common.hf.login import huggingface_login
+
 from ..utils import assert_nodes, get_example_dir
 
 
@@ -18,6 +20,9 @@ def setup():
 
 def test_phi2_genai():
     from olive.workflows import run as olive_run
+
+    hf_token = os.environ.get("HF_TOKEN")
+    huggingface_login(hf_token)
 
     with open("phi2_genai.json") as f:
         olive_config = json.load(f)

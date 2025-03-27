@@ -27,7 +27,7 @@ class TestQnnToolkit:
 
     def _setup_resource(self, use_olive_env, mode):
         """Setups any state specific to the execution of the given module."""
-        example_dir = get_example_dir("mobilenet")
+        example_dir = get_example_dir("mobilenet/qnn")
         os.chdir(example_dir)
 
         if use_olive_env:
