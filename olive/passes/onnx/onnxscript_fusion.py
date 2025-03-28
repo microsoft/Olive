@@ -21,15 +21,7 @@ class OnnxScriptFusion(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
-            "device": PassConfigParam(
-                type_=str,
-                description=(
-                    "The device to use for conversion, e.g., 'cuda' or 'cpu'. If not specified, will use 'cpu' for"
-                    " PyTorch model and 'cuda' for DistributedHfModel."
-                ),
-            ),
-        }
+        config = {}
         config.update(get_external_data_config())
         return config
 
@@ -42,12 +34,10 @@ class OnnxScriptFusion(Pass):
         # ort_fusion only supports onnx ir
         model_ir = ir.from_proto(model_proto)
 
-        config_dict = config.dict()
-
-        # TODO(titaiwang): Different fusions support different devices
-        if config_dict["decive"] in ("cuda", "cpu"):
+        # TODO(exporter team): Different fusions support different devices
+        if self.accelerator_spec.execution_provider in ("CUDAExecutionProvider", "CPUExecutionProvider"):
             ort_fusions.optimize_for_ort(model_ir)
 
-        model_proto = model_ir.to_proto()
+        model_proto = ir.to_proto(model_ir)
         # save the model to the output path and return the model
         return model_proto_to_olive_model(model_proto, output_model_path, config)
