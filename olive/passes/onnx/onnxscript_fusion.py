@@ -21,9 +21,7 @@ class OnnxScriptFusion(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {}
-        config.update(get_external_data_config())
-        return config
+        return get_external_data_config()
 
     def _run_for_config(
         self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
@@ -35,8 +33,7 @@ class OnnxScriptFusion(Pass):
         model_ir = ir.from_proto(model_proto)
 
         # TODO(exporter team): Different fusions support different devices
-        if self.accelerator_spec.execution_provider in ("CUDAExecutionProvider", "CPUExecutionProvider"):
-            ort_fusions.optimize_for_ort(model_ir)
+        ort_fusions.optimize_for_ort(model_ir)
 
         model_proto = ir.to_proto(model_ir)
         # save the model to the output path and return the model
