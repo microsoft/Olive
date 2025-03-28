@@ -31,17 +31,17 @@ def get_vai_apu_type():
 
     # Run pnputil as a subprocess to enumerate PCI devices
     command = r"pnputil /enum-devices /bus PCI /deviceids "
-    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = process.communicate()
+    result = subprocess.run(command, shell=True, capture_output=True, text=True, check=False)
+    stdout = result.stdout
     # Check for supported Hardware IDs
     apu_type = ""
-    if "PCI\\VEN_1022&DEV_1502&REV_00" in stdout.decode():
+    if "PCI\\VEN_1022&DEV_1502&REV_00" in stdout:
         apu_type = "PHX/HPT"
-    if "PCI\\VEN_1022&DEV_17F0&REV_00" in stdout.decode():
+    if "PCI\\VEN_1022&DEV_17F0&REV_00" in stdout:
         apu_type = "STX"
-    if "PCI\\VEN_1022&DEV_17F0&REV_10" in stdout.decode():
+    if "PCI\\VEN_1022&DEV_17F0&REV_10" in stdout:
         apu_type = "STX"
-    if "PCI\\VEN_1022&DEV_17F0&REV_11" in stdout.decode():
+    if "PCI\\VEN_1022&DEV_17F0&REV_11" in stdout:
         apu_type = "STX"
     return apu_type
 
@@ -52,12 +52,10 @@ def set_vai_environment_variable(apu_type, benchmark_mode=True):
 
     install_dir = Path(os.environ["RYZEN_AI_INSTALLATION_PATH"])
     if apu_type == "PHX/HPT":
-        print("Setting environment for PHX/HPT")
         os.environ["XLNX_VART_FIRMWARE"] = str(install_dir / "voe-4.0-win_amd64" / "xclbins" / "phoenix" / "1x4.xclbin")
         os.environ["NUM_OF_DPU_RUNNERS"] = "1"
         os.environ["XLNX_TARGET_NAME"] = "AMD_AIE2_Nx4_Overlay"
     elif apu_type == "STX":
-        print("Setting environment for STX")
         name = "4x4" if benchmark_mode else "Nx4"
         os.environ["XLNX_VART_FIRMWARE"] = str(
             install_dir / "voe-4.0-win_amd64" / "xclbins" / "strix" / f"AMD_AIE2P_{name}_Overlay.xclbin"
@@ -66,9 +64,6 @@ def set_vai_environment_variable(apu_type, benchmark_mode=True):
         os.environ["XLNX_TARGET_NAME"] = f"AMD_AIE2_{name}_Overlay"
     else:
         raise ValueError(f"Unrecognized APU type: {apu_type}. Supported types are 'PHX/HPT' and 'STX'.")
-    print("XLNX_VART_FIRMWARE=", os.environ["XLNX_VART_FIRMWARE"])
-    print("NUM_OF_DPU_RUNNERS=", os.environ["NUM_OF_DPU_RUNNERS"])
-    print("XLNX_TARGET_NAME=", os.environ["XLNX_TARGET_NAME"])
 
 
 # NOTE: `device_id` is only used internally for inference with Distributed ONNX models.
