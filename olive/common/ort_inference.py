@@ -28,39 +28,50 @@ class OrtSessionFallbackError(Exception):
 def get_vai_apu_type():
     # based on amd-quark examples
     import subprocess
+
     # Run pnputil as a subprocess to enumerate PCI devices
-    command = r'pnputil /enum-devices /bus PCI /deviceids '
+    command = r"pnputil /enum-devices /bus PCI /deviceids "
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     # Check for supported Hardware IDs
-    apu_type = ''
-    if 'PCI\\VEN_1022&DEV_1502&REV_00' in stdout.decode(): apu_type = 'PHX/HPT'
-    if 'PCI\\VEN_1022&DEV_17F0&REV_00' in stdout.decode(): apu_type = 'STX'
-    if 'PCI\\VEN_1022&DEV_17F0&REV_10' in stdout.decode(): apu_type = 'STX'
-    if 'PCI\\VEN_1022&DEV_17F0&REV_11' in stdout.decode(): apu_type = 'STX'
+    apu_type = ""
+    if "PCI\\VEN_1022&DEV_1502&REV_00" in stdout.decode():
+        apu_type = "PHX/HPT"
+    if "PCI\\VEN_1022&DEV_17F0&REV_00" in stdout.decode():
+        apu_type = "STX"
+    if "PCI\\VEN_1022&DEV_17F0&REV_10" in stdout.decode():
+        apu_type = "STX"
+    if "PCI\\VEN_1022&DEV_17F0&REV_11" in stdout.decode():
+        apu_type = "STX"
     return apu_type
+
 
 def set_vai_environment_variable(apu_type, benchmark_mode=True):
     # based on amd-quark examples
     import os
-    install_dir = os.environ['RYZEN_AI_INSTALLATION_PATH']
+
+    install_dir = Path(os.environ["RYZEN_AI_INSTALLATION_PATH"])
     match apu_type:
-        case 'PHX/HPT':
+        case "PHX/HPT":
             print("Setting environment for PHX/HPT")
-            os.environ['XLNX_VART_FIRMWARE'] = os.path.join(install_dir, 'voe-4.0-win_amd64', 'xclbins', 'phoenix', '1x4.xclbin')
-            os.environ['NUM_OF_DPU_RUNNERS'] = '1'
-            os.environ['XLNX_TARGET_NAME'] = 'AMD_AIE2_Nx4_Overlay'
-        case 'STX':
+            os.environ["XLNX_VART_FIRMWARE"] = str(
+                install_dir / "voe-4.0-win_amd64" / "xclbins" / "phoenix" / "1x4.xclbin"
+            )
+            os.environ["NUM_OF_DPU_RUNNERS"] = "1"
+            os.environ["XLNX_TARGET_NAME"] = "AMD_AIE2_Nx4_Overlay"
+        case "STX":
             print("Setting environment for STX")
-            name = '4x4' if benchmark_mode else 'Nx4'
-            os.environ['XLNX_VART_FIRMWARE'] = os.path.join(install_dir, 'voe-4.0-win_amd64', 'xclbins', 'strix', f'AMD_AIE2P_{name}_Overlay.xclbin')
-            os.environ['NUM_OF_DPU_RUNNERS'] = '1'
-            os.environ['XLNX_TARGET_NAME'] = f'AMD_AIE2_{name}_Overlay'
+            name = "4x4" if benchmark_mode else "Nx4"
+            os.environ["XLNX_VART_FIRMWARE"] = str(
+                install_dir / "voe-4.0-win_amd64" / "xclbins" / "strix" / f"AMD_AIE2P_{name}_Overlay.xclbin"
+            )
+            os.environ["NUM_OF_DPU_RUNNERS"] = "1"
+            os.environ["XLNX_TARGET_NAME"] = f"AMD_AIE2_{name}_Overlay"
         case _:
             raise ValueError(f"Unrecognized APU type: {apu_type}. Supported types are 'PHX/HPT' and 'STX'.")
-    print('XLNX_VART_FIRMWARE=', os.environ['XLNX_VART_FIRMWARE'])
-    print('NUM_OF_DPU_RUNNERS=', os.environ['NUM_OF_DPU_RUNNERS'])
-    print('XLNX_TARGET_NAME=', os.environ['XLNX_TARGET_NAME'])
+    print("XLNX_VART_FIRMWARE=", os.environ["XLNX_VART_FIRMWARE"])
+    print("NUM_OF_DPU_RUNNERS=", os.environ["NUM_OF_DPU_RUNNERS"])
+    print("XLNX_TARGET_NAME=", os.environ["XLNX_TARGET_NAME"])
 
 
 # NOTE: `device_id` is only used internally for inference with Distributed ONNX models.
@@ -151,22 +162,24 @@ def get_ort_inference_session(
             # add backend_path for QNNExecutionProvider
             provider_options[idx]["backend_path"] = "QnnHtp.dll"
         elif provider == "VitisAIExecutionProvider":
-            import os, shutil
-            current_directory = os.getcwd()
-            directory_path = os.path.join(current_directory,  'cache', 'olive_model_cache')
-            cache_directory = os.path.join(current_directory,  'cache')
+            import os
+            import shutil
+
+            current_directory = Path.cwd()
+            directory_path = current_directory / "cache" / "olive_model_cache"
+            cache_directory = current_directory / "cache"
 
             # Check if the directory exists and delete it if it does.
             if os.path.exists(directory_path):
                 shutil.rmtree(directory_path)
-                print(f"Directory deleted successfully. Starting Fresh.")
+                print("Directory deleted successfully. Starting Fresh.")
             else:
                 print(f"Directory '{directory_path}' does not exist.")
 
             apu_type = get_vai_apu_type()
             set_vai_environment_variable(apu_type)
-            install_dir = os.environ['RYZEN_AI_INSTALLATION_PATH']
-            provider_options[idx]["config_file"] = os.path.join(install_dir, 'voe-4.0-win_amd64', 'vaip_config.json')
+            install_dir = Path(os.environ["RYZEN_AI_INSTALLATION_PATH"])
+            provider_options[idx]["config_file"] = str(install_dir / "voe-4.0-win_amd64" / "vaip_config.json")
             provider_options[idx]["cacheDir"] = cache_directory
             provider_options[idx]["cacheKey"] = "olive_model_cache"
     logger.debug("Normalized providers: %s, provider_options: %s", providers, provider_options)

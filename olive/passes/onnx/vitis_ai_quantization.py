@@ -239,7 +239,7 @@ _extra_options_config = {
     "extra_options": PassConfigParam(
         type_=dict,
         default_value=None,
-        description=f"""
+        description="""
             Key value pair dictionary for `extra_options` in quantization.
         """,
     ),
@@ -276,7 +276,6 @@ class VitisAIQuantization(Pass):
             # common quantization config
             **deepcopy(vai_q_onnx_quantization_config),
             # exposed extra options config
-            **{},
             **deepcopy(_extra_options_config),
             # external data config
             **get_external_data_config(),
@@ -327,13 +326,14 @@ class VitisAIQuantization(Pass):
         # update string values to enum values
         def map_to_enum(enum, value):
             return enum[value] if value is not None else None
+
         run_config.update(
             {
-            "calibrate_method": map_to_enum(PowerOfTwoMethod, run_config["calibrate_method"]),
-            "quant_format": map_to_enum(QuantFormat, run_config["quant_format"]),
-            "activation_type": map_to_enum(QuantType, run_config["activation_type"]),
-            "weight_type": map_to_enum(QuantType, run_config["weight_type"]),
-            "extra_options": extra_options,
+                "calibrate_method": map_to_enum(PowerOfTwoMethod, run_config["calibrate_method"]),
+                "quant_format": map_to_enum(QuantFormat, run_config["quant_format"]),
+                "activation_type": map_to_enum(QuantType, run_config["activation_type"]),
+                "weight_type": map_to_enum(QuantType, run_config["weight_type"]),
+                "extra_options": extra_options,
             }
         )
 
@@ -355,8 +355,8 @@ class VitisAIQuantization(Pass):
             data_config = validate_config(config.data_config, DataConfig)
             dataloader = data_config.to_data_container().create_calibration_dataloader()
 
-        from quark.onnx.quantization.config import (Config, get_default_config)
         from quark.onnx import ModelQuantizer
+        from quark.onnx.quantization.config import Config, get_default_config
 
         quant_config = get_default_config(config_template)
         for k, v in run_config.items():
