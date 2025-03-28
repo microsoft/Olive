@@ -51,24 +51,21 @@ def set_vai_environment_variable(apu_type, benchmark_mode=True):
     import os
 
     install_dir = Path(os.environ["RYZEN_AI_INSTALLATION_PATH"])
-    match apu_type:
-        case "PHX/HPT":
-            print("Setting environment for PHX/HPT")
-            os.environ["XLNX_VART_FIRMWARE"] = str(
-                install_dir / "voe-4.0-win_amd64" / "xclbins" / "phoenix" / "1x4.xclbin"
-            )
-            os.environ["NUM_OF_DPU_RUNNERS"] = "1"
-            os.environ["XLNX_TARGET_NAME"] = "AMD_AIE2_Nx4_Overlay"
-        case "STX":
-            print("Setting environment for STX")
-            name = "4x4" if benchmark_mode else "Nx4"
-            os.environ["XLNX_VART_FIRMWARE"] = str(
-                install_dir / "voe-4.0-win_amd64" / "xclbins" / "strix" / f"AMD_AIE2P_{name}_Overlay.xclbin"
-            )
-            os.environ["NUM_OF_DPU_RUNNERS"] = "1"
-            os.environ["XLNX_TARGET_NAME"] = f"AMD_AIE2_{name}_Overlay"
-        case _:
-            raise ValueError(f"Unrecognized APU type: {apu_type}. Supported types are 'PHX/HPT' and 'STX'.")
+    if apu_type == "PHX/HPT":
+        print("Setting environment for PHX/HPT")
+        os.environ["XLNX_VART_FIRMWARE"] = str(install_dir / "voe-4.0-win_amd64" / "xclbins" / "phoenix" / "1x4.xclbin")
+        os.environ["NUM_OF_DPU_RUNNERS"] = "1"
+        os.environ["XLNX_TARGET_NAME"] = "AMD_AIE2_Nx4_Overlay"
+    elif apu_type == "STX":
+        print("Setting environment for STX")
+        name = "4x4" if benchmark_mode else "Nx4"
+        os.environ["XLNX_VART_FIRMWARE"] = str(
+            install_dir / "voe-4.0-win_amd64" / "xclbins" / "strix" / f"AMD_AIE2P_{name}_Overlay.xclbin"
+        )
+        os.environ["NUM_OF_DPU_RUNNERS"] = "1"
+        os.environ["XLNX_TARGET_NAME"] = f"AMD_AIE2_{name}_Overlay"
+    else:
+        raise ValueError(f"Unrecognized APU type: {apu_type}. Supported types are 'PHX/HPT' and 'STX'.")
     print("XLNX_VART_FIRMWARE=", os.environ["XLNX_VART_FIRMWARE"])
     print("NUM_OF_DPU_RUNNERS=", os.environ["NUM_OF_DPU_RUNNERS"])
     print("XLNX_TARGET_NAME=", os.environ["XLNX_TARGET_NAME"])
@@ -163,6 +160,7 @@ def get_ort_inference_session(
             provider_options[idx]["backend_path"] = "QnnHtp.dll"
         elif provider == "VitisAIExecutionProvider":
             import os
+
             from olive.cache import OliveCache
 
             cache = OliveCache.from_cache_env()
