@@ -163,25 +163,15 @@ def get_ort_inference_session(
             provider_options[idx]["backend_path"] = "QnnHtp.dll"
         elif provider == "VitisAIExecutionProvider":
             import os
-            import shutil
+            from olive.cache import OliveCache
 
-            current_directory = Path.cwd()
-            directory_path = current_directory / "cache" / "olive_model_cache"
-            cache_directory = current_directory / "cache"
-
-            # Check if the directory exists and delete it if it does.
-            if os.path.exists(directory_path):
-                shutil.rmtree(directory_path)
-                print("Directory deleted successfully. Starting Fresh.")
-            else:
-                print(f"Directory '{directory_path}' does not exist.")
-
+            cache = OliveCache.from_cache_env()
             apu_type = get_vai_apu_type()
             set_vai_environment_variable(apu_type)
             install_dir = Path(os.environ["RYZEN_AI_INSTALLATION_PATH"])
             provider_options[idx]["config_file"] = str(install_dir / "voe-4.0-win_amd64" / "vaip_config.json")
-            provider_options[idx]["cacheDir"] = cache_directory
-            provider_options[idx]["cacheKey"] = "olive_model_cache"
+            provider_options[idx]["cacheDir"] = str(cache.dirs.cache_dir)
+            provider_options[idx]["cacheKey"] = str(cache.dirs.vitis_ai.name)
     logger.debug("Normalized providers: %s, provider_options: %s", providers, provider_options)
 
     # dml specific settings
