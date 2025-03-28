@@ -22,6 +22,12 @@ OnnxOpVersionConversion
 
 .. _onnx_peephole_optimizer:
 
+OnnxScriptFusion
+----------------
+.. autoconfigclass:: olive.passes.OnnxScriptFusion
+
+.. _onnxscript_fusion:
+
 OnnxPeepholeOptimizer
 ---------------------
 .. autoconfigclass:: olive.passes.OnnxPeepholeOptimizer

@@ -383,6 +383,7 @@ Please also find the detailed options from following table for each pass:
 |:----------|:-------------|
 | [OnnxConversion](../../reference/pass.rst#_onnx_conversion) | Convert a PyTorch model to ONNX model |
 | [OnnxOpVersionConversion](../../reference/pass.rst#_onnx_op_version_conversion) | Convert a Onnx model to target op version |
+| [OnnxScriptFusion](../../reference/pass.rst#_onnxscript_fusion) | Fuse Ops using onnxscript |
 | [ModelBuilder](../../reference/pass.rst#_model_builder) | Convert a generative PyTorch model to ONNX model using [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module |
 | [OnnxPeepholeOptimizer](../../reference/pass.rst#_onnx_peephole_optimizer) | Optimize ONNX model by fusing nodes. |
 | [OnnxTransformersOptimization](../../reference/pass.rst#_onnx_transformers_optimization) | Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time. It is based on onnxruntime.transformers.optimizer. |
