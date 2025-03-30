@@ -6,8 +6,6 @@ import os
 
 import pytest
 
-from olive.common.utils import retry_func, run_subprocess
-
 from ..utils import check_output, get_example_dir, patch_config
 
 
@@ -15,10 +13,6 @@ from ..utils import check_output, get_example_dir, patch_config
 def setup():
     """Setups any state specific to the execution of the given module."""
     os.chdir(get_example_dir("resnet"))
-
-    # prepare model and data
-    # retry since it fails randomly
-    retry_func(run_subprocess, kwargs={"cmd": "python prepare_model_data.py", "check": True})
 
 
 @pytest.mark.skip(reason="Disable failing tests")

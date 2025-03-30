@@ -2,16 +2,18 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
 import re
+from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import onnx
 from onnx import external_data_helper
 
 from olive.common.utils import hardlink_copy_file
-from olive.model import ONNXModelHandler
+from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile, LocalFolder
@@ -145,6 +147,7 @@ def model_proto_to_olive_model(
     check_model: bool = False,
     external_initializers_file_name: Optional[str] = None,
     constant_inputs_file_name: Optional[str] = None,
+    force_model_dir: bool = False,
 ) -> ONNXModelHandler:
     """Save the ONNX model to the specified path and return the ONNXModelHandler.
 
@@ -155,6 +158,8 @@ def model_proto_to_olive_model(
     :param check_model: If True, run onnx.checker.check_model on the model before returning.
     :param external_initializers_file_name: The name of the external initializers file.
     :param constant_inputs_file_name: The name of the constant inputs file.
+    :param force_model_dir: If True, use the parent directory of the output model path as the model directory
+        regardless of whether external data is used.
 
     :return: The ONNXModelHandler.
     """
@@ -170,7 +175,7 @@ def model_proto_to_olive_model(
     has_external_data = model_proto_to_file(
         model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys if k in external_data_config}
     )
-    if has_external_data or external_initializers_file_name or constant_inputs_file_name:
+    if has_external_data or external_initializers_file_name or constant_inputs_file_name or force_model_dir:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
 
         onnx_file_name = Path(output_model_path).name
@@ -409,3 +414,161 @@ def fix_input_shapes(model_proto: onnx.ModelProto, input_names: List[str], input
 
     # update the output shapes to make them fixed
     _fix_output_shapes(model_proto)
+
+
+def process_llm_pipeline(
+    model: CompositeModelHandler,
+    llm_pipeline: List,
+    process_func: Callable,
+    output_dir: Union[str, Path],
+    decoder_config_extra: Optional[Dict[str, Any]] = None,
+    group_session_options: Optional[Dict[str, Any]] = None,
+) -> CompositeModelHandler:
+    """Process an LLM pipeline with the given function.
+
+    :param model_handler: The composite model with the pipeline.
+    :param llm_pipeline: The pipeline to process.
+    :param process_func: The function to apply to the context and iterator groups.
+        Must accept a mapping from component name to component handler, pipeline, and output directory.
+        Returns a
+    :param output_dir: The directory to save the processed model.
+    :param decoder_config_extra: Extra configuration for the decoder.
+    :param group_session_options: Session options for the context and iterator groups.
+    :return: The processed composite model handler.
+    """
+    output_dir = Path(output_dir)
+    component_models = dict(model.get_model_components())
+
+    new_component_models = {}
+    new_llm_pipeline = {}
+
+    # resave embeddings model
+    embeddings_model_path = output_dir / "embeddings.onnx"
+    resave_model(component_models[llm_pipeline["embeddings"]].model_path, embeddings_model_path)
+    new_component_models["embeddings"] = ONNXModelHandler(
+        model_path=output_dir, onnx_file_name=embeddings_model_path.name
+    )
+    new_llm_pipeline["embeddings"] = "embeddings"
+
+    # process the context and iterator models
+    new_groups = process_func(component_models, llm_pipeline, output_dir)
+    for key, group in new_groups.items():
+        new_component_models.update(group)
+        new_llm_pipeline[key] = list(group.keys())
+
+    # resave the lm_head model
+    lm_head_model_path = output_dir / "lm_head.onnx"
+    resave_model(component_models[llm_pipeline["lm_head"]].model_path, lm_head_model_path)
+    new_component_models["lm_head"] = ONNXModelHandler(model_path=output_dir, onnx_file_name=lm_head_model_path.name)
+    new_llm_pipeline["lm_head"] = "lm_head"
+
+    # create new model attributes
+    new_model_attributes = deepcopy(model.model_attributes) or {}
+    new_model_attributes["llm_pipeline"] = new_llm_pipeline
+
+    return update_llm_pipeline_genai_config(
+        CompositeModelHandler(
+            list(new_component_models.values()),
+            list(new_component_models.keys()),
+            model_path=output_dir,
+            model_attributes=new_model_attributes,
+        ),
+        source_llm_pipeline=llm_pipeline,
+        decoder_config_extra=decoder_config_extra,
+        group_session_options=group_session_options,
+    )
+
+
+def update_llm_pipeline_genai_config(
+    model: CompositeModelHandler,
+    source_llm_pipeline: Optional[Dict[str, Any]] = None,
+    decoder_config_extra: Optional[Dict[str, Any]] = None,
+    group_session_options: Optional[Dict[str, Any]] = None,
+) -> CompositeModelHandler:
+    """Update the LLM pipeline in the model's genai_config.json file.
+
+    :param model: The composite model to update.
+    :param source_llm_pipeline: The source LLM pipeline to use for the update.
+    :param decoder_config_extra: Extra configuration for the decoder.
+    :param group_session_options: Session options for the context and iterator groups.
+    :return: The updated composite model.
+    """
+    if not model.model_path or not Path(model.model_path).is_dir():
+        logger.warning("Model path is not set or is not a directory. Cannot update genai_config.json.")
+        return model
+
+    if not model.model_attributes or ({"llm_pipeline", "additional_files"} - model.model_attributes.keys()):
+        # no llm_pipeline or additional_files, so just return the model
+        return model
+
+    additional_files = model.model_attributes["additional_files"]
+    llm_pipeline = model.model_attributes["llm_pipeline"]
+
+    # update genai_config if it exists
+    genai_config_path = None
+    for file_path in additional_files:
+        if Path(file_path).name == "genai_config.json":
+            genai_config_path = file_path
+            break
+
+    if not genai_config_path:
+        # no genai_config, so just return the model
+        return model
+
+    with open(genai_config_path) as f:
+        genai_config = json.load(f)
+
+    # update model_type
+    genai_config["model"]["type"] = "decoder-pipeline"
+
+    # update decoder config
+    decoder_config = genai_config["model"]["decoder"]
+    decoder_config.pop("filename", None)
+    for key, value in (decoder_config_extra or {}).items():
+        exisiting_value = decoder_config.get(key)
+        if isinstance(exisiting_value, dict):
+            exisiting_value.update(value)
+        elif isinstance(exisiting_value, list):
+            exisiting_value.extend(value)
+        else:
+            decoder_config[key] = value
+
+    # get group session options
+    if source_llm_pipeline:
+        group_session_options = group_session_options or decoder_config.get("pipeline", [{}])[0].get(
+            source_llm_pipeline["context"][0], {}
+        ).get("session_options")
+    # update pipeline config
+    component_models = dict(model.get_model_components())
+    pipeline_config = {}
+    for name in [
+        llm_pipeline["embeddings"],
+        *llm_pipeline["context"],
+        *llm_pipeline["iterator"],
+        llm_pipeline["lm_head"],
+    ]:
+        component = component_models[name]
+        component_io_config = component.io_config
+        pipeline_config[name] = {
+            "filename": Path(component.model_path).name,
+            "inputs": component_io_config["input_names"],
+            "outputs": component_io_config["output_names"],
+        }
+
+    for group, dont_run_on in zip(["context", "iterator"], ["token_gen", "prompt"]):
+        for name in llm_pipeline[group]:
+            if group_session_options:
+                pipeline_config[name]["session_options"] = group_session_options
+            pipeline_config[name][f"run_on_{dont_run_on}"] = False
+
+    decoder_config["pipeline"] = [pipeline_config]
+
+    # save the updated genai_config
+    new_genai_config_path = Path(model.model_path) / "genai_config.json"
+    with new_genai_config_path.open("w") as f:
+        json.dump(genai_config, f, indent=4)
+    # update the model attributes
+    additional_files.remove(genai_config_path)
+    additional_files.append(str(new_genai_config_path))
+
+    return model

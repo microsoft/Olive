@@ -1,14 +1,31 @@
 # ResNet Optimization
 This folder contains examples of ResNet optimization using different workflows.
+- QDQ: [with ONNX Runtime optimizations and static quantization with QDQ format](#resnet-optimization-with-ptq-qdq)
 - CPU: [with ONNX Runtime optimizations and static/dynamic quantization](#resnet-optimization-with-ptq-on-cpu)
 - CPU: [with PyTorch QAT Default Training Loop and ORT optimizations](#resnet-optimization-with-qat-default-training-loop-on-cpu)
 - CPU: [with PyTorch QAT PyTorch Lightning Module and ORT optimizations](#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu)
 - AMD DPU: [with AMD Vitis-AI Quantization](#resnet-optimization-with-vitis-ai-ptq-on-amd-dpu)
 - Intel GPU: [with OpenVINO and DirectML execution providers in ONNX Runtime](#resnet-optimization-with-openvino-and-dml-execution-providers)
 - Qualcomm NPU: [with QNN execution provider in ONNX Runtime](#resnet-optimization-with-qnn-execution-providers)
+
 Go to [How to run](#how-to-run)
 
 ## Optimization Workflows
+### ResNet optimization with PTQ QDQ format
+This workflow performs ResNet optimization . It performs the pipeline:
+- *PyTorch Model -> Onnx Model -> QDQ Quantized Onnx Model -> ONNX Runtime performance tuning*
+
+Config file: [resnet_ptq_qdq.json](resnet_ptq_qdq.json)
+
+#### Accuracy / latency
+
+| Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  | Dataset  |
+|-----------------------|---------------------|----------------------|----------|
+| PyTorch FP32          | 81.2%               | 2599                 | Imagenet |
+| ONNX INT8 (QDQ)       | 78.1%               | 74.7                 | Imagenet |
+
+*Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
+
 ### ResNet optimization with PTQ on CPU
 This workflow performs ResNet optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> Quantized Onnx Model -> ONNX Runtime performance tuning*

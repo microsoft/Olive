@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from copy import deepcopy
 from pathlib import Path
 from typing import Dict, Optional, Type, Union
 
@@ -18,7 +17,7 @@ from olive.passes.onnx.common import (
     get_context_bin_file_names,
     get_external_data_config,
     model_proto_to_file,
-    resave_model,
+    process_llm_pipeline,
 )
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -57,52 +56,35 @@ class ComposeOnnxModels(Pass):
             isinstance(m, ONNXModelHandler) for m in model.model_components
         ), "All components must be ONNXModelHandler"
 
-        if llm_pipeline := (model.model_attributes or {}).get("llm_pipeline"):
+        if pipeline := (model.model_attributes or {}).get("llm_pipeline"):
             output_model_path = Path(output_model_path).with_suffix("")
 
-            component_map = dict(model.get_model_components())
-            new_component_models = {}
-            new_llm_pipeline = {}
+            def process_context_iterator(component_models, llm_pipeline, output_dir):
+                new_groups = {
+                    "context": {},
+                    "iterator": {},
+                }
 
-            # resave embeddings model
-            embeddings_model_path = output_model_path / "embeddings.onnx"
-            resave_model(component_map[llm_pipeline["embeddings"]].model_path, embeddings_model_path)
-            new_component_models["embeddings"] = ONNXModelHandler(
-                model_path=output_model_path, onnx_file_name=embeddings_model_path.name
-            )
-            new_llm_pipeline["embeddings"] = "embeddings"
-
-            # compose the context and iterator models
-            composed_suffix = (
-                "_ctx" if get_context_bin_file_names(component_map[llm_pipeline["context"][0]].model_path) else ""
-            )
-            saved_cb_files = {}
-            for group_name in ["context", "iterator"]:
-                composed_name = f"{group_name}{composed_suffix}"
-                new_component_models[composed_name] = self._get_composed_model(
-                    [component_map[component_name].model_path for component_name in llm_pipeline[group_name]],
-                    output_model_path / f"{composed_name}.onnx",
-                    external_config=config.dict(),
-                    saved_cb_files=saved_cb_files,
-                    as_model_dir=True,
+                # compose the context and iterator models
+                composed_suffix = (
+                    "_ctx"
+                    if get_context_bin_file_names(component_models[llm_pipeline["context"][0]].model_path)
+                    else ""
                 )
-                new_llm_pipeline[group_name] = [composed_name]
+                saved_cb_files = {}
+                for group_name in ["context", "iterator"]:
+                    composed_name = f"{group_name}{composed_suffix}"
+                    new_groups[group_name][composed_name] = self._get_composed_model(
+                        [component_models[component_name].model_path for component_name in llm_pipeline[group_name]],
+                        output_dir / f"{composed_name}.onnx",
+                        external_config=config.dict(),
+                        saved_cb_files=saved_cb_files,
+                        as_model_dir=True,
+                    )
 
-            # resave the lm_head model
-            lm_head_model_path = output_model_path / "lm_head.onnx"
-            resave_model(component_map[llm_pipeline["lm_head"]].model_path, lm_head_model_path)
-            new_component_models["lm_head"] = ONNXModelHandler(
-                model_path=output_model_path, onnx_file_name=lm_head_model_path.name
-            )
-            new_llm_pipeline["lm_head"] = "lm_head"
+                return new_groups
 
-            new_model_attributes = deepcopy(model.model_attributes)
-            new_model_attributes["llm_pipeline"] = new_llm_pipeline
-            return CompositeModelHandler(
-                list(new_component_models.values()),
-                list(new_component_models.keys()),
-                model_attributes=new_model_attributes,
-            )
+            return process_llm_pipeline(model, pipeline, process_context_iterator, output_model_path)
 
         return self._get_composed_model(
             [component.model_path for component in model.model_components],

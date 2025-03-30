@@ -65,7 +65,7 @@ jobs:
         exampleFolder: mobilenet/qnn
         exampleName: qnn_tooklit
       inception_snpe_toolkit:
-        exampleFolder: inception/qnn
+        exampleFolder: inception
         exampleName: snpe_toolkit
 
 # Linux GPU examples testing.
@@ -75,6 +75,7 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     device: 'gpu'
     onnxruntime: onnxruntime-gpu
+    hf_token: true
     dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
     base_image: 'mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
     trt_version: '10.5.0.18-1+cuda12.6'

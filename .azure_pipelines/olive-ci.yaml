@@ -12,13 +12,17 @@ trigger:
     - LICENSE
     - .github/*
     # commonly updated examples with no test
+    - examples/deepseek/*
     - examples/directml/llm/*
     - examples/directml/stable_diffusion_xl/*
     - examples/llama2/*
+    - examples/llama3/*
     - examples/mistral/*
     - examples/open_llama/*
     - examples/phi2/*
     - examples/phi3/*
+    - examples/phi3_5/*
+    - examples/qwen2_5/*
 pr:
   branches:
     include:
@@ -37,13 +41,17 @@ pr:
     - .azure_pipelines/performance.yaml
     - .azure_pipelines/job_templates/olive-performance-template.yaml
     # commonly updated examples with no test
+    - examples/deepseek/*
     - examples/directml/llm/*
     - examples/directml/stable_diffusion_xl/*
     - examples/llama2/*
+    - examples/llama3/*
     - examples/mistral/*
     - examples/open_llama/*
     - examples/phi2/*
     - examples/phi3/*
+    - examples/phi3_5/*
+    - examples/qwen2_5/*
 
 variables:
   runCodesignValidationInjection: false

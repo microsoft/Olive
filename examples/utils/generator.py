@@ -298,7 +298,7 @@ class ORTGenerator:
                 outputs = io_binding.get_outputs()
                 logits = outputs[0].numpy()
             else:
-                outputs = session.run(None, {**{used_inputs}, **cache.get_kv_inputs()})
+                outputs = session.run(None, {**used_inputs, **cache.get_kv_inputs()})
                 logits = outputs[0]
 
             # Decide the next token using your preferred sampling strategy.
