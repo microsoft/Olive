@@ -5,7 +5,10 @@
 
 from pathlib import Path
 
+import pytest
+import torch
 from onnxscript import ir
+from packaging import version
 
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -13,6 +16,7 @@ from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.onnxscript_fusion import OnnxScriptFusion
 
 
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse("2.7.0"), reason="Requires PyTorch 2.7 or higher")
 def test_onnxscript_fusion_pass_works(tmp_path):
     base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
     conversion_pass = create_pass_from_dict(
