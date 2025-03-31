@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
@@ -65,12 +66,22 @@ class CompositeModelHandler(OliveModelHandler):
     def to_json(self, check_object: bool = False):
         json_dict = super().to_json(check_object)
         json_dict["config"]["model_components"] = []
+        additional_file_names = {
+            Path(file_path).name
+            for file_path in (json_dict["config"].get("model_attributes") or {}).get("additional_files", [])
+        }
         for m in self._model_components:
             component_json = m.to_json(check_object)
+            component_model_attributes = component_json["config"]["model_attributes"] or {}
+            # remove additional files that are already in the parent
+            component_additional_files = component_model_attributes.get("additional_files", [])
+            for file_path in component_additional_files.copy():
+                if Path(file_path).name in additional_file_names:
+                    component_additional_files.remove(file_path)
+            if not component_additional_files:
+                component_model_attributes.pop("additional_files", None)
             # only keep attributes that are different from the parent
-            component_json["config"]["model_attributes"] = dict_diff(
-                component_json["config"]["model_attributes"], self.model_attributes
-            )
+            component_json["config"]["model_attributes"] = dict_diff(component_model_attributes, self.model_attributes)
             json_dict["config"]["model_components"].append(component_json)
 
         return serialize_to_json(json_dict, check_object)
