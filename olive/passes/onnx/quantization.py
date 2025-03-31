@@ -217,11 +217,9 @@ _static_optional_config = {
 }
 
 
-def get_calibration_dataloader(config, model_path=None, io_config=None, calibration_providers=None):
+def get_calibration_dataloader(config, model_path=None, io_config=None):
     data_config = validate_config(config.data_config, DataConfig)
-    return data_config.to_data_container().create_calibration_dataloader(
-        model_path=model_path, io_config=io_config, calibration_providers=calibration_providers
-    )
+    return data_config.to_data_container().create_calibration_dataloader(model_path=model_path, io_config=io_config)
 
 
 # extra options name: (param_name, use in dynamic quantization)
@@ -494,7 +492,7 @@ class OnnxQuantization(Pass):
         self, model: ONNXModelHandler, config: Type[BasePassConfig], run_config: Dict, ort_less_than_1_21: bool
     ) -> Dict:
         """Prepare the run config for static quantization."""
-        dataloader = get_calibration_dataloader(config, model.model_path, model.io_config, config.calibration_providers)
+        dataloader = get_calibration_dataloader(config, model.model_path, model.io_config)
         if config.quant_format != "QDQ" or not config.prepare_qdq_config:
             run_config.update({"calibration_data_reader": dataloader, "use_external_data_format": True})
             return run_config
