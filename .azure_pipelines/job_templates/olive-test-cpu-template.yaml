@@ -8,7 +8,6 @@ parameters:
   onnxruntime_nightly: false
   torch: 'torch'
   requirements_file: 'requirements-test-cpu.txt'
-  hf_token: ''
 
 jobs:
 - job: ${{parameters.name}}
