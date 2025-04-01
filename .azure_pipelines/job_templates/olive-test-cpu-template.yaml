@@ -8,6 +8,7 @@ parameters:
   onnxruntime_nightly: false
   torch: 'torch'
   requirements_file: 'requirements-test-cpu.txt'
+  hf_token: ''
 
 jobs:
 - job: ${{parameters.name}}
@@ -34,6 +35,10 @@ jobs:
       onnxruntime: ${{ parameters.onnxruntime }}
       onnxruntime_nightly: ${{ parameters.onnxruntime_nightly }}
       torch: ${{ parameters.torch }}
+
+  - template: huggingface-login-template.yaml
+    parameters:
+      hf_token: $(hf_token)
 
   - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
     - script: |

@@ -32,6 +32,10 @@ jobs:
       onnxruntime_nightly: ${{ parameters.onnxruntime_nightly }}
       torch: ${{ parameters.torch }}
 
+  - template: huggingface-login-template.yaml
+    parameters:
+      hf_token: $(hf_token)
+
   # set exampleRequirements to requirements.txt if user does not specify
   - script:
       echo "##vso[task.setvariable variable=exampleRequirements]requirements.txt"
