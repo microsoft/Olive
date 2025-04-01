@@ -53,7 +53,7 @@
             "tasks": [ "hellaswag" ],
             "batch_size": 16,
             "limit": 0.05,
-            "max_gen_toks": 10
+            "max_length": 10
         }
     },
     "auto_optimizer_config": { "opt_level": 0, "disable_auto_optimizer": true, "precision": "fp16" },
