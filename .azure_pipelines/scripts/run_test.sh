@@ -6,6 +6,7 @@
 # $4: Path to the requirements.txt file
 # $5: Path to the test file to run
 # $6: Whether to use coverage tracking (true/false)
+# $7: HF Token
 
 # activate venv
 source olive-venv/bin/activate
@@ -27,6 +28,10 @@ fi
 echo "Installing additional dependencies..."
 pip install pytest azure-identity azure-storage-blob tabulate
 pip install -r "$4"
+
+# Set HF Token
+pip install huggingface-hub
+huggingface-cli login --token "$7"
 
 # Step 4: Run tests with or without coverage tracking
 if [ "$6" = "true" ]; then
