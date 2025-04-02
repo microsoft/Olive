@@ -225,6 +225,8 @@ def change_external_data_location(model_proto: onnx.ModelProto, new_location: st
             external_data_helper.set_external_data(
                 tensor, new_location, offset=info.offset, length=info.length, checksum=info.checksum
             )
+            # clear the raw_data field to avoid saving it and overwriting the info above
+            tensor.ClearField("raw_data")
 
 
 def get_context_bin_file_names(model_path: Union[str, Path]) -> List[str]:
