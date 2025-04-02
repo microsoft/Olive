@@ -1108,9 +1108,8 @@ class RemoveRedundantKVQuantization(Surgeon):
 
             # ensure the quantization parameters match
             aligned = True
-            for past_q_param, present_q_param in zip(
-                dag.get_node_inputs(past_q_name)[1:], dag.get_node_inputs(present_q_name)[1:]
-            ):
+            past_q_params = dag.get_node_inputs(past_q_name)[1:]
+            for past_q_param, present_q_param in zip(past_q_params, dag.get_node_inputs(present_q_name)[1:]):
                 if not np.array_equal(
                     dag.get_initializer_np_array(past_q_param), dag.get_initializer_np_array(present_q_param)
                 ):
@@ -1120,34 +1119,12 @@ class RemoveRedundantKVQuantization(Surgeon):
                 continue
 
             # Process past
-            past_graph_idx = dag.get_graph_idx(past_q_name)
-            past_q_output_name = dag.get_node_outputs(past_q_name)[0]
-            past_q_output_vi = dag.get_value_info_proto(past_q_output_name)
-            assert past_q_output_vi, f"Missing value info proto for {past_q_name}"
-
-            # create a temporary quantized input
-            temp_past_name = f"{present_name}_temp"
-            temp_past_vi = onnx.ValueInfoProto()
-            temp_past_vi.CopyFrom(past_q_output_vi)
-            temp_past_vi.name = temp_past_name
-            dag.add_input(temp_past_vi, past_graph_idx)
-
-            # replace the past dq input with temp_past input
-            dag.replace_node_input(past_dq_name, past_q_output_name, temp_past_name)
+            # change elem type of the past input to quantized type from the zero point
+            dag.change_io_elem_type(past_name, dag.get_initializer_elem_type(past_q_params[1]))
+            # change the input of the dq node to past_name
+            dag.replace_node_input(past_dq_name, dag.get_node_inputs(past_dq_name)[0], past_name)
             # remove the q node
             dag.remove_node(past_q_name)
-            # remove the past input
-            dag.remove_input(past_name)
-
-            # create a new input
-            past_vi = onnx.ValueInfoProto()
-            past_vi.CopyFrom(temp_past_vi)
-            past_vi.name = past_name
-            dag.add_input(past_vi, past_graph_idx)
-            # replace the temp_past input with the past input
-            dag.replace_node_input(past_dq_name, temp_past_name, past_name)
-            # remove the temp_past input
-            dag.remove_input(temp_past_name)
 
             # Process present
             dag.remove_output(present_name)
