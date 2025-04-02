@@ -86,7 +86,7 @@ Configure Workflows (Advanced)
    configure-workflows/metrics-configuration
    configure-workflows/model-packaging
    configure-workflows/systems
-   configure-workflows/customize-evaluation
+   configure-workflows/custom-model-evaluator
 
 For more complex scenarios, you can create fully customize workflows where you can run any of the 40+ supported optimization techniques in a sequence.
 
