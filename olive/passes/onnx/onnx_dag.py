@@ -703,39 +703,14 @@ class OnnxDAG:
         tensor_type = self._get_io_tensor_type(io_name)
         return [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
 
-    def get_io_elem_type(self, io_name: str) -> int:
-        """Get the element type of an input/output.
-
-        :param io_name: name of the input/output.
-        :return: element type of the input/output.
-        """
-        tensor_type = self._get_io_tensor_type(io_name)
-        return tensor_type.elem_type
-
     def get_io_dtype(self, io_name: str) -> str:
         """Get the data type of an input/output.
 
         :param io_name: name of the input/output.
         :return: data type of the input/output.
         """
-        return str(onnx.helper.tensor_dtype_to_np_dtype(self.get_io_elem_type(io_name)))
-
-    def change_io_elem_type(self, io_name: str, new_elem_type: int):
-        """Change the element type of an input/output.
-
-        :param io_name: name of the input/output.
-        :param new_elem_type: new element type.
-        """
         tensor_type = self._get_io_tensor_type(io_name)
-        tensor_type.elem_type = new_elem_type
-
-    def get_initializer_elem_type(self, initializer_name: str) -> int:
-        """Get the element type of an initializer.
-
-        :param initializer_name: name of the initializer.
-        :return: element type of the initializer.
-        """
-        return self.get_initializer_proto(initializer_name).data_type
+        return str(onnx.helper.tensor_dtype_to_np_dtype(tensor_type.elem_type))
 
     def get_graph_idx(self, name: str) -> int:
         """Get the index of the graph containing the input/output or node."""
