@@ -15,9 +15,11 @@ import onnx
 from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
 
+from olive.common.hf.model_io import get_kv_info
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
+from olive.model.utils.onnx_utils import get_io_config
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.onnx_dag import OnnxDAG
@@ -915,6 +917,81 @@ class ReplaceAttentionMaskValue(Surgeon):
 
         if modified > 0:
             logger.debug("Replaced %d values below threshold with replacement.", modified)
+
+        dag.update()
+        return dag.model
+
+
+class ExtractInputKVCache(Surgeon):
+    """Extracts only the KV cache for the input tokens.
+
+    This surgery modifies the ONNX graph to return only the KV cache corresponding to the input token ids, rather than
+    the concatenated past and current KV cache. It works by identifying and modifying the Concat operation that merges
+    past and present KV caches, ensuring that only the present KV cache (corresponding to the input tokens) is retained
+    as the output.
+
+    This transformation is useful in scenarios where past KV cache management is handled externally, or when reducing
+    unnecessary memory usage in KV cache storage.
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        kv_info = get_kv_info(get_io_config(model))
+        if not kv_info:
+            logger.debug("No KV cache found in the model.")
+            return model
+
+        # try to infer shapes if possible
+        from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+
+        try:
+            model = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+        except Exception as e:
+            logger.debug("Shape inference failed. Will try to continue without it. Error: %s", e)
+
+        dag = OnnxDAG(model)
+
+        modified = 0
+        for present_name in kv_info["present_to_past"]:
+            parent_name = dag.get_producer(present_name)
+            parent_op_type = dag.get_node_op_type(parent_name)
+
+            # locate the concat node
+            concat_name = None
+            if parent_op_type == "Concat":
+                concat_name = parent_name
+            elif parent_op_type == "DequantizeLinear":
+                ancestor_name = dag.get_parents(dag.get_parents(parent_name)[0])[0]
+                if dag.get_node_op_type(ancestor_name) == "Concat":
+                    concat_name = ancestor_name
+
+            if concat_name is None:
+                continue
+
+            # remove the present kv cache output from the graph
+            dag.remove_output(present_name)
+
+            # change the name of the parent's output
+            dag.rename_node_output(parent_name, present_name, f"{parent_name}_Output")
+
+            # change the name of the concat's second input to the present kv cache
+            concat_second_input = dag.get_node_inputs(concat_name)[1]
+            assert dag.get_value_info_proto(concat_second_input), f"No value info found for {concat_second_input}"
+            dag.rename_node_output(dag.get_producer(concat_second_input), concat_second_input, present_name)
+
+            # make it back to model output
+            dag.make_output(present_name)
+
+            modified += 1
+
+        assert modified == 0 or modified == len(
+            kv_info["present_to_past"]
+        ), f"Modified {modified} nodes, but expected {len(kv_info['present_to_past'])}"
+
+        if modified > 0:
+            logger.debug("Modified %d KV cache outputs to only include input tokens.", modified)
 
         dag.update()
         return dag.model

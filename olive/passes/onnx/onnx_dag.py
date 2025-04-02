@@ -468,6 +468,7 @@ class OnnxDAG:
         :param old_output: name of the output to rename.
         :param new_output: new name of the output.
         """
+        assert not self.is_output(old_output), f"Output {old_output} is a model output. Can't rename it."
         assert new_output not in self.ios, f"Output {new_output} already exists in the graph."
         node = self.nodes[node_name]
         assert old_output in node.outputs, f"Output {old_output} does not exist in node {node_name}."

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import onnx
-from onnx import GraphProto, ModelProto
+from onnx import ModelProto
 
 from olive.common.ort_inference import OrtSessionFallbackError, get_ort_inference_session
 from olive.common.utils import load_weights
@@ -16,21 +16,20 @@ from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import AcceleratorLookup, Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.handler.mixin import OnnxEpValidateMixin, OnnxGraphMixin
-from olive.model.utils.onnx_utils import get_additional_file_path, get_onnx_file_path
+from olive.model.handler.mixin import OnnxEpValidateMixin
+from olive.model.utils.onnx_utils import get_additional_file_path, get_io_config, get_onnx_file_path
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
 
 
 @model_handler_registry("ONNXModel")
-class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):  # pylint: disable=too-many-ancestors
+class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin):  # pylint: disable=too-many-ancestors
     """ONNX model handler.
 
     Besides the model loading functionalities, the model handler also provider the onnx graph functionality by mixin
 
     the mixin class OnnxEpValidateMixin is used to validate the execution providers.
-    the mixin class OnnxGraphMixin is used to support onnx graph operations.
     """
 
     json_config_keys: Tuple[str, ...] = (
@@ -65,9 +64,6 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         self.onnx_file_name = onnx_file_name
         self.external_initializers_file_name = external_initializers_file_name
         self.constant_inputs_file_name = constant_inputs_file_name
-
-        self.graph = None
-        self.all_graphs: Optional[List[GraphProto]] = None
 
         # check for file names since it will automatically validate the paths
         # these call the property methods which in turn validate the paths using get_onnx_file_path
@@ -180,7 +176,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
             return self._io_config
 
         # save io_config
-        self._io_config = self.get_graph_io_config()
+        self._io_config = get_io_config(onnx.load(self.model_path, load_external_data=False))
         return self._io_config
 
     def _get_default_execution_providers(self, device: Device):
