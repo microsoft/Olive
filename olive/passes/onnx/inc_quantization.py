@@ -251,8 +251,8 @@ _inc_woq_optional_config = {
 class IncQuantization(Pass):
     """Quantize ONNX model with Intel® Neural Compressor."""
 
-    @staticmethod
-    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+    @classmethod
+    def is_accelerator_agnostic(cls, accelerator_spec: AcceleratorSpec) -> bool:
         """Override this method to return False by using the accelerator spec information."""
         return False
 
