@@ -874,8 +874,8 @@ class ReplaceAttentionMaskValue(Surgeon):
 
     def __call__(self, model: ModelProto):
         dag = OnnxDAG(model)
-        modified = 0
 
+        modified = 0
         # update any constant or constantofshape nodes with the threshold value
         for node_name in dag.get_node_names():
             op_type = dag.get_node_op_type(node_name)
@@ -992,6 +992,63 @@ class ExtractInputKVCache(Surgeon):
 
         if modified > 0:
             logger.debug("Modified %d KV cache outputs to only include input tokens.", modified)
+
+        dag.update()
+        return dag.model
+
+
+class AlignKVCacheQuantization(Surgeon):
+    """Aligns quantization parameters of past and present KV cache.
+
+    This surgery modifies the ONNX graph to ensure that the past KV cache uses the same quantization scale and
+    zero-point as the present KV cache. It identifies the past KV cache's `QuantizeLinear` and `DequantizeLinear` nodes,
+    then replaces their scale and zero-point inputs with those used for the present KV cache. This alignment prevents
+    inconsistencies in mixed-precision inference and ensures stable numerical behavior when using quantized KV caches.
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        kv_info = get_kv_info(get_io_config(model))
+        if not kv_info:
+            logger.debug("No KV cache found in the model.")
+            return model
+
+        dag = OnnxDAG(model)
+
+        modified = 0
+        for present_name, past_name in kv_info["present_to_past"].items():
+            # past input followed by a QuantizeLinear
+            past_consumers = dag.get_consumers(past_name)
+            if len(past_consumers) != 1 or dag.get_node_op_type(past_consumers[0]) != "QuantizeLinear":
+                continue
+            past_q_name = past_consumers[0]
+            # followed by a DequantizeLinear
+            past_q_consumers = dag.get_consumers(past_q_name)
+            if len(past_q_consumers) != 1 or dag.get_node_op_type(past_q_consumers[0]) != "DequantizeLinear":
+                continue
+            past_dq_name = past_q_consumers[0]
+
+            # present produced by a DequantizeLinear
+            present_dq_name = dag.get_producer(present_name)
+            if dag.get_node_op_type(present_dq_name) != "DequantizeLinear":
+                continue
+            present_dq_inputs = dag.get_node_inputs(present_dq_name)
+
+            # change second and third inputs of past_q and past_dq to be the same as present_dq
+            for node_name in [past_q_name, past_dq_name]:
+                for i, input_name in enumerate(dag.get_node_inputs(node_name)[1:]):
+                    dag.replace_node_input(node_name, input_name, present_dq_inputs[i + 1])
+
+            modified += 1
+
+        assert modified == 0 or modified == len(
+            kv_info["present_to_past"]
+        ), f"Modified {modified} nodes, but expected {len(kv_info['present_to_past'])}"
+
+        if modified > 0:
+            logger.debug("Aligned %d KV cache quantization parameters.", modified)
 
         dag.update()
         return dag.model
