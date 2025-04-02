@@ -1074,14 +1074,6 @@ class RemoveRedundantKVQuantization(Surgeon):
             logger.debug("No KV cache found in the model.")
             return model
 
-        # try to infer shapes if possible
-        from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
-
-        try:
-            model = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
-        except Exception as e:
-            logger.debug("Shape inference failed. Will try to continue without it. Error: %s", e)
-
         dag = OnnxDAG(model)
 
         modified = 0
@@ -1117,10 +1109,11 @@ class RemoveRedundantKVQuantization(Surgeon):
                     break
             if not aligned:
                 continue
+            quant_elem_type = dag.get_initializer_elem_type(past_q_params[1])
 
             # Process past
             # change elem type of the past input to quantized type from the zero point
-            dag.change_io_elem_type(past_name, dag.get_initializer_elem_type(past_q_params[1]))
+            dag.change_io_elem_type(past_name, quant_elem_type)
             # change the input of the dq node to past_name
             dag.replace_node_input(past_dq_name, dag.get_node_inputs(past_dq_name)[0], past_name)
             # remove the q node
@@ -1129,12 +1122,18 @@ class RemoveRedundantKVQuantization(Surgeon):
             # Process present
             dag.remove_output(present_name)
             # change the dq output name
-            dag.rename_node_output(present_dq_name, present_name, f"{present_dq_name}_Output")
+            new_present_dq_output_name = f"{present_dq_name}_Output"
+            dag.rename_node_output(present_dq_name, present_name, new_present_dq_output_name)
             # change the q output name to present_name
-            present_q_output_name = dag.get_node_outputs(present_q_name)[0]
-            assert dag.get_value_info_proto(present_q_output_name), f"Missing value info proto for {present_q_name}"
             dag.rename_node_output(present_q_name, dag.get_node_outputs(present_q_name)[0], present_name)
-            # make the present an output
+            # add value info proto for present_name
+            if not dag.get_value_info_proto(present_name):
+                present_vi = onnx.ValueInfoProto()
+                present_vi.CopyFrom(dag.get_value_info_proto(new_present_dq_output_name))
+                present_vi.name = present_name
+                present_vi.type.tensor_type.elem_type = quant_elem_type
+                dag.add_value_info(present_vi, dag.get_graph_idx(present_name))
+            # make the present_name an output
             dag.make_output(present_name)
             # remove the dq node if it is not used
             if len(dag.get_consumers(present_dq_name)) == 0:
