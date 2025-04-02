@@ -497,6 +497,16 @@ class OnnxDAG:
         # delete the old output
         self.ios.pop(old_output)
 
+    def remove_input(self, input_name: str):
+        """Remove an input from the graph.
+
+        :param input_name: name of the input to remove.
+        """
+        assert self.is_input(input_name), f"{input_name} is not an input."
+        assert not self.get_consumers(input_name, True), f"Input {input_name} has consumers. Can't remove it."
+
+        self.ios.pop(input_name)
+
     def get_node_op_types(self) -> List[str]:
         """Get all operator types in the graph.
 

@@ -1030,7 +1030,7 @@ class AlignKVCacheQuantization(Surgeon):
                 continue
             past_dq_name = past_q_consumers[0]
 
-            # present produced by a DequantizeLinear
+            # present preceded by a DequantizeLinear
             present_dq_name = dag.get_producer(present_name)
             if dag.get_node_op_type(present_dq_name) != "DequantizeLinear":
                 continue
@@ -1049,6 +1049,128 @@ class AlignKVCacheQuantization(Surgeon):
 
         if modified > 0:
             logger.debug("Aligned %d KV cache quantization parameters.", modified)
+
+        dag.update()
+        return dag.model
+
+
+class RemoveRedundantKVQuantization(Surgeon):
+    """Removes redundant QuantizeLinear and DequantizeLinear operations from the past KV cache input.
+
+    If the past and present KV caches already use the same quantization parameters, this pass eliminates unnecessary
+    quantization and dequantization steps. Instead, it directly passes the quantized past KV cache into the model,
+    reducing computational overhead and avoiding unnecessary precision loss.
+
+    This optimization helps maintain numerical stability while improving inference efficiency by ensuring that past
+    KV caches are not unnecessarily requantized when they are already in the correct quantized format.
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        kv_info = get_kv_info(get_io_config(model))
+        if not kv_info:
+            logger.debug("No KV cache found in the model.")
+            return model
+
+        # try to infer shapes if possible
+        from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+
+        try:
+            model = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+        except Exception as e:
+            logger.debug("Shape inference failed. Will try to continue without it. Error: %s", e)
+
+        dag = OnnxDAG(model)
+
+        modified = 0
+        for present_name, past_name in kv_info["present_to_past"].items():
+            # past input followed by a QuantizeLinear
+            past_consumers = dag.get_consumers(past_name)
+            if len(past_consumers) != 1 or dag.get_node_op_type(past_consumers[0]) != "QuantizeLinear":
+                continue
+            past_q_name = past_consumers[0]
+            # followed by a DequantizeLinear
+            past_q_consumers = dag.get_consumers(past_q_name)
+            if len(past_q_consumers) != 1 or dag.get_node_op_type(past_q_consumers[0]) != "DequantizeLinear":
+                continue
+            past_dq_name = past_q_consumers[0]
+
+            # present preceded by a DequantizeLinear
+            present_dq_name = dag.get_producer(present_name)
+            if dag.get_node_op_type(present_dq_name) != "DequantizeLinear":
+                continue
+            # preceded by a QuantizeLinear
+            present_q_name = dag.get_parents(present_dq_name)[0]
+            if dag.get_node_op_type(present_q_name) != "QuantizeLinear":
+                continue
+
+            # ensure the quantization parameters match
+            aligned = True
+            for past_q_param, present_q_param in zip(
+                dag.get_node_inputs(past_q_name)[1:], dag.get_node_inputs(present_q_name)[1:]
+            ):
+                if not np.array_equal(
+                    dag.get_initializer_np_array(past_q_param), dag.get_initializer_np_array(present_q_param)
+                ):
+                    aligned = False
+                    break
+            if not aligned:
+                continue
+
+            # Process past
+            past_graph_idx = dag.get_graph_idx(past_q_name)
+            past_q_output_name = dag.get_node_outputs(past_q_name)[0]
+            past_q_output_vi = dag.get_value_info_proto(past_q_output_name)
+            assert past_q_output_vi, f"Missing value info proto for {past_q_name}"
+
+            # create a temporary quantized input
+            temp_past_name = f"{present_name}_temp"
+            temp_past_vi = onnx.ValueInfoProto()
+            temp_past_vi.CopyFrom(past_q_output_vi)
+            temp_past_vi.name = temp_past_name
+            dag.add_input(temp_past_vi, past_graph_idx)
+
+            # replace the past dq input with temp_past input
+            dag.replace_node_input(past_dq_name, past_q_output_name, temp_past_name)
+            # remove the q node
+            dag.remove_node(past_q_name)
+            # remove the past input
+            dag.remove_input(past_name)
+
+            # create a new input
+            past_vi = onnx.ValueInfoProto()
+            past_vi.CopyFrom(temp_past_vi)
+            past_vi.name = past_name
+            dag.add_input(past_vi, past_graph_idx)
+            # replace the temp_past input with the past input
+            dag.replace_node_input(past_dq_name, temp_past_name, past_name)
+            # remove the temp_past input
+            dag.remove_input(temp_past_name)
+
+            # Process present
+            dag.remove_output(present_name)
+            # change the dq output name
+            dag.rename_node_output(present_dq_name, present_name, f"{present_dq_name}_Output")
+            # change the q output name to present_name
+            present_q_output_name = dag.get_node_outputs(present_q_name)[0]
+            assert dag.get_value_info_proto(present_q_output_name), f"Missing value info proto for {present_q_name}"
+            dag.rename_node_output(present_q_name, dag.get_node_outputs(present_q_name)[0], present_name)
+            # make the present an output
+            dag.make_output(present_name)
+            # remove the dq node if it is not used
+            if len(dag.get_consumers(present_dq_name)) == 0:
+                dag.remove_node(present_dq_name)
+
+            modified += 1
+
+        assert modified == 0 or modified == len(
+            kv_info["present_to_past"]
+        ), f"Modified {modified} nodes, but expected {len(kv_info['present_to_past'])}"
+
+        if modified > 0:
+            logger.debug("Removed %d redundant KV cache quantization nodes.", modified)
 
         dag.update()
         return dag.model
