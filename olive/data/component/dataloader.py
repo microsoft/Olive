@@ -157,6 +157,7 @@ class LLMAugmentedDataLoader:
                     **self.get_empty_kv_cache(batch["input_ids"].shape[0], self.kv_info, self.has_gqa),
                 }
 
+            self.add_extra_inputs(batch)
             yield batch, label
             if progress_bar:
                 progress_bar.update(1)
