@@ -18,7 +18,7 @@ from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 import sd_utils.config
 
 
-def update_qnn_config(config: Dict, submodel_name: str):
+def update_qdq_config(config: Dict, submodel_name: str):
     used_passes = {}
     if sd_utils.config.only_conversion:
         used_passes = { "convert" }
@@ -33,23 +33,23 @@ def update_qnn_config(config: Dict, submodel_name: str):
             [1]
         ]
         config["input_model"]["dummy_inputs_func"] = None
-        used_passes = {"convert", "peephole", "qnn_preprocess", "quantization"}
+        used_passes = {"convert", "quantization"}
     elif submodel_name == "text_encoder":
-        used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "peephole", "qnn_preprocess", "quantization"}
+        used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "quantization"}
     else:
-        used_passes = {"convert", "dynamic_shape_to_fixed", "peephole", "qnn_preprocess", "quantization"}
+        used_passes = {"convert", "dynamic_shape_to_fixed", "quantization"}
 
     for pass_name in set(config["passes"].keys()):
         if pass_name not in used_passes:
             config["passes"].pop(pass_name, None)
 
-    config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
-    config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
+    config["systems"]["local_system"]["accelerators"][0]["device"] = "cpu"
+    config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
     config["evaluator"] = None
     return config
 
 
-class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
+class OnnxStableDiffusionWithSavingPipeline(OnnxStableDiffusionPipeline):
     def __call__(
         self,
         prompt: Union[str, List[str]] = None,
@@ -156,7 +156,7 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
             timestep = np.array([t], dtype=timestep_dtype)
 
             if do_classifier_free_guidance:
-                # Note that in QNN, we need to use static dimensions (batch is fixed to 1), so we need to split
+                # Note that in QDQ, we need to use static dimensions (batch is fixed to 1), so we need to split
                 unet_input = {"sample": latent_model_input, "timestep": timestep, "encoder_hidden_states": neg_embeds}
                 if self.save_data_dir:
                     np.savez(self.save_data_dir / f"{i}_unet_input_neg.npz", **unet_input)
@@ -229,18 +229,14 @@ class QnnStableDiffusionPipeline(OnnxStableDiffusionPipeline):
         return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
 
 
-def get_qnn_pipeline(model_dir, common_args, qnn_args, script_dir):
+def get_qdq_pipeline(model_dir, common_args, qdq_args, script_dir):
     ort.set_default_logger_severity(3)
-
     sess_options = ort.SessionOptions()
-
-    # TODO(hualxie): diffusers needs to support new parameter for QNN
-    # See https://github.com/huggingface/diffusers/issues/10658
-    pipeline = QnnStableDiffusionPipeline.from_pretrained(
+    pipeline = OnnxStableDiffusionWithSavingPipeline.from_pretrained(
         model_dir, provider="CPUExecutionProvider", sess_options=sess_options
     )
-    if qnn_args.save_data:
-        pipeline.save_data_dir = script_dir / qnn_args.data_dir / common_args.prompt
+    if qdq_args.save_data:
+        pipeline.save_data_dir = script_dir / qdq_args.data_dir / common_args.prompt
         os.makedirs(pipeline.save_data_dir, exist_ok=True)
     else:
         pipeline.save_data_dir = None

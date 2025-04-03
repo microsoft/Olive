@@ -10,7 +10,7 @@ import logging
 import sys
 import math
 import numpy as np
-from sd_utils.qnn import QnnStableDiffusionPipeline
+from sd_utils.qdq import OnnxStableDiffusionWithSavingPipeline
 import re
 from datasets import load_dataset
 from torchmetrics.functional.multimodal import clip_score
@@ -188,8 +188,8 @@ def parse_args(raw_args):
         help="The seed to give to the generator to generate deterministic results.",
     )
     parser.add_argument("--data_dir", default="quantize_data", type=str)
+    parser.add_argument("--sub_dir", default="optimized", type=str, help="Sub directory to save the data for optimized model test")
     parser.add_argument("--num_data", default=10, type=int)
-    parser.add_argument("--dataset", default="phiyodr/coco2017", type=str)
     parser.add_argument("--train_ratio", default=0.5, type=float)
     parser.add_argument("--image_size", default=512, type=int, help="Width and height of the images to generate")
     parser.add_argument("--xl", action="store_true")
@@ -199,35 +199,20 @@ def parse_args(raw_args):
 def main(raw_args=None):
     args = parse_args(raw_args)
     real_images = None
-    if args.dataset != "relaion2B-en-research-safe":
-        dataset = load_dataset(args.dataset, streaming=True)
-        train_data = dataset['train']
-        prompts = [sanitize_path(example["captions"][0]) for i, example in enumerate(train_data) if i < args.num_data]
-        real_images = get_real_images(train_data, args.num_data)
-    else:
-        # Some selected captions from https://huggingface.co/datasets/laion/relaion2B-en-research-safe
-        prompts = [
-            "Arroyo Hondo Preserve Wedding",
-            "Budget-Friendly Thanksgiving Table Decor Ideas",
-            "Herd of cows on alpine pasture among mountains in Alps, northern Italy. Stock Photo",
-            "Hot Chocolate With Marshmallows, Warm Happiness To Soon Follow",
-            "Lovely Anthodium N Roses Arrangement with Cute Teddy",
-            "Everyone can join and learn how to cook delicious dishes with us.",
-            "Image result for youth worker superhero",
-            "Road improvements coming along in west Gulfport",
-            "Butcher storefront and a companion work, Louis Hayet, Click for value",
-            "folding electric bike"
-        ][:args.num_data]
+    dataset = load_dataset("phiyodr/coco2017", streaming=True)
+    train_data = dataset['train']
+    prompts = [sanitize_path(example["captions"][0]) for i, example in enumerate(train_data) if i < args.num_data]
+    real_images = get_real_images(train_data, args.num_data)
     
     train_num = math.floor(len(prompts) * args.train_ratio)
     clip_score_fn = partial(clip_score, model_name_or_path="openai/clip-vit-base-patch16")
 
     script_dir = Path(".") #Path(__file__).resolve().parent
     unoptimized_path = script_dir / args.data_dir / 'unoptimized'
-    optimized_path = script_dir / args.data_dir / 'optimized'
+    optimized_path = script_dir / args.data_dir / args.sub_dir
 
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
-    optimized_dir_name = "optimized-qnn"
+    optimized_dir_name = "optimized-qdq"
     optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     model_dir = unoptimized_model_dir if args.save_data else optimized_model_dir
@@ -236,7 +221,7 @@ def main(raw_args=None):
             model_dir, provider="CPUExecutionProvider"
         )
     else:
-        pipeline = QnnStableDiffusionPipeline.from_pretrained(
+        pipeline = OnnxStableDiffusionWithSavingPipeline.from_pretrained(
             model_dir, provider="CPUExecutionProvider"
         )
     pipeline.save_data_dir = None

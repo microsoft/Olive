@@ -190,10 +190,10 @@ def update_config_with_provider(config: Dict, provider: str, submodel_name: str)
         from sd_utils.ov import update_ov_config
 
         return update_ov_config(config)
-    elif provider == "qnn":
-        from sd_utils.qnn import update_qnn_config
+    elif provider == "qdq":
+        from examples.stable_diffusion.sd_utils.qdq import update_qdq_config
 
-        return update_qnn_config(config, submodel_name)
+        return update_qdq_config(config, submodel_name)
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
@@ -239,7 +239,7 @@ def optimize(
     has_safety_checker = getattr(pipeline, "safety_checker", None) is not None
 
     if has_safety_checker:
-        if provider == "openvino" or provider == "qnn":
+        if provider == "openvino" or provider == "qdq":
             print(f"WARNING: Safety checker is not supported by {provider}. It will be disabled.")
             has_safety_checker = False
         else:
@@ -294,7 +294,7 @@ def parse_common_args(raw_args):
         "--provider",
         default="dml",
         type=str,
-        choices=["dml", "cuda", "openvino", "qnn"],
+        choices=["dml", "cuda", "openvino", "qdq"],
         help="Execution provider to use",
     )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
@@ -363,8 +363,8 @@ def parse_ov_args(raw_args):
     return parser.parse_known_args(raw_args)
 
 
-def parse_qnn_args(raw_args):
-    parser = argparse.ArgumentParser("QNN arguments")
+def parse_qdq_args(raw_args):
+    parser = argparse.ArgumentParser("QDQ arguments")
 
     parser.add_argument("--save_data", action="store_true")
     parser.add_argument("--data_dir", default="quantize_data/data", type=str)
@@ -393,13 +393,13 @@ def main(raw_args=None):
         guidance_scale = 0.0
         print(f"WARNING: Classifier free guidance has been forcefully disabled since {model_id} doesn't support it.")
 
-    ov_args, qnn_args, ort_args = None, None, None
+    ov_args, qdq_args, ort_args = None, None, None
     if provider == "openvino":
         ov_args, extra_args = parse_ov_args(extra_args)
-    elif provider == "qnn":
-        qnn_args, extra_args = parse_qnn_args(extra_args)
-        config.only_conversion = qnn_args.only_conversion
-        config.data_dir = script_dir / qnn_args.data_dir
+    elif provider == "qdq":
+        qdq_args, extra_args = parse_qdq_args(extra_args)
+        config.only_conversion = qdq_args.only_conversion
+        config.data_dir = script_dir / qdq_args.data_dir
     else:
         ort_args, extra_args = parse_ort_args(extra_args)
 
@@ -409,7 +409,7 @@ def main(raw_args=None):
         # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            if provider != "openvino" and provider != "qnn":
+            if provider != "openvino" and provider != "qdq":
                 from sd_utils.ort import validate_args
 
                 validate_args(ort_args, common_args.provider)
@@ -425,10 +425,10 @@ def main(raw_args=None):
                 from sd_utils.ov import get_ov_pipeline
 
                 pipeline = get_ov_pipeline(common_args, ov_args, optimized_model_dir)
-            elif provider == "qnn":
-                from sd_utils.qnn import get_qnn_pipeline
+            elif provider == "qdq":
+                from examples.stable_diffusion.sd_utils.qdq import get_qdq_pipeline
 
-                pipeline = get_qnn_pipeline(model_dir, common_args, qnn_args, script_dir)
+                pipeline = get_qdq_pipeline(model_dir, common_args, qdq_args, script_dir)
             else:
                 from sd_utils.ort import get_ort_pipeline
 
