@@ -5,12 +5,13 @@
 
 import os
 from pathlib import Path
+from typing import Callable
 from PIL import Image
 import logging
 import sys
 import math
 import numpy as np
-from sd_utils.qdq import OnnxStableDiffusionWithSavingPipeline
+from sd_utils.qdq import OnnxStableDiffusionPipelineWithSave
 import re
 from datasets import load_dataset
 from torchmetrics.functional.multimodal import clip_score
@@ -103,6 +104,24 @@ def get_fid_scores(prompts: list[str], path: Path, real_images):
             f.write(f"| FID | {score} |\n")
 
 
+# hpsv2 score
+
+def get_hpsv2_scores(path: Path, generate_image: Callable[[str, str], None]):
+    import hpsv2
+    # Get benchmark prompts (<style> = all, anime, concept-art, paintings, photo)
+    style = 'photo'
+    all_prompts = hpsv2.benchmark_prompts(style)
+    if style != 'all':
+        all_prompts = {style: all_prompts}
+    for style, prompts in all_prompts.items():
+        os.makedirs(path / style, exist_ok=True)
+        for idx, prompt in enumerate(prompts):
+            print(f"Generating {prompt} for {style} [{idx + 1}/{len(prompts)}]")
+            output = path / style / f"{idx:05d}.jpg"
+            generate_image(prompt, output)
+    hpsv2.evaluate(path.as_posix(), hps_version="v2") 
+
+
 # prepare data
 
 def sanitize_path(input_string):
@@ -152,8 +171,8 @@ def get_real_images(train_data, num_data):
         return torch.cat(images)
 
 
-def run_inference(pipeline, args, prompt: str, output_path: Path):
-    output = output_path / f"{prompt}.png"
+def run_inference(pipeline, args, prompt: str, output_path: Path, pathIsFile: bool = False):
+    output = output_path if pathIsFile else output_path / f"{prompt}.png"
     if output.exists():
         return
     generator = None if args.seed is None else np.random.RandomState(seed=args.seed)
@@ -208,8 +227,8 @@ def main(raw_args=None):
     clip_score_fn = partial(clip_score, model_name_or_path="openai/clip-vit-base-patch16")
 
     script_dir = Path(".") #Path(__file__).resolve().parent
-    unoptimized_path = script_dir / args.data_dir / 'unoptimized'
-    optimized_path = script_dir / args.data_dir / args.sub_dir
+    unoptimized_path: Path = script_dir / args.data_dir / 'unoptimized'
+    optimized_path: Path = script_dir / args.data_dir / args.sub_dir
 
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
     optimized_dir_name = "optimized-qdq"
@@ -221,7 +240,7 @@ def main(raw_args=None):
             model_dir, provider="CPUExecutionProvider"
         )
     else:
-        pipeline = OnnxStableDiffusionWithSavingPipeline.from_pretrained(
+        pipeline = OnnxStableDiffusionPipelineWithSave.from_pretrained(
             model_dir, provider="CPUExecutionProvider"
         )
     pipeline.save_data_dir = None
@@ -238,6 +257,7 @@ def main(raw_args=None):
             run_inference(pipeline, args, prompt, unoptimized_path)
         get_clip_scores(prompts, unoptimized_path, clip_score_fn)
         get_fid_scores(prompts, unoptimized_path, real_images)
+        #get_hpsv2_scores(unoptimized_path / "hpsv2", partial(run_inference, pipeline, args, pathIsFile=True))
 
     else:
         os.makedirs(optimized_path, exist_ok=True)
@@ -248,7 +268,7 @@ def main(raw_args=None):
         get_clip_scores(prompts, optimized_path, clip_score_fn)
         get_fid_scores(prompts, optimized_path, real_images)
         get_mse_scores(prompts, unoptimized_path, optimized_path, train_num)
-
+        #get_hpsv2_scores(optimized_path / "hpsv2", partial(run_inference, pipeline, args, pathIsFile=True))
 
 if __name__ == "__main__":
     main()

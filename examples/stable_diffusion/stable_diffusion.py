@@ -191,7 +191,7 @@ def update_config_with_provider(config: Dict, provider: str, submodel_name: str)
 
         return update_ov_config(config)
     elif provider == "qdq":
-        from examples.stable_diffusion.sd_utils.qdq import update_qdq_config
+        from sd_utils.qdq import update_qdq_config
 
         return update_qdq_config(config, submodel_name)
     else:
@@ -426,7 +426,7 @@ def main(raw_args=None):
 
                 pipeline = get_ov_pipeline(common_args, ov_args, optimized_model_dir)
             elif provider == "qdq":
-                from examples.stable_diffusion.sd_utils.qdq import get_qdq_pipeline
+                from sd_utils.qdq import get_qdq_pipeline
 
                 pipeline = get_qdq_pipeline(model_dir, common_args, qdq_args, script_dir)
             else:

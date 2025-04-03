@@ -49,7 +49,7 @@ def update_qdq_config(config: Dict, submodel_name: str):
     return config
 
 
-class OnnxStableDiffusionWithSavingPipeline(OnnxStableDiffusionPipeline):
+class OnnxStableDiffusionPipelineWithSave(OnnxStableDiffusionPipeline):
     def __call__(
         self,
         prompt: Union[str, List[str]] = None,
@@ -232,7 +232,7 @@ class OnnxStableDiffusionWithSavingPipeline(OnnxStableDiffusionPipeline):
 def get_qdq_pipeline(model_dir, common_args, qdq_args, script_dir):
     ort.set_default_logger_severity(3)
     sess_options = ort.SessionOptions()
-    pipeline = OnnxStableDiffusionWithSavingPipeline.from_pretrained(
+    pipeline = OnnxStableDiffusionPipelineWithSave.from_pretrained(
         model_dir, provider="CPUExecutionProvider", sess_options=sess_options
     )
     if qdq_args.save_data:

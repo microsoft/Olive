@@ -74,13 +74,14 @@ def save_optimized_onnx_submodel(submodel_name, provider, model_info):
         conversion_footprint = None
         optimizer_footprint = None
         for footprint in footprints.values():
-            if footprint["from_pass"] == "OnnxConversion":
+            from_pass = footprint["from_pass"].lower() if footprint["from_pass"] else ""
+            if from_pass == "OnnxConversion".lower():
                 conversion_footprint = footprint
                 if sd_config.only_conversion:
                     optimizer_footprint = footprint
             elif (
-                footprint["from_pass"] == "OrtTransformersOptimization"
-                or footprint["from_pass"] == "OnnxStaticQuantization"
+                from_pass == "OrtTransformersOptimization".lower()
+                or from_pass == "OnnxStaticQuantization".lower()
             ):
                 optimizer_footprint = footprint
 
