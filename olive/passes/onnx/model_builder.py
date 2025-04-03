@@ -222,7 +222,7 @@ class ModelBuilder(Pass):
 
             # add split information if present
             split_assignments = model_attributes.get("split_assignments")
-            if split_assignments:
+            if not metadata_only and split_assignments:
                 # NOTE: currently the model builder renames modules to it's own naming convention
                 # so the assignments for the renamed modules won't match
                 split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])

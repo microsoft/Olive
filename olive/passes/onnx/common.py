@@ -425,6 +425,7 @@ def process_llm_pipeline(
     output_dir: Union[str, Path],
     decoder_config_extra: Optional[Dict[str, Any]] = None,
     group_session_options: Optional[Dict[str, Any]] = None,
+    max_length: Optional[int] = None,
 ) -> CompositeModelHandler:
     """Process an LLM pipeline with the given function.
 
@@ -436,6 +437,7 @@ def process_llm_pipeline(
     :param output_dir: The directory to save the processed model.
     :param decoder_config_extra: Extra configuration for the decoder.
     :param group_session_options: Session options for the context and iterator groups.
+    :param max_length: The maximum length for the model.
     :return: The processed composite model handler.
     """
     output_dir = Path(output_dir)
@@ -478,6 +480,7 @@ def process_llm_pipeline(
         source_llm_pipeline=llm_pipeline,
         decoder_config_extra=decoder_config_extra,
         group_session_options=group_session_options,
+        max_length=max_length,
     )
 
 
@@ -486,6 +489,7 @@ def update_llm_pipeline_genai_config(
     source_llm_pipeline: Optional[Dict[str, Any]] = None,
     decoder_config_extra: Optional[Dict[str, Any]] = None,
     group_session_options: Optional[Dict[str, Any]] = None,
+    max_length: Optional[int] = None,
 ) -> CompositeModelHandler:
     """Update the LLM pipeline in the model's genai_config.json file.
 
@@ -493,6 +497,7 @@ def update_llm_pipeline_genai_config(
     :param source_llm_pipeline: The source LLM pipeline to use for the update.
     :param decoder_config_extra: Extra configuration for the decoder.
     :param group_session_options: Session options for the context and iterator groups.
+    :param max_length: The maximum length for the model.
     :return: The updated composite model.
     """
     if not model.model_path or not Path(model.model_path).is_dir():
@@ -520,6 +525,12 @@ def update_llm_pipeline_genai_config(
     with open(genai_config_path) as f:
         genai_config = json.load(f)
 
+    if max_length is not None:
+        genai_config["model"]["context_length"] = max_length
+        search_max_length = genai_config["search"].get("max_length", 0)
+        if search_max_length > max_length:
+            genai_config["search"]["max_length"] = max_length
+
     # update model_type
     genai_config["model"]["type"] = "decoder-pipeline"
 
@@ -527,11 +538,11 @@ def update_llm_pipeline_genai_config(
     decoder_config = genai_config["model"]["decoder"]
     decoder_config.pop("filename", None)
     for key, value in (decoder_config_extra or {}).items():
-        exisiting_value = decoder_config.get(key)
-        if isinstance(exisiting_value, dict):
-            exisiting_value.update(value)
-        elif isinstance(exisiting_value, list):
-            exisiting_value.extend(value)
+        existing_value = decoder_config.get(key)
+        if isinstance(existing_value, dict):
+            existing_value.update(value)
+        elif isinstance(existing_value, list):
+            existing_value.extend(value)
         else:
             decoder_config[key] = value
 

@@ -220,6 +220,10 @@ class CaptureSplitInfo(Pass):
                 embed_names = ModelWrapper.from_model(pytorch_model).get_embeds()[1]
             else:
                 embed_names = ["model.embed_tokens"]
+            # also add rotary embedding to the embedding split
+            # TODO(jambayk): add the module name for older transformers model where it's in the first
+            # transformer block if needed
+            embed_names += ["model.rotary_emb"]
             for embed_name in embed_names:
                 split_assignments[embed_name] = split_idx
             split_idx += 1

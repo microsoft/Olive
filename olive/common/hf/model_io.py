@@ -249,11 +249,14 @@ def get_kv_info(io_config: Dict) -> Optional[Dict]:
             }
         )
 
-    past_shape = io_config["input_shapes"][io_config["input_names"].index(past_names[0])]
+    past_shape = io_config["input_shapes"][io_config["input_names"].index(past_names[1])]
+    present_shape = io_config["output_shapes"][io_config["output_names"].index(next(iter(present_to_past.keys())))]
 
     return {
         "past_names": past_names,
         "present_to_past": present_to_past,
         "num_kv_heads": past_shape[1],
         "head_size": past_shape[3],
+        "past_seq_len": past_shape[2],
+        "present_seq_len": present_shape[2],
     }

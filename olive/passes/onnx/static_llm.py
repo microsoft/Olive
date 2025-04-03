@@ -8,6 +8,7 @@ from typing import Dict, Type
 
 import onnx
 
+from olive.common.hf.model_io import get_kv_info
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes import Pass
@@ -49,6 +50,11 @@ class StaticLLM(Pass):
                 default_value=64,
                 description="Input length of the context model.",
             ),
+            "max_length": PassConfigParam(
+                type_=int,
+                default_value=4096,
+                description="Max length of the model. Only used for models without GroupQueryAttention.",
+            ),
         }
 
     def _run_for_config(
@@ -61,17 +67,24 @@ class StaticLLM(Pass):
             len(model_components) >= 3
         ), "There should be at least 3 components in the model: embedding, transformer, and lm_head."
 
-        # only gqa models are supported for now
-        assert (
+        # get dimension params from embeddings model
+        has_gqa = (
             "GroupQueryAttention"
             in OnnxDAG(onnx.load(model_components[1].model_path, load_external_data=False)).get_node_op_types()
-        ), "Only GQA models are supported for now."
-        # get dimension params from embeddings model
-        batch_size, sequence_length = OnnxDAG(
-            onnx.load(model_components[0].model_path, load_external_data=False)
-        ).get_io_shape("input_ids")
+        )
+        embedding_dag = OnnxDAG(onnx.load(model_components[0].model_path, load_external_data=False))
+        batch_size, sequence_length = embedding_dag.get_io_shape("input_ids")
         assert isinstance(batch_size, str), "Batch size must be a symbolic dimension"
         assert isinstance(sequence_length, str), "Sequence length must be a symbolic dimension"
+        if not has_gqa:
+            # get the total sequence length from the attention mask
+            _, total_sequence_length = embedding_dag.get_io_shape("attention_mask")
+            assert isinstance(total_sequence_length, str), "Total length must be a symbolic dimension"
+
+            # get the past and present sequence lengths
+            kv_info = get_kv_info(model_components[1].io_config)
+            past_sequence_length = kv_info["past_seq_len"]
+            assert isinstance(past_sequence_length, str), "Past sequence length must be a symbolic dimension"
 
         output_model_path = Path(output_model_path).with_suffix("")
 
@@ -83,6 +96,19 @@ class StaticLLM(Pass):
             },
             "iterator": {batch_size: config.batch_size, sequence_length: 1},
         }
+        if not has_gqa:
+            param_mapping_dict["context"].update(
+                {
+                    total_sequence_length: config.max_length,
+                    past_sequence_length: config.max_length - config.context_length,
+                }
+            )
+            param_mapping_dict["iterator"].update(
+                {
+                    total_sequence_length: config.max_length,
+                    past_sequence_length: config.max_length - 1,
+                }
+            )
 
         # update the param mapping with the new shapes from the embeddings model
         for param_mapping in param_mapping_dict.values():
@@ -125,21 +151,28 @@ class StaticLLM(Pass):
             return new_groups
 
         # need to update the genai_config with the new pipeline
-        # only support GQA model with "past_seq_len" and "total_seq_len" inputs for now
         # ort-genai only supports static shaped models with sliding window with assumptions about
         # the model and kv-cache ios
-        decoder_config_extra = {
-            "inputs": {
-                "past_sequence_length": "past_seq_len",
-                "total_sequence_length": "total_seq_len",
-            },
-            "sliding_window": {
-                "window_size": config.context_length,
-                "pad_value": 0,
-                "alignment": "left",
-                "slide_key_value_cache": False,
-            },
-        }
+        if has_gqa:
+            # only support GQA model with "past_seq_len" and "total_seq_len" inputs for now
+            decoder_config_extra = {
+                "inputs": {
+                    "past_sequence_length": "past_seq_len",
+                    "total_sequence_length": "total_seq_len",
+                },
+                "sliding_window": {
+                    "window_size": config.context_length,
+                    "pad_value": 0,
+                    "alignment": "left",
+                    "slide_key_value_cache": False,
+                },
+            }
+        else:
+            # only support non-GQA model where present length is same as sequence length. The past
+            # is not returned with the present
+            # so far we only have float, uint8 and uint16 dtypes for kv cache
+            # hopefully even for non-symmetric quantized kv cache, using the lowest int as padding gets the job done
+            decoder_config_extra = {"sliding_window": {"window_size": config.context_length, "pad_value": 0}}
         # dummy pipeline to get the context and iterator models
         pipeline = {
             "embeddings": model.model_component_names[0],
@@ -149,7 +182,12 @@ class StaticLLM(Pass):
         }
 
         return process_llm_pipeline(
-            model, pipeline, process_context_iterator, output_model_path, decoder_config_extra=decoder_config_extra
+            model,
+            pipeline,
+            process_context_iterator,
+            output_model_path,
+            decoder_config_extra=decoder_config_extra,
+            max_length=None if has_gqa else config.max_length,
         )
 
     @staticmethod
