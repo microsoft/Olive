@@ -255,6 +255,7 @@ def get_kv_info(io_config: Dict) -> Optional[Dict]:
     return {
         "past_names": past_names,
         "present_to_past": present_to_past,
+        "dtype": io_config["input_types"][io_config["input_names"].index(past_names[1])],
         "num_kv_heads": past_shape[1],
         "head_size": past_shape[3],
         "past_seq_len": past_shape[2],

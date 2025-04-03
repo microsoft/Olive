@@ -11,12 +11,13 @@ from onnxruntime import InferenceSession, OrtValue, SessionOptions, set_default_
 from tqdm import tqdm
 from transformers import PreTrainedTokenizer
 
+from olive.common.hf.model_io import get_kv_info
 from olive.common.utils import StrEnumBase, load_weights
+from olive.model.utils.onnx_utils import get_io_config
 
 if TYPE_CHECKING:
     from kv_cache_utils import Cache, IOBoundCache
     from numpy.typing import NDArray
-    from onnx import ValueInfoProto
 
 
 class AdapterMode(StrEnumBase):
@@ -71,23 +72,24 @@ class ORTGenerator:
                 self.attn_type = "mha"
                 break
         # Get io info
+        io_config = get_io_config(model_proto)
         self.input_info = {}
-        self.cache_info = {"past_names": [], "present_names": [], "dtype": None, "num_kv_heads": None, "head_dim": None}
-        for i in model_proto.graph.input:
-            if ".key" not in i.name and ".value" not in i.name:
-                self.input_info[i.name] = self.get_io_type_shape(i)
-                continue
-            if not self.cache_info["past_names"]:
-                past_info = self.get_io_type_shape(i)
-                self.cache_info["dtype"] = past_info["dtype"]
-                self.cache_info["num_kv_heads"] = past_info["shape"][1]
-                self.cache_info["head_dim"] = past_info["shape"][3]
-            self.cache_info["past_names"].append(i.name)
-        for i in model_proto.graph.output:
-            if ".key" not in i.name and ".value" not in i.name:
-                continue
-            self.cache_info["present_names"].append(i.name)
-        del model_proto
+        for i_name, i_dtype, i_shape in zip(
+            io_config["input_names"], io_config["input_types"], io_config["input_shapes"]
+        ):
+            self.input_info[i_name] = {
+                "dtype": i_dtype,
+                "shape": i_shape,
+            }
+        # Get kv info
+        self.cache_info = get_kv_info(io_config)
+        self.cache_info["present_names"] = list(self.cache_info.pop("present_to_past"))
+        self.cache_info["head_dim"] = self.cache_info.pop("head_size")
+        if self.cache_info.pop("present_seq_len") == self.input_info["input_ids"]["shape"][1]:
+            self.cache_info["only_new_present"] = True
+        else:
+            self.cache_info["only_new_present"] = False
+        del model_proto, io_config, self.cache_info["past_seq_len"]
 
         # Determine device to use for io binding
         # NOTE: QNNExecutionProvider does not support IO binding but keep it for future compatibility
@@ -104,22 +106,6 @@ class ORTGenerator:
             self.model_path, self.execution_provider, self.device, self.device_id, self.adapter_info, self.adapter_mode
         )
         self.default_adapter = next(iter(self.adapters.keys()))
-
-    @staticmethod
-    def get_io_type_shape(io: "ValueInfoProto") -> Dict:
-        """Get the type and shape of an input/output."""
-        tensor_type = io.type.tensor_type
-        if tensor_type.elem_type == 0:
-            # sequence type
-            # TODO(jambayk): add support for different types
-            # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
-            tensor_type = io.type.sequence_type.elem_type.tensor_type
-        data_type = onnx.helper.tensor_dtype_to_np_dtype(tensor_type.elem_type).name
-        shape = [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
-        return {
-            "dtype": data_type,
-            "shape": shape,
-        }
 
     @property
     def use_position_ids(self) -> bool:

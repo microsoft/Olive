@@ -26,6 +26,7 @@ class Cache(ABC):
         num_kv_heads: int,
         head_dim: int,
         dtype: str = "float32",
+        only_new_present: bool = False,
     ):
         """Initialize the cache.
 
@@ -36,6 +37,9 @@ class Cache(ABC):
         :param num_kv_heads: Number of key-value heads.
         :param head_dim: Dimension of each key-value head.
         :param dtype: Data type of the key-value tensors.
+        :param only_new_present: Whether the present key-value tensors only contain key-value for the input tokens.
+            If False, the present key-value will be the concatenation of the past key-value tensors and the key-value
+            tensors for the input tokens.
         """
         self.past_names = past_names
         self.present_names = present_names
@@ -43,13 +47,13 @@ class Cache(ABC):
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
         self.dtype = dtype
+        self.only_new_present = only_new_present
 
     @abstractmethod
     def update(self, present_kvs: List["NDArray"]):
         """Update the cache with the present key-value tensors.
 
-        :param present_kvs: List of present key-value tensors. This must be past key-value tensors
-            concatenated with the key-value tensors from the current step.
+        :param present_kvs: List of present key-value tensors.
         """
         raise NotImplementedError
 
@@ -73,6 +77,7 @@ class DynamicCache(Cache):
         num_kv_heads: int,
         head_dim: int,
         dtype: str = "float32",
+        only_new_present: bool = False,
     ):
         """Initialize the cache.
 
@@ -83,8 +88,11 @@ class DynamicCache(Cache):
         :param num_kv_heads: Number of key-value heads.
         :param head_dim: Dimension of each key-value head.
         :param dtype: Data type of the key-value tensors.
+        :param only_new_present: Whether the present key-value tensors only contain key-value for the input tokens.
+            If False, the present key-value will be the concatenation of the past key-value tensors and the key-value
+            tensors for the input tokens.
         """
-        super().__init__(past_names, present_names, batch_size, num_kv_heads, head_dim, dtype)
+        super().__init__(past_names, present_names, batch_size, num_kv_heads, head_dim, dtype, only_new_present)
         # cache before prompt processing is empty tensor
         self.cache = {
             k: np.zeros((self.batch_size, self.num_kv_heads, 0, self.head_dim), dtype=self.dtype)
@@ -97,7 +105,10 @@ class DynamicCache(Cache):
         :param present_kvs: List of present key-value tensors.
         """
         for k, v in zip(self.past_names, present_kvs):
-            self.cache[k] = v
+            if self.only_new_present:
+                self.cache[k] = np.concatenate([self.cache[k], v], axis=2)
+            else:
+                self.cache[k] = v
 
     def get_kv_inputs(self) -> Dict[str, "NDArray"]:
         """Get the key-value tensors to be used as inputs for the next step.
@@ -122,6 +133,7 @@ class StaticCache(Cache):
         num_kv_heads: int,
         head_dim: int,
         dtype: str = "float32",
+        only_new_present: bool = False,
         max_cache_len: int = 2048,
     ):
         """Initialize the cache.
@@ -133,9 +145,12 @@ class StaticCache(Cache):
         :param num_kv_heads: Number of key-value heads.
         :param head_dim: Dimension of each key-value head.
         :param dtype: Data type of the key-value tensors.
+        :param only_new_present: Whether the present key-value tensors only contain key-value for the input tokens.
+            If False, the present key-value will be the concatenation of the past key-value tensors and the key-value
+            tensors for the input tokens.
         :param max_cache_len: Maximum length of the cache.
         """
-        super().__init__(past_names, present_names, batch_size, num_kv_heads, head_dim, dtype)
+        super().__init__(past_names, present_names, batch_size, num_kv_heads, head_dim, dtype, only_new_present)
         self.max_cache_len = max_cache_len
         # allocate cache with zeros
         self.cache = {
@@ -150,9 +165,10 @@ class StaticCache(Cache):
 
         At the prompt processing step, i.e., when the cache is empty, the present key-value tensors can have any length
         smaller than or equal to max_cache_len.
-        In token generation step, i.e., with one new token at each step, the present key-value tensors must have length
-        equal to max_cache_len + 1. The last key-value tensor at the end of present_kvs is inserted into the first empty
-        slot in the cache.
+        In token generation step, i.e., with one new token at each step,
+        - only_new_present is True: the present key-value tensor must have length equal to 1.
+        - only_new_present is False: the present key-value tensor must have length equal to max_cache_len + 1. The last
+            key-value tensor at the end of present_kvs is inserted into the first empty slot in the cache.
 
         :param present_kvs: List of present key-value tensors.
         """
@@ -169,9 +185,11 @@ class StaticCache(Cache):
             self.seen_len = present_len
             return
 
+        expected_length = 1 if self.only_new_present else self.max_cache_len + 1
         assert (
-            present_len == self.max_cache_len + 1
-        ), "present_kvs must be one step longer than max_cache_len in token generation"
+            present_len == expected_length
+        ), f"present_kvs must be {expected_length} long during token generation but got {present_len}"
+        # token generation
         for k, v in zip(self.past_names, present_kvs):
             self.cache[k][:, :, self.seen_len] = v[:, :, -1]
         self.seen_len += 1
@@ -205,6 +223,7 @@ class IOBoundCache(ABC):
         num_kv_heads: int,
         head_dim: int,
         dtype: str = "float32",
+        only_new_present: bool = False,
         device: str = "cpu",
         device_id: int = 0,
         backend: str = "ort",
@@ -218,6 +237,9 @@ class IOBoundCache(ABC):
         :param num_kv_heads: Number of key-value heads.
         :param head_dim: Dimension of each key-value head.
         :param dtype: Data type of the key-value tensors.
+        :param only_new_present: Whether the present key-value tensors only contain key-value for the input tokens.
+            If False, the present key-value will be the concatenation of the past key-value tensors and the key-value
+            tensors for the input tokens.
         :param device: Device type for the cache tensors.
         :param device_id: Device ID for the cache tensors.
         :param backend: Backend for the cache tensors. Options: "ort" or "torch".
@@ -228,6 +250,7 @@ class IOBoundCache(ABC):
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
         self.dtype = dtype
+        self.only_new_present = only_new_present
         self.device = device
         self.device_id = device_id
         self.backend = backend
@@ -294,6 +317,7 @@ class DynamicIOBoundCache(IOBoundCache):
         num_kv_heads: int,
         head_dim: int,
         dtype: str = "float32",
+        only_new_present: bool = False,
         device: str = "cpu",
         device_id: int = 0,
         backend: str = "ort",
@@ -307,13 +331,25 @@ class DynamicIOBoundCache(IOBoundCache):
         :param num_kv_heads: Number of key-value heads.
         :param head_dim: Dimension of each key-value head.
         :param dtype: Data type of the key-value tensors.
+        :param only_new_present: Whether the present key-value tensors only contain key-value for the input tokens.
+            If False, the present key-value will be the concatenation of the past key-value tensors and the key-value
+            tensors for the input tokens.
         :param device: Device type for the cache tensors.
         :param device_id: Device ID for the cache tensors.
         :param backend: Backend for the cache tensors. Options: "ort" or "torch".
             There is no implemetation difference for this class between "ort" and "torch".
         """
         super().__init__(
-            past_names, present_names, batch_size, num_kv_heads, head_dim, dtype, device, device_id, backend
+            past_names,
+            present_names,
+            batch_size,
+            num_kv_heads,
+            head_dim,
+            dtype,
+            only_new_present,
+            device,
+            device_id,
+            backend,
         )
         # will just use ortvalue since we don't need to access the cache
         self.cache = {
@@ -327,7 +363,12 @@ class DynamicIOBoundCache(IOBoundCache):
         :param present_kvs: List of present key-value tensors as OrtValue.
         """
         for k, ort_value in zip(self.past_names, present_kvs):
-            self.cache[k] = ort_value
+            if self.only_new_present:
+                self.cache[k] = OrtValue.ortvalue_from_numpy(
+                    np.concatenate([self.cache[k].numpy(), ort_value.numpy()], axis=2), self.device, self.device_id
+                )
+            else:
+                self.cache[k] = ort_value
 
     def bind_kv_io(self, io_binding: "IOBinding"):
         """Bind the cache tensors to the IO binding object.
@@ -360,6 +401,7 @@ class StaticIOBoundCache(IOBoundCache):
         num_kv_heads: int,
         head_dim: int,
         dtype: str = "float32",
+        only_new_present: bool = False,
         device: str = "cpu",
         device_id: int = 0,
         backend: str = "ort",
@@ -374,6 +416,9 @@ class StaticIOBoundCache(IOBoundCache):
         :param num_kv_heads: Number of key-value heads.
         :param head_dim: Dimension of each key-value head.
         :param dtype: Data type of the key-value tensors.
+        :param only_new_present: Whether the present key-value tensors only contain key-value for the input tokens.
+            If False, the present key-value will be the concatenation of the past key-value tensors and the key-value
+            tensors for the input tokens.
         :param device: Device type for the cache tensors.
         :param device_id: Device ID for the cache tensors.
         :param backend: Backend for the cache tensors. Options: "ort" or "torch".
@@ -382,7 +427,16 @@ class StaticIOBoundCache(IOBoundCache):
         :param max_cache_len: Maximum length of the cache.
         """
         super().__init__(
-            past_names, present_names, batch_size, num_kv_heads, head_dim, dtype, device, device_id, backend
+            past_names,
+            present_names,
+            batch_size,
+            num_kv_heads,
+            head_dim,
+            dtype,
+            only_new_present,
+            device,
+            device_id,
+            backend,
         )
         self.max_cache_len = max_cache_len
         # allocate cache with zeros
@@ -393,7 +447,12 @@ class StaticIOBoundCache(IOBoundCache):
         # pre-allocate output cache for token generation
         # might be helpful when using cuda graph since the buffer is same across iterations
         self.output_cache = {
-            k: self.get_empty_buffer(self.batch_size, self.num_kv_heads, self.max_cache_len + 1, self.head_dim)
+            k: self.get_empty_buffer(
+                self.batch_size,
+                self.num_kv_heads,
+                1 if self.only_new_present else self.max_cache_len + 1,
+                self.head_dim,
+            )
             for k in self.present_names
         }
         # keep track of the length of the cache
@@ -505,6 +564,7 @@ class GQASharedCache(IOBoundCache):
         head_dim: int,
         max_cache_len: int = 2048,
         dtype: str = "float32",
+        only_new_present: bool = False,
         device: str = "gpu",
         device_id: int = 0,
         backend: str = "ort",
@@ -519,14 +579,27 @@ class GQASharedCache(IOBoundCache):
         :param head_dim: Dimension of each key-value head.
         :param max_cache_len: Maximum length of the cache.
         :param dtype: Data type of the key-value tensors.
+        :param only_new_present: Whether the present key-value tensors only contain key-value for the input tokens.
+            If False, the present key-value will be the concatenation of the past key-value tensors and the key-value
+            tensors for the input tokens.
         :param device: Device type for the cache tensors.
         :param device_id: Device ID for the cache tensors.
         :param backend: Backend for the cache tensors. Options: "ort" or "torch".
             There is no implemetation difference for this class between "ort" and "torch".
         """
         super().__init__(
-            past_names, present_names, batch_size, num_kv_heads, head_dim, dtype, device, device_id, backend
+            past_names,
+            present_names,
+            batch_size,
+            num_kv_heads,
+            head_dim,
+            dtype,
+            only_new_present,
+            device,
+            device_id,
+            backend,
         )
+        assert not self.only_new_present, "only_new_present is not supported for GQA shared cache"
         if device == "dml" and max_cache_len % 4 == 0:
             # there is an overflow bug in DML for max_cache_len % 4 == 0
             max_cache_len += 1
