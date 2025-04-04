@@ -47,8 +47,6 @@
             "config": {
                 "model_type": "bert",
                 "opt_level": 1,
-                "float16": false,
-                "keep_io_types": false,
                 "optimization_options": {
                     "enable_gelu": true,
                     "enable_bias_gelu": false,
