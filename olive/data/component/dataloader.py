@@ -145,7 +145,7 @@ class LLMAugmentedDataLoader:
         if get_verbosity() == logging.DEBUG and len(self) > 0:
             from tqdm import tqdm
 
-            progress_bar = tqdm(total=len(self), desc="LLMAugmentedDataLoader")
+            progress_bar = tqdm(total=len(self), desc="LLMAugmentedDataLoader" if self.kv_info else "DataLoader")
 
         for data in self.dataloader:
             if isinstance(data, (list, tuple)):

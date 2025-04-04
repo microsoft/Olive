@@ -817,7 +817,14 @@ class MatMulAddToGemm(Surgeon):
             gemm_output_name = f"{gemm_name}_output"
             dag.add_node(
                 onnx.helper.make_node(
-                    "Gemm", inputs=gemm_inputs, outputs=[gemm_output_name], alpha=1.0, beta=1.0, transA=0, transB=0
+                    "Gemm",
+                    inputs=gemm_inputs,
+                    outputs=[gemm_output_name],
+                    name=gemm_name,
+                    alpha=1.0,
+                    beta=1.0,
+                    transA=0,
+                    transB=0,
                 ),
                 graph_idx,
             )
