@@ -73,8 +73,7 @@
                     "enable_attention": false
                 }
             }
-        }
-        ,
+        },
         "OnnxQuantization": {
             "type": "OnnxQuantization",
             "data_config": "quantize_data_config",

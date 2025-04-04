@@ -75,8 +75,7 @@
                     "enable_attention": false
                 }
             }
-        }
-        ,
+        },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "glue_mrpc",

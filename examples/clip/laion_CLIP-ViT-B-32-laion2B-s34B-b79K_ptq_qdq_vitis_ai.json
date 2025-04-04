@@ -77,7 +77,16 @@
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "transformer_optimizer": {
             "type": "orttransformersoptimization",
-            "config": {"model_type": "clip","opt_leve":1,"optimization_options":{"enable_bias_gelu":false,"enable_attention":false,"enable_skip_layer_norm":false,"enable_bias_skip_layer_norm":false}},
+            "config": {
+                "model_type": "clip",
+                "opt_leve": 1,
+                "optimization_options": {
+                    "enable_bias_gelu": false,
+                    "enable_attention": false,
+                    "enable_skip_layer_norm": false,
+                    "enable_bias_skip_layer_norm": false
+                }
+            },
             "host": null,
             "evaluator": null
         },
@@ -85,7 +94,16 @@
             "type": "OnnxStaticQuantization",
             "quant_preprocess": true,
             "data_config": "quant_data_config",
-            "op_types_to_quantize": [ "MatMul", "LayerNormalization", "Gemm", "Sigmoid", "Gelu","Mul","Conv","Transpose" ],
+            "op_types_to_quantize": [
+                "MatMul",
+                "LayerNormalization",
+                "Gemm",
+                "Sigmoid",
+                "Gelu",
+                "Mul",
+                "Conv",
+                "Transpose"
+            ],
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax"
