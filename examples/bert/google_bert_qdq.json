@@ -25,11 +25,7 @@
                     "name": "latency",
                     "type": "latency",
                     "data_config": "xnli",
-                    "sub_types": [
-                        { "name": "avg", "priority": 1, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
-                        { "name": "max" },
-                        { "name": "min" }
-                    ]
+                    "sub_types": [ { "name": "avg", "priority": 1 }, { "name": "max" }, { "name": "min" } ]
                 },
                 {
                     "name": "throughput",

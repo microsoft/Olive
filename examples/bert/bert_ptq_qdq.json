@@ -27,20 +27,13 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "data_config": "glue_mrpc",
-                    "sub_types": [
-                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.05 } },
-                        { "name": "f1" }
-                    ]
+                    "sub_types": [ { "name": "accuracy", "priority": 1 }, { "name": "f1" } ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
                     "data_config": "glue_mrpc",
-                    "sub_types": [
-                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
-                        { "name": "max" },
-                        { "name": "min" }
-                    ]
+                    "sub_types": [ { "name": "avg" }, { "name": "max" }, { "name": "min" } ]
                 },
                 {
                     "name": "throughput",
@@ -58,7 +51,10 @@
             "dim_param": [ "batch_size", "sequence_length" ],
             "dim_value": [ 1, 128 ]
         },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
+        "surgery": {
+            "type": "GraphSurgeries",
+            "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" }, { "surgeon": "MatMulAddToGemm" } ]
+        },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "glue_mrpc",

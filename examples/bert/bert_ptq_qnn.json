@@ -38,13 +38,13 @@
                     "name": "latency",
                     "type": "latency",
                     "data_config": "glue_mrpc",
-                    "sub_types": [ { "name": "avg", "priority": 2 } ]
+                    "sub_types": [ { "name": "avg" } ]
                 },
                 {
                     "name": "latency_cpu",
                     "type": "latency",
                     "data_config": "glue_mrpc",
-                    "sub_types": [ { "name": "avg", "priority": 3 } ],
+                    "sub_types": [ { "name": "avg" } ],
                     "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                 }
             ]
