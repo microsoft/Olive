@@ -853,6 +853,12 @@ class MatMulAddToGemm(Surgeon):
                 removed_nodes.add(to_remove)
             modified += 1
 
+        if modified > 0:
+            logger.debug("Replaced %d MatMul + Add nodes with Gemm nodes", modified)
+
+        dag.update()
+        return dag.model
+
     @staticmethod
     def add_reshape_node(
         dag: OnnxDAG, graph_idx: int, node_name: str, input_name: str, target_shape: List[int], output_elem_type: int
