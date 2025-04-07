@@ -106,18 +106,13 @@
             ],
             "dim_value": [ 1, 3, 512, 512, 1, 4, 64, 64 ]
         },
-        "peephole": {
-            "type": "OnnxPeepholeOptimizer", "save_as_external_data": true
-        },
-        "qnn_preprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "quantize_data_config",
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
-            "quant_preprocess": true,
-            "prepare_qnn_config": true
+            "quant_preprocess": true
         }
     },
     "log_severity_level": 0,
