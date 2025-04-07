@@ -39,7 +39,7 @@ class OnnxScriptFusion(Pass):
         output = ort_fusions.optimize_for_ort(model_ir)
         if isinstance(output, tuple):
             model_ir, function_stats = output
-            logger.info("Function stats: %s", function_stats)
+            logger.debug("Function stats: %s", function_stats)
         else:
             model_ir = output
         model_proto = ir.to_proto(model_ir)
