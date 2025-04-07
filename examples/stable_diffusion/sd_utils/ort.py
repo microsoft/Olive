@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+
 import json
 import shutil
 import sys
@@ -73,9 +74,15 @@ def save_optimized_onnx_submodel(submodel_name, provider, model_info):
         conversion_footprint = None
         optimizer_footprint = None
         for footprint in footprints.values():
-            if footprint["from_pass"] == "OnnxConversion":
+            from_pass = footprint["from_pass"].lower() if footprint["from_pass"] else ""
+            if from_pass == "OnnxConversion".lower():
                 conversion_footprint = footprint
-            elif footprint["from_pass"] == "OrtTransformersOptimization":
+                if sd_config.only_conversion:
+                    optimizer_footprint = footprint
+            elif (
+                from_pass == "OrtTransformersOptimization".lower()
+                or from_pass == "OnnxStaticQuantization".lower()
+            ):
                 optimizer_footprint = footprint
 
         assert conversion_footprint
@@ -150,7 +157,7 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
     unet_sample_size = sd_config.unet_sample_size
 
     if static_dims:
-        hidden_batch_size = batch_size if (guidance_scale == 0.0) else batch_size * 2
+        hidden_batch_size = batch_size if (guidance_scale <= 1.0) else batch_size * 2
         # Not necessary, but helps DML EP further optimize runtime performance.
         # batch_size is doubled for sample & hidden state because of classifier free guidance:
         # https://github.com/huggingface/diffusers/blob/46c52f9b9607e6ecb29c782c052aea313e6487b7/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L672

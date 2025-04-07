@@ -187,3 +187,35 @@ Inference will loop until the generated image. The result will be saved as `resu
 Run `python stable_diffusion.py --help` for additional options. A few particularly relevant ones:
 - `--image_path <str>`: the input image path for image to image inference.
 - `--img_to_img_example`: image to image example. The default input image is `assets/dog.png`, the default prompt is `amazing watercolor painting`.
+
+## Stable Diffusion Quantization encoded in QDQ format
+
+### Generate data for static quantization
+
+To get better result, we need to generate real data from original model instead of using random data for static quantization.
+
+First generate onnx unoptimized model:
+
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider qdq --optimize --only_conversion`
+
+Then generate data:
+
+`python .\evaluation.py --save_data --model_id stabilityai/sd-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0`
+
+### Optimize
+
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider qdq --optimize --clean_cache`
+
+### Test and evaluate
+
+`python .\evaluation.py --model_id stabilityai/sd-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0`
+
+#### Evaluation result
+
+From a qualitative perspective, 2 steps of the quantized model could generate visually better results than original 1 step.
+
+|Model|CLIP Scores|FID|MSE to original|
+|-|-|-|-|
+|Original 1 step|31.10|179.77|N/A|
+|Quantized 1 step|31.29 | 177.53|388.5 |
+|Quantized 2 steps|31.05|181.86| N/A|

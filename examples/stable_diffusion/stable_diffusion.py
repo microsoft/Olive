@@ -177,7 +177,7 @@ def run_inference_gui(
     window.mainloop()
 
 
-def update_config_with_provider(config: Dict, provider: str):
+def update_config_with_provider(config: Dict, provider: str, submodel_name: str):
     if provider == "dml":
         from sd_utils.ort import update_dml_config
 
@@ -190,6 +190,10 @@ def update_config_with_provider(config: Dict, provider: str):
         from sd_utils.ov import update_ov_config
 
         return update_ov_config(config)
+    elif provider == "qdq":
+        from sd_utils.qdq import update_qdq_config
+
+        return update_qdq_config(config, submodel_name)
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
@@ -235,8 +239,9 @@ def optimize(
     has_safety_checker = getattr(pipeline, "safety_checker", None) is not None
 
     if has_safety_checker:
-        if provider == "openvino":
-            print("WARNING: Safety checker is not supported by OpenVINO. It will be disabled.")
+        if provider == "openvino" or provider == "qdq":
+            print(f"WARNING: Safety checker is not supported by {provider}. It will be disabled.")
+            has_safety_checker = False
         else:
             submodel_names.append("safety_checker")
 
@@ -246,7 +251,7 @@ def optimize(
         olive_config = None
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
-        olive_config = update_config_with_provider(olive_config, provider)
+        olive_config = update_config_with_provider(olive_config, provider, submodel_name)
 
         if submodel_name in ("unet", "text_encoder"):
             olive_config["input_model"]["model_path"] = model_id
@@ -286,7 +291,11 @@ def parse_common_args(raw_args):
 
     parser.add_argument("--model_id", default="CompVis/stable-diffusion-v1-4", type=str)
     parser.add_argument(
-        "--provider", default="dml", type=str, choices=["dml", "cuda", "openvino"], help="Execution provider to use"
+        "--provider",
+        default="dml",
+        type=str,
+        choices=["dml", "cuda", "openvino", "qdq"],
+        help="Execution provider to use",
     )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
@@ -354,6 +363,16 @@ def parse_ov_args(raw_args):
     return parser.parse_known_args(raw_args)
 
 
+def parse_qdq_args(raw_args):
+    parser = argparse.ArgumentParser("QDQ arguments")
+
+    parser.add_argument("--save_data", action="store_true")
+    parser.add_argument("--data_dir", default="quantize_data/data", type=str)
+    parser.add_argument("--only_conversion", action="store_true")
+
+    return parser.parse_known_args(raw_args)
+
+
 def main(raw_args=None):
     common_args, extra_args = parse_common_args(raw_args)
 
@@ -374,9 +393,13 @@ def main(raw_args=None):
         guidance_scale = 0.0
         print(f"WARNING: Classifier free guidance has been forcefully disabled since {model_id} doesn't support it.")
 
-    ov_args, ort_args = None, None
+    ov_args, qdq_args, ort_args = None, None, None
     if provider == "openvino":
         ov_args, extra_args = parse_ov_args(extra_args)
+    elif provider == "qdq":
+        qdq_args, extra_args = parse_qdq_args(extra_args)
+        config.only_conversion = qdq_args.only_conversion
+        config.data_dir = script_dir / qdq_args.data_dir
     else:
         ort_args, extra_args = parse_ort_args(extra_args)
 
@@ -386,7 +409,7 @@ def main(raw_args=None):
         # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            if provider != "openvino":
+            if provider != "openvino" and provider != "qdq":
                 from sd_utils.ort import validate_args
 
                 validate_args(ort_args, common_args.provider)
@@ -402,6 +425,10 @@ def main(raw_args=None):
                 from sd_utils.ov import get_ov_pipeline
 
                 pipeline = get_ov_pipeline(common_args, ov_args, optimized_model_dir)
+            elif provider == "qdq":
+                from sd_utils.qdq import get_qdq_pipeline
+
+                pipeline = get_qdq_pipeline(model_dir, common_args, qdq_args, script_dir)
             else:
                 from sd_utils.ort import get_ort_pipeline
 
