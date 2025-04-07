@@ -1,3 +1,4 @@
+accelerate
 datasets
 neural-compressor>=2.4.1
 onnxruntime-gpu
