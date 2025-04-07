@@ -210,10 +210,12 @@ Then generate data (updating the prompts to generate more will be better):
 
 `python .\evaluation.py --model_id stabilityai/sd-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0`
 
-### Evaluation result
+#### Evaluation result
 
-|Model|CLIP Scores|FID|hpsv2|MSE to original|
-|-|-|-|-|-|
-|Original 1 step|31.11|313.02|N/A|N/A|
-|Quantized 1 step| | | | |
-|Quantized 2 steps| | | |N/A|
+From a qualitative perspective, 2 steps of the quantized model could generate visually better results than original 1 step.
+
+|Model|CLIP Scores|FID|MSE to original|
+|-|-|-|-|
+|Original 1 step|31.10|179.77|N/A|
+|Quantized 1 step|31.29 | 177.53|388.5 |
+|Quantized 2 steps|31.05|181.86| N/A|
