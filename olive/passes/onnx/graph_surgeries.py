@@ -800,7 +800,9 @@ class MatMulAddToGemm(Surgeon):
             if len(matmul_a_shape) != 2:
                 # need to reshape the first input to 2D
                 # only support static shapes for now, otherwise we need to add shape related ops
-                if any(not isinstance(dim_value, int) for dim_value in matmul_a_shape):
+                if any(
+                    not isinstance(dim_value, int) for dim_value in [*matmul_input_shapes[0], *matmul_input_shapes[1]]
+                ):
                     continue
 
                 pre_reshape_name = self.create_new_name(gemm_name, "Gemm", "Reshape_pre")
