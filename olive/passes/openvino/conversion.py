@@ -4,12 +4,13 @@
 # --------------------------------------------------------------------------
 from pathlib import Path
 from typing import Callable, Dict, List, Type, Union
+import torch
 from olive.constants import Framework
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, ONNXModelHandler, OpenVINOModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
-import torch
+
 
 class OpenVINOConversion(Pass):
     """Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model."""
@@ -55,12 +56,12 @@ class OpenVINOConversion(Pass):
                     "https://docs.openvino.ai/2023.3/openvino_docs_OV_Converter_UG_Conversion_Options.html"
                 ),
             ),
-            "output_model": PassConfigParam(
+            "model_name": PassConfigParam(
                 type_=str,
                 default_value="ov_model",
                 required=False,
                 description=(
-                    "Name of the output OpenVINO model. "
+                    "Name of output openVINO model."
                 ),
             ),
             "static": PassConfigParam(
@@ -91,11 +92,11 @@ class OpenVINOConversion(Pass):
         input_model = model.model_path
         if model.framework == Framework.PYTORCH:
             input_model = model.load_model()
-            
+
         example_input = []
         if config.example_input_func:
             example_input = self._user_module_loader.call_object(config.example_input_func)
-        elif config.input_shapes and model.framework == Framework.PYTORCH:
+        elif config.input_shapes and model.framework == Framework.PYTORCH and isinstance(config.input_shapes,list):
             for i in config.input_shapes:
                 example_input.append(torch.rand(i))
         else:
@@ -119,10 +120,14 @@ class OpenVINOConversion(Pass):
         if config.static:
             args["input"] = input_shapes
 
-        ov_model = ov.convert_model(**args)
+        try:
+            ov_model = ov.convert_model(**args)
+        except Exception:
+            msg = "Invalid config file. Please recheck parameters"
+            raise ValueError(msg) from None
 
-        output_dir = Path(output_model_path) / (config.output_model or config.model_name)
-        
+        output_dir = Path(output_model_path) / config.model_name
+
         # Save as ov model
         ov.save_model(ov_model, output_model=output_dir.with_suffix(".xml"), compress_to_fp16=config.compress_to_fp16)
         return OpenVINOModelHandler(model_path=output_model_path)

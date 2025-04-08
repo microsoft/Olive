@@ -5,7 +5,6 @@
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Type, Union
-
 from olive.common.config_utils import validate_config
 from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
@@ -18,9 +17,7 @@ from olive.passes.pass_config import BasePassConfig, ParamCategory, PassConfigPa
 if TYPE_CHECKING:
     from openvino import CompiledModel
 
-
 logger = logging.getLogger(__name__)
-
 
 def _default_validate_func(model: "CompiledModel", validation_loader) -> float:
     import numpy as np
@@ -28,7 +25,6 @@ def _default_validate_func(model: "CompiledModel", validation_loader) -> float:
 
     predictions = []
     references = []
-
     output = model.outputs[0]
 
     for data_item, target in validation_loader:
@@ -162,7 +158,7 @@ class OpenVINOQuantizationBase(Pass):
         def transform_fn(data_item):
             data, _ = data_item
             return data
-        
+
         transform_func = (
             self._user_module_loader.load_object(config.transform_fn)
             if config.transform_fn

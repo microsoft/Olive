@@ -3,45 +3,49 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Dict, Type, Union
+from typing import Dict, Type, Union, ClassVar
+from openvino import get_version
+import onnx.helper as helper
+from onnx import TensorProto, save
+import shutil
+import os
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
-from openvino import get_version
-import onnx.helper as helper
-from onnx import TensorProto, save
-import shutil
 
 class OpenVINOEncapsulation(Pass):
-    openvino_to_onnx_dtype = {
-        'f32': TensorProto.FLOAT,
-        'float32': TensorProto.FLOAT,
-        'f64': TensorProto.DOUBLE,
-        'float64': TensorProto.DOUBLE,
-        'f16': TensorProto.FLOAT16,
-        'bf16': TensorProto.BFLOAT16,
-        'i8': TensorProto.INT8,
-        'int8_t': TensorProto.INT8,
-        'i16': TensorProto.INT16,
-        'int16_t': TensorProto.INT16,
-        'i32': TensorProto.INT32,
-        'int32_t': TensorProto.INT32,
-        'i64': TensorProto.INT64,
-        'int64_t': TensorProto.INT64,
-        'u8': TensorProto.UINT8,
-        'uint8_t': TensorProto.UINT8,
-        'u16': TensorProto.UINT16,
-        'uint16_t': TensorProto.UINT16,
-        'u32': TensorProto.UINT32,
-        'uint32_t': TensorProto.UINT32,
-        'u64': TensorProto.UINT64,
-        'uint64_t': TensorProto.UINT64,
-        'bool': TensorProto.BOOL,
-        'boolean': TensorProto.BOOL,
+    """Encapsulates OpenVINO models with onnx context nodes."""
+
+    openvino_to_onnx_dtype : ClassVar[dict] = {
+        "f32": TensorProto.FLOAT,
+        "float32": TensorProto.FLOAT,
+        "f64": TensorProto.DOUBLE,
+        "float64": TensorProto.DOUBLE,
+        "f16": TensorProto.FLOAT16,
+        "bf16": TensorProto.BFLOAT16,
+        "i8": TensorProto.INT8,
+        "int8_t": TensorProto.INT8,
+        "i16": TensorProto.INT16,
+        "int16_t": TensorProto.INT16,
+        "i32": TensorProto.INT32,
+        "int32_t": TensorProto.INT32,
+        "i64": TensorProto.INT64,
+        "int64_t": TensorProto.INT64,
+        "u8": TensorProto.UINT8,
+        "uint8_t": TensorProto.UINT8,
+        "u16": TensorProto.UINT16,
+        "uint16_t": TensorProto.UINT16,
+        "u32": TensorProto.UINT32,
+        "uint32_t": TensorProto.UINT32,
+        "u64": TensorProto.UINT64,
+        "uint64_t": TensorProto.UINT64,
+        "bool": TensorProto.BOOL,
+        "boolean": TensorProto.BOOL,
         # Add more if needed
     }
+
     # Add any required data members to the class
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -55,14 +59,12 @@ class OpenVINOEncapsulation(Pass):
                     "Available devices are cpu, gpu, npu."
                 ),
             ),
-            "shared_cache": PassConfigParam(
+            "reuse_cache": PassConfigParam(
                 type_=bool,
                 default_value=False,
                 required=False,
                 description=(
                     "Uses the same cache folder of the previous pass."
-                    "Can only be used with dynamic models."
-                    "Ignored if model I/O names are found to be missing."
                     "Enahances file reusablility between each pass."
                 ),
             ),
@@ -109,10 +111,10 @@ class OpenVINOEncapsulation(Pass):
             import openvino as ov
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
-        
-        if config.shared_cache:
+
+        if config.reuse_cache:
             output_model_path = model.model_path
-        
+
         if config.input_model:
             model_name = config.input_model
         else:
@@ -128,23 +130,28 @@ class OpenVINOEncapsulation(Pass):
 
         loaded_model = core.read_model(model=input_dir.with_suffix(".xml"))
 
-        context_name = model_name + ".xml"
-        
+        context_name = f"{model_name}.xml"
 
         # Get/Fix input names & ov shapes.
         input_info = {}
-        for i,input in enumerate(loaded_model.inputs):
+        for i,inp in enumerate(loaded_model.inputs):
             name = "input_" + str(i)
-            if input:
-                name = input.get_any_name()
-            input_info[name] = (input.get_partial_shape(), input.get_element_type())
+            if inp:
+                try:
+                    name = inp.get_any_name()
+                except Exception:
+                    raise Exception("Incorrect IO names, please use OpenVINO reshape pass before this pass") from None
+            input_info[name] = (inp.get_partial_shape(), inp.get_element_type())
 
         # Get/Fix input names & ov shapes.
         output_info = {}
         for i,out in enumerate(loaded_model.outputs):
             name = "output_" + str(i)
             if out:
-                name = out.get_any_name()
+                try:
+                    name = out.get_any_name()
+                except Exception:
+                    raise Exception("Incorrect IO names, please use OpenVINO reshape pass before this pass") from None
             output_info[name] = (out.get_partial_shape(), out.get_element_type())
 
         # Transform to onnx input shapes
@@ -178,10 +185,10 @@ class OpenVINOEncapsulation(Pass):
             onnx_dtype = self.openvino_to_onnx_dtype.get(normalized_dtype)
 
             outputs.append(helper.make_tensor_value_info(name, onnx_dtype, shape_list))
-        
+
         # Create context node (simulates a custom EP context schema operation)
         context_node = helper.make_node(
-            "EPContext",  
+            "EPContext",
             inputs = [name for name, _ in input_info.items()],
             outputs = [name for name, _ in output_info.items()],
             name="ContextNode",
@@ -213,14 +220,18 @@ class OpenVINOEncapsulation(Pass):
         )
 
         # Save the model
-        context_model_output = model_name + ".onnx"
+        context_model_output = f"{model_name}.onnx"
         context_model_output_dir = Path(output_model_path) / (context_model_output)
+
+        if not os.path.exists(output_model_path):
+            os.makedirs(output_model_path)
+
         save(model_def, context_model_output_dir)
-        
+
         xml_file = input_dir.with_suffix(".xml")
         bin_file = input_dir.with_suffix(".bin")
-        if not config.shared_cache :
+        if not config.reuse_cache :
             shutil.copy2(xml_file, output_model_path)
             shutil.copy2(bin_file, output_model_path)
-        
+
         return ONNXModelHandler(model_path=output_model_path)
