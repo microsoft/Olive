@@ -114,9 +114,15 @@ class OpenVINOQuantizationBase(Pass):
                 default_value=accelerator_spec.accelerator_type,
                 description=(
                     "Target device for the model. "
-                    "Supported values: 'any', 'cpu', 'gpu', 'cpu_spr', 'vpu'. "
+                    "Supported values: 'any', 'cpu', 'gpu', 'cpu_spr', 'npu'. "
                     "Default value is the same as the accelerator type of this workflow run."
                 ),
+            ),
+            "transform_fn": PassConfigParam(
+                type_=Union[Callable, str],
+                category=ParamCategory.OBJECT,
+                required=False,
+                description="Transform function for the input data.",
             ),
             "extra_configs": PassConfigParam(
                 type_=List[Dict],
@@ -156,8 +162,14 @@ class OpenVINOQuantizationBase(Pass):
         def transform_fn(data_item):
             data, _ = data_item
             return data
+        
+        transform_func = (
+            self._user_module_loader.load_object(config.transform_fn)
+            if config.transform_fn
+            else transform_fn
+        )
 
-        return nncf.Dataset(data_loader, transform_fn)
+        return nncf.Dataset(data_loader, transform_func)
 
     @staticmethod
     def _get_extra_params(config):
@@ -167,12 +179,12 @@ class OpenVINOQuantizationBase(Pass):
             "cpu": nncf.TargetDevice.CPU,
             "gpu": nncf.TargetDevice.CPU,
             "cpu_spr": nncf.TargetDevice.CPU_SPR,
-            "vpu": nncf.TargetDevice.VPU,
-            "npu": nncf.TargetDevice.VPU,
+            "npu": nncf.TargetDevice.NPU,
+            "any": nncf.TargetDevice.ANY,
         }
 
         extra_params = {}
-        extra_params["model_type"] = nncf.ModelType.Transformer if config.model_type == "TRANSFORMER" else None
+        extra_params["model_type"] = nncf.ModelType.TRANSFORMER if config.model_type == "TRANSFORMER" else None
         extra_params["preset"] = (
             nncf.QuantizationPreset.PERFORMANCE if config.preset == "PERFORMANCE" else nncf.QuantizationPreset.MIXED
         )
@@ -200,7 +212,16 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
         model = model.load_model()
         extra_params = self._get_extra_params(config)
 
-        quantized_model = nncf.quantize(model, calibration_dataset, **extra_params)
+        # nncf.AdvancedQuantizationParameters
+        advanced_params = None
+        if config.extra_configs:
+            for extra_config in config.extra_configs:
+                if extra_config.get("advanced_quantization_parameters"):
+                    advanced_params = nncf.AdvancedQuantizationParameters(
+                        **extra_config["advanced_quantization_parameters"]
+                    )
+
+        quantized_model = nncf.quantize(model, calibration_dataset, advanced_parameters=advanced_params, **extra_params)
 
         model_name = "ov_model"
         output_dir = Path(output_model_path) / model_name

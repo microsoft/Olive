@@ -4,13 +4,12 @@
 # --------------------------------------------------------------------------
 from pathlib import Path
 from typing import Callable, Dict, List, Type, Union
-
 from olive.constants import Framework
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, ONNXModelHandler, OpenVINOModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
-
+import torch
 
 class OpenVINOConversion(Pass):
     """Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model."""
@@ -19,22 +18,24 @@ class OpenVINOConversion(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
-            "input": PassConfigParam(
+            "input_shapes": PassConfigParam(
                 type_=Union[Callable, str, List],
                 required=False,
                 description=(
-                    "Set or override shapes for model inputs. "
-                    "It configures dynamic and static dimensions in model inputs "
+                    "Set or override shapes for model inputs."
+                    "It configures dynamic and static dimensions in model inputs"
                     "depending on your inference requirements."
+                    "Static parameter is required if static models are required."
                 ),
             ),
             "example_input_func": PassConfigParam(
                 type_=Union[Callable, str],
                 required=False,
                 description=(
-                    "Function/function name to generate sample of model input in original framework. "
-                    "For PyTorch it can be torch.Tensor. "
-                    "For Tensorflow it can be tf.Tensor or numpy.ndarray. "
+                    "Function/function name to generate sample of model input in original framework."
+                    "For PyTorch it can be torch.Tensor."
+                    "For Tensorflow it can be tf.Tensor or numpy.ndarray."
+                    "By default a pytorch float tensor is created."
                 ),
             ),
             "compress_to_fp16": PassConfigParam(
@@ -58,8 +59,19 @@ class OpenVINOConversion(Pass):
                 type_=str,
                 default_value="ov_model",
                 required=False,
-                description="Name of the output OpenVINO model.",
+                description=(
+                    "Name of the output OpenVINO model. "
+                ),
             ),
+            "static": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                required=False,
+                description=(
+                    "Create a static model instead of a dynamic model."
+                    "Enabled by default."
+                ),
+            )
         }
 
     def _run_for_config(
@@ -79,32 +91,38 @@ class OpenVINOConversion(Pass):
         input_model = model.model_path
         if model.framework == Framework.PYTORCH:
             input_model = model.load_model()
-
-        example_input = None
+            
+        example_input = []
         if config.example_input_func:
             example_input = self._user_module_loader.call_object(config.example_input_func)
+        elif config.input_shapes and model.framework == Framework.PYTORCH:
+            for i in config.input_shapes:
+                example_input.append(torch.rand(i))
+        else:
+            example_input = None
 
-        input_shape = None
-        if config.input:
-            config_input = config.input
+        input_shapes = None
+        if config.input_shapes:
+            config_input = config.input_shapes
             if isinstance(config_input, List):
-                input_shape = config_input
+                input_shapes = config_input
             else:
-                input_shape = self._user_module_loader.call_object(config_input)
+                input_shapes = self._user_module_loader.call_object(config_input)
 
         extra_configs = config.extra_configs or {}
         args = {
             "input_model": input_model,
-            "input": input_shape,
             "example_input": example_input,
             **extra_configs,
         }
 
+        if config.static:
+            args["input"] = input_shapes
+
         ov_model = ov.convert_model(**args)
 
-        model_name = "ov_model"
-        output_dir = Path(output_model_path) / (config.output_model or model_name)
-
+        output_dir = Path(output_model_path) / (config.output_model or config.model_name)
+        
         # Save as ov model
         ov.save_model(ov_model, output_model=output_dir.with_suffix(".xml"), compress_to_fp16=config.compress_to_fp16)
         return OpenVINOModelHandler(model_path=output_model_path)
