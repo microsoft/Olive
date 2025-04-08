@@ -144,7 +144,8 @@ class OnnxStableDiffusionPipelineWithSave(OnnxStableDiffusionPipeline):
         timestep_dtype = ORT_TO_NP_TYPE[timestep_dtype]
 
         if do_classifier_free_guidance:
-            neg_embeds, text_embeds = np.split(prompt_embeds, 2)
+            splits = np.split(prompt_embeds, 2)
+            neg_embeds, text_embeds = splits[0], splits[1]
 
         for i, t in enumerate(self.progress_bar(self.scheduler.timesteps)):
             latent_model_input = latents

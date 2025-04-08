@@ -190,7 +190,7 @@ def update_config_with_provider(config: Dict, provider: str, submodel_name: str)
         from sd_utils.ov import update_ov_config
 
         return update_ov_config(config)
-    elif provider == "qdq":
+    elif provider == "cpu_qdq":
         from sd_utils.qdq import update_qdq_config
 
         return update_qdq_config(config, submodel_name)
@@ -239,7 +239,7 @@ def optimize(
     has_safety_checker = getattr(pipeline, "safety_checker", None) is not None
 
     if has_safety_checker:
-        if provider == "openvino" or provider == "qdq":
+        if provider in ("openvino", "cpu_qdq"):
             print(f"WARNING: Safety checker is not supported by {provider}. It will be disabled.")
             has_safety_checker = False
         else:
@@ -294,7 +294,7 @@ def parse_common_args(raw_args):
         "--provider",
         default="dml",
         type=str,
-        choices=["dml", "cuda", "openvino", "qdq"],
+        choices=["dml", "cuda", "openvino", "cpu_qdq"],
         help="Execution provider to use",
     )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
@@ -364,7 +364,7 @@ def parse_ov_args(raw_args):
 
 
 def parse_qdq_args(raw_args):
-    parser = argparse.ArgumentParser("QDQ arguments")
+    parser = argparse.ArgumentParser("CPU QDQ arguments")
 
     parser.add_argument("--save_data", action="store_true")
     parser.add_argument("--data_dir", default="quantize_data/data", type=str)
@@ -396,7 +396,7 @@ def main(raw_args=None):
     ov_args, qdq_args, ort_args = None, None, None
     if provider == "openvino":
         ov_args, extra_args = parse_ov_args(extra_args)
-    elif provider == "qdq":
+    elif provider == "cpu_qdq":
         qdq_args, extra_args = parse_qdq_args(extra_args)
         config.only_conversion = qdq_args.only_conversion
         config.data_dir = script_dir / qdq_args.data_dir
@@ -409,7 +409,7 @@ def main(raw_args=None):
         # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            if provider != "openvino" and provider != "qdq":
+            if provider not in ("openvino", "cpu_qdq"):
                 from sd_utils.ort import validate_args
 
                 validate_args(ort_args, common_args.provider)
@@ -425,7 +425,7 @@ def main(raw_args=None):
                 from sd_utils.ov import get_ov_pipeline
 
                 pipeline = get_ov_pipeline(common_args, ov_args, optimized_model_dir)
-            elif provider == "qdq":
+            elif provider == "cpu_qdq":
                 from sd_utils.qdq import get_qdq_pipeline
 
                 pipeline = get_qdq_pipeline(model_dir, common_args, qdq_args, script_dir)

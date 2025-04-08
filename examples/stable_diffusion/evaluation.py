@@ -10,7 +10,7 @@ import re
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Callable
+from typing import Callable, List
 
 import numpy as np
 import requests
@@ -37,7 +37,7 @@ def get_clip_score(prompt: str, path: Path, clip_score_fn):
         return score.detach()
 
 
-def get_clip_scores(prompts: list[str], path: Path, clip_score_fn):
+def get_clip_scores(prompts: List[str], path: Path, clip_score_fn):
     scores = []
     with open(path / "clip_scores.txt", "w") as f:
         f.write("| Prompt | Score |\n")
@@ -61,7 +61,7 @@ def calc_error(image1, image2):
     return np.mean((image1 - image2) ** 2)
 
 
-def get_mse_scores(prompts: list[str], unoptimized_path: Path, optimized_path: Path, train_num: int):
+def get_mse_scores(prompts: List[str], unoptimized_path: Path, optimized_path: Path, train_num: int):
     train_error = []
     test_error = []
     with open(optimized_path / "mse_scores.txt", "w") as f:
@@ -85,7 +85,7 @@ def get_mse_scores(prompts: list[str], unoptimized_path: Path, optimized_path: P
 # FID score
 
 
-def get_fid_scores(prompts: list[str], path: Path, real_images):
+def get_fid_scores(prompts: List[str], path: Path, real_images):
     with torch.no_grad(), open(path / "fid_scores.txt", "w") as f:
         f.write("| Prompt | Score |\n")
         images = []
@@ -107,15 +107,15 @@ def get_fid_scores(prompts: list[str], path: Path, real_images):
 # hpsv2 score
 
 
-def get_hpsv2_scores(path: Path, generate_image: Callable[[str, str], None], style: str):
-    if style is None:
+def get_hpsv2_scores(path: Path, generate_image: Callable[[str, str], None], prompt_style: str):
+    if prompt_style is None:
         return
     import hpsv2
 
     # Get benchmark prompts (<style> = all, anime, concept-art, paintings, photo)
-    all_prompts = hpsv2.benchmark_prompts(style)
-    if style != "all":
-        all_prompts = {style: all_prompts}
+    all_prompts = hpsv2.benchmark_prompts(prompt_style)
+    if prompt_style != "all":
+        all_prompts = {prompt_style: all_prompts}
     for style, prompts in all_prompts.items():
         os.makedirs(path / style, exist_ok=True)
         for idx, prompt in enumerate(prompts):
@@ -135,7 +135,7 @@ def sanitize_path(input_string):
 def download_file(url, save_path):
     try:
         # Send a GET request to the URL
-        response = requests.get(url, stream=True)
+        response = requests.get(url, stream=True, timeout=10)
         response.raise_for_status()  # Raise an error for bad status codes
 
         # Write the content to the specified file
@@ -236,7 +236,7 @@ def main(raw_args=None):
     optimized_path: Path = script_dir / args.data_dir / args.sub_dir
 
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
-    optimized_dir_name = "optimized-qdq"
+    optimized_dir_name = "optimized-cpu_qdq"
     optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     model_dir = unoptimized_model_dir if args.save_data else optimized_model_dir

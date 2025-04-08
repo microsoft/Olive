@@ -196,7 +196,7 @@ To get better result, we need to generate real data from original model instead 
 
 First generate onnx unoptimized model:
 
-`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider qdq --optimize --only_conversion`
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu_qdq --optimize --only_conversion`
 
 Then generate data:
 
@@ -204,7 +204,7 @@ Then generate data:
 
 ### Optimize
 
-`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider qdq --optimize --clean_cache`
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu_qdq --optimize --clean_cache`
 
 ### Test and evaluate
 
