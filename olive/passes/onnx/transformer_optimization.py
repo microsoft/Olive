@@ -226,7 +226,7 @@ class OrtTransformersOptimization(Pass):
         keys_to_remove += get_external_data_config()
         run_config = exclude_keys(run_config, keys_to_remove)
 
-        if model.model_attributes:
+        if model.model_attributes and run_config["model_type"] != "clip":
             model_wrapper = ModelWrapper(model.model_attributes)
 
             model_type = MODEL_TYPE_MAPPING.get(model_wrapper.model_type, model_wrapper.model_type)
