@@ -79,10 +79,7 @@ def save_optimized_onnx_submodel(submodel_name, provider, model_info):
                 conversion_footprint = footprint
                 if sd_config.only_conversion:
                     optimizer_footprint = footprint
-            elif (
-                from_pass == "OrtTransformersOptimization".lower()
-                or from_pass == "OnnxStaticQuantization".lower()
-            ):
+            elif from_pass == "OrtTransformersOptimization".lower() or from_pass == "OnnxStaticQuantization".lower():
                 optimizer_footprint = footprint
 
         assert conversion_footprint

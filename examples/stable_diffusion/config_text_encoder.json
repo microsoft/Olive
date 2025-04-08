@@ -95,7 +95,7 @@
             "dim_param": [ "batch", "sequence" ],
             "dim_value": [ 1, 77 ]
         },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue"} ] },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "quantize_data_config",

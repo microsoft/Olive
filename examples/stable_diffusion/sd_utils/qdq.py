@@ -10,27 +10,26 @@ from typing import Callable, Dict, List, Optional, Union
 import numpy as np
 import onnxruntime as ort
 import sd_utils
+import sd_utils.config
 import torch
 from diffusers import OnnxStableDiffusionPipeline
 from diffusers.pipelines.onnx_utils import ORT_TO_NP_TYPE
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 
-import sd_utils.config
-
 
 def update_qdq_config(config: Dict, submodel_name: str):
     used_passes = {}
     if sd_utils.config.only_conversion:
-        used_passes = { "convert" }
+        used_passes = {"convert"}
     # TODO(hualxie): onnx or onnxruntime needs to fix this
     elif submodel_name == "unet":
         config["input_model"]["io_config"]["dynamic_axes"] = None
         config["input_model"]["io_config"]["input_shapes"] = [
             # 512 / 8 instead of sd_utils.config.unet_sample_size
-            [ 1, 4, 64, 64 ],
-            [ 1 ],
-            [ 1, 77, sd_utils.config.cross_attention_dim ],
-            [1]
+            [1, 4, 64, 64],
+            [1],
+            [1, 77, sd_utils.config.cross_attention_dim],
+            [1],
         ]
         config["input_model"]["dummy_inputs_func"] = None
         used_passes = {"convert", "quantization"}

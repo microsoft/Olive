@@ -3,30 +3,31 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import logging
+import math
 import os
+import re
+import sys
+from functools import partial
 from pathlib import Path
 from typing import Callable
-from PIL import Image
-import logging
-import sys
-import math
+
 import numpy as np
-from sd_utils.qdq import OnnxStableDiffusionPipelineWithSave
-import re
-from datasets import load_dataset
-from torchmetrics.functional.multimodal import clip_score
-from functools import partial
-from torchvision.transforms import functional as F
-import torch
-from torchmetrics.image.fid import FrechetInceptionDistance
-import io
 import requests
+import torch
+from datasets import load_dataset
+from PIL import Image
+from sd_utils.qdq import OnnxStableDiffusionPipelineWithSave
+from torchmetrics.functional.multimodal import clip_score
+from torchmetrics.image.fid import FrechetInceptionDistance
+from torchvision.transforms import functional as F
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 
 # Clip score
+
 
 def get_clip_score(prompt: str, path: Path, clip_score_fn):
     with torch.no_grad():
@@ -51,6 +52,7 @@ def get_clip_scores(prompts: list[str], path: Path, clip_score_fn):
 
 # MSE score
 
+
 def calc_error(image1, image2):
     image1 = Image.open(image1)
     image2 = Image.open(image2)
@@ -66,7 +68,7 @@ def get_mse_scores(prompts: list[str], unoptimized_path: Path, optimized_path: P
     with open(optimized_path / "mse_scores.txt", "w") as f:
         f.write("| Prompt | Error |\n")
         for i, prompt in enumerate(prompts):
-            error = calc_error(unoptimized_path / f'{prompt}.png', optimized_path / f'{prompt}.png')
+            error = calc_error(unoptimized_path / f"{prompt}.png", optimized_path / f"{prompt}.png")
             f.write(f"| {prompt} | {error} |\n")
             if i < train_num:
                 train_error.append(error)
@@ -82,6 +84,7 @@ def get_mse_scores(prompts: list[str], unoptimized_path: Path, optimized_path: P
 
 
 # FID score
+
 
 def get_fid_scores(prompts: list[str], path: Path, real_images):
     with torch.no_grad():
@@ -105,12 +108,14 @@ def get_fid_scores(prompts: list[str], path: Path, real_images):
 
 # hpsv2 score
 
+
 def get_hpsv2_scores(path: Path, generate_image: Callable[[str, str], None]):
     import hpsv2
+
     # Get benchmark prompts (<style> = all, anime, concept-art, paintings, photo)
-    style = 'photo'
+    style = "photo"
     all_prompts = hpsv2.benchmark_prompts(style)
-    if style != 'all':
+    if style != "all":
         all_prompts = {style: all_prompts}
     for style, prompts in all_prompts.items():
         os.makedirs(path / style, exist_ok=True)
@@ -118,13 +123,14 @@ def get_hpsv2_scores(path: Path, generate_image: Callable[[str, str], None]):
             print(f"Generating {prompt} for {style} [{idx + 1}/{len(prompts)}]")
             output = path / style / f"{idx:05d}.jpg"
             generate_image(prompt, output)
-    hpsv2.evaluate(path.as_posix(), hps_version="v2") 
+    hpsv2.evaluate(path.as_posix(), hps_version="v2.1")
 
 
 # prepare data
 
+
 def sanitize_path(input_string):
-    sanitized_string = re.sub(r'[^\w\-, ]', '', input_string.strip())
+    sanitized_string = re.sub(r"[^\w\-, ]", "", input_string.strip())
     return sanitized_string
 
 
@@ -136,7 +142,7 @@ def download_file(url, save_path):
 
         # Write the content to the specified file
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        with open(save_path, 'wb') as file:
+        with open(save_path, "wb") as file:
             for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
 
@@ -177,11 +183,11 @@ def run_inference(pipeline, args, prompt: str, output_path: Path, pathIsFile: bo
     generator = None if args.seed is None else np.random.RandomState(seed=args.seed)
     result = pipeline(
         [prompt],
-        num_inference_steps = args.num_inference_steps,
+        num_inference_steps=args.num_inference_steps,
         height=args.image_size,
         width=args.image_size,
         guidance_scale=args.guidance_scale,
-        generator=generator
+        generator=generator,
     )
     result.images[0].save(output)
 
@@ -206,7 +212,9 @@ def parse_args(raw_args):
         help="The seed to give to the generator to generate deterministic results.",
     )
     parser.add_argument("--data_dir", default="quantize_data", type=str)
-    parser.add_argument("--sub_dir", default="optimized", type=str, help="Sub directory to save the data for optimized model test")
+    parser.add_argument(
+        "--sub_dir", default="optimized", type=str, help="Sub directory to save the data for optimized model test"
+    )
     parser.add_argument("--num_data", default=10, type=int)
     parser.add_argument("--train_ratio", default=0.5, type=float)
     parser.add_argument("--image_size", default=512, type=int, help="Width and height of the images to generate")
@@ -217,15 +225,15 @@ def main(raw_args=None):
     args = parse_args(raw_args)
     real_images = None
     dataset = load_dataset("phiyodr/coco2017", streaming=True)
-    train_data = dataset['train']
+    train_data = dataset["train"]
     prompts = [sanitize_path(example["captions"][0]) for i, example in enumerate(train_data) if i < args.num_data]
     real_images = get_real_images(train_data, args.num_data)
-    
+
     train_num = math.floor(len(prompts) * args.train_ratio)
     clip_score_fn = partial(clip_score, model_name_or_path="openai/clip-vit-base-patch16")
 
-    script_dir = Path(".") #Path(__file__).resolve().parent
-    unoptimized_path: Path = script_dir / args.data_dir / 'unoptimized'
+    script_dir = Path()  # Path(__file__).resolve().parent
+    unoptimized_path: Path = script_dir / args.data_dir / "unoptimized"
     optimized_path: Path = script_dir / args.data_dir / args.sub_dir
 
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
@@ -233,9 +241,7 @@ def main(raw_args=None):
     optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     model_dir = unoptimized_model_dir if args.save_data else optimized_model_dir
-    pipeline = OnnxStableDiffusionPipelineWithSave.from_pretrained(
-        model_dir, provider="CPUExecutionProvider"
-    )
+    pipeline = OnnxStableDiffusionPipelineWithSave.from_pretrained(model_dir, provider="CPUExecutionProvider")
     pipeline.save_data_dir = None
 
     if args.save_data:
@@ -250,18 +256,19 @@ def main(raw_args=None):
             run_inference(pipeline, args, prompt, unoptimized_path)
         get_clip_scores(prompts, unoptimized_path, clip_score_fn)
         get_fid_scores(prompts, unoptimized_path, real_images)
-        #get_hpsv2_scores(unoptimized_path / "hpsv2", partial(run_inference, pipeline, args, pathIsFile=True))
+        # get_hpsv2_scores(unoptimized_path / "hpsv2", partial(run_inference, pipeline, args, pathIsFile=True))
 
     else:
         os.makedirs(optimized_path, exist_ok=True)
         for i, prompt in enumerate(prompts):
             logger.info(prompt)
-            run_inference(pipeline, args, prompt, optimized_path)
+            # run_inference(pipeline, args, prompt, optimized_path)
 
-        get_clip_scores(prompts, optimized_path, clip_score_fn)
-        get_fid_scores(prompts, optimized_path, real_images)
-        get_mse_scores(prompts, unoptimized_path, optimized_path, train_num)
-        #get_hpsv2_scores(optimized_path / "hpsv2", partial(run_inference, pipeline, args, pathIsFile=True))
+        # get_clip_scores(prompts, optimized_path, clip_score_fn)
+        # get_fid_scores(prompts, optimized_path, real_images)
+        # get_mse_scores(prompts, unoptimized_path, optimized_path, train_num)
+        get_hpsv2_scores(optimized_path / "hpsv2", partial(run_inference, pipeline, args, pathIsFile=True))
+
 
 if __name__ == "__main__":
     main()

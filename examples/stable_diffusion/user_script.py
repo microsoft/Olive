@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
+import random
+
 import numpy as np
 import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel
@@ -10,12 +12,13 @@ from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionS
 from huggingface_hub import model_info
 from sd_utils import config
 from transformers.models.clip.modeling_clip import CLIPTextModel
-import random
+
 from olive.data.registry import Registry
 
 # ruff: noqa: T201
 
 # Generated data helpers
+
 
 class BaseDataLoader:
     def __init__(self, total):
@@ -27,15 +30,16 @@ class BaseDataLoader:
     def __getitem__(self, idx):
         if idx >= len(self.data) or idx >= self.total:
             raise StopIteration
-        #print(f"Process data {idx}")
+        # print(f"Process data {idx}")
         return self.data[idx]
-    
+
     def load(self, file):
         self.data.append({key: torch.from_numpy(value) for key, value in np.load(file).items()})
 
     def finish_load(self):
         if len(self.data) > self.total:
             self.data = random.sample(self.data, self.total)
+
 
 class UnetGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
