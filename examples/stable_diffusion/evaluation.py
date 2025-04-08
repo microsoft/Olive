@@ -58,8 +58,7 @@ def calc_error(image1, image2):
     image2 = Image.open(image2)
     image1 = np.array(image1, dtype=np.float32)
     image2 = np.array(image2, dtype=np.float32)
-    mse = np.mean((image1 - image2) ** 2)
-    return mse
+    return np.mean((image1 - image2) ** 2)
 
 
 def get_mse_scores(prompts: list[str], unoptimized_path: Path, optimized_path: Path, train_num: int):
@@ -87,40 +86,40 @@ def get_mse_scores(prompts: list[str], unoptimized_path: Path, optimized_path: P
 
 
 def get_fid_scores(prompts: list[str], path: Path, real_images):
-    with torch.no_grad():
-        with open(path / "fid_scores.txt", "w") as f:
-            f.write("| Prompt | Score |\n")
-            images = []
-            for prompt in prompts:
-                image = Image.open(path / f"{prompt}.png")
-                image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1).unsqueeze(0)
-                images.append(image)
-            images = torch.cat(images)
+    with torch.no_grad(), open(path / "fid_scores.txt", "w") as f:
+        f.write("| Prompt | Score |\n")
+        images = []
+        for prompt in prompts:
+            image = Image.open(path / f"{prompt}.png")
+            image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1).unsqueeze(0)
+            images.append(image)
+        images = torch.cat(images)
 
-            fid = FrechetInceptionDistance()
-            fid.update(real_images, real=True)
-            fid.update(images, real=False)
+        fid = FrechetInceptionDistance()
+        fid.update(real_images, real=True)
+        fid.update(images, real=False)
 
-            score = fid.compute()
-            logger.info("FID: %f", score)
-            f.write(f"| FID | {score} |\n")
+        score = fid.compute()
+        logger.info("FID: %f", score)
+        f.write(f"| FID | {score} |\n")
 
 
 # hpsv2 score
 
 
-def get_hpsv2_scores(path: Path, generate_image: Callable[[str, str], None]):
+def get_hpsv2_scores(path: Path, generate_image: Callable[[str, str], None], style: str):
+    if style is None:
+        return
     import hpsv2
 
     # Get benchmark prompts (<style> = all, anime, concept-art, paintings, photo)
-    style = "photo"
     all_prompts = hpsv2.benchmark_prompts(style)
     if style != "all":
         all_prompts = {style: all_prompts}
     for style, prompts in all_prompts.items():
         os.makedirs(path / style, exist_ok=True)
         for idx, prompt in enumerate(prompts):
-            print(f"Generating {prompt} for {style} [{idx + 1}/{len(prompts)}]")
+            logger.info("Generating %s for %s [%d/%d]", prompt, style, idx + 1, len(prompts))
             output = path / style / f"{idx:05d}.jpg"
             generate_image(prompt, output)
     hpsv2.evaluate(path.as_posix(), hps_version="v2.1")
@@ -130,8 +129,7 @@ def get_hpsv2_scores(path: Path, generate_image: Callable[[str, str], None]):
 
 
 def sanitize_path(input_string):
-    sanitized_string = re.sub(r"[^\w\-, ]", "", input_string.strip())
-    return sanitized_string
+    return re.sub(r"[^\w\-, ]", "", input_string.strip())
 
 
 def download_file(url, save_path):
@@ -146,15 +144,15 @@ def download_file(url, save_path):
             for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
 
-        print(f"File successfully downloaded and saved to {save_path}")
+        logger.info("File successfully downloaded and saved to %s", save_path)
     except requests.exceptions.MissingSchema:
-        print("Error: Invalid URL. Please provide a valid URL.")
+        logger.info("Error: Invalid URL. Please provide a valid URL.")
     except requests.exceptions.ConnectionError:
-        print("Error: Network issue. Please check your internet connection.")
+        logger.info("Error: Network issue. Please check your internet connection.")
     except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
+        logger.info("HTTP error occurred: %s", http_err)
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.info("An error occurred: %s", e)
 
 
 def get_real_images(train_data, num_data):
@@ -170,7 +168,7 @@ def get_real_images(train_data, num_data):
                 download_file(example["coco_url"], image_path)
             image = Image.open(image_path).convert("RGB")
             image = torch.tensor(np.array(image), dtype=torch.uint8).permute(2, 0, 1).unsqueeze(0)
-            # TODO: use resize?
+            # TODO(anyone): use resize?
             image = F.center_crop(image, (256, 256))
             images.append(image)
         return torch.cat(images)
@@ -218,6 +216,7 @@ def parse_args(raw_args):
     parser.add_argument("--num_data", default=10, type=int)
     parser.add_argument("--train_ratio", default=0.5, type=float)
     parser.add_argument("--image_size", default=512, type=int, help="Width and height of the images to generate")
+    parser.add_argument("--hpsv2_style", default=None, type=str, help="Style for hpsv2 benchmark")
     return parser.parse_args(raw_args)
 
 
@@ -256,18 +255,22 @@ def main(raw_args=None):
             run_inference(pipeline, args, prompt, unoptimized_path)
         get_clip_scores(prompts, unoptimized_path, clip_score_fn)
         get_fid_scores(prompts, unoptimized_path, real_images)
-        # get_hpsv2_scores(unoptimized_path / "hpsv2", partial(run_inference, pipeline, args, pathIsFile=True))
+        get_hpsv2_scores(
+            unoptimized_path / "hpsv2", partial(run_inference, pipeline, args, pathIsFile=True), args.hpsv2_style
+        )
 
     else:
         os.makedirs(optimized_path, exist_ok=True)
-        for i, prompt in enumerate(prompts):
+        for prompt in prompts:
             logger.info(prompt)
-            # run_inference(pipeline, args, prompt, optimized_path)
+            run_inference(pipeline, args, prompt, optimized_path)
 
-        # get_clip_scores(prompts, optimized_path, clip_score_fn)
-        # get_fid_scores(prompts, optimized_path, real_images)
-        # get_mse_scores(prompts, unoptimized_path, optimized_path, train_num)
-        get_hpsv2_scores(optimized_path / "hpsv2", partial(run_inference, pipeline, args, pathIsFile=True))
+        get_clip_scores(prompts, optimized_path, clip_score_fn)
+        get_fid_scores(prompts, optimized_path, real_images)
+        get_mse_scores(prompts, unoptimized_path, optimized_path, train_num)
+        get_hpsv2_scores(
+            optimized_path / "hpsv2", partial(run_inference, pipeline, args, pathIsFile=True), args.hpsv2_style
+        )
 
 
 if __name__ == "__main__":
