@@ -1,3 +1,4 @@
+accelerate
 numpy
 onnx
 onnxscript

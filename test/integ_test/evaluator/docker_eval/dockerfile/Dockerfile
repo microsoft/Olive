@@ -15,6 +15,7 @@ RUN pip install onnxruntime \
             pandas \
             plotly \
             psutil \
+            accelerate \
             transformers \
             --no-cache-dir
 
