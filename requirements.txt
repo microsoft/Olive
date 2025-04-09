@@ -3,7 +3,7 @@ onnx
 onnxscript
 optuna
 pandas
-protobuf<4.0.0
+protobuf<6.0.0
 pydantic
 pyyaml
 torch
