@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-# copied from https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/models/phi2/inference_example.py  # noqa: E501
+# copied from https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/models/phi2/inference_example.py
 import numpy as np
 import onnxruntime as ort
 import torch
