@@ -8,12 +8,10 @@ from typing import Dict, List, Union
 import onnx
 
 # pylint: disable=wildcard-import
-from onnxruntime_extensions.tools.pre_post_processing import *  # noqa: F401, F403, RUF100
+from onnxruntime_extensions.tools.pre_post_processing import *  # noqa: F403
 from onnxruntime_extensions.tools.pre_post_processing.utils import create_named_value
 
 from olive.passes.onnx.pipeline import resolve_placeholder
-
-# ruff: noqa: RUF100, PLW2901
 
 
 def parse_steps(model: onnx.ModelProto, config: List[Dict]):
@@ -181,7 +179,7 @@ def parse_step_params(model: onnx.ModelProto, step_config: Dict):
                 param_cls = get_customized_class(param_type)
                 params[param_name] = param_cls(**param_args)
             elif param_type in ("tuple", "list"):
-                param_value = param_value.get("value")
+                param_value = param_value.get("value")  # noqa: PLW2901
 
                 # explicitly list or tuple type is specified
                 assert isinstance(param_value, list)

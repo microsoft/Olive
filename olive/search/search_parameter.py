@@ -159,9 +159,9 @@ class Conditional(SearchParameter):
                 parent_value = parent_values[parent]
                 parent_idx = i
                 break
-        new_parents = self.parents[:parent_idx] + self.parents[parent_idx + 1 :]  # noqa: E203, RUF100
+        new_parents = self.parents[:parent_idx] + self.parents[parent_idx + 1 :]
         new_support = {
-            key[:parent_idx] + key[parent_idx + 1 :]: value  # noqa: E203, RUF100
+            key[:parent_idx] + key[parent_idx + 1 :]: value
             for key, value in self.support.items()
             if key[parent_idx] == parent_value
         }
