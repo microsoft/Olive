@@ -541,12 +541,15 @@ class QuantizeDequantizeSTEFunction(torch.autograd.Function):
 class ActQuantLinear(nn.Module):
     """Linear Module with quantized activations."""
 
-    def __init__(self, linear: nn.Module, bits: int, symmetric: bool = True, per_token: bool = True):
+    def __init__(
+        self, linear: nn.Module, bits: int, symmetric: bool = True, per_token: bool = True, gptq_style: bool = True
+    ):
         super().__init__()
         self.linear = linear
         self.bits = bits
         self.symmetric = symmetric
         self.per_token = per_token
+        self.gptq_style = gptq_style
 
         self.maxq = torch.tensor(2**bits - 1)
 
@@ -580,6 +583,8 @@ class ActQuantLinear(nn.Module):
 
         scale = (xmax - xmin) / self.maxq
         if self.symmetric:
+            if not self.gptq_style:
+                scale = (xmax - xmin) / (self.maxq - 1)
             zero = torch.full_like(scale, (self.maxq + 1) / 2)
         else:
             zero = torch.round(-xmin / scale)
