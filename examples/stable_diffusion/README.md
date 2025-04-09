@@ -216,6 +216,6 @@ From a qualitative perspective, 2 steps of the quantized model could generate vi
 
 |Model|CLIP Scores|FID|MSE to original|HPSv2 (photo - mean) |HPSv2 (photo -std)|
 |-|-|-|-|-|-|
-|Original 1 step|31.10|179.77|N/A|-|-|
+|Original 1 step|31.10|179.77|N/A|24.67|0.4198|
 |Quantized 1 step|31.29 | 177.53|388.5 |24.33|0.4589|
-|Quantized 2 steps|31.05|181.86| N/A|-|-|
+|Quantized 2 steps|31.05|181.86| N/A|26.10|0.4206|
