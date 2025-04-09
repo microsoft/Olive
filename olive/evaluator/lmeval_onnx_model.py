@@ -98,7 +98,7 @@ class LMEvalOnnxModelEvaluator(TemplateLM):
 
             cont_len = len(continuation_enc)
             cont_tokens = np.asarray(continuation_enc)
-            greedy_tokens = (output_tokens[ctx_len:])[:cont_len]
+            greedy_tokens = output_tokens[ctx_len - cont_len : ctx_len]
 
             is_greedy = (cont_tokens == greedy_tokens).all()
             log_probs = np.take(log_probs, cont_tokens, 0)
