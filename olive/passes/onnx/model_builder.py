@@ -70,7 +70,10 @@ class ModelBuilder(Pass):
                 type_=bool,
                 default_value=False,
                 required=False,
-                description="Whether to use quantization and dequantization.",
+                description=(
+                    "Use this option when you want to use quantize-dequantize ops. "
+                    "For example, you will have a quantized MatMul op instead of the MatMulNBits op."
+                ),
             ),
             "int4_block_size": PassConfigParam(
                 type_=ModelBuilder.BlockSize,
