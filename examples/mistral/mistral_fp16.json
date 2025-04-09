@@ -21,23 +21,7 @@
         }
     },
     "passes": {
-        "convert": {
-            "type": "OptimumConversion",
-            "target_opset": 14,
-            "extra_args": { "legacy": false, "no_post_process": false }
-        },
-        "optimize": {
-            "type": "OrtTransformersOptimization",
-            "model_type": "gpt2",
-            "use_gpu": true,
-            "keep_io_types": false,
-            "opt_level": 0,
-            "optimization_options": { "use_multi_head_attention": false },
-            "float16": true,
-            "use_gqa": true,
-            "save_as_external_data": true,
-            "all_tensors_to_one_file": true
-        },
+        "convert": { "type": "ModelBuilder", "precision": "fp16" },
         "session_params_tuning": {
             "type": "OrtSessionParamsTuning",
             "data_config": "transformer_token_dummy_data",
