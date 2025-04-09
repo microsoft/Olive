@@ -6,7 +6,6 @@ import platform
 import shutil
 from itertools import chain
 from pathlib import Path
-from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
 from typing import Dict, Tuple
 from unittest.mock import patch
 
@@ -20,6 +19,7 @@ from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 from olive.passes.pytorch.gptq import GptqQuantizer
+from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
 
 
 @pytest.mark.parametrize(

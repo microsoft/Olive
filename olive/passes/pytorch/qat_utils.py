@@ -92,7 +92,7 @@ class QatTrainer:
                 max_steps=self.config.num_steps,
                 logger=self.config.logger,
                 default_root_dir=self.config.checkpoint_path,
-                **kwargs
+                **kwargs,
             )
 
             trainer.fit(ptl_module, datamodule=ptl_data_module)

@@ -3,17 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from functools import partial
-from test.unit_test.utils import (
-    get_accuracy_metric,
-    get_custom_metric,
-    get_custom_metric_no_eval,
-    get_latency_metric,
-    get_mock_openvino_model,
-    get_mock_snpe_model,
-    get_onnx_model,
-    get_pytorch_model,
-    get_throughput_metric,
-)
 from types import FunctionType
 from typing import ClassVar, List
 from unittest.mock import MagicMock, patch
@@ -32,6 +21,17 @@ from olive.evaluator.olive_evaluator import (
 )
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
+from test.unit_test.utils import (
+    get_accuracy_metric,
+    get_custom_metric,
+    get_custom_metric_no_eval,
+    get_latency_metric,
+    get_mock_openvino_model,
+    get_mock_snpe_model,
+    get_onnx_model,
+    get_pytorch_model,
+    get_throughput_metric,
+)
 
 
 class TestOliveEvaluator:

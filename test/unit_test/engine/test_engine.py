@@ -5,14 +5,6 @@
 import json
 import logging
 from pathlib import Path
-from test.unit_test.utils import (
-    get_accuracy_metric,
-    get_composite_onnx_model_config,
-    get_onnx_model_config,
-    get_onnxconversion_pass,
-    get_pytorch_model_config,
-    get_pytorch_model_io_config,
-)
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,6 +22,14 @@ from olive.passes.onnx.quantization import OnnxDynamicQuantization, OnnxStaticQu
 from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
+from test.unit_test.utils import (
+    get_accuracy_metric,
+    get_composite_onnx_model_config,
+    get_onnx_model_config,
+    get_onnxconversion_pass,
+    get_pytorch_model_config,
+    get_pytorch_model_io_config,
+)
 
 # pylint: disable=protected-access
 

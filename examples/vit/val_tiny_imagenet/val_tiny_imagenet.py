@@ -99,7 +99,7 @@ def evaluate_onnx_model(session, dataloader):
         ground_truth = val_idx_to_name[label[0]]
         pred_label = vit_id2label["id2label"][str(top1_pred)]
 
-        print(f"Image {i+1}: {img_name[0]}")
+        print(f"Image {i + 1}: {img_name[0]}")
         print(f"  Ground Truth: {ground_truth}")
         print(f"  Top-1 Prediction: {pred_label}")
         print(f"  Top-5 Predictions: {[vit_id2label['id2label'][str(pred)] for pred in top5_preds]}\n")

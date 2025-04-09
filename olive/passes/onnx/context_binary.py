@@ -73,9 +73,9 @@ class EPContextBinaryGenerator(Pass):
         from onnxruntime import get_available_providers
 
         # TODO(jambayk): validate and support other NPU EPs
-        assert (
-            self.accelerator_spec.execution_provider == "QNNExecutionProvider"
-        ), "Only QNNExecutionProvider is supported for now."
+        assert self.accelerator_spec.execution_provider == "QNNExecutionProvider", (
+            "Only QNNExecutionProvider is supported for now."
+        )
         assert self.accelerator_spec.execution_provider in get_available_providers(), (
             f"Execution provider {self.accelerator_spec.execution_provider} is not available. Available providers:"
             f" {get_available_providers()}"
