@@ -13,11 +13,11 @@ from contextlib import redirect_stdout
 from typing import TYPE_CHECKING
 
 import tensorrt as trt
-from torch_tensorrt.fx import (
+from torch_tensorrt.fx import (  # pylint: disable=redefined-builtin
     InputTensorSpec,
     TRTInterpreter,
     TRTModule,
-    compile,  # noqa: A004 # pylint: disable=redefined-builtin
+    compile,  # noqa: A004
 )
 from torch_tensorrt.fx.tracer.acc_tracer import acc_tracer
 
