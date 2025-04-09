@@ -1,10 +1,3 @@
-[tool.black]
-line-length = 120
-
-[tool.isort]
-profile = "black"
-line_length = 120
-
 [tool.pylint.BASIC]
 good-names = [
   "a",
@@ -95,6 +88,7 @@ select = [
   "F", # Pyflakes
   "FLY", # flake8-flynt
   "G", # flake8-logging-format
+  "I", # isort
   "ICN", # flake8-import-conventions
   "INP", # flake8-no-pep420
   "INT", # flake8-gettext
@@ -173,13 +167,6 @@ ignore = [
   "TRY003", # Ignore check message not defined in the exception class
   "TRY004", # Ignore prefer TypeError over ValueError
   "TRY300", # Ignore check if return in try block
-  "UP032", # Ignore string format calls
-  "UP038" # Ignore old isinstance hints
-]
-ignore-init-module-imports = true
-unfixable = [
-  "F401", # Unused imports
-  "SIM112" # Use upper case for env vars
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]
