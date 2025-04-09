@@ -13,7 +13,6 @@ from typing import Dict
 import numpy as np
 import torch
 from diffusers import DiffusionPipeline
-from packaging import version
 from sd_utils import config
 from user_script import get_base_model_name
 
