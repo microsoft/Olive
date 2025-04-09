@@ -70,7 +70,8 @@ disable = [
   "missing-docstring",
   "fixme",
   "unspecified-encoding",
-  "unused-argument"
+  "unused-argument",
+  "wrong-import-order"  # import order is handled by the formatter (ruff)
 ]
 
 [tool.ruff]
