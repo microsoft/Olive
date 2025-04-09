@@ -16,6 +16,8 @@ from diffusers import OnnxStableDiffusionPipeline
 from diffusers.pipelines.onnx_utils import ORT_TO_NP_TYPE
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 
+# ruff: noqa: T201
+
 
 def update_qdq_config(config: Dict, submodel_name: str):
     used_passes = {}
@@ -224,7 +226,7 @@ def get_qdq_pipeline(model_dir, common_args, qdq_args, script_dir):
     sess_options = ort.SessionOptions()
 
     provider = common_args.provider
-    
+
     provider_map = {
         "cpu": "CPUExecutionProvider",
     }

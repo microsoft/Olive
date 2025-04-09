@@ -190,7 +190,7 @@ def update_config_with_provider(config: Dict, provider: str, format: str, submod
         from sd_utils.ov import update_ov_config
 
         return update_ov_config(config)
-    elif provider =="cpu" and format == "qdq":
+    elif provider == "cpu" and format == "qdq":
         from sd_utils.qdq import update_qdq_config
 
         return update_qdq_config(config, submodel_name)
@@ -240,7 +240,7 @@ def optimize(
     has_safety_checker = getattr(pipeline, "safety_checker", None) is not None
 
     if has_safety_checker:
-        if provider == "openvino" or provider == "cpu" and format == "qdq":
+        if provider == "openvino" or (provider == "cpu" and format == "qdq"):
             print(f"WARNING: Safety checker is not supported by {provider}. It will be disabled.")
             has_safety_checker = False
         else:
@@ -370,7 +370,9 @@ def parse_qdq_args(raw_args):
 
     parser.add_argument("--save_data", action="store_true", help="Save the input data for qdq")
     parser.add_argument("--data_dir", default="quantize_data/data", type=str)
-    parser.add_argument("--only_conversion", action="store_true", help="Only generate unoptimized model to generate data for qdq")
+    parser.add_argument(
+        "--only_conversion", action="store_true", help="Only generate unoptimized model to generate data for qdq"
+    )
 
     return parser.parse_known_args(raw_args)
 
@@ -413,11 +415,17 @@ def main(raw_args=None):
         # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            if not (provider == "openvino" or provider == "cpu" and common_args.format == "qdq"):
+            if not (provider == "openvino" or (provider == "cpu" and common_args.format == "qdq")):
                 from sd_utils.ort import validate_args
 
                 validate_args(ort_args, common_args.provider)
-            optimize(common_args.model_id, common_args.provider, common_args.format, unoptimized_model_dir, optimized_model_dir)
+            optimize(
+                common_args.model_id,
+                common_args.provider,
+                common_args.format,
+                unoptimized_model_dir,
+                optimized_model_dir,
+            )
 
     generator = None if common_args.seed is None else np.random.RandomState(seed=common_args.seed)
 
