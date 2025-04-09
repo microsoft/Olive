@@ -75,7 +75,7 @@ class FileListDataLoader:
 
         self.batches = []
         for i in range(0, len(self.batch_input_list_metadata), self.batch_size):
-            self.batches.append(self.batch_input_list_metadata[i : i + self.batch_size])  # noqa: E203, RUF100
+            self.batches.append(self.batch_input_list_metadata[i : i + self.batch_size])
         self.num_batches = len(self.batches)
 
     def get_batch(self, batch_id):
@@ -87,12 +87,7 @@ class FileListDataLoader:
         else:
             annotation = None
             if self.annotation is not None:
-                annotation = self.annotation[
-                    self.batch_size * batch_id : self.batch_size
-                    * (
-                        batch_id + 1
-                    )  # noqa: E203, RUF100
-                ]
+                annotation = self.annotation[self.batch_size * batch_id : self.batch_size * (batch_id + 1)]
             batch = self.batches[batch_id]
 
             # empty batch directory and copy current batch data
