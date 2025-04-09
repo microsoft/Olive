@@ -31,11 +31,7 @@
         }
     },
     "passes": {
-        "convert": {
-            "type": "OptimumConversion",
-            "target_opset": 14,
-            "extra_args": { "legacy": false, "no_post_process": false }
-        },
+        "convert": { "type": "ModelBuilder", "precision": "int4" },
         "optimize": {
             "type": "OrtTransformersOptimization",
             "model_type": "gpt2",
