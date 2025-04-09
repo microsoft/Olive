@@ -66,6 +66,12 @@ class ModelBuilder(Pass):
             "search": PassConfigParam(
                 type_=Dict[str, Any], required=False, description="Search options to use for generate loop."
             ),
+            "use_qdq": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description="Whether to use quantization and dequantization.",
+            ),
             "int4_block_size": PassConfigParam(
                 type_=ModelBuilder.BlockSize,
                 required=False,
@@ -187,6 +193,9 @@ class ModelBuilder(Pass):
 
         if config.int4_block_size:
             extra_args["int4_block_size"] = config.int4_block_size.value
+
+        if config.use_qdq:
+            extra_args["use_qdq"] = config.use_qdq
 
         if config.int4_accuracy_level:
             extra_args["int4_accuracy_level"] = config.int4_accuracy_level.value
