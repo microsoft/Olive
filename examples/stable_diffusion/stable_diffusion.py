@@ -177,7 +177,7 @@ def run_inference_gui(
     window.mainloop()
 
 
-def update_config_with_provider(config: Dict, provider: str, format: str, submodel_name: str):
+def update_config_with_provider(config: Dict, provider: str, modelFormat: str, submodel_name: str):
     if provider == "dml":
         from sd_utils.ort import update_dml_config
 
@@ -190,18 +190,18 @@ def update_config_with_provider(config: Dict, provider: str, format: str, submod
         from sd_utils.ov import update_ov_config
 
         return update_ov_config(config)
-    elif provider == "cpu" and format == "qdq":
+    elif provider == "cpu" and modelFormat == "qdq":
         from sd_utils.qdq import update_qdq_config
 
         return update_qdq_config(config, submodel_name)
     else:
-        raise ValueError(f"Unsupported provider: {provider} with format: {format}")
+        raise ValueError(f"Unsupported provider: {provider} with format: {modelFormat}")
 
 
 def optimize(
     model_id: str,
     provider: str,
-    format: str,
+    modelFormat: str,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
 ):
@@ -240,7 +240,7 @@ def optimize(
     has_safety_checker = getattr(pipeline, "safety_checker", None) is not None
 
     if has_safety_checker:
-        if provider == "openvino" or (provider == "cpu" and format == "qdq"):
+        if provider == "openvino" or (provider == "cpu" and modelFormat == "qdq"):
             print(f"WARNING: Safety checker is not supported by {provider}. It will be disabled.")
             has_safety_checker = False
         else:
@@ -252,7 +252,7 @@ def optimize(
         olive_config = None
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
-        olive_config = update_config_with_provider(olive_config, provider, format, submodel_name)
+        olive_config = update_config_with_provider(olive_config, provider, modelFormat, submodel_name)
 
         if submodel_name in ("unet", "text_encoder"):
             olive_config["input_model"]["model_path"] = model_id
