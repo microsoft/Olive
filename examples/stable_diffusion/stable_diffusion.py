@@ -200,13 +200,6 @@ def optimize(
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
 ):
-    from google.protobuf import __version__ as protobuf_version
-
-    # protobuf 4.x aborts with OOM when optimizing unet
-    if version.parse(protobuf_version) > version.parse("3.20.3"):
-        print("This script requires protobuf 3.20.3. Please ensure your package version matches requirements.txt.")
-        sys.exit(1)
-
     script_dir = Path(__file__).resolve().parent
 
     # Clean up previously optimized models, if any.
