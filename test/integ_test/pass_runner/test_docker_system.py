@@ -1,11 +1,4 @@
 import platform
-from test.integ_test.evaluator.docker_eval.utils import (
-    delete_directories,
-    download_models,
-    get_directories,
-    get_docker_target,
-    get_onnx_model,
-)
 
 import pytest
 
@@ -15,6 +8,13 @@ from olive.logging import set_default_logger_severity
 from olive.model.config.model_config import ModelConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.session_params_tuning import OrtSessionParamsTuning
+from test.integ_test.evaluator.docker_eval.utils import (
+    delete_directories,
+    download_models,
+    get_directories,
+    get_docker_target,
+    get_onnx_model,
+)
 
 
 @pytest.mark.skipif(platform.system() == OS.WINDOWS, reason="Docker target does not support windows")

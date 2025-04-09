@@ -173,7 +173,6 @@ class ReorderInputs(Surgeon):
 
 
 class ReplaceErfWithTanh(Surgeon):
-
     DTYPE_MAP = {
         TensorProto.FLOAT: np.float32,
         TensorProto.FLOAT16: np.float16,

@@ -1,5 +1,4 @@
 import shutil
-from test.unit_test.utils import get_onnx_model
 from unittest.mock import patch
 
 import pytest
@@ -8,6 +7,7 @@ from packaging import version
 
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.qnn.qnn_preprocess import QNNPreprocess
+from test.unit_test.utils import get_onnx_model
 
 
 @pytest.mark.skipif(

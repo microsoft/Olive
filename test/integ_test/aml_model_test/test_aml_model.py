@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from test.integ_test.utils import get_olive_workspace_config
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.model import ModelConfig
@@ -11,6 +10,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.resource_path import ResourcePath
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
+from test.integ_test.utils import get_olive_workspace_config
 
 
 def test_aml_model_pass_run(tmp_path):

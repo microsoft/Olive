@@ -4,6 +4,15 @@
 # --------------------------------------------------------------------------
 import platform
 from functools import partial
+from typing import ClassVar, List
+
+import pytest
+
+from olive.common.constants import OS
+from olive.evaluator.metric_result import joint_metric_key
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
+from olive.model import ModelConfig
 from test.integ_test.evaluator.docker_eval.utils import (
     delete_directories,
     download_data,
@@ -17,15 +26,6 @@ from test.integ_test.evaluator.docker_eval.utils import (
     get_openvino_model,
     get_pytorch_model,
 )
-from typing import ClassVar, List
-
-import pytest
-
-from olive.common.constants import OS
-from olive.evaluator.metric_result import joint_metric_key
-from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.model import ModelConfig
 
 
 class TestDockerEvaluation:

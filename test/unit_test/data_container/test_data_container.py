@@ -3,18 +3,17 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import numpy as np
+import pytest
+
+from olive.data.config import DataConfig
+from olive.data.container.data_container import DataContainer
 from test.unit_test.utils import (
     create_raw_data,
     get_data_config,
     get_glue_huggingface_data_config,
     get_transformer_dummy_input_data_config,
 )
-
-import numpy as np
-import pytest
-
-from olive.data.config import DataConfig
-from olive.data.container.data_container import DataContainer
 
 # pylint: disable=attribute-defined-outside-init
 

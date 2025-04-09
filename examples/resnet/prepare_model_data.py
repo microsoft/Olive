@@ -105,11 +105,7 @@ def prepare_model(num_epochs=1, models_dir="models", data_dir="data"):
             loss.backward()
             optimizer.step()
             if (i + 1) % 100 == 0:
-                print(
-                    "Epoch [{}/{}], Step [{}/{}] Loss: {:.4f}".format(
-                        epoch + 1, num_epochs, i + 1, total_step, loss.item()
-                    )
-                )
+                print(f"Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{total_step}] Loss: {loss.item():.4f}")
         # Decay learning rate
         if (epoch + 1) % 20 == 0:
             curr_lr /= 3
@@ -129,7 +125,7 @@ def prepare_model(num_epochs=1, models_dir="models", data_dir="data"):
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
 
-            print("Accuracy of the model on the test images: {} %".format(100 * correct / total))
+            print(f"Accuracy of the model on the test images: {100 * correct / total} %")
 
     # Save the model
     model.to("cpu")

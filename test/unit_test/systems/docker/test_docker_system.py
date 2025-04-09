@@ -6,7 +6,6 @@ import copy
 import json
 import shutil
 from pathlib import Path
-from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_onnx_model_config, get_pytorch_model_config
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -21,6 +20,7 @@ from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
 from olive.systems.utils import create_managed_system
+from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_onnx_model_config, get_pytorch_model_config
 
 # pylint: disable=attribute-defined-outside-init,protected-access
 

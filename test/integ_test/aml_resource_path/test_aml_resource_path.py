@@ -3,11 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from test.integ_test.utils import get_olive_workspace_config
 
 import pytest
 
 from olive.resource_path import ResourceType, create_resource_path
+from test.integ_test.utils import get_olive_workspace_config
 
 # pylint: disable=attribute-defined-outside-init
 

@@ -3,9 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import shutil
-from test.unit_test.utils import create_onnx_model_file, delete_onnx_model_files
 
 import pytest
+
+from test.unit_test.utils import create_onnx_model_file, delete_onnx_model_files
 
 
 @pytest.fixture(scope="session", autouse=True)

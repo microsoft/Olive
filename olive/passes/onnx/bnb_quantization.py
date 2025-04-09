@@ -52,9 +52,9 @@ class OnnxBnb4Quantization(Pass):
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
-        assert version.parse(OrtVersion) >= version.parse(
-            "1.16.2"
-        ), "MatMulBnb4Quantizer is only supported in onnxruntime >= 1.16.2"
+        assert version.parse(OrtVersion) >= version.parse("1.16.2"), (
+            "MatMulBnb4Quantizer is only supported in onnxruntime >= 1.16.2"
+        )
 
         from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
 

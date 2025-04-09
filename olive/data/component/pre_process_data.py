@@ -189,7 +189,7 @@ def audio_classification_pre_process(
     max_samples: Optional[int] = None,
     trust_remote_code: Optional[bool] = None,
     feature_extractor_args: Optional[Dict[str, Any]] = None,
-    **kwargs
+    **kwargs,
 ):
     """Pre-process data for audio classification task.
 

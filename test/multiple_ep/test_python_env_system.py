@@ -3,12 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import platform
-from test.unit_test.utils import create_onnx_model_file, get_custom_metric, get_onnx_model_config
 
 import pytest
 
 from olive.common.constants import OS
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
+from test.unit_test.utils import create_onnx_model_file, get_custom_metric, get_onnx_model_config
 
 # pylint: disable=attribute-defined-outside-init
 

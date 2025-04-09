@@ -134,7 +134,6 @@ class SGDG(Optimizer):
 
                 unity, _ = unit(p.data.view(p.size()[0], -1))
                 if stiefel and unity.size()[0] <= unity.size()[1]:
-
                     weight_decay = group["weight_decay"]
                     dampening = group["dampening"]
                     nesterov = group["nesterov"]

@@ -330,7 +330,6 @@ class _OliveEvaluator(OliveEvaluator):
 
 
 class OnnxEvaluatorMixin:
-
     @staticmethod
     def get_inference_settings(metric: Metric, model: ONNXModelHandler) -> Dict[str, Any]:
         # user.config.inference_settings > model.inference_settings > default inference_settings
@@ -351,7 +350,6 @@ class OnnxEvaluatorMixin:
 @Registry.register(str(Framework.ONNX))
 @Registry.register("OnnxEvaluator")
 class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
-
     @staticmethod
     def get_session_wrapper(
         model: ONNXModelHandler,
@@ -825,7 +823,6 @@ class PyTorchEvaluator(_OliveEvaluator):
 @Registry.register(str(Framework.SNPE))
 @Registry.register("SNPEEvaluator")
 class SNPEEvaluator(_OliveEvaluator):
-
     def _inference(
         self,
         model: "SNPEModelHandler",
@@ -915,7 +912,6 @@ class SNPEEvaluator(_OliveEvaluator):
 @Registry.register(str(Framework.OPENVINO))
 @Registry.register("OpenVINOEvaluator")
 class OpenVINOEvaluator(_OliveEvaluator):
-
     def _inference(
         self,
         model: "OpenVINOModelHandler",
@@ -979,7 +975,6 @@ class OpenVINOEvaluator(_OliveEvaluator):
 @Registry.register(str(Framework.QNN))
 @Registry.register("QNNEvaluator")
 class QNNEvaluator(_OliveEvaluator):
-
     def _inference(
         self,
         model: "QNNModelHandler",
