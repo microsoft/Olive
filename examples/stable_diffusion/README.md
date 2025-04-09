@@ -204,11 +204,15 @@ Then generate data:
 
 ### Optimize
 
-`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu_qdq --optimize --clean_cache`
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu_qdq --optimize`
 
 ### Test and evaluate
 
 `python .\evaluation.py --model_id stabilityai/sd-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0`
+
+To generate one image:
+
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu_qdq --guidance_scale 0 --seed 0 --num_inference_steps 1 --prompt "A baby is laying down with a teddy bear"`
 
 #### Evaluation result
 
