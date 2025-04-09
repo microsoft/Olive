@@ -138,6 +138,7 @@ ignore = [
   "D107", # Ignore missing docstring in __init__
   "D406", # Ignore new line after section name
   "D407", # Ignore dashed-underline-after-section
+  "E501", # Ignore line too long. The formatter will handle it.
   "N803", # Argument casing
   "N812", # Allow import torch.nn.functional as F
   "N999", # Module names
@@ -186,4 +187,3 @@ classmethod-decorators = ["classmethod", "olive.common.pydantic_v1.validator", "
 "scripts/**" = ["INP001"]
 "examples/directml/llm/chat_app/**" = ["TID252", "UP006", "T201"]
 "olive/cli/**" = ["T201"]
-"olive/**/hadamard_utils.py" = ["E501"]

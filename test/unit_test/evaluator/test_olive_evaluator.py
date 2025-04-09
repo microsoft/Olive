@@ -308,7 +308,7 @@ class TestOliveEvaluator:
             {
                 "ep": "ROCMExecutionProvider",
                 "results": {
-                    "onnxruntime::rocm::tunable::blas::internal::GemmTunableOp<__half, ck::tensor_layout::gemm::RowMajor, ck::tensor_layout::gemm::RowMajor>": {  # noqa: E501
+                    "onnxruntime::rocm::tunable::blas::internal::GemmTunableOp<__half, ck::tensor_layout::gemm::RowMajor, ck::tensor_layout::gemm::RowMajor>": {
                         "NN_992_4096_4096": 300,
                         "NN_992_4096_11008": 664,
                         "NN_984_4096_4096": 1295,
