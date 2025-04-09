@@ -71,7 +71,7 @@ disable = [
   "fixme",
   "unspecified-encoding",
   "unused-argument",
-  "wrong-import-order"  # import order is handled by the formatter (ruff)
+  "wrong-import-order" # import order is handled by the formatter (ruff)
 ]
 
 [tool.ruff]
@@ -167,7 +167,7 @@ ignore = [
   "TRY002", # Ignore create custom exception
   "TRY003", # Ignore check message not defined in the exception class
   "TRY004", # Ignore prefer TypeError over ValueError
-  "TRY300", # Ignore check if return in try block
+  "TRY300" # Ignore check if return in try block
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]
