@@ -196,7 +196,7 @@ To get better result, we need to generate real data from original model instead 
 
 First generate onnx unoptimized model:
 
-`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu_qdq --optimize --only_conversion`
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu --format qdq --optimize --only_conversion`
 
 Then generate data:
 
@@ -204,7 +204,7 @@ Then generate data:
 
 ### Optimize
 
-`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu_qdq --optimize`
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu --format qdq --optimize`
 
 ### Test and evaluate
 
@@ -212,7 +212,7 @@ Then generate data:
 
 To generate one image:
 
-`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu_qdq --guidance_scale 0 --seed 0 --num_inference_steps 1 --prompt "A baby is laying down with a teddy bear"`
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu --format qdq --guidance_scale 0 --seed 0 --num_inference_steps 1 --prompt "A baby is laying down with a teddy bear"`
 
 #### Evaluation result
 

@@ -219,9 +219,19 @@ class OnnxStableDiffusionPipelineWithSave(OnnxStableDiffusionPipeline):
 
 def get_qdq_pipeline(model_dir, common_args, qdq_args, script_dir):
     ort.set_default_logger_severity(3)
+
+    print("Loading models into ORT session...")
     sess_options = ort.SessionOptions()
+
+    provider = common_args.provider
+    
+    provider_map = {
+        "cpu": "CPUExecutionProvider",
+    }
+    assert provider in provider_map, f"Unsupported provider: {provider}"
+
     pipeline = OnnxStableDiffusionPipelineWithSave.from_pretrained(
-        model_dir, provider="CPUExecutionProvider", sess_options=sess_options
+        model_dir, provider=provider_map[provider], sess_options=sess_options
     )
     if qdq_args.save_data:
         pipeline.save_data_dir = script_dir / qdq_args.data_dir / common_args.prompt
