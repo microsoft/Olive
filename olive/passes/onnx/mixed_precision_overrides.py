@@ -139,7 +139,6 @@ class MixedPrecisionOverrides(Pass):
 
         element_wise_binary_ops = config.element_wise_binary_ops or ["Add", "Sub", "Mul", "Div"]
         for node in onnx_model.graph.node:
-
             if node.op_type in element_wise_binary_ops:
                 # For ElementWiseBinaryOps inputs and outputs should be of same type
                 if node.output[0] in activations_16bit:

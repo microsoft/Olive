@@ -2,8 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from test.unit_test.utils import get_onnx_model, pytorch_model_loader
-
 import onnx
 import onnxruntime
 import pytest
@@ -13,6 +11,7 @@ from packaging import version
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.bnb_quantization import OnnxBnb4Quantization
+from test.unit_test.utils import get_onnx_model, pytorch_model_loader
 
 # pylint: disable=protected-access
 

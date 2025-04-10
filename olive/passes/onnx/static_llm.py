@@ -57,9 +57,9 @@ class StaticLLM(Pass):
         assert isinstance(model, CompositeModelHandler), "StaticLLM pass only supports CompositeModelHandler"
         model_components = list(model.model_components)
         assert all(isinstance(m, ONNXModelHandler) for m in model_components), "All components must be ONNXModelHandler"
-        assert (
-            len(model_components) >= 3
-        ), "There should be at least 3 components in the model: embedding, transformer, and lm_head."
+        assert len(model_components) >= 3, (
+            "There should be at least 3 components in the model: embedding, transformer, and lm_head."
+        )
 
         # only gqa models are supported for now
         assert (
@@ -175,7 +175,7 @@ class StaticLLM(Pass):
             for old_dim, new_dim in zip(original_shape, new_shape):
                 if isinstance(old_dim, str) and isinstance(new_dim, int):
                     if old_dim in param_mapping:
-                        assert (
-                            param_mapping[old_dim] == new_dim
-                        ), f"Param {old_dim} already exists with different value. Something is wrong."
+                        assert param_mapping[old_dim] == new_dim, (
+                            f"Param {old_dim} already exists with different value. Something is wrong."
+                        )
                     param_mapping[old_dim] = new_dim

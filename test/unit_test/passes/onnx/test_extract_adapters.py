@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from test.unit_test.utils import get_onnx_model
 
 import numpy as np
 import onnx
@@ -22,6 +21,7 @@ from olive.passes.onnx.common import model_has_adapters
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
 from olive.passes.onnx.quantization import OnnxMatMul4Quantizer
+from test.unit_test.utils import get_onnx_model
 
 
 class LlamaCalibrationDataLoader(CalibrationDataReader):

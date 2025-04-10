@@ -4,12 +4,12 @@
 # --------------------------------------------------------------------------
 import shutil
 from pathlib import Path
-from test.integ_test.utils import download_azure_blob
 from zipfile import ZipFile
 
 from olive.common.config_utils import validate_config
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
+from test.integ_test.utils import download_azure_blob
 
 # pylint: disable=redefined-outer-name
 

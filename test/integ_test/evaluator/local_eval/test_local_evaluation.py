@@ -3,6 +3,15 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from functools import partial
+from typing import ClassVar, List
+
+import pytest
+
+from olive.evaluator.metric_result import joint_metric_key
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
+from olive.model import ModelConfig
+from olive.systems.local import LocalSystem
 from test.integ_test.evaluator.local_eval.utils import (
     delete_directories,
     get_accuracy_metric,
@@ -15,15 +24,6 @@ from test.integ_test.evaluator.local_eval.utils import (
     get_openvino_model,
     get_pytorch_model,
 )
-from typing import ClassVar, List
-
-import pytest
-
-from olive.evaluator.metric_result import joint_metric_key
-from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.model import ModelConfig
-from olive.systems.local import LocalSystem
 
 # pylint: disable=redefined-builtin
 

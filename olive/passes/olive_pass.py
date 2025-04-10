@@ -14,7 +14,7 @@ from olive.common.pydantic_v1 import BaseModel, ValidationError, create_model
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
-from olive.model import CompositeModelHandler, DistributedOnnxModelHandler, OliveModelHandler, ONNXModelHandler
+from olive.model import OliveModelHandler
 from olive.passes.pass_config import (
     AbstractPassConfig,
     BasePassConfig,
@@ -134,9 +134,9 @@ class Pass(ABC):
 
         point = point or {}
         config_class, fixed_values, search_params = cls.get_config_params(accelerator_spec, config, disable_search)
-        assert (
-            set(point.keys()).intersection(set(search_params.keys())) == point.keys()
-        ), "Search point is not in the search space."
+        assert set(point.keys()).intersection(set(search_params.keys())) == point.keys(), (
+            "Search point is not in the search space."
+        )
         return config_class.parse_obj({**fixed_values, **search_params, **point})
 
     @classmethod
@@ -188,9 +188,9 @@ class Pass(ABC):
         for param, param_config in config.items():
             if param.endswith("data_config"):
                 param_type = param_config.type_
-                assert param_type == DataConfig or DataConfig in get_args(
-                    param_type
-                ), f"{param} ending with data_config must be of type DataConfig."
+                assert param_type == DataConfig or DataConfig in get_args(param_type), (
+                    f"{param} ending with data_config must be of type DataConfig."
+                )
         return config
 
     @classmethod
@@ -204,6 +204,8 @@ class Pass(ABC):
 
     def run(self, model: OliveModelHandler, output_model_path: str) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
+        from olive.model import CompositeModelHandler, DistributedOnnxModelHandler
+
         if not self._initialized:
             self._initialize()
             self._initialized = True
@@ -248,6 +250,8 @@ class Pass(ABC):
 
     @staticmethod
     def _carry_forward_additional_files(input_model: OliveModelHandler, output_model: OliveModelHandler):
+        from olive.model import ONNXModelHandler
+
         input_model_additional_files = set((input_model.model_attributes or {}).get("additional_files") or [])
         if not input_model_additional_files:
             return

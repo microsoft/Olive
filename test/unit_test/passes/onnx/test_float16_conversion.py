@@ -2,13 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from test.unit_test.utils import get_onnx_model
-
 import onnx
 import pytest
 
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.float16_conversion import OnnxFloatToFloat16
+from test.unit_test.utils import get_onnx_model
 
 
 @pytest.mark.parametrize("keep_io_types", [True, False])

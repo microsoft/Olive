@@ -187,3 +187,56 @@ Inference will loop until the generated image. The result will be saved as `resu
 Run `python stable_diffusion.py --help` for additional options. A few particularly relevant ones:
 - `--image_path <str>`: the input image path for image to image inference.
 - `--img_to_img_example`: image to image example. The default input image is `assets/dog.png`, the default prompt is `amazing watercolor painting`.
+
+## Stable Diffusion Quantization encoded in QDQ format
+
+### Generate data for static quantization
+
+To get better result, we need to generate real data from original model instead of using random data for static quantization.
+
+First generate onnx unoptimized model:
+
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu --format qdq --optimize --only_conversion`
+
+Then generate data:
+
+`python .\evaluation.py --save_data --model_id stabilityai/sd-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0`
+
+### Optimize
+
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu --format qdq --optimize`
+
+### Test and evaluate
+
+`python .\evaluation.py --model_id stabilityai/sd-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0`
+
+To generate one image:
+
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu --format qdq --guidance_scale 0 --seed 0 --num_inference_steps 1 --prompt "A baby is laying down with a teddy bear"`
+
+#### Evaluation result
+
+The CLIP, FID and MSE scores are based on the first 100 prompts from dataset phiyodr/coco2017.
+
+From a qualitative perspective, 2 steps of the quantized model could generate visually better results than original 1 step.
+
+|Model|CLIP Scores|FID|MSE to original|HPSv2 (photo - mean) |HPSv2 (photo -std)|
+|-|-|-|-|-|-|
+|Original 1 step|31.10|179.77|N/A|24.67|0.4198|
+|Quantized 1 step|31.29 | 177.53|388.5 |24.33|0.4589|
+|Quantized 2 steps|31.05|181.86| N/A|26.10|0.4206|
+
+Latency on CPU for original model and QNN for QDQ model (tested on Snapdragon(R) X 12-core X1E80100):
+
+|Model|Size|Latency (ms)|
+|-|-|-|
+|CPU for original|-|-|
+|Text encoder|1.26 GB|145.19|
+|Unet|3.22 GB|3498.44|
+|Vae decoder|188 MB|9233.03|
+|Vae encoder|130 MB|5484.61|
+|QNN for QDQ|-|-|
+|Text encoder|375 MB|10.16|
+|Unet|829 MB|237.03|
+|Vae decoder|48 MB|383.97|
+|Vae encoder|33 MB|157.85|

@@ -5,13 +5,13 @@
 import logging
 import platform
 from pathlib import Path
-from test.multiple_ep.utils import get_directories
 
 import pytest
 
 from olive.common.constants import OS
 from olive.logging import set_default_logger_severity
 from olive.model import ModelConfig
+from test.multiple_ep.utils import get_directories
 
 # pylint: disable=attribute-defined-outside-init
 
@@ -20,9 +20,8 @@ from olive.model import ModelConfig
 class TestOliveManagedDockerSystem:
     @pytest.fixture(autouse=True)
     def setup(self):
-        from test.multiple_ep.utils import download_data, download_models, get_onnx_model
-
         from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
+        from test.multiple_ep.utils import download_data, download_models, get_onnx_model
 
         # use the olive managed Docker system as the test environment
         self.system_config = SystemConfig(

@@ -27,7 +27,6 @@ from olive.package_config import OlivePackageConfig
 
 
 class AutoOptCommand(BaseOliveCLICommand):
-
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(

@@ -1,12 +1,13 @@
 An example of mistral model optimization using olive workflows.
 
-- CPU: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Intel® Neural Compressor 4 bit Quantized Onnx Model*
+- CPU: *PyTorch Model -> Onnx Model -> Intel® Neural Compressor 4 bit Quantized Onnx Model*
 
 ## Prerequisites
 * transformers>=4.34.99
 * optimum>1.17.0
 * neural-compressor>=2.4.1
 * onnxruntime>=1.17.0 or onnxruntime-gpu>=1.17.0
+* onnxruntime-genai or onnxruntime-genai-cuda
 
 ## Installation
 ```bash
@@ -27,12 +28,12 @@ git config --system core.longpaths true
 ## Run Optimization
 CPU:
 ```bash
-python mistral.py --optimize --config mistral_int4_optimize.json
+python mistral.py --optimize --config mistral_int4.json
 ```
 
 GPU:
 ```bash
-python mistral.py --optimize --config mistral_fp16_optimize.json
+python mistral.py --optimize --config mistral_fp16.json
 ```
 
 **NOTE:** You can run the optimization for a locally saved model by setting the `--model_id` to the path of the model.
@@ -40,18 +41,18 @@ python mistral.py --optimize --config mistral_fp16_optimize.json
 ## Test Inference
 To test inference on the model run the script with `--inference`
 ```bash
-python mistral.py --config mistral_fp16_optimize.json --inference
+python mistral.py --config mistral_fp16.json --inference
 ```
 
 **NOTE:**
 - You can provide you own prompts using `--prompt` argument. For example:
 ```bash
-python mistral.py --config mistral_fp16_optimize.json --inference --prompt "Language models are very useful" "What is the meaning of life?"
+python mistral.py --config mistral_fp16.json --inference --prompt "Language models are very useful" "What is the meaning of life?"
 ```
 - `--max_length` can be used to specify the maximum length of the generated sequence.
 - Use `CUDA_VISIBLE_DEVICES` to specify the GPU to run the inference on. For example:
 ```bash
-CUDA_VISIBLE_DEVICES=6 python mistral.py --config mistral_fp16_optimize.json --inference
+CUDA_VISIBLE_DEVICES=6 python mistral.py --config mistral_fp16.json --inference
 ```
 
 ## Known issues

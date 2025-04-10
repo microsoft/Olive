@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import json
 from pathlib import Path
-from test.unit_test.utils import make_local_tiny_llama
 
 import pytest
 
@@ -15,6 +14,7 @@ from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.model_builder import ModelBuilder
 from olive.passes.onnx.split import SplitModel
 from olive.passes.onnx.static_llm import StaticLLM
+from test.unit_test.utils import make_local_tiny_llama
 
 
 @pytest.mark.parametrize("use_mb", [True, False])

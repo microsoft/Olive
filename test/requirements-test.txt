@@ -27,7 +27,6 @@ optimum>=1.17.0
 pandas
 peft
 plotly
-protobuf==3.20.3
 psutil
 pytest
 pytorch_lightning

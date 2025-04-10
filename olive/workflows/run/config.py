@@ -104,7 +104,7 @@ class RunConfig(NestedConfig):
             " no-search or auto-optimizer mode based on whether passes field is provided."
         ),
     )
-    passes: Dict[str, List[RunPassConfig]] = Field(None, description="Pass configurations.")
+    passes: Dict[str, List[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
     auto_optimizer_config: AutoOptimizerConfig = Field(
         default_factory=AutoOptimizerConfig,
         description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
