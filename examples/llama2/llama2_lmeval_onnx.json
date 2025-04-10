@@ -8,8 +8,11 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
+    },
+    "passes": {
+        "mb": { "type": "ModelBuilder", "precision": "int4", "search": { "max_length": 2048, "min_length": 0 } }
     },
     "evaluators": {
         "evaluator": { "type": "LMEvaluator", "tasks": [ "hellaswag" ], "batch_size": 1, "limit": 4, "max_length": 128 }

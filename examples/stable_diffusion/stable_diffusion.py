@@ -13,7 +13,6 @@ from typing import Dict
 import numpy as np
 import torch
 from diffusers import DiffusionPipeline
-from packaging import version
 from sd_utils import config
 from user_script import get_base_model_name
 
@@ -182,7 +181,7 @@ def update_config_with_provider(config: Dict, provider: str, model_format: str, 
         from sd_utils.ort import update_dml_config
 
         return update_dml_config(config)
-    elif provider == "cuda":
+    elif provider == "cuda" and not model_format:
         from sd_utils.ort import update_cuda_config
 
         return update_cuda_config(config)
@@ -206,13 +205,6 @@ def optimize(
     model_id = common_args.model_id
     provider = common_args.provider
     model_format = common_args.format
-
-    from google.protobuf import __version__ as protobuf_version
-
-    # protobuf 4.x aborts with OOM when optimizing unet
-    if version.parse(protobuf_version) > version.parse("3.20.3"):
-        print("This script requires protobuf 3.20.3. Please ensure your package version matches requirements.txt.")
-        sys.exit(1)
 
     script_dir = Path(__file__).resolve().parent
 
