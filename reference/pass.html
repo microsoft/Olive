@@ -4396,6 +4396,15 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-use_qdq">
+<span class="sig-name descname"><span class="pre">use_qdq</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_qdq" title="Link to this definition">#</a></dt>
+<dd><p>Use this option when you want to use quantize-dequantize ops. For example, you will have a quantized MatMul op instead of the MatMulNBits op.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-int4_block_size">
 <span class="sig-name descname"><span class="pre">int4_block_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_block_size" title="Link to this definition">#</a></dt>
 <dd><p>Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.</p>
