@@ -25,7 +25,9 @@ def update_qdq_config(config: Dict, provider: str, submodel_name: str):
         used_passes = {"convert"}
         config["evaluator"] = None
     elif submodel_name == "text_encoder":
-        used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "quantization"}
+        used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "optimize_qdq", "quantization"}
+    elif submodel_name == "unet":
+        used_passes = {"convert", "dynamic_shape_to_fixed", "optimize_qdq", "quantization"}
     else:
         used_passes = {"convert", "dynamic_shape_to_fixed", "quantization"}
 

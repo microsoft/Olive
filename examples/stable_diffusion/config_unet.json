@@ -119,6 +119,32 @@
             "dim_value": [ 1, 4, 64, 64, 1, 1, 77 ],
             "save_as_external_data": true
         },
+        "optimize_qdq": {
+            "type": "OrtTransformersOptimization",
+            "model_type": "unet",
+            "opt_level": 0,
+            "optimization_options": {
+                "enable_gelu": true,
+                "enable_layer_norm": true,
+                "enable_attention": false,
+                "use_multi_head_attention": false,
+                "enable_skip_layer_norm": false,
+                "enable_embed_layer_norm": false,
+                "enable_bias_skip_layer_norm": false,
+                "enable_bias_gelu": false,
+                "enable_gelu_approximation": false,
+                "enable_qordered_matmul": false,
+                "enable_shape_inference": true,
+                "enable_gemm_fast_gelu": false,
+                "enable_nhwc_conv": false,
+                "enable_group_norm": false,
+                "enable_bias_splitgelu": false,
+                "enable_packed_qkv": false,
+                "enable_packed_kv": false,
+                "enable_bias_add": false,
+                "group_norm_channels_last": false
+            }
+        },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "quantize_data_config",

@@ -236,7 +236,7 @@ Latency on CPU for original model and QNN for QDQ model (tested on Snapdragon(R)
 |Vae decoder|188 MB|9233.03|
 |Vae encoder|130 MB|5484.61|
 |QNN for QDQ|-|-|
-|Text encoder|375 MB|148.19|
-|Unet|829 MB|2392.11|
-|Vae decoder|48 MB|868.21|
-|Vae encoder|33 MB|487.17|
+|Text encoder|375 MB|10.16|
+|Unet|829 MB|237.03|
+|Vae decoder|48 MB|383.97|
+|Vae encoder|33 MB|157.85|
