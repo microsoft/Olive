@@ -31,8 +31,10 @@ class ModelBuilderAccuracyLevel(IntEnumBase):
 def parse_dim_dict(s):
     try:
         return {k: int(v) if v.isdigit() else v for k, v in (item.split("=") for item in s.split(","))}
-    except Exception:
-        raise argparse.ArgumentTypeError("Format must be key=value,... with positive integers as values")
+    except Exception as exc:
+        raise argparse.ArgumentTypeError(
+            "Format must be key=value,... with positive integers as values"
+        ) from exc
 
 
 class CaptureOnnxGraphCommand(BaseOliveCLICommand):
