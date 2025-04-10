@@ -25,7 +25,9 @@ def update_qdq_config(config: Dict, provider: str, submodel_name: str):
         used_passes = {"convert"}
         config["evaluator"] = None
     elif submodel_name == "text_encoder":
-        used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "quantization"}
+        used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "optimize_qnn", "quantization"}
+    elif submodel_name == "unet":
+        used_passes = {"convert", "dynamic_shape_to_fixed", "optimize_qnn", "quantization"}
     else:
         used_passes = {"convert", "dynamic_shape_to_fixed", "quantization"}
 
@@ -42,7 +44,7 @@ def update_qdq_config(config: Dict, provider: str, submodel_name: str):
         config["systems"]["local_system"]["accelerators"][0]["device"] = "cpu"
         config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
         # not meaningful to evaluate QDQ latency on CPU
-        config["evaluator"] = None
+    config["evaluator"] = None
     return config
 
 
