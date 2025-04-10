@@ -216,6 +216,8 @@ To generate one image:
 
 #### Evaluation result
 
+The CLIP, FID and MSE scores are based on the first 100 prompts from dataset phiyodr/coco2017.
+
 From a qualitative perspective, 2 steps of the quantized model could generate visually better results than original 1 step.
 
 |Model|CLIP Scores|FID|MSE to original|HPSv2 (photo - mean) |HPSv2 (photo -std)|

@@ -19,7 +19,7 @@ from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 # ruff: noqa: T201
 
 
-def update_qdq_config(config: Dict, submodel_name: str):
+def update_qdq_config(config: Dict, provider: str, submodel_name: str):
     used_passes = {}
     if sd_utils.config.only_conversion:
         used_passes = {"convert"}
@@ -32,9 +32,14 @@ def update_qdq_config(config: Dict, submodel_name: str):
         if pass_name not in used_passes:
             config["passes"].pop(pass_name, None)
 
-    config["systems"]["local_system"]["accelerators"][0]["device"] = "cpu"
-    config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
-    config["evaluator"] = None
+    if provider == "cuda":
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
+    elif provider == "qnn":
+        config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
+    else:
+        config["systems"]["local_system"]["accelerators"][0]["device"] = "cpu"
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
     return config
 
 
@@ -224,16 +229,22 @@ def get_qdq_pipeline(model_dir, common_args, qdq_args, script_dir):
 
     print("Loading models into ORT session...")
     sess_options = ort.SessionOptions()
+    provider_options = [{}]
 
     provider = common_args.provider
 
     provider_map = {
         "cpu": "CPUExecutionProvider",
+        "cuda": "CUDAExecutionProvider",
+        "qnn": "QNNExecutionProvider",
     }
     assert provider in provider_map, f"Unsupported provider: {provider}"
 
+    if provider == "qnn":
+        provider_options[0]["backend_path"] = "QnnHtp.dll"
+
     pipeline = OnnxStableDiffusionPipelineWithSave.from_pretrained(
-        model_dir, provider=provider_map[provider], sess_options=sess_options
+        model_dir, provider=provider_map[provider], sess_options=sess_options, provider_options=provider_options
     )
     if qdq_args.save_data:
         pipeline.save_data_dir = script_dir / qdq_args.data_dir / common_args.prompt
