@@ -70,7 +70,10 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--fixed_param_dict",
             type=parse_dim_dict,
             required=False,
-            help="A dictionary of parameter names and values to fix input shapes, e.g., 'batch_size=1,max_length=128'",
+            help=(
+                "Fix dynamic input shapes by providing a dictionary of dimension names and values, "
+                "e.g., 'batch_size=1,max_length=128'"
+            ),
         )
         pte_group.add_argument(
             "--past_key_value_name",
