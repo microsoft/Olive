@@ -228,7 +228,7 @@ def optimize(
     config.unet_sample_size = pipeline.unet.config.sample_size
     if model_format == "qdq":
         config.vae_sample_size = common_args.image_size
-        #config.unet_sample_size = common_args.image_size // 8
+        # config.unet_sample_size = common_args.image_size // 8
 
     model_info = {}
 
@@ -334,7 +334,9 @@ def parse_common_args(raw_args):
         type=int,
         help="The seed to give to the generator to generate deterministic results.",
     )
-    parser.add_argument("--format", default=None, type=str, help="Currently only support qdq with provider cpu, cuda or qnn")
+    parser.add_argument(
+        "--format", default=None, type=str, help="Currently only support qdq with provider cpu, cuda or qnn"
+    )
 
     return parser.parse_known_args(raw_args)
 
