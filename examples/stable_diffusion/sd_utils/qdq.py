@@ -23,6 +23,7 @@ def update_qdq_config(config: Dict, provider: str, submodel_name: str):
     used_passes = {}
     if sd_utils.config.only_conversion:
         used_passes = {"convert"}
+        config["evaluator"] = None
     elif submodel_name == "text_encoder":
         used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "quantization"}
     else:
