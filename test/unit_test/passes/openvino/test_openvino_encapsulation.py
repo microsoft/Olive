@@ -48,7 +48,7 @@ def convert_pt_to_ov_model(tmp_path, static=False):
 def test_openvino_encapsulate_pass__static_reuse_cache(tmp_path):
     # setup
     openvino_model = convert_pt_to_ov_model(tmp_path,True)
-    openvino_conversion_config = {"ov_version": "2025.1", "shared_cache":True}
+    openvino_conversion_config = {"ov_version": "2025.1", "reuse_cache":True}
 
     p = create_pass_from_dict(OpenVINOEncapsulation, openvino_conversion_config, disable_search=True)
 
@@ -68,7 +68,7 @@ def test_openvino_encapsulate_pass__static_reuse_cache(tmp_path):
 def test_openvino_encapsulate_pass_dynamic(tmp_path):
     # setup
     openvino_model = convert_pt_to_ov_model(tmp_path)
-    openvino_conversion_config = {"target_device": "npu", "shared_cache": False}
+    openvino_conversion_config = {"target_device": "npu", "reuse_cache": False}
 
     p = create_pass_from_dict(OpenVINOEncapsulation, openvino_conversion_config, disable_search=True)
 
