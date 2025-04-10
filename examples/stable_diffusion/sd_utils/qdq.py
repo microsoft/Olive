@@ -41,6 +41,8 @@ def update_qdq_config(config: Dict, provider: str, submodel_name: str):
     else:
         config["systems"]["local_system"]["accelerators"][0]["device"] = "cpu"
         config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
+        # not meaningful to evaluate QDQ latency on CPU
+        config["evaluator"] = None
     return config
 
 

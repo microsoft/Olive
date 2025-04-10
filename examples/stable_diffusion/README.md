@@ -225,3 +225,18 @@ From a qualitative perspective, 2 steps of the quantized model could generate vi
 |Original 1 step|31.10|179.77|N/A|24.67|0.4198|
 |Quantized 1 step|31.29 | 177.53|388.5 |24.33|0.4589|
 |Quantized 2 steps|31.05|181.86| N/A|26.10|0.4206|
+
+Latency on CPU for original model and QNN for QDQ model (tested on Snapdragon(R) X 12-core X1E80100):
+
+|Model|Size|Latency (ms)|
+|-|-|-|
+|CPU for original|-|-|
+|Text encoder|1.26 GB|145.19|
+|Unet|3.22 GB|3498.44|
+|Vae decoder|188 MB|9233.03|
+|Vae encoder|130 MB|5484.61|
+|QNN for QDQ|-|-|
+|Text encoder|375 MB|148.19|
+|Unet|829 MB|2392.11|
+|Vae decoder|48 MB|868.21|
+|Vae encoder|33 MB|487.17|
