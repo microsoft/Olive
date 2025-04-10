@@ -26,7 +26,7 @@ def huggingface_dataset(
     split: Optional[str] = "validation",
     data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
     col_filters: Optional[Mapping[str, Union[str, int, float]]] = None,
-    **kwargs
+    **kwargs,
 ):
     """Create a dataset from huggingface datasets."""
     from datasets.utils.logging import disable_progress_bar, set_verbosity_error

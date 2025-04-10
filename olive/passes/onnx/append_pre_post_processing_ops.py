@@ -92,9 +92,9 @@ class AppendPrePostProcessingOps(Pass):
             if tool_command == "whisper":
                 from onnxruntime_extensions import __version__ as ortext_version
 
-                assert version.parse(ortext_version) >= version.parse(
-                    "0.9.0"
-                ), "Whisper pre-post processing requires onnxruntime_extensions>=0.9.0"
+                assert version.parse(ortext_version) >= version.parse("0.9.0"), (
+                    "Whisper pre-post processing requires onnxruntime_extensions>=0.9.0"
+                )
 
                 from olive.passes.utils.whisper_prepost import add_pre_post_processing_to_model
 

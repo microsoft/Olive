@@ -229,7 +229,7 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                 examples_to_get = min(args.processing_batch_size, total_examples - example_idx)
                 # batch tokenize
                 batched_input_ids = tokenizer(
-                    text_list[example_idx : example_idx + examples_to_get],  # noqa: E203, RUF100
+                    text_list[example_idx : example_idx + examples_to_get],
                     add_special_tokens=False,
                     truncation=False,
                 )["input_ids"]
@@ -307,7 +307,9 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                     examples_to_get = min(args.max_samples - num_samples, total_examples - example_idx)
                     # batch tokenize
                     tokenized_texts = batch_tokenize_text(
-                        text_list[example_idx : example_idx + examples_to_get], tokenizer, args  # noqa: E203, RUF100
+                        text_list[example_idx : example_idx + examples_to_get],
+                        tokenizer,
+                        args,
                     )
                     for native_input_ids, native_attention_mask in tokenized_texts:
                         append_text_gen_input_ids(

@@ -10,7 +10,6 @@ from olive.common.constants import OS
 
 
 def resolve_windows_config():
-
     with Path("inception_config.json").open() as f:
         snpe_windows_config = json.load(f)
 

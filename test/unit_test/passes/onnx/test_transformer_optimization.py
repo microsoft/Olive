@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 import shutil
-from test.unit_test.utils import ONNX_MODEL_PATH, get_onnx_model
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,6 +13,7 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.onnx.transformer_optimization import OrtTransformersOptimization
+from test.unit_test.utils import ONNX_MODEL_PATH, get_onnx_model
 
 # pylint: disable=redefined-outer-name, abstract-method, protected-access
 

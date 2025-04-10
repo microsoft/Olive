@@ -3,10 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from test.unit_test.utils import get_onnx_model
-
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.mixed_precision import OrtMixedPrecision
+from test.unit_test.utils import get_onnx_model
 
 
 def test_ort_mixed_precision_pass(tmp_path):

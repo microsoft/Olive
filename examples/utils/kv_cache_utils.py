@@ -160,18 +160,18 @@ class StaticCache(Cache):
         assert present_len > 0, "present_kvs cannot be empty"
 
         if self.seen_len == 0:
-            assert (
-                present_len <= self.max_cache_len
-            ), "present_kvs is longer than max_cache_len during prompt processing"
+            assert present_len <= self.max_cache_len, (
+                "present_kvs is longer than max_cache_len during prompt processing"
+            )
             # prompt processing
             for k, v in zip(self.past_names, present_kvs):
                 self.cache[k][:, :, :present_len] = v
             self.seen_len = present_len
             return
 
-        assert (
-            present_len == self.max_cache_len + 1
-        ), "present_kvs must be one step longer than max_cache_len in token generation"
+        assert present_len == self.max_cache_len + 1, (
+            "present_kvs must be one step longer than max_cache_len in token generation"
+        )
         for k, v in zip(self.past_names, present_kvs):
             self.cache[k][:, :, self.seen_len] = v[:, :, -1]
         self.seen_len += 1
@@ -414,9 +414,9 @@ class StaticIOBoundCache(IOBoundCache):
             # prompt processing
             present_len = present_kvs[0].shape()[2]
             assert present_len > 0, "present_kvs cannot be empty"
-            assert (
-                present_len <= self.max_cache_len
-            ), "present_kvs is longer than max_cache_len during prompt processing"
+            assert present_len <= self.max_cache_len, (
+                "present_kvs is longer than max_cache_len during prompt processing"
+            )
             for k, v in zip(self.past_names, present_kvs):
                 if self.backend == "torch":
                     import torch
@@ -431,9 +431,9 @@ class StaticIOBoundCache(IOBoundCache):
 
         # token generation
         for past_k, present_k, v in zip(self.past_names, self.present_names, present_kvs):
-            assert (
-                self.output_cache[present_k].data_ptr() == v.data_ptr()
-            ), "out cache ortvalue should be same as present ortvalue"
+            assert self.output_cache[present_k].data_ptr() == v.data_ptr(), (
+                "out cache ortvalue should be same as present ortvalue"
+            )
             if self.backend == "torch":
                 self.cache[past_k][:, :, self.seen_len] = self.output_cache[present_k][:, :, -1]
             else:

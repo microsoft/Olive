@@ -26,7 +26,6 @@ from olive.common.utils import set_nested_dict_value
 
 
 class SessionParamsTuningCommand(BaseOliveCLICommand):
-
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
