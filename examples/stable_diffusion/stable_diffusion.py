@@ -182,7 +182,7 @@ def update_config_with_provider(config: Dict, provider: str, model_format: str, 
         from sd_utils.ort import update_dml_config
 
         return update_dml_config(config)
-    elif provider == "cuda":
+    elif provider == "cuda" and not model_format:
         from sd_utils.ort import update_cuda_config
 
         return update_cuda_config(config)
