@@ -119,7 +119,8 @@
             "dim_value": [ 1, 4, 64, 64, 1, 1, 77 ],
             "save_as_external_data": true
         },
-        "optimize_qnn": {
+        "gemm_surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
+        "optimize_qdq": {
             "type": "OrtTransformersOptimization",
             "model_type": "unet",
             "opt_level": 0,

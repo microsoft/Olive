@@ -24,12 +24,12 @@ def update_qdq_config(config: Dict, provider: str, submodel_name: str):
     if sd_utils.config.only_conversion:
         used_passes = {"convert"}
         config["evaluator"] = None
-    elif submodel_name == "text_encoder":
-        used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "optimize_qnn", "quantization"}
-    elif submodel_name == "unet":
-        used_passes = {"convert", "dynamic_shape_to_fixed", "optimize_qnn", "quantization"}
     else:
-        used_passes = {"convert", "dynamic_shape_to_fixed", "quantization"}
+        used_passes = {"convert", "dynamic_shape_to_fixed", "optimize_qdq", "quantization"}
+        if submodel_name == "text_encoder":
+            used_passes.add("attn_surgery")
+        if provider == "qnn":
+            used_passes.add("gemm_surgery")
 
     for pass_name in set(config["passes"].keys()):
         if pass_name not in used_passes:

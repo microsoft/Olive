@@ -95,8 +95,9 @@
             "dim_param": [ "batch", "sequence" ],
             "dim_value": [ 1, 77 ]
         },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
-        "optimize_qnn": {
+        "attn_surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
+        "gemm_surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
+        "optimize_qdq": {
             "type": "OrtTransformersOptimization",
             "model_type": "clip",
             "opt_level": 0,
