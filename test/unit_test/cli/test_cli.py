@@ -198,6 +198,35 @@ def test_capture_onnx_command(_, mock_run, use_model_builder, tmp_path):
     assert mock_run.call_count == 1
 
 
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_fix_shape(_, mock_run, tmp_path):
+    # setup
+    output_dir = tmp_path / "output_dir"
+    model_id = "dummy-model-id"
+    fixed_param_dict = {"batch_size": 1, "max_seq_len": 512}
+    fixed_param_dict_str = "batch_size=1,max_seq_len=512"
+    command_args = [
+        "capture-onnx-graph",
+        "-m",
+        model_id,
+        "--fixed_param_dict",
+        fixed_param_dict_str,
+        "-o",
+        str(output_dir),
+    ]
+
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == model_id
+    assert "f" in config["passes"]
+    assert config["passes"]["f"]["dim_param"] == list(fixed_param_dict.keys())
+    assert config["passes"]["f"]["dim_value"] == list(fixed_param_dict.values())
+    assert mock_run.call_count == 1
+
+
 @patch("olive.cli.shared_cache.AzureContainerClientFactory")
 def test_shared_cache_command(mock_AzureContainerClientFactory):
     # setup
