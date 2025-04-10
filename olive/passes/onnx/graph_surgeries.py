@@ -773,6 +773,10 @@ class MatMulAddToGemm(Surgeon):
                 continue
             add_name = matmul_consumers[0]
 
+            out = dag.get_node_outputs(add_name)[0]
+            if dag.is_output(out):
+                continue
+
             # check matmul input shapes
             matmul_inputs = dag.get_node_inputs(node_name)
             matmul_input_shapes = [dag.get_io_shape(i_name) for i_name in matmul_inputs]
