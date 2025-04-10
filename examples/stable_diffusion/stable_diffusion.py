@@ -199,12 +199,14 @@ def update_config_with_provider(config: Dict, provider: str, model_format: str, 
 
 
 def optimize(
-    model_id: str,
-    provider: str,
-    model_format: str,
+    common_args,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
 ):
+    model_id = common_args.model_id
+    provider = common_args.provider
+    model_format = common_args.format
+
     from google.protobuf import __version__ as protobuf_version
 
     # protobuf 4.x aborts with OOM when optimizing unet
@@ -232,6 +234,9 @@ def optimize(
     config.vae_sample_size = pipeline.vae.config.sample_size
     config.cross_attention_dim = pipeline.unet.config.cross_attention_dim
     config.unet_sample_size = pipeline.unet.config.sample_size
+    if model_format == "qdq":
+        config.vae_sample_size = common_args.image_size
+        #config.unet_sample_size = common_args.image_size // 8
 
     model_info = {}
 
@@ -420,9 +425,7 @@ def main(raw_args=None):
 
                 validate_args(ort_args, common_args.provider)
             optimize(
-                common_args.model_id,
-                common_args.provider,
-                common_args.format,
+                common_args,
                 unoptimized_model_dir,
                 optimized_model_dir,
             )
