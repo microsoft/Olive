@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import argparse
 from argparse import ArgumentParser
 from copy import deepcopy
 from typing import Dict
@@ -25,6 +26,13 @@ class ModelBuilderAccuracyLevel(IntEnumBase):
     fp16 = 2
     bf16 = 3
     int8 = 4
+
+
+def parse_dim_dict(s):
+    try:
+        return {k: int(v) if v.isdigit() else v for k, v in (item.split("=") for item in s.split(","))}
+    except Exception as exc:
+        raise argparse.ArgumentTypeError("Format must be key=value,... with positive integers as values") from exc
 
 
 class CaptureOnnxGraphCommand(BaseOliveCLICommand):
@@ -57,6 +65,15 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--use_dynamo_exporter",
             action="store_true",
             help="Whether to use dynamo_export API to export ONNX model.",
+        )
+        pte_group.add_argument(
+            "--fixed_param_dict",
+            type=parse_dim_dict,
+            required=False,
+            help=(
+                "Fix dynamic input shapes by providing a dictionary of dimension names and values, "
+                "e.g., 'batch_size=1,max_length=128'"
+            ),
         )
         pte_group.add_argument(
             "--past_key_value_name",
@@ -210,7 +227,11 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                         (("passes", "m", "metadata_only"), True),
                     ]
                 )
-
+        if self.args.fixed_param_dict:
+            to_replace.append((("passes", "f", "dim_param"), list(self.args.fixed_param_dict.keys())))
+            to_replace.append((("passes", "f", "dim_value"), list(self.args.fixed_param_dict.values())))
+        else:
+            del config["passes"]["f"]
         for keys, value in to_replace:
             if value is None:
                 continue
@@ -234,6 +255,7 @@ TEMPLATE = {
             "type": "OnnxConversion",
         },
         "m": {"type": "ModelBuilder", "metadata_only": False},
+        "f": {"type": "DynamicToFixedShape"},
     },
     "host": "local_system",
     "target": "local_system",
