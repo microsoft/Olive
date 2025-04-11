@@ -191,7 +191,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         ]
         if self.args.use_model_builder:
             del config["passes"]["c"]
-            del config["passes"]["f"]
             to_replace.extend(
                 [
                     (("passes", "m", "precision"), self.args.precision),
@@ -219,11 +218,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             )
             if self.args.use_dynamo_exporter:
                 to_replace.append((("passes", "c", "past_key_value_name"), self.args.past_key_value_name))
-            if self.args.fixed_param_dict:
-                to_replace.append((("passes", "f", "dim_param"), list(self.args.fixed_param_dict.keys())))
-                to_replace.append((("passes", "f", "dim_value"), list(self.args.fixed_param_dict.values())))
-            else:
-                del config["passes"]["f"]
             if not self.args.use_ort_genai:
                 del config["passes"]["m"]
             else:
@@ -233,7 +227,11 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                         (("passes", "m", "metadata_only"), True),
                     ]
                 )
-
+        if self.args.fixed_param_dict:
+            to_replace.append((("passes", "f", "dim_param"), list(self.args.fixed_param_dict.keys())))
+            to_replace.append((("passes", "f", "dim_value"), list(self.args.fixed_param_dict.values())))
+        else:
+            del config["passes"]["f"]
         for keys, value in to_replace:
             if value is None:
                 continue
