@@ -588,7 +588,7 @@
 <p>each component can be customized by the following fields:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">name</span></code>: the name of the component.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in <code class="docutils literal notranslate"><span class="pre">user_script</span></code> with the way Olive does for <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26"><code class="docutils literal notranslate"><span class="pre">huggingface_dataset</span></code></a>. In this way, they need to provide <code class="docutils literal notranslate"><span class="pre">user_script</span></code> and <code class="docutils literal notranslate"><span class="pre">script_dir</span></code>. There is an <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L9%3E">example</a> with customized component type.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in <code class="docutils literal notranslate"><span class="pre">user_script</span></code> with the way Olive does for <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26"><code class="docutils literal notranslate"><span class="pre">huggingface_dataset</span></code></a>. In this way, they need to provide <code class="docutils literal notranslate"><span class="pre">user_script</span></code> and <code class="docutils literal notranslate"><span class="pre">script_dir</span></code>. There is an <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py#L77%3E">example</a> with customized component type.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">params</span></code>: the dictionary of component function parameters. The key is the parameter name for given component type and the value is the parameter value.</p></li>
 </ul>
 </li>
@@ -676,8 +676,8 @@ def customized_dataloader(dataset):
 </div>
 <p>Some examples:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L8-L10">user_script</a></p></li>
-<li><p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/inception/inception_config.json#L14-L16">The <code class="docutils literal notranslate"><span class="pre">json_config</span></code></a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py#L76-L82">user_script</a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet/resnet_ptq_cpu.json#L24">The <code class="docutils literal notranslate"><span class="pre">json_config</span></code></a></p></li>
 </ul>
 <p>The components will be called with the following arguments along with any additional keyword arguments provided in the config:</p>
 <ul class="simple">
