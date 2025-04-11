@@ -722,33 +722,21 @@ def test_replace_attention_mask_value(tmp_path):
 def test_matmul_add_to_gemm(tmp_path):
 
     # setup input and output tensors
-    input_tensor = helper.make_tensor_value_info('input', TensorProto.FLOAT, [2, 3, 3])
-    output_tensor = helper.make_tensor_value_info('output', TensorProto.FLOAT, [2, 3, 3])
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 3])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 3, 3])
 
     constant1_data = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float32)
     constant2_data = np.array([1, 2, 3], dtype=np.float32)
     # Create constant tensors
     initializers = [
-        helper.make_tensor('constant1', TensorProto.FLOAT, [3, 3], constant1_data),
-        helper.make_tensor('constant2', TensorProto.FLOAT, [3], constant2_data)
-        ]
+        helper.make_tensor("constant1", TensorProto.FLOAT, [3, 3], constant1_data),
+        helper.make_tensor("constant2", TensorProto.FLOAT, [3], constant2_data),
+    ]
 
     nodes = [
-        helper.make_node(
-            'MatMul',
-            inputs=['input', 'constant1'],
-            outputs=['matmul_output']
-        ),
-        helper.make_node(
-            'Add',
-            inputs=['matmul_output', 'constant2'],
-            outputs=['inter']
-        ),
-        helper.make_node(
-            'Identity',
-            inputs=['inter'],
-            outputs=['output']
-        )
+        helper.make_node("MatMul", inputs=["input", "constant1"], outputs=["matmul_output"]),
+        helper.make_node("Add", inputs=["matmul_output", "constant2"], outputs=["inter"]),
+        helper.make_node("Identity", inputs=["inter"], outputs=["output"]),
     ]
 
     graph = helper.make_graph(
@@ -785,8 +773,7 @@ def test_matmul_add_to_gemm(tmp_path):
     output_session = output_model.prepare_session()
 
     # Define the input data
-    input_data = np.array([[[1, 2, 3], [4, 5, 6], [7, 8, 9]],
-                           [[1, 2, 3], [4, 5, 6], [7, 8, 9]]], dtype=np.float32)
+    input_data = np.array([[[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[1, 2, 3], [4, 5, 6], [7, 8, 9]]], dtype=np.float32)
 
     outputs = output_session.run(None, {"input": input_data})
 
