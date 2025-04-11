@@ -941,6 +941,7 @@
                                 <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">conversion_device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">}]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">use_dynamo_exporter</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">fixed_param_dict</span> <span class="n">FIXED_PARAM_DICT</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">past_key_value_name</span> <span class="n">PAST_KEY_VALUE_NAME</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="n">TORCH_DTYPE</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">target_opset</span> <span class="n">TARGET_OPSET</span><span class="p">]</span>
@@ -1034,6 +1035,9 @@
 <dt><kbd>--use_dynamo_exporter</kbd></dt>
 <dd><p>Whether to use dynamo_export API to export ONNX model.</p>
 <p>Default: False</p>
+</dd>
+<dt><kbd>--fixed_param_dict</kbd></dt>
+<dd><p>Fix dynamic input shapes by providing a dictionary of dimension names and values, e.g., ‘batch_size=1,max_length=128’</p>
 </dd>
 <dt><kbd>--past_key_value_name</kbd></dt>
 <dd><p>The arguments name to point to past key values. For model loaded from huggingface, it is ‘past_key_values’. Basically, it is used only when <cite>use_dynamo_exporter</cite> is True.</p>
