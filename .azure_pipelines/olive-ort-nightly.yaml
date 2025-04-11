@@ -64,9 +64,6 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
-      mobilenet_qnn_ep:
-        exampleFolder: mobilenet/qnn
-        exampleName: mobilenet_qnn_ep
 
 # # Windows examples test
 - template: job_templates/olive-example-win-template.yaml
@@ -85,9 +82,6 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
-      mobilenet_qnn_ep:
-        exampleFolder: mobilenet/qnn
-        exampleName: mobilenet_qnn_ep
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-linux-template.yaml

@@ -43,7 +43,7 @@ def setup():
 def test_resnet(sampler, execution_order, system, olive_json):
     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json, sampler, execution_order, system)
+    olive_config = patch_config(olive_json, sampler, execution_order, system, hf_token=True)
 
     footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     check_output(footprint)

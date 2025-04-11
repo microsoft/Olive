@@ -14,7 +14,7 @@ from ..utils import check_output, get_example_dir, patch_config
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    os.chdir(get_example_dir("mobilenet/onnx"))
+    os.chdir(get_example_dir("mobilenet"))
 
 
 def test_mobilenet():
