@@ -99,7 +99,7 @@ def get_openvino_model(tmp_path):
         model_path=torch_hub_model_path,
     )
     openvino_conversion_config = {
-        "input": [1, 3, 32, 32],
+        "input_shapes": [[1, 3, 32, 32]],
     }
 
     p = create_pass_from_dict(

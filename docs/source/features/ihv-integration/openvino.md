@@ -31,7 +31,7 @@ Please refer to [OpenVINOConversion](openvino_conversion) for more details about
 ```json
 {
     "type": "OpenVINOConversion",
-    "input": [1, 3, 32, 32]
+    "input_shapes": [1, 3, 32, 32]
 }
 ```
 
