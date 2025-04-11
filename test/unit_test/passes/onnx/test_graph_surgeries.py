@@ -720,7 +720,6 @@ def test_replace_attention_mask_value(tmp_path):
 
 
 def test_matmul_add_to_gemm(tmp_path):
-
     # setup input and output tensors
     input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 3])
     output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 3, 3])
