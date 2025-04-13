@@ -4,11 +4,11 @@
 # --------------------------------------------------------------------------
 from pathlib import Path
 from typing import Dict,Type, Union
-import shutil
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
+from olive.common.utils import hardlink_copy_file
 
 
 class OpenVINOReshape(Pass):
@@ -26,14 +26,8 @@ class OpenVINOReshape(Pass):
                     "Extra configurations for OpenVINO model conversion. extra_config can be set by "
                     "passing a dictionary where key is the parameter name, and the value is the parameter value. "
                     "Please check Conversion Parameters documentation for more details: "
-                    "https://docs.openvino.ai/2023.3/openvino_docs_OV_Converter_UG_Conversion_Options.html"
+                    "https://docs.openvino.ai/2025/openvino-workflow/model-preparation/conversion-parameters.html"
                 ),
-            ),
-            "input_model": PassConfigParam(
-                type_=str,
-                default_value=None,
-                required=False,
-                description="Name of the input OpenVINO model.",
             ),
             "input_shapes": PassConfigParam(
                 type_=list,
@@ -44,17 +38,6 @@ class OpenVINOReshape(Pass):
                     "It configures dynamic and static dimensions in model inputs "
                     "depending on your inference requirements. "
                     "Static parameter is required to be enabled if static dimensions are required. "
-                ),
-            ),
-            "reuse_cache": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                required=False,
-                description=(
-                    "Uses the same cache folder of the previous pass."
-                    "Can only be used with dynamic models."
-                    "Ignored if model I/O names are found to be missing."
-                    "Enahances file reusablility between each pass."
                 ),
             ),
             "static": PassConfigParam(
@@ -79,22 +62,13 @@ class OpenVINOReshape(Pass):
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
 
-        if config.input_model:
-            model_name = config.input_model
-        else:
-            model_name = model.model_config["model_name"]
-
-        input_dir = Path(model.model_path) / (model_name)
-        if config.reuse_cache and not config.static:
-            output_model_path = model.model_path
-        elif config.reuse_cache and config.static:
-            msg = "Error! Cannot use shared cache with creating static models"
-            raise Exception(msg) from None
+        model_name = model.model_config["model_name"]
 
         core = ov.Core()
-        model_name_path = Path(model.model_path) / (model_name+".xml")
+        model_name_path = Path(model.model_path) / (f"{model_name}.xml")
+        weight_name_path = Path(model.model_path) / (f"{model_name}.bin")
 
-        loaded_model = core.read_model(model_name_path, weights=Path(model.model_path) / (model_name+".bin"))
+        loaded_model = core.read_model(model_name_path, weights=weight_name_path)
 
         # Ensure atleast 1 input name is present for all inputs
         update_io_names = False
@@ -122,25 +96,20 @@ class OpenVINOReshape(Pass):
 
             elif not config.input_shapes:
                 msg = "Error! Missing input shapes"
-                raise Exception(msg) from None
+                raise ValueError(msg) from None
 
             else:
                 msg = f"Error! The number of inputs in model {len(loaded_model.inputs)}"
                 "do not match the number of entries in the input_shapes in config, {len(config.input_shapes)}"
-                raise Exception(msg) from None
+                raise ValueError(msg) from None
 
-        else:
-            if update_io_names and not config.reuse_cache:
-                ov.save_model(loaded_model,Path(output_model_path) / (f"{model_name}.xml"))
+        elif update_io_names:
+            ov.save_model(loaded_model,Path(output_model_path) / (f"{model_name}.xml"))
 
-            elif not config.reuse_cache and not update_io_names:
-                xml_file = input_dir.with_suffix(".xml")
-                bin_file = input_dir.with_suffix(".bin")
-                shutil.copy2(xml_file, output_model_path)
-                shutil.copy2(bin_file, output_model_path)
-
-            else :
-                msg = "Error! Openvino model i/o mismatch detected. please disable reuse cache"
-                raise Exception(msg) from None
+        else :
+            model_name_path_dst = Path(output_model_path) / (f"{model_name}.xml")
+            weight_name_path_dst = Path(output_model_path) / (f"{model_name}.bin")
+            hardlink_copy_file(model_name_path,model_name_path_dst,follow_symlinks=True)
+            hardlink_copy_file(weight_name_path,weight_name_path_dst,follow_symlinks=True)
 
         return OpenVINOModelHandler(model_path=output_model_path)

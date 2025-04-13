@@ -2,7 +2,6 @@
 # Copyright (c) Intel Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import shutil
 from pathlib import Path
 from test.unit_test.utils import get_pytorch_model, get_pytorch_model_dummy_input
 
@@ -45,15 +44,15 @@ def convert_pt_to_ov_model(tmp_path, static=False):
 
     return openvino_model
 
-def test_openvino_encapsulate_pass__static_reuse_cache(tmp_path):
+def test_openvino_encapsulate_pass_static(tmp_path):
     # setup
     openvino_model = convert_pt_to_ov_model(tmp_path,True)
-    openvino_conversion_config = {"ov_version": "2025.1", "reuse_cache":True}
+    openvino_conversion_config = {"ov_version": "2025.1"}
 
     p = create_pass_from_dict(OpenVINOEncapsulation, openvino_conversion_config, disable_search=True)
 
     # Ensure folder matches reshape pass
-    output_folder = str(tmp_path / "openvino_reshape")
+    output_folder = str(tmp_path / "openvino_encapsulate")
 
     # execute
     onnx_model = p.run(openvino_model, output_folder)
@@ -62,13 +61,10 @@ def test_openvino_encapsulate_pass__static_reuse_cache(tmp_path):
     assert Path(onnx_model.model_path).exists()
     assert (Path(onnx_model.model_path)).is_file()
 
-    # cleanup
-    shutil.rmtree(tmp_path)
-
 def test_openvino_encapsulate_pass_dynamic(tmp_path):
     # setup
     openvino_model = convert_pt_to_ov_model(tmp_path)
-    openvino_conversion_config = {"target_device": "npu", "reuse_cache": False}
+    openvino_conversion_config = {"target_device": "npu"}
 
     p = create_pass_from_dict(OpenVINOEncapsulation, openvino_conversion_config, disable_search=True)
 
@@ -81,6 +77,3 @@ def test_openvino_encapsulate_pass_dynamic(tmp_path):
     # assert
     assert Path(onnx_model.model_path).exists()
     assert (Path(onnx_model.model_path)).is_file()
-
-    # cleanup
-    shutil.rmtree(tmp_path)

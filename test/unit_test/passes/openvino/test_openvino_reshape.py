@@ -49,7 +49,7 @@ def test_openvino_reshape_pass_static(tmp_path):
 def test_openvino_reshape_pass_dynamic(tmp_path):
     # setup
     openvino_model = convert_pt_to_ov_model(tmp_path)
-    openvino_conversion_config = {"input_shapes": [[1]], "static": False, "resuse_cache": False}
+    openvino_conversion_config = {"input_shapes": [[1]], "static": False}
 
     p = create_pass_from_dict(OpenVINOReshape, openvino_conversion_config, disable_search=True)
     output_folder = str(tmp_path / "openvino_dy")

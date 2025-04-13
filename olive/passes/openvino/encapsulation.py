@@ -7,13 +7,12 @@ from typing import Dict, Type, Union, ClassVar
 from openvino import get_version
 import onnx.helper as helper
 from onnx import TensorProto, save
-import shutil
 import os
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-
+from olive.common.utils import hardlink_copy_file
 
 class OpenVINOEncapsulation(Pass):
     """Encapsulates OpenVINO models with onnx context nodes."""
@@ -59,21 +58,6 @@ class OpenVINOEncapsulation(Pass):
                     "Available devices are cpu, gpu, npu."
                 ),
             ),
-            "reuse_cache": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                required=False,
-                description=(
-                    "Uses the same cache folder of the previous pass."
-                    "Enahances file reusablility between each pass."
-                ),
-            ),
-            "input_model": PassConfigParam(
-                type_=str,
-                default_value=None,
-                required=False,
-                description="Name of the input OpenVINO model.",
-            ),
             "ov_version": PassConfigParam(
                 type_=str,
                 default_value=None,
@@ -112,23 +96,18 @@ class OpenVINOEncapsulation(Pass):
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
 
-        if config.reuse_cache:
-            output_model_path = model.model_path
-
-        if config.input_model:
-            model_name = config.input_model
-        else:
-            model_name = model.model_config["model_name"]
+        model_name = model.model_config["model_name"]
 
         if config.ov_version:
             ov_version = config.ov_version
         else:
             ov_version = get_version()
 
-        input_dir = Path(model.model_path) / (model_name)
         core = ov.Core()
+        model_name_path = Path(model.model_path) / (f"{model_name}.xml")
+        weight_name_path = Path(model.model_path) / (f"{model_name}.bin")
 
-        loaded_model = core.read_model(model=input_dir.with_suffix(".xml"))
+        loaded_model = core.read_model(model=model_name_path, weights=weight_name_path)
 
         context_name = f"{model_name}.xml"
 
@@ -140,7 +119,7 @@ class OpenVINOEncapsulation(Pass):
                 try:
                     name = inp.get_any_name()
                 except Exception:
-                    raise Exception("Incorrect IO names, please use OpenVINO reshape pass before this pass") from None
+                    raise ValueError("Incorrect IO names, please use OpenVINO reshape pass before this pass") from None
             input_info[name] = (inp.get_partial_shape(), inp.get_element_type())
 
         # Get/Fix input names & ov shapes.
@@ -151,7 +130,7 @@ class OpenVINOEncapsulation(Pass):
                 try:
                     name = out.get_any_name()
                 except Exception:
-                    raise Exception("Incorrect IO names, please use OpenVINO reshape pass before this pass") from None
+                    raise ValueError("Incorrect IO names, please use OpenVINO reshape pass before this pass") from None
             output_info[name] = (out.get_partial_shape(), out.get_element_type())
 
         # Transform to onnx input shapes
@@ -226,12 +205,10 @@ class OpenVINOEncapsulation(Pass):
         if not os.path.exists(output_model_path):
             os.makedirs(output_model_path)
 
+        model_name_path_dst = Path(output_model_path) / (f"{model_name}.xml")
+        weight_name_path_dst = Path(output_model_path) / (f"{model_name}.bin")
+        hardlink_copy_file(model_name_path,model_name_path_dst,follow_symlinks=True)
+        hardlink_copy_file(weight_name_path,weight_name_path_dst,follow_symlinks=True)
         save(model_def, context_model_output_dir)
-
-        xml_file = input_dir.with_suffix(".xml")
-        bin_file = input_dir.with_suffix(".bin")
-        if not config.reuse_cache :
-            shutil.copy2(xml_file, output_model_path)
-            shutil.copy2(bin_file, output_model_path)
 
         return ONNXModelHandler(model_path=output_model_path)
