@@ -60,19 +60,14 @@ class OpenVINOConversion(Pass):
                 type_=str,
                 default_value="ov_model",
                 required=False,
-                description=(
-                    "Name of output openVINO model."
-                ),
+                description=("Name of output openVINO model."),
             ),
             "static": PassConfigParam(
                 type_=bool,
                 default_value=True,
                 required=False,
-                description=(
-                    "Create a static model instead of a dynamic model."
-                    "Enabled by default."
-                ),
-            )
+                description=("Create a static model instead of a dynamic model.Enabled by default."),
+            ),
         }
 
     def _run_for_config(
@@ -96,7 +91,7 @@ class OpenVINOConversion(Pass):
         example_input = []
         if config.example_input_func:
             example_input = self._user_module_loader.call_object(config.example_input_func)
-        elif config.input_shapes and model.framework == Framework.PYTORCH and isinstance(config.input_shapes,list):
+        elif config.input_shapes and model.framework == Framework.PYTORCH and isinstance(config.input_shapes, list):
             for i in config.input_shapes:
                 example_input.append(torch.rand(i))
         else:

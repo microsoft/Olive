@@ -4,11 +4,11 @@
 # --------------------------------------------------------------------------
 import shutil
 from pathlib import Path
-from test.unit_test.utils import get_pytorch_model, get_pytorch_model_dummy_input
 
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.openvino.reshape import OpenVINOReshape
 from olive.passes.openvino.conversion import OpenVINOConversion
+from olive.passes.openvino.reshape import OpenVINOReshape
+from test.unit_test.utils import get_pytorch_model, get_pytorch_model_dummy_input
 
 
 def convert_pt_to_ov_model(tmp_path, output_folder=None):
@@ -26,6 +26,7 @@ def convert_pt_to_ov_model(tmp_path, output_folder=None):
     assert (Path(openvino_model.model_path) / "ov_model.xml").is_file()
 
     return openvino_model
+
 
 def test_openvino_reshape_pass_static(tmp_path):
     # setup
@@ -45,6 +46,7 @@ def test_openvino_reshape_pass_static(tmp_path):
 
     # cleanup
     shutil.rmtree(openvino_model.model_path)
+
 
 def test_openvino_reshape_pass_dynamic(tmp_path):
     # setup

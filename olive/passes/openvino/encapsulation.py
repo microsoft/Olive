@@ -14,10 +14,11 @@ from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.common.utils import hardlink_copy_file
 
+
 class OpenVINOEncapsulation(Pass):
     """Encapsulates OpenVINO models with onnx context nodes."""
 
-    openvino_to_onnx_dtype : ClassVar[dict] = {
+    openvino_to_onnx_dtype: ClassVar[dict] = {
         "f32": TensorProto.FLOAT,
         "float32": TensorProto.FLOAT,
         "f64": TensorProto.DOUBLE,
@@ -53,10 +54,7 @@ class OpenVINOEncapsulation(Pass):
                 type_=Device,
                 default_value=accelerator_spec.accelerator_type.CPU,
                 required=False,
-                description=(
-                    "Device the encapsulated model should run on."
-                    "Available devices are cpu, gpu, npu."
-                ),
+                description=("Device the encapsulated model should run on.Available devices are cpu, gpu, npu."),
             ),
             "ov_version": PassConfigParam(
                 type_=str,
@@ -71,7 +69,7 @@ class OpenVINOEncapsulation(Pass):
                 type_=list,
                 default_value=[
                     ["com.microsoft.nchwc", 1],
-                    ["",11],
+                    ["", 11],
                     ["ai.onnx.ml", 5],
                     ["com.ms.internal.nhwc", 11],
                     ["ai.onnx.training", 1],
@@ -113,7 +111,7 @@ class OpenVINOEncapsulation(Pass):
 
         # Get/Fix input names & ov shapes.
         input_info = {}
-        for i,inp in enumerate(loaded_model.inputs):
+        for i, inp in enumerate(loaded_model.inputs):
             name = "input_" + str(i)
             if inp:
                 try:
@@ -124,7 +122,7 @@ class OpenVINOEncapsulation(Pass):
 
         # Get/Fix input names & ov shapes.
         output_info = {}
-        for i,out in enumerate(loaded_model.outputs):
+        for i, out in enumerate(loaded_model.outputs):
             name = "output_" + str(i)
             if out:
                 try:
@@ -142,7 +140,7 @@ class OpenVINOEncapsulation(Pass):
                 if not dim.is_dynamic:
                     shape_list.append(dim.get_length())
                 else:
-                    shape_list.append("input_" + f"{i}_"+f"{j}")
+                    shape_list.append("input_" + f"{i}_" + f"{j}")
 
             # Normalize the datatype string & map to ONNX data type
             normalized_dtype = str(datatype).split("'")[1]  # Extract 'int64_t' from "<Type: 'int64_t'>"
@@ -157,7 +155,7 @@ class OpenVINOEncapsulation(Pass):
                 if not dim.is_dynamic:
                     shape_list.append(dim.get_length())
                 else:
-                    shape_list.append("output_" + f"{i}_"+f"{j}")
+                    shape_list.append("output_" + f"{i}_" + f"{j}")
 
             # Normalize the datatype string & map to ONNX data type and extract 'int64_t' from "<Type: 'int64_t'>"
             normalized_dtype = str(datatype).split("'")[1]
@@ -168,10 +166,10 @@ class OpenVINOEncapsulation(Pass):
         # Create context node (simulates a custom EP context schema operation)
         context_node = helper.make_node(
             "EPContext",
-            inputs = [name for name, _ in input_info.items()],
-            outputs = [name for name, _ in output_info.items()],
+            inputs=[name for name, _ in input_info.items()],
+            outputs=[name for name, _ in output_info.items()],
             name="ContextNode",
-            domain="com.microsoft"
+            domain="com.microsoft",
         )
 
         # Properties of the context node, currently only support context node that points to the payload content
@@ -184,19 +182,11 @@ class OpenVINOEncapsulation(Pass):
         context_node.attribute.extend([helper.make_attribute("DeviceClass", config.target_device.upper())])
 
         # Create the ONNX Graph
-        graph_def = helper.make_graph(
-            nodes=[context_node],
-            name="EP_Context_Model",
-            inputs=inputs,
-            outputs=outputs
-        )
-        op_imports = [helper.make_opsetid(i[0],i[1]) for i in config.opset_imports]
+        graph_def = helper.make_graph(nodes=[context_node], name="EP_Context_Model", inputs=inputs, outputs=outputs)
+        op_imports = [helper.make_opsetid(i[0], i[1]) for i in config.opset_imports]
 
         # Define the model with an Execution Provider (EP) Context
-        model_def = helper.make_model(
-            graph_def,
-            opset_imports= op_imports
-        )
+        model_def = helper.make_model(graph_def, opset_imports=op_imports)
 
         # Save the model
         context_model_output = f"{model_name}.onnx"
@@ -207,8 +197,8 @@ class OpenVINOEncapsulation(Pass):
 
         model_name_path_dst = Path(output_model_path) / (f"{model_name}.xml")
         weight_name_path_dst = Path(output_model_path) / (f"{model_name}.bin")
-        hardlink_copy_file(model_name_path,model_name_path_dst,follow_symlinks=True)
-        hardlink_copy_file(weight_name_path,weight_name_path_dst,follow_symlinks=True)
+        hardlink_copy_file(model_name_path, model_name_path_dst, follow_symlinks=True)
+        hardlink_copy_file(weight_name_path, weight_name_path_dst, follow_symlinks=True)
         save(model_def, context_model_output_dir)
 
         return ONNXModelHandler(model_path=output_model_path)

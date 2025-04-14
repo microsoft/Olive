@@ -3,12 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from test.unit_test.utils import get_pytorch_model, get_pytorch_model_dummy_input
 
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.openvino.encapsulation import OpenVINOEncapsulation
 from olive.passes.openvino.conversion import OpenVINOConversion
+from olive.passes.openvino.encapsulation import OpenVINOEncapsulation
 from olive.passes.openvino.reshape import OpenVINOReshape
+from test.unit_test.utils import get_pytorch_model, get_pytorch_model_dummy_input
 
 
 def convert_pt_to_ov_model(tmp_path, static=False):
@@ -25,7 +25,7 @@ def convert_pt_to_ov_model(tmp_path, static=False):
     assert (Path(openvino_model.model_path) / "ov_model.bin").is_file()
     assert (Path(openvino_model.model_path) / "ov_model.xml").is_file()
 
-    openvino_conversion_config = {"input_shapes": [[1,1]], "static": static}
+    openvino_conversion_config = {"input_shapes": [[1, 1]], "static": static}
 
     p = create_pass_from_dict(OpenVINOReshape, openvino_conversion_config, disable_search=True)
     output_folder_reshape = str(tmp_path / "openvino_reshape")
@@ -44,9 +44,10 @@ def convert_pt_to_ov_model(tmp_path, static=False):
 
     return openvino_model
 
+
 def test_openvino_encapsulate_pass_static(tmp_path):
     # setup
-    openvino_model = convert_pt_to_ov_model(tmp_path,True)
+    openvino_model = convert_pt_to_ov_model(tmp_path, True)
     openvino_conversion_config = {"ov_version": "2025.1"}
 
     p = create_pass_from_dict(OpenVINOEncapsulation, openvino_conversion_config, disable_search=True)
@@ -60,6 +61,7 @@ def test_openvino_encapsulate_pass_static(tmp_path):
     # assert
     assert Path(onnx_model.model_path).exists()
     assert (Path(onnx_model.model_path)).is_file()
+
 
 def test_openvino_encapsulate_pass_dynamic(tmp_path):
     # setup

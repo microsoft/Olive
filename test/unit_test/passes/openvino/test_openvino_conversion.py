@@ -4,10 +4,10 @@
 # --------------------------------------------------------------------------
 import shutil
 from pathlib import Path
-from test.unit_test.utils import get_pytorch_model, get_pytorch_model_dummy_input
+
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
-
+from test.unit_test.utils import get_pytorch_model, get_pytorch_model_dummy_input
 
 
 def test_openvino_conversion_pass(tmp_path):

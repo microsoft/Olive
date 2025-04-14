@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Dict,Type, Union
+from typing import Dict, Type, Union
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModelHandler
 from olive.passes import Pass
@@ -44,11 +44,8 @@ class OpenVINOReshape(Pass):
                 type_=bool,
                 default_value=False,
                 required=False,
-                description=(
-                    "Create a static model instead of a dynamic model."
-                    "Enabled by default."
-                ),
-            )
+                description=("Create a static model instead of a dynamic model.Enabled by default."),
+            ),
         }
 
     def _run_for_config(
@@ -72,13 +69,13 @@ class OpenVINOReshape(Pass):
 
         # Ensure atleast 1 input name is present for all inputs
         update_io_names = False
-        for i,_ in enumerate(loaded_model.inputs):
+        for i, _ in enumerate(loaded_model.inputs):
             if not loaded_model.input(i).get_names():
                 loaded_model.input(i).set_names({f"input_{i}"})
                 update_io_names = True
 
         # Ensure atleast 1 output name is present for all inputs
-        for i,_ in enumerate(loaded_model.outputs):
+        for i, _ in enumerate(loaded_model.outputs):
             if not loaded_model.output(i).get_names():
                 loaded_model.output(i).set_names({f"output_{i}"})
                 update_io_names = True
@@ -86,30 +83,32 @@ class OpenVINOReshape(Pass):
         if config.static:
             if config.input_shapes and len(config.input_shapes) == len(loaded_model.inputs):
                 inputs = {}
-                for i,dim in enumerate(config.input_shapes):
+                for i, dim in enumerate(config.input_shapes):
                     inputs[loaded_model.input(i)] = ov.PartialShape(dim)
 
                 loaded_model.reshape(inputs)
 
-                model_name_path = Path(output_model_path) / (model_name+"_st"+".xml")
-                ov.save_model(loaded_model,model_name_path)
+                model_name_path = Path(output_model_path) / (model_name + "_st" + ".xml")
+                ov.save_model(loaded_model, model_name_path)
 
             elif not config.input_shapes:
                 msg = "Error! Missing input shapes"
                 raise ValueError(msg) from None
 
             else:
-                msg = f"Error! The number of inputs in model {len(loaded_model.inputs)}"
-                "do not match the number of entries in the input_shapes in config, {len(config.input_shapes)}"
+                msg = (
+                    f"Error! The number of inputs in model {len(loaded_model.inputs)}"
+                    f"do not match the number of entries in the input_shapes in config, {len(config.input_shapes)}"
+                )
                 raise ValueError(msg) from None
 
         elif update_io_names:
-            ov.save_model(loaded_model,Path(output_model_path) / (f"{model_name}.xml"))
+            ov.save_model(loaded_model, Path(output_model_path) / (f"{model_name}.xml"))
 
-        else :
+        else:
             model_name_path_dst = Path(output_model_path) / (f"{model_name}.xml")
             weight_name_path_dst = Path(output_model_path) / (f"{model_name}.bin")
-            hardlink_copy_file(model_name_path,model_name_path_dst,follow_symlinks=True)
-            hardlink_copy_file(weight_name_path,weight_name_path_dst,follow_symlinks=True)
+            hardlink_copy_file(model_name_path, model_name_path_dst, follow_symlinks=True)
+            hardlink_copy_file(weight_name_path, weight_name_path_dst, follow_symlinks=True)
 
         return OpenVINOModelHandler(model_path=output_model_path)

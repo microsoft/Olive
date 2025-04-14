@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def _default_validate_func(model: "CompiledModel", validation_loader) -> float:
     import numpy as np
     from sklearn.metrics import accuracy_score
@@ -160,9 +161,7 @@ class OpenVINOQuantizationBase(Pass):
             return data
 
         transform_func = (
-            self._user_module_loader.load_object(config.transform_fn)
-            if config.transform_fn
-            else transform_fn
+            self._user_module_loader.load_object(config.transform_fn) if config.transform_fn else transform_fn
         )
 
         return nncf.Dataset(data_loader, transform_func)
