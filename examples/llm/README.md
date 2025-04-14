@@ -19,7 +19,7 @@ pip install -e .
 2. Install the requirements
 
 ```
-cd Olive/examples/directml/llm
+cd Olive/examples/llm
 pip install -r requirements.txt
 pip install ort-nightly-directml==1.18.0.dev20240419003 --extra-index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```

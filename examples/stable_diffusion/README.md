@@ -213,30 +213,3 @@ Then generate data:
 To generate one image:
 
 `python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu --format qdq --guidance_scale 0 --seed 0 --num_inference_steps 1 --prompt "A baby is laying down with a teddy bear"`
-
-#### Evaluation result
-
-The CLIP, FID and MSE scores are based on the first 100 prompts from dataset phiyodr/coco2017.
-
-From a qualitative perspective, 2 steps of the quantized model could generate visually better results than original 1 step.
-
-|Model|CLIP Scores|FID|MSE to original|HPSv2 (photo - mean) |HPSv2 (photo -std)|
-|-|-|-|-|-|-|
-|Original 1 step|31.10|179.77|N/A|24.67|0.4198|
-|Quantized 1 step|31.29 | 177.53|388.5 |24.33|0.4589|
-|Quantized 2 steps|31.05|181.86| N/A|26.10|0.4206|
-
-Latency on CPU for original model and QNN for QDQ model (tested on Snapdragon(R) X 12-core X1E80100):
-
-|Model|Size|Latency (ms)|
-|-|-|-|
-|CPU for original|-|-|
-|Text encoder|1.26 GB|145.19|
-|Unet|3.22 GB|3498.44|
-|Vae decoder|188 MB|9233.03|
-|Vae encoder|130 MB|5484.61|
-|QNN for QDQ|-|-|
-|Text encoder|375 MB|10.16|
-|Unet|829 MB|237.03|
-|Vae decoder|48 MB|383.97|
-|Vae encoder|33 MB|157.85|
