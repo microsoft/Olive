@@ -10,7 +10,7 @@ from interface.base_interface import BaseLLMInterface
 from transformers import AutoProcessor, AutoTokenizer
 
 # ruff: noqa: T201
-# pylint: disable=possibly-used-before-assignment, no-value-for-parameter
+# pylint: disable=possibly-used-before-assignment, no-value-for-parameter, protected-access, attribute-defined-outside-init
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(current_dir, "..", "..", ".."))

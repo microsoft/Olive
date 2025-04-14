@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 # pylint: disable=relative-beyond-top-level
-
 from .presets import gr
 from .utils import convert_asis, convert_mdtext, detect_converted_mark
 
