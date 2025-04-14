@@ -54,10 +54,13 @@ class PileDataloader:
                 inp = trainenc["input_ids"][i:j].unsqueeze(0)
                 mask = torch.ones(inp.shape)
                 if self.sess is None:
-                    yield {
-                        "input_ids": inp.detach().cpu().numpy().astype("int64"),
-                        "attention_mask": mask.detach().cpu().numpy().astype("int64"),
-                    }, 0
+                    yield (
+                        {
+                            "input_ids": inp.detach().cpu().numpy().astype("int64"),
+                            "attention_mask": mask.detach().cpu().numpy().astype("int64"),
+                        },
+                        0,
+                    )
                 else:
                     outputs = self.sess.run(
                         None,

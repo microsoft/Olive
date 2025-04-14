@@ -1,4 +1,0 @@
-onnxruntime
-pillow
-tabulate
-torchvision

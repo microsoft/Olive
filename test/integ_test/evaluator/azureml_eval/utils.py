@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import shutil
 from pathlib import Path
-from test.integ_test.utils import download_azure_blob, get_olive_workspace_config
 
 from torchvision import datasets
 from torchvision.transforms import ToTensor
@@ -14,6 +13,7 @@ from olive.common.config_utils import validate_config
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
+from test.integ_test.utils import download_azure_blob, get_olive_workspace_config
 
 # pylint: disable=redefined-outer-name
 

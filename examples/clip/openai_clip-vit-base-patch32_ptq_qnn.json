@@ -108,5 +108,5 @@
     "target": "local_system",
     "cache_dir": "cache",
     "clean_cache": true,
-    "output_dir": "models/clip-vit-base-patch32"
+    "output_dir": "models/clip-vit-base-patch32-qnn"
 }

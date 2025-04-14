@@ -18,9 +18,15 @@ from torch import nn
 
 class AllReduce(torch.autograd.Function):  # pylint: disable=abstract-method
     @staticmethod
-    def forward(ctx, x: torch.Value) -> torch.Value:  # pylint: disable=arguments-differ
+    def forward(ctx, x: torch.Tensor) -> torch.Tensor:  # pylint: disable=arguments-differ
         if torch.onnx.is_in_onnx_export():
-            return x
+            if hasattr(torch.onnx, "ops"):
+                # torch.onnx.ops was introduced in 2.8
+                return torch.onnx.ops.symbolic(
+                    "com.microsoft::AllReduce", (x,), dtype=x.dtype, shape=x.shape, version=1
+                )
+            else:
+                return x
         dist.all_reduce(x, op=dist.ReduceOp.SUM)
         return x
 
@@ -75,9 +81,7 @@ class TensorParallelColumnLinear(nn.Module):
 
     def extra_repr(self) -> str:
         # From `torch.nn.Linear`
-        return "in_features={}, out_features={}, bias={}".format(
-            self.in_features, self.out_features, self.bias is not None
-        )
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}"
 
     def forward(self, ip: torch.Tensor) -> torch.Tensor:
         return F.linear(ip, weight=self.weight, bias=self.bias)  # pylint: disable=not-callable
@@ -130,6 +134,4 @@ class TensorParallelRowLinear(nn.Module):
 
     def extra_repr(self) -> str:
         # From `torch.nn.Linear`
-        return "in_features={}, out_features={}, bias={}".format(
-            self.in_features, self.out_features, self.bias is not None
-        )
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}"

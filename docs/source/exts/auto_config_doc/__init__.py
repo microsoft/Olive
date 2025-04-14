@@ -73,9 +73,9 @@ class AutoConfigDirective(Directive):
         (class_name,) = self.arguments
         package_config = OlivePackageConfig.load_default_config()
         auto_config_class = import_class(class_name, package_config)
-        assert issubclass(auto_config_class, AutoConfigClass) or issubclass(
-            auto_config_class, Pass
-        ), f"{class_name} is not a subclass of AutoConfigClass or Pass"
+        assert issubclass(auto_config_class, AutoConfigClass) or issubclass(auto_config_class, Pass), (
+            f"{class_name} is not a subclass of AutoConfigClass or Pass"
+        )
 
         node = nodes.section()
         node.document = self.state.document

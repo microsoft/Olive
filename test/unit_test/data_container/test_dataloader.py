@@ -3,13 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from test.unit_test.utils import make_local_tiny_llama
-
 import pytest
 
 from olive.data.component.dataloader import LLMAugmentedDataLoader
 from olive.data.template import huggingface_data_config_template
 from olive.passes.olive_pass import create_pass_from_dict
+from test.unit_test.utils import make_local_tiny_llama
 
 
 @pytest.mark.parametrize("use_gqa", [True, False])

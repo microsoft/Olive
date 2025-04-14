@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-# copied from https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/models/phi2/inference_example.py  # noqa: E501
+# copied from https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/models/phi2/inference_example.py
 import numpy as np
 import onnxruntime as ort
 import torch
@@ -40,7 +40,6 @@ class ORTGenerator:
         self.tokenizer = None
 
     def get_initial_inputs_and_outputs(self, encodings_dict):
-
         input_ids = torch.tensor(encodings_dict["input_ids"], device=self.device, dtype=torch.int32)
         attention_mask = torch.tensor(encodings_dict["attention_mask"], device=self.device, dtype=torch.int32)
         step = torch.tensor([0], device=self.device, dtype=torch.int64)
@@ -278,27 +277,31 @@ def genai_run(prompts, model_path, max_length=200):
     app_started_timestamp = time.time()
     model = og.Model(model_path)
     model_loaded_timestamp = time.time()
-    print("Model loaded in {:.2f} seconds".format(model_loaded_timestamp - app_started_timestamp))
+    print(f"Model loaded in {model_loaded_timestamp - app_started_timestamp:.2f} seconds")
     tokenizer = og.Tokenizer(model)
+
+    input_tokens = tokenizer.encode_batch(prompts)
 
     print("Creating generator ...")
     params = og.GeneratorParams(model)
     params.set_search_options(max_length=max_length)
-    params.input_ids = tokenizer.encode_batch(prompts)
+    generator = og.Generator(model, params)
+    generator.append_tokens(input_tokens)
 
     print("Generating tokens ...")
     start_time = time.time()
-    output_tokens = model.generate(params)
+    while not generator.is_done():
+        generator.generate_next_token()
     run_time = time.time() - start_time
 
     print("Decoding generated tokens ...")
     output_token_count = 0
 
     for i, prompt in enumerate(prompts):
-        print(f"Prompt #{i+1:02d}: {prompt}")
-        print(tokenizer.decode(output_tokens[i]))
-        output_token_count += len(output_tokens[i])
+        print(f"Prompt #{i + 1:02d}: {prompt}")
+        print(tokenizer.decode(generator.get_sequence(i)))
 
+    output_token_count = sum(len(generator.get_sequence(i)) for i in range(len(prompts)))
     print(f"Tokens: {output_token_count}, Time: {run_time:.2f}, Tokens per second: {output_token_count / run_time:.2f}")
 
 

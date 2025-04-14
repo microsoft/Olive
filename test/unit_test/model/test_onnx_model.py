@@ -1,4 +1,3 @@
-from test.unit_test.utils import get_onnx_model
 from unittest.mock import ANY, MagicMock, patch
 
 import numpy as np
@@ -8,6 +7,7 @@ import pytest
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
 from olive.model import ONNXModelHandler
+from test.unit_test.utils import get_onnx_model
 
 
 @patch("onnxruntime.InferenceSession")

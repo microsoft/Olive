@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from test.unit_test.utils import get_onnx_model, get_pytorch_model_dummy_input
 from unittest.mock import patch
 
 import onnx
@@ -23,6 +22,7 @@ from olive.passes.onnx.quantization import (
     OnnxQuantizationPreprocess,
     OnnxStaticQuantization,
 )
+from test.unit_test.utils import get_onnx_model, get_pytorch_model_dummy_input
 
 
 class DummyCalibrationDataReader(CalibrationDataReader):
@@ -45,30 +45,23 @@ class DummyCalibrationDataReader(CalibrationDataReader):
 
 
 @Registry.register_dataloader()
-def _test_quat_dataloader(dataset, batch_size, **kwargs):
+def _test_quant_dataloader(dataset, batch_size, **kwargs):
     return DummyCalibrationDataReader(batch_size=batch_size)
 
 
-@pytest.mark.parametrize("calibrate_method", ["MinMax", "Entropy", "Percentile"])
-def test_static_quantization(calibrate_method, tmp_path):
-    if version.parse(OrtVersion) >= version.parse("1.19.0") and calibrate_method != "MinMax":
-        pytest.skip(
-            "Entropy and Percentile calibration methods sometimes hit nan issue during histogram computation in"
-            " onnxruntime>=1.19.0"
-        )
-
+@pytest.mark.parametrize("quant_format", ["QOperator", "QDQ"])
+def test_static_quantization(quant_format, tmp_path):
     input_model = get_onnx_model()
     config = {
         "quant_mode": "static",
-        "calibrate_method": calibrate_method,
-        "quant_format": "QOperator",
-        "MatMulConstBOnly": False,
+        "calibrate_method": "MinMax",
+        "quant_format": quant_format,
         "per_channel": True,
         "reduce_range": True,
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_quat_dataloader"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
         ),
         "weight_type": "QUInt8",
         "activation_type": "QUInt8",
@@ -111,59 +104,50 @@ def test_quantization_preprocess(tmp_path):
         ),
     ],
 )
+@pytest.mark.parametrize("is_qnn", [True, False])
 @patch("onnxruntime.quantization.quantize_static")
-def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected):
+def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected, is_qnn):
+    if not is_qnn and version.parse(OrtVersion) < version.parse("1.21.0"):
+        pytest.skip("prepare_qdq_config is only supported in onnxruntime>=1.21.0")
     input_model = get_onnx_model()
     config = {
-        "quant_mode": "static",
-        "prepare_qnn_config": True,
+        "quant_format": "QDQ",
+        "prepare_qdq_config": True,
+        "weight_symmetric": True,
+        "activation_symmetric": True,
+        "min_real_range": 5e-4,
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_quat_dataloader"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
         ),
         **kwargs,
     }
+    accelerator_spec = (
+        AcceleratorSpec(
+            accelerator_type="NPU",
+            execution_provider="QNNExecutionProvider",
+        )
+        if is_qnn
+        else None
+    )
 
     def dummy_quantize_static(model_input, model_output, **kwargs):
         onnx.save(onnx.load(model_input), model_output)
 
     mock_quantize_static.side_effect = dummy_quantize_static
 
-    p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
+    p = create_pass_from_dict(OnnxStaticQuantization, config, disable_search=True, accelerator_spec=accelerator_spec)
     out = p.run(input_model, tmp_path)
     assert out is not None
 
     mocked_kwargs = mock_quantize_static.call_args.kwargs
     for key in ["op_types_to_quantize", "nodes_to_exclude"]:
         assert set(mocked_kwargs[key]) == set(expected.get(key, []))
-
-
-def test_qnn_quantization(tmp_path):
-    input_model = get_onnx_model()
-    config = {
-        "quant_format": "QDQ",
-        "data_config": DataConfig(
-            name="test_quant_dc_config",
-            load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_quat_dataloader"),
-        ),
-        "weight_type": "QUInt8",
-        "activation_type": "QUInt16",
-        "WeightSymmetric": None,
-        "ActivationSymmetric": True,
-        "qnn_extra_options": {
-            "init_overrides": None,
-            "add_qtype_converts": True,
-        },
-    }
-    accelerator_spec = AcceleratorSpec(
-        accelerator_type="NPU",
-        execution_provider="QNNExecutionProvider",
-    )
-    p = create_pass_from_dict(OnnxStaticQuantization, config, disable_search=True, accelerator_spec=accelerator_spec)
-    out = p.run(input_model, tmp_path)
-    assert out is not None
+    extra_options = mocked_kwargs.get("extra_options", {})
+    assert extra_options.get("MinimumRealRange") == (1e-4 if is_qnn else 5e-4)
+    assert extra_options.get("WeightSymmetric") is True
+    assert extra_options.get("ActivationSymmetric") is True
 
 
 @pytest.mark.parametrize(
@@ -205,7 +189,7 @@ def test_matmul_4bits_gptq_with_dataloader(tmp_path, caplog):
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_quat_dataloader"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
         ),
         "weight_only_quant_configs": {"percdamp": 0.01, "block_size": 128, "use_less_config": 1},
     }

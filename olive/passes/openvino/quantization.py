@@ -186,7 +186,6 @@ class OpenVINOQuantizationBase(Pass):
 
 
 class OpenVINOQuantization(OpenVINOQuantizationBase):
-
     def _run_for_config(
         self, model: OpenVINOModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> OpenVINOModelHandler:
@@ -275,7 +274,7 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
             validation_fn=validate_func,
             max_drop=config.max_drop,
             drop_type=drop_type,
-            **extra_params
+            **extra_params,
         )
 
         model_name = "ov_model"

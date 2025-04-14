@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from copy import deepcopy
 from pathlib import Path
 from typing import Dict, Optional, Type, Union
 
@@ -18,7 +17,7 @@ from olive.passes.onnx.common import (
     get_context_bin_file_names,
     get_external_data_config,
     model_proto_to_file,
-    resave_model,
+    process_llm_pipeline,
 )
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -53,56 +52,39 @@ class ComposeOnnxModels(Pass):
         output_model_path: str,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         assert isinstance(model, CompositeModelHandler), "ComposeOnnxModels pass only supports CompositeModelHandler"
-        assert all(
-            isinstance(m, ONNXModelHandler) for m in model.model_components
-        ), "All components must be ONNXModelHandler"
+        assert all(isinstance(m, ONNXModelHandler) for m in model.model_components), (
+            "All components must be ONNXModelHandler"
+        )
 
-        if llm_pipeline := (model.model_attributes or {}).get("llm_pipeline"):
+        if pipeline := (model.model_attributes or {}).get("llm_pipeline"):
             output_model_path = Path(output_model_path).with_suffix("")
 
-            component_map = dict(model.get_model_components())
-            new_component_models = {}
-            new_llm_pipeline = {}
+            def process_context_iterator(component_models, llm_pipeline, output_dir):
+                new_groups = {
+                    "context": {},
+                    "iterator": {},
+                }
 
-            # resave embeddings model
-            embeddings_model_path = output_model_path / "embeddings.onnx"
-            resave_model(component_map[llm_pipeline["embeddings"]].model_path, embeddings_model_path)
-            new_component_models["embeddings"] = ONNXModelHandler(
-                model_path=output_model_path, onnx_file_name=embeddings_model_path.name
-            )
-            new_llm_pipeline["embeddings"] = "embeddings"
-
-            # compose the context and iterator models
-            composed_suffix = (
-                "_ctx" if get_context_bin_file_names(component_map[llm_pipeline["context"][0]].model_path) else ""
-            )
-            saved_cb_files = {}
-            for group_name in ["context", "iterator"]:
-                composed_name = f"{group_name}{composed_suffix}"
-                new_component_models[composed_name] = self._get_composed_model(
-                    [component_map[component_name].model_path for component_name in llm_pipeline[group_name]],
-                    output_model_path / f"{composed_name}.onnx",
-                    external_config=config.dict(),
-                    saved_cb_files=saved_cb_files,
-                    as_model_dir=True,
+                # compose the context and iterator models
+                composed_suffix = (
+                    "_ctx"
+                    if get_context_bin_file_names(component_models[llm_pipeline["context"][0]].model_path)
+                    else ""
                 )
-                new_llm_pipeline[group_name] = [composed_name]
+                saved_cb_files = {}
+                for group_name in ["context", "iterator"]:
+                    composed_name = f"{group_name}{composed_suffix}"
+                    new_groups[group_name][composed_name] = self._get_composed_model(
+                        [component_models[component_name].model_path for component_name in llm_pipeline[group_name]],
+                        output_dir / f"{composed_name}.onnx",
+                        external_config=config.dict(),
+                        saved_cb_files=saved_cb_files,
+                        as_model_dir=True,
+                    )
 
-            # resave the lm_head model
-            lm_head_model_path = output_model_path / "lm_head.onnx"
-            resave_model(component_map[llm_pipeline["lm_head"]].model_path, lm_head_model_path)
-            new_component_models["lm_head"] = ONNXModelHandler(
-                model_path=output_model_path, onnx_file_name=lm_head_model_path.name
-            )
-            new_llm_pipeline["lm_head"] = "lm_head"
+                return new_groups
 
-            new_model_attributes = deepcopy(model.model_attributes)
-            new_model_attributes["llm_pipeline"] = new_llm_pipeline
-            return CompositeModelHandler(
-                list(new_component_models.values()),
-                list(new_component_models.keys()),
-                model_attributes=new_model_attributes,
-            )
+            return process_llm_pipeline(model, pipeline, process_context_iterator, output_model_path)
 
         return self._get_composed_model(
             [component.model_path for component in model.model_components],
@@ -135,13 +117,13 @@ class ComposeOnnxModels(Pass):
             dag_inputs = set(dag.get_input_names())
             dag_outputs = set(dag.get_output_names())
             # avoid circular connection, model_2 output cannot be model_1 input
-            assert dag_outputs.isdisjoint(
-                seen_inputs
-            ), f"Output names {dag_outputs.intersection(seen_inputs)} are already used as input names."
+            assert dag_outputs.isdisjoint(seen_inputs), (
+                f"Output names {dag_outputs.intersection(seen_inputs)} are already used as input names."
+            )
             # avoid reused output name
-            assert dag_outputs.isdisjoint(
-                seen_outputs
-            ), f"Output names {dag_outputs.intersection(seen_outputs)} are already used as output names."
+            assert dag_outputs.isdisjoint(seen_outputs), (
+                f"Output names {dag_outputs.intersection(seen_outputs)} are already used as output names."
+            )
 
             # update seen inputs and outputs
             seen_inputs.update(dag_inputs)
@@ -161,12 +143,12 @@ class ComposeOnnxModels(Pass):
             cd_initializer_names = set(composed_dag.get_initializer_names())
             for input_name in dag.get_input_names():
                 if input_name in cd_input_names | cd_output_names:
-                    assert dag.get_io_shape(input_name) == composed_dag.get_io_shape(
-                        input_name
-                    ), f"Input shape mismatch: {input_name}"
-                    assert dag.get_io_dtype(input_name) == composed_dag.get_io_dtype(
-                        input_name
-                    ), f"Input dtype mismatch: {input_name}"
+                    assert dag.get_io_shape(input_name) == composed_dag.get_io_shape(input_name), (
+                        f"Input shape mismatch: {input_name}"
+                    )
+                    assert dag.get_io_dtype(input_name) == composed_dag.get_io_dtype(input_name), (
+                        f"Input dtype mismatch: {input_name}"
+                    )
                     continue
 
                 # will add to graph 0 for now
@@ -178,9 +160,12 @@ class ComposeOnnxModels(Pass):
 
             for init_name in dag.get_initializer_names():
                 if init_name in cd_initializer_names:
-                    np.testing.assert_array_equal(
-                        dag.get_initializer_np_array(init_name), composed_dag.get_initializer_np_array(init_name)
-                    ), f"Initializer mismatch: {init_name}"
+                    (
+                        np.testing.assert_array_equal(
+                            dag.get_initializer_np_array(init_name), composed_dag.get_initializer_np_array(init_name)
+                        ),
+                        f"Initializer mismatch: {init_name}",
+                    )
                     continue
 
                 composed_dag.add_initializer(dag.get_initializer_proto(init_name), 0)

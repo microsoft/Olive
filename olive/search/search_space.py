@@ -90,9 +90,9 @@ class SearchSpace:
     """
 
     def __init__(self, parameters: List[Tuple[str, Union[SearchParameter, "SearchSpace"]]]):
-        assert len(parameters) == len(
-            {name for name, _ in parameters}
-        ), "Parameter name in search space should be unique."
+        assert len(parameters) == len({name for name, _ in parameters}), (
+            "Parameter name in search space should be unique."
+        )
 
         self._parameters = self._order_search_space(parameters)
 

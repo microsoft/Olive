@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from test.integ_test.utils import download_azure_blob
 
 from torchvision import datasets
 from torchvision.transforms import ToTensor
@@ -14,6 +13,7 @@ from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.passes.onnx.session_params_tuning import OrtSessionParamsTuning
 from olive.systems.accelerator_creator import create_accelerators
+from test.integ_test.utils import download_azure_blob
 
 # pylint: disable=redefined-outer-name
 

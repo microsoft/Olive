@@ -1,5 +1,6 @@
 datasets
 neural-compressor>=2.4.1
+onnxruntime-genai-cuda
 onnxruntime-gpu
 onnxruntime_extensions
 # optimum 1.17.0 for fp16 inference

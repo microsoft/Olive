@@ -101,9 +101,9 @@ class OptimumConversion(Pass):
         # check the exported components
         exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".onnx"]
         if config.components:
-            assert all(
-                component in exported_models for component in config.components
-            ), f"Components {config['components']} are not exported. Only {exported_models} are exported."
+            assert all(component in exported_models for component in config.components), (
+                f"Components {config['components']} are not exported. Only {exported_models} are exported."
+            )
         components = config.components or exported_models
         logger.debug("Exported models are: %s. Returning components: %s.", exported_models, components)
 
@@ -127,4 +127,4 @@ class OptimumConversion(Pass):
             )
             model_component_names.append(component_name)
 
-        return CompositeModelHandler(model_components, model_component_names)
+        return CompositeModelHandler(model_components, model_component_names, model_path=output_model_path)

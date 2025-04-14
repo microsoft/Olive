@@ -118,7 +118,7 @@ The ONNX Runtime (ORT) is a fast and light-weight cross-platform inference engin
 The following code creates a simple console-based chat interface that inferences your optimized model - **select Python and/or C# to expand the code:**
 
 <details>
-<summary><b>Python</b></summary
+<summary><b>Python</b></summary>
 
 Create a Python file called `app.py` and copy and paste the following code:
 ```python
@@ -136,45 +136,50 @@ tokenizer_stream = tokenizer.create_stream()
 # since otherwise it will be set to the entire context length
 search_options = {}
 search_options['max_length'] = 200
-search_options['past_present_share_buffer'] = False
 
 chat_template = "<|im_start|>user\n{input}<|im_end|>\n<|im_start|>assistant\n"
 
-text = input("Input: ")
-
-# Keep asking for input phrases
-while text != "exit":
+# Keep asking for input prompts in a loop
+while True:
+    text = input("Prompt (Use quit() to exit): ")
     if not text:
         print("Error, input cannot be empty")
-        exit
+        continue
 
-    # generate prompt (prompt template + input)
+    if text == "quit()":
+        break
+
+    # Generate prompt (prompt template + input)
     prompt = f'{chat_template.format(input=text)}'
 
-    # encode the prompt using the tokenizer
+    # Encode the prompt using the tokenizer
     input_tokens = tokenizer.encode(prompt)
 
+    # Create params and generator
     params = og.GeneratorParams(model)
     params.set_search_options(**search_options)
-    params.input_ids = input_tokens
     generator = og.Generator(model, params)
 
+    # Append input tokens to the generator
+    generator.append_tokens(input_tokens)
+
+    print("")
     print("Output: ", end='', flush=True)
-    # stream the output
+    # Stream the output
     try:
         while not generator.is_done():
-            generator.compute_logits()
             generator.generate_next_token()
 
             new_token = generator.get_next_tokens()[0]
             print(tokenizer_stream.decode(new_token), end='', flush=True)
     except KeyboardInterrupt:
         print("  --control+c pressed, aborting generation--")
-
     print()
-    text = input("Input: ")
+    print()
+
+    del generator
 ```
-To run the code, execute `python app.py`. You'll be prompted to enter a message to the SLM - for example, you could ask *what is the golden ratio*, or *def print_hello_world():*. To exit type *exit* in the chat interface.
+To run the code, execute `python app.py`. You'll be prompted to enter a message to the SLM - for example, you could ask *what is the golden ratio*, or *def print_hello_world():*. To exit type *quit()* in the chat interface.
 
 </details>
 
@@ -220,16 +225,14 @@ internal class Program
 
             using GeneratorParams gParams = new GeneratorParams(model);
             gParams.SetSearchOption("max_length", 200);
-            gParams.SetInputSequences(sequences);
-            gParams.SetSearchOption("past_present_share_buffer", false);
-            Console.Out.Write("\nAI:");
-
             using Generator generator = new(model, gParams);
+            generator.AppendTokenSequences(sequences);
+
+            Console.Out.Write("\nAI:");
             while (!generator.IsDone())
             {
-                generator.ComputeLogits();
                 generator.GenerateNextToken();
-                var token = generator.GetSequence(0)[^1];
+                var token = generator.GetSequence(0)[^1]
                 Console.Out.Write(tokenizerStream.Decode(token));
                 Console.Out.Flush();
             }

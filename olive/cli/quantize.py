@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 
 class QuantizeCommand(BaseOliveCLICommand):
-
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
@@ -130,8 +129,7 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         if not pass_list:
             raise ValueError(
-                f"Quantiation for precision {precision}, algorithm {algo} "
-                f"and implementation {impl} is not supported"
+                f"Quantiation for precision {precision}, algorithm {algo} and implementation {impl} is not supported"
             )
         logger.info("pass list: %s", pass_list)
         return pass_list
@@ -139,13 +137,13 @@ class QuantizeCommand(BaseOliveCLICommand):
     def _get_passes_dict(self, pass_list):
         precision_in_bits = self._get_precision_bits()
         wtypes = self._get_precision_in_wtypes()
-        quant_format = "QDQ"
+        quant_format = "QOperator"
         if self.args.use_qdq_encoding:
-            quant_format = "QOP"
+            quant_format = "QDQ"
 
         # config options to add for a given option
         to_add = {
-            "AutoAWQQuantizer": {"w_bits": precision_in_bits},
+            "AutoAWQQuantizer": {"w_bit": precision_in_bits},
             "GptqQuantizer": {"bits": precision_in_bits},
             "OnnxBnB4Quantization": {"quant_type": precision_in_bits},
             "NVModelOptQuantization": {"precision": precision_in_bits, "algorithm": self.args.algorithm.upper()},

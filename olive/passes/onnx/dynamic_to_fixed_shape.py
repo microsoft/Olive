@@ -71,7 +71,6 @@ class DynamicToFixedShape(Pass):
         config: Type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-
         onnx_model = model.load_model()
         output_model_path = resolve_onnx_path(output_model_path)
 

@@ -125,15 +125,15 @@ def install_packages(local_packages, ort_packages):
         logger.info("Successfully installed %s.", packages_install)
 
 
-def get_pass_module_path(pass_type: str, package_config: OlivePackageConfig) -> str:
-    return package_config.get_pass_module_config(pass_type).module_path
-
-
 def is_execution_provider_required(run_config: RunConfig, package_config: OlivePackageConfig) -> bool:
-    return any(
-        get_pass_module_path(p.type, package_config).startswith("olive.passes.onnx")
-        for passes_configs in run_config.passes.values()
-        for p in passes_configs
+    return (
+        any(
+            package_config.is_onnx_module(p.type)
+            for passes_configs in run_config.passes.values()
+            for p in passes_configs
+        )
+        if run_config.passes
+        else False
     )
 
 
@@ -325,7 +325,11 @@ def get_local_ort_packages() -> List[str]:
 
 
 def get_used_passes_configs(run_config: RunConfig) -> List["RunPassConfig"]:
-    return [pass_config for _, pass_configs in run_config.passes.items() for pass_config in pass_configs]
+    return (
+        [pass_config for _, pass_configs in run_config.passes.items() for pass_config in pass_configs]
+        if run_config.passes
+        else []
+    )
 
 
 def get_run_on_target(package_config: OlivePackageConfig, pass_config: "RunPassConfig") -> bool:

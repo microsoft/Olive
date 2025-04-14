@@ -104,7 +104,7 @@ class RunConfig(NestedConfig):
             " no-search or auto-optimizer mode based on whether passes field is provided."
         ),
     )
-    passes: Dict[str, List[RunPassConfig]] = Field(None, description="Pass configurations.")
+    passes: Dict[str, List[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
     auto_optimizer_config: AutoOptimizerConfig = Field(
         default_factory=AutoOptimizerConfig,
         description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
@@ -203,6 +203,11 @@ class RunConfig(NestedConfig):
     def validate_evaluators(cls, v, values):
         for idx, metric in enumerate(v.get("metrics", [])):
             v["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
+        return v
+
+    @validator("auto_optimizer_config", pre=True)
+    def validate_auto_optimizer_config(cls, v, values):
+        _resolve_all_data_configs(v, values)
         return v
 
     @validator("engine", pre=True)

@@ -1,3 +1,2 @@
 datasets
-torch
-transformers
+optimum

@@ -106,34 +106,20 @@ _onnx_quantization_config = {
             https://onnxruntime.ai/docs/performance/quantization.html#pre-processing
         """,
     ),
-}
-
-_exposed_extra_options_config = {
-    "extra.Sigmoid.nnapi": PassConfigParam(type_=bool, default_value=False, description=""),
-    "ActivationSymmetric": PassConfigParam(
-        type_=bool, default_value=False, description="symmetrize calibration data for activations"
-    ),
-    "WeightSymmetric": PassConfigParam(
-        type_=bool, default_value=True, description="symmetrize calibration data for weights"
-    ),
-    "EnableSubgraph": PassConfigParam(
-        type_=bool,
-        default_value=False,
-        description="If enabled, subgraph will be quantized. Dynamic mode currently is supported.",
-    ),
-    "ForceQuantizeNoInputCheck": PassConfigParam(
+    "activation_symmetric": PassConfigParam(
         type_=bool,
         default_value=False,
         description="""
-            By default, some latent operators like maxpool, transpose, do not quantize if their input is not
-            quantized already. Setting to True to force such operator always quantize input and so generate
-            quantized output. Also the True behavior could be disabled per node using the nodes_to_exclude.
+            Symmetric quantization for activations.
         """,
     ),
-    "MatMulConstBOnly": PassConfigParam(
+    "weight_symmetric": PassConfigParam(
         type_=bool,
-        default_value=ConditionalDefault(parents=("quant_mode",), support={("dynamic",): True, ("static",): False}),
-        description="If enabled, only MatMul with const B will be quantized.",
+        default_value=None,
+        description="""
+            Symmetric quantization for weights. Defaults to None. If set to None, it is assumed true if
+            weight_type is signed, false otherwise.
+        """,
     ),
 }
 
@@ -141,12 +127,12 @@ _extra_options_config = {
     "extra_options": PassConfigParam(
         type_=dict,
         default_value=None,
-        description=f"""
+        description="""
             Key value pair dictionary for `extra_options` in quantization. Please refer to
             https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/quantize.py
             for details about the supported options. If an option is one of
-            {list(_exposed_extra_options_config.keys())}, it will be overwritten by the corresponding config parameter
-            value.
+            ActivationSymmetric, WeightSymmetric, MinimumRealRange or TensorQuantOverrides, it will be overwritten
+            by the corresponding config parameter value.
         """,
     ),
 }
@@ -206,21 +192,26 @@ _static_optional_config = {
             https://onnxruntime.ai/docs/performance/quantization.html for more details on data type selection
         """,
     ),
-    "prepare_qnn_config": PassConfigParam(
-        type_=bool,
-        default_value=False,
+    "min_real_range": PassConfigParam(
+        type_=float,
+        default_value=None,
         description="""
-            Whether to generate a suitable quantization config for the input model.
-            Should be set to True if model is targeted for QNN EP.
+            Minimum real range for quantization. If set, enforces the minimum range between rmin and rmax.
         """,
     ),
-    "qnn_extra_options": PassConfigParam(
+    "tensor_quant_overrides": PassConfigParam(
         type_=dict,
         default_value=None,
         description="""
-            Extra options for QNN quantization. Please refer to get_qnn_qdq_config at
-            https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/execution_providers/qnn/quant_config.py.
-            By default, the options are set to None. Options are only used if prepare_qnn_config is set to True.
+            tensor-level quantization overrides.
+        """,
+    ),
+    "prepare_qdq_config": PassConfigParam(
+        type_=bool,
+        default_value=True,
+        description="""
+            Generate a quantization configuration for a full integer QDQ model. Otherwise, only a limited set of
+            operators are quantized. Only supported after onnxruntime 1.21.0 for EPs other than QNN.
         """,
     ),
 }
@@ -231,6 +222,15 @@ def get_calibration_dataloader(config, model_path=None, io_config=None, calibrat
     return data_config.to_data_container().create_calibration_dataloader(
         model_path=model_path, io_config=io_config, calibration_providers=calibration_providers
     )
+
+
+# extra options name: (param_name, use in dynamic quantization)
+_param_extra_options_mapping = {
+    "ActivationSymmetric": ("activation_symmetric", True),
+    "WeightSymmetric": ("weight_symmetric", True),
+    "MinimumRealRange": ("min_real_range", False),
+    "TensorQuantOverrides": ("tensor_quant_overrides", False),
+}
 
 
 class OnnxQuantization(Pass):
@@ -290,7 +290,6 @@ class OnnxQuantization(Pass):
         config.update(static_optional_config)
 
         # exposed extra options config
-        config.update(deepcopy(_exposed_extra_options_config))
         config.update(deepcopy(_extra_options_config))
 
         # external data config
@@ -306,21 +305,18 @@ class OnnxQuantization(Pass):
         if not super().validate_config(config, accelerator_spec):
             return False
 
-        if config.quant_mode == "static":
-            if (
-                config.weight_type == "QInt8"
-                and config.activation_type == "QInt8"
-                and config.quant_format == "QOperator"
-            ):
-                # S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general.
-                # https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html#data-type-selection
-                # But we still allow it for users to try at their own risk. Olive just warns this to users.
-                logger.warning(
-                    "S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general, try QDQ instead."
-                )
-            if config.EnableSubgraph is True:
-                logger.info("EnableSubgraph is not supported for static quantization.")
-                return False
+        if (
+            config.quant_mode == "static"
+            and config.weight_type == "QInt8"
+            and config.activation_type == "QInt8"
+            and config.quant_format == "QOperator"
+        ):
+            # S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general.
+            # https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html#data-type-selection
+            # But we still allow it for users to try at their own risk. Olive just warns this to users.
+            logger.warning(
+                "S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general, try QDQ instead."
+            )
         return True
 
     def _run_for_config(
@@ -352,16 +348,19 @@ class OnnxQuantization(Pass):
         # extra config
         extra_options = deepcopy(config.extra_options) or {}
         # keys in extra_options that are already exposed
-        intersection = set(extra_options.keys()).intersection(set(_exposed_extra_options_config.keys()))
+        intersection = set(extra_options.keys()).intersection(set(_param_extra_options_mapping.keys()))
         if intersection:
             logger.warning(
                 "Extra config keys %s are already exposed in the pass config. They will be overwritten by"
                 " the corresponding pass config parameter values.",
                 intersection,
             )
-        for key in _exposed_extra_options_config:
-            extra_options[key] = run_config[key]
-            del run_config[key]
+        for key, (value, use_in_dynamic) in _param_extra_options_mapping.items():
+            if run_config.get(value) is not None and (is_static or use_in_dynamic):
+                # add the value to extra_options
+                extra_options[key] = run_config[value]
+            # remove the key from run_config
+            run_config.pop(value, None)
 
         # preprocess the model
         # we hash the entire path of the input model to ensure we are not accidentally using a preprocessed model
@@ -383,8 +382,7 @@ class OnnxQuantization(Pass):
         to_delete = [
             "quant_mode",
             "quant_preprocess",
-            "prepare_qnn_config",
-            "qnn_extra_options",
+            "prepare_qdq_config",
             "op_types_to_exclude",
             *_dataloader_config.keys(),
             *get_external_data_config().keys(),
@@ -418,12 +416,11 @@ class OnnxQuantization(Pass):
         run_config = exclude_keys(run_config, to_delete)
 
         # there is no op_types_to_exclude in the quantizer, will exclude indirectly through nodes_to_exclude
-        nodes_to_exclude = run_config["nodes_to_exclude"] or []
+        run_config["nodes_to_exclude"] = nodes_to_exclude = run_config.get("nodes_to_exclude") or []
         if config.op_types_to_exclude:
             for node in onnx.load(model.model_path, load_external_data=False).graph.node:
                 if node.op_type in config.op_types_to_exclude:
                     nodes_to_exclude.append(node.name)
-        run_config["nodes_to_exclude"] = nodes_to_exclude
 
         # to be safe, run the quantizer with use_external_data_format set to `True` and
         # `model_output` to a temporary directory
@@ -432,63 +429,11 @@ class OnnxQuantization(Pass):
         tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
 
         if is_static:
-            # get the dataloader
-            dataloader = get_calibration_dataloader(
-                config, model.model_path, model.io_config, config.calibration_providers
-            )
-            # TODO(anyone): generalize this option to prepare_qdq_config so that other NPU eps can use it
-            # to call get_qdq_config
-            if config.prepare_qnn_config:
-                from onnxruntime.quantization.execution_providers.qnn import get_qnn_qdq_config
-
-                qnn_extra_options = config.qnn_extra_options or {}
-                if init_overrides := _get_qnn_init_overrides(model, config):
-                    qnn_extra_options["init_overrides"] = init_overrides
-
-                # TODO(anyone): remove the version check once minimum version is 1.21.0
-                additional_options = {}
-                if not ort_less_than_1_21:
-                    additional_options = {
-                        "calibration_providers": run_config["calibration_providers"],
-                        "op_types_to_quantize": run_config["op_types_to_quantize"],
-                        "nodes_to_exclude": run_config["nodes_to_exclude"],
-                    }
-
-                qnn_config = get_qnn_qdq_config(
-                    model_input=model.model_path,
-                    calibration_data_reader=dataloader,
-                    calibrate_method=run_config["calibrate_method"],
-                    activation_type=run_config["activation_type"],
-                    weight_type=run_config["weight_type"],
-                    per_channel=run_config["per_channel"],
-                    activation_symmetric=config.ActivationSymmetric,
-                    weight_symmetric=config.WeightSymmetric,
-                    **qnn_extra_options,
-                    **additional_options,
-                )
-                # override the run_config with qnn_config
-                # get all attributes of qnn_config
-                run_config = {k: v for k, v in inspect.getmembers(qnn_config) if not k.startswith("_")}
-                # remove the calibration_data_reader from run_config
-                run_config = exclude_keys(run_config, ("calibration_data_reader", "use_external_data_format"))
-                # TODO(jambayk): raise this > 1.21.0 if quantizer tool changes don't make it to 1.20.0
-                if ort_less_than_1_21:
-                    if nodes_to_exclude:
-                        run_config["nodes_to_exclude"].extend(nodes_to_exclude)
-                    if config.op_types_to_quantize:
-                        run_config["op_types_to_quantize"] = config.op_types_to_quantize
-                    elif config.op_types_to_exclude:
-                        # op_types_to_quantize takes precedence over op_types_to_exclude
-                        run_config["op_types_to_quantize"] = list(
-                            set(run_config["op_types_to_quantize"]) - set(config.op_types_to_exclude)
-                        )
-
+            run_config = self.get_static_run_config(model, config, run_config, ort_less_than_1_21)
             try:
                 quantize_static(
                     model_input=model.model_path,
                     model_output=tmp_model_path,
-                    calibration_data_reader=dataloader,
-                    use_external_data_format=True,
                     **run_config,
                 )
             except (AttributeError, ValueError) as e:
@@ -544,6 +489,75 @@ class OnnxQuantization(Pass):
 
         # since this is only used internally, we will just treat it as a model file
         return ONNXModelHandler(LocalFile({"path": output_model_path}))
+
+    def get_static_run_config(
+        self, model: ONNXModelHandler, config: Type[BasePassConfig], run_config: Dict, ort_less_than_1_21: bool
+    ) -> Dict:
+        """Prepare the run config for static quantization."""
+        dataloader = get_calibration_dataloader(config, model.model_path, model.io_config, config.calibration_providers)
+        if config.quant_format != "QDQ" or not config.prepare_qdq_config:
+            run_config.update({"calibration_data_reader": dataloader, "use_external_data_format": True})
+            return run_config
+
+        is_qnn_ep = self.accelerator_spec.execution_provider == "QNNExecutionProvider"
+
+        if is_qnn_ep:
+            from onnxruntime.quantization.execution_providers.qnn import get_qnn_qdq_config as get_qdq_config
+        else:
+            if ort_less_than_1_21:
+                raise ValueError("prepare_qdq_config is only supported for onnxruntime>=1.21.0.")
+            from onnxruntime.quantization.quantize import get_qdq_config
+
+        get_qdq_config_kwargs = {
+            "model_input": model.model_path,
+            "calibration_data_reader": dataloader,
+        }
+        # copy values from run_config
+        for key in ["calibrate_method", "activation_type", "weight_type", "per_channel"]:
+            get_qdq_config_kwargs[key] = run_config[key]
+        if not ort_less_than_1_21:
+            # only available in onnxruntime>=1.21.0 for prepare_qnn_config
+            for key in ["calibration_providers", "op_types_to_quantize", "nodes_to_exclude"]:
+                get_qdq_config_kwargs[key] = run_config[key]
+        # put the exposed extra options in the get_qdq_config_kwargs
+        extra_options = deepcopy(run_config["extra_options"])
+        for key, (qdq_key, _) in _param_extra_options_mapping.items():
+            if key in extra_options:
+                get_qdq_config_kwargs[qdq_key] = extra_options[key]
+                # remove the key from extra_options
+                extra_options.pop(key, None)
+        if extra_options:
+            get_qdq_config_kwargs["extra_options"] = extra_options
+        # tensor_quant_overrides is init_overrides in qnn
+        if is_qnn_ep:
+            if "tensor_quant_overrides" in get_qdq_config_kwargs:
+                get_qdq_config_kwargs["init_overrides"] = get_qdq_config_kwargs.pop("tensor_quant_overrides")
+            elif init_overrides := _get_qnn_init_overrides(model, config):
+                get_qdq_config_kwargs["init_overrides"] = init_overrides
+            if "min_real_range" in get_qdq_config_kwargs:
+                # min_real_range is not supported in QNN EP which enforces 1e-4
+                get_qdq_config_kwargs.pop("min_real_range")
+
+        # get the qdq config
+        qdq_config = get_qdq_config(**get_qdq_config_kwargs)
+
+        # override the run_config with qdq_config
+        new_run_config = {k: v for k, v in inspect.getmembers(qdq_config) if not k.startswith("_")}
+        # always run with use_external_data_format
+        new_run_config["use_external_data_format"] = True
+        if ort_less_than_1_21:
+            # only available in onnxruntime>=1.21.0 for prepare_qnn_config
+            if run_config["nodes_to_exclude"]:
+                new_run_config["nodes_to_exclude"].extend(run_config["nodes_to_exclude"])
+            if config.op_types_to_quantize:
+                new_run_config["op_types_to_quantize"] = config.op_types_to_quantize
+            elif config.op_types_to_exclude:
+                # op_types_to_quantize takes precedence over op_types_to_exclude
+                new_run_config["op_types_to_quantize"] = list(
+                    set(new_run_config["op_types_to_quantize"]) - set(config.op_types_to_exclude)
+                )
+
+        return new_run_config
 
 
 class OnnxQuantizationPreprocess(Pass):
@@ -627,8 +641,6 @@ class OnnxDynamicQuantization(OnnxQuantization):
         }
         # common quantization config
         config.update(deepcopy(_onnx_quantization_config))
-        # exposed extra options config
-        config.update(deepcopy(_exposed_extra_options_config))
         config.update(deepcopy(_extra_options_config))
         # external data config
         config.update(get_external_data_config())
@@ -649,7 +661,6 @@ class OnnxStaticQuantization(OnnxQuantization):
         config.update(deepcopy(_dataloader_config))
         config.update(deepcopy(_static_optional_config))
         # exposed extra options config
-        config.update(deepcopy(_exposed_extra_options_config))
         config.update(deepcopy(_extra_options_config))
         # external data config
         config.update(get_external_data_config())
@@ -660,11 +671,12 @@ class OnnxStaticQuantization(OnnxQuantization):
             # TODO(jiapli): remove this workaround once figure out the Int16/UInt16 in latest quantization
             config["activation_type"].search_defaults = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
             config["weight_type"].search_defaults = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
-            config["prepare_qnn_config"].default_value = True
-            # in QNN EP, the default value WeightSymmetric is None
-            # but in base quantizer, the default value is True.
-            config["WeightSymmetric"].default_value = None
         return config
+
+    @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Override this method to return False by using the accelerator spec information."""
+        return False
 
 
 class OnnxMatMul4Quantizer(Pass):
@@ -875,8 +887,7 @@ def _get_qnn_init_overrides(model_handler: ONNXModelHandler, config: Type[BasePa
     model_attributes = model_handler.model_attributes or {}
     mp_init_overrides = model_attributes.get("mixed_precision_overrides") or {}
     init_overrides = {}
-    config.qnn_extra_options = config.qnn_extra_options or {}
-    if mp_init_overrides and "init_overrides" not in config.qnn_extra_options:
+    if mp_init_overrides:
         from onnxruntime.quantization import QuantType
 
         # use QuantType to get the quantization type

@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from test.unit_test.utils import make_local_tiny_llama
 from unittest.mock import patch
 
 import pytest
@@ -12,6 +11,7 @@ from olive.data.template import huggingface_data_config_template
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.rotate import QuaRot, SpinQuant
+from test.unit_test.utils import make_local_tiny_llama
 
 
 def common_test_rotate(rotate_pass, tmp_path, model_path, rotate_mode, atol, **config_kwargs):

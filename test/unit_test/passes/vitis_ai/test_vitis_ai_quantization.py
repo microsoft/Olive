@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from test.unit_test.utils import get_onnx_model
 
 import onnxruntime
 import pytest
@@ -15,6 +14,7 @@ from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
+from test.unit_test.utils import get_onnx_model
 
 
 class RandomDataReader(CalibrationDataReader):

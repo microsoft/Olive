@@ -94,7 +94,6 @@ DEFAULT_SET = set(PassParamDefault)
 
 
 class BasePassConfig(ConfigBase):
-
     @validator("*", pre=True)
     def _validate_default_str(cls, v, field):
         if not isinstance(v, (str, PassParamDefault)) or v not in DEFAULT_SET:
@@ -167,7 +166,6 @@ def create_config_class(
 
 
 class PassModuleConfig(ConfigBase):
-
     ACCELERATORS: ClassVar[Set[str]] = {v.value for v in Device}
     PRECISIONS: ClassVar[Set[str]] = {v.value for v in Precision}
     QUANT_ALGORITHMS: ClassVar[Set[str]] = {v.value for v in QuantAlgorithm}

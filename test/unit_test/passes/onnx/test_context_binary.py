@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from test.unit_test.utils import get_onnx_model
+import json
 
 import onnxruntime
 import pytest
@@ -12,6 +12,7 @@ from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import resave_model
 from olive.passes.onnx.context_binary import EPContextBinaryGenerator
+from test.unit_test.utils import get_onnx_model
 
 
 @pytest.mark.skipif(
@@ -60,13 +61,17 @@ def test_ep_context_binary_generator_composite(tmp_path, is_llm):
     model_attributes = None
     if is_llm:
         component_names = ["embeddings", *component_names, "lm_head"]
+        with open(parent_dir / "genai_config.json", "w") as f:
+            json.dump({"model": {"decoder": {}, "type": "decoder-pipeline"}}, f)
+
         model_attributes = {
             "llm_pipeline": {
                 "embeddings": "embeddings",
                 "context": ["component_0", "component_1"],
                 "iterator": ["component_2", "component_3"],
                 "lm_head": "lm_head",
-            }
+            },
+            "additional_files": [str(parent_dir / "genai_config.json")],
         }
     component_models = []
     for name in component_names:
@@ -82,7 +87,15 @@ def test_ep_context_binary_generator_composite(tmp_path, is_llm):
         EPContextBinaryGenerator,
         # weight sharing requires a qdq model
         # might also have issues in pytest environment
-        {"weight_sharing": False},
+        {
+            "weight_sharing": False,
+            "provider_options": {
+                "htp_performance_mode": "burst",
+                "htp_graph_finalization_optimization_mode": "3",
+                "soc_model": "60",
+            },
+            "session_options": {"intra_op_num_threads": 2, "inter_op_num_threads": 1},
+        },
         disable_search=True,
         accelerator_spec=accelerator_spec,
     )
@@ -102,6 +115,14 @@ def test_ep_context_binary_generator_composite(tmp_path, is_llm):
             "iterator": ["component_2_ctx", "component_3_ctx"],
             "lm_head": "lm_head",
         }
+        with open(output_model_path / "genai_config.json") as f:
+            genai_config = json.load(f)
+        assert set(genai_config["model"]["decoder"]["pipeline"][0].keys()) == set(output_model.model_component_names)
+        session_options = genai_config["model"]["decoder"]["pipeline"][0]["component_0_ctx"]["session_options"]
+        assert session_options["intra_op_num_threads"] == 2
+        assert "qnn" in session_options["provider_options"][0]
+        assert session_options["provider_options"][0]["qnn"]["htp_performance_mode"] == "burst"
+        assert session_options["provider_options"][0]["qnn"]["backend_path"] == "QnnHtp.dll"
     for name in component_names:
         # print(output_component_map[name].model_path)
         is_skipped = name in ["embeddings", "lm_head"]

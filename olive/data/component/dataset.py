@@ -157,9 +157,9 @@ class RawDataset(BaseDataset):
         self.annotations = None
         if annotations_file is not None:
             self.annotations = np.load(self.data_dir / annotations_file)
-            assert len(self.annotations) == len(
-                self.input_files
-            ), "Number of annotations should be equal to number of input files."
+            assert len(self.annotations) == len(self.input_files), (
+                "Number of annotations should be equal to number of input files."
+            )
 
     def __len__(self):
         return len(self.input_files)

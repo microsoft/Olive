@@ -278,9 +278,9 @@ class OnnxDAG:
             self.ios[name] = OnnxIO(proto=[value_info], graph_idx=graph_idx)
             return
 
-        assert (
-            overwrite or not self.ios[name].proto
-        ), f"Value info for {name} already exists in the graph but overwrite is False."
+        assert overwrite or not self.ios[name].proto, (
+            f"Value info for {name} already exists in the graph but overwrite is False."
+        )
         self.ios[name].proto = [value_info]
 
     def is_io(self, io_name: str) -> bool:

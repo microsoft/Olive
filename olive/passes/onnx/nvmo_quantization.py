@@ -382,7 +382,6 @@ class NVModelOptQuantization(Pass):
     def _run_for_config(
         self, model: OliveModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> OliveModelHandler:
-
         try:
             logger.debug("Loading the original ONNX model from %s.", model.model_path)
             quant_config = self.initialize_quant_config(config)

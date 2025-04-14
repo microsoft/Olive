@@ -298,7 +298,7 @@ class ORTGenerator:
                 outputs = io_binding.get_outputs()
                 logits = outputs[0].numpy()
             else:
-                outputs = session.run(None, {**{used_inputs}, **cache.get_kv_inputs()})
+                outputs = session.run(None, {**used_inputs, **cache.get_kv_inputs()})
                 logits = outputs[0]
 
             # Decide the next token using your preferred sampling strategy.
@@ -428,9 +428,9 @@ class ORTGenerator:
                 else [apply_template(template, p) for p in prompt]
             )
         else:
-            assert isinstance(prompt, str) or (
-                isinstance(prompt, list) and all(isinstance(p, str) for p in prompt)
-            ), "tuple prompts require a template"
+            assert isinstance(prompt, str) or (isinstance(prompt, list) and all(isinstance(p, str) for p in prompt)), (
+                "tuple prompts require a template"
+            )
 
         encodings_dict = self.tokenizer(prompt, return_tensors="np", padding=True)
         input_ids = encodings_dict["input_ids"].astype(self.input_info["input_ids"]["dtype"])

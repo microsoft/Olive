@@ -30,21 +30,16 @@ from olive.evaluator.metric_backend import MetricBackend
 from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten_metric_result, joint_metric_key
 from olive.evaluator.registry import Registry
 from olive.hardware import Device
-from olive.model import DistributedOnnxModelHandler, ONNXModelHandler
+from olive.model import DistributedOnnxModelHandler, ONNXModelHandler, PyTorchModelHandler
 from olive.model.config.io_config import is_io_config_static
+from olive.model.handler.hf import HfModelHandler
 from olive.model.utils.onnx_utils import dump_tuning_result
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 
 if TYPE_CHECKING:
     from torch.utils.data import DataLoader
 
-    from olive.model import (
-        OliveModelHandler,
-        OpenVINOModelHandler,
-        PyTorchModelHandler,
-        QNNModelHandler,
-        SNPEModelHandler,
-    )
+    from olive.model import OliveModelHandler, OpenVINOModelHandler, QNNModelHandler, SNPEModelHandler
 
 logger = logging.getLogger(__name__)
 
@@ -335,7 +330,6 @@ class _OliveEvaluator(OliveEvaluator):
 
 
 class OnnxEvaluatorMixin:
-
     @staticmethod
     def get_inference_settings(metric: Metric, model: ONNXModelHandler) -> Dict[str, Any]:
         # user.config.inference_settings > model.inference_settings > default inference_settings
@@ -356,7 +350,6 @@ class OnnxEvaluatorMixin:
 @Registry.register(str(Framework.ONNX))
 @Registry.register("OnnxEvaluator")
 class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
-
     @staticmethod
     def get_session_wrapper(
         model: ONNXModelHandler,
@@ -730,11 +723,16 @@ class PyTorchEvaluator(_OliveEvaluator):
             # it is expensive to convert to list and then convert back to torch tensor
             preds.append(outputs.cpu())
             targets.append(labels.cpu())
-            logits.append(
-                result.logits.cpu()
-                if not isinstance(result, torch.Tensor) and getattr(result, "logits", None) is not None
-                else result.cpu()
-            )
+            try:
+                if not isinstance(result, torch.Tensor) and getattr(result, "logits", None) is not None:
+                    logits.append(result.logits.cpu())
+                elif isinstance(result, tuple):
+                    logits.append(result[0].cpu())
+                else:
+                    logits.append(result.cpu())
+            except Exception as e:
+                logger.warning("Error getting logits from PyTorch model output: %s", e)
+                logits.append(torch.tensor([]))
         # concatenate along the batch dimension
         preds = torch.cat(preds, dim=0)
         targets = torch.cat(targets, dim=0)
@@ -825,7 +823,6 @@ class PyTorchEvaluator(_OliveEvaluator):
 @Registry.register(str(Framework.SNPE))
 @Registry.register("SNPEEvaluator")
 class SNPEEvaluator(_OliveEvaluator):
-
     def _inference(
         self,
         model: "SNPEModelHandler",
@@ -915,7 +912,6 @@ class SNPEEvaluator(_OliveEvaluator):
 @Registry.register(str(Framework.OPENVINO))
 @Registry.register("OpenVINOEvaluator")
 class OpenVINOEvaluator(_OliveEvaluator):
-
     def _inference(
         self,
         model: "OpenVINOModelHandler",
@@ -979,7 +975,6 @@ class OpenVINOEvaluator(_OliveEvaluator):
 @Registry.register(str(Framework.QNN))
 @Registry.register("QNNEvaluator")
 class QNNEvaluator(_OliveEvaluator):
-
     def _inference(
         self,
         model: "QNNModelHandler",
@@ -1061,14 +1056,14 @@ class QNNEvaluator(_OliveEvaluator):
 
 @Registry.register("LMEvaluator")
 class LMEvaluator(OliveEvaluator):
-    def __init__(self, model_class: str, tasks: List[str], **kwargs):
+    def __init__(self, tasks: List[str], **kwargs):
         super().__init__(**kwargs)
 
-        self.model_class = model_class
         self.tasks = tasks
         self.limit = kwargs.get("limit")
+        self.model_class = kwargs.get("model_class")
         self.batch_size = kwargs.get("batch_size", 1)
-        self.max_gen_toks = kwargs.get("max_gen_toks")
+        self.max_length = kwargs.get("max_length")
 
     def evaluate(
         self,
@@ -1079,17 +1074,37 @@ class LMEvaluator(OliveEvaluator):
     ) -> MetricResult:
         import lm_eval
 
+        if not self.model_class:
+            if isinstance(model, (HfModelHandler, PyTorchModelHandler)):
+                self.model_class = "hf"
+            elif isinstance(model, ONNXModelHandler):
+                self.model_class = "onnx"
+            else:
+                raise ValueError("Failed to automatically deduce model class. Provide it in user input!")
+
         device = _OliveEvaluator.device_string_to_torch_device(device)
         # device = torch.device("cuda:5")
-        tokenizer = model.get_hf_tokenizer()
-        nn_module = model.load_model().eval().to(device)
+        pretrained = None
+        tokenizer = None
+        if self.model_class == "hf":
+            tokenizer = model.get_hf_tokenizer()
+            pretrained = model.load_model().eval().to(device)
+        elif self.model_class == "onnx":
+            import onnxruntime_genai as og
+
+            import olive.evaluator.lmeval_onnx_model  # noqa: F401 # pylint: disable=unused-import
+
+            model_path = Path(model.model_path)
+            model_path = model_path.parent if model_path.is_file() else model_path
+            pretrained = og.Model(str(model_path))
+            tokenizer = og.Tokenizer(pretrained)
 
         lmmodel = lm_eval.api.registry.get_model(self.model_class)(
-            pretrained=nn_module,
+            pretrained=pretrained,
             tokenizer=tokenizer,
             batch_size=self.batch_size,
             device=device,
-            max_gen_toks=self.max_gen_toks,
+            max_length=self.max_length,
         )
 
         task_manager = lm_eval.tasks.TaskManager()
