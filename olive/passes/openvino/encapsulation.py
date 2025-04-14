@@ -2,17 +2,19 @@
 # Copyright (c) Intel Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import os
 from pathlib import Path
-from typing import Dict, Type, Union, ClassVar
-from openvino import get_version
+from typing import ClassVar, Dict, Type, Union
+
 import onnx.helper as helper
 from onnx import TensorProto, save
-import os
+from openvino import get_version
+
+from olive.common.utils import hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.common.utils import hardlink_copy_file
 
 
 class OpenVINOEncapsulation(Pass):

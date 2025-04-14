@@ -4,11 +4,12 @@
 # --------------------------------------------------------------------------
 from pathlib import Path
 from typing import Dict, Type, Union
+
+from olive.common.utils import hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
-from olive.common.utils import hardlink_copy_file
 
 
 class OpenVINOReshape(Pass):

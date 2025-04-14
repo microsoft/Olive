@@ -5,6 +5,7 @@
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Type, Union
+
 from olive.common.config_utils import validate_config
 from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig

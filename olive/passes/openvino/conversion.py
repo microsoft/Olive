@@ -4,7 +4,9 @@
 # --------------------------------------------------------------------------
 from pathlib import Path
 from typing import Callable, Dict, List, Type, Union
+
 import torch
+
 from olive.constants import Framework
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, ONNXModelHandler, OpenVINOModelHandler, PyTorchModelHandler
