@@ -7,6 +7,7 @@
 
 import inspect
 import logging
+import math
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Type
 
@@ -735,6 +736,179 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
 
         dag.update()
         return dag.model
+
+
+class MatMulAddToGemm(Surgeon):
+    """Replace MatMul + Add with Gemm.
+
+    Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor.
+    If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm
+    node and reshaped back to the original shape after the Gemm node.
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto):
+        from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+
+        try:
+            model = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+        except Exception as e:
+            logger.debug("Shape inference failed. Will try to continue without it. Error: %s", e)
+
+        dag = OnnxDAG(model)
+
+        modified = 0
+        removed_nodes = set()
+        for node_name in dag.get_node_names():
+            if node_name in removed_nodes or dag.get_node_op_type(node_name) != "MatMul":
+                continue
+            matmul_name = node_name
+            graph_idx = dag.get_graph_idx(node_name)
+
+            matmul_consumers = dag.get_consumers(node_name)
+            if len(matmul_consumers) != 1 or dag.get_node_op_type(matmul_consumers[0]) != "Add":
+                continue
+            add_name = matmul_consumers[0]
+
+            out = dag.get_node_outputs(add_name)[0]
+            if dag.is_output(out):
+                continue
+
+            # check matmul input shapes
+            matmul_inputs = dag.get_node_inputs(node_name)
+            matmul_input_shapes = [dag.get_io_shape(i_name) for i_name in matmul_inputs]
+            if len(matmul_input_shapes[1]) != 2:
+                continue
+            matmul_output = dag.get_node_outputs(node_name)[0]
+            matmul_output_shape = dag.get_io_shape(matmul_output)
+            elem_type = dag.get_io_elem_type(matmul_output)
+
+            # check add input shapes
+            bias_input = None
+            for i_name in dag.get_node_inputs(add_name):
+                if i_name != matmul_output:
+                    bias_input = i_name
+                    break
+            if bias_input is None or len(dag.get_io_shape(bias_input)) != 1:
+                continue
+            add_output = dag.get_node_outputs(add_name)[0]
+
+            gemm_name = self.create_new_name(matmul_name, "MatMul", "Gemm")
+            gemm_inputs = [*matmul_inputs, bias_input]
+
+            matmul_a_shape = matmul_input_shapes[0]
+            gemm_output_shape = matmul_output_shape
+            if len(matmul_a_shape) != 2:
+                # need to reshape the first input to 2D
+                # only support static shapes for now, otherwise we need to add shape related ops
+                if any(
+                    not isinstance(dim_value, int) for dim_value in [*matmul_input_shapes[0], *matmul_input_shapes[1]]
+                ):
+                    continue
+
+                pre_reshape_name = self.create_new_name(gemm_name, "Gemm", "Reshape_pre")
+                gemm_inputs[0] = self.add_reshape_node(
+                    dag,
+                    graph_idx,
+                    pre_reshape_name,
+                    matmul_inputs[0],
+                    [math.prod(matmul_a_shape[:-1]), matmul_a_shape[-1]],
+                    elem_type,
+                )
+                gemm_output_shape = [math.prod(matmul_output_shape[:-1]), matmul_output_shape[-1]]
+
+            gemm_output_name = f"{gemm_name}_output"
+            dag.add_node(
+                onnx.helper.make_node(
+                    "Gemm",
+                    inputs=gemm_inputs,
+                    outputs=[gemm_output_name],
+                    name=gemm_name,
+                    alpha=1.0,
+                    beta=1.0,
+                    transA=0,
+                    transB=0,
+                ),
+                graph_idx,
+            )
+            dag.add_value_info(
+                onnx.helper.make_tensor_value_info(
+                    gemm_output_name,
+                    elem_type,
+                    gemm_output_shape,
+                ),
+                graph_idx,
+            )
+            final_output_name = gemm_output_name
+
+            if len(matmul_a_shape) != 2:
+                # need to reshape the output to original shape
+                post_reshape_name = self.create_new_name(gemm_name, "Gemm", "Reshape_post")
+                final_output_name = self.add_reshape_node(
+                    dag,
+                    graph_idx,
+                    post_reshape_name,
+                    gemm_output_name,
+                    matmul_output_shape,
+                    elem_type,
+                )
+
+            # point all of the consumers of the original add to the final output
+            for consumer in dag.get_consumers(add_name):
+                dag.replace_node_input(consumer, add_output, final_output_name)
+
+            # remove the original add and matmul nodes
+            for to_remove in [add_name, matmul_name]:
+                dag.remove_node(to_remove)
+                removed_nodes.add(to_remove)
+            modified += 1
+
+        if modified > 0:
+            logger.debug("Replaced %d MatMul + Add nodes with Gemm nodes", modified)
+
+        dag.update()
+        return dag.model
+
+    @staticmethod
+    def add_reshape_node(
+        dag: OnnxDAG, graph_idx: int, node_name: str, input_name: str, target_shape: List[int], output_elem_type: int
+    ) -> str:
+        """Add a reshape node to the graph.
+
+        :param dag: The OnnxDAG object.
+        :param graph_idx: The index of the graph.
+        :param node_name: The name of the node.
+        :param input_name: The name of the input tensor.
+        :param target_shape: The target shape for the reshape operation.
+        :param output_elem_type: The element type of the output tensor.
+        :return: The name of the output tensor after reshaping.
+        """
+        # need to reshape the first input to 2D
+        reshape_shape_name = f"{node_name}_shape"
+        reshape_output_name = f"{node_name}_output"
+        dag.add_initializer(
+            onnx.numpy_helper.from_array(np.array(target_shape, dtype=np.int64), reshape_shape_name), graph_idx
+        )
+        dag.add_node(
+            onnx.helper.make_node(
+                "Reshape",
+                [input_name, reshape_shape_name],
+                [reshape_output_name],
+                name=node_name,
+            ),
+            graph_idx,
+        )
+        dag.add_value_info(
+            onnx.helper.make_tensor_value_info(
+                reshape_output_name,
+                output_elem_type,
+                target_shape,
+            ),
+            graph_idx,
+        )
+        return reshape_output_name
 
 
 class RemoveRopeMultiCache(Surgeon):
