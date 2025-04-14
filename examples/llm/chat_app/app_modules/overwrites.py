@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+# pylint: disable=relative-beyond-top-level
+
 from .presets import gr
 from .utils import convert_asis, convert_mdtext, detect_converted_mark
 
-# pylint: disable=relative-beyond-top-level
 
 def postprocess(self, y: list[tuple[str | None, str | None]]) -> list[tuple[str | None, str | None]]:
     """Each message and response should be a string, which may be in Markdown format.

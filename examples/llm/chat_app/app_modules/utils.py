@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# pylint: disable=relative-beyond-top-level
+
 import html
 import re
 
@@ -12,7 +14,6 @@ from pygments.lexers import ClassNotFound, get_lexer_by_name, guess_lexer
 
 from .presets import ALREADY_CONVERTED_MARK
 
-# pylint: disable=relative-beyond-top-level
 
 def markdown_to_html_with_syntax_highlight(md_str):
     def replacer(match):
