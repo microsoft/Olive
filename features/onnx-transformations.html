@@ -1333,14 +1333,70 @@ for more details on the optimizations done by this tool.</p>
 </div>
 </section>
 </section>
-<section id="replaceattentionmaskvalue">
-<h3><code class="docutils literal notranslate"><span class="pre">ReplaceAttentionMaskValue</span></code><a class="headerlink" href="#replaceattentionmaskvalue" title="Link to this heading">#</a></h3>
+<section id="matmuladdtogemm">
+<h3><code class="docutils literal notranslate"><span class="pre">MatMulAddToGemm</span></code><a class="headerlink" href="#matmuladdtogemm" title="Link to this heading">#</a></h3>
 <section id="id33">
 <h4>Description<a class="headerlink" href="#id33" title="Link to this heading">#</a></h4>
-<p>Replace the value of extended attention mask with a new value. This surgery is useful if the default mask value does not quantize well due to numerical instability.</p>
+<p>Replace MatMul + Add with Gemm.</p>
+<p>Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor. If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm node and reshaped back to the original shape after the Gemm node.</p>
 </section>
 <section id="id34">
 <h4>Example<a class="headerlink" href="#id34" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Static</span><span class="o">/</span><span class="n">Dynamic</span> <span class="n">shaped</span> <span class="nb">input</span><span class="p">:</span>
+             <span class="p">[</span><span class="mi">2</span><span class="n">D</span> <span class="n">weight</span><span class="p">]</span>   <span class="p">[</span><span class="mi">1</span><span class="n">D</span> <span class="n">bias</span><span class="p">]</span>
+                 <span class="o">|</span>            <span class="o">|</span>
+                 <span class="n">v</span>            <span class="n">v</span>
+<span class="p">[</span><span class="mi">2</span><span class="n">D</span> <span class="n">Input</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">MatMul</span> <span class="o">-----&gt;</span> <span class="n">Add</span>
+
+<span class="n">Static</span> <span class="n">shaped</span> <span class="nb">input</span><span class="p">:</span>
+             <span class="p">[</span><span class="mi">2</span><span class="n">D</span> <span class="n">weight</span><span class="p">]</span>    <span class="p">[</span><span class="mi">1</span><span class="n">D</span> <span class="n">bias</span><span class="p">]</span>
+                 <span class="o">|</span>             <span class="o">|</span>
+                 <span class="n">v</span>             <span class="n">v</span>
+<span class="p">[</span><span class="n">N</span><span class="o">-</span><span class="n">D</span> <span class="n">Input</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">MatMul</span> <span class="o">-----&gt;</span> <span class="n">Add</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MatMulAddToGemm&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Static</span><span class="o">/</span><span class="n">Dynamic</span> <span class="n">shaped</span> <span class="n">inputs</span><span class="p">:</span>
+             <span class="p">[</span><span class="mi">2</span><span class="n">D</span> <span class="n">weight</span><span class="p">]</span>
+                 <span class="o">|</span>
+                 <span class="n">v</span>
+<span class="p">[</span><span class="mi">2</span><span class="n">D</span> <span class="n">Input</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">Gemm</span> <span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+                 <span class="o">^</span>
+                 <span class="o">|</span>
+              <span class="p">[</span><span class="mi">1</span><span class="n">D</span> <span class="n">bias</span><span class="p">]</span>
+
+<span class="n">Static</span> <span class="n">shaped</span> <span class="n">inputs</span><span class="p">:</span>
+                          <span class="p">[</span><span class="mi">2</span><span class="n">D</span> <span class="n">weight</span><span class="p">]</span>
+                              <span class="o">|</span>
+                              <span class="n">v</span>
+<span class="p">[</span><span class="n">N</span><span class="o">-</span><span class="n">D</span> <span class="n">Input</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">Reshape</span> <span class="o">--&gt;</span> <span class="n">Gemm</span> <span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">--&gt;</span> <span class="n">Reshape</span>
+                              <span class="o">^</span>
+                              <span class="o">|</span>
+                          <span class="p">[</span><span class="mi">1</span><span class="n">D</span> <span class="n">bias</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="replaceattentionmaskvalue">
+<h3><code class="docutils literal notranslate"><span class="pre">ReplaceAttentionMaskValue</span></code><a class="headerlink" href="#replaceattentionmaskvalue" title="Link to this heading">#</a></h3>
+<section id="id35">
+<h4>Description<a class="headerlink" href="#id35" title="Link to this heading">#</a></h4>
+<p>Replace the value of extended attention mask with a new value. This surgery is useful if the default mask value does not quantize well due to numerical instability.</p>
+</section>
+<section id="id36">
+<h4>Example<a class="headerlink" href="#id36" title="Link to this heading">#</a></h4>
 <p>Initial model graph:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
   <span class="n">node</span> <span class="p">{</span>
@@ -1438,8 +1494,8 @@ for more details on the optimizations done by this tool.</p>
 <section id="append-pre-post-processing-ops">
 <h2>Append Pre/Post Processing Ops<a class="headerlink" href="#append-pre-post-processing-ops" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">AppendPrePostProcessingOps</span></code> inserts pre and post processing ops into the ONNX graph.</p>
-<section id="id35">
-<h3>Example Configuration<a class="headerlink" href="#id35" title="Link to this heading">#</a></h3>
+<section id="id37">
+<h3>Example Configuration<a class="headerlink" href="#id37" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;superresolution&quot;</span><span class="p">,</span>
@@ -1563,8 +1619,8 @@ For example, for some ops like <code class="docutils literal notranslate"><span 
 <section id="insert-beam-search-op">
 <h2>Insert Beam Search Op<a class="headerlink" href="#insert-beam-search-op" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">InsertBeamSearch</span></code> chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.</p>
-<section id="id36">
-<h3>Example Configuration<a class="headerlink" href="#id36" title="Link to this heading">#</a></h3>
+<section id="id38">
+<h3>Example Configuration<a class="headerlink" href="#id38" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InsertBeamSearch&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;no_repeat_ngram_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
@@ -1580,8 +1636,8 @@ environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
 <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
-<section id="id37">
-<h3>Example Configuration<a class="headerlink" href="#id37" title="Link to this heading">#</a></h3>
+<section id="id39">
+<h3>Example Configuration<a class="headerlink" href="#id39" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtSessionParamsTuning&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;session_params_tuning_data_config&quot;</span><span class="p">,</span>
@@ -1738,23 +1794,28 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id32">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replaceattentionmaskvalue"><code class="docutils literal notranslate"><span class="pre">ReplaceAttentionMaskValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#matmuladdtogemm"><code class="docutils literal notranslate"><span class="pre">MatMulAddToGemm</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id33">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id34">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replaceattentionmaskvalue"><code class="docutils literal notranslate"><span class="pre">ReplaceAttentionMaskValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id35">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id36">Example</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#append-pre-post-processing-ops">Append Pre/Post Processing Ops</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id35">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id37">Example Configuration</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#insert-beam-search-op">Insert Beam Search Op</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id36">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id38">Example Configuration</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ort-performance-tuning">ORT Performance Tuning</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id37">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id39">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
