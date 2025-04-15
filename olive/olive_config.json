@@ -343,6 +343,24 @@
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "openvino" ]
         },
+        "OpenVINOEncapsulation": {
+            "module_path": "olive.passes.openvino.encapsulation.OpenVINOEncapsulation",
+            "supported_providers": [ "OpenVINOExecutionProvider" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
+        "OpenVINOReshape": {
+            "module_path": "olive.passes.openvino.reshape.OpenVINOReshape",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
         "AutoAWQQuantizer": {
             "module_path": "olive.passes.pytorch.autoawq.AutoAWQQuantizer",
             "supported_providers": [ "*" ],

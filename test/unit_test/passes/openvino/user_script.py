@@ -7,4 +7,4 @@ def get_dummy_input():
 
 
 def get_input():
-    return [1, 1]
+    return [[1, 1]]
