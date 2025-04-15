@@ -92,7 +92,7 @@
             "calibrate_method": "MinMax",
             "quant_preprocess": true
         },
-	"cb": {
+        "cb": {
             "type": "EPContextBinaryGenerator",
             "provider_options": {
                 "htp_graph_finalization_optimization_mode": "3",
