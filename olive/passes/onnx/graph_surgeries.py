@@ -9,12 +9,13 @@ import inspect
 import logging
 import math
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Type
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Type
 
 import numpy as np
 import onnx
 from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
+from onnxscript import ir
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -35,38 +36,11 @@ class Surgeon:
         super().__init_subclass__(**kwargs)
         Surgeon.registry[cls.__name__.lower()] = cls
 
-    def __call__(self, model: ModelProto):
+    def __call__(self, model: ModelProto) -> ModelProto:
+        return ir.to_proto(self.call(ir.from_proto(model)))
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
         raise NotImplementedError
-
-    @staticmethod
-    def get_node_by_name(model, name: str, match_output: bool = False):
-        for node in model.graph.node:
-            if (match_output and node.output[0] == name) or (not match_output and node.name == name):
-                return node
-        return None
-
-    @staticmethod
-    def get_tensor_shapes(model) -> Dict[str, List[int]]:
-        return {info.name: [x.dim_value for x in info.type.tensor_type.shape.dim] for info in model.graph.value_info}
-
-    @staticmethod
-    def get_tensor_types(model):
-        return {info.name: info.type.tensor_type.elem_type for info in model.graph.value_info}
-
-    @staticmethod
-    def get_initializer_types(model):
-        return {initializer.name: initializer.data_type for initializer in model.graph.initializer}
-
-    @staticmethod
-    def get_initializer_shapes(model) -> Dict[str, List[int]]:
-        return {initializer.name: initializer.dims for initializer in model.graph.initializer}
-
-    @staticmethod
-    def get_initializer_by_name(model, name: str):
-        for initializer in model.graph.initializer:
-            if initializer.name == name:
-                return initializer
-        return None
 
     @staticmethod
     def create_new_name(name: str, old_op: str, new_op: str) -> str:
@@ -78,25 +52,11 @@ class RenameInputs(Surgeon):
         self.old_names = old_names
         self.new_names = new_names
 
-    def __call__(self, model: ModelProto):
-        for old_name, new_name in zip(self.old_names, self.new_names):
-            for node in model.graph.node:
-                for idx, input_name in enumerate(node.input):
-                    if input_name == old_name:
-                        node.input[idx] = new_name
-
-                for idx, output_name in enumerate(node.output):
-                    if output_name == old_name:
-                        node.output[idx] = new_name
-
-            for idx, graph_input in enumerate(model.graph.input):
-                if graph_input.name == old_name:
-                    model.graph.input[idx].name = new_name
-
-            for idx, graph_output in enumerate(model.graph.output):
-                if graph_output.name == old_name:
-                    model.graph.output[idx].name = new_name
-        return model
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        replacement = dict(zip(self.old_names, self.new_names))
+        for input in model.graph.inputs:
+            if input.name in replacement:
+                input.name = replacement[input.name]
 
 
 class RenameOutputs(Surgeon):
@@ -104,24 +64,11 @@ class RenameOutputs(Surgeon):
         self.old_names = old_names
         self.new_names = new_names
 
-    def __call__(self, model: ModelProto):
-        for old_name, new_name in zip(self.old_names, self.new_names):
-            for node in model.graph.node:
-                for idx, input_name in enumerate(node.input):
-                    if input_name == old_name:
-                        node.input[idx] = new_name
-
-                for idx, output_name in enumerate(node.output):
-                    if output_name == old_name:
-                        node.output[idx] = new_name
-
-            for graph_input in model.graph.input:
-                if graph_input.name == old_name:
-                    graph_input.name = new_name
-
-            for graph_output in model.graph.output:
-                if graph_output.name == old_name:
-                    graph_output.name = new_name
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        replacement = dict(zip(self.old_names, self.new_names))
+        for output in model.graph.outputs:
+            if output.name in replacement:
+                output.name = replacement[output.name]
         return model
 
 
@@ -147,28 +94,29 @@ class RemoveInitializerFromInputs(Surgeon):
     def __init__(self):
         pass
 
-    def __call__(self, model: ModelProto):
-        initializer_names = {initializer.name for initializer in model.graph.initializer}
-        updated_inputs = [graph_input for graph_input in model.graph.input if graph_input.name not in initializer_names]
-        del model.graph.input[:]
-        model.graph.input.extend(updated_inputs)
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        while model.graph.inputs[-1].name in model.graph.initializers:
+            # Initializers are always at the end of the input list
+            model.graph.inputs.pop()
         return model
 
 
 class ReorderInputs(Surgeon):
-    def __init__(self, permutation):
+    """Reorder the inputs of the model according to the given permutation."""
+
+    def __init__(self, permutation: Sequence[int]):
         self.permutation = permutation
 
-    def __call__(self, model: ModelProto):
-        inputs = list(model.graph.input)
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        inputs = list(model.graph.inputs)
         num_inputs = len(inputs)
 
         if sorted(self.permutation) != list(range(num_inputs)):
             raise ValueError("Invalid permutation: permutation must be a rearrangement of input indices.")
 
         reordered_inputs = [inputs[idx] for idx in self.permutation]
-        del model.graph.input[:]
-        model.graph.input.extend(reordered_inputs)
+        del model.graph.inputs[:]
+        model.graph.inputs.extend(reordered_inputs)
 
         return model
 
