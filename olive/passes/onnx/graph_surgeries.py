@@ -40,7 +40,8 @@ class Surgeon:
         return ir.to_proto(self.call_ir(ir.from_proto(model)))
 
     def call_ir(self, model: ir.Model) -> ir.Model:
-        raise NotImplementedError
+        # Override this method in subclasses to implement the surgery with ONNX IR
+        return model
 
     @staticmethod
     def get_node_by_name(model, name: str, match_output: bool = False):
@@ -87,6 +88,7 @@ class RenameInputs(Surgeon):
         for inp in model.graph.inputs:
             if inp.name in replacement:
                 inp.name = replacement[inp.name]
+        return model
 
 
 class RenameOutputs(Surgeon):
