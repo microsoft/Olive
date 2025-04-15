@@ -3,13 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-# ruff: noqa: RUF012
-
 import inspect
 import logging
 import math
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Type
+from typing import Any, ClassVar, Dict, List, Mapping, Optional, Sequence, Type
 
 import numpy as np
 import onnx
@@ -160,7 +158,7 @@ class ReorderInputs(Surgeon):
 
 
 class ReplaceErfWithTanh(ProtoSurgeon):
-    DTYPE_MAP = {
+    DTYPE_MAP: Mapping = {
         TensorProto.FLOAT: np.float32,
         TensorProto.FLOAT16: np.float16,
         TensorProto.DOUBLE: np.float64,
