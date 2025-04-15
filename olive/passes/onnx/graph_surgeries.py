@@ -43,6 +43,36 @@ class Surgeon:
         raise NotImplementedError
 
     @staticmethod
+    def get_node_by_name(model, name: str, match_output: bool = False):
+        for node in model.graph.node:
+            if (match_output and node.output[0] == name) or (not match_output and node.name == name):
+                return node
+        return None
+
+    @staticmethod
+    def get_tensor_shapes(model) -> Dict[str, List[int]]:
+        return {info.name: [x.dim_value for x in info.type.tensor_type.shape.dim] for info in model.graph.value_info}
+
+    @staticmethod
+    def get_tensor_types(model):
+        return {info.name: info.type.tensor_type.elem_type for info in model.graph.value_info}
+
+    @staticmethod
+    def get_initializer_types(model):
+        return {initializer.name: initializer.data_type for initializer in model.graph.initializer}
+
+    @staticmethod
+    def get_initializer_shapes(model) -> Dict[str, List[int]]:
+        return {initializer.name: initializer.dims for initializer in model.graph.initializer}
+
+    @staticmethod
+    def get_initializer_by_name(model, name: str):
+        for initializer in model.graph.initializer:
+            if initializer.name == name:
+                return initializer
+        return None
+
+    @staticmethod
     def create_new_name(name: str, old_op: str, new_op: str) -> str:
         return name.replace(old_op, new_op) if old_op in name else f"{name}_{new_op}"
 
