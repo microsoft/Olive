@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import numpy as np
 import onnx
-import pytest
 from onnx import TensorProto, helper
 import onnxruntime as ort
 from olive.model import ONNXModelHandler

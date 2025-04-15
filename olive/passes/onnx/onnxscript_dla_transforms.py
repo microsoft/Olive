@@ -38,13 +38,13 @@ class MatMulToConvTransform(Pass):
             input_a_rank = len(input_a.shape)
             input_b_rank = len(input_b.shape)
             
-            # Only handle 2D×2D and 3D×2D cases
+            # Only handle 2Dx2D and 3Dx2D cases
             if not ((input_a_rank == 2 and input_b_rank == 2) or (input_a_rank == 3 and input_b_rank == 2)):
-                logger.info(f"Skipping MatMul with shapes {input_a.shape} x {input_b.shape}")
+                logger.debug(f"Skipping MatMul with shapes {input_a.shape} x {input_b.shape}")
                 return op.MatMul(input_a, input_b)
                 
             # Step 1: Convert inputs to 4D tensors through unsqueeze as needed
-            if input_a_rank == 2:  # 2D×2D case: [M, K] × [K, N]
+            if input_a_rank == 2:  # 2Dx2D case: [M, K] x [K, N]
                 # Add batch dimension and spatial dimension: [M, K] to [1, M, K, 1]
                 padded_a = op.Unsqueeze(
                     op.Unsqueeze(input_a, op.Constant(value_ints=[0])), 
@@ -106,6 +106,6 @@ class MatMulToConvTransform(Pass):
             model_proto,
             pattern_rewrite_rules=[matmul_to_conv_rule],
         )
-        logger.info(f"MatMul to Conv transformation applied.")
+        logger.debug(f"MatMul to Conv transformation applied.")
         
         return model_proto_to_olive_model(transformed_model_proto, output_model_path, config)
