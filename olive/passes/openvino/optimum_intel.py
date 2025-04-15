@@ -160,11 +160,11 @@ class OpenVINOOptimumConversion(Pass):
             lib_name = _infer_library_from_model_name_or_path(model.model_name_or_path)
             if lib_name == "sentence_transformers":
                 logger.warning(
-                    "Library name is not specified. "
+                    "Library is not specified. "
                     "There are multiple possible variants: `sentence_transformers`, `transformers`. "
                     "`transformers` will be selected. "
                     "If you want to load your model with the `sentence-transformers` library instead, "
-                    "please set library_name as sentence_transformers"
+                    "Please set it as sentence_transformers in extra_args dictionary under 'library' key"
                 )
                 lib_name = "transformers"
         else:
