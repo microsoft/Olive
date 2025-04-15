@@ -11,7 +11,7 @@ The OpenVINO optimization sample will convert each PyTorch model to OpenVINO IR 
 
 - ONNX Runtime with
     - [CUDA EP](#stable-diffusion-optimization-with-onnx-runtime-cuda-ep)
-    - DirectML EP: go to examples [Stable Diffusion](./README_directml.md)
+    - DirectML EP: go to examples [Stable Diffusion](../directml/stable_diffusion/README.md)
 - [OpenVINO](#stable-diffusion-optimization-with-openvino)
 
 ## Stable Diffusion Optimization with ONNX Runtime CUDA EP
@@ -93,7 +93,7 @@ python stable_diffusion.py --provider cuda --num_images 2
 Inference will loop until the generated image passes the safety checker (otherwise you would see black images). The result will be saved as `result_<i>.png` on disk.
 
 Refer to the corresponding section in the DirectML READMEs for more details on the test inference options:
-- [Stable Diffusion](./README_directml.md#test-inference)
+- [Stable Diffusion](../directml/stable_diffusion/README.md#test-inference)
 
 ## Stable Diffusion Optimization with OpenVINO
 
