@@ -334,7 +334,7 @@ class ExposeOutputs(Surgeon):
     def call_ir(self, model: ir.Model) -> ir.Model:
         for node in model.graph:
             if node.name in self.names:
-                model.graph.outputs.append(node.output[0])
+                model.graph.outputs.append(node.outputs[0])
         return model
 
 
