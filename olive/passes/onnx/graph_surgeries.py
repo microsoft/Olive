@@ -147,7 +147,7 @@ class ReorderInputs(Surgeon):
             raise ValueError("Invalid permutation: permutation must be a rearrangement of input indices.")
 
         reordered_inputs = [inputs[idx] for idx in self.permutation]
-        del model.graph.inputs[:]
+        model.graph.inputs.clear()
         model.graph.inputs.extend(reordered_inputs)
 
         return model
