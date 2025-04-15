@@ -160,10 +160,10 @@ class OpenVINOOptimumConversion(Pass):
             lib_name = _infer_library_from_model_name_or_path(model.model_name_or_path)
             if lib_name == "sentence_transformers":
                 logger.warning(
-                    "Library name is not specified."
-                    "There are multiple possible variants: `sentence_transformers`, `transformers`."
-                    "`transformers` will be selected."
-                    "If you want to load your model with the `sentence-transformers` library instead,"
+                    "Library name is not specified. "
+                    "There are multiple possible variants: `sentence_transformers`, `transformers`. "
+                    "`transformers` will be selected. "
+                    "If you want to load your model with the `sentence-transformers` library instead, "
                     "please set library_name as sentence_transformers"
                 )
                 lib_name = "transformers"
@@ -202,7 +202,7 @@ class OpenVINOOptimumConversion(Pass):
                     ov_config = None
                     if config.ov_quant_config.get("dataset", None) is None:
                         raise ValueError(
-                            "Dataset is required for full quantization."
+                            "Dataset is required for full quantization. "
                             "Please provide it in ov_quant_config dictionary under 'dataset' key"
                         )
                     if config.ov_quant_config.get("quant_mode") in [
