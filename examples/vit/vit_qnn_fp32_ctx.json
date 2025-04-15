@@ -100,7 +100,6 @@
             "use_dynamo_exporter": false
         },
         "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
-        "qnn_preprocess": { "type": "QNNPreprocess" },
         "cb": {
             "type": "EPContextBinaryGenerator",
             "provider_options": {

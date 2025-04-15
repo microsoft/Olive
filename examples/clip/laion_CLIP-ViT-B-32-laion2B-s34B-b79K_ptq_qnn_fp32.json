@@ -166,8 +166,7 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 20 },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
-        "qnn_preprocess": { "type": "QNNPreprocess" }
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

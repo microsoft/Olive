@@ -116,8 +116,7 @@
     },
     "passes": {
         "conversion": { "device": "cpu", "type": "OnnxConversion", "target_opset": 20 },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
-        "QNNPreprocess": { "type": "QNNPreprocess", "fuse_layernorm": true }
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] }
     },
     "host": "qnn_system",
     "target": "qnn_system",

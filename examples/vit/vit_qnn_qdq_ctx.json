@@ -1,7 +1,7 @@
 {
     "input_model": {
         "type": "HfModel",
-        "model_path": "microsoft/resnet-50",
+        "model_path": "google/vit-base-patch16-224",
         "task": "image-classification",
         "io_config": {
             "input_names": [ "pixel_values" ],
@@ -26,8 +26,8 @@
                 "streaming": true,
                 "trust_remote_code": true
             },
-            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet" },
-            "post_process_data_config": { "type": "imagenet_post_fun" }
+            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet256" },
+            "post_process_data_config": { "type": "dataset_post_process" }
         }
     ],
     "evaluators": {
@@ -46,14 +46,20 @@
                     ],
                     "user_config": {
                         "inference_settings": {
-                            "execution_provider": "QNNExecutionProvider",
-                            "provider_options": [
-                                {
-                                    "htp_performance_mode": "burst",
-                                    "htp_graph_finalization_optimization_mode": "3",
-                                    "offload_graph_io_quantization": "0"
-                                }
-                            ]
+                            "onnx": {
+                                "session_options": {
+                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "0" }
+                                },
+                                "execution_provider": "QNNExecutionProvider",
+                                "provider_options": [
+                                    {
+                                        "backend_path": "QnnHtp.dll",
+                                        "htp_performance_mode": "burst",
+                                        "htp_graph_finalization_optimization_mode": "3",
+                                        "offload_graph_io_quantization": "0"
+                                    }
+                                ]
+                            }
                         }
                     }
                 },
@@ -65,9 +71,13 @@
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
+                                "session_options": {
+                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "0" }
+                                },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
                                     {
+                                        "backend_path": "QnnHtp.dll",
                                         "htp_performance_mode": "burst",
                                         "htp_graph_finalization_optimization_mode": "3",
                                         "offload_graph_io_quantization": "0"
@@ -81,8 +91,15 @@
         }
     },
     "passes": {
-        "conversion": { "device": "cpu", "type": "OnnxConversion", "target_opset": 20 },
-        "QNNPreprocess": { "type": "QNNPreprocess", "fuse_layernorm": true },
+        "conversion": {
+            "device": "cpu",
+            "type": "OnnxConversion",
+            "target_opset": 20,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "use_dynamo_exporter": false
+        },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
         "OnnxQuantization": {
             "type": "OnnxQuantization",
             "data_config": "quantize_data_config",
@@ -103,8 +120,8 @@
     "host": "qnn_system",
     "target": "qnn_system",
     "evaluator": "common_evaluator",
-    "output_dir": "models/resnet_w8a16_ctx",
+    "output_dir": "models/vit-base-patch16-224/qdq_ctx",
     "evaluate_input_model": false,
     "clean_cache": false,
-    "cache_dir": "cache/resnet"
+    "cache_dir": "cache/vit-base-patch16-224"
 }

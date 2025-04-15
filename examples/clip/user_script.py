@@ -28,14 +28,14 @@ class CLIPDataset(Dataset):
         self.processor = CLIPProcessor.from_pretrained(self.model_name)
         self.length = self.end - self.start
         self.image_size = image_size
-        self.dataset = load_dataset(self.dataset_name, split=f"test[{0}:{self.end + 10}]")
+        self.dataset = load_dataset(self.dataset_name, split=f"test[{0}:{self.end+10}]")
 
     def __len__(self):
         return self.length
 
     def __getitem__(self, idx):
         text_inputs = self.processor(
-            text=[" ".join(item) for item in self.dataset[idx : idx + 10]["caption"]],
+            text=[" ".join(item) for item in self.dataset[idx:idx+10]["caption"]],
             return_tensors="np",
             padding="max_length",
             truncation=True,
