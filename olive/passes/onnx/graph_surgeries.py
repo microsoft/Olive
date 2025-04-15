@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 
 
 class Surgeon:
+    """Base class for surgeons that operate on the ONNX IR model."""
+
+    # Refer to https://microsoft.github.io/onnxscript/intermediate_representation/ir_api.html#onnxscript.ir.Model
+    # for the IR model API.
+
     registry: ClassVar[Dict[str, Type["Surgeon"]]] = {}
 
     @classmethod
@@ -40,8 +45,18 @@ class Surgeon:
         return ir.to_proto(self.call_ir(ir.from_proto(model)))
 
     def call_ir(self, model: ir.Model) -> ir.Model:
-        # Override this method in subclasses to implement the surgery with ONNX IR
-        return model
+        # Implement this method in subclasses to operate on the IR model.
+        raise NotImplementedError
+
+
+class ProtoSurgeon(Surgeon):
+    """Base class for surgeons that operate on the ONNX model proto directly."""
+
+    def __call__(self, model: ModelProto) -> ModelProto:
+        raise NotImplementedError
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        raise RuntimeError("Implement __call__ method instead of operator on onnx.ModelProto directly.")
 
     @staticmethod
     def get_node_by_name(model, name: str, match_output: bool = False):
@@ -104,18 +119,12 @@ class RenameOutputs(Surgeon):
         return model
 
 
-class InferShapes(Surgeon):
-    def __init__(self):
-        pass
-
+class InferShapes(ProtoSurgeon):
     def __call__(self, model: ModelProto):
         return onnx.shape_inference.infer_shapes(model)
 
 
-class RemoveShapes(Surgeon):
-    def __init__(self):
-        pass
-
+class RemoveShapes(ProtoSurgeon):
     def __call__(self, model: ModelProto):
         while len(model.graph.value_info) > 0:
             model.graph.value_info.pop()
@@ -123,9 +132,6 @@ class RemoveShapes(Surgeon):
 
 
 class RemoveInitializerFromInputs(Surgeon):
-    def __init__(self):
-        pass
-
     def call_ir(self, model: ir.Model) -> ir.Model:
         while model.graph.inputs and (model.graph.inputs[-1].name in model.graph.initializers):
             # Initializers are always at the end of the input list
@@ -153,7 +159,7 @@ class ReorderInputs(Surgeon):
         return model
 
 
-class ReplaceErfWithTanh(Surgeon):
+class ReplaceErfWithTanh(ProtoSurgeon):
     DTYPE_MAP = {
         TensorProto.FLOAT: np.float32,
         TensorProto.FLOAT16: np.float16,
@@ -168,9 +174,6 @@ class ReplaceErfWithTanh(Surgeon):
         TensorProto.UINT32: np.uint32,
         TensorProto.UINT64: np.uint64,
     }
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         idx = 0
@@ -229,7 +232,7 @@ class ReplaceErfWithTanh(Surgeon):
         raise ValueError(f"Cannot find dtype for {name}")
 
 
-class ZeroOutInput(Surgeon):
+class ZeroOutInput(ProtoSurgeon):
     def __init__(self, node_name, input_idx):
         self.node_name = node_name
         self.input_idx = input_idx
@@ -303,7 +306,7 @@ class ZeroOutInput(Surgeon):
         return model
 
 
-class RemoveInputs(Surgeon):
+class RemoveInputs(ProtoSurgeon):
     def __init__(self, names):
         self.names = names
 
@@ -338,7 +341,7 @@ class ExposeOutputs(Surgeon):
         return model
 
 
-class ExposeQuantizedOutput(Surgeon):
+class ExposeQuantizedOutput(ProtoSurgeon):
     def __init__(self, output_name):
         self.output_name = output_name
 
@@ -440,7 +443,7 @@ class ExposeQuantizedOutput(Surgeon):
         return self._add_zero_point(model, zero_point_value, zero_point_onnx_dtype, zero_point_np_dtype)
 
 
-class RMSNormToL2Norm(Surgeon):
+class RMSNormToL2Norm(ProtoSurgeon):
     """Replace RMSNorm subgraph with L2Norm subgraph.
 
     RMSNorm pattern:
@@ -460,9 +463,6 @@ class RMSNormToL2Norm(Surgeon):
     The weight of the Mul node is multiplied by sqrt(N) where N is equal to the reduced axis size.
     If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
     """
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         dag = OnnxDAG(model)
@@ -582,7 +582,7 @@ class RMSNormToL2Norm(Surgeon):
         return rmsnorm_nodes if len(rmsnorm_nodes) >= (len(pattern) - 1) else []
 
 
-class SimplifiedLayerNormToL2Norm(Surgeon):
+class SimplifiedLayerNormToL2Norm(ProtoSurgeon):
     """Replace Skip/SimplifiedLayerNormalization node with L2Norm subgraph.
 
     SimplifiedLayerNormalization is replaced with:
@@ -599,9 +599,6 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
     Second input to Mul is the weight of the layer norm multiplied by sqrt(N) where N is equal to the hidden size.
     If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
     """
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         dag = OnnxDAG(model)
@@ -718,16 +715,13 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
         return dag.model
 
 
-class MatMulAddToGemm(Surgeon):
+class MatMulAddToGemm(ProtoSurgeon):
     """Replace MatMul + Add with Gemm.
 
     Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor.
     If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm
     node and reshaped back to the original shape after the Gemm node.
     """
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
@@ -891,7 +885,7 @@ class MatMulAddToGemm(Surgeon):
         return reshape_output_name
 
 
-class RemoveRopeMultiCache(Surgeon):
+class RemoveRopeMultiCache(ProtoSurgeon):
     """Remove the multi rope cache from the model."""
 
     def __init__(self, use_large_cache: bool = False):
@@ -957,11 +951,8 @@ class RemoveRopeMultiCache(Surgeon):
         return dag.model
 
 
-class AttentionMaskToSequenceLengths(Surgeon):
+class AttentionMaskToSequenceLengths(ProtoSurgeon):
     """Replace attention_mask subgraph in GQA model with past_seq_len and total_seq_len."""
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         dag = OnnxDAG(model)
@@ -1013,7 +1004,7 @@ class AttentionMaskToSequenceLengths(Surgeon):
         return dag.model
 
 
-class ReplaceAttentionMaskValue(Surgeon):
+class ReplaceAttentionMaskValue(ProtoSurgeon):
     """Replace the value of extended attention mask with a new value.
 
     This surgery is useful if the default mask value does not quantize well due to numerical instability.
