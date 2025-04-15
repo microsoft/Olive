@@ -91,6 +91,14 @@
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
+        },
+		"cb": {
+            "type": "EPContextBinaryGenerator",
+            "provider_options": {
+                "htp_graph_finalization_optimization_mode": "3",
+                "offload_graph_io_quantization": "0"
+            },
+            "weight_sharing": true
         }
     },
     "host": "qnn_system",
