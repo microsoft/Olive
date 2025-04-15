@@ -84,9 +84,9 @@ class RenameInputs(Surgeon):
 
     def call_ir(self, model: ir.Model) -> ir.Model:
         replacement = dict(zip(self.old_names, self.new_names))
-        for input in model.graph.inputs:
-            if input.name in replacement:
-                input.name = replacement[input.name]
+        for inp in model.graph.inputs:
+            if inp.name in replacement:
+                inp.name = replacement[inp.name]
 
 
 class RenameOutputs(Surgeon):
