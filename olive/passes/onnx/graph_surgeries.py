@@ -326,13 +326,13 @@ class RemoveInputs(Surgeon):
 
 
 class ExposeOutputs(Surgeon):
-    def __init__(self, names):
-        self.names = names
+    def __init__(self, names: Sequence[str]):
+        self.names = set(names)
 
-    def __call__(self, model: ModelProto):
-        for node in model.graph.node:
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        for node in model.graph:
             if node.name in self.names:
-                model.graph.output.extend([onnx.ValueInfoProto(name=node.output[0])])
+                model.graph.outputs.append(node.output[0])
         return model
 
 
