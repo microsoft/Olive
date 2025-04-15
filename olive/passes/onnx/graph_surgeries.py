@@ -37,7 +37,7 @@ class Surgeon:
         Surgeon.registry[cls.__name__.lower()] = cls
 
     def __call__(self, model: ModelProto) -> ModelProto:
-        return ir.to_proto(self.call(ir.from_proto(model)))
+        return ir.to_proto(self.call_ir(ir.from_proto(model)))
 
     def call_ir(self, model: ir.Model) -> ir.Model:
         raise NotImplementedError
