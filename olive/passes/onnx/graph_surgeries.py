@@ -2,12 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
 import inspect
 import logging
 import math
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Mapping, Optional, Sequence, Type
+from typing import Any, ClassVar, Dict, List, Mapping, Optional, Sequence, Tuple, Type
 
 import numpy as np
 import onnx
@@ -38,6 +37,9 @@ class Surgeon:
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         Surgeon.registry[cls.__name__.lower()] = cls
+
+    def __init__(self):
+        pass
 
     def __call__(self, model: ModelProto) -> ModelProto:
         return ir.to_proto(self.call_ir(ir.from_proto(model)))
@@ -1137,7 +1139,7 @@ class GraphSurgeries(Pass):
         return surgeon_class(**init_params)
 
     @staticmethod
-    def get_surgeon_parameters(surgeon_class):
+    def get_surgeon_parameters(surgeon_class: Type[Surgeon]) -> Tuple[List[str], List[str]]:
         parameters = inspect.signature(surgeon_class.__init__).parameters
 
         positional_args = [
