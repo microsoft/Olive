@@ -127,7 +127,7 @@ class RemoveInitializerFromInputs(Surgeon):
         pass
 
     def call_ir(self, model: ir.Model) -> ir.Model:
-        while model.graph.inputs[-1].name in model.graph.initializers:
+        while model.graph.inputs and (model.graph.inputs[-1].name in model.graph.initializers):
             # Initializers are always at the end of the input list
             model.graph.inputs.pop()
         return model
