@@ -7,7 +7,7 @@ from pathlib import Path
 
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
-from olive.passes.openvino.reshape import OpenVINOReshape
+from olive.passes.openvino.io_update import OpenVINOIoUpdate
 from test.unit_test.utils import get_pytorch_model, get_pytorch_model_dummy_input
 
 
@@ -33,7 +33,7 @@ def test_openvino_reshape_pass_static(tmp_path):
     openvino_model = convert_pt_to_ov_model(tmp_path)
     openvino_conversion_config = {"input_shapes": [[1]], "static": True}
 
-    p = create_pass_from_dict(OpenVINOReshape, openvino_conversion_config, disable_search=True)
+    p = create_pass_from_dict(OpenVINOIoUpdate, openvino_conversion_config, disable_search=True)
     output_folder = str(tmp_path / "openvino_st")
 
     # execute
@@ -53,7 +53,7 @@ def test_openvino_reshape_pass_dynamic(tmp_path):
     openvino_model = convert_pt_to_ov_model(tmp_path)
     openvino_conversion_config = {"input_shapes": [[1]], "static": False}
 
-    p = create_pass_from_dict(OpenVINOReshape, openvino_conversion_config, disable_search=True)
+    p = create_pass_from_dict(OpenVINOIoUpdate, openvino_conversion_config, disable_search=True)
     output_folder = str(tmp_path / "openvino_dy")
 
     # execute
