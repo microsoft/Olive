@@ -51,7 +51,7 @@ def dataset_pre_process(output_data, **kwargs):
     if cache_key:
         cache_file = Path(f"./cache/data/{cache_key}.npz")
         if cache_file.exists():
-            with np.load(Path(cache_file)) as data:
+            with np.load(Path(cache_file), allow_pickle=True) as data:
                 return ImagenetDataset(data)
 
     size = kwargs.get("size", 256)
