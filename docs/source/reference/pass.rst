@@ -339,6 +339,10 @@ OpenVINOEncapsulation
 ----------------------
 .. autoconfigclass:: olive.passes.OpenVINOEncapsulation
 
+OpenVINOOptimumConversion
+--------------------
+.. autoconfigclass:: olive.passes.OpenVINOOptimumConversion
+
 SNPE
 =================================
 
