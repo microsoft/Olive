@@ -336,7 +336,7 @@ OpenVINOQuantization
 .. _openvino_encapsulation:
 
 OpenVINOEncapsulation
-------------------
+----------------------
 .. autoconfigclass:: olive.passes.OpenVINOEncapsulation
 
 SNPE
