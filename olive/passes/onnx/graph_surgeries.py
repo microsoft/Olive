@@ -2,19 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-# ruff: noqa: RUF012
-
 import inspect
 import logging
 import math
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Type
+from typing import Any, ClassVar, Dict, List, Mapping, Optional, Sequence, Tuple, Type
 
 import numpy as np
 import onnx
 from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
+from onnxscript import ir
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -28,6 +26,11 @@ logger = logging.getLogger(__name__)
 
 
 class Surgeon:
+    """Base class for surgeons that operate on the ONNX IR model."""
+
+    # Refer to https://microsoft.github.io/onnxscript/intermediate_representation/ir_api.html#onnxscript.ir.Model
+    # for the IR model API.
+
     registry: ClassVar[Dict[str, Type["Surgeon"]]] = {}
 
     @classmethod
@@ -35,8 +38,25 @@ class Surgeon:
         super().__init_subclass__(**kwargs)
         Surgeon.registry[cls.__name__.lower()] = cls
 
-    def __call__(self, model: ModelProto):
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto) -> ModelProto:
+        return ir.to_proto(self.call_ir(ir.from_proto(model)))
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        # Implement this method in subclasses to operate on the IR model.
         raise NotImplementedError
+
+
+class ProtoSurgeon(Surgeon):
+    """Base class for surgeons that operate on the ONNX model proto directly."""
+
+    def __call__(self, model: ModelProto) -> ModelProto:
+        raise NotImplementedError
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        raise RuntimeError("Implement __call__ method instead of operator on onnx.ModelProto directly.")
 
     @staticmethod
     def get_node_by_name(model, name: str, match_output: bool = False):
@@ -78,24 +98,11 @@ class RenameInputs(Surgeon):
         self.old_names = old_names
         self.new_names = new_names
 
-    def __call__(self, model: ModelProto):
-        for old_name, new_name in zip(self.old_names, self.new_names):
-            for node in model.graph.node:
-                for idx, input_name in enumerate(node.input):
-                    if input_name == old_name:
-                        node.input[idx] = new_name
-
-                for idx, output_name in enumerate(node.output):
-                    if output_name == old_name:
-                        node.output[idx] = new_name
-
-            for idx, graph_input in enumerate(model.graph.input):
-                if graph_input.name == old_name:
-                    model.graph.input[idx].name = new_name
-
-            for idx, graph_output in enumerate(model.graph.output):
-                if graph_output.name == old_name:
-                    model.graph.output[idx].name = new_name
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        replacement = dict(zip(self.old_names, self.new_names))
+        for inp in model.graph.inputs:
+            if inp.name in replacement:
+                inp.name = replacement[inp.name]
         return model
 
 
@@ -104,39 +111,20 @@ class RenameOutputs(Surgeon):
         self.old_names = old_names
         self.new_names = new_names
 
-    def __call__(self, model: ModelProto):
-        for old_name, new_name in zip(self.old_names, self.new_names):
-            for node in model.graph.node:
-                for idx, input_name in enumerate(node.input):
-                    if input_name == old_name:
-                        node.input[idx] = new_name
-
-                for idx, output_name in enumerate(node.output):
-                    if output_name == old_name:
-                        node.output[idx] = new_name
-
-            for graph_input in model.graph.input:
-                if graph_input.name == old_name:
-                    graph_input.name = new_name
-
-            for graph_output in model.graph.output:
-                if graph_output.name == old_name:
-                    graph_output.name = new_name
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        replacement = dict(zip(self.old_names, self.new_names))
+        for output in model.graph.outputs:
+            if output.name in replacement:
+                output.name = replacement[output.name]
         return model
 
 
-class InferShapes(Surgeon):
-    def __init__(self):
-        pass
-
+class InferShapes(ProtoSurgeon):
     def __call__(self, model: ModelProto):
         return onnx.shape_inference.infer_shapes(model)
 
 
-class RemoveShapes(Surgeon):
-    def __init__(self):
-        pass
-
+class RemoveShapes(ProtoSurgeon):
     def __call__(self, model: ModelProto):
         while len(model.graph.value_info) > 0:
             model.graph.value_info.pop()
@@ -144,37 +132,35 @@ class RemoveShapes(Surgeon):
 
 
 class RemoveInitializerFromInputs(Surgeon):
-    def __init__(self):
-        pass
-
-    def __call__(self, model: ModelProto):
-        initializer_names = {initializer.name for initializer in model.graph.initializer}
-        updated_inputs = [graph_input for graph_input in model.graph.input if graph_input.name not in initializer_names]
-        del model.graph.input[:]
-        model.graph.input.extend(updated_inputs)
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        while model.graph.inputs and (model.graph.inputs[-1].name in model.graph.initializers):
+            # Initializers are always at the end of the input list
+            model.graph.inputs.pop()
         return model
 
 
 class ReorderInputs(Surgeon):
-    def __init__(self, permutation):
+    """Reorder the inputs of the model according to the given permutation."""
+
+    def __init__(self, permutation: Sequence[int]):
         self.permutation = permutation
 
-    def __call__(self, model: ModelProto):
-        inputs = list(model.graph.input)
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        inputs = list(model.graph.inputs)
         num_inputs = len(inputs)
 
         if sorted(self.permutation) != list(range(num_inputs)):
             raise ValueError("Invalid permutation: permutation must be a rearrangement of input indices.")
 
         reordered_inputs = [inputs[idx] for idx in self.permutation]
-        del model.graph.input[:]
-        model.graph.input.extend(reordered_inputs)
+        model.graph.inputs.clear()
+        model.graph.inputs.extend(reordered_inputs)
 
         return model
 
 
-class ReplaceErfWithTanh(Surgeon):
-    DTYPE_MAP = {
+class ReplaceErfWithTanh(ProtoSurgeon):
+    DTYPE_MAP: Mapping = {
         TensorProto.FLOAT: np.float32,
         TensorProto.FLOAT16: np.float16,
         TensorProto.DOUBLE: np.float64,
@@ -188,9 +174,6 @@ class ReplaceErfWithTanh(Surgeon):
         TensorProto.UINT32: np.uint32,
         TensorProto.UINT64: np.uint64,
     }
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         idx = 0
@@ -249,7 +232,7 @@ class ReplaceErfWithTanh(Surgeon):
         raise ValueError(f"Cannot find dtype for {name}")
 
 
-class ZeroOutInput(Surgeon):
+class ZeroOutInput(ProtoSurgeon):
     def __init__(self, node_name, input_idx):
         self.node_name = node_name
         self.input_idx = input_idx
@@ -323,7 +306,7 @@ class ZeroOutInput(Surgeon):
         return model
 
 
-class RemoveInputs(Surgeon):
+class RemoveInputs(ProtoSurgeon):
     def __init__(self, names):
         self.names = names
 
@@ -348,17 +331,17 @@ class RemoveInputs(Surgeon):
 
 
 class ExposeOutputs(Surgeon):
-    def __init__(self, names):
-        self.names = names
+    def __init__(self, names: Sequence[str]):
+        self.names = set(names)
 
-    def __call__(self, model: ModelProto):
-        for node in model.graph.node:
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        for node in model.graph:
             if node.name in self.names:
-                model.graph.output.extend([onnx.ValueInfoProto(name=node.output[0])])
+                model.graph.outputs.append(node.outputs[0])
         return model
 
 
-class ExposeQuantizedOutput(Surgeon):
+class ExposeQuantizedOutput(ProtoSurgeon):
     def __init__(self, output_name):
         self.output_name = output_name
 
@@ -460,7 +443,7 @@ class ExposeQuantizedOutput(Surgeon):
         return self._add_zero_point(model, zero_point_value, zero_point_onnx_dtype, zero_point_np_dtype)
 
 
-class RMSNormToL2Norm(Surgeon):
+class RMSNormToL2Norm(ProtoSurgeon):
     """Replace RMSNorm subgraph with L2Norm subgraph.
 
     RMSNorm pattern:
@@ -480,9 +463,6 @@ class RMSNormToL2Norm(Surgeon):
     The weight of the Mul node is multiplied by sqrt(N) where N is equal to the reduced axis size.
     If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
     """
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         dag = OnnxDAG(model)
@@ -602,7 +582,7 @@ class RMSNormToL2Norm(Surgeon):
         return rmsnorm_nodes if len(rmsnorm_nodes) >= (len(pattern) - 1) else []
 
 
-class SimplifiedLayerNormToL2Norm(Surgeon):
+class SimplifiedLayerNormToL2Norm(ProtoSurgeon):
     """Replace Skip/SimplifiedLayerNormalization node with L2Norm subgraph.
 
     SimplifiedLayerNormalization is replaced with:
@@ -619,9 +599,6 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
     Second input to Mul is the weight of the layer norm multiplied by sqrt(N) where N is equal to the hidden size.
     If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
     """
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         dag = OnnxDAG(model)
@@ -738,16 +715,13 @@ class SimplifiedLayerNormToL2Norm(Surgeon):
         return dag.model
 
 
-class MatMulAddToGemm(Surgeon):
+class MatMulAddToGemm(ProtoSurgeon):
     """Replace MatMul + Add with Gemm.
 
     Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor.
     If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm
     node and reshaped back to the original shape after the Gemm node.
     """
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
@@ -911,7 +885,7 @@ class MatMulAddToGemm(Surgeon):
         return reshape_output_name
 
 
-class RemoveRopeMultiCache(Surgeon):
+class RemoveRopeMultiCache(ProtoSurgeon):
     """Remove the multi rope cache from the model."""
 
     def __init__(self, use_large_cache: bool = False):
@@ -977,11 +951,8 @@ class RemoveRopeMultiCache(Surgeon):
         return dag.model
 
 
-class AttentionMaskToSequenceLengths(Surgeon):
+class AttentionMaskToSequenceLengths(ProtoSurgeon):
     """Replace attention_mask subgraph in GQA model with past_seq_len and total_seq_len."""
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         dag = OnnxDAG(model)
@@ -1033,7 +1004,7 @@ class AttentionMaskToSequenceLengths(Surgeon):
         return dag.model
 
 
-class ReplaceAttentionMaskValue(Surgeon):
+class ReplaceAttentionMaskValue(ProtoSurgeon):
     """Replace the value of extended attention mask with a new value.
 
     This surgery is useful if the default mask value does not quantize well due to numerical instability.
@@ -1168,7 +1139,7 @@ class GraphSurgeries(Pass):
         return surgeon_class(**init_params)
 
     @staticmethod
-    def get_surgeon_parameters(surgeon_class):
+    def get_surgeon_parameters(surgeon_class: Type[Surgeon]) -> Tuple[List[str], List[str]]:
         parameters = inspect.signature(surgeon_class.__init__).parameters
 
         positional_args = [
