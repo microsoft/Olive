@@ -153,6 +153,9 @@ class OpenVINOOptimumConversion(Pass):
             }
         )
 
+        tokenizer_suffix_path = "openvino_tokenizers"
+        tokenizer_subfolder = Path(output_model_path) / tokenizer_suffix_path
+
         if model.load_kwargs and "trust_remote_code" not in extra_args:
             extra_args["trust_remote_code"] = model.load_kwargs.trust_remote_code
 
@@ -277,7 +280,7 @@ class OpenVINOOptimumConversion(Pass):
             )
             output_model.save_pretrained(output_model_path)
             if not extra_args.get("disable_convert_tokenizer", False):
-                maybe_convert_tokenizers(lib_name, output_model_path, model, task=task)
+                maybe_convert_tokenizers(lib_name, tokenizer_subfolder, model, task=task)
         elif (
             quantize_with_dataset and (task.startswith("text-generation") or "automatic-speech-recognition" in task)
         ) or (task == "image-text-to-text" and quant_config is not None):
@@ -313,7 +316,7 @@ class OpenVINOOptimumConversion(Pass):
                 preprocessors, output_model.config, output_model_path, extra_args.get("trust_remote_code", False)
             )
             if not extra_args.get("disable_convert_tokenizer", False):
-                maybe_convert_tokenizers(lib_name, output_model_path, preprocessors=preprocessors, task=task)
+                maybe_convert_tokenizers(lib_name, tokenizer_subfolder, preprocessors=preprocessors, task=task)
 
         else:
             extra_args["ov_config"] = ov_config
@@ -331,33 +334,41 @@ class OpenVINOOptimumConversion(Pass):
 
         # check the exported components
         exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".xml"]
-        if config.components:
-            assert all(component in exported_models for component in config.components), (
-                f"Components {config['components']} are not exported. Only {exported_models} are exported."
-            )
-        components = config.components or exported_models
-        logger.debug("Exported models are: %s. Returning components: %s.", exported_models, components)
+        logger.debug("Exported models are: %s.", exported_models)
 
-        # if there is only one component, return it directly
-        if components is not None and len(components) == 1:
-            # will always return an openvino model handler with folder as the model path
-            return OpenVINOModelHandler(model_path=output_model_path)
+        # OpenVINOModelHandler requires a directory with a single xml and bin file
+        # OpenVINOModelHandler does not support multiple models in a single directory
+        # If tokenizers are converted, those should be in a separate directory
+        # OpenVINO would usually create both a tokenizer and a detokenizer in the same folder
+        # return only the folder with just the OpenVINO model, not the tokenizer and detokenizer models.
+        assert exported_models is not None
+        assert len(exported_models) > 0, "No OpenVINO models were exported."
 
-        # if there are multiple components, return a composite model
-        model_components = []
-        model_component_names = []
-        for component_name in components:
-            # Note: since conversion is done directly to the output path, all components are in the same folder
-            # this is not the same as for other composite models where each component is in a separate subfolder
-            model_components.append(
-                OpenVINOModelHandler(
-                    model_path=output_model_path,
-                    model_attributes=model.model_attributes,
-                )
-            )
-            model_component_names.append(component_name)
+        components = deepcopy(exported_models)
+        if len(exported_models) > 1:
+            for exported_model in exported_models:
+                # move openvino_tokenizer XML and bin files to the tokenizer subfolder
+                # also move the openvino_detokenizer XML and bin files to the tokenizer subfolder
+                if exported_model in ["openvino_tokenizer", "openvino_detokenizer"]:
+                    extra_model_xml = Path(output_model_path) / f"{exported_model}.xml"
+                    extra_model_bin = Path(output_model_path) / f"{exported_model}.bin"
+                    dest_subdir = tokenizer_subfolder
+                    dest_subdir.mkdir(parents=True, exist_ok=True)
+                    if extra_model_xml.exists():
+                        dest_xml = Path(dest_subdir) / f"{exported_model}.xml"
+                        extra_model_xml.rename(dest_xml)
+                        logger.debug("Moved %s to %s.", extra_model_xml, dest_xml)
+                    if extra_model_bin.exists():
+                        dest_bin = Path(dest_subdir) / f"{exported_model}.bin"
+                        extra_model_bin.rename(dest_bin)
+                        logger.debug("Moved %s to %s.", extra_model_bin, dest_bin)
+                    components.remove(exported_model)
+        assert len(components) == 1, (
+            "OpenVINOModelHandler currently does not handle multiple OpenVINO models in the same folder."
+        )
 
-        return CompositeModelHandler(model_components, model_component_names)
+        # will always return an openvino model handler with folder as the model path
+        return OpenVINOModelHandler(model_path=output_model_path)
 
 
 def prep_wc_config(quant_cfg, default_cfg):
