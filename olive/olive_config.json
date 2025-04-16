@@ -352,8 +352,8 @@
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "openvino" ]
         },
-        "OpenVINOReshape": {
-            "module_path": "olive.passes.openvino.reshape.OpenVINOReshape",
+        "OpenVINOIoUpdate": {
+            "module_path": "olive.passes.openvino.io_update.OpenVINOIoUpdate",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
