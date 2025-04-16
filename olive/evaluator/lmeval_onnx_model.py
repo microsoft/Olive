@@ -34,7 +34,10 @@ class LMEvalOnnxModelEvaluator(TemplateLM):
         self._device = device
         self._batch_size = batch_size or 1
 
+        search_options = { "max_length": self._max_length }
+
         self._params = og.GeneratorParams(self._model)
+        self._params.set_search_options(**search_options)
 
     @property
     def eot_token_id(self):

@@ -1,0 +1,30 @@
+{
+    "azureml_client": {
+        "subscription_id": "3905431d-c062-4c17-8fd9-c51f89f334c4",
+        "resource_group": "olive",
+        "workspace_name": "olive-aml-workspace",
+        "read_timeout": 4000,
+        "max_operation_retries": 4,
+        "operation_retry_interval": 5
+    },
+    "input_model": {
+        "type": "ONNXModel",
+        "generative": true,
+        "model_path": "models/phi3_5_qdq/model",
+        "onnx_file_name": "lm_head.onnx"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
+        }
+    },
+    "evaluators": {
+        "evaluator": { "type": "LMEvaluator", "tasks": [ "mmlu" ], "batch_size": 1, "limit": 1, "max_length": 400 }
+    },
+    "evaluator": "evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "cache_dir": "cache",
+    "output_dir": "models"
+}
