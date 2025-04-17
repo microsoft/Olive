@@ -1,6 +1,6 @@
-from typing import Dict, OrderedDict
 from functools import lru_cache
 from random import Random
+from typing import Dict, OrderedDict
 
 import numpy as np
 import torch
@@ -14,7 +14,9 @@ from olive.data.registry import Registry
 def get_imagenet_label_map():
     import requests
 
-    imagenet_class_index_url = "https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/imagenet_class_index.json"
+    imagenet_class_index_url = (
+        "https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/imagenet_class_index.json"
+    )
     response = requests.get(imagenet_class_index_url)
     response.raise_for_status()  # Ensure the request was successful
 
@@ -53,9 +55,7 @@ def image_pre_process(
     if max_samples is not None:
         max_samples = min(max_samples, len(dataset))
         dataset = dataset.select(
-            Random(seed).sample(range(len(dataset)), max_samples)
-            if shuffle
-            else range(max_samples)
+            Random(seed).sample(range(len(dataset)), max_samples) if shuffle else range(max_samples)
         )
 
     label_names = dataset.features[label_col].names
