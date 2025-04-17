@@ -38,10 +38,12 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         io_config: Union[Dict[str, Any], IoConfig, str] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[Dict[str, Any]] = None,
-        generative: bool = False,
+        generative: Optional[bool] = None,
     ):
+        if generative is None:
+            generative = task and task.startswith("text-generation")
+
         super().__init__(
-            framework=Framework.PYTORCH,
             model_file_format=None,
             model_path=model_path,
             model_attributes=model_attributes,
@@ -158,7 +160,7 @@ class DistributedHfModelHandler(OliveModelHandler):
         model_path: OLIVE_RESOURCE_ANNOTATIONS,
         model_name_pattern: str,
         num_ranks: int,
-        task: str,
+        task: str = DEFAULT_HF_TASK,
         load_kwargs: Union[Dict[str, Any], HfLoadKwargs] = None,
         io_config: Union[Dict[str, Any], IoConfig] = None,
         model_attributes: Optional[Dict[str, Any]] = None,
@@ -170,8 +172,10 @@ class DistributedHfModelHandler(OliveModelHandler):
             model_path=model_path,
             model_attributes=model_attributes,
             io_config=io_config,
-            generative=generative,
         )
+        if generative is None:
+            generative = task and task.startswith("text-generation")
+        self.generative = generative
 
         self.add_resources(locals())
 

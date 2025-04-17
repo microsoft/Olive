@@ -95,7 +95,6 @@ def _get_onnx_input_model(args: Namespace, model_path: str) -> Dict:
     model_config = {
         "type": "OnnxModel",
         "model_path": model_path,
-        "generative": args.is_generative_model,
     }
 
     # additional processing for the model folder
@@ -339,7 +338,7 @@ def add_input_model_options(
         help=(
             "Path to the input model. "
             "See https://microsoft.github.io/Olive/reference/cli.html#providing-input-models "
-            "for more informsation."
+            "for more information."
         ),
     )
     if enable_hf:
@@ -368,7 +367,7 @@ def add_input_model_options(
             help=(
                 "The directory containing the local PyTorch model script file."
                 "See https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information "
-                "for more informsation."
+                "for more information."
             ),
         )
     model_group.add_argument("--is_generative_model", type=bool, default=True, help="Is this a generative model?")

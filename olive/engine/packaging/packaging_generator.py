@@ -12,7 +12,7 @@ import urllib.request
 from collections import OrderedDict
 from pathlib import Path
 from string import Template
-from typing import TYPE_CHECKING, Any, Dict, List, Set, Union
+from typing import TYPE_CHECKING, Dict, List, Set, Union
 
 import pkg_resources
 
@@ -89,9 +89,8 @@ def _package_dockerfile(
         model_config["config"].get("inference_settings", None),
         False,
     )
-    is_generative = _is_generative_model(best_node.model_config["config"])
     if packaging_config.include_runtime_packages:
-        if is_generative:
+        if packaging_config.generative:
             _package_onnxruntime_genai_runtime_dependencies(content_path, False)
         else:
             _package_onnxruntime_runtime_dependencies(content_path, next(iter(pf_footprints.values())), "310", False)
@@ -304,11 +303,6 @@ def _package_azureml_deployment(
         raise
 
 
-def _is_generative_model(config: Dict[str, Any]) -> bool:
-    model_attributes = config.get("model_attributes") or {}
-    return model_attributes.get("generative", False)
-
-
 def _package_candidate_models(
     packaging_config: PackagingConfig,
     output_dir: Path,
@@ -326,17 +320,13 @@ def _package_candidate_models(
     with tempfile.TemporaryDirectory() as temp_dir:
         tempdir = Path(temp_dir)
 
-        if packaging_type == PackagingType.Zipfile:
-            best_node: FootprintNode = get_best_candidate_node(pf_footprints, footprints)
-            is_generative = _is_generative_model(best_node.model_config["config"])
-
-            if packaging_config.include_runtime_packages:
-                if is_generative:
-                    _package_onnxruntime_genai_runtime_dependencies(tempdir)
-                else:
-                    _package_onnxruntime_runtime_dependencies(
-                        tempdir, next(iter(pf_footprints.values())), _get_python_version()
-                    )
+        if packaging_type == PackagingType.Zipfile and packaging_config.include_runtime_packages:
+            if packaging_config.generative:
+                _package_onnxruntime_genai_runtime_dependencies(tempdir)
+            else:
+                _package_onnxruntime_runtime_dependencies(
+                    tempdir, next(iter(pf_footprints.values())), _get_python_version()
+                )
 
         for accelerator_spec, pf_footprint in pf_footprints.items():
             footprint = footprints[accelerator_spec]
@@ -572,13 +562,13 @@ def _generate_onnx_mlflow_model(model_dir: Path, inference_config: Dict):
     import onnx
 
     logger.info("Exporting model in MLflow format")
-    execution_mode_mappping = {0: "SEQUENTIAL", 1: "PARALLEL"}
+    execution_mode_mapping = {0: "SEQUENTIAL", 1: "PARALLEL"}
 
     session_dict = {}
     if inference_config.get("session_options"):
         session_dict = {k: v for k, v in inference_config.get("session_options").items() if v is not None}
         if "execution_mode" in session_dict:
-            session_dict["execution_mode"] = execution_mode_mappping[session_dict["execution_mode"]]
+            session_dict["execution_mode"] = execution_mode_mapping[session_dict["execution_mode"]]
 
     onnx_model_path = model_dir / "model.onnx"
     model_proto = onnx.load(onnx_model_path)
@@ -587,7 +577,7 @@ def _generate_onnx_mlflow_model(model_dir: Path, inference_config: Dict):
 
     # MLFlow will save models with default config save_as_external_data=True
     # https://github.com/mlflow/mlflow/blob/1d6eaaa65dca18688d9d1efa3b8b96e25801b4e9/mlflow/onnx.py#L175
-    # There will be an aphanumeric file generated in the same folder as the model file
+    # There will be an alphanumeric file generated in the same folder as the model file
     mlflow.onnx.save_model(
         model_proto,
         mlflow_model_path,
@@ -624,7 +614,10 @@ def _package_onnxruntime_genai_runtime_dependencies(save_path: Path, download_c_
     for pkg in installed_packages:
         pkg_name = pkg.key if pkg.key.startswith("onnxruntime-genai") else pkg.project_name
         download_command = DOWNLOAD_COMMAND_TEMPLATE.substitute(
-            package_name=pkg_name, version=pkg.version, python_download_path=python_download_path
+            package_name=pkg_name,
+            version=pkg.version,
+            python_download_path=python_download_path,
+            python_version=f"{sys.version_info.major}.{sys.version_info.minor}",
         )
 
         try:
