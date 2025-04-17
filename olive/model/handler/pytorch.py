@@ -22,9 +22,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class PyTorchModelHandlerBase(
-    OliveModelHandler, DummyInputsMixin, PytorchKvCacheMixin
-):  # pylint: disable=too-many-ancestors
+class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin, PytorchKvCacheMixin):  # pylint: disable=too-many-ancestors
     """Base class for PyTorch model handler."""
 
     def prepare_session(

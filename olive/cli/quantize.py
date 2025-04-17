@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 
 class QuantizeCommand(BaseOliveCLICommand):
-
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
@@ -130,8 +129,7 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         if not pass_list:
             raise ValueError(
-                f"Quantiation for precision {precision}, algorithm {algo} "
-                f"and implementation {impl} is not supported"
+                f"Quantiation for precision {precision}, algorithm {algo} and implementation {impl} is not supported"
             )
         logger.info("pass list: %s", pass_list)
         return pass_list

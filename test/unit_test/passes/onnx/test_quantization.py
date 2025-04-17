@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from test.unit_test.utils import get_onnx_model, get_pytorch_model_dummy_input
 from unittest.mock import patch
 
 import onnx
@@ -23,6 +22,7 @@ from olive.passes.onnx.quantization import (
     OnnxQuantizationPreprocess,
     OnnxStaticQuantization,
 )
+from test.unit_test.utils import get_onnx_model, get_pytorch_model_dummy_input
 
 
 class DummyCalibrationDataReader(CalibrationDataReader):

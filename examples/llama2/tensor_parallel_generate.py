@@ -42,8 +42,8 @@ torch.cuda.set_device(device)
 torch.cuda.empty_cache()
 
 model_id = "meta-llama/Llama-2-7b-hf"
-model_path = "models/tensor_parallel/tensor_parallel-conversion-transformers_optimization_fp16/gpu-cuda_model/model_{:02d}".format(  # noqa: E501
-    rank
+model_path = (
+    f"models/tensor_parallel/tensor_parallel-conversion-transformers_optimization_fp16/gpu-cuda_model/model_{rank:02d}"
 )
 prompt = "What is an apple?"
 # prompt = "Is it normal to have a dark ring around the iris of my eye?"

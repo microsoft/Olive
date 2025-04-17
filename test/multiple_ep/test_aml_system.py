@@ -19,11 +19,10 @@ class TestOliveAzureMLSystem:
     @pytest.fixture(autouse=True)
     def setup(self):
         # use the olive managed AzureML system as the test environment
-        from test.integ_test.utils import get_olive_workspace_config
-        from test.multiple_ep.utils import download_data, download_models, get_onnx_model
-
         from olive.azureml.azureml_client import AzureMLClientConfig
         from olive.systems.system_config import AzureMLTargetUserConfig, SystemConfig
+        from test.integ_test.utils import get_olive_workspace_config
+        from test.multiple_ep.utils import download_data, download_models, get_onnx_model
 
         aml_compute = "cpu-cluster"
         azureml_client_config = AzureMLClientConfig(**get_olive_workspace_config())

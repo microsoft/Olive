@@ -33,8 +33,8 @@ Config file: [google-bert/bert-base-multilingual-cased](google_bert_qdq.json)
 
 | Model Version         | Latency (ms/sample)  | Throughput (token per second)| Dataset       |
 |-----------------------|----------------------|------------------------------|---------------|
-| PyTorch FP32          | 6157                 | 0.13                         | facebook/xnli |
-| ONNX INT8 (QDQ)       | 173                  | 5.58                         | facebook/xnli |
+| PyTorch FP32          | 1162                 | 0.81                         | facebook/xnli |
+| ONNX INT8 (QDQ)       | 590                  | 1.75                         | facebook/xnli |
 
 ### BERT optimization with PTQ on CPU
 This workflow performs BERT optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:

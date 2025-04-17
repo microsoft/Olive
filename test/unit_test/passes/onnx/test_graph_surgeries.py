@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import json
 from pathlib import Path
-from test.unit_test.utils import make_local_tiny_llama
 
 import numpy as np
 import onnx
@@ -18,6 +17,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
 from olive.passes.onnx.model_builder import ModelBuilder
 from olive.passes.onnx.onnx_dag import OnnxDAG
+from test.unit_test.utils import make_local_tiny_llama
 
 
 def get_onnx_model(model_path):
@@ -346,9 +346,9 @@ def test_expose_quantized_output(tmp_path):
     # Validate that the scale node and its initializer exist in the modified model
     assert any(node.name == scale_node_name for node in output_model.graph.node), "Scale node not added."
     scale_initializer = next(init for init in output_model.graph.initializer if init.name == scale_initializer_name)
-    assert np.allclose(
-        numpy_helper.to_array(scale_initializer), np.array([original_scale_value], dtype=np.float32)
-    ), "Scale value mismatch."
+    assert np.allclose(numpy_helper.to_array(scale_initializer), np.array([original_scale_value], dtype=np.float32)), (
+        "Scale value mismatch."
+    )
 
     # Validate that the zero_point node and its initializer exist in the modified model
     assert any(node.name == zero_point_node_name for node in output_model.graph.node), "Zero point node not added."
@@ -717,3 +717,65 @@ def test_replace_attention_mask_value(tmp_path):
         },
     )
     assert all(o == -1e4 for o in outputs)
+
+
+def test_matmul_add_to_gemm(tmp_path):
+    # setup input and output tensors
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 3])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 3, 3])
+
+    constant1_data = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float32)
+    constant2_data = np.array([1, 2, 3], dtype=np.float32)
+    # Create constant tensors
+    initializers = [
+        helper.make_tensor("constant1", TensorProto.FLOAT, [3, 3], constant1_data),
+        helper.make_tensor("constant2", TensorProto.FLOAT, [3], constant2_data),
+    ]
+
+    nodes = [
+        helper.make_node("MatMul", inputs=["input", "constant1"], outputs=["matmul_output"]),
+        helper.make_node("Add", inputs=["matmul_output", "constant2"], outputs=["inter"]),
+        helper.make_node("Identity", inputs=["inter"], outputs=["output"]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=initializers,
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "MatMulAddToGemm"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # Matmul->Add->Identity will be replaced with Reshape->Gemm->Reshape->Identity
+    expected_num_nodes = 4
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    assert len(dag.nodes) == expected_num_nodes
+    assert "matmul" not in dag.get_node_op_types()
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+    output_session = output_model.prepare_session()
+
+    # Define the input data
+    input_data = np.array([[[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[1, 2, 3], [4, 5, 6], [7, 8, 9]]], dtype=np.float32)
+
+    outputs = output_session.run(None, {"input": input_data})
+
+    matmul_output = np.matmul(input_data, constant1_data)
+    expected_output = matmul_output + constant2_data
+    assert np.allclose(outputs[0], expected_output)

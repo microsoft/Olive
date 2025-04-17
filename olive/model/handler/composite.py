@@ -47,9 +47,9 @@ class CompositeModelHandler(OliveModelHandler):
         self._model_components = [
             validate_config(m, ModelConfig).create_model() if isinstance(m, dict) else m for m in model_components
         ]
-        assert all(
-            isinstance(m, OliveModelHandler) for m in self._model_components
-        ), "All components must be OliveModelHandler or dict"
+        assert all(isinstance(m, OliveModelHandler) for m in self._model_components), (
+            "All components must be OliveModelHandler or dict"
+        )
 
         assert len(self._model_components) == len(model_component_names), "Number of components and names must match"
         self.model_component_names = model_component_names

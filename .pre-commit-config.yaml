@@ -7,29 +7,11 @@ repos:
         args: [--markdown-linebreak-ext=md]
       - id: check-yaml
       - id: requirements-txt-fixer
-
-  - repo: https://github.com/psf/black
-    rev: 24.1.0
-    hooks:
-      - id: black
-        name: Format code
-        exclude: "hadamard_utils.py"
-  - repo: https://github.com/pycqa/isort
-    rev: 5.11.5
-    hooks:
-      - id: isort
-        name: Format imports
   - repo: https://github.com/MarcoGorelli/absolufy-imports
     rev: v0.3.1
     hooks:
       - id: absolufy-imports
         exclude: examples/
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    # Ruff version.
-    rev: v0.6.0
-    hooks:
-      - id: ruff
-        args: [ --fix ]
   - repo: local
     hooks:
       - id: format-json

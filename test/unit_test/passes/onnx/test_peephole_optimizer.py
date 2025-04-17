@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from test.unit_test.utils import get_onnx_model
 from typing import TYPE_CHECKING, Any, Dict
 from unittest.mock import patch
 
@@ -14,6 +13,7 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import model_proto_to_olive_model
 from olive.passes.onnx.peephole_optimizer import OnnxPeepholeOptimizer
+from test.unit_test.utils import get_onnx_model
 
 if TYPE_CHECKING:
     from olive.model import ONNXModelHandler

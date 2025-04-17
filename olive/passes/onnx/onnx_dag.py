@@ -278,9 +278,9 @@ class OnnxDAG:
             self.ios[name] = OnnxIO(proto=[value_info], graph_idx=graph_idx)
             return
 
-        assert (
-            overwrite or not self.ios[name].proto
-        ), f"Value info for {name} already exists in the graph but overwrite is False."
+        assert overwrite or not self.ios[name].proto, (
+            f"Value info for {name} already exists in the graph but overwrite is False."
+        )
         self.ios[name].proto = [value_info]
 
     def is_io(self, io_name: str) -> bool:
@@ -668,13 +668,16 @@ class OnnxDAG:
         assert value_info_name in self.ios, f"{value_info_name} is not a value info."
         return self.ios[value_info_name].proto[0] if self.ios[value_info_name].proto else None
 
-    def _get_io_tensor_type(self, io_name: str):
+    def _get_vi_tensor_type(self, vi_name: str):
         """Get the tensor type of an input/output.
 
-        :param io_name: name of the input/output.
+        :param vi_name: name of the input/output.
         :return: tensor type of the input/output.
         """
-        proto = self.ios[io_name].proto[0]
+        proto = self.get_value_info_proto(vi_name)
+        if proto is None:
+            return None
+
         tensor_type = proto.type.tensor_type
         if tensor_type.elem_type == 0:
             # sequence type
@@ -683,23 +686,42 @@ class OnnxDAG:
             tensor_type = proto.type.sequence_type.elem_type.tensor_type
         return tensor_type
 
-    def get_io_shape(self, io_name: str) -> List[Union[int, str]]:
+    def get_io_shape(self, io_name: str) -> Optional[List[Union[int, str]]]:
         """Get the shape of an input/output.
 
         :param io_name: name of the input/output.
         :return: shape of the input/output.
         """
-        tensor_type = self._get_io_tensor_type(io_name)
-        return [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
+        if self.is_initializer(io_name):
+            return list(self.get_initializer_proto(io_name).dims)
 
-    def get_io_dtype(self, io_name: str) -> str:
+        tensor_type = self._get_vi_tensor_type(io_name)
+        return (
+            [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
+            if tensor_type
+            else None
+        )
+
+    def get_io_elem_type(self, io_name: str) -> Optional[int]:
+        """Get the element type of an input/output.
+
+        :param io_name: name of the input/output.
+        :return: element type of the input/output.
+        """
+        if self.is_initializer(io_name):
+            return self.get_initializer_proto(io_name).data_type
+
+        tensor_type = self._get_vi_tensor_type(io_name)
+        return tensor_type.elem_type if tensor_type else None
+
+    def get_io_dtype(self, io_name: str) -> Optional[str]:
         """Get the data type of an input/output.
 
         :param io_name: name of the input/output.
         :return: data type of the input/output.
         """
-        tensor_type = self._get_io_tensor_type(io_name)
-        return str(onnx.helper.tensor_dtype_to_np_dtype(tensor_type.elem_type))
+        elem_type = self.get_io_elem_type(io_name)
+        return str(onnx.helper.tensor_dtype_to_np_dtype(elem_type)) if elem_type else None
 
     def get_graph_idx(self, name: str) -> int:
         """Get the index of the graph containing the input/output or node."""

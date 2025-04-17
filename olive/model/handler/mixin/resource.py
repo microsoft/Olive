@@ -35,9 +35,9 @@ class ResourceMixin:
 
         if resource_path is not None:
             resolved_resource_path = create_resource_path(resource_path)
-            assert (
-                resolved_resource_path.is_local_resource_or_string_name()
-            ), f"{resource_name} must be local path or string name."
+            assert resolved_resource_path.is_local_resource_or_string_name(), (
+                f"{resource_name} must be local path or string name."
+            )
             resource_path = resolved_resource_path.get_path()
 
         self.resource_paths[resource_name] = resource_path
@@ -65,9 +65,9 @@ class ResourceMixin:
         for resource_name, resource_path in resources.items():
             if resource_path is not None:
                 resolved_resource_path = create_resource_path(resource_path)
-                assert (
-                    resolved_resource_path.is_local_resource_or_string_name()
-                ), f"{resource_name} must be local path or string name."
+                assert resolved_resource_path.is_local_resource_or_string_name(), (
+                    f"{resource_name} must be local path or string name."
+                )
                 self.resource_paths[resource_name] = resolved_resource_path.get_path()
             else:
                 self.resource_paths[resource_name] = None

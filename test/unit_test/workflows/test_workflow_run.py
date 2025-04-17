@@ -1,11 +1,5 @@
 from copy import deepcopy
 from pathlib import Path
-from test.unit_test.utils import (
-    get_pytorch_model,
-    get_pytorch_model_config,
-    get_pytorch_model_io_config,
-    pytorch_model_loader,
-)
 from unittest.mock import patch
 
 import pytest
@@ -13,6 +7,12 @@ import pytest
 from olive.data.registry import Registry
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.workflows import run as olive_run
+from test.unit_test.utils import (
+    get_pytorch_model,
+    get_pytorch_model_config,
+    get_pytorch_model_io_config,
+    pytorch_model_loader,
+)
 
 
 @Registry.register_dataloader()
