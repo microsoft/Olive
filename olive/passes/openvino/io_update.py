@@ -12,8 +12,8 @@ from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 
-class OpenVINOReshape(Pass):
-    """Reshapes OpenVino Model."""
+class OpenVINOIoUpdate(Pass):
+    """Converts dynamic OpenVINO Model to static OpenVino Model and updates IO names."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
