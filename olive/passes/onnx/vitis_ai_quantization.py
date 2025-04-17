@@ -6,7 +6,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Type, Union
+from typing import Dict, Optional, Type, Union
 
 import onnx
 
@@ -35,19 +35,19 @@ logger = logging.getLogger(__name__)
 # common config for Vitis-AI quantization
 vai_q_onnx_quantization_config = {
     "config_template": PassConfigParam(
-        type_=Union[None, str],
+        type_=Optional[str],
         default_value=None,
         required=True,
         description="Quark configuration template to apply in quantization.",
     ),
     "data_config": PassConfigParam(
-        type_=Union[None, DataConfig, Dict],
+        type_=Optional[Union[DataConfig, Dict]],
         default_value=None,
         required=True,
         description="Data config for calibration.",
     ),
     "weight_type": PassConfigParam(
-        type_=Union[None, str],
+        type_=Optional[str],
         default_value=None,
         search_defaults=Categorical(["QInt8"]),
         description="""
@@ -56,37 +56,37 @@ vai_q_onnx_quantization_config = {
         """,
     ),
     "input_nodes": PassConfigParam(
-        type_=Union[None, list],
+        type_=Optional[list],
         default_value=None,
         description="List of input nodes to be quantized. Default is an empty list.",
     ),
     "output_nodes": PassConfigParam(
-        type_=Union[None, list],
+        type_=Optional[list],
         default_value=None,
         description="List of output nodes to be quantized. Default is an empty list.",
     ),
     "op_types_to_quantize": PassConfigParam(
-        type_=Union[None, list],
+        type_=Optional[list],
         default_value=None,
         description="List of operation types to be quantized. Default is an empty list.",
     ),
     "extra_op_types_to_quantize": PassConfigParam(
-        type_=Union[None, list],
+        type_=Optional[list],
         default_value=None,
         description="List of additional operation types to be quantized. Default is an empty list.",
     ),
     "nodes_to_quantize": PassConfigParam(
-        type_=Union[None, list],
+        type_=Optional[list],
         default_value=None,
         description="List of node names to be quantized. Default is an empty list.",
     ),
     "nodes_to_exclude": PassConfigParam(
-        type_=Union[None, list],
+        type_=Optional[list],
         default_value=None,
         description="List of node names to be excluded from quantization. Default is an empty list.",
     ),
     "subgraphs_to_exclude": PassConfigParam(
-        type_=Union[None, list],
+        type_=Optional[list],
         default_value=None,
         description="""
             List of start and end node names of subgraphs to be excluded from quantization.
@@ -94,74 +94,74 @@ vai_q_onnx_quantization_config = {
         """,
     ),
     "specific_tensor_precision": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to enable specific tensor precision. Default is False.",
     ),
     "execution_providers": PassConfigParam(
-        type_=Union[None, list],
+        type_=Optional[list],
         default_value=None,
         description="List of execution providers. Default is ['CPUExecutionProvider'].",
     ),
     "per_channel": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         search_defaults=Boolean(),
         description="Flag to enable per-channel quantization. Default is False.",
     ),
     "reduce_range": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to reduce quantization range. Default is False.",
     ),
     "optimize_model": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         search_defaults=Boolean(),
         description="Flag to optimize the model. Default is True.",
     ),
     "use_dynamic_quant": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to use dynamic quantization. Default is False.",
     ),
     "use_external_data_format": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to use external data format. Default is False.",
     ),
     "convert_fp16_to_fp32": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to convert FP16 to FP32. Default is False.",
     ),
     "convert_nchw_to_nhwc": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to convert NCHW to NHWC. Default is False.",
     ),
     "include_sq": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to include square root in quantization. Default is False.",
     ),
     "include_cle": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to include CLE in quantization. Default is False.",
     ),
     "include_auto_mp": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to include automatic mixed precision. Default is False.",
     ),
     "include_fast_ft": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to include fast fine-tuning. Default is False.",
     ),
     "quant_preprocess": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         search_defaults=Boolean(),
         description="""
@@ -170,7 +170,7 @@ vai_q_onnx_quantization_config = {
         """,
     ),
     "calibrate_method": PassConfigParam(
-        type_=Union[None, str],
+        type_=Optional[str],
         default_value=None,
         search_defaults=Categorical(["NonOverflow", "MinMSE"]),
         description="""
@@ -178,7 +178,7 @@ vai_q_onnx_quantization_config = {
         """,
     ),
     "quant_format": PassConfigParam(
-        type_=Union[None, str],
+        type_=Optional[str],
         default_value=None,
         search_defaults=Categorical(["QDQ", "QOperator"]),
         description="""
@@ -186,7 +186,7 @@ vai_q_onnx_quantization_config = {
         """,
     ),
     "activation_type": PassConfigParam(
-        type_=Union[None, str],
+        type_=Optional[str],
         default_value=None,
         search_defaults=Conditional(
             parents=("quant_format", "weight_type"),
@@ -202,34 +202,34 @@ vai_q_onnx_quantization_config = {
         """,
     ),
     "enable_npu_cnn": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         search_defaults=Boolean(),
         description="Flag to enable NPU CNN. Default is False.",
     ),
     "enable_npu_transformer": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         search_defaults=Boolean(),
         description="Flag to enable NPU Transformer. Default is False.",
     ),
     "debug_mode": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to enable debug mode. Default is False.",
     ),
     "print_summary": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to print summary of quantization. Default is True.",
     ),
     "ignore_warnings": PassConfigParam(
-        type_=Union[None, bool],
+        type_=Optional[bool],
         default_value=None,
         description="Flag to suppress the warnings globally. Default is True.",
     ),
     "log_severity_level": PassConfigParam(
-        type_=Union[None, int],
+        type_=Optional[int],
         default_value=None,
         description="0:DEBUG, 1:INFO, 2:WARNING. 3:ERROR, 4:CRITICAL/FATAL. Default is 1.",
     ),
