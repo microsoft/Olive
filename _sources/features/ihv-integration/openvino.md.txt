@@ -20,7 +20,6 @@ pip install olive-ai[openvino]
 pip install openvino==2023.2.0
 ```
 
-
 ## Model Conversion
 `OpenVINOConversion` pass will convert the model from original framework to OpenVino IR Model. `PyTorchModelHandler`, `ONNXModelHandler` and
 `TensorFlowModelHandler` are supported for now.
@@ -28,6 +27,7 @@ pip install openvino==2023.2.0
 Please refer to [OpenVINOConversion](openvino_conversion) for more details about the pass and its config parameters.
 
 ### Example Configuration
+
 ```json
 {
     "type": "OpenVINOConversion",
@@ -35,16 +35,36 @@ Please refer to [OpenVINOConversion](openvino_conversion) for more details about
 }
 ```
 
+## Model IoUpdate
+`OpenVINOIoUpdate` pass is a required pass used only for OpenVino IR Model. It converts `OpenVINOModelHandler` into a static shaped model and
+to update input and output tensors.
+
+
+Please refer to [OpenVINOIoUpdate](openvino_IoUpdate) for more details about the pass and its config parameters.
+The `"static"` parameter defaults to `true` and does not need to be explicitly overridden.
+
+### Example Configuration
+
+```json
+{
+    "type": "OpenVINOIoUpdate",
+    "input_shapes": [[1, 3, 32, 32]],
+    "static": false
+}
+```
+
 ## Post Training Quantization (PTQ)
-`OpenVINOQuantization` pass will run [Post-training quantization](https://docs.openvino.ai/2023.3/ptq_introduction.html) for OpenVINO model which supports the uniform integer quantization method.
+
+`OpenVINOQuantization` pass will run [Post-training quantization](https://docs.openvino.ai/2025/openvino-workflow/model-optimization-guide/quantizing-models-post-training.html) for OpenVINO model which supports the uniform integer quantization method.
 This method allows moving from floating-point precision to integer precision (for example, 8-bit) for weights and activations during the
 inference time. It helps to reduce the model size, memory footprint and latency, as well as improve the computational efficiency, using
 integer arithmetic. During the quantization process the model undergoes the transformation process when additional operations, that contain
 quantization information, are inserted into the model. The actual transition to integer arithmetic happens at model inference.
 
-Please refer to [OpenVINOQuantization](openvino_quantization) for more details about the pass and its config parameters.
+Please refer to [OpenVINOQuantization](../../../../olive/passes/openvino/quantization.py) for more details about the pass and its config parameters.
 
 ### Example Configuration
+
 ```json
 {
     "type": "OpenVINOQuantizationWithAccuracy",
@@ -52,5 +72,19 @@ Please refer to [OpenVINOQuantization](openvino_quantization) for more details a
     "validation_func": "validate",
     "max_drop": 0.01,
     "drop_type": "ABSOLUTE"
+}
+```
+
+## Model Encapsulation
+`OpenVINOEncapsulation` pass is used to generate an onnx model that encapsulates a OpenVINO IR model. It supports `OpenVINOModelHandler` for now.
+
+Please refer to [OpenVINOEncapsulation](openvino_encapsulation) for more details about the pass and its config parameters.
+
+### Example Configuration
+```json
+{
+    "type": "OpenVINOEncapsulation",
+    "target_device": "npu",
+    "ov_version": "2025.1"
 }
 ```

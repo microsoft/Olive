@@ -417,7 +417,9 @@ Please also find the detailed options from following table for each pass:
 | [LoftQ](../../reference/pass.rst#_loftq) | Run LoftQ fine-tuning on a Hugging Face PyTorch model. |
 | [QuantizationAwareTraining](../../reference/pass.rst#_onnx_quantization_aware_training) | Run quantization aware training on PyTorch model. |
 | [OpenVINOConversion](../../reference/pass.rst#_openvino_conversion) | Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model. |
+| [OpenVINOIoUpdate](../../reference/pass.rst#_openvino_ioupdate) | Converts dynamic OpenVINO Model to static OpenVino Model and updates IO names. |
 | [OpenVINOQuantization](../../reference/pass.rst#_openvino_quantization) | Post-training quantization for OpenVINO model. |
+| [OpenVINOEncapsulation](../../reference/pass.rst#_openvino_encapsulation) | Generates an onnx model that encapsulates a OpenVINO IR model. |
 | [SNPEConversion](../../reference/pass.rst#_snpe_conversion) | Convert ONNX or TensorFlow model to SNPE DLC. Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK. |
 | [SNPEQuantization](../../reference/pass.rst#_snpe_quantization) | Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK. |
 | [SNPEtoONNXConversion](../../reference/pass.rst#_snpe_to_onnx_conversion) | Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node. |
