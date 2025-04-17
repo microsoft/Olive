@@ -17,7 +17,7 @@ def test_openvino_optimum_conversion_pass_convert_with_tokenizers(tmp_path):
     p = create_pass_from_dict(OpenVINOOptimumConversion, openvino_optimum_conversion_config, disable_search=True)
 
     # create output folder
-    output_folder = str(tmp_path / "openvino_optimum_convert")
+    output_folder = str(Path(tmp_path) / "openvino_optimum_convert")
 
     # execute
     ov_output_model = p.run(input_hf_model, output_folder)
@@ -41,7 +41,7 @@ def test_openvino_optimum_conversion_pass_convert_without_tokenizers(tmp_path):
     p = create_pass_from_dict(OpenVINOOptimumConversion, openvino_optimum_conversion_config, disable_search=True)
 
     # create output folder
-    output_folder = str(tmp_path / "openvino_optimum_convert")
+    output_folder = str(Path(tmp_path) / "openvino_optimum_convert")
 
     # execute
     ov_output_model = p.run(input_hf_model, output_folder)
@@ -74,7 +74,7 @@ def test_openvino_optimum_conversion_pass_convert_with_weight_compression(tmp_pa
     p = create_pass_from_dict(OpenVINOOptimumConversion, openvino_optimum_conversion_config, disable_search=True)
 
     # create output folder
-    output_folder = str(tmp_path / "openvino_optimum_convert")
+    output_folder = str(Path(tmp_path) / "openvino_optimum_convert")
 
     # execute
     ov_output_model = p.run(input_hf_model, output_folder)
@@ -101,7 +101,7 @@ def test_openvino_optimum_conversion_pass_convert_with_quantization(tmp_path):
     p = create_pass_from_dict(OpenVINOOptimumConversion, openvino_optimum_conversion_config, disable_search=True)
 
     # create output folder
-    output_folder = str(tmp_path / "openvino_optimum_convert")
+    output_folder = str(Path(tmp_path) / "openvino_optimum_convert")
 
     # execute
     ov_output_model = p.run(input_hf_model, output_folder)
@@ -115,3 +115,38 @@ def test_openvino_optimum_conversion_pass_convert_with_quantization(tmp_path):
     assert xml_file.is_file()
     assert bin_file.exists()
     assert bin_file.is_file()
+
+
+def test_openvino_optimum_conversion_pass_convert_multiple_components_without_main(tmp_path):
+    # setup
+    input_hf_model = get_hf_model("hf-internal-testing/tiny-random-Qwen2VLForConditionalGeneration")
+    openvino_optimum_conversion_config = {
+        "ov_quant_config": {
+            "weight_format": "int4",
+            "dataset": "contextual",
+            "group_size": 1,
+            "ratio": 1.0,
+            "awq": True,
+            "scale_estimation": True,
+        }
+    }
+
+    p = create_pass_from_dict(OpenVINOOptimumConversion, openvino_optimum_conversion_config, disable_search=True)
+
+    # create output folder
+    output_folder = str(Path(tmp_path) / "openvino_optimum_convert")
+
+    # execute
+    ov_output_model = p.run(input_hf_model, output_folder)
+
+    # no openvino_model is expected for this test
+    # instead only component models are expected
+    for component_name, _ in ov_output_model.get_model_components():
+        xml_file = Path(ov_output_model.model_path) / component_name / f"{component_name}.xml"
+        bin_file = Path(ov_output_model.model_path) / component_name / f"{component_name}.bin"
+
+        # test if the model xml and bin files are created
+        assert xml_file.exists()
+        assert xml_file.is_file()
+        assert bin_file.exists()
+        assert bin_file.is_file()

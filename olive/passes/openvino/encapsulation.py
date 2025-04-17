@@ -204,8 +204,8 @@ class OpenVINOEncapsulation(Pass):
 
         # copy JSON and text files for genai models
         all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
-        for json_file in all_genai_files:
-            src_pth = Path(model.model_path) / json_file
+        for genai_file in all_genai_files:
+            src_pth = Path(model.model_path) / genai_file
             dest_path = Path(output_model_path)
             hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
 
