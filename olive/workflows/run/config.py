@@ -163,7 +163,7 @@ class RunConfig(NestedConfig):
         # all model related info used for auto filling
         task = None
         model_name = None
-        if input_model_config["type"].lower() == "onnxmodel":
+        if input_model_config["type"].lower() == "onnxmodel" and "model_attributes" in input_model_config["config"]:
             # Only valid for onnx model converted from Olive Conversion pass
             task = input_model_config["config"]["model_attributes"].get("hf_task", DEFAULT_HF_TASK)
             model_name = input_model_config["config"]["model_attributes"].get("_name_or_path")
