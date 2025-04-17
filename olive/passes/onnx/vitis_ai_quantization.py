@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 # common config for Vitis-AI quantization
-vai_q_onnx_quantization_config = {
+quark_quantization_config = {
     "config_template": PassConfigParam(
         type_=Optional[str],
         default_value=None,
@@ -51,7 +51,7 @@ vai_q_onnx_quantization_config = {
         default_value=None,
         search_defaults=Categorical(["QInt8"]),
         description="""
-            Data type for quantizing weights which is used in vai_q_onnx quantization.
+            Data type for quantizing weights which is used in Quark quantization.
             'QInt8' for signed 8-bit integer,
         """,
     ),
@@ -249,12 +249,12 @@ _extra_options_config = {
 class VitisAIQuantization(Pass):
     """Quantize ONNX model with onnxruntime.
 
-    We can search for best parameters for vai_q_onnx quantization at same time.
+    We can search for best parameters for Quark quantization at same time.
     """
 
     def _initialize(self):
         super()._initialize()
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_vaiq_tmp")
+        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_quark_tmp")
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
@@ -274,7 +274,7 @@ class VitisAIQuantization(Pass):
                 """,
             ),
             # common quantization config
-            **deepcopy(vai_q_onnx_quantization_config),
+            **deepcopy(quark_quantization_config),
             # exposed extra options config
             **deepcopy(_extra_options_config),
             # external data config
@@ -345,7 +345,7 @@ class VitisAIQuantization(Pass):
         # reload the model and save to output_model_path using the external data config
         # TODO(XiaoSheng): don't default to use_external_data_format=True if the loading and saving model makes
         # the pass inefficient
-        tmp_dir = tempfile.TemporaryDirectory(prefix="olive_vaiq_tmp")
+        tmp_dir = tempfile.TemporaryDirectory(prefix="olive_quark_tmp")
         tmp_dir_path = Path(tmp_dir.name)
         tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 
