@@ -161,9 +161,19 @@ class RunConfig(NestedConfig):
             v = v.dict()
 
         # all model related info used for auto filling
+        task = None
+        model_name = None
+        if input_model_config["type"].lower() == "onnxmodel":
+            # Only valid for onnx model converted from Olive Conversion pass
+            task = input_model_config["config"]["model_attributes"].get("hf_task", DEFAULT_HF_TASK)
+            model_name = input_model_config["config"]["model_attributes"].get("_name_or_path")
+        else:
+            task = input_model_config["config"].get("task", DEFAULT_HF_TASK)
+            model_name = input_model_config["config"]["model_path"]
+
         model_info = {
-            "model_name": input_model_config["config"]["model_path"],
-            "task": input_model_config["config"].get("task", DEFAULT_HF_TASK),
+            "model_name": model_name,
+            "task": task,
             "trust_remote_code": input_model_config["config"].get("load_kwargs", {}).get("trust_remote_code"),
         }
         kv_cache = input_model_config.get("io_config", {}).get("kv_cache")

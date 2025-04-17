@@ -39,7 +39,9 @@ class BaseOliveCLICommand(ABC):
             run_config = self._get_run_config(tempdir)
             if self.args.save_config_file:
                 self._save_config_file(run_config)
-            return olive_run(run_config)
+            output = olive_run(run_config)
+            print(f"Model is saved at {self.args.output_path}")
+            return output
 
     @staticmethod
     def _save_config_file(config: dict):
@@ -505,6 +507,12 @@ def add_dataset_options(sub_parser, required=True, include_train=True, include_e
         default=1,
         help="Batch size.",
     )
+    dataset_group.add_argument(
+        "--input_cols",
+        type=str,
+        nargs="+",
+        help="List of input column names. Provide one or more names separated by space. Example: --input_cols sentence1 sentence2",
+    )
 
     return dataset_group, text_group
 
@@ -529,6 +537,7 @@ def update_dataset_options(args, config):
         ((*preprocess_key, "chat_template"), args.use_chat_template),
         ((*preprocess_key, "max_seq_len"), args.max_seq_len),
         ((*preprocess_key, "add_special_tokens"), args.add_special_tokens),
+        ((*preprocess_key, "input_cols"), args.input_cols),
         ((*preprocess_key, "max_samples"), args.max_samples),
         ((*dataloader_key, "batch_size"), args.batch_size),
     ]

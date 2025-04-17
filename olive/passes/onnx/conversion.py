@@ -126,15 +126,17 @@ class OnnxConversion(Pass):
     ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
         output_model = self._run_for_config_internal(model, config, output_model_path)
 
-        if isinstance(model, HfModelHandler) and config.save_metadata_for_token_generation:
-            # output_model can only be an ONNXModelHandler
-            output_dir = output_model.change_model_path_to_dir()
-
+        if isinstance(model, HfModelHandler):
             output_model.model_attributes = model_attributes = output_model.model_attributes or {}
-            model_attributes["additional_files"] = additional_files = model_attributes.get("additional_files", [])
-            # quantization config is already popped from the model and included in model_attributes
-            # don't want the information to be saved in metadata (issues with generation config save)
-            additional_files.extend(model.save_metadata(str(output_dir), exclude_load_keys=["quantization_config"]))
+            model_attributes["hf_task"] = model.task
+
+            if config.save_metadata_for_token_generation:
+                # output_model can only be an ONNXModelHandler
+                output_dir = output_model.change_model_path_to_dir()
+                model_attributes["additional_files"] = additional_files = model_attributes.get("additional_files", [])
+                # quantization config is already popped from the model and included in model_attributes
+                # don't want the information to be saved in metadata (issues with generation config save)
+                additional_files.extend(model.save_metadata(str(output_dir), exclude_load_keys=["quantization_config"]))
 
         return output_model
 
