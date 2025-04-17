@@ -63,7 +63,7 @@ class OpenVINOEncapsulation(Pass):
                 required=False,
                 description=(
                     "Name of the OpenVINO version to override in model SDK version."
-                    "Requires a minimum version of OpenVino 2025.1"
+                    "Requires a minimum version of OpenVINO 2025.1"
                 ),
             ),
             "opset_imports": PassConfigParam(
@@ -201,5 +201,12 @@ class OpenVINOEncapsulation(Pass):
         hardlink_copy_file(model_name_path, model_name_path_dst, follow_symlinks=True)
         hardlink_copy_file(weight_name_path, weight_name_path_dst, follow_symlinks=True)
         save(model_def, context_model_output_dir)
+
+        # copy JSON and text files for genai models
+        all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
+        for json_file in all_genai_files:
+            src_pth = Path(model.model_path) / json_file
+            dest_path = Path(output_model_path)
+            hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
 
         return ONNXModelHandler(model_path=output_model_path)

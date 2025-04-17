@@ -68,14 +68,14 @@ class OpenVINOIoUpdate(Pass):
 
         loaded_model = core.read_model(model_name_path, weights=weight_name_path)
 
-        # Ensure atleast 1 input name is present for all inputs
+        # Ensure at least 1 input name is present for all inputs
         update_io_names = False
         for i, _ in enumerate(loaded_model.inputs):
             if not loaded_model.input(i).get_names():
                 loaded_model.input(i).set_names({f"input_{i}"})
                 update_io_names = True
 
-        # Ensure atleast 1 output name is present for all inputs
+        # Ensure at least 1 output name is present for all inputs
         for i, _ in enumerate(loaded_model.outputs):
             if not loaded_model.output(i).get_names():
                 loaded_model.output(i).set_names({f"output_{i}"})
@@ -111,5 +111,12 @@ class OpenVINOIoUpdate(Pass):
             weight_name_path_dst = Path(output_model_path) / (f"{model_name}.bin")
             hardlink_copy_file(model_name_path, model_name_path_dst, follow_symlinks=True)
             hardlink_copy_file(weight_name_path, weight_name_path_dst, follow_symlinks=True)
+
+        # copy JSON and text files for genai models
+        all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
+        for json_file in all_genai_files:
+            src_pth = Path(model.model_path) / json_file
+            dest_path = Path(output_model_path)
+            hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
 
         return OpenVINOModelHandler(model_path=output_model_path)
