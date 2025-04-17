@@ -40,7 +40,7 @@ More detailed instructions are available at [Optimum Intel® Installation Instru
 `OpenVINOConversion` pass will convert the model from original framework to OpenVINO IR Model. `PyTorchModelHandler`, `ONNXModelHandler` and
 `TensorFlowModelHandler` are supported for now.
 
-Please refer to [OpenVINOConversion](../../../../olive/passes/openvino/conversion.py) for more details about the pass and its config parameters.
+Please refer to [OpenVINOConversion](https://microsoft.github.io/Olive/reference/pass.html#openvinoconversion) for more details about the pass and its config parameters.
 
 ### Example Configuration
 
@@ -57,7 +57,7 @@ Please refer to [OpenVINOConversion](../../../../olive/passes/openvino/conversio
 to update input and output tensors.
 
 
-Please refer to [OpenVINOIoUpdate](openvino_IoUpdate) for more details about the pass and its config parameters.
+Please refer to [OpenVINOIoUpdate](https://microsoft.github.io/Olive/reference/pass.html#openvinoioupdate) for more details about the pass and its config parameters.
 The `"static"` parameter defaults to `true` and does not need to be explicitly overridden.
 
 ### Example Configuration
@@ -78,7 +78,7 @@ inference time. It helps to reduce the model size, memory footprint and latency,
 integer arithmetic. During the quantization process the model undergoes the transformation process when additional operations, that contain
 quantization information, are inserted into the model. The actual transition to integer arithmetic happens at model inference.
 
-Please refer to [OpenVINOQuantization](../../../../olive/passes/openvino/quantization.py) for more details about the pass and its config parameters.
+Please refer to [OpenVINOQuantization](https://microsoft.github.io/Olive/reference/pass.html#openvinoquantization) for more details about the pass and its config parameters.
 
 ### Example Configuration
 
@@ -95,7 +95,7 @@ Please refer to [OpenVINOQuantization](../../../../olive/passes/openvino/quantiz
 ## Model Encapsulation
 `OpenVINOEncapsulation` pass is used to generate an onnx model that encapsulates a OpenVINO IR model. It supports `OpenVINOModelHandler` for now.
 
-Please refer to [OpenVINOEncapsulation](openvino_encapsulation) for more details about the pass and its config parameters.
+Please refer to [OpenVINOEncapsulation](https://microsoft.github.io/Olive/reference/pass.html#openvinoencapsulation) for more details about the pass and its config parameters.
 
 ### Example Configuration
 ```json
@@ -110,7 +110,7 @@ Please refer to [OpenVINOEncapsulation](openvino_encapsulation) for more details
 
 `OpenVINOOptimumConversion` pass will run [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) command on the input Huggingface models to convert those to OpenVINO models and perform weight compression and quantization if necessary to produce an output OpenVINO model.
 
-Please refer to [OpenVINOOptimumConversion](../../../../olive/passes/openvino/optimum_intel.py) and also to [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) for more details about the pass and its config parameters.
+Please refer to [OpenVINOOptimumConversion](https://microsoft.github.io/Olive/reference/pass.html#openvinooptimumconversion) and also to [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) for more details about the pass and its config parameters.
 
 ### Example Configuration
 

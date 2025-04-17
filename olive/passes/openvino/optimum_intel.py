@@ -239,7 +239,10 @@ class OpenVINOOptimumConversion(Pass):
 
         # model
         if lib_name == "diffusers" and quantize_with_dataset:
-            from diffusers import DiffusionPipeline
+            try:
+                from diffusers import DiffusionPipeline
+            except ImportError:
+                raise ImportError("Please install diffusers to use OpenVINO with Diffusers models.") from None
 
             diffusers_config = DiffusionPipeline.load_config(model.model_name_or_path)
             class_name = diffusers_config.get("_class_name", None)
