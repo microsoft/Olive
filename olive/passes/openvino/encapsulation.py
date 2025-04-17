@@ -9,7 +9,7 @@ from typing import ClassVar, Dict, Type, Union
 import onnx.helper as helper
 from onnx import TensorProto, save
 
-from olive.common.utils import hardlink_copy_file
+from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, OpenVINOModelHandler
 from olive.passes import Pass
@@ -208,5 +208,17 @@ class OpenVINOEncapsulation(Pass):
             src_pth = Path(model.model_path) / genai_file
             dest_path = Path(output_model_path)
             hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
+
+        # copy tokenizer folder if it exists
+        src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
+        if src_tokenizer.exists() and src_tokenizer.is_dir():
+            dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
+            hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
+
+        # copy detokenizer folder if it exists
+        src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
+        if src_detokenizer.exists() and src_detokenizer.is_dir():
+            dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
+            hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
 
         return ONNXModelHandler(model_path=output_model_path)
