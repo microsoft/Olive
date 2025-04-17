@@ -8,7 +8,6 @@ from typing import ClassVar, Dict, Type, Union
 
 import onnx.helper as helper
 from onnx import TensorProto, save
-from openvino import get_version
 
 from olive.common.utils import hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
@@ -101,7 +100,7 @@ class OpenVINOEncapsulation(Pass):
         if config.ov_version:
             ov_version = config.ov_version
         else:
-            ov_version = get_version()
+            ov_version = ov.get_version()
 
         core = ov.Core()
         model_name_path = Path(model.model_path) / (f"{model_name}.xml")
