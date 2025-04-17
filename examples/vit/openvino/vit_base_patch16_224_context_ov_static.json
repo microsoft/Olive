@@ -36,7 +36,7 @@
             "model_type": "TRANSFORMER",
             "extra_configs": [ { "advanced_quantization_parameters": { "smooth_quant_alpha": 0.6 } } ]
         },
-        "encapsulation": { "type": "OpenVINOEncapsulation", "target_device": "npu", "ov_version": "2025.0" }
+        "encapsulation": { "type": "OpenVINOEncapsulation", "target_device": "npu", "ov_version": "2025.1" }
     },
     "search_strategy": false,
     "host": "local_system",

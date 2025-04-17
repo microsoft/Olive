@@ -64,7 +64,7 @@ class OpenVINOEncapsulation(Pass):
                 required=False,
                 description=(
                     "Name of the OpenVINO version to override in model SDK version."
-                    "Requires a minimum version of OpenVino 2025.0"
+                    "Requires a minimum version of OpenVino 2025.1"
                 ),
             ),
             "opset_imports": PassConfigParam(
