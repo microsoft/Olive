@@ -12,7 +12,7 @@ from packaging import version
 from olive.common.utils import StrEnumBase, get_attr
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler
+from olive.model.handler.hf import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 from olive.passes.pytorch.common import inherit_hf_from_hf

@@ -14,7 +14,7 @@ from torchvision.datasets import CIFAR10
 from olive.common.constants import OS
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
-from olive.model import PyTorchModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuantization, IncStaticQuantization

@@ -15,7 +15,8 @@ from olive.common.config_utils import validate_config
 from olive.constants import ModelFileFormat
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler, PyTorchModelHandler
+from olive.model.handler.hf import HfModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam

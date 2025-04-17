@@ -1,6 +1,6 @@
 import pytest
 
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.dynamic_to_fixed_shape import DynamicToFixedShape
 from test.unit_test.utils import create_onnx_model_with_dynamic_axis

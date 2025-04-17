@@ -12,7 +12,8 @@ import torch
 from onnx import TensorProto, helper, numpy_helper
 from onnxruntime import InferenceSession
 
-from olive.model import HfModelHandler, ONNXModelHandler
+from olive.model.handler.hf import HfModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
 from olive.passes.onnx.model_builder import ModelBuilder

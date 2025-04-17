@@ -21,14 +21,10 @@ from transformers.modeling_utils import PreTrainedModel
 from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
 from olive.hardware import AcceleratorSpec
-from olive.model import (
-    DistributedHfModelHandler,
-    DistributedOnnxModelHandler,
-    HfModelHandler,
-    ONNXModelHandler,
-    PyTorchModelHandler,
-)
 from olive.model.config import IoConfig
+from olive.model.handler.hf import DistributedHfModelHandler, HfModelHandler
+from olive.model.handler.onnx import DistributedOnnxModelHandler, ONNXModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model

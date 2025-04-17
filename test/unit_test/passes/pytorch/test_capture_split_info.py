@@ -6,7 +6,8 @@ import pytest
 import torch
 
 from olive.hardware import AcceleratorSpec
-from olive.model import HfModelHandler, PyTorchModelHandler
+from olive.model.handler.hf import HfModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.capture_split_info import CaptureSplitInfo
 

@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from olive.common.constants import OS
-from olive.model import SNPEModelHandler
+from olive.model.handler.snpe import SNPEModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.qnn.context_binary_generator import QNNContextBinaryGenerator
 

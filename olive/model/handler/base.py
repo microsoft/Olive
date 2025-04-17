@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from olive.common.config_utils import validate_config
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
-from olive.model.config import IoConfig
+from olive.model.config.io_config import IoConfig
 from olive.model.handler.mixin import IoConfigMixin, JsonMixin, ResourceMixin
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 

@@ -15,7 +15,7 @@ from olive.common.config_utils import validate_config
 from olive.common.hf.wrapper import ModelWrapper
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler
+from olive.model.handler.hf import HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pass_config import BasePassConfig

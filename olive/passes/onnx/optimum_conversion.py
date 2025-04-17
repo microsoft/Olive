@@ -8,7 +8,9 @@ from pathlib import Path
 from typing import Dict, List, Type, Union
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
+from olive.model.handler.composite import CompositeModelHandler
+from olive.model.handler.hf import HfModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 

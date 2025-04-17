@@ -13,7 +13,7 @@ from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, Metr
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.model import PyTorchModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.systems.local import LocalSystem
 from test.unit_test.utils import get_accuracy_metric, get_custom_metric, get_latency_metric
 

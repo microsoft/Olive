@@ -3,15 +3,20 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Callable, Dict, List, Type, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Type, Union
 
 import torch
 
 from olive.constants import Framework
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler, ONNXModelHandler, OpenVINOModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
+
+if TYPE_CHECKING:
+    from olive.model.handler.hf import HfModelHandler
+    from olive.model.handler.onnx import ONNXModelHandler
+    from olive.model.handler.openvino import OpenVINOModelHandler
+    from olive.model.handler.pytorch import PyTorchModelHandler
 
 
 class OpenVINOConversion(Pass):
@@ -74,10 +79,12 @@ class OpenVINOConversion(Pass):
 
     def _run_for_config(
         self,
-        model: Union[HfModelHandler, PyTorchModelHandler, ONNXModelHandler],
+        model: Union["HfModelHandler", "PyTorchModelHandler", "ONNXModelHandler"],
         config: Type[BasePassConfig],
         output_model_path: str,
-    ) -> OpenVINOModelHandler:
+    ) -> "OpenVINOModelHandler":
+        from olive.model.handler.openvino import OpenVINOModelHandler
+
         try:
             import openvino as ov
         except ImportError:

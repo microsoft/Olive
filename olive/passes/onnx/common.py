@@ -13,7 +13,8 @@ import onnx
 from onnx import external_data_helper
 
 from olive.common.utils import hardlink_copy_file
-from olive.model import CompositeModelHandler, ONNXModelHandler
+from olive.model.handler.composite import CompositeModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile, LocalFolder

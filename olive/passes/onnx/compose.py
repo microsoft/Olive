@@ -9,7 +9,8 @@ from typing import Dict, Optional, Type, Union
 import numpy as np
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import CompositeModelHandler, ONNXModelHandler
+from olive.model.handler.composite import CompositeModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (

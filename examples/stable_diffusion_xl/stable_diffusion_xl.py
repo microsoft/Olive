@@ -21,7 +21,7 @@ from optimum.onnxruntime import ORTStableDiffusionXLImg2ImgPipeline, ORTStableDi
 from packaging import version
 
 from olive.common.utils import set_tempdir
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.workflows import run as olive_run
 
 # pylint: disable=redefined-outer-name

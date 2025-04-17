@@ -5,16 +5,21 @@
 
 import platform
 from pathlib import Path
-from typing import Dict, List, Type, Union
+from typing import TYPE_CHECKING, Dict, List, Type, Union
 
 from olive.common.constants import OS
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
-from olive.model import ONNXModelHandler, PyTorchModelHandler, QNNModelHandler, TensorFlowModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.model.utils import normalize_path_suffix
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
+
+if TYPE_CHECKING:
+    from olive.model.handler.pytorch import PyTorchModelHandler
+    from olive.model.handler.qnn import QNNModelHandler
+    from olive.model.handler.tensorflow import TensorFlowModelHandler
 
 
 class QNNConversion(Pass):
@@ -66,10 +71,14 @@ class QNNConversion(Pass):
 
     def _run_for_config(
         self,
-        model: Union[TensorFlowModelHandler, PyTorchModelHandler, ONNXModelHandler],
+        model: Union["TensorFlowModelHandler", "PyTorchModelHandler", "ONNXModelHandler"],
         config: Type[BasePassConfig],
         output_model_path: str,
-    ) -> QNNModelHandler:
+    ) -> "QNNModelHandler":
+        from olive.model.handler.pytorch import PyTorchModelHandler
+        from olive.model.handler.qnn import QNNModelHandler
+        from olive.model.handler.tensorflow import TensorFlowModelHandler
+
         if isinstance(model, TensorFlowModelHandler):
             converter_platform = "tensorflow"
         elif isinstance(model, PyTorchModelHandler):

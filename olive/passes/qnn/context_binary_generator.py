@@ -6,15 +6,20 @@
 import logging
 import platform
 from pathlib import Path
-from typing import Dict, Type, Union
+from typing import TYPE_CHECKING, Dict, Type, Union
 
 from olive.common.constants import OS
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
-from olive.model import QNNModelHandler, SNPEModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
+
+if TYPE_CHECKING:
+    # ruff: noqa: TCH004
+    from olive.model.handler.qnn import QNNModelHandler
+    from olive.model.handler.snpe import SNPEModelHandler
+
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +55,12 @@ class QNNContextBinaryGenerator(Pass):
 
     def _run_for_config(
         self,
-        model: Union[QNNModelHandler, SNPEModelHandler],
+        model: Union["QNNModelHandler", "SNPEModelHandler"],
         config: Type[BasePassConfig],
         output_model_path: str,
-    ) -> QNNModelHandler:
+    ) -> "QNNModelHandler":
+        from olive.model.handler.qnn import QNNModelHandler
+
         if platform.system() == OS.WINDOWS:
             raise NotImplementedError("QNNContextBinaryGenerator is not supported on Windows.")
 

@@ -15,7 +15,8 @@ import transformers
 
 from olive.common.utils import IntEnumBase, StrEnumBase
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import HfModelHandler, ONNXModelHandler
+from olive.model.handler.hf import HfModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam

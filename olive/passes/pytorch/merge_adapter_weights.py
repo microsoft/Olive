@@ -9,7 +9,7 @@ from typing import Dict, Type
 import torch
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler
+from olive.model.handler.hf import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf

@@ -16,7 +16,7 @@ from olive.common.pydantic_v1 import Field
 from olive.common.utils import StrEnumBase, cleanup_memory, replace_submodules, set_attr
 from olive.data.template import huggingface_data_config_template
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler
+from olive.model.handler.hf import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf

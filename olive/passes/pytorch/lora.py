@@ -27,8 +27,8 @@ from olive.common.utils import StrEnumBase, find_submodules, resolve_torch_dtype
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler
 from olive.model.config.hf_config import HfLoadKwargs
+from olive.model.handler.hf import HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pass_config import BasePassConfig

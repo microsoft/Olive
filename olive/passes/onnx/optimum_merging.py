@@ -7,7 +7,8 @@ from typing import Dict, Type
 from onnx import ModelProto
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import CompositeModelHandler, ONNXModelHandler
+from olive.model.handler.composite import CompositeModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model

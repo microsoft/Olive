@@ -8,7 +8,7 @@ from typing import Callable, Dict, Iterable, List, Type, Union
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import PyTorchModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import ParamCategory, PassConfigParam
 from olive.passes.pass_config import BasePassConfig, get_user_script_data_config

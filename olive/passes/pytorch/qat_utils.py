@@ -14,7 +14,7 @@ from torch.ao.quantization.fake_quantize import FakeQuantize, MovingAverageMinMa
 from olive.common.config_utils import validate_config
 from olive.constants import ModelFileFormat
 from olive.data.config import DataConfig
-from olive.model import PyTorchModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.pytorch.cluster import barrier, create_cluster, is_master_proc
 from olive.passes.pytorch.pytorch_lightning_utils import create_ddp_strategy, create_trainer
 

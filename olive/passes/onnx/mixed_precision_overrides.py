@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, Type, Union
 
 from olive.hardware import AcceleratorSpec
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file

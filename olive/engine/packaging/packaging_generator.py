@@ -26,7 +26,7 @@ from olive.engine.packaging.packaging_config import (
     PackagingConfig,
     PackagingType,
 )
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.resource_path import ResourceType, create_resource_path
 from olive.systems.utils import get_package_name_from_ep
 

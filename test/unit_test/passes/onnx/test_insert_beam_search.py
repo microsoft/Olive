@@ -5,7 +5,7 @@
 
 from transformers import AutoConfig
 
-from olive.model import CompositeModelHandler
+from olive.model.handler.composite import CompositeModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.insert_beam_search import InsertBeamSearch
 from test.unit_test.utils import get_onnx_model

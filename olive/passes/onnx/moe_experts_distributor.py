@@ -19,7 +19,7 @@ from google.protobuf.message import Message
 
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import DistributedOnnxModelHandler, ONNXModelHandler
+from olive.model.handler.onnx import DistributedOnnxModelHandler, ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import BasePassConfig, PassConfigParam

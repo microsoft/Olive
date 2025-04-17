@@ -3,7 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from olive.model import ONNXModelHandler, PyTorchModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProcessingOps
 from olive.passes.onnx.conversion import OnnxConversion

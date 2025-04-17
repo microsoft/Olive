@@ -16,7 +16,7 @@ from olive.passes.onnx.peephole_optimizer import OnnxPeepholeOptimizer
 from test.unit_test.utils import get_onnx_model
 
 if TYPE_CHECKING:
-    from olive.model import ONNXModelHandler
+    from olive.model.handler.onnx import ONNXModelHandler
 
 
 @pytest.fixture(name="external_data_config")

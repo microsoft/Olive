@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.model_builder import ModelBuilder
 from test.unit_test.utils import make_local_tiny_llama

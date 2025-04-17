@@ -10,7 +10,11 @@ from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
-from olive.model.config import IoConfig, complete_kv_cache_with_model_attributes, extend_io_config_with_kv_cache
+from olive.model.config.io_config import (
+    IoConfig,
+    complete_kv_cache_with_model_attributes,
+    extend_io_config_with_kv_cache,
+)
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import DummyInputsMixin, PytorchKvCacheMixin

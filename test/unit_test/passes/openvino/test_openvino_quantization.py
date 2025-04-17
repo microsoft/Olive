@@ -10,7 +10,7 @@ import torch
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.hardware import AcceleratorSpec
-from olive.model import PyTorchModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.quantization import OpenVINOQuantization

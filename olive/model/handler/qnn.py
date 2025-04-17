@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from olive.common.constants import OS
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
-from olive.model.config import IoConfig
+from olive.model.config.io_config import IoConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.platform_sdk.qualcomm.qnn.qnn import QNNInferenceSession, QNNSessionOptions

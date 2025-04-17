@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from olive.model import CompositeModelHandler, ONNXModelHandler
+from olive.model.handler.composite import CompositeModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.compose import ComposeOnnxModels
 from olive.passes.onnx.conversion import OnnxConversion

@@ -13,7 +13,7 @@ import onnxruntime as ort
 from prepare_whisper_configs import download_audio_test_data
 
 from olive.common.utils import format_data
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 
 sys.path.append(str(Path(__file__).parent / "code"))
 

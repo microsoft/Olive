@@ -18,7 +18,7 @@ from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.container_client_factory import AzureContainerClientFactory
 from olive.common.pydantic_v1 import root_validator, validator
 from olive.common.utils import hash_dict, hf_repo_exists, set_nested_dict_value
-from olive.model.config.model_config import ModelConfig
+from olive.model import ModelConfig
 from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
 
 if TYPE_CHECKING:

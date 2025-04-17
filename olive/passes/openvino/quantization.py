@@ -11,12 +11,15 @@ from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import OliveModelHandler
-from olive.model.handler import OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, ParamCategory, PassConfigParam, get_user_script_data_config
 
 if TYPE_CHECKING:
     from openvino import CompiledModel
+
+    # ruff: noqa: TCH004
+    from olive.model.handler.openvino import OpenVINOModelHandler
+
 
 logger = logging.getLogger(__name__)
 
@@ -195,8 +198,10 @@ class OpenVINOQuantizationBase(Pass):
 
 class OpenVINOQuantization(OpenVINOQuantizationBase):
     def _run_for_config(
-        self, model: OpenVINOModelHandler, config: Type[BasePassConfig], output_model_path: str
-    ) -> OpenVINOModelHandler:
+        self, model: "OpenVINOModelHandler", config: Type[BasePassConfig], output_model_path: str
+    ) -> "OpenVINOModelHandler":
+        from olive.model.handler.openvino import OpenVINOModelHandler
+
         try:
             import nncf
             import openvino as ov

@@ -29,7 +29,8 @@ if TYPE_CHECKING:
     from olive.evaluator.metric_result import MetricResult
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
     from olive.hardware.accelerator import AcceleratorSpec
-    from olive.model import ModelConfig, ONNXModelHandler
+    from olive.model import ModelConfig
+    from olive.model.handler.onnx import ONNXModelHandler
     from olive.passes.olive_pass import Pass
 
 logger = logging.getLogger(__name__)

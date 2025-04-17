@@ -8,7 +8,8 @@ import onnxruntime
 import pytest
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import CompositeModelHandler, ONNXModelHandler
+from olive.model.handler.composite import CompositeModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import resave_model
 from olive.passes.onnx.context_binary import EPContextBinaryGenerator

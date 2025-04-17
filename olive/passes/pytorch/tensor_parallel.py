@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Callable, Dict, Type
 from olive.common.config_utils import ParamCategory
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import DistributedHfModelHandler, HfModelHandler
+from olive.model.handler.hf import DistributedHfModelHandler, HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pass_config import BasePassConfig

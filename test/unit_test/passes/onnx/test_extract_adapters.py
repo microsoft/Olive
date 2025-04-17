@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
+from test.unit_test.utils import get_onnx_model
+from typing import TYPE_CHECKING
 
 import numpy as np
 import onnx
@@ -15,13 +17,16 @@ from peft.tuners.lora import LoraLayer
 from transformers import AutoModelForCausalLM
 
 from olive.common.utils import WeightsFileFormat, find_submodules, load_weights
-from olive.model import HfModelHandler, ONNXModelHandler
+from olive.model.handler.hf import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import model_has_adapters
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
 from olive.passes.onnx.quantization import OnnxMatMul4Quantizer
 from test.unit_test.utils import get_onnx_model
+
+if TYPE_CHECKING:
+    from olive.model.handler.onnx import ONNXModelHandler
 
 
 class LlamaCalibrationDataLoader(CalibrationDataReader):

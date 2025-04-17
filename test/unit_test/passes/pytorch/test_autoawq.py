@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import HfModelHandler
+from olive.model.handler.hf import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.autoawq import AutoAWQQuantizer
 

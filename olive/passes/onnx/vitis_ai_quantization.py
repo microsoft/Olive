@@ -14,7 +14,7 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import exclude_keys, hash_string
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (

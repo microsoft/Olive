@@ -12,7 +12,8 @@ from olive.common.hf.utils import load_model_from_task
 from olive.common.utils import dict_diff
 from olive.constants import Framework
 from olive.hardware.accelerator import Device
-from olive.model.config import HfLoadKwargs, IoConfig
+from olive.model.config.hf_config import HfLoadKwargs
+from olive.model.config.io_config import IoConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import HfMixin, MLFlowTransformersMixin

@@ -2,17 +2,20 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Callable, Dict, Type
+from typing import TYPE_CHECKING, Callable, Dict, Type
 
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModelHandler, SNPEModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.constants import SNPEDevice
 from olive.platform_sdk.qualcomm.snpe.tools.dev import dlc_to_onnx
+
+if TYPE_CHECKING:
+    from olive.model.handler.onnx import ONNXModelHandler
+    from olive.model.handler.snpe import SNPEModelHandler
 
 
 def _validate_target_device(v):
@@ -51,8 +54,8 @@ class SNPEtoONNXConversion(Pass):
         }
 
     def _run_for_config(
-        self, model: SNPEModelHandler, config: Type[BasePassConfig], output_model_path: str
-    ) -> ONNXModelHandler:
+        self, model: "SNPEModelHandler", config: Type[BasePassConfig], output_model_path: str
+    ) -> "ONNXModelHandler":
         output_model_path = resolve_onnx_path(output_model_path)
 
         # create a onnx model that wraps the dlc binary in a node

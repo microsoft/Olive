@@ -9,7 +9,7 @@ import pytest
 import torch
 from packaging import version
 
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.mnb_to_qdq import MatMulNBitsToQDQ
 from olive.passes.onnx.onnx_dag import OnnxDAG

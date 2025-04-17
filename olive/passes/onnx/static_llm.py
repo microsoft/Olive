@@ -9,7 +9,8 @@ from typing import Dict, Type
 import onnx
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import CompositeModelHandler, ONNXModelHandler
+from olive.model.handler.composite import CompositeModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.onnx.common import fix_dim_params, process_llm_pipeline, resave_model
 from olive.passes.onnx.onnx_dag import OnnxDAG

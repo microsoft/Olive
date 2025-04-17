@@ -13,7 +13,7 @@ import onnx
 
 from olive.common.utils import WeightsFileFormat, save_weights
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import LORA_NAME_PATTERNS, get_external_data_config, model_proto_to_olive_model

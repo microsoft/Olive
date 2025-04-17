@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Union
 
 from olive.constants import ModelFileFormat
-from olive.model import DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler
+from olive.model.handler.hf import DistributedHfModelHandler, HfModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 
 
 def inherit_hf_from_hf(

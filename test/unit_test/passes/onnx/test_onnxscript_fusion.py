@@ -10,7 +10,7 @@ import torch
 from onnxscript import ir
 from packaging import version
 
-from olive.model import HfModelHandler
+from olive.model.handler.hf import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.onnxscript_fusion import OnnxScriptFusion

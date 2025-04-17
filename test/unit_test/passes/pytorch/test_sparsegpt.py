@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from olive.data.template import huggingface_data_config_template
-from olive.model import HfModelHandler
+from olive.model.handler.hf import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.sparsegpt import SparseGPT
 

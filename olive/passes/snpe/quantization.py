@@ -3,18 +3,20 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Dict, List, Type, Union
+from typing import TYPE_CHECKING, Dict, List, Type, Union
 
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import SNPEModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.snpe.tools.dev import quantize_dlc
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 from olive.resource_path import LocalFile
 from olive.search.search_parameter import Boolean
+
+if TYPE_CHECKING:
+    from olive.model.handler.snpe import SNPEModelHandler
 
 
 class SNPEQuantization(Pass):
@@ -63,8 +65,10 @@ class SNPEQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: SNPEModelHandler, config: Type[BasePassConfig], output_model_path: str
-    ) -> SNPEModelHandler:
+        self, model: "SNPEModelHandler", config: Type[BasePassConfig], output_model_path: str
+    ) -> "SNPEModelHandler":
+        from olive.model.handler.snpe import SNPEModelHandler
+
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 

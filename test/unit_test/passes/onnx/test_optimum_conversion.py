@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
+from olive.model.handler.composite import CompositeModelHandler
+from olive.model.handler.hf import HfModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.optimum_conversion import OptimumConversion
 from test.unit_test.utils import get_hf_model

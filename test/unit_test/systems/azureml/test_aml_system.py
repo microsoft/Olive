@@ -23,7 +23,7 @@ from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric
 from olive.evaluator.metric_result import MetricResult
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.resource_path import ResourcePath, ResourceType

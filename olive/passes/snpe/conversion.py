@@ -3,16 +3,20 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Callable, Dict, List, Type, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Type, Union
 
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModelHandler, SNPEModelHandler, TensorFlowModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.constants import InputLayout, InputType
 from olive.platform_sdk.qualcomm.snpe.tools.dev import get_dlc_io_config, to_dlc
 from olive.resource_path import LocalFile
+
+if TYPE_CHECKING:
+    from olive.model.handler.onnx import ONNXModelHandler
+    from olive.model.handler.snpe import SNPEModelHandler
+    from olive.model.handler.tensorflow import TensorFlowModelHandler
 
 
 def _validate_input_types_layouts(v, values, field):
@@ -94,10 +98,12 @@ class SNPEConversion(Pass):
 
     def _run_for_config(
         self,
-        model: Union[ONNXModelHandler, TensorFlowModelHandler],
+        model: Union["ONNXModelHandler", "TensorFlowModelHandler"],
         config: Type[BasePassConfig],
         output_model_path: str,
-    ) -> SNPEModelHandler:
+    ) -> "SNPEModelHandler":
+        from olive.model.handler.snpe import SNPEModelHandler
+
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 

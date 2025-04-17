@@ -13,7 +13,8 @@ import numpy as np
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.utils import get_attr
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler, PyTorchModelHandler
+from olive.model.handler.hf import HfModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, ParamCategory, PassConfigParam
 

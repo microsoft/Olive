@@ -5,7 +5,7 @@ import pytest
 from olive.common.constants import OS
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR
 from olive.logging import set_default_logger_severity
-from olive.model.config.model_config import ModelConfig
+from olive.model import ModelConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.session_params_tuning import OrtSessionParamsTuning
 from test.integ_test.evaluator.docker_eval.utils import (

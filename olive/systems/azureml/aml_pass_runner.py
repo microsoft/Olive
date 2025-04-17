@@ -10,7 +10,7 @@ from olive.common.utils import set_nested_dict_value
 from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.package_config import OlivePackageConfig
-from olive.passes import FullPassConfig
+from olive.passes.olive_pass import FullPassConfig
 from olive.resource_path import find_all_resources
 from olive.systems.utils import get_common_args, parse_config
 

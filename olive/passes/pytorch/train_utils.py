@@ -13,8 +13,8 @@ from olive.common.config_utils import NestedConfig
 from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import cleanup_memory
 from olive.data.config import DataConfig
-from olive.model import HfModelHandler
 from olive.model.config.hf_config import HfLoadKwargs
+from olive.model.handler.hf import HfModelHandler
 
 logger = logging.getLogger(__name__)
 

@@ -17,7 +17,10 @@ from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
-from olive.model import HfModelHandler, ModelConfig, ONNXModelHandler, PyTorchModelHandler
+from olive.model import ModelConfig
+from olive.model.handler.hf import HfModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.olive_pass import Pass, create_pass_from_dict
 
 ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, ClassVar, Dict, List, Type
 
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import Field, validator
-from olive.passes import PassModuleConfig
+from olive.passes.pass_config import PassModuleConfig
 
 if TYPE_CHECKING:
     from olive.passes.olive_pass import Pass

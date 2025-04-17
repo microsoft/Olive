@@ -13,7 +13,8 @@ from olive.common.hf.wrapper import ModelWrapper
 from olive.common.utils import get_attr, tensor_data_to_device
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import HfModelHandler, PyTorchModelHandler
+from olive.model.handler.hf import HfModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pass_config import BasePassConfig

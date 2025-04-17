@@ -27,7 +27,7 @@ from model_type_mapping import (
 from run_llm_io_binding import run_llm_io_binding
 from run_vision_llm_io_binding import run_vision_llm_io_binding
 
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.workflows import run as olive_run
 
 

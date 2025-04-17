@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Type
 
 from olive.common.pydantic_v1 import root_validator
 from olive.hardware import AcceleratorSpec
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import (

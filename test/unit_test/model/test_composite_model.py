@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import pytest
 
-from olive.model.config.model_config import ModelConfig
+from olive.model import ModelConfig
 from olive.model.handler.composite import CompositeModelHandler
 from olive.model.handler.onnx import ONNXModelHandler
 from test.unit_test.utils import get_onnx_model

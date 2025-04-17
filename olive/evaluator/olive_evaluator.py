@@ -30,7 +30,6 @@ from olive.evaluator.metric_backend import MetricBackend
 from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten_metric_result, joint_metric_key
 from olive.evaluator.registry import Registry
 from olive.hardware import Device
-from olive.model import DistributedOnnxModelHandler, ONNXModelHandler, PyTorchModelHandler
 from olive.model.config.io_config import is_io_config_static
 from olive.model.handler.hf import HfModelHandler
 from olive.model.utils.onnx_utils import dump_tuning_result
@@ -39,7 +38,12 @@ from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoad
 if TYPE_CHECKING:
     from torch.utils.data import DataLoader
 
-    from olive.model import OliveModelHandler, OpenVINOModelHandler, QNNModelHandler, SNPEModelHandler
+    from olive.model import OliveModelHandler
+    from olive.model.handler.onnx import DistributedOnnxModelHandler, ONNXModelHandler  # noqa: TC004
+    from olive.model.handler.openvino import OpenVINOModelHandler
+    from olive.model.handler.pytorch import PyTorchModelHandler  # noqa: TC004
+    from olive.model.handler.qnn import QNNModelHandler
+    from olive.model.handler.snpe import SNPEModelHandler
 
 logger = logging.getLogger(__name__)
 
@@ -331,7 +335,7 @@ class _OliveEvaluator(OliveEvaluator):
 
 class OnnxEvaluatorMixin:
     @staticmethod
-    def get_inference_settings(metric: Metric, model: ONNXModelHandler) -> Dict[str, Any]:
+    def get_inference_settings(metric: Metric, model: "ONNXModelHandler") -> Dict[str, Any]:
         # user.config.inference_settings > model.inference_settings > default inference_settings
         # when user.config.inference_settings is None, the model.inference_settings
         # will be used in model.prepare_session(..)
@@ -352,7 +356,7 @@ class OnnxEvaluatorMixin:
 class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
     @staticmethod
     def get_session_wrapper(
-        model: ONNXModelHandler,
+        model: "ONNXModelHandler",
         metric: Metric,
         dataloader: "DataLoader",
         device: Device,
@@ -396,7 +400,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
     def _inference(
         self,
-        model: ONNXModelHandler,
+        model: "ONNXModelHandler",
         metric: Metric,
         dataloader: "DataLoader",
         post_func=None,
@@ -446,7 +450,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
     def _evaluate_onnx_accuracy(
         self,
-        model: ONNXModelHandler,
+        model: "ONNXModelHandler",
         metric: Metric,
         dataloader: "DataLoader",
         post_func=None,
@@ -458,7 +462,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
     def _evaluate_onnx_latency(
         self,
-        model: ONNXModelHandler,
+        model: "ONNXModelHandler",
         metric: Metric,
         dataloader: "DataLoader",
         post_func=None,
@@ -488,6 +492,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
     @staticmethod
     def _evaluate_distributed_accuracy_worker(config) -> Tuple[List[Any], List[Any]]:
+        from olive.model.handler.onnx import ONNXModelHandler
+
         model_path = config["model_path"]
         local_rank = config["local_rank"]
         world_size = config["world_size"]
@@ -535,7 +541,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
     def _evaluate_distributed_accuracy(
         self,
-        model: DistributedOnnxModelHandler,
+        model: "DistributedOnnxModelHandler",
         metric: Metric,
         device: Device,
         execution_providers: Union[str, List[str]],
@@ -585,6 +591,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         from mpi4py import MPI
 
+        from olive.model.handler.onnx import ONNXModelHandler
+
         local_rank = MPI.COMM_WORLD.Get_rank()
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
         inference_settings["execution_provider"] = execution_providers
@@ -627,7 +635,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
     def _evaluate_distributed_latency(
         self,
-        model: DistributedOnnxModelHandler,
+        model: "DistributedOnnxModelHandler",
         metric: Metric,
         device,
         execution_providers: Union[str, List[str]],
@@ -666,6 +674,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
+        from olive.model.handler.onnx import DistributedOnnxModelHandler, ONNXModelHandler
+
         if isinstance(model, ONNXModelHandler):
             return self._evaluate_onnx_accuracy(model, metric, dataloader, post_func, device, execution_providers)
         elif isinstance(model, DistributedOnnxModelHandler):
@@ -684,6 +694,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> List[float]:
+        from olive.model.handler.onnx import DistributedOnnxModelHandler, ONNXModelHandler
+
         if isinstance(model, ONNXModelHandler):
             return self._evaluate_onnx_latency(model, metric, dataloader, post_func, device, execution_providers)
         elif isinstance(model, DistributedOnnxModelHandler):

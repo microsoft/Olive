@@ -6,9 +6,8 @@ import pytest
 
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 from test.unit_test.utils import get_onnx_model
-
 
 @patch("onnxruntime.InferenceSession")
 @patch("onnxruntime.get_available_providers")

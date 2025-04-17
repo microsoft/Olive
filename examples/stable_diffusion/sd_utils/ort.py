@@ -15,7 +15,7 @@ from onnxruntime import __version__ as OrtVersion
 from packaging import version
 from sd_utils import config as sd_config
 
-from olive.model import ONNXModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
 
 # ruff: noqa: TID252, T201
 

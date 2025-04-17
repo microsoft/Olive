@@ -11,7 +11,8 @@ from onnx import TensorProto, save
 
 from olive.common.utils import hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import ONNXModelHandler, OpenVINOModelHandler
+from olive.model.handler.onnx import ONNXModelHandler
+from olive.model.handler.openvino import OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 

@@ -6,8 +6,8 @@
 import logging
 
 from olive.common.utils import exclude_keys
-from olive.model.config import IoConfig, KVCacheConfig
-from olive.model.config.io_config import is_kv_cache_required
+from olive.model.config.io_config import IoConfig, is_kv_cache_required
+from olive.model.config.kv_cache_config import KVCacheConfig
 
 logger = logging.getLogger(__name__)
 

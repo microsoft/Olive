@@ -9,7 +9,7 @@ from whisper_decoder import WhisperDecoder, WhisperDecoderInputs
 from whisper_encoder_decoder_init import WhisperEncoderDecoderInit, WhisperEncoderDecoderInitInputs
 
 from olive.data.registry import Registry
-from olive.model import PyTorchModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 
 
 def get_encoder_decoder_init(model_path: str):

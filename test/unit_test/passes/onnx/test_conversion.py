@@ -14,8 +14,9 @@ import torch
 from onnxscript import ir
 
 from olive.common.config_utils import validate_config
-from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.config import IoConfig
+from olive.model.handler.hf import HfModelHandler
+from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 from olive.passes.pytorch.gptq import GptqQuantizer
