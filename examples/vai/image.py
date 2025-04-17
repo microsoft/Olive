@@ -17,7 +17,7 @@ def get_imagenet_label_map():
     imagenet_class_index_url = (
         "https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/imagenet_class_index.json"
     )
-    response = requests.get(imagenet_class_index_url)
+    response = requests.get(imagenet_class_index_url, timeout=3600)
     response.raise_for_status()  # Ensure the request was successful
 
     # Convert {0: ["n01440764", "tench"], ...} to {synset: index}
