@@ -342,7 +342,7 @@ OpenVINOEncapsulation
 .. _openvino_optimum_conversion:
 
 OpenVINOOptimumConversion
---------------------
+-------------------------
 .. autoconfigclass:: olive.passes.OpenVINOOptimumConversion
 
 SNPE
