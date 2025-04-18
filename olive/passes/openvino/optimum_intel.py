@@ -18,7 +18,7 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_s
 logger = logging.getLogger(__name__)
 
 
-class OV_QUANT_MODE(StrEnumBase):
+class OVQuantMode(StrEnumBase):
     INT8 = "int8"
     F8E4M3 = "f8e4m3"
     F8E5M2 = "f8e5m2"
@@ -28,7 +28,7 @@ class OV_QUANT_MODE(StrEnumBase):
     INT4_F8E5M2 = "int4_f8e5m2"
 
 
-class OV_OPTIMUM_LIBRARY(StrEnumBase):
+class OVOptimumLibrary(StrEnumBase):
     TRANSFORMERS = "transformers"
     DIFFUSERS = "diffusers"
     TIMM = "timm"
@@ -36,12 +36,12 @@ class OV_OPTIMUM_LIBRARY(StrEnumBase):
     OPEN_CLIP = "open_clip"
 
 
-class OV_OPTIMUM_FRAMEWORK(StrEnumBase):
+class OVOptimumFramework(StrEnumBase):
     PT = "pt"
     TF = "tf"
 
 
-class OV_WEIGHT_FORMAT(StrEnumBase):
+class OVWeightFormat(StrEnumBase):
     FP32 = "fp32"
     FP16 = "fp16"
     INT8 = "int8"
@@ -106,12 +106,12 @@ class OpenVINOOptimumConversion(Pass):
         if (
             config.extra_args
             and config.extra_args.get("library") is not None
-            and config.extra_args.get("library") not in OV_OPTIMUM_LIBRARY._value2member_map_
+            and config.extra_args.get("library") not in [lib.value for lib in OVOptimumLibrary]
         ):
             logger.error(
                 "Library %s is not supported. Supported libraries are %s.",
                 config.extra_args.get("library"),
-                ", ".join(list(OV_OPTIMUM_LIBRARY._value2member_map_.keys())),
+                ", ".join([lib.value for lib in OVOptimumLibrary]),
             )
             return False
 
@@ -119,12 +119,12 @@ class OpenVINOOptimumConversion(Pass):
         if (
             config.extra_args
             and config.extra_args.get("framework") is not None
-            and config.extra_args.get("framework") not in OV_OPTIMUM_FRAMEWORK._value2member_map_
+            and config.extra_args.get("framework") not in [framework.value for framework in OVOptimumFramework]
         ):
             logger.error(
                 "Framework %s is not supported. Supported frameworks are %s.",
                 config.extra_args.get("framework"),
-                ", ".join(list(OV_OPTIMUM_FRAMEWORK._value2member_map_.keys())),
+                ", ".join([framework.value for framework in OVOptimumFramework]),
             )
             return False
 
@@ -132,12 +132,13 @@ class OpenVINOOptimumConversion(Pass):
         if (
             config.ov_quant_config
             and config.ov_quant_config.get("weight_format") is not None
-            and config.ov_quant_config.get("weight_format") not in OV_WEIGHT_FORMAT._value2member_map_
+            and config.ov_quant_config.get("weight_format")
+            not in [weight_format.value for weight_format in OVWeightFormat]
         ):
             logger.error(
                 "Weight format %s is not supported. Supported weight formats are %s.",
                 config.ov_quant_config.get("weight_format"),
-                ", ".join(list(OV_WEIGHT_FORMAT._value2member_map_.keys())),
+                ", ".join([weight_format.value for weight_format in OVWeightFormat]),
             )
             return False
 
@@ -145,12 +146,12 @@ class OpenVINOOptimumConversion(Pass):
         if (
             config.ov_quant_config
             and config.ov_quant_config.get("quant_mode") is not None
-            and config.ov_quant_config.get("quant_mode") not in OV_QUANT_MODE._value2member_map_
+            and config.ov_quant_config.get("quant_mode") not in [quant_mode.value for quant_mode in OVQuantMode]
         ):
             logger.error(
                 "Quant mode %s is not supported. Supported quant modes are %s.",
                 config.ov_quant_config.get("quant_mode"),
-                ", ".join(list(OV_QUANT_MODE._value2member_map_.keys())),
+                ", ".join([quant_mode.value for quant_mode in OVQuantMode]),
             )
             return False
 
@@ -158,12 +159,13 @@ class OpenVINOOptimumConversion(Pass):
         if (
             config.ov_quant_config
             and config.ov_quant_config.get("backup_precision") is not None
-            and config.ov_quant_config.get("backup_precision") not in nncf.BackupMode._value2member_map_
+            and config.ov_quant_config.get("backup_precision")
+            not in [backupmode.value for backupmode in nncf.BackupMode]
         ):
             logger.error(
                 "Backup precision %s is not supported. Supported backup precisions are %s.",
                 config.ov_quant_config.get("backup_precision"),
-                ", ".join(list(nncf.BackupMode._value2member_map_.keys())),
+                ", ".join([backupmode.value for backupmode in nncf.BackupMode]),
             )
             return False
 
@@ -217,7 +219,7 @@ class OpenVINOOptimumConversion(Pass):
                         "Some compression parameters are provided, but the weight format is not specified. "
                         "Please provide it with weight_format key in ov_quant_config dictionary."
                     )
-                if no_quantization_parameter_provided(config.ov_quant_config):
+                if not no_quantization_parameter_provided(config.ov_quant_config):
                     raise ValueError(
                         "Some quantization parameters are provided, but the quant mode is not specified. "
                         "Please provide it with quant_mode key in ov_quant_config dictionary."
