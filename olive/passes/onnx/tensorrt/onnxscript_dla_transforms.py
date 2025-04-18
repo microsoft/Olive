@@ -32,6 +32,9 @@ class MatMulToConvTransform(Pass):
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
         model_proto = model.load_model()
 
+        # Create a set of initializer names for quick lookup
+        initializer_names = {initializer.name for initializer in model_proto.graph.initializer}
+
         def matmul_pattern(op, input_a, input_b):
             return op.MatMul(input_a, input_b)
 
@@ -76,20 +79,22 @@ class MatMulToConvTransform(Pass):
             if input_a_rank == 2:
                 # [1, M, N, 1] to [M, N]
                 return op.Squeeze(op.Squeeze(transposed_out, op.Constant(value_ints=[3])), op.Constant(value_ints=[0]))
-            elif input_a_rank == 3:
+            else:
                 # [B, M, N, 1] to [B, M, N]
                 return op.Squeeze(transposed_out, op.Constant(value_ints=[3]))
 
-        def has_non4d_inputs(context, input_a, input_b) -> bool:
-            is_applicable = len(input_a.shape) != 4 or len(input_b.shape) != 4
-            if is_applicable:
-                logger.debug(
-                    f"Found MatMul with non-4D inputs: {input_a.name} (shape={input_a.shape}), {input_b.name} (shape={input_b.shape})"
-                )
-            return is_applicable
+        def is_valid_for_transform(context, input_a, input_b) -> bool:
+            # Check if inputs are not 4D (condition for applying the transform)
+            is_non_4d = len(input_a.shape) != 4 or len(input_b.shape) != 4
+        
+            # Only apply the transform if the second input is an initializer
+            # This ensures valid node groups for quantized weights
+            is_input_b_initializer = input_b.name in initializer_names
+        
+            return is_non_4d and is_input_b_initializer
 
         matmul_to_conv_rule = pattern.RewriteRule(
-            matmul_pattern, matmul_to_conv_replacement, has_non4d_inputs, verbose=1
+            matmul_pattern, matmul_to_conv_replacement, is_valid_for_transform, verbose=1
         )
 
         transformed_model_proto = onnxscript.rewriter.rewrite(
