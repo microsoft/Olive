@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class TrtMatMulToConvTransform(Pass):
-    """Convert 2Dx2D and 3Dx2D MatMul to Transpose-Conv-Transpose to meet HW restriction"""
+    """Convert 2Dx2D and 3Dx2D MatMul to Transpose-Conv-Transpose to meet HW restriction."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -61,7 +61,7 @@ class TrtMatMulToConvTransform(Pass):
             if input_a_rank == 2:
                 # [1, M, K, 1] to [1, K, M, 1]
                 transposed_a = op.Transpose(padded_a, perm=[0, 2, 1, 3])
-            elif input_a_rank == 3:
+            else:
                 # [B, M, K, 1] to [B, K, M, 1]
                 transposed_a = op.Transpose(padded_a, perm=[0, 2, 1, 3])
 
@@ -86,11 +86,11 @@ class TrtMatMulToConvTransform(Pass):
         def is_valid_for_transform(context, input_a, input_b) -> bool:
             # Check if inputs are not 4D (condition for applying the transform)
             is_non_4d = len(input_a.shape) != 4 or len(input_b.shape) != 4
-        
+
             # Only apply the transform if the second input is an initializer
             # This ensures valid node groups for quantized weights
             is_input_b_initializer = input_b.name in initializer_names
-        
+
             return is_non_4d and is_input_b_initializer
 
         matmul_to_conv_rule = pattern.RewriteRule(
