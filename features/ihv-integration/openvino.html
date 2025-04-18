@@ -455,9 +455,11 @@
 Optimization.” OpenVINO focuses on optimizing neural network inference with a write-once, deploy-anywhere approach for Intel hardware
 platforms.</p>
 <p>Read more at: <a class="reference external" href="https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html">Intel® Distribution of OpenVINO™ Toolkit</a></p>
+<p>The <code class="docutils literal notranslate"><span class="pre">nncf</span></code> package (Neural Network Compression Framework) is used for model compression and quantization. It is required for workflows involving post-training quantization or other advanced optimization techniques in OpenVINO.</p>
+<p>For Generative AI models, install Optimum Intel® from <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/installation">Optimum Intel® Installation Instructions</a></p>
 <section id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h2>
-<p>Note: OpenVINO version in Olive: 2023.2.0</p>
+<p>Note: OpenVINO version in Olive: 2025.1.0</p>
 <section id="option-1-install-olive-with-openvino-extras">
 <h3>Option 1: install Olive with OpenVINO extras<a class="headerlink" href="#option-1-install-olive-with-openvino-extras" title="Link to this heading">#</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>openvino<span class="o">]</span>
@@ -466,16 +468,24 @@ platforms.</p>
 </section>
 <section id="option-2-install-openvino-runtime-and-openvino-development-tools-from-pypi">
 <h3>Option 2: Install OpenVINO Runtime and OpenVINO Development Tools from Pypi<a class="headerlink" href="#option-2-install-openvino-runtime-and-openvino-development-tools-from-pypi" title="Link to this heading">#</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">openvino</span><span class="o">==</span><span class="m">2023</span>.2.0
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">openvino</span><span class="o">==</span><span class="m">2025</span>.1.0
+pip<span class="w"> </span>install<span class="w"> </span><span class="nv">nncf</span><span class="o">==</span><span class="m">2</span>.16.0
 </pre></div>
 </div>
+</section>
+<section id="install-optimum-intel-for-generative-ai-workloads">
+<h3>Install Optimum Intel® for Generative AI Workloads<a class="headerlink" href="#install-optimum-intel-for-generative-ai-workloads" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>optimum<span class="o">[</span>openvino<span class="o">]</span>
+</pre></div>
+</div>
+<p>More detailed instructions are available at <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/installation">Optimum Intel® Installation Instructions</a></p>
 </section>
 </section>
 <section id="model-conversion">
 <h2>Model Conversion<a class="headerlink" href="#model-conversion" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">OpenVINOConversion</span></code> pass will convert the model from original framework to OpenVino IR Model. <code class="docutils literal notranslate"><span class="pre">PyTorchModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">ONNXModelHandler</span></code> and
+<p><code class="docutils literal notranslate"><span class="pre">OpenVINOConversion</span></code> pass will convert the model from original framework to OpenVINO IR Model. <code class="docutils literal notranslate"><span class="pre">PyTorchModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">ONNXModelHandler</span></code> and
 <code class="docutils literal notranslate"><span class="pre">TensorFlowModelHandler</span></code> are supported for now.</p>
-<p>Please refer to <a class="reference internal" href="../../reference/pass.html#openvino-conversion"><span class="std std-ref">OpenVINOConversion</span></a> for more details about the pass and its config parameters.</p>
+<p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinoconversion">OpenVINOConversion</a> for more details about the pass and its config parameters.</p>
 <section id="example-configuration">
 <h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -490,7 +500,7 @@ platforms.</p>
 <h2>Model IoUpdate<a class="headerlink" href="#model-ioupdate" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">OpenVINOIoUpdate</span></code> pass is a required pass used only for OpenVino IR Model. It converts <code class="docutils literal notranslate"><span class="pre">OpenVINOModelHandler</span></code> into a static shaped model and
 to update input and output tensors.</p>
-<p>Please refer to <a class="reference internal" href="../../reference/pass.html#openvino-ioupdate"><span class="std std-ref">OpenVINOIoUpdate</span></a> for more details about the pass and its config parameters.
+<p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinoioupdate">OpenVINOIoUpdate</a> for more details about the pass and its config parameters.
 The <code class="docutils literal notranslate"><span class="pre">&quot;static&quot;</span></code> parameter defaults to <code class="docutils literal notranslate"><span class="pre">true</span></code> and does not need to be explicitly overridden.</p>
 <section id="id1">
 <h3>Example Configuration<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
@@ -510,7 +520,7 @@ This method allows moving from floating-point precision to integer precision (fo
 inference time. It helps to reduce the model size, memory footprint and latency, as well as improve the computational efficiency, using
 integer arithmetic. During the quantization process the model undergoes the transformation process when additional operations, that contain
 quantization information, are inserted into the model. The actual transition to integer arithmetic happens at model inference.</p>
-<p>Please refer to <a class="reference download internal" download="" href="../../_downloads/de346a83776613ff9df32391b6adafcf/quantization.py"><span class="xref download myst">OpenVINOQuantization</span></a> for more details about the pass and its config parameters.</p>
+<p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinoquantization">OpenVINOQuantization</a> for more details about the pass and its config parameters.</p>
 <section id="id2">
 <h3>Example Configuration<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -527,13 +537,32 @@ quantization information, are inserted into the model. The actual transition to 
 <section id="model-encapsulation">
 <h2>Model Encapsulation<a class="headerlink" href="#model-encapsulation" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">OpenVINOEncapsulation</span></code> pass is used to generate an onnx model that encapsulates a OpenVINO IR model. It supports <code class="docutils literal notranslate"><span class="pre">OpenVINOModelHandler</span></code> for now.</p>
-<p>Please refer to <a class="reference internal" href="../../reference/pass.html#openvino-encapsulation"><span class="std std-ref">OpenVINOEncapsulation</span></a> for more details about the pass and its config parameters.</p>
+<p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinoencapsulation">OpenVINOEncapsulation</a> for more details about the pass and its config parameters.</p>
 <section id="id3">
 <h3>Example Configuration<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOEncapsulation&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;target_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;npu&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;ov_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025.1&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="optimum-cli-command-for-generative-ai-workloads">
+<h2>Optimum CLI Command for Generative AI workloads<a class="headerlink" href="#optimum-cli-command-for-generative-ai-workloads" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">OpenVINOOptimumConversion</span></code> pass will run <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/openvino/export">optimum-cli export openvino</a> command on the input Huggingface models to convert those to OpenVINO models and perform weight compression and quantization if necessary to produce an output OpenVINO model.</p>
+<p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinooptimumconversion">OpenVINOOptimumConversion</a> and also to <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/openvino/export">optimum-cli export openvino</a> for more details about the pass and its config parameters.</p>
+<section id="id4">
+<h3>Example Configuration<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOOptimumConversion&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;extra_args&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;npu&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;ov_quant_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;weight_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int4&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dataset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wikitext2&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;awq&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -591,6 +620,7 @@ quantization information, are inserted into the model. The actual transition to 
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-1-install-olive-with-openvino-extras">Option 1: install Olive with OpenVINO extras</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-2-install-openvino-runtime-and-openvino-development-tools-from-pypi">Option 2: Install OpenVINO Runtime and OpenVINO Development Tools from Pypi</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#install-optimum-intel-for-generative-ai-workloads">Install Optimum Intel® for Generative AI Workloads</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-conversion">Model Conversion</a><ul class="nav section-nav flex-column">
@@ -607,6 +637,10 @@ quantization information, are inserted into the model. The actual transition to 
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-encapsulation">Model Encapsulation</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimum-cli-command-for-generative-ai-workloads">Optimum CLI Command for Generative AI workloads</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
