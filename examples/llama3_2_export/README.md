@@ -6,3 +6,4 @@
 optimum >= 1.24.0
 onnxscript >= 0.2.4
 torch >= 2.7
+transformers==4.51.3
