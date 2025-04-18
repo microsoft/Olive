@@ -12,13 +12,6 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.tensorrt.onnxscript_dla_transforms import MatMulToConvTransform
 
 
-def calc_cosine_similarity(ref, result):
-    ref_flat = ref.flatten().astype(np.float32)
-    result_flat = result.flatten().astype(np.float32)
-    sim = np.dot(ref_flat, result_flat) / (np.linalg.norm(ref_flat) * np.linalg.norm(result_flat))
-    return sim
-
-
 def create_model_with_matmul(tmp_path, input_shape, weight_shape):
     """Create a test model with a MatMul operation and non-4D tensors."""
     model_path = tmp_path / "matmul_model.onnx"
