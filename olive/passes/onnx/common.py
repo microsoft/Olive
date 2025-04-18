@@ -213,14 +213,15 @@ def ir_model_to_olive_model(
     if not isinstance(external_data_config, dict):
         external_data_config = external_data_config.dict()
     external_data_name = external_data_config.get("external_data_name")
+
+    ir.save(model, output_model_path, external_data=external_data_name)
+
     if external_data_name:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
         onnx_file_name = Path(output_model_path).name
     else:
         model_path = LocalFile({"path": output_model_path})
         onnx_file_name = None
-
-    ir.save(model, output_model_path, external_data=external_data_name)
 
     return ONNXModelHandler(model_path=model_path, onnx_file_name=onnx_file_name)
 
