@@ -1,0 +1,15 @@
+---
+input_model:
+  type: HfModel
+  model_path: meta-llama/Llama-3.2-1B-Instruct
+passes:
+  convert:
+    type: OnnxConversion
+    use_dynamo_exporter: true
+    save_as_external_data: false
+    all_tensors_to_one_file: false
+  fusion:
+    type: OnnxScriptFusion
+log_severity_level: 1
+output_dir: llama3_output_model
+cache_dir: cache
