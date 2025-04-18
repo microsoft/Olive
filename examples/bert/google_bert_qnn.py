@@ -1,8 +1,11 @@
+import sys
 from collections import OrderedDict
 from pathlib import Path
 from typing import List, Optional
 
 import torch
+
+sys.path.append(Path.cwd().as_posix().replace("/", "\\"))
 from bert_common import (
     SimpleBert,
     npz_to_hfdataset,
@@ -128,8 +131,7 @@ def bert_tcl_post_process(outputs) -> torch.Tensor:
 @Registry.register_post_process()
 def bert_qa_post_process(outputs) -> torch.Tensor:
     """Post-processing for Question Answering tasks."""
-    if isinstance(outputs, (OrderedDict, dict)):
-        if "start_logits" in outputs and "end_logits" in outputs:
-            logits = [outputs["start_logits"], outputs["end_logits"]]
-            return torch.stack(logits, dim=1)
+    if isinstance(outputs, (OrderedDict, dict)) and ("start_logits" in outputs and "end_logits" in outputs):
+        logits = [outputs["start_logits"], outputs["end_logits"]]
+        return torch.stack(logits, dim=1)
     raise ValueError(f"Unsupported output type: {type(outputs)}")

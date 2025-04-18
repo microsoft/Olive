@@ -24,7 +24,7 @@ def extract_sentences(text, min_length=20):
 
 def create_nsp_dataset(
     dataset: str,
-    sent_cols: List[str] = ["sentence1", "sentence2"],
+    sent_cols: List[str] = None,
     label_col: str = "label",
     max_samples: Optional[int] = None,
     shuffle: bool = False,
@@ -33,15 +33,18 @@ def create_nsp_dataset(
 ):
     random = Random(seed)
 
+    if sent_cols is None:
+        sent_cols = ["sentence1", "sentence2"]
+
     name = kwargs.get("name")
     split = kwargs.get("split", "train")
     min_length = kwargs.get("min_length", 20)
 
-    ds = load_dataset(dataset, name=name, split=split)
+    d_s = load_dataset(dataset, name=name, split=split)
 
-    # TODO(zhengte): refactor with ds.map
+    # TODO(zhengte): refactor with d_s.map
     all_sentences = []
-    for sample in ds:
+    for sample in d_s:
         sentences = extract_sentences(sample["text"], min_length=min_length)
         if sentences:
             all_sentences.append(sentences)
@@ -166,9 +169,9 @@ if __name__ == "__main__":
     )
 
     # Save the dataset to CSV
-    df = ds.to_pandas()
-    print(f"Dataset size: {len(df)}")
-    print(df.head())
+    data_set = ds.to_pandas()
+    # print(f"Dataset size: {len(data_set)}")
+    # print(data_set.head())
 
-    df.to_csv(args.output_csv, index=False)
-    print(f"Dataset saved to {args.output_csv}")
+    data_set.to_csv(args.output_csv, index=False)
+    # print(f"Dataset saved to {args.output_csv}")

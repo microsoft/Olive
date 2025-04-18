@@ -17,12 +17,17 @@ if TYPE_CHECKING:
 @dataclass
 class ModelOutput(_ModelOutput):
     """Wrapper for ModelOutput class from transformers.modeling_outputs.
+
     Always returns None for missing keys when accessed with __getitem__
     or __getattr__.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, lhs, po, **kwargs):
+        """Initialize the constructor.
+
+        It is just a placeholder for future init
+        """
+        super().__init__(last_hidden_state=lhs, pooler_output=po, **kwargs)
 
     def __getitem__(self, k):
         if isinstance(k, str) and k not in self.keys():
@@ -33,9 +38,6 @@ class ModelOutput(_ModelOutput):
         if k in self.keys():
             return self[k]
         return None
-
-    def __repr__(self):
-        return super().__repr__()
 
 
 class SimpleBert(torch.nn.Module):
@@ -62,8 +64,8 @@ class SimpleBert(torch.nn.Module):
         )[0]
         pooled_output = self.pooler(sequence_output) if self.pooler is not None else None
         return ModelOutput(
-            last_hidden_state=sequence_output,
-            pooler_output=pooled_output,
+            lhs=sequence_output,
+            po=pooled_output,
         )
 
 
@@ -118,11 +120,9 @@ def tokenize_hfdataset(
         )
 
         return {
-
-                "input_ids": input_ids,
-                "attention_mask": attention_mask,
-                "token_type_ids": token_type_ids
-            ,
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "token_type_ids": token_type_ids,
             **({label_col: sample.get(label_col, indices)} if label_col is not None else {}),
         }
 
@@ -185,11 +185,9 @@ def tokenize_hfdataset2(
         )
 
         batch = {
-
-                "input_ids": input_ids.int(),
-                "attention_mask": attention_mask,
-                "token_type_ids": token_type_ids.int()
-            ,
+            "input_ids": input_ids.int(),
+            "attention_mask": attention_mask,
+            "token_type_ids": token_type_ids.int(),
             **(
                 {
                     label_col: sample.get(
