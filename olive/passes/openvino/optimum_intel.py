@@ -7,14 +7,48 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List, Type, Union
 
+import nncf
 from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
 
+from olive.common.utils import StrEnumBase
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import CompositeModelHandler, HfModelHandler, OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
+
+
+class OV_QUANT_MODE(StrEnumBase):
+    INT8 = "int8"
+    F8E4M3 = "f8e4m3"
+    F8E5M2 = "f8e5m2"
+    NF4_F8E4M3 = "nf4_f8e4m3"
+    NF4_F8E5M2 = "nf4_f8e5m2"
+    INT4_F8E4M3 = "int4_f8e4m3"
+    INT4_F8E5M2 = "int4_f8e5m2"
+
+
+class OV_OPTIMUM_LIBRARY(StrEnumBase):
+    TRANSFORMERS = "transformers"
+    DIFFUSERS = "diffusers"
+    TIMM = "timm"
+    SENTENCE_TRANSFORMERS = "sentence_transformers"
+    OPEN_CLIP = "open_clip"
+
+
+class OV_OPTIMUM_FRAMEWORK(StrEnumBase):
+    PT = "pt"
+    TF = "tf"
+
+
+class OV_WEIGHT_FORMAT(StrEnumBase):
+    FP32 = "fp32"
+    FP16 = "fp16"
+    INT8 = "int8"
+    INT4 = "int4"
+    MXFP4 = "mxfp4"
+    NF4 = "nf4"
 
 
 class OpenVINOOptimumConversion(Pass):
@@ -66,72 +100,67 @@ class OpenVINOOptimumConversion(Pass):
             return False
 
         # validate allowed libraries in extra_args if provided
-        allowed_libraries = ["transformers", "diffusers", "timm", "sentence_transformers", "open_clip"]
         if (
             config.extra_args
             and config.extra_args.get("library") is not None
-            and config.extra_args.get("library") not in allowed_libraries
+            and config.extra_args.get("library") not in OV_OPTIMUM_LIBRARY._value2member_map_
         ):
             logger.error(
                 "Library %s is not supported. Supported libraries are %s.",
                 config.extra_args.get("library"),
-                ", ".join(allowed_libraries),
+                ", ".join(list(OV_OPTIMUM_LIBRARY._value2member_map_.keys())),
             )
             return False
 
         # validate allowed frameworks if provided
-        allowed_frameworks = ["pt", "tf"]
         if (
             config.extra_args
             and config.extra_args.get("framework") is not None
-            and config.extra_args.get("framework") not in allowed_frameworks
+            and config.extra_args.get("framework") not in OV_OPTIMUM_FRAMEWORK._value2member_map_
         ):
             logger.error(
                 "Framework %s is not supported. Supported frameworks are %s.",
                 config.extra_args.get("framework"),
-                ", ".join(allowed_frameworks),
+                ", ".join(list(OV_OPTIMUM_FRAMEWORK._value2member_map_.keys())),
             )
             return False
 
         # validate quantization weight_format if provided
-        allowed_weight_formats = ["fp32", "fp16", "int8", "int4", "mxfp4", "nf4"]
         if (
             config.ov_quant_config
             and config.ov_quant_config.get("weight_format") is not None
-            and config.ov_quant_config.get("weight_format") not in allowed_weight_formats
+            and config.ov_quant_config.get("weight_format") not in OV_WEIGHT_FORMAT._value2member_map_
         ):
             logger.error(
                 "Weight format %s is not supported. Supported weight formats are %s.",
                 config.ov_quant_config.get("weight_format"),
-                ", ".join(allowed_weight_formats),
+                ", ".join(list(OV_WEIGHT_FORMAT._value2member_map_.keys())),
             )
             return False
 
         # validate quantization quant_mode if provided
-        allowed_quant_modes = ["int8", "f8e4m3", "f8e5m2", "nf4_f8e4m3", "nf4_f8e5m2", "int4_f8e4m3", "int4_f8e5m2"]
         if (
             config.ov_quant_config
             and config.ov_quant_config.get("quant_mode") is not None
-            and config.ov_quant_config.get("quant_mode") not in allowed_quant_modes
+            and config.ov_quant_config.get("quant_mode") not in OV_QUANT_MODE._value2member_map_
         ):
             logger.error(
                 "Quant mode %s is not supported. Supported quant modes are %s.",
                 config.ov_quant_config.get("quant_mode"),
-                ", ".join(allowed_quant_modes),
+                ", ".join(list(OV_QUANT_MODE._value2member_map_.keys())),
             )
             return False
 
         # validate backup precisions if provided
-        allowed_backup_precisions = ["none", "int8_sym", "int8_asym"]
         if (
             config.ov_quant_config
             and config.ov_quant_config.get("backup_precision") is not None
-            and config.ov_quant_config.get("backup_precision") not in allowed_backup_precisions
+            and config.ov_quant_config.get("backup_precision") not in nncf.BackupMode._value2member_map_
         ):
             logger.error(
                 "Backup precision %s is not supported. Supported backup precisions are %s.",
                 config.ov_quant_config.get("backup_precision"),
-                ", ".join(allowed_backup_precisions),
+                ", ".join(list(nncf.BackupMode._value2member_map_.keys())),
             )
             return False
 
