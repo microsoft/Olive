@@ -9,6 +9,8 @@ from app_modules.presets import description, small_and_beautiful_theme, title
 from app_modules.utils import cancel_outputing, delete_last_conversation, reset_state, reset_textbox, transfer_input
 from interface.hddr_llm_onnx_dml_interface import LLMOnnxDmlInterface
 
+# pylint: disable=global-statement, redefined-outer-name
+
 top_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 optimized_directory = os.path.join(top_directory, "models", "optimized")
 available_models = {}

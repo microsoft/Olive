@@ -58,6 +58,3 @@ Please refer to [SNPEQuantization](snpe_quantization) for more details about the
     "enable_htp": true
 }
 ```
-
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py)
-for an example implementation of `"user_script.py"` and `"quant_data_config/dataloader_config/type"`.

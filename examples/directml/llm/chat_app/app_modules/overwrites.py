@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import List, Tuple
-
+# pylint: disable=relative-beyond-top-level
 from .presets import gr
 from .utils import convert_asis, convert_mdtext, detect_converted_mark
 
 
-def postprocess(self, y: List[Tuple[str | None, str | None]]) -> List[Tuple[str | None, str | None]]:
+def postprocess(self, y: list[tuple[str | None, str | None]]) -> list[tuple[str | None, str | None]]:
     """Each message and response should be a string, which may be in Markdown format.
 
     Returns:

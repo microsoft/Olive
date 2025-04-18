@@ -15,15 +15,18 @@ evaluate
 marshmallow<3.24.0
 mlflow>=2.4.0, <2.20.0
 neural-compressor<2.4
-nncf==2.7.0
+nncf==2.16.0
+numpy<2.0.0
 nvidia-modelopt
 onnx-graphsurgeon
 onnxconverter_common
 onnxmltools
 onnxoptimizer
 onnxruntime_extensions
-openvino>=2023.2.0
-optimum>=1.17.0
+onnxscript>=0.2.4
+openvino>=2025.1.0
+optimum[openvino]>=1.17.0
+optuna
 pandas
 peft
 plotly

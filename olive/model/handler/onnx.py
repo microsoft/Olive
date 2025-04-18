@@ -39,7 +39,6 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         "use_ort_extensions",
         "external_initializers_file_name",
         "constant_inputs_file_name",
-        "generative",
     )
 
     def __init__(
@@ -51,14 +50,12 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         model_attributes: Optional[Dict[str, Any]] = None,
         external_initializers_file_name: Optional[str] = None,
         constant_inputs_file_name: Optional[str] = None,
-        generative: bool = False,
     ):
         super().__init__(
             framework=Framework.ONNX,
             model_file_format=ModelFileFormat.ONNX,
             model_path=model_path,
             model_attributes=model_attributes,
-            generative=generative,
         )
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
@@ -217,14 +214,12 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
         model_attributes: Optional[Dict[str, Any]] = None,
-        generative: bool = False,
     ):
         super().__init__(
             framework=Framework.ONNX,
             model_file_format=ModelFileFormat.ONNX,
             model_path=model_path,
             model_attributes=model_attributes,
-            generative=generative,
         )
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions

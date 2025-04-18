@@ -25,6 +25,23 @@ logger = logging.getLogger(__name__)
 class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin, PytorchKvCacheMixin):  # pylint: disable=too-many-ancestors
     """Base class for PyTorch model handler."""
 
+    def __init__(
+        self,
+        model_file_format: ModelFileFormat,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
+        io_config: Union[Dict[str, Any], "IoConfig", str, Callable] = None,
+        generative: bool = False,
+    ):
+        super().__init__(
+            framework=Framework.PYTORCH,
+            model_file_format=model_file_format,
+            model_path=model_path,
+            model_attributes=model_attributes,
+            io_config=io_config,
+        )
+        self.generative = generative
+
     def prepare_session(
         self,
         inference_settings: Optional[Dict[str, Any]] = None,
@@ -105,7 +122,6 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
         self.model_loader = model_loader
         self.model = None
         super().__init__(
-            framework=Framework.PYTORCH,
             model_file_format=model_file_format,
             model_path=model_path,
             model_attributes=model_attributes,
@@ -114,7 +130,7 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
         )
         self.add_resources(locals())
 
-        # ensure that script_dir and model_script are local resorces
+        # ensure that script_dir and model_script are local resources
         for resource_name, expected_type in [
             ("script_dir", ResourceType.LocalFolder),
             ("model_script", ResourceType.LocalFile),

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Type, Union
 
 from olive.common.config_utils import validate_config
-from olive.common.utils import StrEnumBase
+from olive.common.utils import StrEnumBase, hardlink_copy_dir, hardlink_copy_file
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import OliveModelHandler
@@ -18,7 +18,6 @@ from olive.passes.pass_config import BasePassConfig, ParamCategory, PassConfigPa
 if TYPE_CHECKING:
     from openvino import CompiledModel
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +27,6 @@ def _default_validate_func(model: "CompiledModel", validation_loader) -> float:
 
     predictions = []
     references = []
-
     output = model.outputs[0]
 
     for data_item, target in validation_loader:
@@ -114,9 +112,15 @@ class OpenVINOQuantizationBase(Pass):
                 default_value=accelerator_spec.accelerator_type,
                 description=(
                     "Target device for the model. "
-                    "Supported values: 'any', 'cpu', 'gpu', 'cpu_spr', 'vpu'. "
+                    "Supported values: 'any', 'cpu', 'gpu', 'cpu_spr', 'npu'. "
                     "Default value is the same as the accelerator type of this workflow run."
                 ),
+            ),
+            "transform_fn": PassConfigParam(
+                type_=Union[Callable, str],
+                category=ParamCategory.OBJECT,
+                required=False,
+                description="Transform function for the input data.",
             ),
             "extra_configs": PassConfigParam(
                 type_=List[Dict],
@@ -157,7 +161,11 @@ class OpenVINOQuantizationBase(Pass):
             data, _ = data_item
             return data
 
-        return nncf.Dataset(data_loader, transform_fn)
+        transform_func = (
+            self._user_module_loader.load_object(config.transform_fn) if config.transform_fn else transform_fn
+        )
+
+        return nncf.Dataset(data_loader, transform_func)
 
     @staticmethod
     def _get_extra_params(config):
@@ -165,14 +173,14 @@ class OpenVINOQuantizationBase(Pass):
 
         device_map = {
             "cpu": nncf.TargetDevice.CPU,
-            "gpu": nncf.TargetDevice.CPU,
+            "gpu": nncf.TargetDevice.GPU,
             "cpu_spr": nncf.TargetDevice.CPU_SPR,
-            "vpu": nncf.TargetDevice.VPU,
-            "npu": nncf.TargetDevice.VPU,
+            "npu": nncf.TargetDevice.NPU,
+            "any": nncf.TargetDevice.ANY,
         }
 
         extra_params = {}
-        extra_params["model_type"] = nncf.ModelType.Transformer if config.model_type == "TRANSFORMER" else None
+        extra_params["model_type"] = nncf.ModelType.TRANSFORMER if config.model_type == "TRANSFORMER" else None
         extra_params["preset"] = (
             nncf.QuantizationPreset.PERFORMANCE if config.preset == "PERFORMANCE" else nncf.QuantizationPreset.MIXED
         )
@@ -199,7 +207,16 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
         model = model.load_model()
         extra_params = self._get_extra_params(config)
 
-        quantized_model = nncf.quantize(model, calibration_dataset, **extra_params)
+        # nncf.AdvancedQuantizationParameters
+        advanced_params = None
+        if config.extra_configs:
+            for extra_config in config.extra_configs:
+                if extra_config.get("advanced_quantization_parameters"):
+                    advanced_params = nncf.AdvancedQuantizationParameters(
+                        **extra_config["advanced_quantization_parameters"]
+                    )
+
+        quantized_model = nncf.quantize(model, calibration_dataset, advanced_parameters=advanced_params, **extra_params)
 
         model_name = "ov_model"
         output_dir = Path(output_model_path) / model_name
@@ -280,4 +297,24 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
         model_name = "ov_model"
         output_dir = Path(output_model_path) / model_name
         ov.save_model(quantized_model, output_model=output_dir.with_suffix(".xml"))
+
+        # copy JSON and text files for genai models
+        all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
+        for genai_file in all_genai_files:
+            src_pth = Path(model.model_path) / genai_file
+            dest_path = Path(output_model_path)
+            hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
+
+        # copy tokenizer folder if it exists
+        src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
+        if src_tokenizer.exists() and src_tokenizer.is_dir():
+            dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
+            hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
+
+        # copy detokenizer folder if it exists
+        src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
+        if src_detokenizer.exists() and src_detokenizer.is_dir():
+            dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
+            hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
+
         return OpenVINOModelHandler(model_path=output_model_path)
