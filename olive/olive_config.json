@@ -285,30 +285,6 @@
             "supported_quantization_encodings": [  ],
             "run_on_target": true
         },
-        "VitisQDQQuantizer": {
-            "module_path": "olive.passes.onnx.vitis_ai.quantizer.VitisQDQQuantizer",
-            "supported_providers": [ "VitisAIExecutionProvider" ],
-            "supported_accelerators": [ "npu" ],
-            "supported_precisions": [ "int8" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [ "qdq" ]
-        },
-        "VitisQOpQuantizer": {
-            "module_path": "olive.passes.onnx.vitis_ai.quantizer.VitisQOpQuantizer",
-            "supported_providers": [ "VitisAIExecutionProvider" ],
-            "supported_accelerators": [ "npu" ],
-            "supported_precisions": [ "int8" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [ "qop" ]
-        },
-        "PowerOfTwoMethod": {
-            "module_path": "olive.passes.onnx.vitis_ai.quant_utils.PowerOfTwoMethod",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
         "SplitModel": {
             "module_path": "olive.passes.onnx.split.SplitModel",
             "supported_providers": [ "*" ],
