@@ -314,7 +314,7 @@ T = TypeVar("T", bound=ConfigBase)
 
 
 def validate_config(
-    config: Union[Dict[str, Any], ConfigBase, None],
+    config: Union[Dict[str, Any], T, None],
     instance_class: Type[T],
     warn_unused_keys: bool = True,
 ) -> T:

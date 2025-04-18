@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from olive.common.config_utils import ConfigBase, get_the_flattened_and_tree_spec
 from olive.common.hf.wrapper import ModelWrapper
@@ -34,21 +34,21 @@ class IoConfig(ConfigBase):
 
     # TODO(trajep): remove input names, shapes and types, turn to use olive dataset config.
     input_names: List[str]
-    input_shapes: List[List[int]] = None
-    input_types: List[str] = None
+    input_shapes: Optional[List[List[int]]] = None
+    input_types: Optional[List[str]] = None
     output_names: List[str]
-    output_shapes: List[List[int]] = None
-    output_types: List[str] = None
-    dynamic_axes: Dict[str, Dict[int, str]] = None
+    output_shapes: Optional[List[List[int]]] = None
+    output_types: Optional[List[str]] = None
+    dynamic_axes: Optional[Dict[str, Dict[int, str]]] = None
     # dynamic_shapes is different from dynamic_axes, it is nested.
     # We need to post-process its keys to int under onnx/conversion.py
     # for example, {"input_ids": {"0": "batch"}}
-    dynamic_shapes: Union[List[Any], Dict[str, Any]] = None
+    dynamic_shapes: Optional[Union[List[Any], Dict[str, Any]]] = None
     # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
     # even though we want the dimension to be a constant int.
     # We use a workaround here: first use dim_param like "1" to represent the dimension, and then
     # convert it to int in the onnx model.
-    string_to_int_dim_params: List[str] = None
+    string_to_int_dim_params: Optional[List[str]] = None
     # if False, skip kv_cache input
     # if True, use default KVCacheConfig
     # if KVCacheConfig, use the provided KVCacheConfig
