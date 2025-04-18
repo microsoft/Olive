@@ -372,7 +372,7 @@ class OnnxConversion(Pass):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-        return onnx_model
+        return onnx_program.model
 
     @staticmethod
     def _prepare_hf_model(
@@ -555,11 +555,11 @@ class OnnxConversion(Pass):
         output_model_path = resolve_onnx_path(output_model_path)
 
         if config.use_dynamo_exporter:
-            onnx_program = OnnxConversion._export_pytorch_model_dynamo(
+            ir_model = OnnxConversion._export_pytorch_model_dynamo(
                 pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
             )
-            onnx_program.model.metadata_props["split_assignments"] = split_assignment_str
-            output_model = ir_model_to_olive_model(onnx_program.model, output_model_path, config)
+            ir_model.metadata_props["split_assignments"] = split_assignment_str
+            output_model = ir_model_to_olive_model(ir_model, output_model_path, config)
         else:
             converted_onnx_model = OnnxConversion._export_pytorch_model_torchscript(
                 pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
