@@ -123,9 +123,14 @@ class QuantizeCommand(BaseOliveCLICommand):
                 and (algo is None or algo in pinfo.supported_algorithms)
                 and (precision is None or precision in pinfo.supported_precisions)
                 and (not self.args.use_qdq_encoding or "qdq" in pinfo.supported_quantization_encodings)
-                and self._check_data_name_arg(pinfo)
             ):
-                pass_list.append(r["pass_type"])
+                if not self._check_data_name_arg(pinfo):
+                    raise ValueError(
+                        f"Dataset is required for pass {r['pass_type']} but no dataset is provided. "
+                        "Please provide a dataset using --data_name option."
+                    )
+                else:
+                    pass_list.append(r["pass_type"])
 
         if not pass_list:
             raise ValueError(
