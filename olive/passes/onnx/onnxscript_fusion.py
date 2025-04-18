@@ -39,4 +39,4 @@ class OnnxScriptFusion(Pass):
         model_ir, function_stats = ort_fusions.optimize_for_ort(model_ir)
         logger.debug("Function stats: %s", function_stats)
         # save the model to the output path and return the model
-        return ir_model_to_olive_model(model_ir, output_model_path)
+        return ir_model_to_olive_model(model_ir, output_model_path, config)

@@ -15,9 +15,9 @@ from typing import Dict, Optional, Tuple, Type, Union
 import onnx
 import torch
 import transformers
+from onnxscript import ir
 from packaging import version
 from transformers.modeling_utils import PreTrainedModel
-from onnxscript import ir
 
 from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
@@ -219,13 +219,11 @@ class OnnxConversion(Pass):
             io_config.dynamic_axes = None
             io_config.dynamic_shapes = None
 
-        onnx_model = None
         # there might be multiple files created during export, so we need to track the dir
         # if there are other processes writing to the same dir, we might end up deleting files created by
         # other processes
         with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
-            tmp_dir_path = Path(tmp_dir)
-            tmp_model_path = resolve_onnx_path(tmp_dir_path)
+            tmp_model_path = resolve_onnx_path(tmp_dir)
 
             torch.onnx.export(
                 pytorch_model,
@@ -244,10 +242,7 @@ class OnnxConversion(Pass):
         if io_config.string_to_int_dim_params:
             for tensor in onnx_model.graph.output:
                 for dim_proto in tensor.type.tensor_type.shape.dim:
-                    if (
-                        dim_proto.HasField("dim_param")
-                        and dim_proto.dim_param in io_config.string_to_int_dim_params
-                    ):
+                    if dim_proto.HasField("dim_param") and dim_proto.dim_param in io_config.string_to_int_dim_params:
                         dim_value = int(dim_proto.dim_param)
                         dim_proto.Clear()
                         dim_proto.dim_value = dim_value
@@ -346,24 +341,33 @@ class OnnxConversion(Pass):
             io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
         )
 
-        # there might be multiple files created during export, so we need to track the dir
-        # if there are other processes writing to the same dir, we might end up deleting files created by
-        # other processes
-        onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
-            pytorch_model,
-            dummy_inputs,
-            # tmp_model_path,  # needed for fallback=True
-            kwargs=dummy_kwargs,
-            opset_version=config.target_opset,
-            input_names=io_config.input_names,
-            output_names=io_config.output_names,
-            dynamic_axes=io_config.dynamic_axes,
-            dynamic_shapes=io_config.dynamic_shapes,
-            dynamo=True,
-            # fallback=True,
-            optimize=config.optimize,
-            report=logger.isEnabledFor(logging.DEBUG),
-        )
+        # Create tempdir for the case when fallback used. This is because when fallback
+        # is taken, the old export always outputs a model. When that happens we need to
+        # load the model back into IR and move all the data from memory
+        with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
+            tmp_model_path = resolve_onnx_path(tmp_dir)
+            onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
+                pytorch_model,
+                dummy_inputs,
+                tmp_model_path,  # needed for fallback=True
+                kwargs=dummy_kwargs,
+                opset_version=config.target_opset,
+                input_names=io_config.input_names,
+                output_names=io_config.output_names,
+                dynamic_axes=io_config.dynamic_axes,
+                dynamic_shapes=io_config.dynamic_shapes,
+                dynamo=True,
+                fallback=True,
+                optimize=config.optimize,
+                report=logger.isEnabledFor(logging.DEBUG),
+            )
+            assert onnx_program is not None
+            model = onnx_program.model
+            # We can run load_to_model on all models: If the model is from dynamo=True,
+            # there is no external tensor so nothing will happen; if the model is from
+            # fallback, the external tensors will be loaded into memory so the tempdir
+            # can be removed.
+            ir.external_data.load_to_model(model)
 
         # Reset to CPU so the resource consumed on GPU could be free.
         if use_gpu:
@@ -372,7 +376,7 @@ class OnnxConversion(Pass):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-        return onnx_program.model
+        return model
 
     @staticmethod
     def _prepare_hf_model(
@@ -550,7 +554,9 @@ class OnnxConversion(Pass):
         # add split information if present
         split_assignments = model_attributes.get("split_assignments")
         if split_assignments:
-            split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
+            split_assignment_encoded = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
+        else:
+            split_assignment_encoded = None
 
         output_model_path = resolve_onnx_path(output_model_path)
 
@@ -558,13 +564,15 @@ class OnnxConversion(Pass):
             ir_model = OnnxConversion._export_pytorch_model_dynamo(
                 pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
             )
-            ir_model.metadata_props["split_assignments"] = split_assignment_str
+            if split_assignment_encoded:
+                ir_model.metadata_props["split_assignments"] = split_assignment_encoded
             output_model = ir_model_to_olive_model(ir_model, output_model_path, config)
         else:
             converted_onnx_model = OnnxConversion._export_pytorch_model_torchscript(
                 pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
             )
-            onnx.helper.set_model_props(converted_onnx_model, {"split_assignments": split_assignment_str})
+            if split_assignment_encoded:
+                onnx.helper.set_model_props(converted_onnx_model, {"split_assignments": split_assignment_encoded})
             # save the model to the output path and return the model
             output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
 
