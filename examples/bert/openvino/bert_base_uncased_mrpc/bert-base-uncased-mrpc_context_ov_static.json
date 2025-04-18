@@ -1,0 +1,45 @@
+{
+    "input_model": { "type": "HfModel", "model_path": "Intel/bert-base-uncased-mrpc", "task": "text-classification" },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "execution_providers": [ "OpenVINOExecutionProvider" ] } ]
+        }
+    },
+    "data_configs": [
+        {
+            "name": "session_params_tuning_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "bert_base_uncased_mrpc_dataset" },
+            "dataloader_config": { "batch_size": 1, "drop_last": true }
+        }
+    ],
+    "passes": {
+        "ov_convert": {
+            "type": "OpenVINOConversion",
+            "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
+            "compress_to_fp16": true,
+            "static": true,
+            "example_input_func": "custom_example_func",
+            "user_script": "user_script.py"
+        },
+        "io_update": {
+            "type": "OpenVINOIoUpdate",
+            "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
+            "static": true
+        },
+        "ov_quantize": {
+            "type": "OpenVINOQuantization",
+            "target_device": "npu",
+            "data_config": "session_params_tuning_data_config",
+            "model_type": "TRANSFORMER",
+            "user_script": "user_script.py",
+            "transform_fn": "custom_transform_func"
+        },
+        "encapsulation": { "type": "OpenVINOEncapsulation", "target_device": "npu", "ov_version": "2025.1" }
+    },
+    "search_strategy": false,
+    "host": "local_system",
+    "evaluate_input_model": false,
+    "output_dir": "models/bert-base-uncased-mrpc_context_ov_static"
+}
