@@ -6,8 +6,7 @@ passes:
   convert:
     type: OnnxConversion
     use_dynamo_exporter: true
-    save_as_external_data: false
-    all_tensors_to_one_file: false
+    save_as_external_data: true
   fusion:
     type: OnnxScriptFusion
 log_severity_level: 1
