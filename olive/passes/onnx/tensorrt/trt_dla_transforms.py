@@ -19,8 +19,8 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-class MatMulToConvTransform(Pass):
-    """Convert 2Dx2D and 3Dx2D MatMul to Transpose-Conv-Transpose"""
+class TrtMatMulToConvTransform(Pass):
+    """Convert 2Dx2D and 3Dx2D MatMul to Transpose-Conv-Transpose to meet HW restriction"""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:

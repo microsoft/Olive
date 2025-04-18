@@ -9,7 +9,7 @@ from onnx import TensorProto, helper
 
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.tensorrt.onnxscript_dla_transforms import MatMulToConvTransform
+from olive.passes.onnx.tensorrt.trt_dla_transforms import TrtMatMulToConvTransform
 
 
 def create_model_with_matmul(tmp_path, input_shape, weight_shape):
@@ -55,7 +55,7 @@ def test_matmul_to_conv_transform(tmp_path):
     input_model = ONNXModelHandler(model_path=model_path)
     output_folder = "output"
 
-    p = create_pass_from_dict(MatMulToConvTransform, {}, disable_search=True)
+    p = create_pass_from_dict(TrtMatMulToConvTransform, {}, disable_search=True)
     output_model = p.run(input_model, output_folder)
 
     transformed_model = output_model.load_model()
