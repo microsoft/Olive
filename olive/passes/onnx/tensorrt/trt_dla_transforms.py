@@ -43,7 +43,7 @@ class TrtMatMulToConvTransform(Pass):
             input_b_rank = len(input_b.shape)
 
             if not ((input_a_rank == 2 and input_b_rank == 2) or (input_a_rank == 3 and input_b_rank == 2)):
-                logger.debug(f"Skipping MatMul with shapes {input_a.shape} x {input_b.shape}")
+                logger.debug("Skipping MatMul with input rank %s", input_a_rank)
                 return op.MatMul(input_a, input_b)
 
             # Step 1: Convert inputs to 4D tensors through unsqueeze as needed
