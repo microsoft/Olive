@@ -535,7 +535,7 @@ class OnnxConversion(Pass):
         pytorch_model.eval()
 
         # get dummy inputs
-        dummy_inputs = self._get_dummy_inputs(model, config)
+        dummy_inputs = _get_dummy_inputs(model, config)
         io_config = model.io_config
 
         model_attributes = deepcopy(model.model_attributes or {})
