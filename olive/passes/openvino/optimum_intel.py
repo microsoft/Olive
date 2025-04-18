@@ -7,7 +7,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List, Type, Union
 
-import nncf
 from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
 
 from olive.common.utils import StrEnumBase
@@ -96,6 +95,10 @@ class OpenVINOOptimumConversion(Pass):
         config: Type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
+        try:
+            import nncf
+        except ImportError:
+            raise ImportError("Please install nncf to use OpenVINO Optimum Conversion") from None
         if not super().validate_config(config, accelerator_spec):
             return False
 
@@ -169,11 +172,18 @@ class OpenVINOOptimumConversion(Pass):
     def _run_for_config(
         self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
     ) -> Union[OpenVINOModelHandler, CompositeModelHandler]:
-        from optimum.exporters.openvino import main_export as export_optimum_intel
-        from optimum.exporters.openvino.__main__ import infer_task, maybe_convert_tokenizers, maybe_load_preprocessors
-        from optimum.exporters.openvino.utils import save_preprocessors
-        from optimum.intel.openvino.configuration import _DEFAULT_4BIT_CONFIG, OVConfig, get_default_int4_config
-        from optimum.intel.utils.modeling_utils import _infer_library_from_model_name_or_path
+        try:
+            from optimum.exporters.openvino import main_export as export_optimum_intel
+            from optimum.exporters.openvino.__main__ import (
+                infer_task,
+                maybe_convert_tokenizers,
+                maybe_load_preprocessors,
+            )
+            from optimum.exporters.openvino.utils import save_preprocessors
+            from optimum.intel.openvino.configuration import _DEFAULT_4BIT_CONFIG, OVConfig, get_default_int4_config
+            from optimum.intel.utils.modeling_utils import _infer_library_from_model_name_or_path
+        except ImportError:
+            raise ImportError("Please install Intel® optimum[openvino] to use OpenVINO Optimum Conversion") from None
 
         extra_args = deepcopy(config.extra_args) if config.extra_args else {}
         extra_args.update(
