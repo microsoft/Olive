@@ -32,7 +32,7 @@ from olive.model import (
 from olive.model.config import IoConfig
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_ir_to_olive_model, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model, model_proto_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
@@ -560,7 +560,7 @@ class OnnxConversion(Pass):
                 pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
             )
             onnx_program.model.metadata_props["split_assignments"] = split_assignment_str
-            output_model = model_ir_to_olive_model(onnx_program.model, output_model_path, config)
+            output_model = ir_model_to_olive_model(onnx_program.model, output_model_path, config)
         else:
             converted_onnx_model = OnnxConversion._export_pytorch_model_torchscript(
                 pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir

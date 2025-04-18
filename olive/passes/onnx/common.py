@@ -197,7 +197,7 @@ def model_proto_to_olive_model(
     return olive_model
 
 
-def model_ir_to_olive_model(
+def ir_model_to_olive_model(
     model: ir.Model,
     output_model_path: Union[str, Path],
     external_initializers_file_name: Optional[str] = None,
