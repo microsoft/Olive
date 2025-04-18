@@ -38,6 +38,5 @@ class OnnxScriptFusion(Pass):
         # TODO(exporter team): Different fusions support different devices
         model_ir, function_stats = ort_fusions.optimize_for_ort(model_ir)
         logger.debug("Function stats: %s", function_stats)
-        model_proto = ir.to_proto(model_ir)
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(model_proto, output_model_path, config)
+        return model_ir_to_olive_model(model_ir, output_model_path)
