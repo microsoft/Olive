@@ -12,10 +12,6 @@ This workflow performs quantization with OpenVINO NNCF. It performs the optimiza
 
 The config file: [bert-base-uncased-mrpc_context_ov_static.json](bert-base-uncased-mrpc_context_ov_static.json) executes the above workflow producing static shape model.
 
-### Dynamic shape model
-
-The config file: [bert-base-uncased-mrpc_context_ov_dynamic.json](bert-base-uncased-mrpc_context_ov_dynamic.json) executes the above workflow producing dynamic shape model.
-
 ## How to run
 
 ### Pip requirements
