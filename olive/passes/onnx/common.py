@@ -9,6 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
+from onnxscript import ir
 import onnx
 from onnx import external_data_helper
 
@@ -192,6 +193,37 @@ def model_proto_to_olive_model(
 
     if check_model:
         onnx.checker.check_model(olive_model.model_path)
+
+    return olive_model
+
+
+def model_ir_to_olive_model(
+    model: ir.Model,
+    output_model_path: Union[str, Path],
+    external_initializers_file_name: Optional[str] = None,
+) -> ONNXModelHandler:
+    """Save the ONNX model to the specified path and return the ONNXModelHandler.
+
+    :param model: The ONNX IR model to save.
+    :param output_model_path: The path to save the ONNX model to.
+    :param external_initializers_file_name: The name of the external data file.
+
+    :return: The ONNXModelHandler.
+    """
+    if external_initializers_file_name:
+        model_path = LocalFolder({"path": Path(output_model_path).parent})
+        onnx_file_name = Path(output_model_path).name
+    else:
+        model_path = LocalFile({"path": output_model_path})
+        onnx_file_name = None
+
+    ir.save(model, output_model_path, external_data=external_initializers_file_name)
+
+    olive_model = ONNXModelHandler(
+        model_path=model_path,
+        onnx_file_name=onnx_file_name,
+        external_initializers_file_name=external_initializers_file_name,
+    )
 
     return olive_model
 
