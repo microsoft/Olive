@@ -223,11 +223,15 @@ def ir_model_to_olive_model(
     if not isinstance(external_data_config, dict):
         external_data_config = external_data_config.dict()
 
-    external_data_name = _get_external_data_name(
-        Path(output_model_path), external_data_config.get("external_data_name")
-    )
+    save_as_external_data = external_data_config.get("save_as_external_data")
 
-    ir.save(model, output_model_path, external_data=external_data_name)
+    if save_as_external_data:
+        external_data_name = _get_external_data_name(
+            Path(output_model_path), external_data_config.get("external_data_name")
+        )
+        ir.save(model, output_model_path, external_data=external_data_name)
+    else:
+        ir.save(model, output_model_path)
 
     if external_data_name:
         logger.debug("Model was saved with external data: %s", external_data_name)
