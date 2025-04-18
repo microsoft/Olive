@@ -336,9 +336,9 @@ class OnnxEvaluatorMixin:
         # when user.config.inference_settings is None, the model.inference_settings
         # will be used in model.prepare_session(..)
         inference_settings = {}
-        model_infrerence_settings = model.inference_settings
-        if model_infrerence_settings:
-            inference_settings.update(model_infrerence_settings)
+        model_inference_settings = model.inference_settings
+        if model_inference_settings:
+            inference_settings.update(model_inference_settings)
 
         metric_inference_settings = metric.get_inference_settings(Framework.ONNX.lower())
         if metric_inference_settings:

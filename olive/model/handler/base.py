@@ -39,7 +39,6 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin):
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[Dict[str, Any]] = None,
         io_config: Union[Dict[str, Any], "IoConfig", str, Callable] = None,
-        generative: bool = False,
     ):
         self.framework = framework
         self.model_file_format = model_file_format
@@ -50,7 +49,6 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin):
             if isinstance(io_config, (IoConfig, dict))
             else io_config
         )
-        self.generative = generative
 
         # store resource paths
         self.resource_paths: Dict[str, str] = {}
