@@ -17,6 +17,7 @@ import torch
 import transformers
 from packaging import version
 from transformers.modeling_utils import PreTrainedModel
+from onnxscript import ir
 
 from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
@@ -31,7 +32,7 @@ from olive.model import (
 from olive.model.config import IoConfig
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, model_ir_to_olive_model, model_proto_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
@@ -165,7 +166,7 @@ class OnnxConversion(Pass):
 
     @staticmethod
     @torch.no_grad()
-    def _export_pytorch_model(
+    def _export_pytorch_model_torchscript(
         pytorch_model: torch.nn.Module,
         dummy_inputs,
         io_config,
@@ -219,106 +220,151 @@ class OnnxConversion(Pass):
             io_config.dynamic_shapes = None
 
         onnx_model = None
-        if config.use_dynamo_exporter:
-            # Take the "release" version so that dev builds like 2.5.0dev1234 are treated as 2.5.0
-            torch_version = version.parse(torch.__version__).release
-            if torch_version < version.parse("2.7.0").release and io_config.dynamic_shapes is not None:
-                logger.warning(
-                    "Dynamic shape support in torch.onnx.export(..., dynamo=True) requires "
-                    "PyTorch version 2.7.0 or later. "
-                    "Please upgrade to PyTorch 2.7.0 or newer if you need dynamic shapes.",
-                )
-            # The "legacy dynamo" is the torch.onnx_dynamo_export API
-            legacy_dynamo_supported_version = version.parse("2.2.0").release
-            # The new "dynamo" api is torch.onnx.export with dynamo=True
-            dynamo_supported_version = version.parse("2.7.0").release
-            if torch_version < legacy_dynamo_supported_version:
-                raise ImportError(
-                    f"torch.onnx.export(..., dynamo=True) is not available for torch version {torch_version}. "
-                    "Please upgrade your torch version to 2.7.0 or above."
-                )
-            from torch._dynamo import config as dynamo_config
+        # there might be multiple files created during export, so we need to track the dir
+        # if there are other processes writing to the same dir, we might end up deleting files created by
+        # other processes
+        with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
+            tmp_dir_path = Path(tmp_dir)
+            tmp_model_path = resolve_onnx_path(tmp_dir_path)
 
-            dynamo_config.capture_scalar_outputs = True
-            if isinstance(dummy_inputs, dict):
-                dummy_kwargs = dummy_inputs
-                dummy_inputs = ()
-            else:
-                dummy_kwargs = {}
-                dummy_inputs = tuple(dummy_inputs)
+            torch.onnx.export(
+                pytorch_model,
+                dummy_inputs,
+                tmp_model_path,
+                export_params=True,
+                opset_version=config.target_opset,
+                input_names=io_config.input_names,
+                output_names=io_config.output_names,
+                dynamic_axes=io_config.dynamic_axes,
+            )
+            onnx_model = onnx.load(tmp_model_path)
+            # the model is loaded into memory, so it's safe to delete previously exported file(s)
 
-            if torch_version < dynamo_supported_version:
-                onnx_program = torch.onnx.dynamo_export(
-                    pytorch_model,
-                    *dummy_inputs,
-                    **dummy_kwargs,
-                    export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
-                )
-                onnx_model = onnx_program.model_proto
-            else:
-                # NOTE: Usually validation is done in io_config.py, but because
-                # dynamic_shapes has nested complexity, and it can't be validated multiple
-                # times like others, we validate it here.
-                io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
-                    io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
-                )
+        # Workaround as described under IoConfig.string_to_int_dim_params: change numeric dim_param to dim_value
+        if io_config.string_to_int_dim_params:
+            for tensor in onnx_model.graph.output:
+                for dim_proto in tensor.type.tensor_type.shape.dim:
+                    if (
+                        dim_proto.HasField("dim_param")
+                        and dim_proto.dim_param in io_config.string_to_int_dim_params
+                    ):
+                        dim_value = int(dim_proto.dim_param)
+                        dim_proto.Clear()
+                        dim_proto.dim_value = dim_value
 
-                # there might be multiple files created during export, so we need to track the dir
-                # if there are other processes writing to the same dir, we might end up deleting files created by
-                # other processes
-                with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
-                    tmp_dir_path = Path(tmp_dir)
-                    tmp_model_path = resolve_onnx_path(tmp_dir_path)
+        # Reset to CPU so the resource consumed on GPU could be free.
+        if use_gpu:
+            pytorch_model.to("cpu")
 
-                    onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
-                        pytorch_model,
-                        dummy_inputs,
-                        tmp_model_path,  # needed for fallback=True
-                        kwargs=dummy_kwargs,
-                        opset_version=config.target_opset,
-                        input_names=io_config.input_names,
-                        output_names=io_config.output_names,
-                        dynamic_axes=io_config.dynamic_axes,
-                        dynamic_shapes=io_config.dynamic_shapes,
-                        dynamo=True,
-                        fallback=True,
-                        optimize=config.optimize,
-                        report=logger.isEnabledFor(logging.DEBUG),
-                    )
-                    assert onnx_program is not None
-                    onnx_model = onnx_program.model_proto
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+        return onnx_model
+
+    @staticmethod
+    @torch.no_grad()
+    def _export_pytorch_model_dynamo(
+        pytorch_model: torch.nn.Module,
+        dummy_inputs,
+        io_config,
+        config: Type[BasePassConfig],
+        device: Union[str, torch.device],
+        torch_dtype: Optional[torch.dtype] = None,
+        tempdir: Optional[Union[Path, str]] = None,
+    ) -> ir.Model:
+        """Export a torch.nn.Module to ONNX and return the loaded ONNX model.
+
+        :param pytorch_model: the torch.nn.Module to export
+        :param dummy_inputs: the dummy inputs to the model. Can be None if using dynamo_exporter
+        :param io_config: the io_config for the model. This consists of the input and output names, and dynamic axes
+        :param config: the config for the pass
+        :param device: the device to use for conversion
+        :param torch_dtype: the dtype to cast the model to before conversion
+        :param tempdir: directory to use for temporary files
+        :param dynamic: whether to export the model with dynamic axes/shapes
+        """
+        from olive.common.hf.peft import make_export_compatible_peft
+        from olive.common.hf.quant import make_export_compatible_quant
+
+        device = torch.device(device)
+        use_gpu = device != torch.device("cpu")
+        if use_gpu and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        logger.debug("Converting model on device %s with dtype %s.", device, torch_dtype)
+        pytorch_model.to(device)
+
+        dummy_inputs = tensor_data_to_dtype(dummy_inputs, torch_dtype)
+        dummy_inputs = tensor_data_to_device(dummy_inputs, device)
+
+        if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
+            pytorch_model = TraceModelWrapper(pytorch_model)
+        pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config.merge_adapter_weights)
+        pytorch_model = make_export_compatible_quant(pytorch_model)
+        # cast to dtype, want all modules including lora layers and quant linears in the same dtype
+        if torch_dtype:
+            pytorch_model = pytorch_model.to(torch_dtype)
+
+        # Apply any necessary patches
+        OnnxConversion._patch_model_if_necessary(pytorch_model)
+
+        # get input and output names, and dynamic axes
+        assert io_config is not None, "Cannot get io_config for the model."
+        io_config = validate_config(io_config, IoConfig)
+        # If dynamic is False, set dynamic_axes and dynamic_shapes to None
+        if not config.dynamic:
+            io_config.dynamic_axes = None
+            io_config.dynamic_shapes = None
+
+        onnx_model = None
+        # Take the "release" version so that dev builds like 2.5.0dev1234 are treated as 2.5.0
+        torch_version = version.parse(torch.__version__).release
+        if torch_version < version.parse("2.7.0").release and io_config.dynamic_shapes is not None:
+            logger.warning(
+                "Dynamic shape support in torch.onnx.export(..., dynamo=True) requires "
+                "PyTorch version 2.7.0 or later. "
+                "Please upgrade to PyTorch 2.7.0 or newer if you need dynamic shapes.",
+            )
+        # The new "dynamo" api is torch.onnx.export with dynamo=True
+        dynamo_supported_version = version.parse("2.6.0").release
+        if torch_version < dynamo_supported_version:
+            raise ImportError(
+                f"torch.onnx.export(..., dynamo=True) is not available for torch version {torch_version}. "
+                "Please upgrade your torch version to 2.6.0 or above."
+            )
+
+        if isinstance(dummy_inputs, dict):
+            dummy_kwargs = dummy_inputs
+            dummy_inputs = ()
         else:
-            # there might be multiple files created during export, so we need to track the dir
-            # if there are other processes writing to the same dir, we might end up deleting files created by
-            # other processes
-            with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
-                tmp_dir_path = Path(tmp_dir)
-                tmp_model_path = resolve_onnx_path(tmp_dir_path)
+            dummy_kwargs = {}
+            dummy_inputs = tuple(dummy_inputs)
 
-                torch.onnx.export(
-                    pytorch_model,
-                    dummy_inputs,
-                    tmp_model_path,
-                    export_params=True,
-                    opset_version=config.target_opset,
-                    input_names=io_config.input_names,
-                    output_names=io_config.output_names,
-                    dynamic_axes=io_config.dynamic_axes,
-                )
-                onnx_model = onnx.load(tmp_model_path)
-                # the model is loaded into memory, so it's safe to delete previously exported file(s)
+        # NOTE: Usually validation is done in io_config.py, but because
+        # dynamic_shapes has nested complexity, and it can't be validated multiple
+        # times like others, we validate it here.
+        io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
+            io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
+        )
 
-            # Workaround as described under IoConfig.string_to_int_dim_params: change numeric dim_param to dim_value
-            if io_config.string_to_int_dim_params:
-                for tensor in onnx_model.graph.output:
-                    for dim_proto in tensor.type.tensor_type.shape.dim:
-                        if (
-                            dim_proto.HasField("dim_param")
-                            and dim_proto.dim_param in io_config.string_to_int_dim_params
-                        ):
-                            dim_value = int(dim_proto.dim_param)
-                            dim_proto.Clear()
-                            dim_proto.dim_value = dim_value
+        # there might be multiple files created during export, so we need to track the dir
+        # if there are other processes writing to the same dir, we might end up deleting files created by
+        # other processes
+        onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
+            pytorch_model,
+            dummy_inputs,
+            # tmp_model_path,  # needed for fallback=True
+            kwargs=dummy_kwargs,
+            opset_version=config.target_opset,
+            input_names=io_config.input_names,
+            output_names=io_config.output_names,
+            dynamic_axes=io_config.dynamic_axes,
+            dynamic_shapes=io_config.dynamic_shapes,
+            dynamo=True,
+            # fallback=True,
+            optimize=config.optimize,
+            report=logger.isEnabledFor(logging.DEBUG),
+        )
 
         # Reset to CPU so the resource consumed on GPU could be free.
         if use_gpu:
@@ -500,22 +546,30 @@ class OnnxConversion(Pass):
         dummy_inputs = self._get_dummy_inputs(model, config)
         io_config = model.io_config
 
-        converted_onnx_model = OnnxConversion._export_pytorch_model(
-            pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
-        )
-
         model_attributes = deepcopy(model.model_attributes or {})
 
         # add split information if present
         split_assignments = model_attributes.get("split_assignments")
         if split_assignments:
             split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
-            onnx.helper.set_model_props(converted_onnx_model, {"split_assignments": split_assignment_str})
 
-        # save the model to the output path and return the model
         output_model_path = resolve_onnx_path(output_model_path)
-        output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
-        output_model.model_attributes = deepcopy(model.model_attributes or {})
+
+        if config.use_dynamo_exporter:
+            onnx_program = OnnxConversion._export_pytorch_model_dynamo(
+                pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
+            )
+            onnx_program.model.metadata_props["split_assignments"] = split_assignment_str
+            output_model = model_ir_to_olive_model(onnx_program.model, output_model_path, config)
+        else:
+            converted_onnx_model = OnnxConversion._export_pytorch_model_torchscript(
+                pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
+            )
+            onnx.helper.set_model_props(converted_onnx_model, {"split_assignments": split_assignment_str})
+            # save the model to the output path and return the model
+            output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
+
+        output_model.model_attributes = model_attributes
         return output_model
 
     @staticmethod
@@ -572,7 +626,7 @@ class OnnxConversion(Pass):
             io_config = None if pass_config.use_dynamo_exporter else olive_pytorch_model.io_config
             pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
 
-            ranked_onnx_modelproto = OnnxConversion._export_pytorch_model(
+            ranked_onnx_modelproto = OnnxConversion._export_pytorch_model_torchscript(
                 pytorch_model,
                 dummy_inputs,
                 io_config,
