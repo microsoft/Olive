@@ -61,9 +61,7 @@ def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
     orig_forward = getattr(pytorch_model, orig_forward_name)
     signature = inspect.signature(orig_forward)
 
-    logits_to_keep_name = (
-        "logits_to_keep" if transformers_version >= version.parse("4.49") else "num_logits_to_keep"
-    )
+    logits_to_keep_name = "logits_to_keep" if transformers_version >= version.parse("4.49") else "num_logits_to_keep"
     # num_logits_to_keep was added in transformers 4.45 and isn't added as inputs when exporting the model
     logits_to_keep_index = (
         list(signature.parameters.keys()).index(logits_to_keep_name)
@@ -83,9 +81,7 @@ def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
         args = list(args) if args else []
         kwargs = kwargs or {}
 
-        if logits_to_keep_name in kwargs or (
-            logits_to_keep_index is not None and len(args) <= logits_to_keep_index
-        ):
+        if logits_to_keep_name in kwargs or (logits_to_keep_index is not None and len(args) <= logits_to_keep_index):
             kwargs[logits_to_keep_name] = 0
         elif logits_to_keep_index is not None:
             args[logits_to_keep_index] = 0
@@ -102,8 +98,7 @@ def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
                 args[pkv_index] = EncoderDecoderCache.from_legacy_cache(args[pkv_index])
             else:
                 raise ValueError(
-                    "past_key_values should have either 2 or 4 elements, "
-                    f"but it has {len(args[pkv_index][0])} elements"
+                    f"past_key_values should have either 2 or 4 elements, but it has {len(args[pkv_index][0])} elements"
                 )
         elif (
             "past_key_values" in kwargs  # pkv is in kwargs

@@ -141,6 +141,10 @@ def model_proto_to_file(
     return True
 
 
+def _get_external_data_name(output_path: Path, external_data_name: Optional[str]) -> str:
+    return external_data_name if external_data_name else f"{output_path.name}.data"
+
+
 def model_proto_to_olive_model(
     model_proto: onnx.ModelProto,
     output_model_path: Union[str, Path],
@@ -204,22 +208,33 @@ def ir_model_to_olive_model(
 ) -> ONNXModelHandler:
     """Save the ONNX model to the specified path and return the ONNXModelHandler.
 
+    When ``save_as_external_data`` in external_data_config is True:
+
+    - If external_data_name is specified, external data will take this name; if
+      not specified, the external data file will be named with <model_path_name>.data
+
     :param model: The ONNX IR model to save.
     :param output_model_path: The path to save the ONNX model to.
-    :param external_initializers_file_name: The name of the external data file.
+    :param external_data_config: The external data configuration. Must be a dictionary with keys
+        "save_as_external_data", "external_data_name".
 
     :return: The ONNXModelHandler.
     """
     if not isinstance(external_data_config, dict):
         external_data_config = external_data_config.dict()
-    external_data_name = external_data_config.get("external_data_name")
+
+    external_data_name = _get_external_data_name(
+        Path(output_model_path), external_data_config.get("external_data_name")
+    )
 
     ir.save(model, output_model_path, external_data=external_data_name)
 
     if external_data_name:
+        logger.debug("Model was saved with external data: %s", external_data_name)
         model_path = LocalFolder({"path": Path(output_model_path).parent})
         onnx_file_name = Path(output_model_path).name
     else:
+        logger.debug("Model was not saved with external data")
         model_path = LocalFile({"path": output_model_path})
         onnx_file_name = None
 
