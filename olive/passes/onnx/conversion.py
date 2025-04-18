@@ -316,7 +316,6 @@ class OnnxConversion(Pass):
             io_config.dynamic_axes = None
             io_config.dynamic_shapes = None
 
-        onnx_model = None
         # Take the "release" version so that dev builds like 2.5.0dev1234 are treated as 2.5.0
         torch_version = version.parse(torch.__version__).release
         if torch_version < version.parse("2.7.0").release and io_config.dynamic_shapes is not None:
