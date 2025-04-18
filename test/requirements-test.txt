@@ -23,8 +23,10 @@ onnxconverter_common
 onnxmltools
 onnxoptimizer
 onnxruntime_extensions
-openvino>=2023.2.0
-optimum>=1.17.0
+onnxscript>=0.2.4
+openvino>=2025.1.0
+optimum[openvino]>=1.17.0
+optuna
 pandas
 peft
 plotly
