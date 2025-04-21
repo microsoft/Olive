@@ -64,12 +64,8 @@ $PYTHON_PATH = Join-Path (Join-Path $FILES_DIR $PY_ENV_NAME) "python.exe"
 if ($PY_VERSION -eq "3.6") {
     & $PYTHON_PATH -m pip install onnx==1.11.0 onnx-simplifier packaging tensorflow==1.15.0 pyyaml pandas==1.1.5 numpy==1.18.5 $PIP_EXTRA_ARGS
 }
-elseif ($PY_VERSION -eq "3.8") {
-    & $PYTHON_PATH -m pip install onnx onnx-simplifier packaging tensorflow==2.10.1 pyyaml pandas==1.1.5 numpy==1.23.5 $PIP_EXTRA_ARGS
-}
 else {
-    Write-Host "Unsupported python version: $PY_VERSION, only 3.6 and 3.8 are supported"
-    exit 1
+    & $PYTHON_PATH -m pip install onnx onnx-simplifier packaging tensorflow==2.10.1 pyyaml pandas==1.1.5 numpy==1.23.5 $PIP_EXTRA_ARGS
 }
 ExitOnFailure
 
