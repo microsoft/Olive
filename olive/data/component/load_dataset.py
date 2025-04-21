@@ -2,7 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Mapping, Optional, Sequence, Union
+from collections.abc import Mapping, Sequence
+from typing import Optional, Union
 
 from olive.constants import Framework
 from olive.data.component.dataset import DummyDataset, RawDataset, TransformersDummyDataset

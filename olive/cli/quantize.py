@@ -9,7 +9,7 @@
 import logging
 from argparse import ArgumentParser
 from copy import deepcopy
-from typing import Any, Dict
+from typing import Any
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -175,7 +175,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             if v is not None:
                 set_nested_dict_value(config, k, v)
 
-    def _get_run_config(self, tempdir: str) -> Dict[str, Any]:
+    def _get_run_config(self, tempdir: str) -> dict[str, Any]:
         config = deepcopy(TEMPLATE)
         update_input_model_options(self.args, config)
         update_dataset_options(self.args, config)

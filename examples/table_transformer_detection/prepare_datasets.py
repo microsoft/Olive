@@ -10,7 +10,6 @@ import json
 import random
 import shutil
 from pathlib import Path
-from typing import Dict, List
 
 # Path to Detection\annotations\tablebank_latex_val.json
 tablebank_json_path = Path(r"path_to_tablebank_latex_val.json")
@@ -22,9 +21,9 @@ output_json_path = output_root_dir / "tablebank_latex_val_small.json"
 output_image_dir = output_root_dir / "tablebank_latex_val_small_images"
 
 with tablebank_json_path.open("r", encoding="utf-8") as f:
-    data: Dict = json.load(f)
-images: List[Dict] = data["images"]
-annotations: List[Dict] = data["annotations"]
+    data: dict = json.load(f)
+images: list[dict] = data["images"]
+annotations: list[dict] = data["annotations"]
 
 # Randomly select 256 images
 selected_images = random.sample(images, 256)

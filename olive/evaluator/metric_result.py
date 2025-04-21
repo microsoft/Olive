@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-from typing import ClassVar, Dict, Union
+from typing import ClassVar, Union
 
 from olive.common.config_utils import ConfigBase, ConfigDictBase
 
@@ -15,7 +15,7 @@ class SubMetricResult(ConfigBase):
 
 
 class MetricResult(ConfigDictBase):
-    __root__: Dict[str, SubMetricResult]
+    __root__: dict[str, SubMetricResult]
     delimiter: ClassVar[str] = "-"
 
     def get_value(self, metric_name, sub_type_name):
@@ -35,7 +35,7 @@ def joint_metric_key(metric_name, sub_type_name):
     return f"{metric_name}{MetricResult.delimiter}{sub_type_name}"
 
 
-def flatten_metric_sub_type(metric_dict: Dict[str, Dict]):
+def flatten_metric_sub_type(metric_dict: dict[str, dict]):
     flatten_results = {}
     for metric_name, metric_res in metric_dict.items():
         for sub_type_name, sub_type_res in metric_res.items():
@@ -44,5 +44,5 @@ def flatten_metric_sub_type(metric_dict: Dict[str, Dict]):
     return flatten_results
 
 
-def flatten_metric_result(dict_results: Dict[str, MetricResult]):
+def flatten_metric_result(dict_results: dict[str, MetricResult]):
     return MetricResult.parse_obj(flatten_metric_sub_type(dict_results))

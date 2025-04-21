@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Dict, List, Union
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 from onnxruntime import OrtValue
@@ -20,8 +20,8 @@ class Cache(ABC):
 
     def __init__(
         self,
-        past_names: List[str],
-        present_names: List[str],
+        past_names: list[str],
+        present_names: list[str],
         batch_size: int,
         num_kv_heads: int,
         head_dim: int,
@@ -45,7 +45,7 @@ class Cache(ABC):
         self.dtype = dtype
 
     @abstractmethod
-    def update(self, present_kvs: List["NDArray"]):
+    def update(self, present_kvs: list["NDArray"]):
         """Update the cache with the present key-value tensors.
 
         :param present_kvs: List of present key-value tensors. This must be past key-value tensors
@@ -54,7 +54,7 @@ class Cache(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_kv_inputs(self) -> Dict[str, "NDArray"]:
+    def get_kv_inputs(self) -> dict[str, "NDArray"]:
         """Get the key-value tensors to be used as inputs for the next step."""
         raise NotImplementedError
 
@@ -67,8 +67,8 @@ class DynamicCache(Cache):
 
     def __init__(
         self,
-        past_names: List[str],
-        present_names: List[str],
+        past_names: list[str],
+        present_names: list[str],
         batch_size: int,
         num_kv_heads: int,
         head_dim: int,
@@ -91,7 +91,7 @@ class DynamicCache(Cache):
             for k in self.past_names
         }
 
-    def update(self, present_kvs: List["NDArray"]):
+    def update(self, present_kvs: list["NDArray"]):
         """Update the cache with the present key-value tensors.
 
         :param present_kvs: List of present key-value tensors.
@@ -99,7 +99,7 @@ class DynamicCache(Cache):
         for k, v in zip(self.past_names, present_kvs):
             self.cache[k] = v
 
-    def get_kv_inputs(self) -> Dict[str, "NDArray"]:
+    def get_kv_inputs(self) -> dict[str, "NDArray"]:
         """Get the key-value tensors to be used as inputs for the next step.
 
         :return: Dictionary of key-value tensors.
@@ -116,8 +116,8 @@ class StaticCache(Cache):
 
     def __init__(
         self,
-        past_names: List[str],
-        present_names: List[str],
+        past_names: list[str],
+        present_names: list[str],
         batch_size: int,
         num_kv_heads: int,
         head_dim: int,
@@ -145,7 +145,7 @@ class StaticCache(Cache):
         # keep track of the length of the cache
         self.seen_len = 0
 
-    def update(self, present_kvs: List["NDArray"]):
+    def update(self, present_kvs: list["NDArray"]):
         """Update the cache with the present key-value tensors.
 
         At the prompt processing step, i.e., when the cache is empty, the present key-value tensors can have any length
@@ -176,7 +176,7 @@ class StaticCache(Cache):
             self.cache[k][:, :, self.seen_len] = v[:, :, -1]
         self.seen_len += 1
 
-    def get_kv_inputs(self) -> Dict[str, "NDArray"]:
+    def get_kv_inputs(self) -> dict[str, "NDArray"]:
         """Get the key-value tensors to be used as inputs for the next step.
 
         During prompt processing, this returns an kev-value tensors with 0 length.
@@ -199,8 +199,8 @@ class IOBoundCache(ABC):
 
     def __init__(
         self,
-        past_names: List[str],
-        present_names: List[str],
+        past_names: list[str],
+        present_names: list[str],
         batch_size: int,
         num_kv_heads: int,
         head_dim: int,
@@ -265,7 +265,7 @@ class IOBoundCache(ABC):
         return self.get_empty_ortvalue(*shape)
 
     @abstractmethod
-    def update(self, present_kvs: List[OrtValue]):
+    def update(self, present_kvs: list[OrtValue]):
         """Update the cache with the present key-value tensors.
 
         :param present_kvs: List of present key-value tensors as OrtValue.
@@ -288,8 +288,8 @@ class DynamicIOBoundCache(IOBoundCache):
 
     def __init__(
         self,
-        past_names: List[str],
-        present_names: List[str],
+        past_names: list[str],
+        present_names: list[str],
         batch_size: int,
         num_kv_heads: int,
         head_dim: int,
@@ -321,7 +321,7 @@ class DynamicIOBoundCache(IOBoundCache):
         }
         # won't pre-allocate output cache since shape is dynamic and we can just bind the output
 
-    def update(self, present_kvs: List[OrtValue]):
+    def update(self, present_kvs: list[OrtValue]):
         """Update the cache with the present key-value tensors.
 
         :param present_kvs: List of present key-value tensors as OrtValue.
@@ -354,8 +354,8 @@ class StaticIOBoundCache(IOBoundCache):
 
     def __init__(
         self,
-        past_names: List[str],
-        present_names: List[str],
+        past_names: list[str],
+        present_names: list[str],
         batch_size: int,
         num_kv_heads: int,
         head_dim: int,
@@ -399,7 +399,7 @@ class StaticIOBoundCache(IOBoundCache):
         # keep track of the length of the cache
         self.seen_len = 0
 
-    def update(self, present_kvs: List[OrtValue]):
+    def update(self, present_kvs: list[OrtValue]):
         """Update the cache with the present key-value tensors.
 
         At the prompt processing step, i.e., when the cache is empty, the present key-value tensors can have any length
@@ -498,8 +498,8 @@ class GQASharedCache(IOBoundCache):
 
     def __init__(
         self,
-        past_names: List[str],
-        present_names: List[str],
+        past_names: list[str],
+        present_names: list[str],
         batch_size: int,
         num_kv_heads: int,
         head_dim: int,
@@ -539,7 +539,7 @@ class GQASharedCache(IOBoundCache):
             for k in self.past_names
         }
 
-    def update(self, present_kvs: List[OrtValue]):
+    def update(self, present_kvs: list[OrtValue]):
         """Update the cache with the present key-value tensors.
 
         Expects the present key-value tensors to be the same as the cache tensors.

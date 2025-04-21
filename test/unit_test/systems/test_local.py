@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from functools import partial
-from typing import ClassVar, List
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -38,7 +38,7 @@ class TestLocalSystem:
         # assert
         p.run.assert_called_once_with(olive_model.create_model(), output_model_path)
 
-    METRIC_TEST_CASE: ClassVar[List[Metric]] = [
+    METRIC_TEST_CASE: ClassVar[list[Metric]] = [
         (partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE)),
         (partial(get_accuracy_metric, AccuracySubType.F1_SCORE)),
         (partial(get_accuracy_metric, AccuracySubType.PRECISION)),

@@ -5,8 +5,9 @@
 import inspect
 import logging
 import math
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Mapping, Optional, Sequence, Tuple, Type
+from typing import Any, ClassVar, Optional
 
 import numpy as np
 import onnx
@@ -31,7 +32,7 @@ class Surgeon:
     # Refer to https://microsoft.github.io/onnxscript/intermediate_representation/ir_api.html#onnxscript.ir.Model
     # for the IR model API.
 
-    registry: ClassVar[Dict[str, Type["Surgeon"]]] = {}
+    registry: ClassVar[dict[str, type["Surgeon"]]] = {}
 
     @classmethod
     def __init_subclass__(cls, **kwargs):
@@ -66,7 +67,7 @@ class ProtoSurgeon(Surgeon):
         return None
 
     @staticmethod
-    def get_tensor_shapes(model) -> Dict[str, List[int]]:
+    def get_tensor_shapes(model) -> dict[str, list[int]]:
         return {info.name: [x.dim_value for x in info.type.tensor_type.shape.dim] for info in model.graph.value_info}
 
     @staticmethod
@@ -78,7 +79,7 @@ class ProtoSurgeon(Surgeon):
         return {initializer.name: initializer.data_type for initializer in model.graph.initializer}
 
     @staticmethod
-    def get_initializer_shapes(model) -> Dict[str, List[int]]:
+    def get_initializer_shapes(model) -> dict[str, list[int]]:
         return {initializer.name: initializer.dims for initializer in model.graph.initializer}
 
     @staticmethod
@@ -94,7 +95,7 @@ class ProtoSurgeon(Surgeon):
 
 
 class RenameInputs(Surgeon):
-    def __init__(self, old_names: List[str], new_names: List[str]):
+    def __init__(self, old_names: list[str], new_names: list[str]):
         self.old_names = old_names
         self.new_names = new_names
 
@@ -107,7 +108,7 @@ class RenameInputs(Surgeon):
 
 
 class RenameOutputs(Surgeon):
-    def __init__(self, old_names: List[str], new_names: List[str]):
+    def __init__(self, old_names: list[str], new_names: list[str]):
         self.old_names = old_names
         self.new_names = new_names
 
@@ -560,7 +561,7 @@ class RMSNormToL2Norm(ProtoSurgeon):
         return dag.model
 
     @staticmethod
-    def get_rmsnorm_nodes(pow_node: str, dag: OnnxDAG) -> Optional[List[str]]:
+    def get_rmsnorm_nodes(pow_node: str, dag: OnnxDAG) -> Optional[list[str]]:
         # Two possible patterns:
         # x / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div
         # x * 1 / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div -> Mul
@@ -847,7 +848,7 @@ class MatMulAddToGemm(ProtoSurgeon):
 
     @staticmethod
     def add_reshape_node(
-        dag: OnnxDAG, graph_idx: int, node_name: str, input_name: str, target_shape: List[int], output_elem_type: int
+        dag: OnnxDAG, graph_idx: int, node_name: str, input_name: str, target_shape: list[int], output_elem_type: int
     ) -> str:
         """Add a reshape node to the graph.
 
@@ -1090,10 +1091,10 @@ class GraphSurgeries(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "surgeries": PassConfigParam(
-                type_=List[Dict[str, Any]],
+                type_=list[dict[str, Any]],
                 default_value=[],
                 required=True,
                 description="List of surgeries to apply, each with its type and parameters",
@@ -1102,7 +1103,7 @@ class GraphSurgeries(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
@@ -1139,7 +1140,7 @@ class GraphSurgeries(Pass):
         return surgeon_class(**init_params)
 
     @staticmethod
-    def get_surgeon_parameters(surgeon_class: Type[Surgeon]) -> Tuple[List[str], List[str]]:
+    def get_surgeon_parameters(surgeon_class: type[Surgeon]) -> tuple[list[str], list[str]]:
         parameters = inspect.signature(surgeon_class.__init__).parameters
 
         positional_args = [

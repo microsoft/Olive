@@ -5,7 +5,7 @@
 
 import inspect
 import os
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import onnxruntime as ort
@@ -19,7 +19,7 @@ from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 # ruff: noqa: T201
 
 
-def update_qdq_config(config: Dict, provider: str, submodel_name: str):
+def update_qdq_config(config: dict, provider: str, submodel_name: str):
     used_passes = {}
     if sd_utils.config.only_conversion:
         used_passes = {"convert"}
@@ -51,12 +51,12 @@ def update_qdq_config(config: Dict, provider: str, submodel_name: str):
 class OnnxStableDiffusionPipelineWithSave(OnnxStableDiffusionPipeline):
     def __call__(
         self,
-        prompt: Union[str, List[str]] = None,
+        prompt: Union[str, list[str]] = None,
         height: Optional[int] = 512,
         width: Optional[int] = 512,
         num_inference_steps: Optional[int] = 50,
         guidance_scale: Optional[float] = 7.5,
-        negative_prompt: Optional[Union[str, List[str]]] = None,
+        negative_prompt: Optional[Union[str, list[str]]] = None,
         num_images_per_prompt: Optional[int] = 1,
         eta: Optional[float] = 0.0,
         generator: Optional[np.random.RandomState] = None,

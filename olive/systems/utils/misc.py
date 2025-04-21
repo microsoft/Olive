@@ -10,7 +10,7 @@ import tempfile
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from olive.common.constants import OS
 from olive.common.utils import hash_dir, run_subprocess
@@ -143,8 +143,8 @@ def create_managed_system(system_config: "SystemConfig", accelerator: "Accelerat
 
 
 def create_new_environ(
-    environment_variables: Optional[Dict[str, str]] = None,
-    prepend_to_path: Optional[List[str]] = None,
+    environment_variables: Optional[dict[str, str]] = None,
+    prepend_to_path: Optional[list[str]] = None,
     python_environment_path: Optional[Union[Path, str]] = None,
 ):
     """Create a copy of the current environment with the given environment variables and paths prepended."""
@@ -162,7 +162,7 @@ def create_new_environ(
     return environ
 
 
-def run_available_providers_runner(environ: Dict) -> List[str]:
+def run_available_providers_runner(environ: dict) -> list[str]:
     """Run the available providers runner script with the given environment and return the available providers."""
     runner_path = Path(__file__).parent / "available_providers_runner.py"
     python_path = shutil.which("python", path=environ["PATH"])

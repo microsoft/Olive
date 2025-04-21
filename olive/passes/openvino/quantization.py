@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, List, Type, Union
+from typing import TYPE_CHECKING, Callable, Union
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import StrEnumBase, hardlink_copy_dir, hardlink_copy_file
@@ -66,11 +66,11 @@ class OpenVINOQuantizationBase(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description="Data config for calibration.",
             ),
@@ -91,7 +91,7 @@ class OpenVINOQuantizationBase(Pass):
                 description="Defines quantization scheme for the model. Supported values: 'PERFORMANCE', 'MIXED'.",
             ),
             "ignored_scope": PassConfigParam(
-                type_=Union[str, List[str]],
+                type_=Union[str, list[str]],
                 required=False,
                 default_value=None,
                 description=(
@@ -123,7 +123,7 @@ class OpenVINOQuantizationBase(Pass):
                 description="Transform function for the input data.",
             ),
             "extra_configs": PassConfigParam(
-                type_=List[Dict],
+                type_=list[dict],
                 required=False,
                 description=(
                     "Extra configurations for OpenVINO model quantization. Please refer to "
@@ -195,7 +195,7 @@ class OpenVINOQuantizationBase(Pass):
 
 class OpenVINOQuantization(OpenVINOQuantizationBase):
     def _run_for_config(
-        self, model: OpenVINOModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: OpenVINOModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> OpenVINOModelHandler:
         try:
             import nncf
@@ -226,7 +226,7 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
 
 class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "validation_func": PassConfigParam(
                 type_=Union[Callable, str],
@@ -262,7 +262,7 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
         return config
 
     def _run_for_config(
-        self, model: OliveModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: OliveModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> OliveModelHandler:
         try:
             import nncf

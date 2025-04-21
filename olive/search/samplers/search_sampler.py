@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from abc import abstractmethod
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
 
 from olive.common.auto_config import AutoConfigClass
 from olive.common.config_utils import ConfigBase, ConfigParam
@@ -18,10 +18,10 @@ if TYPE_CHECKING:
 class SearchSampler(AutoConfigClass):
     """Abstract base class for searchers."""
 
-    registry: ClassVar[Dict[str, Type["SearchSampler"]]] = {}
+    registry: ClassVar[dict[str, type["SearchSampler"]]] = {}
 
     @classmethod
-    def _default_config(cls) -> Dict[str, ConfigParam]:
+    def _default_config(cls) -> dict[str, ConfigParam]:
         return {
             "max_samples": ConfigParam(
                 type_=int,
@@ -33,8 +33,8 @@ class SearchSampler(AutoConfigClass):
     def __init__(
         self,
         search_space: SearchSpace,
-        config: Optional[Union[Dict[str, Any], ConfigBase]] = None,
-        objectives: Dict[str, Dict[str, Any]] = None,
+        config: Optional[Union[dict[str, Any], ConfigBase]] = None,
+        objectives: dict[str, dict[str, Any]] = None,
     ):
         super().__init__(config)
 

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Dict, Tuple, Union
+from typing import Union
 
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourcePath, ResourcePathConfig, create_resource_path
 
@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 class ResourceMixin:
     """Provide the resource functionalities for the model handler."""
 
-    resource_keys: Tuple[str, ...] = None
+    resource_keys: tuple[str, ...] = None
 
-    def add_resources(self, local_args: Dict[str, str]):
+    def add_resources(self, local_args: dict[str, str]):
         resources = {r: local_args[r] for r in self.resource_keys if r in local_args}
         self._add_resources(resources)
 
@@ -54,14 +54,14 @@ class ResourceMixin:
         return resource
 
     @classmethod
-    def get_resource_keys(cls) -> Tuple[str]:
+    def get_resource_keys(cls) -> tuple[str]:
         """Get all resource keys.
 
         :return: all resource keys.
         """
         return cls.resource_keys
 
-    def _add_resources(self, resources: Dict[str, OLIVE_RESOURCE_ANNOTATIONS]):
+    def _add_resources(self, resources: dict[str, OLIVE_RESOURCE_ANNOTATIONS]):
         for resource_name, resource_path in resources.items():
             if resource_path is not None:
                 resolved_resource_path = create_resource_path(resource_path)

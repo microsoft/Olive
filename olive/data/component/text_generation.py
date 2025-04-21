@@ -5,7 +5,7 @@
 
 from pathlib import Path
 from random import Random
-from typing import Callable, Dict, List, Union
+from typing import Callable, Union
 
 import transformers
 
@@ -61,7 +61,7 @@ class TextGenParams(ConfigBase):
     # a python f-string template for the text with {column_name} as placeholders
     text_template: str = None
     # list of text columns, columns are concatenated together using a space
-    text_cols: Union[str, List[str]] = "text"
+    text_cols: Union[str, list[str]] = "text"
     # in JOIN strategies, the rows of text_cols are concatenated together
     strategy: TextGenStrategy = TextGenStrategy.JOIN
     stride: int = None  # required when strategy is JOIN_SLIDING_WINDOW
@@ -363,12 +363,12 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
 
 
 def get_text(
-    example: Dict[str, str],
+    example: dict[str, str],
     chat_template: Union[bool, str] = None,
     message_col: str = "messages",
     formatting_func: Callable = None,
     template: str = None,
-    cols: List[str] = None,
+    cols: list[str] = None,
     add_special_tokens: bool = False,
     tokenizer: transformers.PreTrainedTokenizer = None,
 ):

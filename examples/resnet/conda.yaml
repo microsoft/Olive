@@ -2,7 +2,7 @@ name: project_environment
 channels:
   - defaults
 dependencies:
-  - python=3.8.13
+  - python=3.9.21
   - pip=20.2
   - pip:
       - onnxruntime

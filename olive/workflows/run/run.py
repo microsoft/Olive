@@ -8,7 +8,7 @@ import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from olive.common.utils import set_tempdir
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
@@ -309,7 +309,7 @@ def check_local_ort_installation(package_name: str):
     return None
 
 
-def get_local_ort_packages() -> List[str]:
+def get_local_ort_packages() -> list[str]:
     all_packages = importlib.metadata.distributions()
     local_ort_packages = []
     for package in all_packages:
@@ -324,7 +324,7 @@ def get_local_ort_packages() -> List[str]:
     return local_ort_packages
 
 
-def get_used_passes_configs(run_config: RunConfig) -> List["RunPassConfig"]:
+def get_used_passes_configs(run_config: RunConfig) -> list["RunPassConfig"]:
     return (
         [pass_config for _, pass_configs in run_config.passes.items() for pass_config in pass_configs]
         if run_config.passes

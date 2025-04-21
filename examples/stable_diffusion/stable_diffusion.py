@@ -8,7 +8,6 @@ import shutil
 import sys
 import warnings
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import torch
@@ -176,7 +175,7 @@ def run_inference_gui(
     window.mainloop()
 
 
-def update_config_with_provider(config: Dict, provider: str, model_format: str, submodel_name: str):
+def update_config_with_provider(config: dict, provider: str, model_format: str, submodel_name: str):
     if provider == "dml":
         from sd_utils.ort import update_dml_config
 

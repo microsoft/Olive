@@ -7,7 +7,7 @@ import shutil
 import tempfile
 from functools import partial
 from pathlib import Path
-from typing import ClassVar, List
+from typing import ClassVar
 from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pytest
@@ -75,7 +75,7 @@ class TestAzureMLSystem:
             "type": "HfModel",
         }
 
-    METRIC_TEST_CASE: ClassVar[List[Metric]] = [
+    METRIC_TEST_CASE: ClassVar[list[Metric]] = [
         (partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE)),
         (partial(get_accuracy_metric, AccuracySubType.F1_SCORE)),
         (partial(get_accuracy_metric, AccuracySubType.PRECISION)),

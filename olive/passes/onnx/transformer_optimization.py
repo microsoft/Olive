@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Type, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import onnx
 
@@ -45,7 +45,7 @@ class OrtTransformersOptimization(Pass):
         return version.parse(OrtVersion) < version.parse("1.17.0")
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         from onnxruntime.transformers.fusion_options import FusionOptions
 
         # if device is GPU, but user choose CPU EP, the is_gpu should be False
@@ -71,7 +71,7 @@ class OrtTransformersOptimization(Pass):
             "hidden_size": PassConfigParam(type_=int, default_value=0, description="Number of hidden nodes."),
             # TODO(jambayk): Figure out what the expected type is
             "optimization_options": PassConfigParam(
-                type_=Union[Dict[str, Any], FusionOptions],
+                type_=Union[dict[str, Any], FusionOptions],
                 default_value=None,
                 description="Optimization options that turn on/off some fusions.",
             ),
@@ -104,17 +104,17 @@ class OrtTransformersOptimization(Pass):
                 ),
             ),
             "force_fp32_ops": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=None,
                 description="Operators that are forced to run in float32. Only used when float16 is True.",
             ),
             "force_fp32_nodes": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=None,
                 description="Nodes that are forced to run in float32. Only used when float16 is True.",
             ),
             "force_fp16_inputs": PassConfigParam(
-                type_=Dict[str, List[int]],
+                type_=dict[str, list[int]],
                 default_value=None,
                 description=(
                     "Force the conversion of the inputs of some operators to float16, even if"
@@ -138,7 +138,7 @@ class OrtTransformersOptimization(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
         if not super().validate_config(config, accelerator_spec):
@@ -175,7 +175,7 @@ class OrtTransformersOptimization(Pass):
         return True
 
     @staticmethod
-    def _set_fusion_options(run_config: Dict[str, Any]):
+    def _set_fusion_options(run_config: dict[str, Any]):
         from onnxruntime.transformers.fusion_options import FusionOptions
 
         fusion_options = FusionOptions(run_config["model_type"])
@@ -205,7 +205,7 @@ class OrtTransformersOptimization(Pass):
         run_config["optimization_options"] = fusion_options
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime.transformers import optimizer as transformers_optimizer
 

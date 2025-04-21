@@ -8,7 +8,7 @@ import logging
 from functools import partial
 from pathlib import Path
 from types import FunctionType, MethodType
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Optional, TypeVar, Union
 
 import yaml
 
@@ -127,7 +127,7 @@ class ConfigBase(BaseModel):
 
 
 class ConfigListBase(ConfigBase):
-    __root__: List[Any]
+    __root__: list[Any]
 
     def __iter__(self):
         return iter(self.__root__)
@@ -140,7 +140,7 @@ class ConfigListBase(ConfigBase):
 
 
 class ConfigDictBase(ConfigBase):
-    __root__: Dict[str, Any]
+    __root__: dict[str, Any]
 
     def __iter__(self):
         return iter(self.__root__)
@@ -283,10 +283,10 @@ def validate_lowercase(v):
 
 def create_config_class(
     class_name: str,
-    default_config: Dict[str, ConfigParam],
+    default_config: dict[str, ConfigParam],
     base: type = ConfigBase,
-    validators: Dict[str, Callable] = None,
-) -> Type[ConfigBase]:
+    validators: dict[str, Callable] = None,
+) -> type[ConfigBase]:
     """Create a Pydantic model class from a configuration dictionary."""
     config = {}
     validators = validators.copy() if validators else {}
@@ -314,8 +314,8 @@ T = TypeVar("T", bound=ConfigBase)
 
 
 def validate_config(
-    config: Union[Dict[str, Any], ConfigBase, None],
-    instance_class: Type[T],
+    config: Union[dict[str, Any], ConfigBase, None],
+    instance_class: type[T],
     warn_unused_keys: bool = True,
 ) -> T:
     """Validate a config dictionary or object against a base class and instance class.
@@ -361,8 +361,8 @@ def convert_configs_to_dicts(config: Any) -> Any:
 
 
 def get_the_flattened_and_tree_spec(
-    dynamic_shapes: Union[Dict[str, Any], List[Any]], leave_is_str: bool = False
-) -> Tuple[List[Any], Any]:
+    dynamic_shapes: Union[dict[str, Any], list[Any]], leave_is_str: bool = False
+) -> tuple[list[Any], Any]:
     """Flattens a pytree into a list of values and a TreeSpec that can be used to reconstruct the pytree."""
     # More info: https://github.com/pytorch/pytorch/blob/48203bec636692e1a9140fe7f23ba1323b19550d/torch/utils/_pytree.py#L985
     from torch.utils import _pytree

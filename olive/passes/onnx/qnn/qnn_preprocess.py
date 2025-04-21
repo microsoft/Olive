@@ -5,7 +5,6 @@
 
 import logging
 from pathlib import Path
-from typing import Dict, Type
 
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -21,7 +20,7 @@ class QNNPreprocess(Pass):
     """Preprocess ONNX model for quantization targeting QNN Execution Provider."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "fuse_layernorm": PassConfigParam(
                 type_=bool,
@@ -75,7 +74,7 @@ class QNNPreprocess(Pass):
     def _run_for_config(
         self,
         model: ONNXModelHandler,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
