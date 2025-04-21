@@ -467,7 +467,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">transformers</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">packaging</span><span class="w"> </span><span class="kn">import</span> <span class="n">version</span>
@@ -557,7 +557,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run LoRA fine-tuning on a Hugging Face PyTorch model.&quot;&quot;&quot;</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="s2">&quot;r&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
@@ -569,7 +569,7 @@ window.addEventListener("load", () => mermaid.run());
             <span class="s2">&quot;lora_dropout&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The dropout probability for Lora layers.&quot;</span>
             <span class="p">),</span>
-            <span class="s2">&quot;target_modules&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Target modules&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;target_modules&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Target modules&quot;</span><span class="p">),</span>
             <span class="s2">&quot;modules_to_save&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -604,17 +604,17 @@ window.addEventListener("load", () => mermaid.run());
             <span class="p">),</span>
             <span class="c1"># data parameters</span>
             <span class="s2">&quot;train_data_config&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">DataConfig</span><span class="p">,</span> <span class="n">Dict</span><span class="p">],</span>
+                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">DataConfig</span><span class="p">,</span> <span class="nb">dict</span><span class="p">],</span>
                 <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Data config for fine-tuning training.&quot;</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="s2">&quot;eval_data_config&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">DataConfig</span><span class="p">,</span> <span class="n">Dict</span><span class="p">],</span>
+                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">DataConfig</span><span class="p">,</span> <span class="nb">dict</span><span class="p">],</span>
                 <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Data config for fine-tuning evaluation. Optional if evaluation is not needed.&quot;</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="c1"># training parameters</span>
             <span class="s2">&quot;training_args&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">HFTrainingArguments</span><span class="p">,</span> <span class="n">Dict</span><span class="p">],</span>
+                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">HFTrainingArguments</span><span class="p">,</span> <span class="nb">dict</span><span class="p">],</span>
                 <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">description</span><span class="o">=</span><span class="p">(</span>
                     <span class="s2">&quot;Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.&quot;</span>
@@ -623,7 +623,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">}</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">check_dependencies</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">is_qlora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_dependencies</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">is_qlora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Check dependencies for the pass.&quot;&quot;&quot;</span>
         <span class="c1"># bitsandbytes quantization only supported after transformers 4.30.0</span>
         <span class="k">if</span> <span class="n">is_qlora</span> <span class="ow">and</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">transformers</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;4.30.0&quot;</span><span class="p">):</span>
@@ -645,7 +645,7 @@ window.addEventListener("load", () => mermaid.run());
 
     <span class="c1"># TODO(jambayk): consider introducing a data collator component for data container</span>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">collate_batch</span><span class="p">(</span><span class="n">batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">tokenizer</span><span class="p">:</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">&quot;torch.Tensor&quot;</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">collate_batch</span><span class="p">(</span><span class="n">batch</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">tokenizer</span><span class="p">:</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">&quot;torch.Tensor&quot;</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Collate a batch of samples into a padded batch of tensors.</span>
 
 <span class="sd">        Add padding to the input_ids, attention_mask and labels.</span>
@@ -678,7 +678,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">new_batch</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_datasets</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="s2">&quot;Dataset&quot;</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Dataset&quot;</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_datasets</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="s2">&quot;Dataset&quot;</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;Dataset&quot;</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load training and evaluation datasets.&quot;&quot;&quot;</span>
         <span class="c1"># we return dataset.Dataset object since the trainer works better with it</span>
         <span class="c1"># load training dataset</span>
@@ -692,12 +692,12 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">train_dataset</span><span class="p">,</span> <span class="n">eval_dataset</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_for_config</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_lora_training</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_lora_training</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">use_dora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">use_dora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
         <span class="c1"># check dependencies</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">check_dependencies</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
@@ -727,7 +727,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">load_base_pytorch_model</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model_handler</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model_handler</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a base PyTorch model for fine-tuning.</span>
 
@@ -752,7 +752,7 @@ window.addEventListener("load", () => mermaid.run());
     <span class="k">def</span><span class="w"> </span><span class="nf">init_adapters</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span>
-        <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span>
+        <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">task</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">use_loftq</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
@@ -787,7 +787,7 @@ window.addEventListener("load", () => mermaid.run());
     <span class="k">def</span><span class="w"> </span><span class="nf">enable_lora</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span>
-        <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span>
+        <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span>
         <span class="n">task</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">use_dora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">adapter_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -837,7 +837,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PeftModel&quot;</span><span class="p">,</span>
         <span class="n">tokenizer</span><span class="p">:</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">,</span>
-        <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span>
+        <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span>
         <span class="n">output_model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span>
         <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
@@ -944,7 +944,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">resolve_torch_dtype</span><span class="p">(</span><span class="n">torch_dtype</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_target_modules</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_target_modules</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the target modules for the model.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">peft.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING</span>
 
@@ -960,7 +960,7 @@ window.addEventListener("load", () => mermaid.run());
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_peft_model</span><span class="p">(</span>
-        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PeftModel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the PEFT model for LoRA fine-tuning.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">peft</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoraConfig</span><span class="p">,</span> <span class="n">LoraRuntimeConfig</span><span class="p">,</span> <span class="n">get_peft_model</span>
@@ -986,7 +986,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run DoRA fine-tuning on a Hugging Face PyTorch model.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_for_config</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_lora_training</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">use_dora</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -995,7 +995,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run LoRA variant fine-tuning on a Hugging Face PyTorch model.&quot;&quot;&quot;</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;rank_dropout&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
@@ -1013,27 +1013,27 @@ window.addEventListener("load", () => mermaid.run());
                 <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Use parameter effective decomposition for Conv2d with ksize &gt; 1.&quot;</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="s2">&quot;exclude_modules&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">]],</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Modules to exclude from tuning.&quot;</span>
+                <span class="n">type_</span><span class="o">=</span><span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">]],</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Modules to exclude from tuning.&quot;</span>
             <span class="p">),</span>
             <span class="s2">&quot;init_weights&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Whether to perform initialization of adapter weights.&quot;</span>
             <span class="p">),</span>
             <span class="s2">&quot;layers_to_transform&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The layer indices to transform.&quot;</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The layer indices to transform.&quot;</span>
             <span class="p">),</span>
             <span class="s2">&quot;layers_pattern&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
                 <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The layer pattern name, used only if layers_to_transform is different from None.&quot;</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="s2">&quot;rank_pattern&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="n">Dict</span><span class="p">,</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span>
                 <span class="n">default_value</span><span class="o">=</span><span class="p">{},</span>
                 <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The mapping from layer names or regexp expression &quot;</span>
                 <span class="s2">&quot;to ranks which are different from the default rank specified by r.&quot;</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="s2">&quot;alpha_pattern&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="n">Dict</span><span class="p">,</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span>
                 <span class="n">default_value</span><span class="o">=</span><span class="p">{},</span>
                 <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The mapping from layer names or regexp expression &quot;</span>
                 <span class="s2">&quot;to alphas which are different from the default alpha specified by alpha.&quot;</span><span class="p">,</span>
@@ -1048,7 +1048,7 @@ window.addEventListener("load", () => mermaid.run());
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_peft_model</span><span class="p">(</span>
-        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PeftModel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the PEFT model for LoHa fine-tuning.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">peft</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoHaConfig</span><span class="p">,</span> <span class="n">get_peft_model</span>
@@ -1073,7 +1073,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">get_peft_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">check_dependencies</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">is_qlora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_dependencies</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">is_qlora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Check dependencies for the pass.&quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">check_dependencies</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">is_qlora</span><span class="o">=</span><span class="n">is_qlora</span><span class="p">)</span>
 
@@ -1088,7 +1088,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run LoKr fine-tuning on a Hugging Face PyTorch model.&quot;&quot;&quot;</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;decompose_both&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span>
@@ -1111,7 +1111,7 @@ window.addEventListener("load", () => mermaid.run());
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_peft_model</span><span class="p">(</span>
-        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PeftModel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the PEFT model for LoKr fine-tuning.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">peft</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoKrConfig</span><span class="p">,</span> <span class="n">get_peft_model</span>
@@ -1139,7 +1139,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">get_peft_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">check_dependencies</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">is_qlora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_dependencies</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">is_qlora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Check dependencies for the pass.&quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">check_dependencies</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">is_qlora</span><span class="o">=</span><span class="n">is_qlora</span><span class="p">)</span>
 
@@ -1154,7 +1154,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for QLoRA and LoftQ fine-tuning passes.&quot;&quot;&quot;</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
             <span class="c1"># quantization parameters</span>
             <span class="s2">&quot;compute_dtype&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
@@ -1177,7 +1177,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">config</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_for_config</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HfModelHandler</span><span class="p">:</span>
         <span class="c1"># check dependencies</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">check_dependencies</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">is_qlora</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1207,8 +1207,8 @@ window.addEventListener("load", () => mermaid.run());
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_quant_model</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model for QLoRA fine-tuning.</span>
 
 <span class="sd">        :param model: The input model handler.</span>
@@ -1223,7 +1223,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run QLoRA fine-tuning on a Hugging Face PyTorch model.&quot;&quot;&quot;</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
             <span class="c1"># quantization parameters</span>
             <span class="s2">&quot;double_quant&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
@@ -1244,8 +1244,8 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">config</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_quant_model</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model for QLoRA fine-tuning.</span>
 
 <span class="sd">        :param model: The input model handler.</span>
@@ -1282,7 +1282,7 @@ window.addEventListener("load", () => mermaid.run());
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run LoftQ fine-tuning on a Hugging Face PyTorch model.&quot;&quot;&quot;</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
             <span class="c1"># quantization parameters</span>
             <span class="s2">&quot;loftq_iter&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
@@ -1295,7 +1295,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="k">return</span> <span class="n">config</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">check_dependencies</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">is_qlora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_dependencies</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">is_qlora</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Check dependencies for the pass.&quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">check_dependencies</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">is_qlora</span><span class="o">=</span><span class="n">is_qlora</span><span class="p">)</span>
 
@@ -1306,8 +1306,8 @@ window.addEventListener("load", () => mermaid.run());
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Please install peft &gt;= 0.7.0 to use </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> pass.&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_quant_model</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">HfModelHandler</span><span class="p">,</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model handler, LoRA model for QLoRA fine-tuning.</span>
 
 <span class="sd">        :param model: The input model handler.</span>

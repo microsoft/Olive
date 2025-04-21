@@ -821,7 +821,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-optimization_options">
 <span class="sig-name descname"><span class="pre">optimization_options</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-optimization_options" title="Link to this definition">#</a></dt>
 <dd><p>Optimization options that turn on/off some fusions.</p>
-<p><strong>type:</strong> Dict[str, Any] | onnxruntime.transformers.fusion_options.FusionOptions</p>
+<p><strong>type:</strong> dict[str, Any] | onnxruntime.transformers.fusion_options.FusionOptions</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -875,7 +875,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-force_fp32_ops">
 <span class="sig-name descname"><span class="pre">force_fp32_ops</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-force_fp32_ops" title="Link to this definition">#</a></dt>
 <dd><p>Operators that are forced to run in float32. Only used when float16 is True.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -884,7 +884,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-force_fp32_nodes">
 <span class="sig-name descname"><span class="pre">force_fp32_nodes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-force_fp32_nodes" title="Link to this definition">#</a></dt>
 <dd><p>Nodes that are forced to run in float32. Only used when float16 is True.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -893,7 +893,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-force_fp16_inputs">
 <span class="sig-name descname"><span class="pre">force_fp16_inputs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-force_fp16_inputs" title="Link to this definition">#</a></dt>
 <dd><p>Force the conversion of the inputs of some operators to float16, even if ‘convert_float_to_float16` tool prefers it to keep them in float32.</p>
-<p><strong>type:</strong> Dict[str, List[int]]</p>
+<p><strong>type:</strong> dict[str, list[int]]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -989,7 +989,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-data_config">
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-data_config" title="Link to this definition">#</a></dt>
 <dd><p>Data config to load data for computing latency.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -1043,7 +1043,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-provider_options_list">
 <span class="sig-name descname"><span class="pre">provider_options_list</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-provider_options_list" title="Link to this definition">#</a></dt>
 <dd><p>Execution provider options to execute the ONNX models.</p>
-<p><strong>type:</strong> Dict[str, Any]</p>
+<p><strong>type:</strong> dict[str, Any]</p>
 <p><strong>default_value:</strong> {}</p>
 <p><strong>search_defaults:</strong> Categorical([{}])</p>
 </dd></dl>
@@ -1097,7 +1097,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-extra_session_config">
 <span class="sig-name descname"><span class="pre">extra_session_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-extra_session_config" title="Link to this definition">#</a></dt>
 <dd><p>Extra customized session options during tuning process.</p>
-<p><strong>type:</strong> Dict[str, Any]</p>
+<p><strong>type:</strong> dict[str, Any]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -1168,7 +1168,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-op_block_list">
 <span class="sig-name descname"><span class="pre">op_block_list</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-op_block_list" title="Link to this definition">#</a></dt>
 <dd><p>List of op types to leave as float32</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -1177,7 +1177,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-node_block_list">
 <span class="sig-name descname"><span class="pre">node_block_list</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-node_block_list" title="Link to this definition">#</a></dt>
 <dd><p>List of node names to leave as float32</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -1315,7 +1315,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-35">
 <span class="sig-name descname"><span class="pre">op_block_list</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-35" title="Link to this definition">#</a></dt>
 <dd><p>List of op types to leave as float32</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> [‘SimplifiedLayerNormalization’, ‘SkipSimplifiedLayerNormalization’, ‘Relu’, ‘Add’]</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -1578,7 +1578,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-overrides_config">
 <span class="sig-name descname"><span class="pre">overrides_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-overrides_config" title="Link to this definition">#</a></dt>
 <dd><p>Path/Dict to mixed precision overrides json, with the format of {tensor_name: quant_type}</p>
-<p><strong>type:</strong> str | Dict</p>
+<p><strong>type:</strong> str | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -1950,7 +1950,7 @@
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-72" title="Link to this definition">#</a></dt>
 <dd><p>
             Data config for calibration, required if quant_mode is ‘static’</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -2219,7 +2219,7 @@
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-90" title="Link to this definition">#</a></dt>
 <dd><p>
             Data config for calibration, required if quant_mode is ‘static’</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -2411,7 +2411,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-quant_axes">
 <span class="sig-name descname"><span class="pre">quant_axes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-quant_axes" title="Link to this definition">#</a></dt>
 <dd><p>op:axis, which axis to quantize for an op. Default is None = {“MatMul”: 0, “Gather”: 1}</p>
-<p><strong>type:</strong> Dict[str, int]</p>
+<p><strong>type:</strong> dict[str, int]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -2437,7 +2437,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-weight_only_quant_configs">
 <span class="sig-name descname"><span class="pre">weight_only_quant_configs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-weight_only_quant_configs" title="Link to this definition">#</a></dt>
-<dd><p>If ‘algorithm’ is provided and this is None, the config is constructed from the pass configuration. If provided, the it takes precedence. Refer to <a class="github reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py">microsoft/onnxruntime</a> for details.</p>
+<dd><p>If ‘algorithm’ is provided and this is None, the config is constructed from the pass configuration. If provided, the it takes precedence. Refer to <a class="github reference external" href="https://github.com/microsoft/onnxruntime/blob/2abab8d39e08819d0e44833f9afee0a37c9aaa75/onnxruntime/python/tools/quantization/matmul_nbits_quantizer.py">microsoft/onnxruntime</a> for details.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
@@ -2493,7 +2493,7 @@
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-111" title="Link to this definition">#</a></dt>
 <dd><p>
             Data config for calibration, required if quant_mode is ‘static’</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -2528,7 +2528,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-surgeries">
 <span class="sig-name descname"><span class="pre">surgeries</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-surgeries" title="Link to this definition">#</a></dt>
 <dd><p>List of surgeries to apply, each with its type and parameters</p>
-<p><strong>type:</strong> List[Dict[str, Any]]</p>
+<p><strong>type:</strong> list[dict[str, Any]]</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -2674,7 +2674,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-dim_param">
 <span class="sig-name descname"><span class="pre">dim_param</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-dim_param" title="Link to this definition">#</a></dt>
 <dd><p>Symbolic parameter name. Provide dim_value if specified.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -2683,7 +2683,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-dim_value">
 <span class="sig-name descname"><span class="pre">dim_value</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-dim_value" title="Link to this definition">#</a></dt>
 <dd><p>Value to replace dim_param with in the model. Must be &gt; 0.</p>
-<p><strong>type:</strong> List[int]</p>
+<p><strong>type:</strong> list[int]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -2692,7 +2692,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-input_name">
 <span class="sig-name descname"><span class="pre">input_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input_name" title="Link to this definition">#</a></dt>
 <dd><p>Model input name to replace shape of. Provide input_shape if specified.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -2701,7 +2701,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-input_shape">
 <span class="sig-name descname"><span class="pre">input_shape</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input_shape" title="Link to this definition">#</a></dt>
 <dd><p>Shape to use for input_shape. Provide comma separated list for the shape. All values must be &gt; 0. e.g. [1,3,256,256]</p>
-<p><strong>type:</strong> List[List[int]]</p>
+<p><strong>type:</strong> list[list[int]]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -3129,7 +3129,7 @@
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-148" title="Link to this definition">#</a></dt>
 <dd><p>
             Data config for calibration, required if approach is ‘static’.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -3369,7 +3369,7 @@
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-168" title="Link to this definition">#</a></dt>
 <dd><p>
             Data config for calibration, required if approach is ‘static’.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -3461,7 +3461,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-177">
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-177" title="Link to this definition">#</a></dt>
 <dd><p>Data config for calibration.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -3713,7 +3713,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-pre">
 <span class="sig-name descname"><span class="pre">pre</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-pre" title="Link to this definition">#</a></dt>
 <dd><p>List of pre-processing commands to add.</p>
-<p><strong>type:</strong> List[Dict[str, Any]]</p>
+<p><strong>type:</strong> list[dict[str, Any]]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -3722,7 +3722,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-post">
 <span class="sig-name descname"><span class="pre">post</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-post" title="Link to this definition">#</a></dt>
 <dd><p>List of post-processing commands to add.</p>
-<p><strong>type:</strong> List[Dict[str, Any]]</p>
+<p><strong>type:</strong> list[dict[str, Any]]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -3745,7 +3745,7 @@
                     “name”: “image”,
                     “data_type”: “uint8”,
                     “shape”: [“num_bytes”],</p>
-<p><strong>type:</strong> Dict[str, Any] | List[olive.passes.onnx.append_pre_post_processing_ops.PrePostProcessorInput]</p>
+<p><strong>type:</strong> dict[str, Any] | list[olive.passes.onnx.append_pre_post_processing_ops.PrePostProcessorInput]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4034,7 +4034,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-split_assignments">
 <span class="sig-name descname"><span class="pre">split_assignments</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-split_assignments" title="Link to this definition">#</a></dt>
 <dd><p>Set split assignments in the format of name1=0;name2=1 etc. Overwrite the one from CaptureSplitInfo pass.</p>
-<p><strong>type:</strong> Dict[str, int] | str</p>
+<p><strong>type:</strong> dict[str, int] | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4269,7 +4269,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-components">
 <span class="sig-name descname"><span class="pre">components</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-components" title="Link to this definition">#</a></dt>
 <dd><p>List of component models to export. E.g. [‘decoder_model’, ‘decoder_with_past_model’]. None means export all components.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4390,7 +4390,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-search">
 <span class="sig-name descname"><span class="pre">search</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-search" title="Link to this definition">#</a></dt>
 <dd><p>Search options to use for generate loop.</p>
-<p><strong>type:</strong> Dict[str, Any]</p>
+<p><strong>type:</strong> dict[str, Any]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4426,7 +4426,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-int4_op_types_to_quantize">
 <span class="sig-name descname"><span class="pre">int4_op_types_to_quantize</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_op_types_to_quantize" title="Link to this definition">#</a></dt>
 <dd><p>Specify the op types to quantize for int4 quantization. Default is None (= [ “MatMul” ]). Example: [“MatMul”, “Gemm”]</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4480,7 +4480,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-block_to_split">
 <span class="sig-name descname"><span class="pre">block_to_split</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-block_to_split" title="Link to this definition">#</a></dt>
 <dd><p>Names of the model blocks to split. Children of the block will be divided into the splits. For supported transformers models, the default value is the transformers layer block name.</p>
-<p><strong>type:</strong> str | List[str]</p>
+<p><strong>type:</strong> str | list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4540,7 +4540,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-target_modules">
 <span class="sig-name descname"><span class="pre">target_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-target_modules" title="Link to this definition">#</a></dt>
 <dd><p>Target modules</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4594,7 +4594,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-train_data_config">
 <span class="sig-name descname"><span class="pre">train_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-train_data_config" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning training.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -4602,7 +4602,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-eval_data_config">
 <span class="sig-name descname"><span class="pre">eval_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-eval_data_config" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning evaluation. Optional if evaluation is not needed.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4611,7 +4611,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-training_args">
 <span class="sig-name descname"><span class="pre">training_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-training_args" title="Link to this definition">#</a></dt>
 <dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
-<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | Dict</p>
+<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4653,7 +4653,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-exclude_modules">
 <span class="sig-name descname"><span class="pre">exclude_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-exclude_modules" title="Link to this definition">#</a></dt>
 <dd><p>Modules to exclude from tuning.</p>
-<p><strong>type:</strong> List[str] | str | None</p>
+<p><strong>type:</strong> list[str] | str | None</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4671,7 +4671,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-layers_to_transform">
 <span class="sig-name descname"><span class="pre">layers_to_transform</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-layers_to_transform" title="Link to this definition">#</a></dt>
 <dd><p>The layer indices to transform.</p>
-<p><strong>type:</strong> List[int]</p>
+<p><strong>type:</strong> list[int]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4680,7 +4680,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-layers_pattern">
 <span class="sig-name descname"><span class="pre">layers_pattern</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-layers_pattern" title="Link to this definition">#</a></dt>
 <dd><p>The layer pattern name, used only if layers_to_transform is different from None.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4689,7 +4689,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-rank_pattern">
 <span class="sig-name descname"><span class="pre">rank_pattern</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-rank_pattern" title="Link to this definition">#</a></dt>
 <dd><p>The mapping from layer names or regexp expression to ranks which are different from the default rank specified by r.</p>
-<p><strong>type:</strong> Dict</p>
+<p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4698,7 +4698,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-alpha_pattern">
 <span class="sig-name descname"><span class="pre">alpha_pattern</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-alpha_pattern" title="Link to this definition">#</a></dt>
 <dd><p>The mapping from layer names or regexp expression to alphas which are different from the default alpha specified by alpha.</p>
-<p><strong>type:</strong> Dict</p>
+<p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4734,7 +4734,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-235">
 <span class="sig-name descname"><span class="pre">target_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-235" title="Link to this definition">#</a></dt>
 <dd><p>Target modules</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4788,7 +4788,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-241">
 <span class="sig-name descname"><span class="pre">train_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-241" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning training.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -4796,7 +4796,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-242">
 <span class="sig-name descname"><span class="pre">eval_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-242" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning evaluation. Optional if evaluation is not needed.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4805,7 +4805,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-243">
 <span class="sig-name descname"><span class="pre">training_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-243" title="Link to this definition">#</a></dt>
 <dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
-<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | Dict</p>
+<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4874,7 +4874,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-247">
 <span class="sig-name descname"><span class="pre">exclude_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-247" title="Link to this definition">#</a></dt>
 <dd><p>Modules to exclude from tuning.</p>
-<p><strong>type:</strong> List[str] | str | None</p>
+<p><strong>type:</strong> list[str] | str | None</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4892,7 +4892,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-249">
 <span class="sig-name descname"><span class="pre">layers_to_transform</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-249" title="Link to this definition">#</a></dt>
 <dd><p>The layer indices to transform.</p>
-<p><strong>type:</strong> List[int]</p>
+<p><strong>type:</strong> list[int]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4901,7 +4901,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-250">
 <span class="sig-name descname"><span class="pre">layers_pattern</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-250" title="Link to this definition">#</a></dt>
 <dd><p>The layer pattern name, used only if layers_to_transform is different from None.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4910,7 +4910,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-251">
 <span class="sig-name descname"><span class="pre">rank_pattern</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-251" title="Link to this definition">#</a></dt>
 <dd><p>The mapping from layer names or regexp expression to ranks which are different from the default rank specified by r.</p>
-<p><strong>type:</strong> Dict</p>
+<p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4919,7 +4919,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-252">
 <span class="sig-name descname"><span class="pre">alpha_pattern</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-252" title="Link to this definition">#</a></dt>
 <dd><p>The mapping from layer names or regexp expression to alphas which are different from the default alpha specified by alpha.</p>
-<p><strong>type:</strong> Dict</p>
+<p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4955,7 +4955,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-256">
 <span class="sig-name descname"><span class="pre">target_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-256" title="Link to this definition">#</a></dt>
 <dd><p>Target modules</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5009,7 +5009,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-262">
 <span class="sig-name descname"><span class="pre">train_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-262" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning training.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -5017,7 +5017,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-263">
 <span class="sig-name descname"><span class="pre">eval_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-263" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning evaluation. Optional if evaluation is not needed.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5026,7 +5026,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-264">
 <span class="sig-name descname"><span class="pre">training_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-264" title="Link to this definition">#</a></dt>
 <dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
-<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | Dict</p>
+<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5104,7 +5104,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-268">
 <span class="sig-name descname"><span class="pre">target_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-268" title="Link to this definition">#</a></dt>
 <dd><p>Target modules</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5158,7 +5158,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-274">
 <span class="sig-name descname"><span class="pre">train_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-274" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning training.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -5166,7 +5166,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-275">
 <span class="sig-name descname"><span class="pre">eval_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-275" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning evaluation. Optional if evaluation is not needed.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5175,7 +5175,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-276">
 <span class="sig-name descname"><span class="pre">training_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-276" title="Link to this definition">#</a></dt>
 <dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
-<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | Dict</p>
+<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5217,7 +5217,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-280">
 <span class="sig-name descname"><span class="pre">target_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-280" title="Link to this definition">#</a></dt>
 <dd><p>Target modules</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5271,7 +5271,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-286">
 <span class="sig-name descname"><span class="pre">train_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-286" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning training.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -5279,7 +5279,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-287">
 <span class="sig-name descname"><span class="pre">eval_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-287" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning evaluation. Optional if evaluation is not needed.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5288,7 +5288,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-288">
 <span class="sig-name descname"><span class="pre">training_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-288" title="Link to this definition">#</a></dt>
 <dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
-<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | Dict</p>
+<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5357,7 +5357,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-294">
 <span class="sig-name descname"><span class="pre">target_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-294" title="Link to this definition">#</a></dt>
 <dd><p>Target modules</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5411,7 +5411,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-300">
 <span class="sig-name descname"><span class="pre">train_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-300" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning training.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -5419,7 +5419,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-301">
 <span class="sig-name descname"><span class="pre">eval_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-301" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning evaluation. Optional if evaluation is not needed.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5428,7 +5428,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-302">
 <span class="sig-name descname"><span class="pre">training_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-302" title="Link to this definition">#</a></dt>
 <dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
-<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | Dict</p>
+<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5513,7 +5513,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-305">
 <span class="sig-name descname"><span class="pre">train_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-305" title="Link to this definition">#</a></dt>
 <dd><p>Data config for training.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5522,7 +5522,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-val_data_config">
 <span class="sig-name descname"><span class="pre">val_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-val_data_config" title="Link to this definition">#</a></dt>
 <dd><p>Data config for validation.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5585,7 +5585,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-modules_to_fuse">
 <span class="sig-name descname"><span class="pre">modules_to_fuse</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-modules_to_fuse" title="Link to this definition">#</a></dt>
 <dd><p>List of list of module names to fuse.</p>
-<p><strong>type:</strong> List[List[str]]</p>
+<p><strong>type:</strong> list[list[str]]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5603,7 +5603,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-logger">
 <span class="sig-name descname"><span class="pre">logger</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-logger" title="Link to this definition">#</a></dt>
 <dd><p>Logger for training.</p>
-<p><strong>type:</strong> pytorch_lightning.loggers.logger.Logger | Iterable[pytorch_lightning.loggers.logger.Logger] | Callable | bool</p>
+<p><strong>type:</strong> pytorch_lightning.loggers.logger.Logger | collections.abc.Iterable[pytorch_lightning.loggers.logger.Logger] | Callable | bool</p>
 <p><strong>default_value:</strong> False</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5656,7 +5656,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-sparsity">
 <span class="sig-name descname"><span class="pre">sparsity</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-sparsity" title="Link to this definition">#</a></dt>
 <dd><p>Target sparsity. This can be a float or a list of two integers. Float is the target sparsity per layer. List [n,m] applies semi-structured (n:m) sparsity patterns. Refer to https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/ for more details on 2:4 sparsity pattern.</p>
-<p><strong>type:</strong> float | List[int]</p>
+<p><strong>type:</strong> float | list[int]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5701,7 +5701,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-layer_name_filter">
 <span class="sig-name descname"><span class="pre">layer_name_filter</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-layer_name_filter" title="Link to this definition">#</a></dt>
 <dd><p>Only prune layers whose name contains the given string(s).</p>
-<p><strong>type:</strong> str | List[str]</p>
+<p><strong>type:</strong> str | list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5719,7 +5719,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-307">
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-307" title="Link to this definition">#</a></dt>
 <dd><p>Data config to use for pruning weights. All samples in the data are expected to be of the same length, most likely the max sequence length of the model.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -5737,7 +5737,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-calibration_data_config">
 <span class="sig-name descname"><span class="pre">calibration_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-calibration_data_config" title="Link to this definition">#</a></dt>
 <dd><p>Data config for Dataset to calibrate and calculate perplexity on.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -5884,7 +5884,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-313">
 <span class="sig-name descname"><span class="pre">training_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-313" title="Link to this definition">#</a></dt>
 <dd><p>Training arguments. If None, will use default arguments.</p>
-<p><strong>type:</strong> olive.passes.pytorch.rotate.HFTrainingArguments | Dict</p>
+<p><strong>type:</strong> olive.passes.pytorch.rotate.HFTrainingArguments | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5936,7 +5936,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-outside_layer_modules">
 <span class="sig-name descname"><span class="pre">outside_layer_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-outside_layer_modules" title="Link to this definition">#</a></dt>
 <dd><p>Names of other nn modules that in the same level as the transformer layer block. Default value is None.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -5945,7 +5945,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-inside_layer_modules">
 <span class="sig-name descname"><span class="pre">inside_layer_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-inside_layer_modules" title="Link to this definition">#</a></dt>
 <dd><p>Names of linear layers in transformer layer module. Default value is None.</p>
-<p><strong>type:</strong> List[List[str]]</p>
+<p><strong>type:</strong> list[list[str]]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6008,7 +6008,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-316">
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-316" title="Link to this definition">#</a></dt>
 <dd><p>Data config for quantization. If not provided, wikitest train data will be used for HfModels. Required for PyTorch models.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6113,7 +6113,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-319">
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-319" title="Link to this definition">#</a></dt>
 <dd><p>Data config for quantization. If not provided, pile validation data will be used.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6153,7 +6153,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-322">
 <span class="sig-name descname"><span class="pre">layer_name_filter</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-322" title="Link to this definition">#</a></dt>
 <dd><p>Only convert layers whose name contains the given string(s).</p>
-<p><strong>type:</strong> str | List[str]</p>
+<p><strong>type:</strong> str | list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6171,7 +6171,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-324">
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-324" title="Link to this definition">#</a></dt>
 <dd><p>Data config to use for compiling module to TensorRT. The batch size of the compiled module is set to the batch size of the first batch of the dataloader.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -6206,7 +6206,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-input_shapes">
 <span class="sig-name descname"><span class="pre">input_shapes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input_shapes" title="Link to this definition">#</a></dt>
 <dd><p>Set or override shapes for model inputs.It configures dynamic and static dimensions in model inputsdepending on your inference requirements.Static parameter is required if static models are required.</p>
-<p><strong>type:</strong> Callable | str | List</p>
+<p><strong>type:</strong> Callable | str | list</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6233,7 +6233,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-extra_configs">
 <span class="sig-name descname"><span class="pre">extra_configs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-extra_configs" title="Link to this definition">#</a></dt>
 <dd><p>Extra configurations for OpenVINO model conversion. extra_config can be set by passing a dictionary where key is the parameter name, and the value is the parameter value. Please check Conversion Parameters documentation for more details: <a class="reference external" href="https://docs.openvino.ai/2023.3/openvino_docs_OV_Converter_UG_Conversion_Options.html">https://docs.openvino.ai/2023.3/openvino_docs_OV_Converter_UG_Conversion_Options.html</a></p>
-<p><strong>type:</strong> Dict</p>
+<p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6284,7 +6284,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-329">
 <span class="sig-name descname"><span class="pre">extra_configs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-329" title="Link to this definition">#</a></dt>
 <dd><p>Extra configurations for OpenVINO model conversion. extra_config can be set by passing a dictionary where key is the parameter name, and the value is the parameter value. Please check Conversion Parameters documentation for more details: <a class="reference external" href="https://docs.openvino.ai/2025/openvino-workflow/model-preparation/conversion-parameters.html">https://docs.openvino.ai/2025/openvino-workflow/model-preparation/conversion-parameters.html</a></p>
-<p><strong>type:</strong> Dict</p>
+<p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6334,7 +6334,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-334">
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-334" title="Link to this definition">#</a></dt>
 <dd><p>Data config for calibration.</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -6360,7 +6360,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-ignored_scope">
 <span class="sig-name descname"><span class="pre">ignored_scope</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-ignored_scope" title="Link to this definition">#</a></dt>
 <dd><p>This parameter can be used to exclude some layers from the quantization process to preserve the model accuracy. Please refer to <a class="reference external" href="https://docs.openvino.ai/2023.3/basic_quantization_flow.html#tune-quantization-parameters">https://docs.openvino.ai/2023.3/basic_quantization_flow.html#tune-quantization-parameters</a>.</p>
-<p><strong>type:</strong> str | List[str]</p>
+<p><strong>type:</strong> str | list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6396,7 +6396,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-336">
 <span class="sig-name descname"><span class="pre">extra_configs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-336" title="Link to this definition">#</a></dt>
 <dd><p>Extra configurations for OpenVINO model quantization. Please refer to <a class="reference external" href="https://docs.openvino.ai/2023.3/basic_quantization_flow.html#tune-quantization-parameters">https://docs.openvino.ai/2023.3/basic_quantization_flow.html#tune-quantization-parameters</a>.</p>
-<p><strong>type:</strong> List[Dict]</p>
+<p><strong>type:</strong> list[dict]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6462,7 +6462,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-340">
 <span class="sig-name descname"><span class="pre">components</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-340" title="Link to this definition">#</a></dt>
 <dd><p>List of component models to export. E.g. [‘decoder_model’, ‘decoder_with_past_model’]. None means export all components.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6509,7 +6509,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-input_names">
 <span class="sig-name descname"><span class="pre">input_names</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input_names" title="Link to this definition">#</a></dt>
 <dd><p>List of input names.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -6517,7 +6517,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-343">
 <span class="sig-name descname"><span class="pre">input_shapes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-343" title="Link to this definition">#</a></dt>
 <dd><p>List of input shapes. Must be the same length as input_names.</p>
-<p><strong>type:</strong> List[List[int]]</p>
+<p><strong>type:</strong> list[list[int]]</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -6525,7 +6525,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-output_names">
 <span class="sig-name descname"><span class="pre">output_names</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-output_names" title="Link to this definition">#</a></dt>
 <dd><p>List of output names.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -6533,7 +6533,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-input_types">
 <span class="sig-name descname"><span class="pre">input_types</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input_types" title="Link to this definition">#</a></dt>
 <dd><p>List of input types. If not None, it must be a list of the same length as input_names. List members can be None to use default value. Refer to olive.platform_sdk.qualcomm.constants.InputType for valid values.</p>
-<p><strong>type:</strong> List[str | None]</p>
+<p><strong>type:</strong> list[str | None]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6542,7 +6542,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-input_layouts">
 <span class="sig-name descname"><span class="pre">input_layouts</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input_layouts" title="Link to this definition">#</a></dt>
 <dd><p>List of input layouts. If not None, it must be a list of the same length as input_names. List members can be None to use inferred value. Refer to olive.platform_sdk.qualcomm.constants.InputLayout for valid values.</p>
-<p><strong>type:</strong> List[str | None]</p>
+<p><strong>type:</strong> list[str | None]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6568,7 +6568,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-345">
 <span class="sig-name descname"><span class="pre">data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-345" title="Link to this definition">#</a></dt>
 <dd><p>Data config for quantization</p>
-<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
@@ -6594,7 +6594,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-htp_socs">
 <span class="sig-name descname"><span class="pre">htp_socs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-htp_socs" title="Link to this definition">#</a></dt>
 <dd><p>List of SoCs to generate HTP Offline cache for.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6695,7 +6695,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-input_dim">
 <span class="sig-name descname"><span class="pre">input_dim</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input_dim" title="Link to this definition">#</a></dt>
 <dd><p>The names and dimensions of the network input layers specified in the format [input_name comma-separated-dimensions], for example:        [“data 1,224,224,3”] Note that the quotes should always be included in order to handle special characters, spaces, etc. For multiple inputs specify multiple –input_dim on the command line like:        [“data 1,224,224,3”, “data2 1,224,224,3”] If –input_dim is not specified, the input dimensions will be inferred from the model. If –input_dim is specified, the input dimensions will be used as-is.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -6704,7 +6704,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-out_node">
 <span class="sig-name descname"><span class="pre">out_node</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-out_node" title="Link to this definition">#</a></dt>
 <dd><p>The name of the output node. If not specified, the output node will be inferred from the model. If specified, the output node will be used as-is. Example: [“out_1”, “out_2”]</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
