@@ -8,7 +8,7 @@ import shlex
 import shutil
 import time
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
@@ -45,7 +45,7 @@ class SDKRunner:
     def _use_olive_env(self):
         return os.environ.get(USE_OLIVE_ENV, USE_OLIVE_ENV_DEFAULT_VALUE) == USE_OLIVE_ENV_DEFAULT_VALUE
 
-    def _resolve_cmd(self, cmd: Union[str, List[str]]) -> List[str]:
+    def _resolve_cmd(self, cmd: Union[str, list[str]]) -> list[str]:
         # TODO(trajep): use list instead of string to avoid shlex.split error in non-posix mode
         import platform
 

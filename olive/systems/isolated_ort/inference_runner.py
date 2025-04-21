@@ -9,7 +9,6 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 
@@ -36,7 +35,7 @@ def get_args(raw_args):
     return parser.parse_args(raw_args)
 
 
-def load_batch(input_dir: Path, batch_file: str) -> Dict:
+def load_batch(input_dir: Path, batch_file: str) -> dict:
     return dict(np.load(input_dir / batch_file, allow_pickle=True).items())
 
 

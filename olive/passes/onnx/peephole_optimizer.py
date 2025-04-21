@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Dict, Type
 
 import numpy as np
 import onnx
@@ -128,7 +127,7 @@ class ModelOptimizer:
             graph.node.insert(node_index, node)
 
     @staticmethod
-    def _create_node_name(nodes: Dict[str, Message], op_type: str, prefix_a: str, prefix_b: str):
+    def _create_node_name(nodes: dict[str, Message], op_type: str, prefix_a: str, prefix_b: str):
         prefix: str = ""
         last_slash: int = -1
         for i in range(min(len(prefix_a), len(prefix_b))):
@@ -264,11 +263,11 @@ class OnnxPeepholeOptimizer(Pass):
     """Optimize ONNX model by fusing nodes."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return get_external_data_config()
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 

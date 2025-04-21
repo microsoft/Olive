@@ -7,7 +7,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Callable, Dict, Type, Union
+from typing import Callable, Union
 
 import onnx
 from packaging import version
@@ -140,7 +140,7 @@ _extra_options_config = {
 # static quantization specific config
 _dataloader_config = {
     "data_config": PassConfigParam(
-        type_=Union[DataConfig, Dict],
+        type_=Union[DataConfig, dict],
         description="""
             Data config for calibration, required if quant_mode is 'static'
         """,
@@ -242,7 +242,7 @@ class OnnxQuantization(Pass):
         self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(
                 type_=str,
@@ -299,7 +299,7 @@ class OnnxQuantization(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
         if not super().validate_config(config, accelerator_spec):
@@ -320,7 +320,7 @@ class OnnxQuantization(Pass):
         return True
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         if model_has_adapters(model.model_path):
             logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")
@@ -491,8 +491,8 @@ class OnnxQuantization(Pass):
         return ONNXModelHandler(LocalFile({"path": output_model_path}))
 
     def get_static_run_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], run_config: Dict, ort_less_than_1_21: bool
-    ) -> Dict:
+        self, model: ONNXModelHandler, config: type[BasePassConfig], run_config: dict, ort_less_than_1_21: bool
+    ) -> dict:
         """Prepare the run config for static quantization."""
         dataloader = get_calibration_dataloader(config, model.model_path, model.io_config, config.calibration_providers)
         if config.quant_format != "QDQ" or not config.prepare_qdq_config:
@@ -564,7 +564,7 @@ class OnnxQuantizationPreprocess(Pass):
     """ONNX Quantization Preprocess Pass. Same as OnnxQuantization quant_preprocess."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "skip_optimization": PassConfigParam(
                 type_=bool,
@@ -599,7 +599,7 @@ class OnnxQuantizationPreprocess(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime.quantization.preprocess import quant_pre_process
 
@@ -633,7 +633,7 @@ class OnnxDynamicQuantization(OnnxQuantization):
     """ONNX Dynamic Quantization Pass."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         if accelerator_spec.execution_provider == "QNNExecutionProvider":
             raise ValueError("QNNExecutionProvider is not supported for dynamic quantization.")
         config = {
@@ -651,7 +651,7 @@ class OnnxStaticQuantization(OnnxQuantization):
     """ONNX Static Quantization Pass."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(type_=str, default_value="static", description="static quantization mode")
         }
@@ -696,7 +696,7 @@ class OnnxMatMul4Quantizer(Pass):
         GPTQ = "GPTQ"
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "block_size": PassConfigParam(
                 type_=int,
@@ -727,7 +727,7 @@ class OnnxMatMul4Quantizer(Pass):
                 ),
             ),
             "quant_axes": PassConfigParam(
-                type_=Dict[str, int],
+                type_=dict[str, int],
                 default_value=None,
                 description='op:axis, which axis to quantize for an op. Default is None = {"MatMul": 0, "Gather": 1}',
             ),
@@ -764,7 +764,7 @@ class OnnxMatMul4Quantizer(Pass):
         }
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable]:
+    def _validators(cls) -> dict[str, Callable]:
         return {
             "validate_quant_config": validator("weight_only_quant_configs", allow_reuse=True)(
                 _validate_weight_only_quant_config
@@ -772,7 +772,7 @@ class OnnxMatMul4Quantizer(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
@@ -882,7 +882,7 @@ def _validate_weight_only_quant_config(v, values, field):
     return v
 
 
-def _get_qnn_init_overrides(model_handler: ONNXModelHandler, config: Type[BasePassConfig]):
+def _get_qnn_init_overrides(model_handler: ONNXModelHandler, config: type[BasePassConfig]):
     # get qnn overrides from the input model
     model_attributes = model_handler.model_attributes or {}
     mp_init_overrides = model_attributes.get("mixed_precision_overrides") or {}

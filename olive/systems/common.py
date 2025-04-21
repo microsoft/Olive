@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase
 from olive.common.pydantic_v1 import Field, validator
@@ -20,7 +20,7 @@ class SystemType(CaseInsensitiveEnum):
 
 class AcceleratorConfig(ConfigBase):
     device: Union[str, Device] = Field(None, description="Device to use for the accelerator")
-    execution_providers: List[str] = Field(
+    execution_providers: list[str] = Field(
         None, description="Execution providers for the accelerator. Each must end with ExecutionProvider"
     )
     memory: Union[int, str] = Field(

@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Tuple
 
 from olive.common.config_utils import serialize_to_json
 
@@ -18,7 +17,7 @@ class JsonMixin:
 
     # keys for config parameters that are not part of resource_keys or model_attributes
     # self.{key} must be defined for each key in json_config_keys and should be serializable
-    json_config_keys: Tuple[str, ...] = ()
+    json_config_keys: tuple[str, ...] = ()
 
     def to_json(self, check_object: bool = False):
         config = {

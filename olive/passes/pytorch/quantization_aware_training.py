@@ -2,8 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Type, Union
+from typing import Callable, Union
 
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
@@ -18,7 +19,7 @@ class QuantizationAwareTraining(Pass):
     """Run quantization aware training on PyTorch model."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         import pytorch_lightning
         from packaging import version
 
@@ -29,11 +30,11 @@ class QuantizationAwareTraining(Pass):
         return {
             **get_user_script_data_config(),
             "train_data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 description="Data config for training.",
             ),
             "val_data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 description="Data config for validation.",
             ),
             "training_loop_func": PassConfigParam(
@@ -69,7 +70,7 @@ class QuantizationAwareTraining(Pass):
                 description="Whether perform one evaluation epoch over the validation set after training.",
             ),
             "modules_to_fuse": PassConfigParam(
-                type_=List[List[str]], default_value=None, description="List of list of module names to fuse."
+                type_=list[list[str]], default_value=None, description="List of list of module names to fuse."
             ),
             "qconfig_func": PassConfigParam(
                 type_=Union[Callable, str],
@@ -93,7 +94,7 @@ class QuantizationAwareTraining(Pass):
         }
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: PyTorchModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
         from olive.passes.pytorch.qat_utils import QatTrainer
 

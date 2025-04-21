@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import List, Union
+from typing import Union
 
 import torch
 from past_helper import PastKeyValuesHelper
@@ -89,7 +89,7 @@ class WhisperDecoderInputs:
         past_key_values=None,
     ):
         self.decoder_input_ids: torch.LongTensor = decoder_input_ids
-        self.past_key_values: Union[List[torch.FloatTensor], List[torch.HalfTensor], None] = past_key_values
+        self.past_key_values: Union[list[torch.FloatTensor], list[torch.HalfTensor], None] = past_key_values
 
     @staticmethod
     def create_dummy(
@@ -160,7 +160,7 @@ class WhisperDecoderInputs:
 
         return WhisperDecoderInputs(decoder_input_ids, past)
 
-    def to_list(self) -> List:
+    def to_list(self) -> list:
         input_list = [self.decoder_input_ids]
         if self.past_key_values:
             input_list.extend(self.past_key_values)

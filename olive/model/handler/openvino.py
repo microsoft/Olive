@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
@@ -19,7 +19,7 @@ class OpenVINOModelHandler(OliveModelHandler):
     The main responsibility of OpenVINOModelHandler is to provide the model loading for OpenVINO model.
     """
 
-    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_attributes: Optional[Dict[str, Any]] = None):
+    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_attributes: Optional[dict[str, Any]] = None):
         super().__init__(
             model_path=model_path,
             framework=Framework.OPENVINO,
@@ -32,7 +32,7 @@ class OpenVINOModelHandler(OliveModelHandler):
         _ = self.model_config
 
     @property
-    def model_config(self) -> Dict[str, str]:
+    def model_config(self) -> dict[str, str]:
         """Get the model configuration for OpenVINO model."""
         model_path = self.model_path
         assert Path(model_path).is_dir(), f"OpenVINO model path {model_path} is not a directory"
@@ -63,9 +63,9 @@ class OpenVINOModelHandler(OliveModelHandler):
 
     def prepare_session(
         self,
-        inference_settings: Optional[Dict[str, Any]] = None,
+        inference_settings: Optional[dict[str, Any]] = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Union[str, list[str]] = None,
         rank: Optional[int] = None,
     ):
         try:
@@ -83,7 +83,7 @@ class OpenVINOModelHandler(OliveModelHandler):
     def run_session(
         self,
         session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
+        inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
+        **kwargs: dict[str, Any],
     ) -> Any:
         return session.infer(inputs, **kwargs)

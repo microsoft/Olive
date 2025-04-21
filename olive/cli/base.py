@@ -8,7 +8,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import ClassVar, Dict, Optional, Union
+from typing import ClassVar, Optional, Union
 
 import yaml
 
@@ -42,7 +42,7 @@ class BaseOliveCLICommand(ABC):
             return olive_run(run_config)
 
     @staticmethod
-    def _save_config_file(config: Dict):
+    def _save_config_file(config: dict):
         """Save the config file."""
         config_file_path = Path(config["output_dir"]) / "config.json"
         with open(config_file_path, "w") as f:
@@ -59,7 +59,7 @@ class BaseOliveCLICommand(ABC):
         raise NotImplementedError
 
 
-def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> Dict:
+def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> dict:
     """Get the input model config for HuggingFace model.
 
     args.task is optional.
@@ -86,7 +86,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     return input_model
 
 
-def _get_onnx_input_model(args: Namespace, model_path: str) -> Dict:
+def _get_onnx_input_model(args: Namespace, model_path: str) -> dict:
     """Get the input model config for ONNX model.
 
     Only supports local ONNX model file path.
@@ -116,7 +116,7 @@ def _get_onnx_input_model(args: Namespace, model_path: str) -> Dict:
     return model_config
 
 
-def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> Dict:
+def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> dict:
     """Get the input model config for PyTorch model.
 
     args.model_script is required.
@@ -161,7 +161,7 @@ def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     return input_model_config
 
 
-def get_input_model_config(args: Namespace) -> Dict:
+def get_input_model_config(args: Namespace) -> dict:
     """Parse the model_name_or_path and return the input model config.
 
     Check model_name_or_path formats in order:
@@ -398,7 +398,7 @@ def is_remote_run(args: Namespace) -> bool:
     return all([args.resource_group, args.workspace_name, args.aml_compute])
 
 
-def update_remote_options(config: Dict, args: Namespace, cli_action: str, tempdir: Union[str, Path]):
+def update_remote_options(config: dict, args: Namespace, cli_action: str, tempdir: Union[str, Path]):
     """Update the config for remote run."""
     if args.resource_group or args.workspace_name or args.aml_compute:
         if not is_remote_run(args):

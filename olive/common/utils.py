@@ -19,7 +19,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +172,7 @@ def flatten_dict(dictionary, stop_condition=None):  # pragma: no cover
     return result
 
 
-def get_nested_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]]):
+def get_nested_dict_value(dictionary: dict, key: Union[str, tuple, list[str]]):
     """Get value from a nested dictionary."""
     if isinstance(key, str):
         key = [key]
@@ -182,7 +182,7 @@ def get_nested_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]]):
     return dictionary
 
 
-def set_nested_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]], new_value):
+def set_nested_dict_value(dictionary: dict, key: Union[str, tuple, list[str]], new_value):
     """Replace value in a nested dictionary."""
     if isinstance(key, str):
         key = [key]
@@ -512,11 +512,11 @@ def set_tempdir(tempdir: str = None):
     tempfile.tempdir = str(tempdir)
 
 
-def exclude_keys(original_dict: Dict, keys_to_exclude):
+def exclude_keys(original_dict: dict, keys_to_exclude):
     return {k: v for k, v in original_dict.items() if k not in keys_to_exclude}
 
 
-def find_first_matched_value(original, keys: Union[str, Tuple, List[str]], raise_key_error=False):
+def find_first_matched_value(original, keys: Union[str, tuple, list[str]], raise_key_error=False):
     if isinstance(keys, str):
         keys = [keys]
 
@@ -531,7 +531,7 @@ def find_first_matched_value(original, keys: Union[str, Tuple, List[str]], raise
     return None
 
 
-def get_credentials(default_auth_params: Dict = None):
+def get_credentials(default_auth_params: dict = None):
     """Get credentials for MLClient.
 
     Order of credential providers:
@@ -575,7 +575,7 @@ class WeightsFileFormat(StrEnumBase):
     ONNX_ADAPTER = "onnx_adapter"
 
 
-def save_weights(weights: Dict, path: Union[str, Path], file_format: WeightsFileFormat = WeightsFileFormat.NUMPY):
+def save_weights(weights: dict, path: Union[str, Path], file_format: WeightsFileFormat = WeightsFileFormat.NUMPY):
     """Save the weights to a file.
 
     :param weights: Dictionary of numpy arrays.

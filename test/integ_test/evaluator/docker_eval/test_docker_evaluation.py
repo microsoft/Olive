@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import platform
 from functools import partial
-from typing import ClassVar, List
+from typing import ClassVar
 
 import pytest
 
@@ -37,7 +37,7 @@ class TestDockerEvaluation:
         yield
         delete_directories()
 
-    EVALUATION_TEST_CASE: ClassVar[List] = [
+    EVALUATION_TEST_CASE: ClassVar[list] = [
         ("PyTorchModel", get_pytorch_model, partial(get_accuracy_metric, "mnist_post_process_for_docker_eval"), 0.99),
         ("PyTorchModel", get_pytorch_model, get_latency_metric, 0.001),
         (

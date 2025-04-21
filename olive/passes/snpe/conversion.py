@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Callable, Dict, List, Type, Union
+from typing import Callable, Union
 
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
@@ -45,17 +45,17 @@ class SNPEConversion(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
-            "input_names": PassConfigParam(type_=List[str], required=True, description="List of input names."),
+            "input_names": PassConfigParam(type_=list[str], required=True, description="List of input names."),
             "input_shapes": PassConfigParam(
-                type_=List[List[int]],
+                type_=list[list[int]],
                 required=True,
                 description="List of input shapes. Must be the same length as input_names.",
             ),
-            "output_names": PassConfigParam(type_=List[str], required=True, description="List of output names."),
+            "output_names": PassConfigParam(type_=list[str], required=True, description="List of output names."),
             "input_types": PassConfigParam(
-                type_=List[Union[str, None]],
+                type_=list[Union[str, None]],
                 default_value=None,
                 description=(
                     "List of input types. If not None, it must be a list of the same length as input_names. List"
@@ -64,7 +64,7 @@ class SNPEConversion(Pass):
                 ),
             ),
             "input_layouts": PassConfigParam(
-                type_=List[Union[str, None]],
+                type_=list[Union[str, None]],
                 default_value=None,
                 description=(
                     "List of input layouts. If not None, it must be a list of the same length as input_names. List"
@@ -85,7 +85,7 @@ class SNPEConversion(Pass):
         }
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable]:
+    def _validators(cls) -> dict[str, Callable]:
         return {
             "validate_input_types_layouts": validator("input_types", "input_layouts", allow_reuse=True)(
                 _validate_input_types_layouts
@@ -95,7 +95,7 @@ class SNPEConversion(Pass):
     def _run_for_config(
         self,
         model: Union[ONNXModelHandler, TensorFlowModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> SNPEModelHandler:
         if Path(output_model_path).suffix != ".dlc":

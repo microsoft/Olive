@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Union
 
 from olive.common.utils import StrEnumBase, flatten_dict, unflatten_dict
 
@@ -19,7 +19,7 @@ class SearchParameter(ABC):
         pass
 
     @abstractmethod
-    def get_support(self) -> List[Any]:
+    def get_support(self) -> list[Any]:
         """Get the support for the search parameter."""
         raise NotImplementedError
 
@@ -52,10 +52,10 @@ class Categorical(SearchParameter):
 
     """
 
-    def __init__(self, support: Union[List[str], List[int], List[float], List[bool]]):
+    def __init__(self, support: Union[list[str], list[int], list[float], list[bool]]):
         self.support = support
 
-    def get_support(self) -> Union[List[str], List[int], List[float], List[bool]]:
+    def get_support(self) -> Union[list[str], list[int], list[float], list[bool]]:
         """Get the support for the search parameter."""
         return self.support
 
@@ -117,8 +117,8 @@ class Conditional(SearchParameter):
 
     def __init__(
         self,
-        parents: Tuple[str],
-        support: Dict[Tuple[Any], SearchParameter],
+        parents: tuple[str],
+        support: dict[tuple[Any], SearchParameter],
         default: SearchParameter = None,
     ):
         assert isinstance(parents, tuple), "parents must be a tuple"
@@ -130,19 +130,19 @@ class Conditional(SearchParameter):
         self.support = support
         self.default = default or self.get_invalid_choice()
 
-    def get_support(self) -> List[Any]:
+    def get_support(self) -> list[Any]:
         raise NotImplementedError("Use get_support_with_args instead")
 
     def get_support_with_args(
-        self, parent_values: Dict[str, Any]
-    ) -> Union[List[str], List[int], List[float], List[bool]]:
+        self, parent_values: dict[str, Any]
+    ) -> Union[list[str], list[int], list[float], list[bool]]:
         """Get the support for the search parameter for a given parent value."""
         # pylint: disable=arguments-differ
         assert parent_values.keys() == set(self.parents), "parent values keys do not match the parents"
         parent_values = tuple(parent_values[parent] for parent in self.parents)
         return self.support.get(parent_values, self.default).get_support()
 
-    def condition(self, parent_values: Dict[str, Any]) -> SearchParameter:
+    def condition(self, parent_values: dict[str, Any]) -> SearchParameter:
         """Fix the parent value and return a new search parameter."""
         assert set(parent_values.keys()).issubset(set(self.parents)), "parent values keys not a subset of the parents"
 
@@ -233,16 +233,16 @@ class ConditionalDefault(Conditional):
 
     """
 
-    def __init__(self, parents: Tuple[str], support: Dict[Tuple[Any], Any], default: Any = SpecialParamValue.INVALID):
+    def __init__(self, parents: tuple[str], support: dict[tuple[Any], Any], default: Any = SpecialParamValue.INVALID):
         support = {key: Categorical([value]) for key, value in support.items()}
         default = Categorical([default])
         super().__init__(parents, support, default)
 
-    def get_support_with_args(self, parent_values: Dict[str, Any]) -> Union[bool, int, float, str]:
+    def get_support_with_args(self, parent_values: dict[str, Any]) -> Union[bool, int, float, str]:
         """Get the support for the search parameter for a given parent value."""
         return super().get_support_with_args(parent_values)[0]
 
-    def condition(self, parent_values: Dict[str, Any]) -> Union[bool, int, float, str, "ConditionalDefault"]:
+    def condition(self, parent_values: dict[str, Any]) -> Union[bool, int, float, str, "ConditionalDefault"]:
         """Fix the parent value and return a new search parameter."""
         value = super().condition(parent_values)
         if isinstance(value, Categorical):
@@ -289,7 +289,7 @@ class ConditionalDefault(Conditional):
         return SpecialParamValue.IGNORED
 
 
-def json_to_search_parameter(json: Dict[str, Any]) -> SearchParameter:
+def json_to_search_parameter(json: dict[str, Any]) -> SearchParameter:
     """Convert a json to a search parameter."""
     assert json["olive_parameter_type"] == "SearchParameter", "Not a search parameter"
     search_parameter_type = json["type"]

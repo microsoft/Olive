@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Dict, Type
 
 from onnx import ModelProto
 
@@ -25,7 +24,7 @@ class OptimumMerging(Pass):
         return False
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "strict": PassConfigParam(
                 type_=bool,
@@ -43,7 +42,7 @@ class OptimumMerging(Pass):
         return config
 
     def _run_for_config(
-        self, model: CompositeModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: CompositeModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         import onnxruntime
 

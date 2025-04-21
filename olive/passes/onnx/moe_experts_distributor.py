@@ -10,7 +10,7 @@ import os
 import pprint
 from abc import abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Union
 
 import numpy as np
 import onnx
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 class MoEExpertDistributionPatternMatcher:
     DEFAULT_DOMAIN: ClassVar[str] = "com.microsoft"
-    JSON_SEPARATORS: ClassVar[Tuple] = (",", ": ")
+    JSON_SEPARATORS: ClassVar[tuple] = (",", ": ")
 
     def __init__(self, world_size: int, input_filepath: str, debug=False):
         self.world_size = world_size
@@ -54,7 +54,7 @@ class MoEExpertDistributionPatternMatcher:
             strm.flush()
 
     @staticmethod
-    def _create_node_name(nodes: Dict[str, Message], op_type: str, prefix_a: str, prefix_b: str):
+    def _create_node_name(nodes: dict[str, Message], op_type: str, prefix_a: str, prefix_b: str):
         prefix: str = ""
         last_slash: int = -1
         for i in range(min(len(prefix_a), len(prefix_b))):
@@ -99,12 +99,12 @@ class MoEExpertDistributionPatternMatcher:
     @abstractmethod
     def distribute(
         self,
-        experts: List[Any],
+        experts: list[Any],
         num_experts: int,
         output_dirpath: str,
         use_external_data_format: bool = True,
         all_tensors_to_one_file: bool = True,
-    ) -> List[str]:
+    ) -> list[str]:
         raise NotImplementedError
 
 
@@ -133,11 +133,11 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
 
     @staticmethod
     def _create_ranked_model(
-        nodes: Dict[str, Message],
-        producers: Dict[str, Message],
-        consumers: Dict[str, Message],
+        nodes: dict[str, Message],
+        producers: dict[str, Message],
+        consumers: dict[str, Message],
         world_size: int,
-        experts: List[List[str]],
+        experts: list[list[str]],
         num_experts: int,
         rank: int,
     ):
@@ -169,7 +169,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
 
     @staticmethod
     def _insert_collective_nodes(
-        model: "OnnxModel", nodes: Dict[str, Message], world_size: int, experts: List[List[str]]
+        model: "OnnxModel", nodes: dict[str, Message], world_size: int, experts: list[list[str]]
     ):
         from onnxruntime.transformers.onnx_model import OnnxModel
 
@@ -199,11 +199,11 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
     @staticmethod
     def _fix_shapes(
         model: "OnnxModel",
-        nodes: Dict[str, Message],
-        producers: Dict[str, Message],
-        consumers: Dict[str, Message],
+        nodes: dict[str, Message],
+        producers: dict[str, Message],
+        consumers: dict[str, Message],
         world_size: int,
-        experts: List[List[str]],
+        experts: list[list[str]],
         num_experts: int,
     ):
         experts_per_rank = num_experts // world_size
@@ -241,7 +241,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
                     break
 
     @staticmethod
-    def _generate_one(params: Tuple[Union[str, Path], Union[str, Path], int, List[List[str]], int, int, bool]) -> str:
+    def _generate_one(params: tuple[Union[str, Path], Union[str, Path], int, list[list[str]], int, int, bool]) -> str:
         (
             input_filepath,
             output_dirpath,
@@ -328,13 +328,13 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
 
     def distribute(
         self,
-        experts: List[Any],
+        experts: list[Any],
         num_experts: int,
         output_dirpath: str,
         use_external_data_format: bool = True,
         all_tensors_to_one_file: bool = True,
         parallel_jobs: int = multiprocessing.cpu_count(),
-    ) -> List[str]:
+    ) -> list[str]:
         params = [
             (
                 self.input_filepath,
@@ -364,7 +364,7 @@ class MoEExpertsDistributor(Pass):
     """Split the input model (and insert necessary communication operations) to prepare for distributed inferencing."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "world_size": PassConfigParam(
                 type_=int,
@@ -390,11 +390,11 @@ class MoEExpertsDistributor(Pass):
         return v
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable]:
+    def _validators(cls) -> dict[str, Callable]:
         return {"validate_distributor_config": validator("world_size", allow_reuse=True)(cls._validate_world_size)}
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> DistributedOnnxModelHandler:
         # huggingface/tokenizers: The current process just got forked, after parallelism has already been used.
         # Disabling parallelism to avoid deadlocks...

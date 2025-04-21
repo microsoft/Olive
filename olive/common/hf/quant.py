@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 import math
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Optional
 
 import torch
 import transformers
@@ -78,8 +78,8 @@ def get_bnb_qlinear_cls(quantization_config):
 
 @torch.no_grad()
 def _replace_qlinear_modules(
-    model: torch.nn.Module, mapping: Dict[str, Tuple[Callable, Callable]], desc: str
-) -> Tuple[torch.nn.Module, bool]:
+    model: torch.nn.Module, mapping: dict[str, tuple[Callable, Callable]], desc: str
+) -> tuple[torch.nn.Module, bool]:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions.
 
     :param model: the model to make export compatible. Only modified if model is quantized using a supported method.

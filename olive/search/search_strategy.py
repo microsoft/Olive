@@ -4,9 +4,10 @@
 # --------------------------------------------------------------------------
 import logging
 import time
+from collections.abc import Generator
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Generator, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase, NestedConfig, validate_config, validate_enum
 from olive.common.pydantic_v1 import validator
@@ -77,9 +78,9 @@ class SearchWalkState:
     for a single search space.
     """
 
-    def __init__(self, path: List[int], model_ids: List[str], sampler: SearchSampler, results: SearchResults):
+    def __init__(self, path: list[int], model_ids: list[str], sampler: SearchSampler, results: SearchResults):
         # Unique identification for the state.
-        self.path: List[int] = deepcopy(path)
+        self.path: list[int] = deepcopy(path)
 
         # Sampler to use for the relevant/owning search space
         self.sampler: SearchSampler = sampler
@@ -88,7 +89,7 @@ class SearchWalkState:
         self.results: SearchResults = results
 
         # Input model ids to be used for processing the generated sample
-        self.model_ids: List[str] = model_ids
+        self.model_ids: list[str] = model_ids
 
         # Once the search space has exhausted all its samples, the results
         # are sorted to find the order in which to move to the next search
@@ -97,17 +98,17 @@ class SearchWalkState:
 
 
 class SearchStrategy:
-    def __init__(self, config: Union[Dict[str, Any], SearchStrategyConfig]):
+    def __init__(self, config: Union[dict[str, Any], SearchStrategyConfig]):
         self.config: SearchStrategyConfig = validate_config(config, SearchStrategyConfig)
 
         # Initialization variables
-        self._search_spaces: List[SearchSpace] = None
-        self._objectives: Dict[str, Dict[str, Any]] = None
+        self._search_spaces: list[SearchSpace] = None
+        self._objectives: dict[str, dict[str, Any]] = None
         self._init_model_id: str = None
 
         # State variables
-        self._path: List[int] = None
-        self._state: Dict[Tuple, SearchWalkState] = None
+        self._path: list[int] = None
+        self._state: dict[tuple, SearchWalkState] = None
 
         # self._iteration_count and self._num_samples_suggested include counts across all search spaces.
         # For specific counts, query the sampler corresponding to the specific search space
@@ -123,9 +124,9 @@ class SearchStrategy:
 
     def initialize(
         self,
-        space_config: Dict[str, List[Dict[str, "SearchParameter"]]],
+        space_config: dict[str, list[dict[str, "SearchParameter"]]],
         init_model_id: str,
-        objectives: Dict[str, Dict[str, Dict[str, Any]]],
+        objectives: dict[str, dict[str, dict[str, Any]]],
     ):
         """Initialize the search strategy.
 
@@ -248,7 +249,7 @@ class SearchStrategy:
             if not self._step_down() and not self._step_up():
                 return None
 
-    def _get_objectives(self, search_space: SearchSpace) -> Dict[str, Any]:
+    def _get_objectives(self, search_space: SearchSpace) -> dict[str, Any]:
         """Return search space specific objectives."""
         return {
             name: objective
@@ -256,14 +257,14 @@ class SearchStrategy:
             for name, objective in self._objectives[pass_name].items()
         }
 
-    def _create_sampler(self, search_space: SearchSpace, objectives: Dict[str, Any]) -> SearchSampler:
+    def _create_sampler(self, search_space: SearchSpace, objectives: dict[str, Any]) -> SearchSampler:
         """Create a search sampler."""
         if self.config.sampler not in REGISTRY:
             raise ValueError(f"Unsupported search sampler: {self.config.sampler}")
 
         return REGISTRY[self.config.sampler](search_space, self.config.sampler_config, objectives)
 
-    def _create_results(self, objectives: Dict[str, Any]) -> SearchResults:
+    def _create_results(self, objectives: dict[str, Any]) -> SearchResults:
         """Create and return a search result."""
         return SearchResults(objectives)
 
@@ -325,7 +326,7 @@ class SearchStrategy:
         self,
         search_point_index: int,
         signal: "MetricResult",
-        model_ids: List[str],
+        model_ids: list[str],
         should_prune: bool = False,
     ):
         """Record the feedback signal for the given search point."""

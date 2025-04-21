@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 import torch
@@ -47,8 +47,8 @@ class DummyDataset(BaseDataset):
     def __init__(
         self,
         input_shapes,
-        input_names: Optional[List] = None,
-        input_types: Optional[List] = None,
+        input_names: Optional[list] = None,
+        input_types: Optional[list] = None,
         max_samples: Optional[int] = 32,
         **kwargs,
     ):
@@ -93,10 +93,10 @@ class RawDataset(BaseDataset):
     def __init__(
         self,
         data_dir: Union[str, Path],
-        input_names: List[str],
-        input_shapes: List[List[int]],
-        input_types: Optional[List[str]] = None,
-        input_dirs: Optional[List[str]] = None,
+        input_names: list[str],
+        input_shapes: list[list[int]],
+        input_types: Optional[list[str]] = None,
+        input_dirs: Optional[list[str]] = None,
         input_suffix: Optional[str] = None,
         input_order_file: Optional[str] = None,
         annotations_file: Optional[str] = None,
@@ -190,7 +190,7 @@ class TransformersDummyDataset(BaseDataset):
         trust_remote_code: Optional[bool] = None,
         max_samples: Optional[int] = 32,
         use_step: bool = False,
-        ignore_input_fields: Optional[List[str]] = None,
+        ignore_input_fields: Optional[list[str]] = None,
     ):
         # pylint: disable=super-init-not-called
         self.model_name = model_name
@@ -344,7 +344,7 @@ class TransformersDummyDataset(BaseDataset):
             for _ in range(num_hidden_layers)
         ]
 
-    def flatten_past_kv_inputs(self, past_key_values: List[Tuple[torch.Tensor, torch.Tensor]]):
+    def flatten_past_kv_inputs(self, past_key_values: list[tuple[torch.Tensor, torch.Tensor]]):
         """Flatten past_key_values to a dict of past_key and past_value. For ONNX model only."""
         past_kv = {}
         # Convert list of past_kv to dict of past_key and past_value

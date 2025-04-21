@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
@@ -17,7 +17,7 @@ class TensorFlowModelHandler(OliveModelHandler):
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_file_format: ModelFileFormat = ModelFileFormat.TENSORFLOW_SAVED_MODEL,
-        model_attributes: Optional[Dict[str, Any]] = None,
+        model_attributes: Optional[dict[str, Any]] = None,
     ):
         super().__init__(
             model_path=model_path,
@@ -31,9 +31,9 @@ class TensorFlowModelHandler(OliveModelHandler):
 
     def prepare_session(
         self,
-        inference_settings: Optional[Dict[str, Any]] = None,
+        inference_settings: Optional[dict[str, Any]] = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Union[str, list[str]] = None,
         rank: Optional[int] = None,
     ):
         raise NotImplementedError
@@ -41,7 +41,7 @@ class TensorFlowModelHandler(OliveModelHandler):
     def run_session(
         self,
         session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
+        inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
+        **kwargs: dict[str, Any],
     ) -> Any:
         raise NotImplementedError

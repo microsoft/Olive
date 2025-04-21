@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Dict, Type
 
 from onnxscript import ir
 from onnxscript.rewriter import ort_fusions
@@ -23,11 +22,11 @@ class OnnxScriptFusion(Pass):
     """Fuse Ops using onnxscript."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return get_external_data_config()
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 

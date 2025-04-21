@@ -5,7 +5,6 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict
 
 from olive.common.config_utils import NestedConfig
 from olive.common.constants import LOCAL_INPUT_MODEL_ID
@@ -83,7 +82,7 @@ class ModelConfig(NestedConfig):
         sorted_file_hashes = sorted(file_hashes)
         return hash_string("".join(sorted_file_hashes))
 
-    def _get_model_files_hash(self, config: Dict):
+    def _get_model_files_hash(self, config: dict):
         keys = ["model_path", "adapter_path", "model_script", "script_dir"]
         local_resource_paths = [Path(config[key]) for key in keys if config.get(key)]
 

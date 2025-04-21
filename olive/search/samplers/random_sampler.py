@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from random import Random
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam
 from olive.search.samplers.search_sampler import SearchSampler
@@ -19,7 +19,7 @@ class RandomSampler(SearchSampler):
     name = "random"
 
     @classmethod
-    def _default_config(cls) -> Dict[str, ConfigParam]:
+    def _default_config(cls) -> dict[str, ConfigParam]:
         return {
             **super()._default_config(),
             "seed": ConfigParam(type_=int, default_value=1, description="Seed for the rng."),
@@ -28,8 +28,8 @@ class RandomSampler(SearchSampler):
     def __init__(
         self,
         search_space: SearchSpace,
-        config: Optional[Union[Dict[str, Any], ConfigBase]] = None,
-        objectives: Dict[str, Dict[str, Any]] = None,
+        config: Optional[Union[dict[str, Any], ConfigBase]] = None,
+        objectives: dict[str, dict[str, Any]] = None,
     ):
         super().__init__(search_space, config, objectives)
 

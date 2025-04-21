@@ -5,7 +5,7 @@
 
 import logging
 import re
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 import torch
 
@@ -26,7 +26,7 @@ def default_dataloader(dataset, batch_size=1, **kwargs):
 
 @Registry.register_dataloader()
 def dataloader_with_ignored_batch_fields(
-    dataset, batch_size: int = 1, fields_no_batch: Union[str, List] = "step", **kwargs
+    dataset, batch_size: int = 1, fields_no_batch: Union[str, list] = "step", **kwargs
 ):
     from torch.utils.data import DataLoader, default_collate
 
@@ -59,8 +59,8 @@ def no_auto_batch_dataloader(dataset, **kwargs):
 def default_calibration_dataloader(
     dataloader,
     model_path: Optional[str] = None,
-    io_config: Optional[Dict] = None,
-    calibration_providers: Optional[List[str]] = None,
+    io_config: Optional[dict] = None,
+    calibration_providers: Optional[list[str]] = None,
     **kwargs,
 ):
     from onnxruntime.quantization import CalibrationDataReader
@@ -106,7 +106,7 @@ def default_calibration_dataloader(
 
 # TODO(jambayk): generalize this and make this available for dataloaders
 class LLMAugmentedDataLoader:
-    def __init__(self, dataloader, model_path: str, io_config: Dict, calibration_providers: Optional[List[str]] = None):
+    def __init__(self, dataloader, model_path: str, io_config: dict, calibration_providers: Optional[list[str]] = None):
         import onnx
 
         self.dataloader = dataloader
@@ -224,7 +224,7 @@ class LLMAugmentedDataLoader:
         self._session = InferenceSession(self.model_path, providers=self.calibration_providers)
         return self._session
 
-    def add_extra_inputs(self, batch: Dict[str, torch.Tensor]):
+    def add_extra_inputs(self, batch: dict[str, torch.Tensor]):
         """Add extra inputs to the batch.
 
         :param batch: A dictionary containing the batch data.
@@ -247,7 +247,7 @@ class LLMAugmentedDataLoader:
             del batch["attention_mask"]
 
     @staticmethod
-    def get_kv_info(io_config: Dict) -> Optional[Dict]:
+    def get_kv_info(io_config: dict) -> Optional[dict]:
         """Return the kv_info dictionary containing information about past keys and values.
 
         :param io_config: A dictionary containing the input and output names and shapes.
@@ -311,7 +311,7 @@ class LLMAugmentedDataLoader:
         }
 
     @staticmethod
-    def get_empty_kv_cache(batch_size: int, kv_info: Dict, has_gqa: bool):
+    def get_empty_kv_cache(batch_size: int, kv_info: dict, has_gqa: bool):
         """Return an empty cache for past keys and values.
 
         :param batch_size: The batch size.

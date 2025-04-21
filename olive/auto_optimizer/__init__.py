@@ -5,7 +5,7 @@
 
 import logging
 from copy import deepcopy
-from typing import List, Optional
+from typing import Optional
 
 from olive.auto_optimizer.regulate_mixins import RegulatePassConfigMixin
 from olive.common.config_utils import ConfigBase
@@ -38,13 +38,13 @@ class AutoOptimizerConfig(ConfigBase):
     # precisions lists: [fp32, fp16, int8] which means the output model can be fp32, fp16 or int8
     # which will be used to filter the passes that are not supported by the precision
     # None for no precision restriction
-    precisions: Optional[List[Precision]] = None
+    precisions: Optional[list[Precision]] = None
 
     # TODO(trajep): should distinguish model fine-tune and model inference?
     # if fine_tune is True, we will not suggest the training related pass, like: QLora
     # fine_tune: bool = False
 
-    excluded_passes: Optional[List[str]] = None
+    excluded_passes: Optional[list[str]] = None
 
     @validator("opt_level", pre=True)
     def check_opt_level(cls, v):
@@ -60,7 +60,7 @@ class AutoOptimizer(RegulatePassConfigMixin):
         evaluator_config: OliveEvaluatorConfig,
         accelerator_spec: AcceleratorSpec,
         auto_optimizer_config: Optional[AutoOptimizerConfig] = None,
-        data_configs: Optional[List[DataConfig]] = None,
+        data_configs: Optional[list[DataConfig]] = None,
     ):
         self.input_model_config = input_model_config
         self.evaluator_config = evaluator_config

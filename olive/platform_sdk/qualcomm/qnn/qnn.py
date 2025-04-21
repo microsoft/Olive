@@ -8,7 +8,7 @@ import platform
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -50,7 +50,7 @@ class QNNSessionOptions(ConfigBase):
 
 class QNNInferenceSession:
     def __init__(
-        self, model_path: str = None, io_config: Optional[Dict] = None, session_options: QNNSessionOptions = None
+        self, model_path: str = None, io_config: Optional[dict] = None, session_options: QNNSessionOptions = None
     ):
         self.model_path = model_path
         self.io_config = io_config
