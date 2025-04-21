@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import math
 from argparse import ArgumentParser
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 from olive.cli.base import BaseOliveCLICommand, add_logging_options
 from olive.common.utils import WeightsFileFormat, save_weights
@@ -127,7 +127,7 @@ class ConvertAdaptersCommand(BaseOliveCLICommand):
     @staticmethod
     def int4_block_quant(
         float_weight: "NDArray", block_size: int, is_symmetric: bool
-    ) -> Tuple["NDArray", "NDArray", "NDArray"]:
+    ) -> tuple["NDArray", "NDArray", "NDArray"]:
         """Quantize a weight tensor to int4."""
         # Only need to quantize the weight tensors directly
         # Not the same as OnnxMatMul4Quantizer pass which quantizes an entire model

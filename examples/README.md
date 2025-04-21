@@ -28,10 +28,11 @@ git checkout tags/v0.2.0
 To create a new conda environment and activate it, run the following command:
 
 ```bash
-conda create -n olive-env python=3.8
+conda create -n olive-env python=3.12
 conda activate olive-env
 ```
-You can replace `olive-env` with any name you want and `python=3.8` with the version of python you want to use.
+
+You can replace `olive-env` with any name you want and `python=3.12` with the version of python you want to use.
 
 Please refer to the [conda documentation](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) for more information on how to create and manage conda environments.
 

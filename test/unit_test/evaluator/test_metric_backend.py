@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from functools import partial
-from typing import ClassVar, List
+from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
@@ -45,7 +45,7 @@ class TestMetricBackend:
         for v in actual_res.values():
             assert v.value == 0.999
 
-    HF_ACCURACY_TEST_CASE: ClassVar[List] = [
+    HF_ACCURACY_TEST_CASE: ClassVar[list] = [
         (
             get_pytorch_model_config,
             partial(get_accuracy_metric, "accuracy", "f1", backend="huggingface_metrics"),

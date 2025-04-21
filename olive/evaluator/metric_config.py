@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, create_config_class
 from olive.common.pydantic_v1 import validator
@@ -29,9 +29,9 @@ _common_user_config_validators = {}
 _type_to_user_config = {
     "custom": {
         "evaluate_func": ConfigParam(type_=Union[Callable, str], required=False, category=ParamCategory.OBJECT),
-        "evaluate_func_kwargs": ConfigParam(type_=Dict[str, Any]),
+        "evaluate_func_kwargs": ConfigParam(type_=dict[str, Any]),
         "metric_func": ConfigParam(type_=Union[Callable, str], required=False, category=ParamCategory.OBJECT),
-        "metric_func_kwargs": ConfigParam(type_=Dict[str, Any]),
+        "metric_func_kwargs": ConfigParam(type_=dict[str, Any]),
     },
 }
 

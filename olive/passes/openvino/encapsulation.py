@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import os
 from pathlib import Path
-from typing import ClassVar, Dict, Type, Union
+from typing import ClassVar, Union
 
 import onnx.helper as helper
 from onnx import TensorProto, save
@@ -49,7 +49,7 @@ class OpenVINOEncapsulation(Pass):
 
     # Add any required data members to the class
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "target_device": PassConfigParam(
                 type_=Device,
@@ -87,7 +87,7 @@ class OpenVINOEncapsulation(Pass):
     def _run_for_config(
         self,
         model: Union[OpenVINOModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
         try:

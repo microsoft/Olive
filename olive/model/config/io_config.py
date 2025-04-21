@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 from olive.common.config_utils import ConfigBase, get_the_flattened_and_tree_spec
 from olive.common.hf.wrapper import ModelWrapper
@@ -33,26 +33,26 @@ class IoConfig(ConfigBase):
     """
 
     # TODO(trajep): remove input names, shapes and types, turn to use olive dataset config.
-    input_names: List[str]
-    input_shapes: List[List[int]] = None
-    input_types: List[str] = None
-    output_names: List[str]
-    output_shapes: List[List[int]] = None
-    output_types: List[str] = None
-    dynamic_axes: Dict[str, Dict[int, str]] = None
+    input_names: list[str]
+    input_shapes: list[list[int]] = None
+    input_types: list[str] = None
+    output_names: list[str]
+    output_shapes: list[list[int]] = None
+    output_types: list[str] = None
+    dynamic_axes: dict[str, dict[int, str]] = None
     # dynamic_shapes is different from dynamic_axes, it is nested.
     # We need to post-process its keys to int under onnx/conversion.py
     # for example, {"input_ids": {"0": "batch"}}
-    dynamic_shapes: Union[List[Any], Dict[str, Any]] = None
+    dynamic_shapes: Union[list[Any], dict[str, Any]] = None
     # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
     # even though we want the dimension to be a constant int.
     # We use a workaround here: first use dim_param like "1" to represent the dimension, and then
     # convert it to int in the onnx model.
-    string_to_int_dim_params: List[str] = None
+    string_to_int_dim_params: list[str] = None
     # if False, skip kv_cache input
     # if True, use default KVCacheConfig
     # if KVCacheConfig, use the provided KVCacheConfig
-    kv_cache: Union[bool, Dict[str, Any], KVCacheConfig] = False
+    kv_cache: Union[bool, dict[str, Any], KVCacheConfig] = False
 
     @validator("input_shapes", "input_types")
     def check_input_shapes(cls, v, values):
@@ -199,7 +199,7 @@ def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
     )
 
 
-def is_io_config_static(config: Union[IoConfig, Dict]):
+def is_io_config_static(config: Union[IoConfig, dict]):
     if isinstance(config, IoConfig):
         config = config.dict()
     if not config.get("input_shapes"):

@@ -6,7 +6,6 @@ import platform
 import shutil
 from itertools import chain
 from pathlib import Path
-from typing import Dict, Tuple
 from unittest.mock import patch
 
 import pytest
@@ -254,8 +253,8 @@ class SingnatureOnlyModel(torch.nn.Module):
     def forward(
         self,
         w: torch.Tensor,
-        x: Tuple[torch.Tensor, torch.Tensor],
-        y: Dict[str, torch.Tensor],
+        x: tuple[torch.Tensor, torch.Tensor],
+        y: dict[str, torch.Tensor],
         z: torch.Tensor,
     ):
         pass

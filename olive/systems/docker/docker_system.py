@@ -8,7 +8,7 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import docker
 from docker.errors import BuildError, ContainerError
@@ -38,8 +38,8 @@ class DockerSystem(OliveSystem):
 
     def __init__(
         self,
-        local_docker_config: Union[Dict[str, Any], LocalDockerConfig],
-        accelerators: List[AcceleratorConfig] = None,
+        local_docker_config: Union[dict[str, Any], LocalDockerConfig],
+        accelerators: list[AcceleratorConfig] = None,
         is_dev: bool = False,
         hf_token: bool = None,
         requirements_file: Optional[Union[Path, str]] = None,
@@ -201,7 +201,7 @@ class DockerSystem(OliveSystem):
 
     def evaluate_model(
         self, model_config: "ModelConfig", evaluator_config: "OliveEvaluatorConfig", accelerator: "AcceleratorSpec"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metric_json = self._run_eval_container(
@@ -279,7 +279,7 @@ class DockerSystem(OliveSystem):
         return self._run_container(eval_command, volumes_list, output_local_path, eval_output_name, accelerator)
 
     @staticmethod
-    def _create_eval_config(model_config: "ModelConfig", metrics: List["Metric"], model_mounts: Dict[str, str]):
+    def _create_eval_config(model_config: "ModelConfig", metrics: list["Metric"], model_mounts: dict[str, str]):
         model_json = model_config.to_json(check_object=True)
         for k, v in model_mounts.items():
             model_json["config"][k] = v
@@ -289,9 +289,9 @@ class DockerSystem(OliveSystem):
     @staticmethod
     def _create_runner_config(
         model_config: "ModelConfig",
-        pass_config: Dict[str, Any],
-        model_mounts: Dict[str, str],
-        data_mounts: Dict[str, str],
+        pass_config: dict[str, Any],
+        model_mounts: dict[str, str],
+        data_mounts: dict[str, str],
     ):
         model_json = model_config.to_json(check_object=True)
         for k, v in model_mounts.items():
@@ -306,7 +306,7 @@ class DockerSystem(OliveSystem):
     def _run_container(
         self,
         command,
-        volumes_list: List[str],
+        volumes_list: list[str],
         output_local_path,
         output_name,
         accelerator: "AcceleratorSpec",

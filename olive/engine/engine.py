@@ -10,7 +10,7 @@ from collections import OrderedDict, defaultdict
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from olive.cache import CacheConfig, OliveCache
 from olive.common.config_utils import validate_config
@@ -50,11 +50,11 @@ class Engine:
         self,
         olive_config: OlivePackageConfig = None,
         workflow_id: str = DEFAULT_WORKFLOW_ID,
-        search_strategy: Optional[Union[Dict[str, Any], SearchStrategyConfig]] = None,
-        host: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
-        target: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
-        evaluator: Optional[Union[Dict[str, Any], OliveEvaluatorConfig]] = None,
-        cache_config: Optional[Union[Dict[str, Any], CacheConfig]] = None,
+        search_strategy: Optional[Union[dict[str, Any], SearchStrategyConfig]] = None,
+        host: Optional[Union[dict[str, Any], "SystemConfig"]] = None,
+        target: Optional[Union[dict[str, Any], "SystemConfig"]] = None,
+        evaluator: Optional[Union[dict[str, Any], OliveEvaluatorConfig]] = None,
+        cache_config: Optional[Union[dict[str, Any], CacheConfig]] = None,
         plot_pareto_frontier: bool = False,
         no_artifacts: bool = False,
         *,
@@ -84,9 +84,9 @@ class Engine:
         self.skip_saving_artifacts = no_artifacts
         self.azureml_client_config = azureml_client_config
 
-        self.input_passes_configs: Dict[str, List[RunPassConfig]] = OrderedDict()
-        self.computed_passes_configs: Dict[str, RunPassConfig] = OrderedDict()
-        self.footprints: Dict[AcceleratorSpec, Footprint] = defaultdict(Footprint)
+        self.input_passes_configs: dict[str, list[RunPassConfig]] = OrderedDict()
+        self.computed_passes_configs: dict[str, RunPassConfig] = OrderedDict()
+        self.footprints: dict[AcceleratorSpec, Footprint] = defaultdict(Footprint)
 
         self._initialized = False
 
@@ -122,8 +122,8 @@ class Engine:
 
     def register(
         self,
-        pass_type: Union[Type["Pass"], str],
-        config: Dict[str, Any] = None,
+        pass_type: Union[type["Pass"], str],
+        config: dict[str, Any] = None,
         name: str = None,
         host: SystemConfig = None,
         evaluator_config: OliveEvaluatorConfig = None,
@@ -152,14 +152,14 @@ class Engine:
             )
         ]
 
-    def set_input_passes_configs(self, pass_configs: Dict[str, List[RunPassConfig]]):
+    def set_input_passes_configs(self, pass_configs: dict[str, list[RunPassConfig]]):
         self.input_passes_configs = pass_configs
 
     def run(
         self,
         input_model_config: ModelConfig,
-        accelerator_specs: List["AcceleratorSpec"],
-        packaging_config: Optional[Union["PackagingConfig", List["PackagingConfig"]]] = None,
+        accelerator_specs: list["AcceleratorSpec"],
+        packaging_config: Optional[Union["PackagingConfig", list["PackagingConfig"]]] = None,
         output_dir: str = None,
         evaluate_input_model: bool = True,
         log_to_file: bool = False,
@@ -333,7 +333,7 @@ class Engine:
         for name, passes_configs in self.input_passes_configs.items():
             pass_config = validate_config(passes_configs[0].dict(), RunPassConfig)
 
-            pass_cls: Type[Pass] = self.olive_config.import_pass_module(pass_config.type)
+            pass_cls: type[Pass] = self.olive_config.import_pass_module(pass_config.type)
             pass_config.config = pass_cls.generate_config(accelerator_spec, pass_config.config, {}, True)
             self.computed_passes_configs[name] = pass_config
 
@@ -372,7 +372,7 @@ class Engine:
         return output_footprints
 
     def _get_search_space_config(self, accelerator_spec: "AcceleratorSpec"):
-        space_config: Dict[str, List[Dict[str, SearchParameter]]] = OrderedDict()
+        space_config: dict[str, list[dict[str, SearchParameter]]] = OrderedDict()
         for pass_name, passes_configs in self.input_passes_configs.items():
             space_config[pass_name] = pass_params_config = []
             for pass_config in passes_configs:
@@ -386,7 +386,7 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
-    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    ) -> dict[str, dict[str, dict[str, Any]]]:
         # NOTE: Olive config doesn't easily lend itself to enforcing one evaluator across
         # multiple pass run configs since each can have its own. That freedom creates some
         # bad unexpected scenarios for search. If two or more pass run configs in the same
@@ -394,8 +394,8 @@ class Engine:
         # way to resolve them. To keep things simple for the time being, the objectives
         # across all pass run configs within a pass group are merged by name (so the last
         # one) in the group will win.
-        objectives_by_pass_name: Dict[str, Dict[str, Dict[str, Any]]] = {}
-        objectives_by_evaluator_name: Dict[str, Dict[str, Any]] = {}
+        objectives_by_pass_name: dict[str, dict[str, dict[str, Any]]] = {}
+        objectives_by_evaluator_name: dict[str, dict[str, Any]] = {}
         for pass_name, passes_configs in self.input_passes_configs.items():
             objectives_by_pass_name[pass_name] = passes_objectives = {}
             for pass_config in passes_configs:
@@ -406,7 +406,7 @@ class Engine:
                     )
                 passes_objectives.update(objectives_by_evaluator_name[evaluator_config.name])
 
-        accelerator_objectives: Dict[str, Any] = {}
+        accelerator_objectives: dict[str, Any] = {}
         for objectives in objectives_by_evaluator_name.values():
             accelerator_objectives.update(objectives)
         self.footprints[accelerator_spec].record_objective_dict(accelerator_objectives)
@@ -506,9 +506,9 @@ class Engine:
         self,
         input_model_config: ModelConfig,
         input_model_id: str,
-        metrics: List[Metric],
+        metrics: list[Metric],
         accelerator_spec: "AcceleratorSpec",
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         """Return a dictionary of objectives and their higher_is_better and goal values.
 
         {objective_name: {"higher_is_better": bool, "goal": float}}
@@ -531,9 +531,9 @@ class Engine:
         self,
         input_model_config: ModelConfig,
         input_model_id: str,
-        metrics: List[Metric],
+        metrics: list[Metric],
         accelerator_spec: "AcceleratorSpec",
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Resolve the goals of the given metrics into thresholds for the given model."""
         goals = {}
         multipliers = {}
@@ -683,7 +683,7 @@ class Engine:
         logger.info("Running pass %s:%s", pass_name, pass_type_name)
 
         # check whether the config is valid
-        pass_cls: Type[Pass] = self.olive_config.import_pass_module(pass_config.type)
+        pass_cls: type[Pass] = self.olive_config.import_pass_module(pass_config.type)
         if not pass_cls.validate_config(pass_config.config, accelerator_spec):
             logger.warning("Invalid config, pruned.")
             logger.debug(pass_config)

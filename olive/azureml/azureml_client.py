@@ -5,7 +5,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import Field, validator
@@ -47,7 +47,7 @@ class AzureMLClientConfig(ConfigBase):
     # as the DefaultAzureCredential is used by default, we need to provide the default auth config for it.
     # but DefaultAzureCredential accept kwargs as parameters, it is hard to validate the config.
     # so we just provide a dict here and let the user to provide the correct config following the doc.
-    default_auth_params: Optional[Dict[str, Any]] = Field(
+    default_auth_params: Optional[dict[str, Any]] = Field(
         None,
         description=(
             "Default auth config for AzureML client. Please refer to"
@@ -70,7 +70,7 @@ class AzureMLClientConfig(ConfigBase):
                 raise ValueError(f"aml_config_path {v} is not a file")
         return v
 
-    def get_workspace_config(self) -> Dict[str, str]:
+    def get_workspace_config(self) -> dict[str, str]:
         """Get the workspace config as a dict."""
         if self.aml_config_path:
             # If aml_config_path is provided, load the config from the file.

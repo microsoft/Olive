@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import sys
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class SearchResults:
-    def __init__(self, objectives: Dict[str, Dict[str, Any]] = None):
+    def __init__(self, objectives: dict[str, dict[str, Any]] = None):
         # Order the objectives based on priority, and then by name
         objectives = objectives or {}
         self._objectives = OrderedDict(sorted(objectives.items(), key=lambda entry: (entry[1]["priority"], entry[0])))
@@ -28,10 +28,10 @@ class SearchResults:
             self._higher_is_betters[name] = objective.get("higher_is_better") or False
             self._multipliers[name] = 1 if self._higher_is_betters[name] else -1
 
-        self._results: Tuple[MetricResult, List[str]] = []
-        self._sorted_indices: List[int] = []
+        self._results: tuple[MetricResult, list[str]] = []
+        self._sorted_indices: list[int] = []
 
-    def record_feedback_signal(self, search_point_index: int, result: "MetricResult", model_ids: List[str]):
+    def record_feedback_signal(self, search_point_index: int, result: "MetricResult", model_ids: list[str]):
         """Record the evaluation result of a search point."""
         self._results += [None] * ((search_point_index + 1) - len(self._results))
         self._results[search_point_index] = (result, model_ids)
@@ -69,7 +69,7 @@ class SearchResults:
 
         return True
 
-    def get_next_best_result(self, start_index: int) -> Tuple[int, int, List[str]]:
+    def get_next_best_result(self, start_index: int) -> tuple[int, int, list[str]]:
         assert start_index is not None, "Expecting an index, got None"
 
         if start_index < -1:
@@ -82,7 +82,7 @@ class SearchResults:
         _, model_ids = self._results[self._sorted_indices[next_best_index]]
         return next_best_index, self._sorted_indices[next_best_index], model_ids
 
-    def _get_results_list(self, apply_goals: bool = False) -> Tuple[List[int], List[float]]:
+    def _get_results_list(self, apply_goals: bool = False) -> tuple[list[int], list[float]]:
         """Return the results as a tuple of indices and values."""
         values = []
         indices = []

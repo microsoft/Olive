@@ -6,7 +6,7 @@ import logging
 import re
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Type
+from typing import TYPE_CHECKING
 
 import numpy as np
 import onnx
@@ -37,7 +37,7 @@ class ExtractAdapters(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "make_inputs": PassConfigParam(
                 type_=bool,
@@ -74,7 +74,7 @@ class ExtractAdapters(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
@@ -258,7 +258,7 @@ class ExtractAdapters(Pass):
         return new_initializer
 
     @classmethod
-    def _externalize_initializer(cls, dag: OnnxDAG, weights: Dict[str, "NDArray"], old_name: str, new_name: str):
+    def _externalize_initializer(cls, dag: OnnxDAG, weights: dict[str, "NDArray"], old_name: str, new_name: str):
         """Create a new initializer with the same shape and type as the old initializer.
 
         The initializer points to a dummy external location.
@@ -283,7 +283,7 @@ class ExtractAdapters(Pass):
 
     @classmethod
     def _make_dynamic_optional(
-        cls, dag: OnnxDAG, weights: Dict[str, "NDArray"], name: str, config: Type[BasePassConfig]
+        cls, dag: OnnxDAG, weights: dict[str, "NDArray"], name: str, config: type[BasePassConfig]
     ):
         """Make the input dynamic and optional."""
         if "quant" in name:

@@ -2,8 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import builtins
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Set, Type, Union
+from typing import Any, Callable, ClassVar, Optional, Union
 
 from olive.common.config_utils import (
     ConfigBase,
@@ -65,7 +66,7 @@ class PassConfigParam(ConfigParam):
 
 def get_user_script_data_config(
     required: Optional[bool] = False, allow_path: Optional[bool] = True
-) -> Dict[str, PassConfigParam]:
+) -> dict[str, PassConfigParam]:
     type_ = str
     if allow_path:
         type_ = Union[Path, str]
@@ -115,7 +116,7 @@ class AbstractPassConfig(NestedConfig):
     """Base class for pass configuration."""
 
     type: str = Field(description="The type of the pass.")
-    config: Union[Dict[str, Any], Type[BasePassConfig]] = Field(
+    config: Union[dict[str, Any], builtins.type[BasePassConfig]] = Field(
         None,
         description=(
             "The configuration of the pass. Values for required parameters must be provided. For optional parameters,"
@@ -131,10 +132,10 @@ class AbstractPassConfig(NestedConfig):
 
 def create_config_class(
     pass_type: str,
-    default_config: Dict[str, PassConfigParam],
+    default_config: dict[str, PassConfigParam],
     disable_search: Optional[bool] = False,
-    validators: Dict[str, Callable] = None,
-) -> Type[BasePassConfig]:
+    validators: dict[str, Callable] = None,
+) -> type[BasePassConfig]:
     """Create a Pydantic model class from a configuration dictionary."""
     config = {}
     validators = validators.copy() if validators else {}
@@ -166,22 +167,22 @@ def create_config_class(
 
 
 class PassModuleConfig(ConfigBase):
-    ACCELERATORS: ClassVar[Set[str]] = {v.value for v in Device}
-    PRECISIONS: ClassVar[Set[str]] = {v.value for v in Precision}
-    QUANT_ALGORITHMS: ClassVar[Set[str]] = {v.value for v in QuantAlgorithm}
-    QUANT_ENCODINGS: ClassVar[Set[str]] = {v.value for v in QuantEncoding}
-    EXECUTION_PROVIDERS: ClassVar[Set[str]] = {
+    ACCELERATORS: ClassVar[set[str]] = {v.value for v in Device}
+    PRECISIONS: ClassVar[set[str]] = {v.value for v in Precision}
+    QUANT_ALGORITHMS: ClassVar[set[str]] = {v.value for v in QuantAlgorithm}
+    QUANT_ENCODINGS: ClassVar[set[str]] = {v.value for v in QuantEncoding}
+    EXECUTION_PROVIDERS: ClassVar[set[str]] = {
         provider for provider_list in DEVICE_TO_EXECUTION_PROVIDERS.values() for provider in provider_list
     }
 
     module_path: str
-    supported_providers: Set[str] = Field(default_factory=set)
-    supported_accelerators: Set[str] = Field(default_factory=set)
-    supported_precisions: Set[str] = Field(default_factory=set)
-    supported_algorithms: Set[str] = Field(default_factory=set)
-    supported_quantization_encodings: Set[str] = Field(default_factory=set)
-    module_dependencies: List[str] = Field(default_factory=list)
-    extra_dependencies: List[str] = Field(default_factory=list)
+    supported_providers: set[str] = Field(default_factory=set)
+    supported_accelerators: set[str] = Field(default_factory=set)
+    supported_precisions: set[str] = Field(default_factory=set)
+    supported_algorithms: set[str] = Field(default_factory=set)
+    supported_quantization_encodings: set[str] = Field(default_factory=set)
+    module_dependencies: list[str] = Field(default_factory=list)
+    extra_dependencies: list[str] = Field(default_factory=list)
 
     # Flag indicate whether the pass need to be run in target instead of host
     run_on_target: bool = False

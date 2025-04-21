@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import random
-from typing import List, Tuple
 
 import torch
 from datasets import load_dataset
@@ -100,7 +99,7 @@ def get_past_kv_inputs(config, batch_size: int, past_seq_len: int, use_fp16: boo
     ]
 
 
-def flatten_past_kv_inputs(past_key_values: List[Tuple[torch.Tensor, torch.Tensor]]):
+def flatten_past_kv_inputs(past_key_values: list[tuple[torch.Tensor, torch.Tensor]]):
     """Flatten past_key_values to a dict of past_key and past_value. For ONNX model only."""
     past_kv = {}
     # Convert list of past_kv to dict of past_key and past_value

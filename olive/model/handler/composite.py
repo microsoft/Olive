@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.utils import dict_diff
@@ -28,15 +28,15 @@ class CompositeModelHandler(OliveModelHandler):
     CompositeModelHandler is a collection of Models. All the child model in the container should have same model type.
     """
 
-    resource_keys: Tuple[str, ...] = ("model_path",)
-    json_config_keys: Tuple[str, ...] = ("model_component_names",)
+    resource_keys: tuple[str, ...] = ("model_path",)
+    json_config_keys: tuple[str, ...] = ("model_component_names",)
 
     def __init__(
         self,
-        model_components: List[Union[OliveModelHandler, Dict[str, Any]]],
-        model_component_names: List[str],
+        model_components: list[Union[OliveModelHandler, dict[str, Any]]],
+        model_component_names: list[str],
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
-        model_attributes: Optional[Dict[str, Any]] = None,
+        model_attributes: Optional[dict[str, Any]] = None,
     ):
         super().__init__(
             model_path=model_path,
@@ -75,7 +75,7 @@ class CompositeModelHandler(OliveModelHandler):
 
         return serialize_to_json(json_dict, check_object)
 
-    def get_model_components(self) -> List[Tuple[str, OliveModelHandler]]:
+    def get_model_components(self) -> list[tuple[str, OliveModelHandler]]:
         return zip(self.model_component_names, self.model_components)
 
     def load_model(self, rank: int = None, cache_model: bool = True):
@@ -83,9 +83,9 @@ class CompositeModelHandler(OliveModelHandler):
 
     def prepare_session(
         self,
-        inference_settings: Optional[Dict[str, Any]] = None,
+        inference_settings: Optional[dict[str, Any]] = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Union[str, list[str]] = None,
         rank: Optional[int] = None,
     ):
         raise RuntimeError("CompositeModelHandler doesn't have a session of its own")
@@ -93,7 +93,7 @@ class CompositeModelHandler(OliveModelHandler):
     def run_session(
         self,
         session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
+        inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
+        **kwargs: dict[str, Any],
     ) -> Any:
         raise RuntimeError("CompositeModelHandler doesn't have a session of its own")

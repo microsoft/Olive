@@ -52,7 +52,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           # Version range or exact version of Python to use, using SemVer's version range syntax. Reads from .python-version if unset.
-          python-version: "3.8"
+          python-version: "3.9"
       - name: Install dependencies
         run: |
           python -m pip install -r requirements-dev.txt

@@ -6,7 +6,7 @@ CONDA_CONFIG = {
     "name": "olive_finetune",
     "channels": ["defaults"],
     "dependencies": [
-        "python=3.8.13",
+        "python=3.9.21",
         "pip=22.3.1",
         {
             "pip": [

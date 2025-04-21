@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 import onnx
@@ -37,7 +37,7 @@ class ORTGenerator:
         tokenizer: PreTrainedTokenizer,
         execution_provider: str,
         device_id: int = 0,
-        adapters: Dict[str, Any] = None,
+        adapters: dict[str, Any] = None,
         adapter_mode: AdapterMode = AdapterMode.inputs,
     ):
         """Initialize the generator.
@@ -106,7 +106,7 @@ class ORTGenerator:
         self.default_adapter = next(iter(self.adapters.keys()))
 
     @staticmethod
-    def get_io_type_shape(io: "ValueInfoProto") -> Dict:
+    def get_io_type_shape(io: "ValueInfoProto") -> dict:
         """Get the type and shape of an input/output."""
         tensor_type = io.type.tensor_type
         if tensor_type.elem_type == 0:
@@ -137,9 +137,9 @@ class ORTGenerator:
         execution_provider: str,
         device: str,
         device_id: int,
-        adapter_info: Dict[str, Any],
+        adapter_info: dict[str, Any],
         adapter_mode: AdapterMode,
-    ) -> Tuple[Dict[str, InferenceSession], Dict[str, Dict[str, Any]]]:
+    ) -> tuple[dict[str, InferenceSession], dict[str, dict[str, Any]]]:
         """Prepare the sessions and adapters for the model.
 
         :param model_path: Path to the model.
@@ -209,7 +209,7 @@ class ORTGenerator:
 
     def get_adapter(
         self, name: Optional[str] = None, use_io_binding: bool = False
-    ) -> Tuple[InferenceSession, str, Dict[str, Any]]:
+    ) -> tuple[InferenceSession, str, dict[str, Any]]:
         """Get the session, template and inputs for the specified adapter.
 
         :param name: Name of the adapter to use. If None, the default adapter is used.
@@ -231,14 +231,14 @@ class ORTGenerator:
 
     def generate(
         self,
-        prompt: Union[Union[str, Tuple[str]], List[Union[str, Tuple[str]]]],
+        prompt: Union[Union[str, tuple[str]], list[Union[str, tuple[str]]]],
         adapter: Optional[str] = None,
         max_gen_len: int = 128,
         use_io_binding: bool = False,
         cache_type: str = "dynamic",
         max_cache_len: int = 1024,
         cache_backend: str = "ort",
-    ) -> Union[str, List[str]]:
+    ) -> Union[str, list[str]]:
         """Generate text from the model given a prompt.
 
         :param prompt: The prompt to generate text from. Can be a string/string-tuples or a list.
@@ -407,13 +407,13 @@ class ORTGenerator:
 
     def get_initial_inputs(
         self,
-        prompt: Union[Union[str, Tuple[str]], List[Union[str, Tuple[str]]]],
+        prompt: Union[Union[str, tuple[str]], list[Union[str, tuple[str]]]],
         template: Optional[str],
         use_io_binding: bool,
         cache_type: str,
         max_cache_len: int,
         cache_backend: str,
-    ) -> Tuple[Dict[str, Union["NDArray", OrtValue]], Union["Cache", "IOBoundCache"]]:
+    ) -> tuple[dict[str, Union["NDArray", OrtValue]], Union["Cache", "IOBoundCache"]]:
         """Get the initial inputs and cache for the model."""
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -500,7 +500,7 @@ class ORTGenerator:
         return cache_class(**kwargs, **self.cache_info)
 
 
-def apply_template(template: str, p: Union[str, Tuple[str]]) -> str:
+def apply_template(template: str, p: Union[str, tuple[str]]) -> str:
     if isinstance(p, tuple):
         kwargs = {f"prompt_{i}": p[i] for i in range(len(p))}
     else:

@@ -6,7 +6,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Type, Union
+from typing import Union
 
 import onnx
 
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 # common config for Vitis-AI quantization
 vai_q_onnx_quantization_config = {
     "data_config": PassConfigParam(
-        type_=Union[DataConfig, Dict],
+        type_=Union[DataConfig, dict],
         required=True,
         description="Data config for calibration.",
     ),
@@ -215,7 +215,7 @@ class VitisAIQuantization(Pass):
         return False
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "quant_mode": PassConfigParam(
                 type_=str,
@@ -236,7 +236,7 @@ class VitisAIQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         if model_has_adapters(model.model_path):
             logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")

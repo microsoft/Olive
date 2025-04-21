@@ -2,13 +2,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 import logging
 import platform
 import re
 import shutil
 import tempfile
 from pathlib import Path
-from typing import List, Tuple
 
 import numpy as np
 
@@ -117,8 +118,8 @@ def snpe_net_run(
     dlc_path: str,
     input_list: str,
     data_dir: str,
-    output_names: List[str],
-    output_shapes: List[List[int]],
+    output_names: list[str],
+    output_shapes: list[list[int]],
     runs: int = 1,
     sleep: int = 0,
     device: SNPEDevice = "cpu",
@@ -329,7 +330,7 @@ def snpe_net_run(
 
 def _snpe_throughput_net_run_adb(
     cmd: str, android_target: str, data_dir: str, persist_ws: bool = False, initialized: bool = False
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """Run snpe-throughput-net-run on the target Android device.
 
     cmd: snpe-throughput-net-run command with local paths to the dlc and input raw files.

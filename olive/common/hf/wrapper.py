@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import TYPE_CHECKING, Callable, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Union
 
 import torch
 from torch import nn
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 # TODO(jambayk): consider always returning the name of the submodule
-def get_submodules(module: nn.Module, mapping: Dict, key: str, return_name: bool = False, return_name_prefix: str = ""):
+def get_submodules(module: nn.Module, mapping: dict, key: str, return_name: bool = False, return_name_prefix: str = ""):
     names = mapping.get(key, mapping["default"])
 
     if isinstance(names, str):
@@ -207,7 +207,7 @@ class ModelWrapper:
         "qwen": "transformer.h",
     }
 
-    def __init__(self, config: Union[PretrainedConfig, Dict]):
+    def __init__(self, config: Union[PretrainedConfig, dict]):
         self.config = config if isinstance(config, PretrainedConfig) else PretrainedConfig.from_dict(config)
         self.model_type = find_first_matched_value(self.config, "model_type")
 
@@ -283,7 +283,7 @@ class ModelWrapper:
                 ),
             )
 
-    def save_model(self, output_model_path: str, replacements: List[Tuple[nn.Module, Callable]] = None):
+    def save_model(self, output_model_path: str, replacements: list[tuple[nn.Module, Callable]] = None):
         """Save the model to the output_model_path with the specified replacements.
 
         :param output_model_path: Path to save the model.

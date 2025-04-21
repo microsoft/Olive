@@ -4,10 +4,11 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Optional, Union
 
 import onnx
 from onnx import GraphProto, ModelProto
+from onnxscript import ir
 
 from olive.common.ort_inference import OrtSessionFallbackError, get_ort_inference_session
 from olive.common.utils import load_weights
@@ -33,7 +34,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
     the mixin class OnnxGraphMixin is used to support onnx graph operations.
     """
 
-    json_config_keys: Tuple[str, ...] = (
+    json_config_keys: tuple[str, ...] = (
         "onnx_file_name",
         "inference_settings",
         "use_ort_extensions",
@@ -47,7 +48,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         onnx_file_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
-        model_attributes: Optional[Dict[str, Any]] = None,
+        model_attributes: Optional[dict[str, Any]] = None,
         external_initializers_file_name: Optional[str] = None,
         constant_inputs_file_name: Optional[str] = None,
     ):
@@ -64,7 +65,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         self.constant_inputs_file_name = constant_inputs_file_name
 
         self.graph = None
-        self.all_graphs: Optional[List[GraphProto]] = None
+        self.all_graphs: Optional[list[GraphProto]] = None
 
         # check for file names since it will automatically validate the paths
         # these call the property methods which in turn validate the paths using get_onnx_file_path
@@ -103,14 +104,18 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
 
         return model_path_resource.parent
 
-    def load_model(self, rank: int = None, cache_model: bool = True) -> ModelProto:
+    def load_model(self, rank: Optional[int] = None, cache_model: bool = True) -> ModelProto:
         return onnx.load(self.model_path)
+
+    def load_ir_model(self) -> ir.Model:
+        """Load the model as an ONNX IR model object."""
+        return ir.load(self.model_path)
 
     def prepare_session(
         self,
-        inference_settings: Optional[Dict[str, Any]] = None,
+        inference_settings: Optional[dict[str, Any]] = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
         rank: Optional[int] = None,
     ):
         # user provided inference_settings > model's inference_settings > default settings
@@ -136,14 +141,14 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
     def run_session(
         self,
         session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
+        inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
+        **kwargs: dict[str, Any],
     ) -> Any:
         output_names = kwargs.pop("output_names", None)
         return session.run(output_names, inputs, **kwargs)
 
     def merge_inference_settings(
-        self, inference_settings: Optional[Dict[str, Any]] = None, execution_providers: List[str] = None
+        self, inference_settings: Optional[dict[str, Any]] = None, execution_providers: list[str] = None
     ):
         """Merge user provided inference settings with model's inference settings.
 
@@ -192,7 +197,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
 
 @model_handler_registry("DistributedOnnxModel")
 class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
-    json_config_keys: Tuple[str, ...] = (
+    json_config_keys: tuple[str, ...] = (
         "model_name_pattern",
         "num_ranks",
         "inference_settings",
@@ -213,7 +218,7 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         num_ranks: int,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
-        model_attributes: Optional[Dict[str, Any]] = None,
+        model_attributes: Optional[dict[str, Any]] = None,
     ):
         super().__init__(
             framework=Framework.ONNX,
@@ -243,9 +248,9 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
 
     def prepare_session(
         self,
-        inference_settings: Optional[Dict[str, Any]] = None,
+        inference_settings: Optional[dict[str, Any]] = None,
         device: Device = Device.GPU,  # pylint: disable=signature-differs
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Union[str, list[str]] = None,
         rank: Optional[int] = 0,
     ):
         raise RuntimeError("DistributedOnnxModel doesn't have a session of its own")
@@ -253,8 +258,8 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
     def run_session(
         self,
         session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
+        inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
+        **kwargs: dict[str, Any],
     ) -> Any:
         raise RuntimeError("DistributedOnnxModel doesn't have a session of its own")
 

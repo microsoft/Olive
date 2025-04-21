@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Dict, Type
 
 import torch
 
@@ -21,12 +20,12 @@ class MergeAdapterWeights(Pass):
     """Merge adapter weights into the base model."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {}
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> HfModelHandler:
         if not model.adapter_path:
             raise RuntimeError(

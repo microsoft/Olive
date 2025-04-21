@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Dict, Type
 
 import onnx
 
@@ -37,7 +36,7 @@ class StaticLLM(Pass):
     _accepts_composite_model = True
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "batch_size": PassConfigParam(
                 type_=int,
@@ -52,7 +51,7 @@ class StaticLLM(Pass):
         }
 
     def _run_for_config(
-        self, model: CompositeModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: CompositeModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> CompositeModelHandler:
         assert isinstance(model, CompositeModelHandler), "StaticLLM pass only supports CompositeModelHandler"
         model_components = list(model.model_components)
@@ -153,7 +152,7 @@ class StaticLLM(Pass):
         )
 
     @staticmethod
-    def fix_shape(model_proto: onnx.ModelProto, param_mapping: Dict[str, int]):
+    def fix_shape(model_proto: onnx.ModelProto, param_mapping: dict[str, int]):
         """Fix the shape of the model based on the param mapping.
 
         :param model_path: Path to the model.

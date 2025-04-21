@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Dict, Type
 
 from onnx import ModelProto, TensorProto, helper
 from packaging import version
@@ -29,7 +28,7 @@ class InsertBeamSearch(Pass):
     _accepts_composite_model = True
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         use_gpu = accelerator_spec.accelerator_type == Device.GPU
         config = {
             "no_repeat_ngram_size": PassConfigParam(
@@ -96,7 +95,7 @@ class InsertBeamSearch(Pass):
         model_B: ModelProto,
         model_B_name: str,
         model_config,
-        options: Type[BasePassConfig],
+        options: type[BasePassConfig],
     ):
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.transformers.convert_generation import get_shared_initializers
@@ -322,7 +321,7 @@ class InsertBeamSearch(Pass):
         model.graph.input.insert(1, mask)
 
     def _run_for_config(
-        self, model: OliveModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: OliveModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.transformers import onnx_model as ort_onnx_model

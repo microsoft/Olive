@@ -10,7 +10,7 @@ import multiprocessing
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Type, Union
+from typing import Optional, Union
 
 import onnx
 import torch
@@ -52,7 +52,7 @@ class OnnxConversion(Pass):
     """Convert a PyTorch model to ONNX model using torch.onnx.export on CPU."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             **get_external_data_config(),
@@ -121,7 +121,7 @@ class OnnxConversion(Pass):
     def _run_for_config(
         self,
         model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
         output_model = self._run_for_config_internal(model, config, output_model_path)
@@ -141,7 +141,7 @@ class OnnxConversion(Pass):
     def _run_for_config_internal(
         self,
         model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
@@ -169,7 +169,7 @@ class OnnxConversion(Pass):
         pytorch_model: torch.nn.Module,
         dummy_inputs,
         io_config,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         device: Union[str, torch.device],
         torch_dtype: Optional[torch.dtype] = None,
         tempdir: Optional[Union[Path, str]] = None,
@@ -480,7 +480,7 @@ class OnnxConversion(Pass):
     def _convert_model_on_device(
         self,
         model: Union[HfModelHandler, PyTorchModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
         device: str,
         torch_dtype: Optional[torch.dtype] = None,
@@ -520,8 +520,8 @@ class OnnxConversion(Pass):
 
     @staticmethod
     def _get_dummy_inputs(
-        model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig]
-    ) -> Union[Dict, Tuple]:
+        model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig]
+    ) -> Union[dict, tuple]:
         """Get dummy inputs for the model."""
         return model.get_dummy_inputs(
             filter_hook=(
@@ -592,7 +592,7 @@ class OnnxConversion(Pass):
     def _convert_distributed_model_on_device(
         self,
         model: DistributedHfModelHandler,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
         device: str,
         torch_dtype: Optional[torch.dtype] = None,
@@ -638,7 +638,7 @@ class OnnxConversion(Pass):
 
 class OnnxOpVersionConversion(Pass):
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         latest_opset_version = onnx.defs.onnx_opset_version()
 
         config = {
@@ -652,7 +652,7 @@ class OnnxOpVersionConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path)
         # since external data is saved in a separate file, we need to load the model to get the opset version

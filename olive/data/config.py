@@ -6,7 +6,7 @@ import logging
 import re
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Union
+from typing import TYPE_CHECKING, Union
 
 from olive.common.config_utils import ConfigBase, NestedConfig, validate_lowercase
 from olive.common.import_lib import import_user_module
@@ -24,7 +24,7 @@ class DataComponentConfig(NestedConfig):
     _nested_field_name = "params"
 
     type: str = None
-    params: Dict = Field(default_factory=dict)
+    params: dict = Field(default_factory=dict)
 
     @validator("type", pre=True)
     def validate_type(cls, v):
