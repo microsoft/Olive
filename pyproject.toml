@@ -39,6 +39,7 @@ ignore-paths = [".*/examples/directml/llm/chat_app/.*"]
 
 [tool.pylint.messages_control]
 disable = [
+  "abstract-method",
   "broad-exception-caught",
   "c-extension-no-member",
   "consider-using-f-string",
@@ -73,6 +74,7 @@ disable = [
   "unspecified-encoding",
   "unused-argument",
   "unused-wildcard-import",
+  "used-before-assignment",
   "wrong-import-order" # import order is handled by the formatter (ruff)
 ]
 
