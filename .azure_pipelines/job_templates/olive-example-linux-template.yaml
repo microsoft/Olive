@@ -75,7 +75,9 @@ jobs:
       ${{ parameters.onnxruntime }} \
       ${{ parameters.onnxruntime_nightly }} \
       examples/$(exampleFolder)/$(exampleRequirements) \
-      examples/test/${{ parameters.subfolder }}/test_$(exampleName).py
+      examples/test/${{ parameters.subfolder }}/test_$(exampleName).py \
+      false \
+      $(hf_token)
     displayName: Run Tests in Docker
 
   # Step 3: Publish test results
