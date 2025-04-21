@@ -1,3 +1,6 @@
+[tool.pytest.ini_options]
+addopts = "-rsfEX --tb=short --color=yes"
+
 [tool.pylint.BASIC]
 good-names = [
   "a",
