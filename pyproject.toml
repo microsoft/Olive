@@ -39,38 +39,40 @@ ignore-paths = [".*/examples/directml/llm/chat_app/.*"]
 
 [tool.pylint.messages_control]
 disable = [
-  # TODO:(myguo): consider remove them in the blacklist
   "broad-exception-caught",
   "c-extension-no-member",
-  "cyclic-import", # Disable cyclic-import because it is pylint bug
   "consider-using-f-string",
   "consider-using-from-import",
-  "format",
+  "cyclic-import", # Disable cyclic-import because it is pylint bug
   "expression-not-assigned",
-  "line-too-long",
+  "fixme",
+  "format",
   "import-error",
   "import-outside-toplevel",
   "invalid-name",
+  "line-too-long",
+  "missing-docstring",
   "no-else-continue",
   "no-else-raise",
   "no-else-return",
-  "no-name-in-module",
   "no-member",
+  "no-name-in-module",
   "no-self-argument",
   "too-few-public-methods",
+  "too-many-ancestors",
   "too-many-arguments",
   "too-many-branches",
   "too-many-function-args",
   "too-many-instance-attributes",
   "too-many-locals",
   "too-many-nested-blocks",
+  "too-many-positional-arguments",
   "too-many-public-methods",
   "too-many-return-statements",
   "too-many-statements",
-  "missing-docstring",
-  "fixme",
   "unspecified-encoding",
   "unused-argument",
+  "unused-wildcard-import",
   "wrong-import-order" # import order is handled by the formatter (ruff)
 ]
 
