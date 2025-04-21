@@ -30,7 +30,7 @@ class SNPESDKEnv(SDKEnv):
             if not Path(python_env_bin_path).exists():
                 raise FileNotFoundError(
                     f"Path {python_env_bin_path} does not exist. Please run"
-                    " 'olive configure-qualcomm-sdk --py_version 3.9 --sdk snpe'"
+                    " 'olive configure-qualcomm-sdk --py_version 3.8 --sdk snpe'"
                     " to add the missing file."
                 )
 
@@ -45,7 +45,7 @@ class SNPESDKEnv(SDKEnv):
                 if not Path(bin_path).exists():
                     raise FileNotFoundError(
                         f"Path {bin_path} does not exist. Please run"
-                        " 'olive configure-qualcomm-sdk --py_version 3.9 --sdk snpe' to add the"
+                        " 'olive configure-qualcomm-sdk --py_version 3.8 --sdk snpe' to add the"
                         " missing folder"
                     )
 

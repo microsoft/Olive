@@ -88,7 +88,7 @@ def configure_eval(sdk: str):
 def configure(py_version: str, sdk: str):
     """Configure Qualcomm SDK for Olive.
 
-    :param py_version: Python version, use 3.6 for tensorflow 1.15 and 3.9 otherwise
+    :param py_version: Python version, use 3.6 for tensorflow 1.15 and 3.8 otherwise
     :param sdk: Qualcomm SDK, snpe or qnn
     """
     configure_dev(py_version, sdk)

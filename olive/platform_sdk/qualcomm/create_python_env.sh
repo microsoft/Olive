@@ -68,8 +68,11 @@ PIP_EXTRA_ARGS=${PIP_EXTRA_ARGS:-""}
 "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install --upgrade pip "$PIP_EXTRA_ARGS"
 if [ "$PY_VERSION" == "3.6" ]; then
     "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx==1.11.0 onnx-simplifier packaging tensorflow==1.15.0 pyyaml pandas==1.1.5 numpy==1.18.5 "$PIP_EXTRA_ARGS"
-else
+elif [ "$PY_VERSION" == "3.8" ]; then
     "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx onnx-simplifier packaging tensorflow==2.10.1 pyyaml pandas==1.1.5 numpy==1.23.5 "$PIP_EXTRA_ARGS"
+else
+    echo "Unsupported python version: $PY_VERSION, only 3.6 and 3.8 are supported"
+    exit 1
 fi
 
 
