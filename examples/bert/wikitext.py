@@ -1,6 +1,6 @@
 import logging
 from random import Random
-from typing import List, Optional
+from typing import Optional
 
 import nltk
 import pandas as pd
@@ -24,7 +24,7 @@ def extract_sentences(text, min_length=20):
 
 def create_nsp_dataset(
     dataset: str,
-    sent_cols: List[str] = None,
+    sent_cols: list[str] = None,
     label_col: str = "label",
     max_samples: Optional[int] = None,
     shuffle: bool = False,
@@ -122,7 +122,7 @@ def parse_args():
     )
     parser.add_argument(
         "--sentence-cols",
-        type=List[str],
+        type=list[str],
         default=["sentence1", "sentence2"],
         help="Column names for the sentences.",
     )

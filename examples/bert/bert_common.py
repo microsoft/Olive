@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 import torch
@@ -71,7 +71,7 @@ class SimpleBert(torch.nn.Module):
 
 def create_4d_mask(
     mask: torch.Tensor,
-    input_shape: Union[torch.Size, Tuple[int, int]],
+    input_shape: Union[torch.Size, tuple[int, int]],
     masked_value: float = -50.0,
 ) -> torch.Tensor:
     # (batch_size, num_heads, seq_len, head_dim)
@@ -92,7 +92,7 @@ def npz_to_hfdataset(npz_path: Path, max_samples: int):
 def tokenize_hfdataset(
     dataset: "Dataset",
     tokenizer: "Union[PreTrainedTokenizer, PreTrainedTokenizerFast]",
-    input_cols: List[str],
+    input_cols: list[str],
     label_col: Optional[str] = None,
     seq_length: int = 512,
     max_samples: Optional[int] = None,
@@ -151,7 +151,7 @@ def tokenize_hfdataset(
 def tokenize_hfdataset2(
     dataset: "Dataset",
     tokenizer: "Union[PreTrainedTokenizer, PreTrainedTokenizerFast]",
-    input_cols: List[str],
+    input_cols: list[str],
     label_col: Optional[str] = None,
     seq_length: int = 512,
     max_samples: Optional[int] = None,

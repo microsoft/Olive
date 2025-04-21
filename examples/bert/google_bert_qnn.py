@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import torch
 from bert_common import (
@@ -47,7 +47,7 @@ def dataset_to_nsp_dataset(
     data_path: str,
     data_name: str,
     data_split: str,
-    input_cols: List[str],
+    input_cols: list[str],
     label_col: str,
     max_samples: Optional[int],
 ):
@@ -81,7 +81,7 @@ def load_npz_dataset(
 def tokenize_dataset(
     dataset,
     model_name: str,
-    input_cols: List[str],
+    input_cols: list[str],
     label_col: str,
     max_samples: Optional[int],
     seq_length=512,
