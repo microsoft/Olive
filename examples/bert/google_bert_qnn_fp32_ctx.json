@@ -43,6 +43,7 @@
             },
             "post_process_data_config": { "type": "bert_scl_post_process" },
             "dataloader_config": { "batch_size": 1 },
+            "script_dir": ".",
             "user_script": "google_bert_qnn.py"
         }
     ],
