@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import inspect
 from abc import ABC, abstractmethod
-from typing import Any, Callable, ClassVar, Dict, Type, Union
+from typing import Any, Callable, ClassVar, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, create_config_class, validate_config
 
@@ -44,9 +44,9 @@ class AutoConfigClass(ABC):
             return {"validate_func_param": validator("func_param", allow_reuse=True)(validate_func_param)}
     """
 
-    registry: ClassVar[Dict[str, Type]] = {}
+    registry: ClassVar[dict[str, type]] = {}
     name: str = None
-    _config_base: Type[ConfigBase] = ConfigBase
+    _config_base: type[ConfigBase] = ConfigBase
 
     @classmethod
     def __init_subclass__(cls, **kwargs) -> None:
@@ -57,18 +57,18 @@ class AutoConfigClass(ABC):
         name = cls.name if cls.name is not None else cls.__name__.lower()
         cls.registry[name] = cls
 
-    def __init__(self, config: Union[ConfigBase, Dict[str, Any]]) -> None:
+    def __init__(self, config: Union[ConfigBase, dict[str, Any]]) -> None:
         self.config_class = self.get_config_class()
         self.config = validate_config(config, self.config_class)
 
     @classmethod
     @abstractmethod
-    def _default_config(cls) -> Dict[str, ConfigParam]:
+    def _default_config(cls) -> dict[str, ConfigParam]:
         """Get the default configuration for the class."""
         raise NotImplementedError
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable]:
+    def _validators(cls) -> dict[str, Callable]:
         """Get ydantic validators for config params."""
         return {}
 
@@ -79,7 +79,7 @@ class AutoConfigClass(ABC):
         return cls._default_config()
 
     @classmethod
-    def get_config_class(cls) -> Type[ConfigBase]:
+    def get_config_class(cls) -> type[ConfigBase]:
         """Get the configuration class."""
         assert not inspect.isabstract(cls), "Cannot get config class for abstract class"
         return create_config_class(f"{cls.__name__}Config", cls.default_config(), cls._config_base, cls._validators())

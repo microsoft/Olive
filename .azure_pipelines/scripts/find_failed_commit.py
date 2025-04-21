@@ -4,15 +4,14 @@
 # --------------------------------------------------------------------------
 """Script to run a build against each commit from a failed CI build."""
 
-# ruff: noqa: T201
-# ruff: noqa: T203
+# ruff: noqa: T201, T203
 
 import argparse
 import os
 import sys
 import time
 from pprint import pprint
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import client_patch
 from azure.devops.connection import Connection
@@ -67,7 +66,7 @@ def _main():
         raise ValueError(f"Input build-id={args.build_id} is not a failed build!")
 
     # Get all the changes associated with the build
-    changes: List[Change] = []
+    changes: list[Change] = []
     while True:
         changes.extend(
             build_client.get_build_changes(

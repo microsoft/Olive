@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import os
 from pathlib import Path
-from typing import Type
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -63,8 +62,8 @@ def get_pytorch_model(batch_size=1):
     )
 
 
-def get_hf_model():
-    return HfModelHandler(model_path="hf-internal-testing/tiny-random-gptj")
+def get_hf_model(model_path="hf-internal-testing/tiny-random-gptj"):
+    return HfModelHandler(model_path=model_path)
 
 
 def get_hf_model_config():
@@ -236,7 +235,7 @@ def get_throughput_metric(*lat_subtype, user_config=None):
     )
 
 
-def get_onnxconversion_pass(target_opset=13) -> Type[Pass]:
+def get_onnxconversion_pass(target_opset=13) -> type[Pass]:
     from olive.passes.onnx.conversion import OnnxConversion
 
     onnx_conversion_config = {"target_opset": target_opset}

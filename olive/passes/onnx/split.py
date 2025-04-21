@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Optional, Type, Union
+from typing import Optional, Union
 
 import numpy as np
 import onnx
@@ -26,10 +26,10 @@ class SplitModel(Pass):
     """Split an ONNX model into multiple smaller sub-models based on predefined assignments."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "split_assignments": PassConfigParam(
-                type_=Union[Dict[str, int], str],
+                type_=Union[dict[str, int], str],
                 default_value=None,
                 description=(
                     "Set split assignments in the format of name1=0;name2=1 etc."
@@ -40,7 +40,7 @@ class SplitModel(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> CompositeModelHandler:
         model_proto = model.load_model()
 
@@ -250,7 +250,7 @@ class SplitModel(Pass):
 
         return CompositeModelHandler(component_models, component_names, model_path=output_model_dir)
 
-    def get_assignment(self, node_name: str, split_assignments: Dict[str, int]) -> Optional[int]:
+    def get_assignment(self, node_name: str, split_assignments: dict[str, int]) -> Optional[int]:
         name_components = node_name.replace("/", ".").lstrip(".").split(".")
         while name_components:
             if ".".join(name_components) in split_assignments:

@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, NamedTuple, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Union
 
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
@@ -15,18 +15,18 @@ if TYPE_CHECKING:
 
 
 class MetricBackend(AutoConfigClass):
-    registry: ClassVar[Dict[str, Type["MetricBackend"]]] = {}
+    registry: ClassVar[dict[str, type["MetricBackend"]]] = {}
 
-    def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
+    def __init__(self, config: Union[ConfigBase, dict[str, Any]] = None) -> None:
         super().__init__(config)
 
     @classmethod
-    def _default_config(cls) -> Dict[str, ConfigParam]:
+    def _default_config(cls) -> dict[str, ConfigParam]:
         return {}
 
     @abstractmethod
     def measure_sub_metric(
-        self, model_output: Union[Tuple, NamedTuple], targets: Any, sub_metric: "SubMetric"
+        self, model_output: Union[tuple, NamedTuple], targets: Any, sub_metric: "SubMetric"
     ) -> SubMetricResult:
         # model_output: (preds, logits)
         raise NotImplementedError
@@ -55,7 +55,7 @@ class TorchMetrics(MetricBackend):
 class HuggingfaceMetrics(MetricBackend):
     name: str = "huggingface_metrics"
 
-    def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
+    def __init__(self, config: Union[ConfigBase, dict[str, Any]] = None) -> None:
         super().__init__(config)
         try:
             import evaluate
@@ -64,13 +64,13 @@ class HuggingfaceMetrics(MetricBackend):
         self.evaluate_module = evaluate
 
     @classmethod
-    def _default_config(cls) -> Dict[str, ConfigParam]:
+    def _default_config(cls) -> dict[str, ConfigParam]:
         return {
             "load_params": ConfigParam(
-                type_=Dict[str, Any], default_value=None, description="The parameters to load the metric."
+                type_=dict[str, Any], default_value=None, description="The parameters to load the metric."
             ),
             "compute_params": ConfigParam(
-                type_=Dict[str, Any], default_value=None, description="The parameters to compute the metric."
+                type_=dict[str, Any], default_value=None, description="The parameters to compute the metric."
             ),
             "result_key": ConfigParam(
                 type_=str,

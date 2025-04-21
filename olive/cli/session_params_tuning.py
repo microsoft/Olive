@@ -6,7 +6,6 @@ import json
 from argparse import ArgumentParser
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -103,7 +102,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=SessionParamsTuningCommand)
 
-    def _update_pass_config(self, default_pass_config) -> Dict:
+    def _update_pass_config(self, default_pass_config) -> dict:
         pass_config = deepcopy(default_pass_config)
         pass_config_keys = (
             "cpu_cores",
@@ -120,7 +119,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         pass_config.update({k: args_dict[k] for k in pass_config_keys if args_dict[k] is not None})
         return pass_config
 
-    def _get_run_config(self, tempdir) -> Dict:
+    def _get_run_config(self, tempdir) -> dict:
         config = deepcopy(TEMPLATE)
 
         session_params_tuning_key = ("passes", "session_params_tuning")

@@ -5,7 +5,6 @@
 import logging
 import re
 from pathlib import Path
-from typing import Dict, List, Type
 
 import onnx
 from packaging import version
@@ -24,7 +23,7 @@ class OnnxBnb4Quantization(Pass):
     """Quantize MatMul nodes in ONNX model using 4bit FP4/NF4 quantization."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "quant_type": PassConfigParam(
                 type_=str,
@@ -32,7 +31,7 @@ class OnnxBnb4Quantization(Pass):
                 description="The quantization type. Only 'fp4' and 'nf4' are supported.",
             ),
             "quantized_modules": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 description=(
                     "The list of modules to quantize. Node names will be matched as '.*[./]{module}[./]MatMul$'. If not"
                     " specified, all MatMul nodes will be quantized except those specified in nodes_to_exclude."
@@ -48,7 +47,7 @@ class OnnxBnb4Quantization(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
@@ -111,7 +110,7 @@ class OnnxBnb4Quantization(Pass):
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
     @classmethod
-    def _find_matmul_nodes(cls, graph: onnx.GraphProto) -> List[str]:
+    def _find_matmul_nodes(cls, graph: onnx.GraphProto) -> list[str]:
         """Find all MatMul nodes in the graph and return their names."""
         matmul_nodes = []
         for node in graph.node:

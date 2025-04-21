@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
@@ -28,9 +28,9 @@ from olive.systems.system_config import SystemConfig
 class RunEngineConfig(EngineConfig):
     evaluate_input_model: bool = True
     output_dir: Union[Path, str] = None
-    packaging_config: Union[PackagingConfig, List[PackagingConfig]] = None
-    cache_config: Union[CacheConfig, Dict[str, Any]] = None
-    cache_dir: Union[str, Path, List[str]] = DEFAULT_CACHE_DIR
+    packaging_config: Union[PackagingConfig, list[PackagingConfig]] = None
+    cache_config: Union[CacheConfig, dict[str, Any]] = None
+    cache_dir: Union[str, Path, list[str]] = DEFAULT_CACHE_DIR
     clean_cache: bool = False
     clean_evaluation_cache: bool = False
     enable_shared_cache: bool = False
@@ -79,11 +79,11 @@ class RunConfig(NestedConfig):
         ),
     )
     input_model: ModelConfig = Field(description="Input model configuration.")
-    systems: Dict[str, SystemConfig] = Field(
+    systems: dict[str, SystemConfig] = Field(
         None,
         description="System configurations. Other fields such as engine and passes can refer to these systems by name.",
     )
-    data_configs: List[DataConfig] = Field(
+    data_configs: list[DataConfig] = Field(
         default_factory=list,
         description=(
             "Data configurations. Each data config must have a unique name. Other fields such as engine, passes and"
@@ -91,7 +91,7 @@ class RunConfig(NestedConfig):
             " allowed."
         ),
     )
-    evaluators: Dict[str, OliveEvaluatorConfig] = Field(
+    evaluators: dict[str, OliveEvaluatorConfig] = Field(
         None,
         description=(
             "Evaluator configurations. Other fields such as engine and passes can refer to these evaluators by name."
@@ -104,7 +104,7 @@ class RunConfig(NestedConfig):
             " no-search or auto-optimizer mode based on whether passes field is provided."
         ),
     )
-    passes: Dict[str, List[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
+    passes: dict[str, list[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
     auto_optimizer_config: AutoOptimizerConfig = Field(
         default_factory=AutoOptimizerConfig,
         description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from argparse import ArgumentParser
 from copy import deepcopy
-from typing import ClassVar, Dict
+from typing import ClassVar
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -82,7 +82,7 @@ class FineTuneCommand(BaseOliveCLICommand):
     def run(self):
         self._run_workflow()
 
-    def parse_training_args(self) -> Dict:
+    def parse_training_args(self) -> dict:
         if not self.unknown_args:
             return {}
 
@@ -97,7 +97,7 @@ class FineTuneCommand(BaseOliveCLICommand):
 
         return {k: v for k, v in vars(training_args).items() if k in arg_keys}
 
-    def _get_run_config(self, tempdir: str) -> Dict:
+    def _get_run_config(self, tempdir: str) -> dict:
         input_model_config = get_input_model_config(self.args)
         assert input_model_config["type"].lower() == "hfmodel", "Only HfModel is supported in finetune command."
 

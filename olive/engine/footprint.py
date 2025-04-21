@@ -6,7 +6,7 @@
 import logging
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
-from typing import TYPE_CHECKING, DefaultDict, Dict, List, NamedTuple, Optional
+from typing import TYPE_CHECKING, NamedTuple, Optional
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric_result import MetricResult
@@ -38,7 +38,7 @@ class FootprintNodeMetric(ConfigBase):
     """
 
     value: MetricResult = None
-    cmp_direction: DefaultDict[str, int] = None
+    cmp_direction: defaultdict[str, int] = None
     if_goals_met: bool = False
 
 
@@ -46,9 +46,9 @@ class FootprintNode(ConfigBase):
     # None for no parent which means current model is the input model
     parent_model_id: str = None
     model_id: str
-    model_config: Dict = None
+    model_config: dict = None
     from_pass: str = None
-    pass_run_config: Dict = None
+    pass_run_config: dict = None
     is_pareto_frontier: bool = False
     # TODO(trajep): add EP/accelerators for same_model_id metrics
     metrics: FootprintNodeMetric = None
@@ -71,10 +71,10 @@ class Footprint:
     def __init__(
         self,
         nodes=None,
-        objective_dict: Dict = None,
+        objective_dict: dict = None,
         is_marked_pareto_frontier: bool = False,
     ):
-        self.nodes: Dict[str, FootprintNode] = nodes or OrderedDict()
+        self.nodes: dict[str, FootprintNode] = nodes or OrderedDict()
         self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
 
@@ -115,7 +115,7 @@ class Footprint:
     def plot_pareto_frontier_to_image(self, index=None, save_path=None, is_show=False):
         self._plot_pareto_frontier(index, save_path, is_show, "image")
 
-    def _create_pareto_frontier_from_nodes(self, nodes: Dict) -> Optional["Footprint"]:
+    def _create_pareto_frontier_from_nodes(self, nodes: dict) -> Optional["Footprint"]:
         rls = {k: v for k, v in nodes.items() if v.is_pareto_frontier}
         if not rls:
             logger.warning("There is no pareto frontier points.")
@@ -128,7 +128,7 @@ class Footprint:
             nodes=deepcopy(rls), objective_dict=deepcopy(self.objective_dict), is_marked_pareto_frontier=True
         )
 
-    def summarize_run_history(self) -> List[RunHistory]:
+    def summarize_run_history(self) -> list[RunHistory]:
         """Summarize the run history of a model.
 
         The summarization includes the columns of model_id, parent_model_id, from_pass, duration, metrics
@@ -150,7 +150,7 @@ class Footprint:
             rls.append(run_history)
         return rls
 
-    def trace_back_run_history(self, model_id) -> Dict[str, Dict]:
+    def trace_back_run_history(self, model_id) -> dict[str, dict]:
         """Trace back the run history of a model.
 
         The trace order: model_id -> parent_model_id1 -> parent_model_id2 -> ...
@@ -258,7 +258,7 @@ class Footprint:
                     )
             self.nodes[k].metrics.if_goals_met = all(if_goals_met)
 
-    def _get_candidates(self) -> Dict[str, FootprintNode]:
+    def _get_candidates(self) -> dict[str, FootprintNode]:
         candidates = {
             k: v
             for k, v in self.nodes.items()
@@ -308,7 +308,7 @@ class Footprint:
             self.nodes[k].is_pareto_frontier = cmp_flag
         self.is_marked_pareto_frontier = True
 
-    def get_top_ranked_nodes(self, k: int) -> List[FootprintNode]:
+    def get_top_ranked_nodes(self, k: int) -> list[FootprintNode]:
         footprint_node_list = self.nodes.values()
         sorted_footprint_node_list = sorted(
             footprint_node_list,
@@ -324,7 +324,7 @@ class Footprint:
         )
         return sorted_footprint_node_list[:k]
 
-    def _get_metrics_name_by_indices(self, indices) -> List[str]:
+    def _get_metrics_name_by_indices(self, indices) -> list[str]:
         """Get the first available metrics names by index."""
         for v in self.nodes.values():
             if v.metrics:
@@ -432,7 +432,7 @@ class Footprint:
 
 
 def get_best_candidate_node(
-    pf_footprints: Dict["AcceleratorSpec", Footprint], footprints: Dict["AcceleratorSpec", Footprint]
+    pf_footprints: dict["AcceleratorSpec", Footprint], footprints: dict["AcceleratorSpec", Footprint]
 ):
     """Select the best candidate node from the pareto frontier footprints.
 

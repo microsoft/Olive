@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import List, Optional
+from typing import Optional
 
 import torch
 from past_helper import PastKeyValuesHelper
@@ -67,7 +67,7 @@ class WhisperEncoderDecoderInitInputs:
 
         return WhisperEncoderDecoderInitInputs(encoder_inputs.input_ids, decoder_input_ids)
 
-    def to_list(self) -> List:
+    def to_list(self) -> list:
         input_list = [self.encoder_input_ids]
         if self.decoder_input_ids is not None:
             input_list.append(self.decoder_input_ids)

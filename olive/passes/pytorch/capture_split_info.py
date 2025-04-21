@@ -6,7 +6,7 @@ import csv
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Tuple, Type, Union
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 
@@ -27,14 +27,14 @@ class CaptureSplitInfo(Pass):
     """Capture the split information of the model layers. Only splits the transformer layers."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "num_splits": PassConfigParam(
                 type_=int,
                 description="Number of splits to divide the model layers into.",
             ),
             "block_to_split": PassConfigParam(
-                type_=Union[str, List[str]],
+                type_=Union[str, list[str]],
                 default_value=None,
                 description=(
                     "Names of the model blocks to split. Children of the block will be divided into the splits. For"
@@ -61,7 +61,7 @@ class CaptureSplitInfo(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
         if not super().validate_config(config, accelerator_spec):
@@ -82,7 +82,7 @@ class CaptureSplitInfo(Pass):
         return False
 
     def _run_for_config(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig], output_model_path: str
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig], output_model_path: str
     ) -> Union[HfModelHandler, PyTorchModelHandler]:
         split_assignments = None
         if config.num_splits:
@@ -101,8 +101,8 @@ class CaptureSplitInfo(Pass):
         return output_model
 
     def split_using_num_splits(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig]
-    ) -> Dict[str, int]:
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig]
+    ) -> dict[str, int]:
         # consider loading with meta device to avoid loading the weights
         loaded_model = model.load_model(cache_model=False)
 
@@ -143,8 +143,8 @@ class CaptureSplitInfo(Pass):
         return split_assignments
 
     def split_using_cost_model(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig]
-    ) -> Dict[str, int]:
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig]
+    ) -> dict[str, int]:
         if self.accelerator_spec.memory is None:
             raise ValueError("Accelerator memory is required to split using cost model.")
 
@@ -203,7 +203,7 @@ class CaptureSplitInfo(Pass):
         model: Union[HfModelHandler, PyTorchModelHandler],
         pytorch_model: "nn.Module",
         unique_embeds_lm_head_splits: bool,
-    ) -> Tuple[Dict[str, int], int, set]:
+    ) -> tuple[dict[str, int], int, set]:
         """Initialize the split assignments for the model.
 
         :param model: The input model to split.

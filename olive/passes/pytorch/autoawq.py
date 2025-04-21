@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Any, Dict, Type, Union
+from typing import Any, Union
 
 import torch
 from packaging import version
@@ -39,7 +39,7 @@ class AutoAWQQuantizer(Pass):
             }[self]
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             "input_model_dtype": PassConfigParam(
@@ -101,7 +101,7 @@ class AutoAWQQuantizer(Pass):
                 ),
             ),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 default_value=None,
                 description="Data config for quantization. If not provided, pile validation data will be used.",
             ),
@@ -109,7 +109,7 @@ class AutoAWQQuantizer(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> HfModelHandler:
         from awq import AutoAWQForCausalLM
 
@@ -168,7 +168,7 @@ class AutoAWQQuantizer(Pass):
             new_load_kwargs["extra_args"]["use_safetensors"] = True
         return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path, load_kwargs=new_load_kwargs)
 
-    def _resolve_load_args(self, hf_loading_args: Dict[str, Any]):
+    def _resolve_load_args(self, hf_loading_args: dict[str, Any]):
         return {
             # want to default to using safetensors like in AutoAWQ
             "safetensors": hf_loading_args.get("use_safetensors", True),

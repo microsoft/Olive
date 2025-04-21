@@ -2,13 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Dict, List, Set, Tuple
 
 from olive.search.search_parameter import Conditional, SearchParameter
 
 
 class DirectedGraph:
-    def __init__(self, vertices: List[str], edges: List[Tuple[str, str]] = None):
+    def __init__(self, vertices: list[str], edges: list[tuple[str, str]] = None):
         self.vertices = vertices
         self.graph = {v: [] for v in vertices}
         edges = edges or []
@@ -20,7 +19,7 @@ class DirectedGraph:
         assert v2 in self.vertices
         self.graph[v1].append(v2)
 
-    def _is_cyclic_util(self, v: str, visited: Set[str], rec_stack: Set[str]):
+    def _is_cyclic_util(self, v: str, visited: set[str], rec_stack: set[str]):
         visited.add(v)
         rec_stack.add(v)
 
@@ -40,7 +39,7 @@ class DirectedGraph:
 
         return any(v not in visited and self._is_cyclic_util(v, visited, rec_stack) for v in self.vertices)
 
-    def _topological_sort_util(self, v: str, visited: Set[str], order: List[str]):
+    def _topological_sort_util(self, v: str, visited: set[str], order: list[str]):
         visited.add(v)
 
         for neighbor in self.graph[v]:
@@ -65,7 +64,7 @@ class DirectedGraph:
         return order
 
 
-def _search_space_graph(search_space: Dict[str, SearchParameter]) -> DirectedGraph:
+def _search_space_graph(search_space: dict[str, SearchParameter]) -> DirectedGraph:
     """Create a directed graph from the search space."""
     graph = DirectedGraph(list(search_space.keys()))
     for name, param in search_space.items():
@@ -75,13 +74,13 @@ def _search_space_graph(search_space: Dict[str, SearchParameter]) -> DirectedGra
     return graph
 
 
-def cyclic_search_space(search_space: Dict[str, SearchParameter]) -> bool:
+def cyclic_search_space(search_space: dict[str, SearchParameter]) -> bool:
     """Check if the search space is cyclic."""
     graph = _search_space_graph(search_space)
     return graph.is_cyclic()
 
 
-def order_search_parameters(search_space: Dict[str, SearchParameter]) -> List[str]:
+def order_search_parameters(search_space: dict[str, SearchParameter]) -> list[str]:
     """Order the search parameters in a topological order."""
     graph = _search_space_graph(search_space)
     return graph.topological_sort()
