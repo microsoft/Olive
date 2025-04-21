@@ -17,9 +17,9 @@ class ConfigureQualcommSDKCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--py_version",
             type=str,
-            help="Python version: Use 3.6 for tensorflow 1.15 and 3.9 otherwise",
+            help="Python version: Use 3.6 for tensorflow 1.15 and 3.8 otherwise",
             required=True,
-            choices=["3.6", "3.9"],
+            choices=["3.6", "3.8"],
         )
         sub_parser.add_argument(
             "--sdk",

@@ -14,7 +14,7 @@ Unzip the file and set the unzipped directory path as environment variable `SNPE
 
 ### Configure SNPE
 ```sh
-olive configure-qualcomm-sdk --py_version 3.9 --sdk snpe
+olive configure-qualcomm-sdk --py_version 3.8 --sdk snpe
 ```
 
 ## Run sample
