@@ -2,5 +2,5 @@
 editorconfig-checker
 lintrunner
 lintrunner-adapters
-pylint<3.2.4 # https://github.com/pylint-dev/pylint/issues/9751
+pylint==3.3.6
 ruff==0.11.4

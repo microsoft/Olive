@@ -8,6 +8,7 @@ from typing import Any, ClassVar, Optional, Union
 
 import onnx
 from onnx import GraphProto, ModelProto
+from onnxscript import ir
 
 from olive.common.ort_inference import OrtSessionFallbackError, get_ort_inference_session
 from olive.common.utils import load_weights
@@ -103,14 +104,18 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
 
         return model_path_resource.parent
 
-    def load_model(self, rank: int = None, cache_model: bool = True) -> ModelProto:
+    def load_model(self, rank: Optional[int] = None, cache_model: bool = True) -> ModelProto:
         return onnx.load(self.model_path)
+
+    def load_ir_model(self) -> ir.Model:
+        """Load the model as an ONNX IR model object."""
+        return ir.load(self.model_path)
 
     def prepare_session(
         self,
         inference_settings: Optional[dict[str, Any]] = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
         rank: Optional[int] = None,
     ):
         # user provided inference_settings > model's inference_settings > default settings
