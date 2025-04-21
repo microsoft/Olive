@@ -754,7 +754,7 @@ class OnnxMatMul4Quantizer(Pass):
                 description=(
                     "If 'algorithm' is provided and this is None, the config is constructed from the pass"
                     " configuration. If provided, the it takes precedence. Refer to"
-                    " https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py"
+                    " https://github.com/microsoft/onnxruntime/blob/2abab8d39e08819d0e44833f9afee0a37c9aaa75/onnxruntime/python/tools/quantization/matmul_nbits_quantizer.py"
                     " for details."
                 ),
             ),
