@@ -50,7 +50,10 @@ class QNNSessionOptions(ConfigBase):
 
 class QNNInferenceSession:
     def __init__(
-        self, model_path: str | None = None, io_config: dict | None = None, session_options: QNNSessionOptions | None = None
+        self,
+        model_path: str | None = None,
+        io_config: dict | None = None,
+        session_options: QNNSessionOptions | None = None,
     ):
         self.model_path = model_path
         self.io_config = io_config
