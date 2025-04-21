@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Dict, Type, Union
+from typing import Any, Union
 
 import onnx
 import torch
@@ -41,7 +41,7 @@ class NVModelOptQuantization(Pass):
         AWQ_CLIP = "awq_clip"
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "precision": PassConfigParam(
                 type_=NVModelOptQuantization.Precision,
@@ -76,7 +76,7 @@ class NVModelOptQuantization(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
         if not super().validate_config(config, accelerator_spec):
@@ -116,7 +116,7 @@ class NVModelOptQuantization(Pass):
 
         return True
 
-    def initialize_quant_config(self, config: Type[BasePassConfig]) -> Dict[str, Any]:
+    def initialize_quant_config(self, config: type[BasePassConfig]) -> dict[str, Any]:
         # Check if 'tokenizer_dir' is provided and not empty
         random_calib = config.random_calib_data or False
         if not random_calib:
@@ -307,7 +307,7 @@ class NVModelOptQuantization(Pass):
 
         return batched_inputs_list
 
-    def quantize_awq(self, model: Union[ModelProto, str], quant_config: Dict[str, Any]) -> ModelProto:
+    def quantize_awq(self, model: Union[ModelProto, str], quant_config: dict[str, Any]) -> ModelProto:
         """Perform nvidia_awq quantization using ModelOpt's int4 quantize function.
 
         Args:
@@ -380,7 +380,7 @@ class NVModelOptQuantization(Pass):
         return model_proto
 
     def _run_for_config(
-        self, model: OliveModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: OliveModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> OliveModelHandler:
         try:
             logger.debug("Loading the original ONNX model from %s.", model.model_path)

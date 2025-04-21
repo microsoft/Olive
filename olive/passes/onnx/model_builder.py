@@ -8,7 +8,7 @@ import copy
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Type, Union
+from typing import Any, Union
 
 import onnx
 import transformers
@@ -50,7 +50,7 @@ class ModelBuilder(Pass):
         int8 = 4
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "precision": PassConfigParam(
                 type_=ModelBuilder.Precision,
@@ -64,7 +64,7 @@ class ModelBuilder(Pass):
                 description="Whether to export the model or generate required metadata only.",
             ),
             "search": PassConfigParam(
-                type_=Dict[str, Any], required=False, description="Search options to use for generate loop."
+                type_=dict[str, Any], required=False, description="Search options to use for generate loop."
             ),
             "use_qdq": PassConfigParam(
                 type_=bool,
@@ -86,7 +86,7 @@ class ModelBuilder(Pass):
                 description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
             ),
             "int4_op_types_to_quantize": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 required=False,
                 description=(
                     'Specify the op types to quantize for int4 quantization. Default is None (= [ "MatMul" ]). Example:'
@@ -120,7 +120,7 @@ class ModelBuilder(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
         if not super().validate_config(config, accelerator_spec):
@@ -145,7 +145,7 @@ class ModelBuilder(Pass):
     def _run_for_config(
         self,
         model: Union[HfModelHandler, ONNXModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
         try:

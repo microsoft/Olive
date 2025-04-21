@@ -5,7 +5,7 @@
 from argparse import ArgumentParser
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict, List
+from typing import Any
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -176,7 +176,7 @@ class AutoOptCommand(BaseOliveCLICommand):
     def run(self):
         self._run_workflow()
 
-    def _get_run_config(self, tempdir) -> Dict:
+    def _get_run_config(self, tempdir) -> dict:
         config = deepcopy(TEMPLATE)
         olive_config = OlivePackageConfig.load_default_config()
 
@@ -235,7 +235,7 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         return config
 
-    def _get_data_config(self) -> List[Dict[str, Any]]:
+    def _get_data_config(self) -> list[dict[str, Any]]:
         if not self.args.data_name:
             return []
 
@@ -259,11 +259,11 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         return [data_config]
 
-    def _get_passes_config(self, config: Dict[str, Any], olive_config: OlivePackageConfig) -> Dict[str, Any]:
+    def _get_passes_config(self, config: dict[str, Any], olive_config: OlivePackageConfig) -> dict[str, Any]:
         if self.args.mixed_precision_overrides_config and len(self.args.mixed_precision_overrides_config) % 2 != 0:
             raise ValueError("Even number of entries required for mixed precision overrides config.")
 
-        passes_config: Dict[str, Any] = config["passes"]
+        passes_config: dict[str, Any] = config["passes"]
         mixed_precision_overrides_config = (
             {
                 self.args.mixed_precision_overrides_config[i]: self.args.mixed_precision_overrides_config[i + 1]

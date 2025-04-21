@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from functools import partial
 from types import FunctionType
-from typing import ClassVar, List
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -35,7 +35,7 @@ from test.unit_test.utils import (
 
 
 class TestOliveEvaluator:
-    ACCURACY_TEST_CASE: ClassVar[List] = [
+    ACCURACY_TEST_CASE: ClassVar[list] = [
         (
             PyTorchEvaluator(),
             get_pytorch_model,
@@ -127,7 +127,7 @@ class TestOliveEvaluator:
             for sub_type in metric.sub_types:
                 assert expected_res == actual_res.get_value(metric.name, sub_type.name)
 
-    LATENCY_TEST_CASE: ClassVar[List] = [
+    LATENCY_TEST_CASE: ClassVar[list] = [
         (
             PyTorchEvaluator(),
             get_pytorch_model,
@@ -214,7 +214,7 @@ class TestOliveEvaluator:
         ):
             evaluator.evaluate(model, [latency_metric], Device.CPU, execution_providers)
 
-    THROUGHPUT_TEST_CASE: ClassVar[List] = [
+    THROUGHPUT_TEST_CASE: ClassVar[list] = [
         (
             PyTorchEvaluator(),
             get_pytorch_model,
@@ -254,7 +254,7 @@ class TestOliveEvaluator:
         for sub_type in metric.sub_types:
             assert expected_res > actual_res.get_value(metric.name, sub_type.name)
 
-    CUSTOM_TEST_CASE: ClassVar[List] = [
+    CUSTOM_TEST_CASE: ClassVar[list] = [
         (PyTorchEvaluator(), get_pytorch_model, get_custom_metric, 0.382715310),
         (OnnxEvaluator(), get_onnx_model, get_custom_metric, 0.382715310),
         (SNPEEvaluator(), get_mock_snpe_model, get_custom_metric, 0.382715310),

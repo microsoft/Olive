@@ -12,7 +12,7 @@ import urllib.request
 from collections import OrderedDict
 from pathlib import Path
 from string import Template
-from typing import TYPE_CHECKING, Dict, List, Set, Union
+from typing import TYPE_CHECKING, Union
 
 import pkg_resources
 
@@ -41,9 +41,9 @@ logger = logging.getLogger(__name__)
 
 
 def generate_output_artifacts(
-    packaging_configs: Union[PackagingConfig, List[PackagingConfig]],
-    footprints: Dict["AcceleratorSpec", "Footprint"],
-    pf_footprints: Dict["AcceleratorSpec", "Footprint"],
+    packaging_configs: Union[PackagingConfig, list[PackagingConfig]],
+    footprints: dict["AcceleratorSpec", "Footprint"],
+    pf_footprints: dict["AcceleratorSpec", "Footprint"],
     output_dir: Path,
     azureml_client_config: "AzureMLClientConfig" = None,
 ):
@@ -62,8 +62,8 @@ def generate_output_artifacts(
 
 def _package_dockerfile(
     packaging_config: PackagingConfig,
-    footprints: Dict["AcceleratorSpec", "Footprint"],
-    pf_footprints: Dict["AcceleratorSpec", "Footprint"],
+    footprints: dict["AcceleratorSpec", "Footprint"],
+    pf_footprints: dict["AcceleratorSpec", "Footprint"],
     output_dir: Path,
 ):
     config: DockerfilePackagingConfig = packaging_config.config
@@ -109,8 +109,8 @@ def _package_dockerfile(
 
 def _package_azureml_deployment(
     packaging_config: PackagingConfig,
-    footprints: Dict["AcceleratorSpec", "Footprint"],
-    pf_footprints: Dict["AcceleratorSpec", "Footprint"],
+    footprints: dict["AcceleratorSpec", "Footprint"],
+    pf_footprints: dict["AcceleratorSpec", "Footprint"],
     azureml_client_config: "AzureMLClientConfig" = None,
 ):
     from azure.ai.ml.entities import (
@@ -306,8 +306,8 @@ def _package_azureml_deployment(
 def _package_candidate_models(
     packaging_config: PackagingConfig,
     output_dir: Path,
-    footprints: Dict["AcceleratorSpec", "Footprint"],
-    pf_footprints: Dict["AcceleratorSpec", "Footprint"],
+    footprints: dict["AcceleratorSpec", "Footprint"],
+    pf_footprints: dict["AcceleratorSpec", "Footprint"],
     azureml_client_config: "AzureMLClientConfig" = None,
 ):
     packaging_type = packaging_config.type
@@ -457,7 +457,7 @@ def _get_model_info(node: "FootprintNode", model_rank: int, relative_path: str, 
     }
 
 
-def _copy_models_rank(tempdir: Path, model_info_list: List[Dict]):
+def _copy_models_rank(tempdir: Path, model_info_list: list[dict]):
     with (tempdir / "models_rank.json").open("w") as f:
         f.write(json.dumps(model_info_list))
 
@@ -468,13 +468,13 @@ def _package_zipfile_model(output_dir: Path, output_name: str, model_dir: Path):
     shutil.move(package_file, output_dir / package_file)
 
 
-def _copy_model_info(model_dir: Path, model_info: Dict):
+def _copy_model_info(model_dir: Path, model_info: dict):
     model_info_path = model_dir / "model_info.json"
     with model_info_path.open("w") as f:
         json.dump(model_info, f, indent=4)
 
 
-def _copy_inference_config(path: Path, inference_config: Dict):
+def _copy_inference_config(path: Path, inference_config: dict):
     with path.open("w") as f:
         json.dump(inference_config, f, indent=4)
 
@@ -500,9 +500,9 @@ def _copy_metrics(model_dir: Path, input_node: "FootprintNode", node: "Footprint
 def _save_model(
     model_path: str,
     model_type: str,
-    model_config: Dict,
+    model_config: dict,
     saved_model_path: Path,
-    inference_config: Dict,
+    inference_config: dict,
     export_in_mlflow_format: bool,
 ):
     model_resource_path = create_resource_path(model_path) if model_path else None
@@ -546,7 +546,7 @@ def _save_model(
         )
 
 
-def _generate_onnx_mlflow_model(model_dir: Path, inference_config: Dict):
+def _generate_onnx_mlflow_model(model_dir: Path, inference_config: dict):
     try:
         import mlflow
     except ImportError:
@@ -753,7 +753,7 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
             run_subprocess(download_command)
 
 
-def _download_native_onnx_packages(package_name_list: Set[str], ort_version: str, ort_download_path: str):
+def _download_native_onnx_packages(package_name_list: set[str], ort_version: str, ort_download_path: str):
     PACKAGE_DOWNLOAD_LINK_MAPPING = {
         "onnxruntime": Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/$ort_version"),
         "onnxruntime-gpu": Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.Gpu/$ort_version"),

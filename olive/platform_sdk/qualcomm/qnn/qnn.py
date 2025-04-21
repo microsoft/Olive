@@ -2,13 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
 
 import logging
 import platform
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional
 
 import numpy as np
 
@@ -50,7 +50,10 @@ class QNNSessionOptions(ConfigBase):
 
 class QNNInferenceSession:
     def __init__(
-        self, model_path: str = None, io_config: Optional[Dict] = None, session_options: QNNSessionOptions = None
+        self,
+        model_path: str | None = None,
+        io_config: dict | None = None,
+        session_options: QNNSessionOptions | None = None,
     ):
         self.model_path = model_path
         self.io_config = io_config

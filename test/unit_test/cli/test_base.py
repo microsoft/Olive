@@ -228,9 +228,11 @@ def test_get_input_model_config(
     def mock_path_is_file(path):
         return path == Path(model_name_or_path) and path.suffix in (".pt", ".onnx")
 
-    with patch.object(Path, "exists", new=mock_path_exists), patch.object(
-        Path, "is_dir", new=mock_path_is_dir
-    ), patch.object(Path, "is_file", new=mock_path_is_file):
+    with (
+        patch.object(Path, "exists", new=mock_path_exists),
+        patch.object(Path, "is_dir", new=mock_path_is_dir),
+        patch.object(Path, "is_file", new=mock_path_is_file),
+    ):
 
         def has_function_side_effect(arg):
             return has_function_results.get(arg, False)

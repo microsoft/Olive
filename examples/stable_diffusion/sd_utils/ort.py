@@ -7,7 +7,6 @@ import json
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict
 
 import onnxruntime as ort
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline
@@ -20,7 +19,7 @@ from olive.model import ONNXModelHandler
 # ruff: noqa: TID252, T201
 
 
-def update_dml_config(config_dml: Dict):
+def update_dml_config(config_dml: dict):
     used_passes = {"convert", "optimize"}
     for pass_name in set(config_dml["passes"].keys()):
         if pass_name not in used_passes:
@@ -29,7 +28,7 @@ def update_dml_config(config_dml: Dict):
     return config_dml
 
 
-def update_cuda_config(config_cuda: Dict):
+def update_cuda_config(config_cuda: dict):
     if version.parse(OrtVersion) < version.parse("1.17.0"):
         # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
         config_cuda["passes"]["optimize_cuda"]["optimization_options"] = {"enable_skip_group_norm": False}

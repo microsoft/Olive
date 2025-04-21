@@ -11,7 +11,7 @@ An example of mistral model optimization using olive workflows.
 
 ## Installation
 ```bash
-conda create -n olive python=3.8 -y
+conda create -n olive python=3.12 -y
 conda activate olive
 git clone https://github.com/microsoft/Olive.git
 cd Olive

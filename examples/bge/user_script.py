@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import json
 from pathlib import Path
-from typing import List
 
 import mteb
 import numpy as np
@@ -23,7 +22,7 @@ class OliveEncoder:
         self.session = session
         self.tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-small-en-v1.5")
 
-    def encode(self, corpus: List, **kwargs):
+    def encode(self, corpus: list, **kwargs):
         model_output = None
         if self.model.framework == Framework.ONNX:
             encoded_input = self.tokenizer(

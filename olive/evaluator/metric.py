@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
 from olive.common.pydantic_v1 import validator
@@ -98,7 +98,7 @@ class Metric(NestedConfig):
     name: str
     type: MetricType
     backend: Optional[str] = "torch_metrics"
-    sub_types: List[SubMetric]
+    sub_types: list[SubMetric]
     user_config: ConfigBase = None
     data_config: Optional[DataConfig] = None
 
@@ -110,7 +110,7 @@ class Metric(NestedConfig):
         else:
             return None
 
-    def get_run_kwargs(self) -> Dict[str, Any]:
+    def get_run_kwargs(self) -> dict[str, Any]:
         return self.user_config.run_kwargs if (self.user_config and self.user_config.run_kwargs) else {}
 
     def get_sub_type_info(self, info_name, no_priority_filter=True, callback=lambda x: x):

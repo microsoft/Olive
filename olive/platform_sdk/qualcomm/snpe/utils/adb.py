@@ -2,12 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 import logging
 import os
 import platform
 import time
 from pathlib import Path
-from typing import Tuple
 
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
@@ -50,7 +51,7 @@ def get_snpe_android_arch(snpe_android_root: str) -> str:
 
 def run_adb_command(
     cmd: str, android_target: str, shell_cmd: bool = False, runs: int = 1, sleep: int = 0, log_error: bool = True
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """Run an ADB command on the target Android device.
 
     cmd: The command to run

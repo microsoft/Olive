@@ -6,7 +6,6 @@ import argparse
 import json
 import shutil
 from pathlib import Path
-from typing import List
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
@@ -59,7 +58,7 @@ def optimize(model_name: str, olive_config: dict):
     olive_run(olive_config)
 
 
-def inference(model_id: str, optimized_model_dir: Path, execution_provider: str, prompt: List[str], max_length: int):
+def inference(model_id: str, optimized_model_dir: Path, execution_provider: str, prompt: list[str], max_length: int):
     import onnxruntime as ort
     from optimum.onnxruntime import ORTModelForCausalLM
     from optimum.utils.save_utils import maybe_save_preprocessors

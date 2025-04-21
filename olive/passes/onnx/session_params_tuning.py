@@ -7,7 +7,7 @@ import json
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Type, Union
+from typing import Any, Union
 
 import onnxruntime as ort
 
@@ -85,14 +85,14 @@ class OrtSessionParamsTuning(Pass):
         return False
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         device = accelerator_spec.accelerator_type
         execution_provider = accelerator_spec.execution_provider
 
         return {
             **get_user_script_data_config(),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 description="Data config to load data for computing latency.",
             ),
             "device": PassConfigParam(
@@ -118,7 +118,7 @@ class OrtSessionParamsTuning(Pass):
                 description="Execution providers framework list to execute the ONNX models.",
             ),
             "provider_options_list": PassConfigParam(
-                type_=Dict[str, Any],
+                type_=dict[str, Any],
                 default_value={},
                 search_defaults=Categorical([{}]),
                 description="Execution provider options to execute the ONNX models.",
@@ -151,7 +151,7 @@ class OrtSessionParamsTuning(Pass):
                 description="List of inter thread number for test.",
             ),
             "extra_session_config": PassConfigParam(
-                type_=Dict[str, Any],
+                type_=dict[str, Any],
                 default_value=None,
                 description="Extra customized session options during tuning process.",
             ),
@@ -173,7 +173,7 @@ class OrtSessionParamsTuning(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
         """Validate the search point for the pass."""
@@ -260,7 +260,7 @@ class OrtSessionParamsTuning(Pass):
         return True
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         # Rename the search parameters with atomic/singular names for clarity
         config.__class__.__config__.extra = Extra.allow

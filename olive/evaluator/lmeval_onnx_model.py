@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
-LogLikelihoodInputs = Tuple[Tuple[str, str], List[int], List[int]]
+LogLikelihoodInputs = tuple[tuple[str, str], list[int], list[int]]
 
 
 @register_model("onnx", "ONNX")
@@ -41,11 +41,11 @@ class LMEvalOnnxModelEvaluator(TemplateLM):
         # we use EOT because end of *text* is more accurate for what we're doing than end of *sentence*
         return self._tokenizer.eos_token_id
 
-    def tok_encode(self, string: str, **kwargs) -> List[int]:
+    def tok_encode(self, string: str, **kwargs) -> list[int]:
         """Tokenize a string using the model's tokenizer and return a list of token IDs."""
         return self._tokenizer.encode(string).tolist()
 
-    def _model_call(self, input_ids: npt.NDArray) -> Tuple[npt.NDArray, npt.NDArray]:
+    def _model_call(self, input_ids: npt.NDArray) -> tuple[npt.NDArray, npt.NDArray]:
         generator = og.Generator(self._model, self._params)
         generator.append_tokens(input_ids)
 
@@ -61,7 +61,7 @@ class LMEvalOnnxModelEvaluator(TemplateLM):
         log_probs = torch.nn.functional.log_softmax(torch.tensor(logits), dim=-1).numpy()
         return logits, log_probs, tokens
 
-    def _loglikelihood_tokens(self, requests: List[LogLikelihoodInputs], **kwargs) -> List[Tuple[float, bool]]:
+    def _loglikelihood_tokens(self, requests: list[LogLikelihoodInputs], **kwargs) -> list[tuple[float, bool]]:
         def _collate(req: LogLikelihoodInputs):
             """Define the key for the sorted method."""
             # the negative sign on len(toks) sorts descending - this has a few advantages:
@@ -111,8 +111,8 @@ class LMEvalOnnxModelEvaluator(TemplateLM):
         pbar.close()
         return re_ord.get_original(result)
 
-    def loglikelihood_rolling(self, requests, disable_tqdm: bool = False) -> List[float]:
+    def loglikelihood_rolling(self, requests, disable_tqdm: bool = False) -> list[float]:
         raise NotImplementedError("Yet to be implemented!")
 
-    def generate_until(self, requests, disable_tqdm: bool = False) -> List[str]:
+    def generate_until(self, requests, disable_tqdm: bool = False) -> list[str]:
         raise NotImplementedError("Yet to be implemented!")

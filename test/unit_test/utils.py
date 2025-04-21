@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import os
 from pathlib import Path
-from typing import Type
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -236,7 +235,7 @@ def get_throughput_metric(*lat_subtype, user_config=None):
     )
 
 
-def get_onnxconversion_pass(target_opset=13) -> Type[Pass]:
+def get_onnxconversion_pass(target_opset=13) -> type[Pass]:
     from olive.passes.onnx.conversion import OnnxConversion
 
     onnx_conversion_config = {"target_opset": target_opset}

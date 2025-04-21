@@ -6,7 +6,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from olive.common.utils import copy_dir
 
@@ -67,7 +67,7 @@ def create_run_command(run_params: dict):
     return run_command_dict
 
 
-def create_metric_volumes_list(metrics: List["Metric"], container_root_path: Path) -> List[str]:
+def create_metric_volumes_list(metrics: list["Metric"], container_root_path: Path) -> list[str]:
     volume_list = []
     for metric in metrics:
         metric_path = container_root_path / "metrics" / metric.name

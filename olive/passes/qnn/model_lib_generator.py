@@ -6,7 +6,6 @@
 import logging
 import platform
 from pathlib import Path
-from typing import Dict, Type
 
 from olive.common.constants import OS
 from olive.constants import ModelFileFormat
@@ -26,7 +25,7 @@ class QNNModelLibGenerator(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "lib_targets": PassConfigParam(
                 type_=str,
@@ -48,7 +47,7 @@ class QNNModelLibGenerator(Pass):
     def _run_for_config(
         self,
         model: QNNModelHandler,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> QNNModelHandler:
         main_cmd = "qnn-model-lib-generator"

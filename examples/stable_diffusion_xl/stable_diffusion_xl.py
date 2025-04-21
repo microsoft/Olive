@@ -9,7 +9,6 @@ import sys
 import warnings
 from collections import OrderedDict
 from pathlib import Path
-from typing import Dict
 
 import config
 import onnxruntime as ort
@@ -289,7 +288,7 @@ def run_inference(
         )
 
 
-def update_config_with_provider(config: Dict, provider: str, is_fp16: bool) -> Dict:
+def update_config_with_provider(config: dict, provider: str, is_fp16: bool) -> dict:
     used_passes = {}
     if provider == "dml":
         # DirectML EP is the default, so no need to update config.
