@@ -2,8 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Union
 
 
 def resolve_input_list(
@@ -70,7 +71,7 @@ def get_dir_members(dir_path: str) -> set:
 def create_input_list(
     data_dir: str,
     input_names: list[str],
-    input_dirs: list[Union[str, None]] = None,
+    input_dirs: list[str | None] = None,
     input_list_file: str = None,
     add_input_names: bool = False,
     add_output_names: bool = False,
