@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ModelConfig
@@ -45,7 +45,7 @@ class LocalSystem(OliveSystem):
             model, evaluator_config.metrics, device=device, execution_providers=execution_providers
         )
 
-    def get_supported_execution_providers(self) -> List[str]:
+    def get_supported_execution_providers(self) -> list[str]:
         """Get the available execution providers."""
         import onnxruntime as ort
 

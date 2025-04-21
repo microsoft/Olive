@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
 from olive.common.hf.utils import (
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class HfMixin:
     """Provide the following Hugging Face model functionalities."""
 
-    def get_load_kwargs(self, exclude_load_keys: Optional[List[str]] = None) -> Dict[str, Any]:
+    def get_load_kwargs(self, exclude_load_keys: Optional[list[str]] = None) -> dict[str, Any]:
         """Return all args from load_kwargs in a dict with types expected by `from_pretrained`.
 
         :param exclude_load_keys: list of keys to exclude from load_kwargs
@@ -33,7 +33,7 @@ class HfMixin:
         """
         return self.load_kwargs.get_load_kwargs(exclude_load_keys) if self.load_kwargs else {}
 
-    def get_hf_model_config(self, exclude_load_keys: Optional[List[str]] = None) -> "PretrainedConfig":
+    def get_hf_model_config(self, exclude_load_keys: Optional[list[str]] = None) -> "PretrainedConfig":
         """Get model config for the model.
 
         :param exclude_load_keys: list of keys to exclude from load_kwargs
@@ -41,7 +41,7 @@ class HfMixin:
         """
         return get_model_config(self.model_path, **self.get_load_kwargs(exclude_load_keys))
 
-    def get_hf_generation_config(self, exclude_load_keys: Optional[List[str]] = None) -> Optional["GenerationConfig"]:
+    def get_hf_generation_config(self, exclude_load_keys: Optional[list[str]] = None) -> Optional["GenerationConfig"]:
         """Get generation config for the model if it exists.
 
         :param exclude_load_keys: list of keys to exclude from load_kwargs
@@ -55,7 +55,7 @@ class HfMixin:
         # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
         return get_tokenizer(self.model_path)
 
-    def save_metadata(self, output_dir: str, exclude_load_keys: Optional[List[str]] = None, **kwargs) -> List[str]:
+    def save_metadata(self, output_dir: str, exclude_load_keys: Optional[list[str]] = None, **kwargs) -> list[str]:
         """Save model metadata files to the output directory.
 
         :param output_dir: output directory to save metadata files
@@ -113,11 +113,11 @@ class HfMixin:
 
         return saved_filepaths
 
-    def get_hf_io_config(self) -> Optional[Dict[str, Any]]:
+    def get_hf_io_config(self) -> Optional[dict[str, Any]]:
         """Get Io config for the model."""
         return get_model_io_config(self.model_path, self.task, self.load_model(), **self.get_load_kwargs())
 
-    def get_hf_dummy_inputs(self) -> Optional[Dict[str, Any]]:
+    def get_hf_dummy_inputs(self) -> Optional[dict[str, Any]]:
         """Get dummy inputs for the model."""
         return get_model_dummy_input(
             self.model_path,

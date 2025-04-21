@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 import logging
-from typing import Any, Callable, Dict, List, Type
+from typing import Any, Callable
 
 from olive.common.pydantic_v1 import root_validator
 from olive.hardware import AcceleratorSpec
@@ -26,28 +26,28 @@ class DynamicToFixedShape(Pass):
     """Convert dynamic shape to fixed shape for ONNX model."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "dim_param": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=None,
                 required=False,
                 description="Symbolic parameter name. Provide dim_value if specified.",
             ),
             "dim_value": PassConfigParam(
-                type_=List[int],
+                type_=list[int],
                 default_value=None,
                 required=False,
                 description="Value to replace dim_param with in the model. Must be > 0.",
             ),
             "input_name": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=None,
                 required=False,
                 description="Model input name to replace shape of. Provide input_shape if specified.",
             ),
             "input_shape": PassConfigParam(
-                type_=List[List[int]],
+                type_=list[list[int]],
                 default_value=None,
                 required=False,
                 description=(
@@ -60,7 +60,7 @@ class DynamicToFixedShape(Pass):
         return config
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable[..., Any]]:
+    def _validators(cls) -> dict[str, Callable[..., Any]]:
         return {
             "validate_configs": root_validator(allow_reuse=True)(_jointly_validate_configs),
         }
@@ -68,7 +68,7 @@ class DynamicToFixedShape(Pass):
     def _run_for_config(
         self,
         model: ONNXModelHandler,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
         onnx_model = model.load_model()

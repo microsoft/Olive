@@ -5,7 +5,7 @@
 import sys
 from abc import abstractmethod
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import optuna
 
@@ -30,7 +30,7 @@ class OptunaSampler(SearchSampler):
     name = "optuna"
 
     @classmethod
-    def _default_config(cls) -> Dict[str, ConfigParam]:
+    def _default_config(cls) -> dict[str, ConfigParam]:
         return {
             **super()._default_config(),
             "seed": ConfigParam(type_=int, default_value=1, description="Seed for the rng."),
@@ -39,8 +39,8 @@ class OptunaSampler(SearchSampler):
     def __init__(
         self,
         search_space: SearchSpace,
-        config: Optional[Union[Dict[str, Any], ConfigBase]] = None,
-        objectives: Dict[str, Dict[str, Any]] = None,
+        config: Optional[Union[dict[str, Any], ConfigBase]] = None,
+        objectives: dict[str, dict[str, Any]] = None,
     ):
         super().__init__(search_space, config, objectives)
 
@@ -72,7 +72,7 @@ class OptunaSampler(SearchSampler):
         # self.should_stop check above would succeed.
         while True:
             trial = self._study.ask()
-            values: Dict[str, Tuple[int, Any]] = OrderedDict()
+            values: dict[str, tuple[int, Any]] = OrderedDict()
             spi, _, values = self._get_search_point_values("", "", self._search_space, trial, values)
             if spi not in self._search_point_index_to_trail_id:
                 break
@@ -87,8 +87,8 @@ class OptunaSampler(SearchSampler):
         name: str,
         param: Union[SearchParameter, SearchSpace],
         trial: "Trial",
-        values: Dict[str, Tuple[int, Any]],
-    ) -> Tuple[int, int, Union[Dict[str, Any], Any]]:
+        values: dict[str, tuple[int, Any]],
+    ) -> tuple[int, int, Union[dict[str, Any], Any]]:
         if isinstance(param, SearchParameter):
             suggestion_name = f"{prefix}__{name}" if prefix else name
 

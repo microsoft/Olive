@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 
 import math
-from typing import Tuple
 
 import config
 import numpy as np
@@ -89,7 +88,7 @@ def rotary_mat(
     theta: float = 10000.0,
     head_scale=1.0,
     dtype=torch.float32,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     scaled_head_dim = head_scale * config.head_dim
 
     pos = torch.arange(0, scaled_head_dim, step=2, dtype=dtype)
@@ -154,7 +153,7 @@ class TransformerLayer(torch.nn.Module):
         attention_mask: torch.Tensor,
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, sequence_length, hidden_size] Dimension of
         # k_cache and v_cache is [batch_size, num_layers, pos, num_heads, head_dim]
         attn_norm_output = self.input_layernorm(x)
@@ -260,7 +259,7 @@ class SelfAttention(torch.nn.Module):
         sin: torch.Tensor,
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         query = self.q_proj(x)
         key = self.k_proj(x)
         value = self.v_proj(x)

@@ -5,7 +5,6 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Dict
 
 from pytorch_lightning.plugins.environments import ClusterEnvironment
 
@@ -27,8 +26,8 @@ class BaseClusterEnvironment(ClusterEnvironment, ABC):
         self._global_rank = -1
 
         # needed for teardown
-        self._original_env_vars: Dict = {}
-        self._overrides: Dict = {}
+        self._original_env_vars: dict = {}
+        self._overrides: dict = {}
 
     def init_process_group(self) -> None:
         import torch
@@ -43,10 +42,10 @@ class BaseClusterEnvironment(ClusterEnvironment, ABC):
             self._is_initialized = True
 
     @abstractmethod
-    def _environment_variable_overrides(self, port) -> Dict[str, str]:
+    def _environment_variable_overrides(self, port) -> dict[str, str]:
         pass
 
-    def _override_environment_variables(self, overrides: Dict[str, str]) -> None:
+    def _override_environment_variables(self, overrides: dict[str, str]) -> None:
         self._overrides = overrides
         for variable, value in overrides.items():
             self._store_value(variable)
@@ -127,7 +126,7 @@ class BaseClusterEnvironment(ClusterEnvironment, ABC):
 
 
 class AzureMLPerProcessCluster(BaseClusterEnvironment):
-    def _environment_variable_overrides(self, port: int = 6105) -> Dict[str, str]:
+    def _environment_variable_overrides(self, port: int = 6105) -> dict[str, str]:
         """Set the MPI environment variables required for multinode distributed training.
 
         Args:

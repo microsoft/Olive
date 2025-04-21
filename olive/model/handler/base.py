@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Union
 
 from olive.common.config_utils import validate_config
 from olive.constants import Framework, ModelFileFormat
@@ -30,16 +30,15 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin):
     """
 
     model_type: Optional[str] = None
-    resource_keys: Tuple[str, ...] = ("model_path",)
+    resource_keys: tuple[str, ...] = ("model_path",)
 
     def __init__(
         self,
         framework: Framework,
         model_file_format: ModelFileFormat,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
-        model_attributes: Optional[Dict[str, Any]] = None,
-        io_config: Union[Dict[str, Any], "IoConfig", str, Callable] = None,
-        generative: bool = False,
+        model_attributes: Optional[dict[str, Any]] = None,
+        io_config: Union[dict[str, Any], "IoConfig", str, Callable] = None,
     ):
         self.framework = framework
         self.model_file_format = model_file_format
@@ -50,10 +49,9 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin):
             if isinstance(io_config, (IoConfig, dict))
             else io_config
         )
-        self.generative = generative
 
         # store resource paths
-        self.resource_paths: Dict[str, str] = {}
+        self.resource_paths: dict[str, str] = {}
 
         # Only update the resource_paths when the resource_key is model_path.
         # All other case will be handled by subclass.
@@ -76,9 +74,9 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin):
     @abstractmethod
     def prepare_session(
         self,
-        inference_settings: Optional[Dict[str, Any]] = None,
+        inference_settings: Optional[dict[str, Any]] = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Union[str, list[str]] = None,
         rank: Optional[int] = None,
     ):
         """Prepare inference session for Olive model, return in-memory inference session.
@@ -91,8 +89,8 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin):
     def run_session(
         self,
         session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
+        inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
+        **kwargs: dict[str, Any],
     ) -> Any:
         """Run inference session for Olive model, returns in-memory inference results.
 

@@ -7,7 +7,7 @@
 
 import logging
 import math
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 from packaging import version
 
@@ -116,10 +116,10 @@ def tp_llama_attention_forward(
     hidden_states: "torch.Tensor",
     attention_mask: Optional["torch.Tensor"] = None,
     position_ids: Optional["torch.LongTensor"] = None,
-    past_key_value: Optional[Tuple["torch.Tensor"]] = None,
+    past_key_value: Optional[tuple["torch.Tensor"]] = None,
     output_attentions: bool = False,
     use_cache: bool = False,
-) -> Tuple["torch.Tensor", Optional["torch.Tensor"], Optional[Tuple["torch.Tensor"]]]:
+) -> tuple["torch.Tensor", Optional["torch.Tensor"], Optional[tuple["torch.Tensor"]]]:
     import torch
     import torch.nn.functional as F
     from transformers.models.llama.modeling_llama import repeat_kv
@@ -242,7 +242,7 @@ def tp_llama_sdpa_attention_forward(
     past_key_value: Optional["Cache"] = None,  # noqa: F821
     output_attentions: bool = False,
     use_cache: bool = False,
-) -> Tuple["torch.Tensor", Optional["torch.Tensor"], Optional[Tuple["torch.Tensor"]]]:
+) -> tuple["torch.Tensor", Optional["torch.Tensor"], Optional[tuple["torch.Tensor"]]]:
     import torch
     from transformers.models.llama.modeling_llama import repeat_kv
 
@@ -353,7 +353,7 @@ def replace_llama2_tensor_parallel_layers():
     return originals
 
 
-def restore_llama2_tensor_parallel_layers(originals: Dict[str, Any]):
+def restore_llama2_tensor_parallel_layers(originals: dict[str, Any]):
     import torch
     from transformers.models import llama
 

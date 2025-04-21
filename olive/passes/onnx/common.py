@@ -7,7 +7,7 @@ import logging
 import re
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Optional, Union
 
 import onnx
 from onnx import external_data_helper
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 _LARGE_IR_MODEL_THRESHOLD = 1536 * 1024 * 1024  # 1536MB
 
 
-def get_external_data_config() -> Dict[str, PassConfigParam]:
+def get_external_data_config() -> dict[str, PassConfigParam]:
     return {
         "save_as_external_data": PassConfigParam(
             type_=bool,
@@ -150,7 +150,7 @@ def _get_external_data_name(output_path: Path, external_data_name: Optional[str]
 def model_proto_to_olive_model(
     model_proto: onnx.ModelProto,
     output_model_path: Union[str, Path],
-    external_data_config: Union[Dict[str, Any], Type[BasePassConfig]],
+    external_data_config: Union[dict[str, Any], type[BasePassConfig]],
     check_model: bool = False,
     external_initializers_file_name: Optional[str] = None,
     constant_inputs_file_name: Optional[str] = None,
@@ -201,7 +201,6 @@ def model_proto_to_olive_model(
         onnx.checker.check_model(olive_model.model_path)
 
     return olive_model
-
 
 def _count_initializer_size(graph: ir.Graph) -> int:
     """Count the total size of the initializers in bytes."""
@@ -260,7 +259,7 @@ def ir_model_to_olive_model(
     return ONNXModelHandler(model_path=model_path, onnx_file_name=onnx_file_name)
 
 
-def get_external_data_file_names(model_path: Union[str, Path]) -> List[str]:
+def get_external_data_file_names(model_path: Union[str, Path]) -> list[str]:
     """Get the external data file names from the model.
 
     :param model_path: Path to the model file.
@@ -293,7 +292,7 @@ def change_external_data_location(model_proto: onnx.ModelProto, new_location: st
             tensor.ClearField("raw_data")
 
 
-def get_context_bin_file_names(model_path: Union[str, Path]) -> List[str]:
+def get_context_bin_file_names(model_path: Union[str, Path]) -> list[str]:
     """Get the context binary file names from the model.
 
     :param model_path: Path to the model file.
@@ -315,7 +314,7 @@ def get_context_bin_file_names(model_path: Union[str, Path]) -> List[str]:
 def copy_context_bin_files(
     model_path: Union[str, Path],
     model_dir: Union[str, Path],
-    saved_cb_files: Optional[Dict[str, str]] = None,
+    saved_cb_files: Optional[dict[str, str]] = None,
 ) -> bool:
     """Copy the context binary files to the model directory.
 
@@ -351,7 +350,7 @@ def resave_model(
     model_path: Union[str, Path],
     new_model_path: Union[str, Path],
     force_external_data: bool = False,
-    saved_external_files: Optional[Dict[str, str]] = None,
+    saved_external_files: Optional[dict[str, str]] = None,
 ) -> bool:
     """Resave the model along with external data files.
 
@@ -446,7 +445,7 @@ def _fix_output_shapes(model_proto: onnx.ModelProto):
                 o.type.tensor_type.shape.CopyFrom(new_o.type.tensor_type.shape)
 
 
-def fix_dim_params(model_proto: onnx.ModelProto, dim_params: List[str], dim_values: List[int]):
+def fix_dim_params(model_proto: onnx.ModelProto, dim_params: list[str], dim_values: list[int]):
     """Fix the dimension parameters in the model.
 
     :param dim_params: The dimension parameters to fix.
@@ -464,7 +463,7 @@ def fix_dim_params(model_proto: onnx.ModelProto, dim_params: List[str], dim_valu
     _fix_output_shapes(model_proto)
 
 
-def fix_input_shapes(model_proto: onnx.ModelProto, input_names: List[str], input_shapes: List[List[int]]):
+def fix_input_shapes(model_proto: onnx.ModelProto, input_names: list[str], input_shapes: list[list[int]]):
     """Fix the input shapes in the model.
 
     :param input_names: The input names to fix.
@@ -484,11 +483,11 @@ def fix_input_shapes(model_proto: onnx.ModelProto, input_names: List[str], input
 
 def process_llm_pipeline(
     model: CompositeModelHandler,
-    llm_pipeline: List,
+    llm_pipeline: list,
     process_func: Callable,
     output_dir: Union[str, Path],
-    decoder_config_extra: Optional[Dict[str, Any]] = None,
-    group_session_options: Optional[Dict[str, Any]] = None,
+    decoder_config_extra: Optional[dict[str, Any]] = None,
+    group_session_options: Optional[dict[str, Any]] = None,
 ) -> CompositeModelHandler:
     """Process an LLM pipeline with the given function.
 
@@ -547,9 +546,9 @@ def process_llm_pipeline(
 
 def update_llm_pipeline_genai_config(
     model: CompositeModelHandler,
-    source_llm_pipeline: Optional[Dict[str, Any]] = None,
-    decoder_config_extra: Optional[Dict[str, Any]] = None,
-    group_session_options: Optional[Dict[str, Any]] = None,
+    source_llm_pipeline: Optional[dict[str, Any]] = None,
+    decoder_config_extra: Optional[dict[str, Any]] = None,
+    group_session_options: Optional[dict[str, Any]] = None,
 ) -> CompositeModelHandler:
     """Update the LLM pipeline in the model's genai_config.json file.
 

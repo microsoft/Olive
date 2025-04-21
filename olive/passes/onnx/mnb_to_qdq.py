@@ -5,7 +5,7 @@
 import logging
 import math
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Type
+from typing import TYPE_CHECKING
 
 import numpy as np
 import onnx
@@ -28,7 +28,7 @@ class MatMulNBitsToQDQ(Pass):
     """Convert ONNX MatMulNBits nodes to standard ONNX quantized-dequantized (QDQ) format."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "use_transpose_op": PassConfigParam(
                 type_=bool,
@@ -68,7 +68,7 @@ class MatMulNBitsToQDQ(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 

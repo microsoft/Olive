@@ -43,9 +43,12 @@ def test_run_snpe_command():
         os.environ["SNPE_ROOT"] = "/snpe"
         target_arch = "x86_64-linux-clang"
 
-    with patch.object(Path, "exists") as mock_exists, patch.object(Path, "glob") as mock_glob, patch.object(
-        Path, "open"
-    ) as open_file, patch("subprocess.run") as mock_run_subprocess:
+    with (
+        patch.object(Path, "exists") as mock_exists,
+        patch.object(Path, "glob") as mock_glob,
+        patch.object(Path, "open") as open_file,
+        patch("subprocess.run") as mock_run_subprocess,
+    ):
         mock_exists.return_value = True
         mock_glob.return_value = [Path("lib") / target_arch]
         open_file.return_value.__enter__.return_value.readline.return_value = "python"

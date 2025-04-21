@@ -11,7 +11,7 @@ import shutil
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
@@ -53,7 +53,7 @@ class CacheSubDirs:
 
 
 class CacheConfig(ConfigBase):
-    cache_dir: Union[str, List[str]] = DEFAULT_CACHE_DIR
+    cache_dir: Union[str, list[str]] = DEFAULT_CACHE_DIR
     clean_cache: bool = False
     clean_evaluation_cache: bool = False
     account_name: str = None
@@ -132,7 +132,7 @@ class CacheConfig(ConfigBase):
 
 
 class OliveCache:
-    def __init__(self, cache_config: Union[CacheConfig, Dict]):
+    def __init__(self, cache_config: Union[CacheConfig, dict]):
         cache_config = validate_config(cache_config, CacheConfig)
         cache_dir = Path(cache_config.get_local_cache_dir()).resolve()
         logger.info("Using cache directory: %s", cache_dir)
@@ -155,8 +155,8 @@ class OliveCache:
 
     @staticmethod
     def get_run_json(
-        pass_name: str, pass_config: Dict[str, Any], input_model_id: str, accelerator_spec: "AcceleratorSpec"
-    ) -> Dict[str, Any]:
+        pass_name: str, pass_config: dict[str, Any], input_model_id: str, accelerator_spec: "AcceleratorSpec"
+    ) -> dict[str, Any]:
         accelerator_spec = str(accelerator_spec) if accelerator_spec else None
         return {
             "input_model_id": input_model_id,
@@ -174,7 +174,7 @@ class OliveCache:
             cache_dir = Path(DEFAULT_CACHE_DIR).resolve() / DEFAULT_WORKFLOW_ID
         return cls(cache_config={"cache_dir": cache_dir})
 
-    def cache_model(self, model_id: str, model_json: Dict):
+    def cache_model(self, model_id: str, model_json: dict):
         model_json_path = self.get_model_json_path(model_id)
         try:
             with model_json_path.open("w") as f:
@@ -253,7 +253,7 @@ class OliveCache:
     def get_model_json_path(self, model_id: str) -> Path:
         return self.get_run_path(model_id) / "model.json"
 
-    def cache_evaluation(self, model_id: str, evaluation_json: Dict):
+    def cache_evaluation(self, model_id: str, evaluation_json: dict):
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         try:
             with evaluation_json_path.open("w") as f:
@@ -266,7 +266,7 @@ class OliveCache:
         """Get the path to the evaluation json."""
         return self.dirs.evaluations / f"{model_id}.json"
 
-    def cache_olive_config(self, olive_config: Dict):
+    def cache_olive_config(self, olive_config: dict):
         olive_config_path = self.dirs.cache_dir / "olive_config.json"
         try:
             with olive_config_path.open("w") as f:
@@ -278,7 +278,7 @@ class OliveCache:
     def get_output_model_id(
         self,
         pass_name: str,
-        pass_config: Dict[str, Any],
+        pass_config: dict[str, Any],
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec" = None,
     ):
@@ -294,7 +294,7 @@ class OliveCache:
         os.environ["OLIVE_CACHE_DIR"] = str(self.dirs.cache_dir)
         logger.debug("Set OLIVE_CACHE_DIR: %s", self.dirs.cache_dir)
 
-    def prepare_resources_for_local(self, config: Union[Dict, ConfigBase]) -> Union[Dict, ConfigBase]:
+    def prepare_resources_for_local(self, config: Union[dict, ConfigBase]) -> Union[dict, ConfigBase]:
         """Prepare all resources in the config for local execution.
 
         Download all non-local resources in the config to the cache. All resource paths in the config are replaced with
@@ -468,7 +468,7 @@ class OliveCache:
             model_path_name = f"{path_prefix}_{model_path_name}"
         return self._save_additional_files(model_json, output_dir / model_path_name)
 
-    def _replace_with_local_resources(self, model_json: dict, only_cache_files: bool = False) -> Tuple[dict, List[str]]:
+    def _replace_with_local_resources(self, model_json: dict, only_cache_files: bool = False) -> tuple[dict, list[str]]:
         local_resource_names = []
         # get the resource paths from the model config
         for resource_name, resource_path in ModelConfig.from_json(model_json).get_resource_paths().items():
@@ -552,7 +552,7 @@ class SharedCache:
                     model_id,
                 )
 
-    def load_run(self, model_id: str, run_json_path: Path) -> Optional[Dict]:
+    def load_run(self, model_id: str, run_json_path: Path) -> Optional[dict]:
         blob = f"{model_id}/run.json"
         try:
             if not self.exist_in_shared_cache(blob):
@@ -566,7 +566,7 @@ class SharedCache:
             logger.exception("Failed to load run from shared cache.")
             return {}
 
-    def cache_model(self, model_id: str, model_json: Dict) -> None:
+    def cache_model(self, model_id: str, model_json: dict) -> None:
         """Upload output model to shared cache.
 
             model path and adapter path (if exists)

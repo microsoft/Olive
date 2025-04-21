@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
@@ -41,7 +41,7 @@ def test_onnx_peephole_optimizer_pass(tmp_path):
 
 
 def _make_model_for_patch_unsupported_argmax_operator(
-    data_type: TensorProto.DataType, filepath: str, config: Dict[str, Any]
+    data_type: TensorProto.DataType, filepath: str, config: dict[str, Any]
 ) -> "ONNXModelHandler":
     X = helper.make_tensor_value_info("X", data_type, [None, None])  # noqa: N806
     Y = helper.make_tensor_value_info("Y", data_type, [None])  # noqa: N806

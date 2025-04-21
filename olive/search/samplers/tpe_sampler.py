@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Dict
 
 import optuna
 
@@ -20,7 +19,7 @@ class TPESampler(OptunaSampler):
     name = "tpe"
 
     @classmethod
-    def _default_config(cls) -> Dict[str, ConfigParam]:
+    def _default_config(cls) -> dict[str, ConfigParam]:
         return {
             **super()._default_config(),
             "multivariate": ConfigParam(

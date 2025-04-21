@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from olive.hardware.accelerator import DEVICE_TO_EXECUTION_PROVIDERS, AcceleratorLookup, AcceleratorSpec, Device
 from olive.systems.common import SystemType
@@ -182,7 +182,7 @@ class AcceleratorNormalizer:
 
 def create_accelerators(
     system_config: "SystemConfig", skip_supported_eps_check: bool = True, is_ep_required=True
-) -> List[AcceleratorSpec]:
+) -> list[AcceleratorSpec]:
     normalizer = AcceleratorNormalizer(system_config, skip_supported_eps_check, is_ep_required)
     system_config = normalizer.normalize()
 
@@ -192,7 +192,7 @@ def create_accelerators(
     logger.debug("Initial accelerators and execution providers: %s", device_to_eps)
 
     # Flatten the accelerators to list of AcceleratorSpec
-    accelerator_specs: List[AcceleratorSpec] = []
+    accelerator_specs: list[AcceleratorSpec] = []
     is_cpu_available = "cpu" in [accelerator.lower() for accelerator in device_to_eps]
     for accelerator in system_config.config.accelerators:
         device = Device(accelerator.device.lower())

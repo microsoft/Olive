@@ -10,7 +10,7 @@ import multiprocessing
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Type, Union
+from typing import Optional, Union
 
 import onnx
 import torch
@@ -338,7 +338,7 @@ class OnnxConversion(Pass):
     """Convert a PyTorch model to ONNX model using torch.onnx.export on CPU."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             **get_external_data_config(),
@@ -407,7 +407,7 @@ class OnnxConversion(Pass):
     def _run_for_config(
         self,
         model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
         output_model = self._run_for_config_internal(model, config, output_model_path)
@@ -427,7 +427,7 @@ class OnnxConversion(Pass):
     def _run_for_config_internal(
         self,
         model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
@@ -518,7 +518,7 @@ class OnnxConversion(Pass):
     def _convert_model_on_device(
         self,
         model: Union[HfModelHandler, PyTorchModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
         device: str,
         torch_dtype: Optional[torch.dtype] = None,
@@ -565,10 +565,67 @@ class OnnxConversion(Pass):
         output_model.model_attributes = model_attributes
         return output_model
 
+    @staticmethod
+    def _export_ranked_model(params):
+        """Export one rank of a DistributedHfModel to ONNX and save the model to the output path.
+
+        :param params: a tuple of (pass_config, model_config, world_size, device, local_rank, output_dirpath)
+            pass_config: the config for the pass
+            model_config: the config for the DistributedHfModel
+            device: the device to use for conversion
+            torch_dtype: the dtype to cast the model to before conversion
+            local_rank: the rank of the current process as well as the rank of the model to be converted
+            output_dirpath: the path to the directory to save the model. The .onnx model will be saved in this
+                directory with the name specified by DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT
+        """
+        pass_config, model_config, device, torch_dtype, local_rank, output_dirpath, tempdir = params
+
+        model_type = model_config.get("model_attributes", {}).get("model_type")
+
+        if model_type == "llama":
+            from olive.passes.pytorch.tensor_parallel_llama2 import (
+                replace_llama2_tensor_parallel_layers as replace_tensor_parallel_layers,
+            )
+            from olive.passes.pytorch.tensor_parallel_llama2 import (
+                restore_llama2_tensor_parallel_layers as restore_tensor_parallel_layers,
+            )
+        else:
+            raise ValueError("Unsupported model type '{model_type}' for conversion pass")
+
+        output_filename = DistributedOnnxModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(local_rank)
+        output_filepath = resolve_onnx_path(output_dirpath, output_filename)
+
+        try:
+            restore_args = replace_tensor_parallel_layers()
+
+            input_model = DistributedHfModelHandler(**model_config)
+
+            olive_pytorch_model = input_model.load_model(local_rank)
+            dummy_inputs = OnnxConversion._get_dummy_inputs(olive_pytorch_model, pass_config)
+            io_config = None if pass_config.use_dynamo_exporter else olive_pytorch_model.io_config
+            pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
+
+            ranked_onnx_modelproto = OnnxConversion._export_pytorch_model(
+                pytorch_model,
+                dummy_inputs,
+                io_config,
+                pass_config,
+                device,
+                torch_dtype,
+                tempdir,
+            )
+
+            # save the model to the output path
+            model_proto_to_olive_model(ranked_onnx_modelproto, output_filepath, pass_config)
+        finally:
+            restore_tensor_parallel_layers(restore_args)  # pylint: disable=used-before-assignment
+
+        return 1  # Return 1 for success.
+
     def _convert_distributed_model_on_device(
         self,
         model: DistributedHfModelHandler,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
         device: str,
         torch_dtype: Optional[torch.dtype] = None,
@@ -614,7 +671,7 @@ class OnnxConversion(Pass):
 class OnnxOpVersionConversion(Pass):
     # TODO(justinchuby): Rework this pass using the IR
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         latest_opset_version = onnx.defs.onnx_opset_version()
 
         config = {
@@ -628,7 +685,7 @@ class OnnxOpVersionConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path)
         # since external data is saved in a separate file, we need to load the model to get the opset version

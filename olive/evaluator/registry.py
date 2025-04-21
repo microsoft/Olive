@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import inspect
 import logging
-from typing import ClassVar, Dict
+from typing import ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class Registry:
     """Registry for olive model evaluators."""
 
-    _REGISTRY: ClassVar[Dict] = {}
+    _REGISTRY: ClassVar[dict] = {}
 
     @classmethod
     def register(cls, name: str = None):

@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Dict, List, Type
 
 from onnx import ValueInfoProto
 
@@ -22,10 +21,10 @@ class OrtMixedPrecision(Pass):
     """Convert model to mixed precision."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "op_block_list": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=["SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization", "Relu", "Add"],
                 description="List of op types to leave as float32",
             ),
@@ -37,7 +36,7 @@ class OrtMixedPrecision(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         """Convert model to mixed precision.
 

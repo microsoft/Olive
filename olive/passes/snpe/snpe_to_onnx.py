@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Callable, Dict, Type
+from typing import Callable
 
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
@@ -29,7 +29,7 @@ class SNPEtoONNXConversion(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "target_device": PassConfigParam(
                 type_=str,
@@ -45,13 +45,13 @@ class SNPEtoONNXConversion(Pass):
         return config
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable]:
+    def _validators(cls) -> dict[str, Callable]:
         return {
             "validate_target_device": validator("target_device", allow_reuse=True)(_validate_target_device),
         }
 
     def _run_for_config(
-        self, model: SNPEModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: SNPEModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path)
 

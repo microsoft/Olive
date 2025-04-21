@@ -6,7 +6,7 @@ import logging
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Optional, Type
+from typing import Optional
 
 import onnx
 
@@ -24,7 +24,7 @@ class OnnxIODataTypeConverter(Pass):
     """Converts model inputs/outputs from a source dtype to a target dtype based on a name pattern."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "name_pattern": PassConfigParam(
                 type_=str,
@@ -139,7 +139,7 @@ class OnnxIODataTypeConverter(Pass):
             )
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime.transformers.onnx_model import OnnxModel
 

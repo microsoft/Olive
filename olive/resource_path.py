@@ -9,7 +9,7 @@ import tempfile
 from abc import abstractmethod
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Type, Union
+from typing import Any, Callable, ClassVar, Optional, Union
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.auto_config import AutoConfigClass
@@ -46,7 +46,7 @@ AZUREML_RESOURCE_TYPES = (
 
 
 class ResourcePath(AutoConfigClass):
-    registry: ClassVar[Dict[str, Type["ResourcePath"]]] = {}
+    registry: ClassVar[dict[str, type["ResourcePath"]]] = {}
     name: ResourceType = None
 
     def __repr__(self) -> str:
@@ -170,7 +170,7 @@ def validate_resource_path(v, values, field):
     return v
 
 
-def find_all_resources(config, ignore_keys: Optional[List[str]] = None) -> Dict[str, ResourcePath]:
+def find_all_resources(config, ignore_keys: Optional[list[str]] = None) -> dict[str, ResourcePath]:
     """Find all resources in a config.
 
     :param config: The config to search for resources.
@@ -230,13 +230,13 @@ class LocalResourcePath(ResourcePath):
     """Base class for a local resource path."""
 
     @classmethod
-    def _default_config(cls) -> Dict[str, Any]:
+    def _default_config(cls) -> dict[str, Any]:
         return {
             "path": ConfigParam(type_=Union[Path, str], required=True, description="Path to the resource."),
         }
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable]:
+    def _validators(cls) -> dict[str, Callable]:
         return {"validate_path": validator("path", allow_reuse=True)(_validate_path)}
 
     def get_path(self) -> str:
@@ -279,7 +279,7 @@ class LocalFile(LocalResourcePath):
     name = ResourceType.LocalFile
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable[..., Any]]:
+    def _validators(cls) -> dict[str, Callable[..., Any]]:
         validators = super()._validators()
         validators.update({"validate_file_path": validator("path", allow_reuse=True)(_validate_file_path)})
         return validators
@@ -298,7 +298,7 @@ class LocalFolder(LocalResourcePath):
     name = ResourceType.LocalFolder
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable[..., Any]]:
+    def _validators(cls) -> dict[str, Callable[..., Any]]:
         validators = super()._validators()
         validators.update({"validate_folder_path": validator("path", allow_reuse=True)(_validate_folder_path)})
         return validators
@@ -310,7 +310,7 @@ class StringName(ResourcePath):
     name = ResourceType.StringName
 
     @classmethod
-    def _default_config(cls) -> Dict[str, Any]:
+    def _default_config(cls) -> dict[str, Any]:
         return {
             "name": ConfigParam(type_=str, required=True, description="Name of the resource."),
         }
@@ -323,7 +323,7 @@ class StringName(ResourcePath):
         return self.config.name
 
 
-def _get_azureml_resource_prefix(workspace_config: Dict[str, str]) -> str:
+def _get_azureml_resource_prefix(workspace_config: dict[str, str]) -> str:
     return (
         f"azureml://subscriptions/{workspace_config['subscription_id']}"
         f"/resourcegroups/{workspace_config['resource_group']}"
@@ -387,7 +387,7 @@ class AzureMLModel(AzureMLResource):
     name = ResourceType.AzureMLModel
 
     @classmethod
-    def _default_config(cls) -> Dict[str, Any]:
+    def _default_config(cls) -> dict[str, Any]:
         return {
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=True, description="AzureML client config."
@@ -413,7 +413,7 @@ class AzureMLRegistryModel(AzureMLResource):
     name = ResourceType.AzureMLRegistryModel
 
     @classmethod
-    def _default_config(cls) -> Dict[str, Any]:
+    def _default_config(cls) -> dict[str, Any]:
         return {
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=False, description="AzureML client config."
@@ -463,7 +463,7 @@ class AzureMLDatastore(ResourcePath):
     name = ResourceType.AzureMLDatastore
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable[..., Any]]:
+    def _validators(cls) -> dict[str, Callable[..., Any]]:
         validators = super()._validators()
         validators.update(
             {
@@ -473,7 +473,7 @@ class AzureMLDatastore(ResourcePath):
         return validators
 
     @classmethod
-    def _default_config(cls) -> Dict[str, Any]:
+    def _default_config(cls) -> dict[str, Any]:
         return {
             "azureml_client": ConfigParam(type_=AzureMLClientConfig, description="AzureML client config."),
             "datastore_name": ConfigParam(type_=str, description="Name of the datastore."),
@@ -579,7 +579,7 @@ class AzureMLJobOutput(ResourcePath):
     name = ResourceType.AzureMLJobOutput
 
     @classmethod
-    def _default_config(cls) -> Dict[str, Any]:
+    def _default_config(cls) -> dict[str, Any]:
         return {
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=True, description="AzureML client config."
