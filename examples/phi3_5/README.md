@@ -157,13 +157,13 @@ The optimized model can be used for inference using ONNX Runtime QNNExecutionPro
 #### **Install Dependencies**
 1. Visual Studio Build Tools with the following individual components
    1. Compilers, build tools, and runtimes
-      * C++ Universal Windows Platform support for v143 build tools (ARM64/ARM64EC)\
+      * C++ Universal Windows Platform support for v143 build tools (ARM64/ARM64EC)
       * MSVC v143 - VS 2022 C++ ARM64/ARM64EC build tools (Latest)
    2. SDKs, libraries, and frameworks
       * C++ ATL for latest v143 build tools (ARM64/ARM64EC)
       * C++ MFC for latest v143 build tools (ARM64/ARM64EC)
 
-2. Python ARM64
+2. Python ARM64 (version 3.11 or 3.12)
 3. NPU driver version 30.0.140.1000 or higher
 
 #### **Install Required Python Packages**
