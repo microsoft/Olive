@@ -16,7 +16,7 @@ from olive.common.config_utils import validate_config
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
+from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion, _torch_is_older_than
 from olive.passes.pytorch.gptq import GptqQuantizer
 from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
 
@@ -32,10 +32,11 @@ from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, 
         (get_pytorch_model(), True, False),
     ],
 )
-def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, dynamic, tmp_path):
-    if platform.system() == "Windows" and use_dynamo_exporter:
-        # TODO(anyone): Investigate why this test fails on Windows and/or re-enable once torch 2.7 is released
-        pytest.skip("Dynamo export test is skipped on Windows")
+def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter: bool, dynamic: bool, tmp_path):
+    if platform.system() == "Windows" and use_dynamo_exporter and _torch_is_older_than("2.7.0"):
+        pytest.skip("Dynamo export test is skipped on Windows when torch<2.7.0")
+    if use_dynamo_exporter and dynamic and _torch_is_older_than("2.7.0"):
+        pytest.skip("Dynamo export test with dynamic shapes is skipped when torch<2.7.0")
 
     # setup
     p = create_pass_from_dict(

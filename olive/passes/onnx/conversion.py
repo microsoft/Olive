@@ -38,6 +38,11 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_s
 logger = logging.getLogger(__name__)
 
 
+def _torch_is_older_than(version_str: str) -> bool:
+    torch_version = version.parse(torch.__version__).release
+    return torch_version < version.parse(version_str).release
+
+
 class TraceModelWrapper(torch.nn.Module):
     def __init__(self, model: torch.nn.Module):
         super().__init__()
@@ -188,19 +193,18 @@ def _export_pytorch_model(
 
         if dynamo:
             # Take the "release" version so that dev builds like 2.5.0dev1234 are treated as 2.5.0
-            torch_version = version.parse(torch.__version__).release
-            if torch_version < version.parse("2.7.0").release and io_config.dynamic_shapes is not None:
+            if _torch_is_older_than("2.7.0") and (
+                io_config.dynamic_axes is not None or io_config.dynamic_shapes is not None
+            ):
                 logger.warning(
-                    "Dynamic shape support in torch.onnx.export(..., dynamo=True) requires "
-                    "PyTorch version 2.7.0 or later. "
+                    "We recommend PyTorch version 2.7.0 or later for dynamic_shapes support. "
                     "Please upgrade to PyTorch 2.7.0 or newer if you need dynamic shapes.",
                 )
             # The new "dynamo" api is torch.onnx.export with dynamo=True
-            dynamo_supported_version = version.parse("2.6.0").release
-            if torch_version < dynamo_supported_version:
-                raise ImportError(
-                    f"torch.onnx.export(..., dynamo=True) is not available for torch version {torch_version}. "
-                    "Please upgrade your torch version to 2.6.0 or above."
+            if _torch_is_older_than("2.6.0"):
+                raise RuntimeError(
+                    f"torch.onnx.export(..., dynamo=True) is not available for torch version {torch.__version__}. "
+                    "Please upgrade PyTorch to 2.6.0 or above."
                 )
 
             if isinstance(dummy_inputs, dict):
