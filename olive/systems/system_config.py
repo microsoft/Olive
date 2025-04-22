@@ -5,7 +5,7 @@
 import importlib
 import shutil
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Union
 
 import olive.systems.system_alias as system_alias
 from olive.azureml.azureml_client import AzureMLClientConfig
@@ -21,7 +21,7 @@ from olive.systems.common import (
 
 
 class TargetUserConfig(ConfigBase):
-    accelerators: List[AcceleratorConfig] = None
+    accelerators: list[AcceleratorConfig] = None
     hf_token: bool = None
 
     class Config:
@@ -45,9 +45,9 @@ class AzureMLTargetUserConfig(TargetUserConfig):
     aml_compute: str
     aml_docker_config: AzureMLDockerConfig = None
     aml_environment_config: AzureMLEnvironmentConfig = None
-    tags: Dict = None
+    tags: dict = None
     datastores: str = "workspaceblobstore"
-    resources: Dict = None
+    resources: dict = None
     instance_count: int = 1
     is_dev: bool = False
     olive_managed_env: bool = False
@@ -57,8 +57,8 @@ class AzureMLTargetUserConfig(TargetUserConfig):
 class CommonPythonEnvTargetUserConfig(TargetUserConfig):
     # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/
     python_environment_path: Union[Path, str] = None
-    environment_variables: Dict[str, str] = None  # os.environ will be updated with these variables
-    prepend_to_path: List[str] = None  # paths to prepend to os.environ["PATH"]
+    environment_variables: dict[str, str] = None  # os.environ will be updated with these variables
+    prepend_to_path: list[str] = None  # paths to prepend to os.environ["PATH"]
 
     @validator("python_environment_path", "prepend_to_path", pre=True, each_item=True)
     def _get_abspath(cls, v):

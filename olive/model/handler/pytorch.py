@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.user_module_loader import UserModuleLoader
@@ -25,11 +25,28 @@ logger = logging.getLogger(__name__)
 class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin, PytorchKvCacheMixin):  # pylint: disable=too-many-ancestors
     """Base class for PyTorch model handler."""
 
+    def __init__(
+        self,
+        model_file_format: ModelFileFormat,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        model_attributes: Optional[dict[str, Any]] = None,
+        io_config: Union[dict[str, Any], "IoConfig", str, Callable] = None,
+        generative: bool = False,
+    ):
+        super().__init__(
+            framework=Framework.PYTORCH,
+            model_file_format=model_file_format,
+            model_path=model_path,
+            model_attributes=model_attributes,
+            io_config=io_config,
+        )
+        self.generative = generative
+
     def prepare_session(
         self,
-        inference_settings: Optional[Dict[str, Any]] = None,
+        inference_settings: Optional[dict[str, Any]] = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Union[str, list[str]] = None,
         rank: Optional[int] = None,
     ):
         return self.load_model(rank).eval()
@@ -37,8 +54,8 @@ class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin, PytorchKvCach
     def run_session(
         self,
         session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
+        inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
+        **kwargs: dict[str, Any],
     ) -> Any:
         if isinstance(inputs, dict):
             results = session.generate(**inputs, **kwargs) if self.generative else session(**inputs, **kwargs)
@@ -48,10 +65,10 @@ class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin, PytorchKvCach
 
     @staticmethod
     def get_resolved_io_config(
-        io_config: Union[Dict[str, Any], IoConfig],
+        io_config: Union[dict[str, Any], IoConfig],
         force_kv_cache: bool = False,
-        model_attributes: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        model_attributes: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Resolve io_config to a dictionary.
 
         :param io_config: io_config to resolve.
@@ -83,8 +100,8 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
       * Get the dummy inputs for PyTorch model used to evaluate the latency.
     """
 
-    resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script")
-    json_config_keys: Tuple[str, ...] = ("model_file_format", "model_loader", "dummy_inputs_func", "generative")
+    resource_keys: tuple[str, ...] = ("model_path", "script_dir", "model_script")
+    json_config_keys: tuple[str, ...] = ("model_file_format", "model_loader", "dummy_inputs_func", "generative")
 
     def __init__(
         self,
@@ -93,9 +110,9 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
-        io_config: Union[Dict[str, Any], IoConfig, str, Callable] = None,
+        io_config: Union[dict[str, Any], IoConfig, str, Callable] = None,
         dummy_inputs_func: Union[str, Callable] = None,
-        model_attributes: Optional[Dict[str, Any]] = None,
+        model_attributes: Optional[dict[str, Any]] = None,
         generative: bool = False,
     ):
         if not (isinstance(model_loader, Callable) or (isinstance(model_loader, str) and model_script) or model_path):
@@ -105,7 +122,6 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
         self.model_loader = model_loader
         self.model = None
         super().__init__(
-            framework=Framework.PYTORCH,
             model_file_format=model_file_format,
             model_path=model_path,
             model_attributes=model_attributes,
@@ -114,7 +130,7 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
         )
         self.add_resources(locals())
 
-        # ensure that script_dir and model_script are local resorces
+        # ensure that script_dir and model_script are local resources
         for resource_name, expected_type in [
             ("script_dir", ResourceType.LocalFolder),
             ("model_script", ResourceType.LocalFile),
@@ -173,7 +189,7 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
         return loaded_model
 
     @property
-    def io_config(self) -> Dict[str, Any]:
+    def io_config(self) -> dict[str, Any]:
         """Return io config of the model."""
         if not self._io_config:
             return None

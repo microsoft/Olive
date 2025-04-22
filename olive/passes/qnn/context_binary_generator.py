@@ -6,7 +6,7 @@
 import logging
 import platform
 from pathlib import Path
-from typing import Dict, Type, Union
+from typing import Union
 
 from olive.common.constants import OS
 from olive.constants import ModelFileFormat
@@ -26,7 +26,7 @@ class QNNContextBinaryGenerator(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "backend": PassConfigParam(
                 type_=str,
@@ -51,7 +51,7 @@ class QNNContextBinaryGenerator(Pass):
     def _run_for_config(
         self,
         model: Union[QNNModelHandler, SNPEModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> QNNModelHandler:
         if platform.system() == OS.WINDOWS:

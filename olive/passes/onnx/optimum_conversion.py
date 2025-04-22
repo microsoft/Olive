@@ -5,7 +5,7 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, List, Type, Union
+from typing import Union
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
@@ -19,14 +19,14 @@ class OptimumConversion(Pass):
     """Convert a Hugging Face PyTorch model to ONNX model using the Optimum export function."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
             ),
             "components": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=None,
                 description=(
                     "List of component models to export. E.g. ['decoder_model', 'decoder_with_past_model']. None means"
@@ -51,7 +51,7 @@ class OptimumConversion(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
         if not super().validate_config(config, accelerator_spec):
@@ -64,7 +64,7 @@ class OptimumConversion(Pass):
         return True
 
     def _run_for_config(
-        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         from optimum import version as optimum_version
         from optimum.exporters.onnx import main_export as export_optimum_model

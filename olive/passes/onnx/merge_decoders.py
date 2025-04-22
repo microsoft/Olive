@@ -11,7 +11,7 @@ import logging
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, DefaultDict, Dict, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import onnx
 from onnx import GraphProto, ModelProto, NodeProto, OperatorSetIdProto, TensorProto, ValueInfoProto
@@ -29,8 +29,8 @@ def _get_onnx_opset(model: ModelProto) -> int:
     return opset_import.version
 
 
-def _infer_output_shape(output: ValueInfoProto) -> List[Any]:
-    output_shape: List[Any] = []
+def _infer_output_shape(output: ValueInfoProto) -> list[Any]:
+    output_shape: list[Any] = []
     for dim in output.type.tensor_type.shape.dim:
         if hasattr(dim, "dim_param"):
             output_shape.append(dim.dim_param)
@@ -48,8 +48,8 @@ def _unify_onnx_outputs(model1: ModelProto, model2: ModelProto, strict: bool):
     The outputs of model1 will be replaced by outputs of model2.
     According to the rules of "If" op, two subgraphs must have the same number of outputs.
     """
-    model1_outputs: Set[str] = {output.name for output in model1.graph.output}
-    model2_outputs: Set[str] = {output.name for output in model2.graph.output}
+    model1_outputs: set[str] = {output.name for output in model1.graph.output}
+    model2_outputs: set[str] = {output.name for output in model2.graph.output}
 
     if model1_outputs != model2_outputs:
         if strict is True:
@@ -80,7 +80,7 @@ def _unify_onnx_outputs(model1: ModelProto, model2: ModelProto, strict: bool):
             ):
                 if strict is False and model_output_1.name not in model2_outputs:
                     data_type = model_output_1.type.tensor_type.elem_type
-                    dims_output_1: List[Any] = _infer_output_shape(model_output_1)
+                    dims_output_1: list[Any] = _infer_output_shape(model_output_1)
                     if not isinstance(dims_output_1[0], str):
                         raise ValueError(
                             f"Expected a dynamic shape for the axis zero of {model_output_1.name}, "
@@ -150,8 +150,8 @@ def _unify_onnx_outputs(model1: ModelProto, model2: ModelProto, strict: bool):
 
 
 def _create_name_sharing_dict(
-    duplicate_weights: DefaultDict[Tuple[int, str, Tuple], Set[Tuple[str, int]]], suffix: str = ""
-) -> Dict[Tuple[str, int], str]:
+    duplicate_weights: defaultdict[tuple[int, str, tuple], set[tuple[str, int]]], suffix: str = ""
+) -> dict[tuple[str, int], str]:
     """Create a map mapping old initializer names to new initializer names.
 
     As different ONNX models may use the same initializer name but need to be mapped to a different new name,
@@ -172,8 +172,8 @@ def _create_name_sharing_dict(
             Suffix to append to common name
 
     """
-    name_sharing_dict: Dict[Tuple[str, int], str] = {}
-    used_common_names: Dict[str, int] = {}
+    name_sharing_dict: dict[tuple[str, int], str] = {}
+    used_common_names: dict[str, int] = {}
     for duplicates in duplicate_weights.values():
         common_name, model_id = duplicates.pop()
 
@@ -192,10 +192,10 @@ def _create_name_sharing_dict(
     return name_sharing_dict
 
 
-def _get_all_inputs(models: List[ModelProto]) -> List[ValueInfoProto]:
+def _get_all_inputs(models: list[ModelProto]) -> list[ValueInfoProto]:
     """Collect unique inputs from all `models` into a single list."""
-    inputs: List[ValueInfoProto] = []
-    input_names: Set[str] = set()
+    inputs: list[ValueInfoProto] = []
+    input_names: set[str] = set()
     for model in models:
         for inp in model.graph.input:
             if inp.name not in input_names:
@@ -206,14 +206,14 @@ def _get_all_inputs(models: List[ModelProto]) -> List[ValueInfoProto]:
 
 
 def _find_duplicate_initializers(
-    models: List[ModelProto],
-) -> DefaultDict[Tuple[int, str, Tuple], Set[Tuple[str, int]]]:
+    models: list[ModelProto],
+) -> defaultdict[tuple[int, str, tuple], set[tuple[str, int]]]:
     """Create a map (unique data) --> set of (initializer name, model id).
 
     Initializers with a dimension 0, or dimension 1 with data type int32 or int64, are not included in the
     generated map.
     """
-    duplicates: DefaultDict[Tuple[int, str, Tuple], Set[Tuple[str, int]]] = defaultdict(set)
+    duplicates: defaultdict[tuple[int, str, tuple], set[tuple[str, int]]] = defaultdict(set)
     for i in range(len(models)):
         for initializer in models[i].graph.initializer:
             tensor_dims = tuple(initializer.dims)
@@ -233,7 +233,7 @@ def _find_duplicate_initializers(
     return duplicates
 
 
-def _replace_input_names(models: List[ModelProto], name_sharing_dict: Dict[Tuple[str, int], str]):
+def _replace_input_names(models: list[ModelProto], name_sharing_dict: dict[tuple[str, int], str]):
     """Replace the names of node inputs from the models by the names in the name_sharing_dict."""
     for i in range(len(models)):
         for node in models[i].graph.node:
@@ -243,15 +243,15 @@ def _replace_input_names(models: List[ModelProto], name_sharing_dict: Dict[Tuple
                     node.input[j] = name_sharing_dict[name_id_pair]
 
 
-def _deduplicated_cross_model_initializers(models: List[ModelProto], suffix: str = None) -> List[TensorProto]:
+def _deduplicated_cross_model_initializers(models: list[ModelProto], suffix: str = None) -> list[TensorProto]:
     """TODO(shaahji): short documentation."""
-    duplicates: DefaultDict[Tuple[int, str, Tuple], Set[Tuple[str, int]]] = _find_duplicate_initializers(models)
-    name_sharing_dict: Dict[Tuple[str, int], str] = _create_name_sharing_dict(duplicates, suffix=suffix)
+    duplicates: defaultdict[tuple[int, str, tuple], set[tuple[str, int]]] = _find_duplicate_initializers(models)
+    name_sharing_dict: dict[tuple[str, int], str] = _create_name_sharing_dict(duplicates, suffix=suffix)
 
     _replace_input_names(models, name_sharing_dict)
 
-    deduplicated_initializers: List[TensorProto] = []
-    deduplicated_name: Set[TensorProto] = set()
+    deduplicated_initializers: list[TensorProto] = []
+    deduplicated_name: set[TensorProto] = set()
 
     for i in range(len(models)):
         for initializer in models[i].graph.initializer:
@@ -267,7 +267,7 @@ def _deduplicated_cross_model_initializers(models: List[ModelProto], suffix: str
 def _convert_graph_to_subgraph(graph: GraphProto, subgraph_name: str) -> GraphProto:
     # Keep initializers of dim 0 (or dim 1 + int32/int64) in subgraphs for readability purposes, and also because
     # ONNX Runtime breaks after optimization + merge if they are not
-    initializers: List[TensorProto] = [
+    initializers: list[TensorProto] = [
         initializer
         for initializer in graph.initializer
         if (len(initializer.dims) == 0)
@@ -286,8 +286,8 @@ def _convert_graph_to_subgraph(graph: GraphProto, subgraph_name: str) -> GraphPr
 
 
 def _merge_graphs_with_if_operator(
-    all_inputs: List[ValueInfoProto],
-    initializers: List[TensorProto],
+    all_inputs: list[ValueInfoProto],
+    initializers: list[TensorProto],
     no_past_branch: GraphProto,
     with_past_branch: GraphProto,
     graph_name: str,
@@ -365,7 +365,7 @@ def merge_decoders(
             "Make sure having the same opset before merging."
         )
 
-    all_inputs: List[ValueInfoProto] = _get_all_inputs([decoder, decoder_with_past])
+    all_inputs: list[ValueInfoProto] = _get_all_inputs([decoder, decoder_with_past])
 
     # Replace the axis name `sequence_length` of the attention_mask input by `attention_mask_sequence_length`.
     # This is because the merged model `input_ids` and `attention_mask` inputs may not always have the same length
@@ -379,7 +379,7 @@ def merge_decoders(
             inp.type.tensor_type.shape.dim[1].dim_param = "attention_mask_sequence_length"
 
     _unify_onnx_outputs(decoder, decoder_with_past, strict=strict)
-    deduplicated_initializers: List[TensorProto] = _deduplicated_cross_model_initializers(
+    deduplicated_initializers: list[TensorProto] = _deduplicated_cross_model_initializers(
         [decoder, decoder_with_past], suffix=graph_name
     )
 
@@ -393,8 +393,8 @@ def merge_decoders(
     )
 
     # Preserve imports from the decoder without/with past ONNX
-    opset_imports: List[OperatorSetIdProto] = []
-    opset_domains: Set[str] = set()
+    opset_imports: list[OperatorSetIdProto] = []
+    opset_domains: set[str] = set()
     for opset_import in list(decoder.opset_import) + list(decoder_with_past.opset_import):
         if opset_import.domain not in opset_domains:
             opset_imports.append(opset_import)

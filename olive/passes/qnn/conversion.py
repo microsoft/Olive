@@ -5,7 +5,7 @@
 
 import platform
 from pathlib import Path
-from typing import Dict, List, Type, Union
+from typing import Union
 
 from olive.common.constants import OS
 from olive.constants import ModelFileFormat
@@ -25,12 +25,12 @@ class QNNConversion(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             # input_network is required for qnn conversion, but we don't have it in the config.
             # The `input_network` will be set in the runtime.
             "input_dim": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 required=False,
                 description=(
                     "The names and dimensions of the network input layers specified in the format"
@@ -45,7 +45,7 @@ class QNNConversion(Pass):
                 ),
             ),
             "out_node": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 required=False,
                 description=(
                     "The name of the output node. If not specified, the output node will be inferred from the model."
@@ -67,7 +67,7 @@ class QNNConversion(Pass):
     def _run_for_config(
         self,
         model: Union[TensorFlowModelHandler, PyTorchModelHandler, ONNXModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> QNNModelHandler:
         if isinstance(model, TensorFlowModelHandler):

@@ -7,10 +7,11 @@ import logging
 import re
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Optional, Union
 
 import onnx
 from onnx import external_data_helper
+from onnxscript import ir
 
 from olive.common.utils import hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -20,8 +21,10 @@ from olive.resource_path import LocalFile, LocalFolder
 
 logger = logging.getLogger(__name__)
 
+_LARGE_IR_MODEL_THRESHOLD = 1536 * 1024 * 1024  # 1536MB
 
-def get_external_data_config() -> Dict[str, PassConfigParam]:
+
+def get_external_data_config() -> dict[str, PassConfigParam]:
     return {
         "save_as_external_data": PassConfigParam(
             type_=bool,
@@ -140,10 +143,14 @@ def model_proto_to_file(
     return True
 
 
+def _get_external_data_name(output_path: Path, external_data_name: Optional[str]) -> str:
+    return external_data_name if external_data_name else f"{output_path.name}.data"
+
+
 def model_proto_to_olive_model(
     model_proto: onnx.ModelProto,
     output_model_path: Union[str, Path],
-    external_data_config: Union[Dict[str, Any], Type[BasePassConfig]],
+    external_data_config: Union[dict[str, Any], type[BasePassConfig]],
     check_model: bool = False,
     external_initializers_file_name: Optional[str] = None,
     constant_inputs_file_name: Optional[str] = None,
@@ -196,7 +203,64 @@ def model_proto_to_olive_model(
     return olive_model
 
 
-def get_external_data_file_names(model_path: Union[str, Path]) -> List[str]:
+def _count_initializer_size(graph: ir.Graph) -> int:
+    """Count the total size of the initializers in bytes."""
+    return sum(v.const_value.nbytes for v in graph.initializers.values() if v.const_value is not None)
+
+
+def ir_model_to_olive_model(
+    model: ir.Model,
+    output_model_path: Union[str, Path],
+    external_data_config: Union[dict[str, Any], type[BasePassConfig]],
+) -> ONNXModelHandler:
+    """Save the ONNX model to the specified path and return the ONNXModelHandler.
+
+    When ``save_as_external_data`` in external_data_config is True:
+
+    - If external_data_name is specified, external data will take this name; if
+      not specified, the external data file will be named with <model_path_name>.data
+
+    :param model: The ONNX IR model to save.
+    :param output_model_path: The path to save the ONNX model to.
+    :param external_data_config: The external data configuration. Must be a dictionary with keys
+        "save_as_external_data", "external_data_name".
+
+    :return: The ONNXModelHandler.
+    """
+    if not isinstance(external_data_config, dict):
+        external_data_config = external_data_config.dict()
+
+    save_as_external_data = external_data_config.get("save_as_external_data")
+    # Save as external data if requested or if the model is large
+    # Since we do not have a true estimate of the model architecture size for IR Model,
+    # we count the size of all initializers and limit that to 1.5GB.
+    initializer_size = _count_initializer_size(model.graph)
+    is_large_model = initializer_size > _LARGE_IR_MODEL_THRESHOLD
+    if is_large_model:
+        logger.debug("Model is large (%s), saving as external data", initializer_size)
+    save_as_external_data = save_as_external_data or is_large_model
+
+    if save_as_external_data:
+        external_data_name = _get_external_data_name(
+            Path(output_model_path), external_data_config.get("external_data_name")
+        )
+        ir.save(model, output_model_path, external_data=external_data_name)
+
+        logger.debug("Model was saved with external data: %s", external_data_name)
+        model_path = LocalFolder({"path": Path(output_model_path).parent})
+        onnx_file_name = Path(output_model_path).name
+
+    else:
+        ir.save(model, output_model_path)
+
+        logger.debug("Model was not saved with external data")
+        model_path = LocalFile({"path": output_model_path})
+        onnx_file_name = None
+
+    return ONNXModelHandler(model_path=model_path, onnx_file_name=onnx_file_name)
+
+
+def get_external_data_file_names(model_path: Union[str, Path]) -> list[str]:
     """Get the external data file names from the model.
 
     :param model_path: Path to the model file.
@@ -229,7 +293,7 @@ def change_external_data_location(model_proto: onnx.ModelProto, new_location: st
             tensor.ClearField("raw_data")
 
 
-def get_context_bin_file_names(model_path: Union[str, Path]) -> List[str]:
+def get_context_bin_file_names(model_path: Union[str, Path]) -> list[str]:
     """Get the context binary file names from the model.
 
     :param model_path: Path to the model file.
@@ -251,7 +315,7 @@ def get_context_bin_file_names(model_path: Union[str, Path]) -> List[str]:
 def copy_context_bin_files(
     model_path: Union[str, Path],
     model_dir: Union[str, Path],
-    saved_cb_files: Optional[Dict[str, str]] = None,
+    saved_cb_files: Optional[dict[str, str]] = None,
 ) -> bool:
     """Copy the context binary files to the model directory.
 
@@ -287,7 +351,7 @@ def resave_model(
     model_path: Union[str, Path],
     new_model_path: Union[str, Path],
     force_external_data: bool = False,
-    saved_external_files: Optional[Dict[str, str]] = None,
+    saved_external_files: Optional[dict[str, str]] = None,
 ) -> bool:
     """Resave the model along with external data files.
 
@@ -382,7 +446,7 @@ def _fix_output_shapes(model_proto: onnx.ModelProto):
                 o.type.tensor_type.shape.CopyFrom(new_o.type.tensor_type.shape)
 
 
-def fix_dim_params(model_proto: onnx.ModelProto, dim_params: List[str], dim_values: List[int]):
+def fix_dim_params(model_proto: onnx.ModelProto, dim_params: list[str], dim_values: list[int]):
     """Fix the dimension parameters in the model.
 
     :param dim_params: The dimension parameters to fix.
@@ -400,7 +464,7 @@ def fix_dim_params(model_proto: onnx.ModelProto, dim_params: List[str], dim_valu
     _fix_output_shapes(model_proto)
 
 
-def fix_input_shapes(model_proto: onnx.ModelProto, input_names: List[str], input_shapes: List[List[int]]):
+def fix_input_shapes(model_proto: onnx.ModelProto, input_names: list[str], input_shapes: list[list[int]]):
     """Fix the input shapes in the model.
 
     :param input_names: The input names to fix.
@@ -420,11 +484,11 @@ def fix_input_shapes(model_proto: onnx.ModelProto, input_names: List[str], input
 
 def process_llm_pipeline(
     model: CompositeModelHandler,
-    llm_pipeline: List,
+    llm_pipeline: list,
     process_func: Callable,
     output_dir: Union[str, Path],
-    decoder_config_extra: Optional[Dict[str, Any]] = None,
-    group_session_options: Optional[Dict[str, Any]] = None,
+    decoder_config_extra: Optional[dict[str, Any]] = None,
+    group_session_options: Optional[dict[str, Any]] = None,
 ) -> CompositeModelHandler:
     """Process an LLM pipeline with the given function.
 
@@ -483,9 +547,9 @@ def process_llm_pipeline(
 
 def update_llm_pipeline_genai_config(
     model: CompositeModelHandler,
-    source_llm_pipeline: Optional[Dict[str, Any]] = None,
-    decoder_config_extra: Optional[Dict[str, Any]] = None,
-    group_session_options: Optional[Dict[str, Any]] = None,
+    source_llm_pipeline: Optional[dict[str, Any]] = None,
+    decoder_config_extra: Optional[dict[str, Any]] = None,
+    group_session_options: Optional[dict[str, Any]] = None,
 ) -> CompositeModelHandler:
     """Update the LLM pipeline in the model's genai_config.json file.
 

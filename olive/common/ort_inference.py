@@ -8,8 +8,9 @@
 import collections
 import logging
 import time
+from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 
@@ -71,10 +72,10 @@ def set_vai_environment_variable(apu_type, benchmark_mode=True):
 # `CUDA_VISIBLE_DEVICES` before runnning a workflow.
 def get_ort_inference_session(
     model_path: Union[Path, str],
-    inference_settings: Dict[str, Any],
+    inference_settings: dict[str, Any],
     use_ort_extensions: bool = False,
     device_id: Optional[int] = None,
-    external_initializers: Optional[Dict[str, "NDArray"]] = None,
+    external_initializers: Optional[dict[str, "NDArray"]] = None,
 ):
     """Get an ONNXRuntime inference session.
 
@@ -185,8 +186,8 @@ def get_ort_inference_session(
 
 
 def check_and_normalize_provider_args(
-    providers: Sequence[Union[str, Tuple[str, Dict[Any, Any]]]],
-    provider_options: Sequence[Dict[Any, Any]],
+    providers: Sequence[Union[str, tuple[str, dict[Any, Any]]]],
+    provider_options: Sequence[dict[Any, Any]],
     available_provider_names: Sequence[str],
 ):
     """Validate the 'providers' and 'provider_options' arguments and returns a normalized version.
@@ -289,8 +290,8 @@ class OrtInferenceSession:
         device: str = "cpu",
         shared_kv_buffer: bool = False,
         use_fp16: bool = False,
-        input_feed: Optional[Dict[str, "NDArray"]] = None,
-        constant_inputs: Optional[Dict[str, "NDArray"]] = None,
+        input_feed: Optional[dict[str, "NDArray"]] = None,
+        constant_inputs: Optional[dict[str, "NDArray"]] = None,
     ):
         """Initialize self.
 
@@ -338,11 +339,11 @@ class OrtInferenceSession:
                 kv_cache_ortvalues=self.kv_cache_ortvalues,
             )
 
-    def get_full_input_feed(self, input_feed: Dict[str, "NDArray"]) -> Dict[str, "NDArray"]:
+    def get_full_input_feed(self, input_feed: dict[str, "NDArray"]) -> dict[str, "NDArray"]:
         """Get the full input feed including constant inputs."""
         return {**input_feed, **self.constant_inputs}
 
-    def run(self, output_names, input_feed: Dict[str, "NDArray"], run_options=None) -> Sequence["NDArray"]:
+    def run(self, output_names, input_feed: dict[str, "NDArray"], run_options=None) -> Sequence["NDArray"]:
         """Run inference with the given input data."""
         input_feed = self.get_full_input_feed(input_feed)
         if self.io_bind and self.device == "gpu":
@@ -364,7 +365,7 @@ class OrtInferenceSession:
         return res
 
     def time_run(
-        self, input_feed: Dict[str, "NDArray"], num_runs: int, num_warmup: int = 0, sleep_time: int = 0
+        self, input_feed: dict[str, "NDArray"], num_runs: int, num_warmup: int = 0, sleep_time: int = 0
     ) -> Sequence[float]:
         """Time inference runs with the given input data."""
         input_feed = self.get_full_input_feed(input_feed)
@@ -399,7 +400,7 @@ class OrtInferenceSession:
 
 def bind_input_data(
     io_bind_op: "IOBinding",
-    input_data: Dict[str, "NDArray"],
+    input_data: dict[str, "NDArray"],
     use_fp16: bool,
     device: str,
     device_id: int = 0,
@@ -448,7 +449,7 @@ def bind_output_data(
 
 def prepare_io_bindings(
     session: "InferenceSession",
-    input_data: Dict[str, "NDArray"],
+    input_data: dict[str, "NDArray"],
     device: str,
     device_id: int = 0,
     shared_kv_buffer: bool = False,

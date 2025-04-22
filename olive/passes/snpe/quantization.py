@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Dict, List, Type, Union
+from typing import Union
 
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
@@ -24,10 +24,10 @@ class SNPEQuantization(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description="Data config for quantization",
             ),
@@ -48,7 +48,7 @@ class SNPEQuantization(Pass):
                 description="Pack HTP information in quantized DLC, which is not available in Windows.",
             ),
             "htp_socs": PassConfigParam(
-                type_=List[str], default_value=None, description="List of SoCs to generate HTP Offline cache for."
+                type_=list[str], default_value=None, description="List of SoCs to generate HTP Offline cache for."
             ),
             "extra_args": PassConfigParam(
                 type_=str,
@@ -63,7 +63,7 @@ class SNPEQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: SNPEModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: SNPEModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> SNPEModelHandler:
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"

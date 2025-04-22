@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
-from typing import Tuple
 
 from olive.common.utils import set_nested_dict_value
 
@@ -36,7 +35,7 @@ def parse_resources_args(raw_args):
     return vars(resource_args), extra_args
 
 
-def parse_config(raw_args, name: str, resources: dict) -> Tuple[dict, str]:
+def parse_config(raw_args, name: str, resources: dict) -> tuple[dict, str]:
     """Parse config and related resource args."""
     parser = argparse.ArgumentParser(f"{name} config")
 

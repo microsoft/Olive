@@ -9,7 +9,6 @@
 import argparse
 import os
 import time
-from typing import List
 
 import numpy as np
 import onnxruntime
@@ -20,7 +19,7 @@ from transformers import AutoTokenizer
 
 def run_llm_io_binding(
     model_type: str,
-    prompts: List[str],
+    prompts: list[str],
     max_seq_len: int = 2048,
     max_gen_len: int = 256,
     device: str = "dml",

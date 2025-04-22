@@ -9,7 +9,7 @@ import platform
 import shutil
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
@@ -35,9 +35,9 @@ class PythonEnvironmentSystem(OliveSystem):
     def __init__(
         self,
         python_environment_path: Union[Path, str] = None,
-        environment_variables: Dict[str, str] = None,
-        prepend_to_path: List[str] = None,
-        accelerators: List[AcceleratorConfig] = None,
+        environment_variables: dict[str, str] = None,
+        prepend_to_path: list[str] = None,
+        accelerators: list[AcceleratorConfig] = None,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
         hf_token: bool = None,
@@ -71,7 +71,7 @@ class PythonEnvironmentSystem(OliveSystem):
         self.pass_runner_path = parent_dir / "pass_runner.py"
         self.evaluation_runner_path = parent_dir / "evaluation_runner.py"
 
-    def _run_command(self, script_path: Path, config_jsons: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+    def _run_command(self, script_path: Path, config_jsons: dict[str, Any], **kwargs) -> dict[str, Any]:
         """Run a script with the given config jsons and return the output json."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_dir_path = Path(tmp_dir).resolve()
@@ -137,7 +137,7 @@ class PythonEnvironmentSystem(OliveSystem):
         metric_results = self._run_command(self.evaluation_runner_path, config_jsons, tempdir=tempfile.tempdir)
         return MetricResult.parse_obj(metric_results)
 
-    def get_supported_execution_providers(self) -> List[str]:
+    def get_supported_execution_providers(self) -> list[str]:
         """Get the available execution providers."""
         if self.available_eps:
             return self.available_eps

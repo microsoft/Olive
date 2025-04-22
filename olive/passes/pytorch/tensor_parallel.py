@@ -9,7 +9,7 @@ import logging
 import multiprocessing
 from abc import abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, Type
+from typing import TYPE_CHECKING, Callable
 
 from olive.common.config_utils import ParamCategory
 from olive.common.pydantic_v1 import validator
@@ -50,7 +50,7 @@ class TensorParallel:
 
 class PyTorchTensorParallel(Pass):
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         # Note : The default world_size should be the no of gpus (AcceleratorSpec.Device == GPU)
         # in the target OliveSystem
         return {
@@ -97,7 +97,7 @@ class PyTorchTensorParallel(Pass):
         return v
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable]:
+    def _validators(cls) -> dict[str, Callable]:
         return {"validate_distributor_config": validator("world_size", allow_reuse=True)(cls._validate_world_size)}
 
     @staticmethod
@@ -145,7 +145,7 @@ class PyTorchTensorParallel(Pass):
         return 1  # Return 1 for success.
 
     def _run_for_config(
-        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> DistributedHfModelHandler:
         import torch
 

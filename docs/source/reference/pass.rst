@@ -321,11 +321,29 @@ OpenVINOConversion
 ------------------
 .. autoconfigclass:: olive.passes.OpenVINOConversion
 
+.. _openvino_ioupdate:
+
+OpenVINOIoUpdate
+------------------
+.. autoconfigclass:: olive.passes.OpenVINOIoUpdate
+
 .. _openvino_quantization:
 
 OpenVINOQuantization
 --------------------
 .. autoconfigclass:: olive.passes.OpenVINOQuantization
+
+.. _openvino_encapsulation:
+
+OpenVINOEncapsulation
+----------------------
+.. autoconfigclass:: olive.passes.OpenVINOEncapsulation
+
+.. _openvino_optimum_conversion:
+
+OpenVINOOptimumConversion
+-------------------------
+.. autoconfigclass:: olive.passes.OpenVINOOptimumConversion
 
 SNPE
 =================================

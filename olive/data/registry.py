@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import inspect
 import logging
-from typing import ClassVar, Dict, Union
+from typing import ClassVar, Union
 
 from olive.data.constants import DataComponentType, DataContainerType, DefaultDataComponent, DefaultDataContainer
 
@@ -17,7 +17,7 @@ class Registry:
     All component names are case insensitive and stored in lower case.
     """
 
-    _REGISTRY: ClassVar[Dict] = {
+    _REGISTRY: ClassVar[dict] = {
         DataComponentType.LOAD_DATASET.value: {},
         DataComponentType.PRE_PROCESS_DATA.value: {},
         DataComponentType.POST_PROCESS_DATA.value: {},

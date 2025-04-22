@@ -3,7 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from collections import OrderedDict
-from typing import Any, Dict, Generator, List, Tuple, Union
+from collections.abc import Generator
+from typing import Any, Union
 
 from olive.search.search_parameter import Categorical, Conditional, SearchParameter
 from olive.search.search_point import SearchPoint
@@ -89,7 +90,7 @@ class SearchSpace:
     as long the number of choices remains a constant at any given parameter.
     """
 
-    def __init__(self, parameters: List[Tuple[str, Union[SearchParameter, "SearchSpace"]]]):
+    def __init__(self, parameters: list[tuple[str, Union[SearchParameter, "SearchSpace"]]]):
         assert len(parameters) == len({name for name, _ in parameters}), (
             "Parameter name in search space should be unique."
         )
@@ -114,7 +115,7 @@ class SearchSpace:
             self._length *= SearchSpace.get_param_length(param)
 
     @property
-    def parameters(self) -> List[Tuple[str, Union[SearchParameter, "SearchSpace"]]]:
+    def parameters(self) -> list[tuple[str, Union[SearchParameter, "SearchSpace"]]]:
         """Return the parameters of this search space."""
         return self._parameters
 
@@ -136,13 +137,13 @@ class SearchSpace:
         assert index < self._length
         return SearchPoint(index, self.get_sample_point_values(index))
 
-    def _order_search_space(self, parameters: List[Tuple[str, SearchParameter]]) -> List[Tuple[str, SearchParameter]]:
+    def _order_search_space(self, parameters: list[tuple[str, SearchParameter]]) -> list[tuple[str, SearchParameter]]:
         """Order the search space by topological order of parameters for each pass_id/space_name."""
         unordered_nodes = dict(parameters)
         ordered_nodes = order_search_parameters(unordered_nodes)
         return [(name, unordered_nodes[name]) for name in ordered_nodes]
 
-    def get_sample_point_values(self, index: int) -> Dict[str, Tuple[int, Any]]:
+    def get_sample_point_values(self, index: int) -> dict[str, tuple[int, Any]]:
         """Iterate parameters of this search space to generate a search point."""
         assert index < self._length
 
@@ -176,7 +177,7 @@ class SearchSpace:
         return 0
 
     @staticmethod
-    def get_param_suggestions(param: Any, values: Dict[str, Any]) -> Union[List[Any], "SearchSpace"]:
+    def get_param_suggestions(param: Any, values: dict[str, Any]) -> Union[list[Any], "SearchSpace"]:
         """Return the suggestions for the input param based on the values chosen so far."""
         if isinstance(param, SearchParameter):
             if isinstance(param, Categorical):
@@ -196,7 +197,7 @@ class SearchSpace:
         return []
 
     @staticmethod
-    def get_suggestion(param: Any, index: int, values: Dict[str, Any]) -> Tuple[int, Tuple[int, Any]]:
+    def get_suggestion(param: Any, index: int, values: dict[str, Any]) -> tuple[int, tuple[int, Any]]:
         """Recursively, compute the values for the input param based on the index.
 
         Each entry is a tuple of the index in the list of suggestions for that param and the corresponding choice.

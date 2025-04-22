@@ -10,7 +10,7 @@ import re
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable
 
 import numpy as np
 import requests
@@ -37,7 +37,7 @@ def get_clip_score(prompt: str, path: Path, clip_score_fn):
         return score.detach()
 
 
-def get_clip_scores(prompts: List[str], path: Path, clip_score_fn):
+def get_clip_scores(prompts: list[str], path: Path, clip_score_fn):
     scores = []
     with open(path / "clip_scores.txt", "w") as f:
         f.write("| Prompt | Score |\n")
@@ -61,7 +61,7 @@ def calc_error(image1, image2):
     return np.mean((image1 - image2) ** 2)
 
 
-def get_mse_scores(prompts: List[str], unoptimized_path: Path, optimized_path: Path, train_num: int):
+def get_mse_scores(prompts: list[str], unoptimized_path: Path, optimized_path: Path, train_num: int):
     train_error = []
     test_error = []
     with open(optimized_path / "mse_scores.txt", "w") as f:
@@ -85,7 +85,7 @@ def get_mse_scores(prompts: List[str], unoptimized_path: Path, optimized_path: P
 # FID score
 
 
-def get_fid_scores(prompts: List[str], path: Path, real_images):
+def get_fid_scores(prompts: list[str], path: Path, real_images):
     with torch.no_grad(), open(path / "fid_scores.txt", "w") as f:
         f.write("| Prompt | Score |\n")
         images = []

@@ -120,6 +120,7 @@ Pass config:
 ```
 
 ## Huggingface metrics
+
 Huggingface metrics in Olive are supported by [Huggingface evaluate](https://huggingface.co/docs/evaluate/index). You can refer to [Huggingface metrics page](https://huggingface.co/metrics) for a complete list of available metrics.
 
 Example metric config

@@ -8,7 +8,7 @@ from argparse import Namespace
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Optional, Union
 
 import torch
 from packaging import version
@@ -33,7 +33,7 @@ class GptqQuantizer(Pass):
     """GPTQ quantization using Hugging Face Optimum and export model with onnxruntime optimized kernel."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             "bits": PassConfigParam(
@@ -51,7 +51,7 @@ class GptqQuantizer(Pass):
                 ),
             ),
             "outside_layer_modules": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=None,
                 description=(
                     "Names of other nn modules that in the same level as the transformer layer block. "
@@ -59,7 +59,7 @@ class GptqQuantizer(Pass):
                 ),
             ),
             "inside_layer_modules": PassConfigParam(
-                type_=List[List[str]],
+                type_=list[list[str]],
                 default_value=None,
                 description="Names of linear layers in transformer layer module. Default value is None.",
             ),
@@ -94,7 +94,7 @@ class GptqQuantizer(Pass):
                 description="Symmetric quantization. Default value is False.",
             ),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 default_value=None,
                 description=(
                     "Data config for quantization. If not provided, wikitest train data will be used for HfModels."
@@ -105,7 +105,7 @@ class GptqQuantizer(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig], output_model_path: str
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
         from auto_gptq import BaseQuantizeConfig, __version__
         from auto_gptq.modeling import BaseGPTQForCausalLM
@@ -233,8 +233,8 @@ class GptqQuantizer(Pass):
         return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path, load_kwargs=new_load_kwargs)
 
     def get_dataset(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """Get the dataset for quantization."""
         data_config = config.data_config
         if not data_config and isinstance(model, HfModelHandler):
@@ -262,7 +262,7 @@ class GptqQuantizer(Pass):
         return dataset
 
     @staticmethod
-    def get_gptq_info(model_wrapper: ModelWrapper, name: str) -> List[str]:
+    def get_gptq_info(model_wrapper: ModelWrapper, name: str) -> list[str]:
         """Get the GPTQ info from the model wrapper."""
         if name == "outside_layer_modules":
             return [*model_wrapper.get_embeds()[1], model_wrapper.get_pre_head_layernorm()[1]]

@@ -235,10 +235,11 @@ class TestDockerSystem:
         def is_dir_mock(self):
             return self == Path("data_dir")
 
-        with patch("olive.resource_path._validate_file_path", side_effect=validate_file_or_folder), patch(
-            "olive.resource_path._validate_folder_path", side_effect=validate_file_or_folder
-        ), patch("olive.resource_path._validate_path", side_effect=validate_file_or_folder), patch.object(
-            Path, "is_dir", side_effect=is_dir_mock, autospec=True
+        with (
+            patch("olive.resource_path._validate_file_path", side_effect=validate_file_or_folder),
+            patch("olive.resource_path._validate_folder_path", side_effect=validate_file_or_folder),
+            patch("olive.resource_path._validate_path", side_effect=validate_file_or_folder),
+            patch.object(Path, "is_dir", side_effect=is_dir_mock, autospec=True),
         ):
             output_model = docker_system.run_pass(p, onnx_model, output_folder)
             assert output_model is not None

@@ -39,44 +39,51 @@ ignore-paths = [".*/examples/directml/llm/chat_app/.*"]
 
 [tool.pylint.messages_control]
 disable = [
-  # TODO:(myguo): consider remove them in the blacklist
+  "abstract-method",
   "broad-exception-caught",
   "c-extension-no-member",
-  "cyclic-import", # Disable cyclic-import because it is pylint bug
   "consider-using-f-string",
   "consider-using-from-import",
-  "format",
+  "cyclic-import", # Disable cyclic-import because it is pylint bug
   "expression-not-assigned",
-  "line-too-long",
+  "fixme",
+  "format",
   "import-error",
   "import-outside-toplevel",
   "invalid-name",
+  "line-too-long",
+  "missing-docstring",
   "no-else-continue",
   "no-else-raise",
   "no-else-return",
-  "no-name-in-module",
   "no-member",
+  "no-name-in-module",
   "no-self-argument",
   "too-few-public-methods",
+  "too-many-ancestors",
   "too-many-arguments",
   "too-many-branches",
   "too-many-function-args",
   "too-many-instance-attributes",
   "too-many-locals",
   "too-many-nested-blocks",
+  "too-many-positional-arguments",
   "too-many-public-methods",
   "too-many-return-statements",
   "too-many-statements",
-  "missing-docstring",
-  "fixme",
   "unspecified-encoding",
   "unused-argument",
+  "unused-wildcard-import",
+  "used-before-assignment",
   "wrong-import-order" # import order is handled by the formatter (ruff)
 ]
 
+[tool.pytest.ini_options]
+addopts = "-rsfEX --tb=short --color=yes"
+
 [tool.ruff]
 line-length = 120
-target-version = "py38"
+target-version = "py39"
 
 [tool.ruff.lint]
 select = [
@@ -146,7 +153,6 @@ ignore = [
   "PERF203", # "try-except-in-loop" only affects Python <3.11, and the improvement is minor; can have false positives
   "PGH004", # used to make ruff ignore the file
   "PLW0603", # TODO: temp disable global variable check
-  "PT004", # Ignore pytest fixture name
   "PT019", # Ignore pytest fixture name
   "PTH100", # We still support os.path.abspath
   "PTH103", # We still support os.makedirs

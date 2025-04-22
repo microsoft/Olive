@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "meta-llama/Llama-2-7b-hf", "generative": true },
+    "input_model": { "type": "HfModel", "model_path": "meta-llama/Llama-2-7b-hf" },
     "data_configs": [
         {
             "name": "generation_latency_dummy_data",

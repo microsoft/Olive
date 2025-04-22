@@ -262,7 +262,7 @@ class QuarkQuantization(Pass):
         return False
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "quant_mode": PassConfigParam(
                 type_=str,
@@ -282,7 +282,7 @@ class QuarkQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         if model_has_adapters(model.model_path):
             logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")

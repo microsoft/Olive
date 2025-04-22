@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from olive.common.config_utils import serialize_to_json
 from olive.constants import Framework, ModelFileFormat
@@ -19,12 +19,12 @@ from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 class SNPEModelHandler(OliveModelHandler):
     def __init__(
         self,
-        input_names: List[str],
-        input_shapes: List[List[int]],
-        output_names: List[str],
-        output_shapes: List[List[int]],
+        input_names: list[str],
+        input_shapes: list[list[int]],
+        output_names: list[str],
+        output_shapes: list[list[int]],
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
-        model_attributes: Optional[Dict[str, Any]] = None,
+        model_attributes: Optional[dict[str, Any]] = None,
     ):
         super().__init__(
             framework=Framework.SNPE,
@@ -40,7 +40,7 @@ class SNPEModelHandler(OliveModelHandler):
         )
 
     @property
-    def io_config(self) -> Dict[str, Any]:
+    def io_config(self) -> dict[str, Any]:
         assert self._io_config, "SNPEModelHandler: io_config is not set"
 
         keys = {"input_names", "input_shapes", "output_names", "output_shapes"}
@@ -51,9 +51,9 @@ class SNPEModelHandler(OliveModelHandler):
 
     def prepare_session(
         self,
-        inference_settings: Optional[Dict[str, Any]] = None,
+        inference_settings: Optional[dict[str, Any]] = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Union[str, list[str]] = None,
         rank: Optional[int] = None,
     ) -> SNPEInferenceSession:
         inference_settings = inference_settings or {}
@@ -66,8 +66,8 @@ class SNPEModelHandler(OliveModelHandler):
     def run_session(
         self,
         session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
+        inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
+        **kwargs: dict[str, Any],
     ) -> Any:
         return session(inputs, **kwargs)
 

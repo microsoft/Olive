@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from olive.common.utils import StrEnumBase
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
@@ -105,7 +105,7 @@ class AcceleratorLookup:
         return [ep for ep in available_providers if ep in execution_providers]
 
     @staticmethod
-    def infer_devices_from_execution_providers(execution_providers: List[str]):
+    def infer_devices_from_execution_providers(execution_providers: list[str]):
         """Infer the device from the execution provider name.
 
         If all the execution provider is uniquely mapped to a device, return the device list.
@@ -160,7 +160,7 @@ class AcceleratorLookup:
         return mapped_devices if mapped_devices else None
 
     @staticmethod
-    def infer_single_device_from_execution_providers(execution_providers: List[str]) -> str:
+    def infer_single_device_from_execution_providers(execution_providers: list[str]) -> str:
         if not execution_providers:
             return None
 

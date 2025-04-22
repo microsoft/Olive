@@ -6,7 +6,7 @@
 import json
 import logging
 import sys
-from typing import Dict, Type, Union
+from typing import Union
 
 import torch
 from torch.utils.data import DataLoader, SubsetRandomSampler
@@ -34,10 +34,10 @@ class SliceGPT(Pass):
     """
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "calibration_data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description="Data config for Dataset to calibrate and calculate perplexity on.",
             ),
@@ -78,7 +78,7 @@ class SliceGPT(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
         if sys.version_info < (3, 10):
             raise ValueError("SliceGPT requires python3.10 or higher")

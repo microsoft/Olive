@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import ClassVar, List
+from typing import ClassVar
 
 import pytest
 
@@ -32,7 +32,7 @@ class TestAMLEvaluation:
         yield
         delete_directories()
 
-    EVALUATION_TEST_CASE: ClassVar[List] = [
+    EVALUATION_TEST_CASE: ClassVar[list] = [
         ("PyTorchModel", get_pytorch_model, get_accuracy_metric, 0.99),
         ("PyTorchModel", get_pytorch_model, get_latency_metric, 0.001),
         ("ONNXModel", get_onnx_model, get_accuracy_metric, 0.99),

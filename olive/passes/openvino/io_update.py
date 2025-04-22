@@ -3,24 +3,24 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Dict, Type, Union
+from typing import Union
 
-from olive.common.utils import hardlink_copy_file
+from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 
-class OpenVINOReshape(Pass):
-    """Reshapes OpenVino Model."""
+class OpenVINOIoUpdate(Pass):
+    """Converts dynamic OpenVINO Model to static OpenVino Model and updates IO names."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             "extra_configs": PassConfigParam(
-                type_=Dict,
+                type_=dict,
                 default_value=None,
                 required=False,
                 description=(
@@ -52,7 +52,7 @@ class OpenVINOReshape(Pass):
     def _run_for_config(
         self,
         model: Union[OpenVINOModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> OpenVINOModelHandler:
         try:
@@ -68,14 +68,14 @@ class OpenVINOReshape(Pass):
 
         loaded_model = core.read_model(model_name_path, weights=weight_name_path)
 
-        # Ensure atleast 1 input name is present for all inputs
+        # Ensure at least 1 input name is present for all inputs
         update_io_names = False
         for i, _ in enumerate(loaded_model.inputs):
             if not loaded_model.input(i).get_names():
                 loaded_model.input(i).set_names({f"input_{i}"})
                 update_io_names = True
 
-        # Ensure atleast 1 output name is present for all inputs
+        # Ensure at least 1 output name is present for all inputs
         for i, _ in enumerate(loaded_model.outputs):
             if not loaded_model.output(i).get_names():
                 loaded_model.output(i).set_names({f"output_{i}"})
@@ -111,5 +111,24 @@ class OpenVINOReshape(Pass):
             weight_name_path_dst = Path(output_model_path) / (f"{model_name}.bin")
             hardlink_copy_file(model_name_path, model_name_path_dst, follow_symlinks=True)
             hardlink_copy_file(weight_name_path, weight_name_path_dst, follow_symlinks=True)
+
+        # copy JSON and text files for genai models
+        all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
+        for genai_file in all_genai_files:
+            src_pth = Path(model.model_path) / genai_file
+            dest_path = Path(output_model_path)
+            hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
+
+        # copy tokenizer folder if it exists
+        src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
+        if src_tokenizer.exists() and src_tokenizer.is_dir():
+            dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
+            hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
+
+        # copy detokenizer folder if it exists
+        src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
+        if src_detokenizer.exists() and src_detokenizer.is_dir():
+            dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
+            hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
 
         return OpenVINOModelHandler(model_path=output_model_path)

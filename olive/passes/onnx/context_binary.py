@@ -6,7 +6,7 @@ import logging
 import platform
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Optional, Type, Union
+from typing import Optional, Union
 
 from packaging import version
 
@@ -26,7 +26,7 @@ class EPContextBinaryGenerator(Pass):
     _accepts_composite_model = True
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "embed_context": PassConfigParam(
                 type_=bool,
@@ -66,7 +66,7 @@ class EPContextBinaryGenerator(Pass):
     def _run_for_config(
         self,
         model: Union[ONNXModelHandler, CompositeModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         from onnxruntime import __version__ as OrtVersion
@@ -163,11 +163,11 @@ class EPContextBinaryGenerator(Pass):
     @classmethod
     def _generate_composite_binaries(
         cls,
-        model_paths_map: Dict[str, str],
+        model_paths_map: dict[str, str],
         output_model_dir: str,
-        generate_kwargs: Dict[str, str],
+        generate_kwargs: dict[str, str],
         weight_sharing: bool = False,
-    ) -> Dict[str, ONNXModelHandler]:
+    ) -> dict[str, ONNXModelHandler]:
         """Generate context binary for each model in the composite model.
 
         :param model_paths_map: Map of model names to model paths.
