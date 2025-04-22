@@ -576,6 +576,15 @@
             "supported_algorithms": [ "awq" ],
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "nvmo" ]
+        },
+        "TrtMatMulToConvTransform": {
+            "module_path": "olive.passes.onnx.tensorrt.trt_dla_transforms.TrtMatMulToConvTransform",
+            "supported_providers": [ "TensorrtExecutionProvider" ],
+            "supported_accelerators": [ "gpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "onnxscript" ]
         }
     },
     "extra_dependencies": {
