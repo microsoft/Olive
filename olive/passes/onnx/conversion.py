@@ -262,9 +262,17 @@ def _export_pytorch_model(
             if io_config.string_to_int_dim_params:
                 string_to_int_dim_params = set(io_config.string_to_int_dim_params)
                 for output in model.graph.outputs:
-                    for i, dim in enumerate(output.shape):
+                    new_shape = []
+                    # Create a new shape only when any dimension was changed
+                    changed = False
+                    for dim in output.shape:
                         if isinstance(dim, ir.SymbolicDim) and dim.value in string_to_int_dim_params:
-                            output.shape[i] = int(dim.value)
+                            new_shape.append(int(dim.value))
+                            changed = True
+                        else:
+                            new_shape.append(dim)
+                    if changed:
+                        output.shape = ir.Shape(new_shape)
 
     # Reset to CPU so the resource consumed on GPU could be free.
     if use_gpu:
