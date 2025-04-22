@@ -12,7 +12,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -29,10 +29,10 @@ class TrtMatMulToConvTransform(Pass):
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-        model_proto = model.load_model()
+        model_ir = model.load_ir_model()
 
         # Create a set of initializer names for quick lookup
-        initializer_names = {initializer.name for initializer in model_proto.graph.initializer}
+        initializer_names = set(model_ir.graph.initializers)
 
         def matmul_pattern(op, input_a, input_b):
             return op.MatMul(input_a, input_b)
@@ -96,10 +96,10 @@ class TrtMatMulToConvTransform(Pass):
             matmul_pattern, matmul_to_conv_replacement, is_valid_for_transform, verbose=1
         )
 
-        transformed_model_proto = onnxscript.rewriter.rewrite(
-            model_proto,
+        transformed_model = onnxscript.rewriter.rewrite(
+            model_ir,
             pattern_rewrite_rules=[matmul_to_conv_rule],
         )
         logger.debug("MatMul to Conv transformation applied.")
 
-        return model_proto_to_olive_model(transformed_model_proto, output_model_path, config)
+        return ir_model_to_olive_model(transformed_model, output_model_path, config)
