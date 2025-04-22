@@ -22,7 +22,7 @@
         "quantization": {
             "type": "QuarkQuantization",
             "data_config": "calib_data",
-            "config_template": "XINT8_ADAROUND"
+            "config_template": "XINT8"
         }
     },
     "systems": {
