@@ -254,8 +254,17 @@ def _export_pytorch_model(
                 dynamic_axes=io_config.dynamic_axes,
             )
             model = ir.load(tmp_model_path)
+            # After the line below, the model is loaded into memory, so it's safe to
+            # delete previously exported file(s)
             ir.external_data.load_to_model(model)
-            # the model is loaded into memory, so it's safe to delete previously exported file(s)
+
+            # Workaround as described under IoConfig.string_to_int_dim_params: change numeric dim_param to dim_value
+            if io_config.string_to_int_dim_params:
+                string_to_int_dim_params = set(io_config.string_to_int_dim_params)
+                for output in model.graph.outputs:
+                    for i, dim in enumerate(output.shape):
+                        if isinstance(dim, ir.SymbolicDim) and dim.value in string_to_int_dim_params:
+                            output.shape[i] = int(dim.value)
 
     # Reset to CPU so the resource consumed on GPU could be free.
     if use_gpu:
@@ -263,9 +272,6 @@ def _export_pytorch_model(
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-
-    # NOTE(justinchuby): io_config.string_to_int_dim_params is ignored because
-    # this is no longer the behavior of the exporter. Consider cleaning it up.
 
     return model
 
