@@ -12,7 +12,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,5 @@ class OnnxScriptFusion(Pass):
         # TODO(exporter team): Different fusions support different devices
         model_ir, function_stats = ort_fusions.optimize_for_ort(model_ir)
         logger.debug("Function stats: %s", function_stats)
-        model_proto = ir.to_proto(model_ir)
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(model_proto, output_model_path, config)
+        return ir_model_to_olive_model(model_ir, output_model_path, config)
