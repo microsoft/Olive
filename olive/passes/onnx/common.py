@@ -11,6 +11,7 @@ from typing import Any, Callable, Optional, Union
 
 import onnx
 from onnx import external_data_helper
+from onnxscript import ir
 
 from olive.common.utils import hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -19,6 +20,8 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile, LocalFolder
 
 logger = logging.getLogger(__name__)
+
+_LARGE_IR_MODEL_THRESHOLD = 1536 * 1024 * 1024  # 1536MB
 
 
 def get_external_data_config() -> dict[str, PassConfigParam]:
@@ -140,6 +143,10 @@ def model_proto_to_file(
     return True
 
 
+def _get_external_data_name(output_path: Path, external_data_name: Optional[str]) -> str:
+    return external_data_name if external_data_name else f"{output_path.name}.data"
+
+
 def model_proto_to_olive_model(
     model_proto: onnx.ModelProto,
     output_model_path: Union[str, Path],
@@ -194,6 +201,63 @@ def model_proto_to_olive_model(
         onnx.checker.check_model(olive_model.model_path)
 
     return olive_model
+
+
+def _count_initializer_size(graph: ir.Graph) -> int:
+    """Count the total size of the initializers in bytes."""
+    return sum(v.const_value.nbytes for v in graph.initializers.values() if v.const_value is not None)
+
+
+def ir_model_to_olive_model(
+    model: ir.Model,
+    output_model_path: Union[str, Path],
+    external_data_config: Union[dict[str, Any], type[BasePassConfig]],
+) -> ONNXModelHandler:
+    """Save the ONNX model to the specified path and return the ONNXModelHandler.
+
+    When ``save_as_external_data`` in external_data_config is True:
+
+    - If external_data_name is specified, external data will take this name; if
+      not specified, the external data file will be named with <model_path_name>.data
+
+    :param model: The ONNX IR model to save.
+    :param output_model_path: The path to save the ONNX model to.
+    :param external_data_config: The external data configuration. Must be a dictionary with keys
+        "save_as_external_data", "external_data_name".
+
+    :return: The ONNXModelHandler.
+    """
+    if not isinstance(external_data_config, dict):
+        external_data_config = external_data_config.dict()
+
+    save_as_external_data = external_data_config.get("save_as_external_data")
+    # Save as external data if requested or if the model is large
+    # Since we do not have a true estimate of the model architecture size for IR Model,
+    # we count the size of all initializers and limit that to 1.5GB.
+    initializer_size = _count_initializer_size(model.graph)
+    is_large_model = initializer_size > _LARGE_IR_MODEL_THRESHOLD
+    if is_large_model:
+        logger.debug("Model is large (%s), saving as external data", initializer_size)
+    save_as_external_data = save_as_external_data or is_large_model
+
+    if save_as_external_data:
+        external_data_name = _get_external_data_name(
+            Path(output_model_path), external_data_config.get("external_data_name")
+        )
+        ir.save(model, output_model_path, external_data=external_data_name)
+
+        logger.debug("Model was saved with external data: %s", external_data_name)
+        model_path = LocalFolder({"path": Path(output_model_path).parent})
+        onnx_file_name = Path(output_model_path).name
+
+    else:
+        ir.save(model, output_model_path)
+
+        logger.debug("Model was not saved with external data")
+        model_path = LocalFile({"path": output_model_path})
+        onnx_file_name = None
+
+    return ONNXModelHandler(model_path=model_path, onnx_file_name=onnx_file_name)
 
 
 def get_external_data_file_names(model_path: Union[str, Path]) -> list[str]:
