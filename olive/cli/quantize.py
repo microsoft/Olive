@@ -134,7 +134,8 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         if not pass_list:
             raise ValueError(
-                f"Quantiation for precision {precision}, algorithm {algo} and implementation {impl} is not supported"
+                f"Quantiation for precision {precision}, algorithm {algo} and implementation {impl} "
+                f"with QDQ {self.args.use_qdq_encoding} is not supported"
             )
         logger.info("pass list: %s", pass_list)
         return pass_list
@@ -150,7 +151,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         to_add = {
             "AutoAWQQuantizer": {"w_bit": precision_in_bits},
             "GptqQuantizer": {"bits": precision_in_bits},
-            "OnnxBnB4Quantization": {"quant_type": precision_in_bits},
+            "OnnxBnB4Quantization": {"quant_type": self.args.precision},
             "NVModelOptQuantization": {"precision": precision_in_bits, "algorithm": self.args.algorithm.upper()},
             "OnnxDynamicQuantization": {"weight_type": wtypes, "quant_format": quant_format},
             "OnnxStaticQuantization": {

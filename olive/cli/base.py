@@ -40,7 +40,10 @@ class BaseOliveCLICommand(ABC):
             if self.args.save_config_file:
                 self._save_config_file(run_config)
             output = olive_run(run_config)
-            print(f"Model is saved at {self.args.output_path}")
+            if output is None:
+                print("No output model produced. Please check the log for details.")
+            else:
+                print(f"Model is saved at {self.args.output_path}")
             return output
 
     @staticmethod
