@@ -716,6 +716,103 @@ class SimplifiedLayerNormToL2Norm(ProtoSurgeon):
         return dag.model
 
 
+class PowReduceSumPowDiv2LpNorm(ProtoSurgeon):
+    """Merge Pow ReduceSum Pow Div pattern to L2Norm.
+
+    Below pattern is replaced with LpNormalization (p=2, axis=-1):
+    [Root] --> Pow --> ReduceSum --> Pow -- Div
+        |                                    |
+        +------------------------------------+
+    """
+
+    def find_lp_norm_pattern(self, model: ModelProto):
+        matches = []
+        for node in model.graph.node:
+            if node.op_type != "Div":
+                continue
+
+            div_node = node
+            pow2_node = None
+            sum_node = None
+            pow_half_node = None
+
+            # Find Pow node input to Div (norm)
+            norm_input = div_node.input[1]
+            for node2 in model.graph.node:
+                if node2.output[0] == norm_input and node2.op_type == "Pow":
+                    pow_half_node = node2
+                    break
+
+            if not pow_half_node:
+                continue
+
+            sum_input = pow_half_node.input[0]
+            for node3 in model.graph.node:
+                if node3.output[0] == sum_input and node3.op_type == "ReduceSum":
+                    sum_node = node3
+                    break
+
+            if not sum_node:
+                continue
+
+            pow_input = sum_node.input[0]
+            for node4 in model.graph.node:
+                if node4.output[0] == pow_input and node4.op_type == "Pow":
+                    pow2_node = node4
+                    break
+
+            if not pow2_node:
+                continue
+
+            # Confirm constant exponents: 2 and 0.5
+            def is_const_pow(node, exp_val):
+                return node.op_type == "Pow" and exp_val in [
+                    onnx.numpy_helper.to_array(init).item()
+                    for init in model.graph.initializer
+                    if init.name == node.input[1]
+                ]
+
+            if not (is_const_pow(pow2_node, 2.0) and is_const_pow(pow_half_node, 0.5)):
+                continue
+
+            # Save matched nodes
+            matches.append((div_node, pow_half_node, sum_node, pow2_node))
+
+        return matches
+
+    def replace_with_lp_normalization(self, model: ModelProto):
+        matches = self.find_lp_norm_pattern(model)
+        logger.info(f"Replacing {len(matches)} instance of the pattern with LpNorm")
+        for div_node, pow_half_node, sum_node, pow2_node in matches:
+            input_name = pow2_node.input[0]
+            output_name = div_node.output[0]
+
+            lp_node = onnx.helper.make_node(
+                "LpNormalization",
+                inputs=[input_name],
+                outputs=[output_name],
+                name=div_node.name + "_lp_norm",
+                p=2,
+                axis=-1,
+            )
+
+            # Remove old nodes
+            nodes_to_remove = {div_node.name, pow_half_node.name, sum_node.name, pow2_node.name}
+            nodes = [n for n in model.graph.node if n.name not in nodes_to_remove]
+
+            # Insert new node
+            model.graph.ClearField("node")
+            model.graph.node.extend(nodes)
+            model.graph.node.append(lp_node)
+
+        return model
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(self.replace_with_lp_normalization(model))
+        dag.update()
+        return dag.model
+
+
 class MatMulAddToGemm(ProtoSurgeon):
     """Replace MatMul + Add with Gemm.
 
@@ -1000,6 +1097,37 @@ class AttentionMaskToSequenceLengths(ProtoSurgeon):
             dag.remove_node(node)
 
         logger.debug("atttention mask replaced with sequence length inputs")
+
+        dag.update()
+        return dag.model
+
+
+class ReplaceAttentionMaskValueTensor(ProtoSurgeon):
+    """Replace the value of extended attention mask with a new value.
+
+    This surgery is useful if the default mask value does not quantize well due to numerical instability.
+    """
+
+    def __init__(self, threshold: float = -3e30, replacement: float = -1e4):
+        self.threshold = threshold
+        self.replacement = replacement
+
+    def replace_large_neg_vals(self, tensor: onnx.TensorProto) -> onnx.TensorProto:
+        array = onnx.numpy_helper.to_array(tensor)
+        # logger.info("Constant tensor: {}".format(tensor.name))
+        if np.any(array <= self.threshold):
+            array = np.where(array <= self.threshold, self.replacement, array)
+            logger.info(f"Replaced constants for tensor: {tensor.name}")
+            return onnx.numpy_helper.from_array(array, tensor.name)
+        return tensor
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        # Update initializers
+        for init_name in dag.get_initializer_names():
+            init_proto = dag.get_initializer_proto(init_name)
+            dag.replace_initializer(self.replace_large_neg_vals(init_proto))
 
         dag.update()
         return dag.model

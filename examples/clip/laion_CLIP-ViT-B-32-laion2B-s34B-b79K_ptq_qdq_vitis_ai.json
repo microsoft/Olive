@@ -88,27 +88,24 @@
                 "enable_attention": false
             }
         },
+        "surgery": {
+            "type": "GraphSurgeries",
+            "surgeries": [
+                { "surgeon": "ReplaceAttentionMaskValueTensor" },
+                { "surgeon": "PowReduceSumPowDiv2LpNorm" }
+            ]
+        },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "quant_preprocess": true,
             "data_config": "quant_data_config",
-            "op_types_to_quantize": [
-                "MatMul",
-                "LayerNormalization",
-                "Gemm",
-                "Sigmoid",
-                "Gelu",
-                "Mul",
-                "Conv",
-                "Transpose"
-            ],
             "activation_type": "uint16",
-            "precision": "uint8",
+            "weight_type": "uint8",
             "calibrate_method": "MinMax"
         }
     },
     "evaluator": "common_evaluator",
-    "cache_dir": "cache",
+    "cache_dir": "cache/clip_laion",
     "clean_cache": true,
     "output_dir": "models/CLIP-ViT-B-32-laion2B-s34B-b79K"
 }
