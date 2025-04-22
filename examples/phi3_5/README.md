@@ -178,7 +178,7 @@ pip install "onnxruntime-genai>=0.7.0rc2"
 
 #### **Run Console-Based Chat Interface**
 
-Open ARM64 Native Tools Command Prompt for VS2022 and execute the provided [`app.py`](app.py) script:\
+Open ARM64 Native Tools Command Prompt for VS2022 and execute the provided [`app.py`](app.py) script:
 
 ```bash
 python app.py
