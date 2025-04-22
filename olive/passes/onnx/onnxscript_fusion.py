@@ -5,7 +5,6 @@
 import logging
 from pathlib import Path
 
-from onnxscript import ir
 from onnxscript.rewriter import ort_fusions
 
 from olive.hardware.accelerator import AcceleratorSpec
