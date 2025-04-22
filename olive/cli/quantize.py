@@ -126,8 +126,8 @@ class QuantizeCommand(BaseOliveCLICommand):
             ):
                 if not self._check_data_name_arg(pinfo):
                     raise ValueError(
-                        f"Dataset is required for pass {r['pass_type']} but no dataset is provided. "
-                        "Please provide a dataset using --data_name option."
+                        f"Quantization for {algo} {precision} {impl} implementation with QDQ {self.args.use_qdq_encoding}"
+                        " requires dataset. Please provide a dataset using --data_name option."
                     )
                 else:
                     pass_list.append(r["pass_type"])
