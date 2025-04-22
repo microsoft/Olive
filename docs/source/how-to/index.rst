@@ -73,8 +73,30 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 
       :octicon:`arrow-right;1em;sd-text-info` `olive run <cli/cli-run.html>`_
 
-Configure Workflows (Advanced)
-------------------------------
+How to prepare configuration
+----------------------------
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   configure-workflows/build-workflow
+
+For more complex scenarios, you can create a new configuration from scratch.
+
+.. grid:: 2 2 2 3
+   :class-container: cards
+
+   .. grid-item-card::
+
+      **How to write a new .json configuration**
+
+      Learn how to write a new .json configure from scratch.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Configure models <configure-workflows/build_workflow.html>`_
+
+How to customize configuration
+----------------------------
 
 .. toctree::
    :maxdepth: 2
@@ -88,7 +110,7 @@ Configure Workflows (Advanced)
    configure-workflows/systems
    configure-workflows/custom-model-evaluator
 
-For more complex scenarios, you can create fully customize workflows where you can run any of the 40+ supported optimization techniques in a sequence.
+For more complex scenarios, you can customize configuration where you can run any of the 40+ supported optimization techniques in a sequence.
 
 .. grid:: 2 2 2 3
    :class-container: cards
