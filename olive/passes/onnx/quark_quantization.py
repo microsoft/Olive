@@ -246,7 +246,7 @@ _extra_options_config = {
 }
 
 
-class VitisAIQuantization(Pass):
+class QuarkQuantization(Pass):
     """Quantize ONNX model with onnxruntime.
 
     We can search for best parameters for Quark quantization at same time.

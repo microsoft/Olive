@@ -34,7 +34,7 @@ _variables:
   - &vitisai_int8 [
       "OnnxConversion",
       "OrtTransformersOptimization",
-      "VitisAIQuantization",
+      "QuarkQuantization",
       "OrtSessionParamsTuning",
     ]
 

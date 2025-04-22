@@ -276,8 +276,8 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
-        "VitisAIQuantization": {
-            "module_path": "olive.passes.onnx.vitis_ai_quantization.VitisAIQuantization",
+        "QuarkQuantization": {
+            "module_path": "olive.passes.onnx.quark_quantization.QuarkQuantization",
             "supported_providers": [ "VitisAIExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "int8" ],

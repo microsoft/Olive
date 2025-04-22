@@ -140,11 +140,11 @@ IncQuantization
 ---------------
 .. autoconfigclass:: olive.passes.IncQuantization
 
-.. _vitis_ai_quantization:
+.. _quark_quantization:
 
-VitisAIQuantization
+QuarkQuantization
 -------------------
-.. autoconfigclass:: olive.passes.VitisAIQuantization
+.. autoconfigclass:: olive.passes.QuarkQuantization
 
 .. _append_pre_post_processing:
 

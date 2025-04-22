@@ -58,7 +58,7 @@ IncQuantization:
     - int8
   accelerator:
     - cpu
-VitisAIQuantization:
+QuarkQuantization:
   EP:
     - VitisAI
   precision:

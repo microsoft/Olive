@@ -20,7 +20,7 @@
             "use_dynamo_exporter": false
         },
         "quantization": {
-            "type": "VitisAIQuantization",
+            "type": "QuarkQuantization",
             "data_config": "calib_data",
             "config_template": "XINT8_ADAQUANT"
         }

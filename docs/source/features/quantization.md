@@ -160,23 +160,25 @@ Please refer to [IncQuantization](inc_quantization), [IncDynamicQuantization](in
 [IncStaticQuantization](inc_static_quantization) for more details about the passes and their config parameters.
 
 ## Quantize with AMD Vitis AI Quantizer
-Olive also integrates [AMD Vitis AI Quantizer](https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py) for quantization.
+Olive also integrates [AMD Quark Quantizer](https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py) for quantization.
 
-The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
-Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.
+**AMD Quark** is a comprehensive cross-platform deep learning toolkit designed to simplify and enhance the quantization of deep learning models. Supporting both PyTorch and ONNX models, AMD Quark empowers developers to optimize their models for deployment on a wide range of hardware backends, achieving significant performance gains without compromising accuracy.
+Olive consolidates the Quark quantization into a single pass called QuarkQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.
 
 ### Example Configuration
 ```json
-"vitis_ai_quantization": {
-    "type": "VitisAIQuantization",
-    "calibrate_method":"NonOverflow",
-    "quant_format":"QDQ",
-    "activation_type":"QUInt8",
-    "weight_type":"QInt8",
-    "data_config": "calib_data_config"
+"quark_quantization": {
+    "type": "QuarkQuantization",
+    "data_config": "calib_data",
+    "config_template": "XINT8",
+    "enable_npu_transformer": true,
+    "extra_options": {
+        "OpTypesToExcludeOutputQuantization": ["MatMul", "Gemm"],
+        "ActivationSymmetric": true
+    }
 }
 ```
-Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
+Please refer to [QuarkQuantization](quark_quantization) for more details about the pass and its config parameters.
 
 ## NVIDIA TensorRT Model Optimizer-Windows
 Olive also integrates [TensorRT Model Optimizer-Windows](https://github.com/NVIDIA/TensorRT-Model-Optimizer)

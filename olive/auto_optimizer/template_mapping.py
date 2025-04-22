@@ -36,7 +36,7 @@ def remove_incompatible_passes(pass_flows):
     incompatible_passes_with_model_builder = [
         "OnnxQuantization",
         "IncQuantization",
-        "VitisAIQuantization",
+        "QuarkQuantization",
         "OnnxMatMul4Quantizer",
         "OrtTransformersOptimization",
         "OrtMixedPrecision",
