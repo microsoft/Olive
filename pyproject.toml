@@ -78,6 +78,9 @@ disable = [
   "wrong-import-order" # import order is handled by the formatter (ruff)
 ]
 
+[tool.pytest.ini_options]
+addopts = "-rsfEX --tb=short --color=yes"
+
 [tool.ruff]
 line-length = 120
 target-version = "py39"
