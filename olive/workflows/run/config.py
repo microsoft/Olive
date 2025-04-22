@@ -26,18 +26,55 @@ from olive.systems.system_config import SystemConfig
 
 
 class RunEngineConfig(EngineConfig):
-    evaluate_input_model: bool = True
-    output_dir: Union[Path, str] = None
-    packaging_config: Union[PackagingConfig, list[PackagingConfig]] = None
-    cache_config: Union[CacheConfig, dict[str, Any]] = None
-    cache_dir: Union[str, Path, list[str]] = DEFAULT_CACHE_DIR
-    clean_cache: bool = False
-    clean_evaluation_cache: bool = False
-    enable_shared_cache: bool = False
-    log_severity_level: int = 1
-    ort_log_severity_level: int = 3
-    ort_py_log_severity_level: int = 3
-    log_to_file: bool = False
+    evaluate_input_model: bool = Field(
+        True,
+        description="When true, input model will be evaluated using the engine's evaluator. Set this to false to skip.",
+    )
+    output_dir: Union[Path, str] = Field(None, description="Path where final output get saved.")
+    packaging_config: Union[PackagingConfig, list[PackagingConfig]] = Field(
+        None, description="Artifacts packaging configuration."
+    )
+    cache_config: Union[CacheConfig, dict[str, Any]] = Field(
+        None, description="Cache configuration to speed up workflow runs."
+    )
+    cache_dir: Union[str, Path, list[str]] = Field(
+        DEFAULT_CACHE_DIR,
+        description=(
+            "Path where intermediate results get saved.  Default is .olive-cache in the current working directory."
+        ),
+    )
+    clean_cache: bool = Field(False, description="Set this to true to force clean the cache on next run.")
+    clean_evaluation_cache: bool = Field(
+        False, description="Set this to true to limit cache clean to generated evaluation results only."
+    )
+    enable_shared_cache: bool = Field(False, description="Set this to true to enable shared cache.")
+    log_severity_level: int = Field(
+        1,
+        description=(
+            "Logging level. Default is 3. Available options: 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL"
+        ),
+    )
+    ort_log_severity_level: int = Field(
+        3,
+        description=(
+            "Log severity level for ONNX Runtime C++ logs. "
+            "Default is 3. Available options: 0: VERBOSE, 1: INFO, 2: WARNING, 3: ERROR, 4: FATAL"
+        ),
+    )
+    ort_py_log_severity_level: int = Field(
+        3,
+        description=(
+            "Log severity level for ONNX Runtime Python logs. "
+            "Available options: 0: VERBOSE, 1: INFO, 2: WARNING, 3: ERROR, 4: FATAL"
+        ),
+    )
+    log_to_file: bool = Field(
+        False,
+        description=(
+            "Set this to true to reroute logs to a file instead of the console. "
+            "If `true`, the log will be stored in a olive-<timestamp>.log file under the current working directory."
+        ),
+    )
 
     def create_engine(self, olive_config, azureml_client_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
