@@ -17,6 +17,7 @@ import torch
 import transformers
 from packaging import version
 from transformers.modeling_utils import PreTrainedModel
+import onnxscript
 
 from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
@@ -31,7 +32,7 @@ from olive.model import (
 from olive.model.config import IoConfig
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model, ir_model_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
@@ -655,28 +656,9 @@ class OnnxOpVersionConversion(Pass):
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path)
-        # since external data is saved in a separate file, we need to load the model to get the opset version
-        model_proto = onnx.load(model.model_path, load_external_data=False)
-
-        model_opset_version = model_proto.opset_import[0].version
-        if model_opset_version == config.target_opset:
-            logger.info("Model is already in target opset version %s.", config.target_opset)
-            return model
-
-        converted_model_proto = onnx.version_converter.convert_version(model_proto, config.target_opset)
-        # copy the external data of original model to the new model
-        dst_init_map = {init.name: init for init in converted_model_proto.graph.initializer}
-        for src_init in model_proto.graph.initializer:
-            if (
-                src_init.name in dst_init_map
-                and src_init.HasField("data_location")
-                and src_init.data_location == onnx.TensorProto.EXTERNAL
-            ):
-                dst_init_map[src_init.name].CopyFrom(src_init)
-        onnx.external_data_helper.load_external_data_for_model(
-            converted_model_proto, str(Path(model.model_path).resolve().parent)
-        )
-        return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
+        model_ir = model.load_ir_model()
+        onnxscript.version_converter.convert(model_ir, config.target_opset, fallback=True)
+        return ir_model_to_olive_model(model_ir, output_model_path, config)
 
 
 def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
