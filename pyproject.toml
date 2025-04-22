@@ -1,6 +1,3 @@
-[tool.pytest.ini_options]
-addopts = "-rsfEX --tb=short --color=yes"
-
 [tool.pylint.BASIC]
 good-names = [
   "a",
@@ -80,6 +77,9 @@ disable = [
   "used-before-assignment",
   "wrong-import-order" # import order is handled by the formatter (ruff)
 ]
+
+[tool.pytest.ini_options]
+addopts = "-rsfEX --tb=short --color=yes"
 
 [tool.ruff]
 line-length = 120
