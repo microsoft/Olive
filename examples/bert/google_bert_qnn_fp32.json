@@ -1,0 +1,137 @@
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "model_path": "google-bert/bert-base-multilingual-cased",
+        "io_config": {
+            "input_names": [ "input_ids", "attention_mask", "token_type_ids" ],
+            "input_shapes": [ [ 1, 128 ], [ 1, 1, 128, 128 ], [ 1, 128 ] ],
+            "input_types": [ "int32", "float32", "int32" ],
+            "output_names": [ "logits" ]
+        },
+        "model_loader": "load_bert_nsp_model",
+        "model_script": "google_bert_qnn.py",
+        "script_dir": "."
+    },
+    "systems": {
+        "host_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
+        },
+        "target_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
+        }
+    },
+    "data_configs": [
+        {
+            "name": "wiki_data",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": {
+                "type": "dataset_to_nsp_dataset",
+                "data_path": "wikitext",
+                "data_name": "wikitext-2-raw-v1",
+                "data_split": "train",
+                "input_cols": [ "sentence1", "sentence2" ],
+                "label_col": "label"
+            },
+            "pre_process_data_config": {
+                "type": "tokenize_dataset",
+                "model_name": "google-bert/bert-base-multilingual-cased",
+                "input_cols": [ "sentence1", "sentence2" ],
+                "label_col": "label",
+                "seq_length": 128
+            },
+            "post_process_data_config": { "type": "bert_scl_post_process" },
+            "dataloader_config": { "batch_size": 1 },
+            "script_dir": ".",
+            "user_script": "google_bert_qnn.py"
+        }
+    ],
+    "evaluators": {
+        "glue_evaluator": {
+            "metrics": [
+                {
+                    "name": "accuracy_cpu",
+                    "type": "accuracy",
+                    "backend": "huggingface_metrics",
+                    "data_config": "wiki_data",
+                    "sub_types": [
+                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.05 } },
+                        { "name": "f1" }
+                    ],
+                    "user_config": { "inference_settings": { "execution_provider": "CPUExecutionProvider" } }
+                },
+                {
+                    "name": "accuracy_qnn",
+                    "type": "accuracy",
+                    "backend": "huggingface_metrics",
+                    "data_config": "wiki_data",
+                    "sub_types": [
+                        { "name": "accuracy", "priority": 2, "goal": { "type": "max-degradation", "value": 0.05 } },
+                        { "name": "f1" }
+                    ],
+                    "user_config": {
+                        "inference_settings": {
+                            "onnx": {
+                                "execution_provider": "QNNExecutionProvider",
+                                "provider_options": [
+                                    {
+                                        "backend_path": "QnnHtp.dll",
+                                        "htp_performance_mode": "burst",
+                                        "htp_graph_finalization_optimization_mode": "3",
+                                        "enable_htp_fp16_precision": "1"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "latency_cpu",
+                    "type": "latency",
+                    "sub_types": [
+                        { "name": "avg", "priority": 3, "metric_config": { "warmup_num": 20, "repeat_test_num": 100 } }
+                    ],
+                    "user_config": { "inference_settings": { "execution_provider": "CPUExecutionProvider" } }
+                },
+                {
+                    "name": "latency_qnn",
+                    "type": "latency",
+                    "sub_types": [
+                        { "name": "avg", "priority": 4, "metric_config": { "warmup_num": 20, "repeat_test_num": 100 } }
+                    ],
+                    "user_config": {
+                        "inference_settings": {
+                            "onnx": {
+                                "execution_provider": "QNNExecutionProvider",
+                                "provider_options": [
+                                    {
+                                        "backend_path": "QnnHtp.dll",
+                                        "htp_performance_mode": "burst",
+                                        "htp_graph_finalization_optimization_mode": "3",
+                                        "enable_htp_fp16_precision": "1"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": { "type": "OnnxConversion", "target_opset": 20, "dynamic": true, "use_dynamo_exporter": false },
+        "surgery": {
+            "type": "GraphSurgeries",
+            "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" }, { "surgeon": "MatMulAddToGemm" } ]
+        }
+    },
+    "host": "host_system",
+    "target": "target_system",
+    "cache_dir": "cache/google_bert",
+    "clean_cache": true,
+    "clean_evaluation_cache": true,
+    "evaluator": "glue_evaluator",
+    "evaluate_input_model": false,
+    "output_dir": "models/google_bert_base_multilingual_cased_fp32"
+}
