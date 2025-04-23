@@ -19,7 +19,7 @@ The workflow in Config file: [Llama-3.2-1B-Instruct_context_ov_dynamic_sym_bkp_i
 Install the necessary python packages:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install olive-ai[openvino]
 ```
 
 ### Run sample using config

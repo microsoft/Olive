@@ -1,2 +1,0 @@
-nncf>=2.16.0
-optimum[openvino]

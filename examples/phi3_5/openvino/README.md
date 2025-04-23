@@ -19,7 +19,7 @@ The workflow in Config file: [Phi-3.5-mini-instruct_context_ov_dynamic_sym_gs128
 Install the necessary python packages:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install olive-ai[openvino]
 ```
 
 ### Run sample using config

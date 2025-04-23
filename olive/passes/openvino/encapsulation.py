@@ -80,7 +80,7 @@ class OpenVINOEncapsulation(Pass):
                     ["org.pytorch.aten", 1],
                 ],
                 required=False,
-                description="Opset name and version to be added in the generate context model",
+                description="Opset name and version to be added in the generated context model",
             ),
             "keep_ov_dynamic_dims": PassConfigParam(
                 type_=bool,
@@ -145,15 +145,7 @@ class OpenVINOEncapsulation(Pass):
         inputs = []
         outputs = []
         for i, (name, (shape, datatype)) in enumerate(input_info.items()):
-            shape_list = []
-            for j, dim in enumerate(shape):
-                if not dim.is_dynamic:
-                    shape_list.append(dim.get_length())
-                else:
-                    if not config.keep_ov_dynamic_dims:
-                        shape_list.append("input_" + f"{i}_" + f"{j}")
-                    else:
-                        shape_list.append(-1)
+            shape_list = extract_shape_list(shape, config, prefix=f"input_{i}_")
 
             # Normalize the datatype string & map to ONNX data type
             normalized_dtype = str(datatype).split("'")[1]  # Extract 'int64_t' from "<Type: 'int64_t'>"
@@ -163,15 +155,7 @@ class OpenVINOEncapsulation(Pass):
 
         # Transform to onnx output shapes
         for i, (name, (shape, datatype)) in enumerate(output_info.items()):
-            shape_list = []
-            for j, dim in enumerate(shape):
-                if not dim.is_dynamic:
-                    shape_list.append(dim.get_length())
-                else:
-                    if not config.keep_ov_dynamic_dims:
-                        shape_list.append("output_" + f"{i}_" + f"{j}")
-                    else:
-                        shape_list.append(-1)
+            shape_list = extract_shape_list(shape, config, prefix=f"output_{i}_")
 
             # Normalize the datatype string & map to ONNX data type and extract 'int64_t' from "<Type: 'int64_t'>"
             normalized_dtype = str(datatype).split("'")[1]
@@ -237,3 +221,17 @@ class OpenVINOEncapsulation(Pass):
             hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
 
         return ONNXModelHandler(model_path=output_model_path)
+
+
+def extract_shape_list(shape, config, prefix: str = "input_0_") -> list:
+    """Extract the shape list from the OpenVINO model."""
+    shape_list = []
+    for j, dim in enumerate(shape):
+        if not dim.is_dynamic:
+            shape_list.append(dim.get_length())
+        else:
+            if not config.keep_ov_dynamic_dims:
+                shape_list.append(prefix + f"{j}")
+            else:
+                shape_list.append(-1)
+    return shape_list
