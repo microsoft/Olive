@@ -779,13 +779,24 @@ class OnnxMatMul4Quantizer(Pass):
         if version.parse(OrtVersion) < version.parse("1.18.0"):
             raise ValueError("MatMul4BitsQuantizer is only supported for onnxruntime>=1.18.0")
 
-        from onnxruntime.quantization.matmul_4bits_quantizer import (
-            DefaultWeightOnlyQuantConfig,
-            GPTQWeightOnlyQuantConfig,
-            HQQWeightOnlyQuantConfig,
-            MatMul4BitsQuantizer,
-            RTNWeightOnlyQuantConfig,
-        )
+        if version.parse(OrtVersion) < version.parse("1.22.0"):
+            from onnxruntime.quantization.matmul_4bits_quantizer import (
+                DefaultWeightOnlyQuantConfig,
+                GPTQWeightOnlyQuantConfig,
+                HQQWeightOnlyQuantConfig,
+                RTNWeightOnlyQuantConfig,
+            )
+            from onnxruntime.quantization.matmul_4bits_quantizer import (
+                MatMul4BitsQuantizer as MatMulNBitsQuantizer,
+            )
+        else:
+            from onnxruntime.quantization.matmul_nbits_quantizer import (
+                DefaultWeightOnlyQuantConfig,
+                GPTQWeightOnlyQuantConfig,
+                HQQWeightOnlyQuantConfig,
+                MatMulNBitsQuantizer,
+                RTNWeightOnlyQuantConfig,
+            )
 
         algo_to_config = {
             "DEFAULT": DefaultWeightOnlyQuantConfig,
@@ -813,7 +824,7 @@ class OnnxMatMul4Quantizer(Pass):
         for key in ["nodes_to_include", "op_types_to_quantize", "quant_axes"]:
             if value := getattr(config, key):
                 if version.parse(OrtVersion) < version.parse("1.20.0"):
-                    raise ValueError(f"MatMul4BitsQuantizer {key} is only supported for onnxruntime>=1.20.0")
+                    raise ValueError(f"MatMulNBitsQuantizer {key} is only supported for onnxruntime>=1.20.0")
                 kwargs[key] = value
 
         if woq_config_class := algo_to_config.get(config.algorithm, None):
@@ -839,7 +850,7 @@ class OnnxMatMul4Quantizer(Pass):
         else:
             kwargs["algo_config"] = None
 
-        quant = MatMul4BitsQuantizer(model.load_model(), **kwargs)
+        quant = MatMulNBitsQuantizer(model.load_model(), **kwargs)
         quant.process()
         # topologically sort the graph at the end since previous optimizations may have broken it
         quant.model.topological_sort()
