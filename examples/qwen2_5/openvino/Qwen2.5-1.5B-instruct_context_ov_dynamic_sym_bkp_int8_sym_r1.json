@@ -15,7 +15,7 @@
                 "weight_format": "int4",
                 "group_size": 128,
                 "dataset": "wikitext2",
-                "ratio": 0.9,
+                "ratio": 1.0,
                 "awq": true,
                 "scale_estimation": true,
                 "sym": true,
@@ -34,5 +34,5 @@
     "search_strategy": false,
     "host": "local_system",
     "evaluate_input_model": false,
-    "output_dir": "models/Qwen2.5-1.5B-Instruct_context_ov_dynamic_sym_bkp_int8_sym"
+    "output_dir": "models/Qwen2.5-1.5B-Instruct_context_ov_dynamic_sym_bkp_int8_sym_r1"
 }

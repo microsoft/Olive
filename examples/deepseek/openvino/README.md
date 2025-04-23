@@ -10,7 +10,7 @@ This workflow performs quantization with OpenVINO NNCF. It performs the optimiza
 
 ### Dynamic shape model
 
-The workflow in Config file: [DeepSeek-R1-Distill-Qwen-1.5B_context_ov_dynamic_sym_gs128_bkp_int8_sym.json](DeepSeek-R1-Distill-Qwen-1.5B_context_ov_dynamic_sym_gs128_bkp_int8_sym.json) executes the above workflow producing a dynamic shape model.
+The workflow in Config file: [DeepSeek-R1-Distill-Qwen-1.5B_context_ov_dynamic_sym_gs128_bkp_int8_sym_r1.json](DeepSeek-R1-Distill-Qwen-1.5B_context_ov_dynamic_sym_gs128_bkp_int8_sym_r1.json) executes the above workflow producing a dynamic shape model.
 
 ## How to run
 
@@ -29,14 +29,14 @@ The optimization techniques to run are specified in the relevant config json fil
 Optimize the model
 
 ```bash
-olive run --config DeepSeek-R1-Distill-Qwen-1.5B_context_ov_dynamic_sym_gs128_bkp_int8_sym.json
+olive run --config DeepSeek-R1-Distill-Qwen-1.5B_context_ov_dynamic_sym_gs128_bkp_int8_sym_r1.json
 ```
 
 or run simply with python code:
 
 ```python
 from olive.workflows import run as olive_run
-olive_run("DeepSeek-R1-Distill-Qwen-1.5B_context_ov_dynamic_sym_gs128_bkp_int8_sym.json")
+olive_run("DeepSeek-R1-Distill-Qwen-1.5B_context_ov_dynamic_sym_gs128_bkp_int8_sym_r1.json")
 ```
 
 After running the above command, the model candidates and corresponding config will be saved in the output directory.

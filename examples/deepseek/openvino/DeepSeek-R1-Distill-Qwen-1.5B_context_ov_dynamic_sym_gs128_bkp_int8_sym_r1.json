@@ -15,7 +15,7 @@
                 "weight_format": "int4",
                 "group_size": 128,
                 "dataset": "wikitext2",
-                "ratio": 0.7,
+                "ratio": 1.0,
                 "awq": true,
                 "scale_estimation": true,
                 "trust_remote_code": true,
@@ -34,5 +34,5 @@
     "search_strategy": false,
     "host": "local_system",
     "evaluate_input_model": false,
-    "output_dir": "models/DeepSeek-R1-Distill-Qwen-1.5B_context_ov_dynamic_sym_gs128_bkp_int8_sym"
+    "output_dir": "models/DeepSeek-R1-Distill-Qwen-1.5B_context_ov_dynamic_sym_gs128_bkp_int8_sym_r1"
 }

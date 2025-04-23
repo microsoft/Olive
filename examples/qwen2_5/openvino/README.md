@@ -10,7 +10,7 @@ This workflow performs quantization with OpenVINO NNCF. It performs the optimiza
 
 ### Dynamic shape model
 
-The workflow in Config file: [Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym.json](Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym.json) executes the above workflow producing a dynamic shape model.
+The workflow in Config file: [Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json](Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json) executes the above workflow producing a dynamic shape model.
 
 ## How to run
 
@@ -29,14 +29,14 @@ The optimization techniques to run are specified in the relevant config json fil
 Optimize the model
 
 ```bash
-olive run --config Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym.json
+olive run --config Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json
 ```
 
 or run simply with python code:
 
 ```python
 from olive.workflows import run as olive_run
-olive_run("Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym.json")
+olive_run("Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json")
 ```
 
 After running the above command, the model candidates and corresponding config will be saved in the output directory.
