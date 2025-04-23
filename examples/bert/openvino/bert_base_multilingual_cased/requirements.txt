@@ -1,4 +1,0 @@
-datasets
-nncf==2.16.0
-optimum-intel
-torchvision
