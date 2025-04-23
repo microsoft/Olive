@@ -23,10 +23,7 @@
                 "backup_precision": "int8_sym"
             }
         },
-        "io_update": {
-            "type": "OpenVINOIoUpdate",
-            "static": false
-        },
+        "io_update": { "type": "OpenVINOIoUpdate", "static": false },
         "encapsulation": {
             "type": "OpenVINOEncapsulation",
             "target_device": "npu",
