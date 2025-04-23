@@ -80,7 +80,16 @@ class OpenVINOEncapsulation(Pass):
                     ["org.pytorch.aten", 1],
                 ],
                 required=False,
-                description="Opset name and version to be add in the generate context model",
+                description="Opset name and version to be added in the generate context model",
+            ),
+            "keep_ov_dynamic_dims": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description=(
+                    "Keep OpenVINO dynamic dimensions in the generated ONNX model. "
+                    "This is useful for models that require dynamic dimensions to be preserved."
+                ),
             ),
         }
 
@@ -141,7 +150,10 @@ class OpenVINOEncapsulation(Pass):
                 if not dim.is_dynamic:
                     shape_list.append(dim.get_length())
                 else:
-                    shape_list.append("input_" + f"{i}_" + f"{j}")
+                    if not config.keep_ov_dynamic_dims:
+                        shape_list.append("input_" + f"{i}_" + f"{j}")
+                    else:
+                        shape_list.append(-1)
 
             # Normalize the datatype string & map to ONNX data type
             normalized_dtype = str(datatype).split("'")[1]  # Extract 'int64_t' from "<Type: 'int64_t'>"
@@ -156,7 +168,10 @@ class OpenVINOEncapsulation(Pass):
                 if not dim.is_dynamic:
                     shape_list.append(dim.get_length())
                 else:
-                    shape_list.append("output_" + f"{i}_" + f"{j}")
+                    if not config.keep_ov_dynamic_dims:
+                        shape_list.append("output_" + f"{i}_" + f"{j}")
+                    else:
+                        shape_list.append(-1)
 
             # Normalize the datatype string & map to ONNX data type and extract 'int64_t' from "<Type: 'int64_t'>"
             normalized_dtype = str(datatype).split("'")[1]
