@@ -19,7 +19,7 @@ The config file: [bert-base-uncased-mrpc_context_ov_static.json](bert-base-uncas
 Install the necessary python packages:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install olive-ai[openvino]
 ```
 
 ### Run sample using config
