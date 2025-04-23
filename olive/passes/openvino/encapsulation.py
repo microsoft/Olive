@@ -55,7 +55,7 @@ class OpenVINOEncapsulation(Pass):
                 type_=Device,
                 default_value=accelerator_spec.accelerator_type.CPU,
                 required=False,
-                description=("Device the encapsulated model should run on.Available devices are cpu, gpu, npu."),
+                description=("Device the encapsulated model should run on. Available devices are cpu, gpu, npu."),
             ),
             "ov_version": PassConfigParam(
                 type_=str,
