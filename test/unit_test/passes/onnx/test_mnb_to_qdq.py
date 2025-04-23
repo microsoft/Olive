@@ -7,6 +7,7 @@ import onnx
 import onnxruntime
 import pytest
 import torch
+from onnxruntime import __version__ as ort_version
 from packaging import version
 
 from olive.model import ONNXModelHandler
@@ -17,7 +18,10 @@ from olive.passes.onnx.onnx_dag import OnnxDAG
 
 @pytest.fixture(params=[True, False], ids=["symmetric", "asymmetric"], name="create_mnb_model")
 def create_mnb_model_fixture(request, tmp_path):
-    from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
+    if version.parse(ort_version) < version.parse("1.22.0"):
+        from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer as MatMulNBitsQuantizer
+    else:
+        from onnxruntime.quantization.matmul_nbits_quantizer import MatMulNBitsQuantizer
 
     block_size = 32
     # odd, %32 != 0
@@ -52,7 +56,7 @@ def create_mnb_model_fixture(request, tmp_path):
 
     # quantized model
     mnb_path = tmp_path / "mnb.onnx"
-    quant = MatMul4BitsQuantizer(onnx.load(base_path), block_size=block_size, is_symmetric=request.param)
+    quant = MatMulNBitsQuantizer(onnx.load(base_path), block_size=block_size, is_symmetric=request.param)
     quant.process()
     onnx.save(quant.model.model, mnb_path)
 
