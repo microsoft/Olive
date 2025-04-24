@@ -17,7 +17,7 @@ import torch
 import transformers
 from packaging import version
 from transformers.modeling_utils import PreTrainedModel
-import onnxscript
+from onnxscript import version_converter
 
 from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
@@ -657,7 +657,7 @@ class OnnxOpVersionConversion(Pass):
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path)
         model_ir = model.load_ir_model()
-        onnxscript.version_converter.convert(model_ir, config.target_opset, fallback=True)
+        version_converter.convert(model_ir, config.target_opset, fallback=True)
         return ir_model_to_olive_model(model_ir, output_model_path, config)
 
 
