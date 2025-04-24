@@ -779,7 +779,15 @@ class OnnxMatMul4Quantizer(Pass):
         if version.parse(OrtVersion) < version.parse("1.18.0"):
             raise ValueError("MatMul4BitsQuantizer is only supported for onnxruntime>=1.18.0")
 
-        if version.parse(OrtVersion) < version.parse("1.22.0"):
+        if version.parse(OrtVersion) > version.parse("1.21.1"):
+            from onnxruntime.quantization.matmul_nbits_quantizer import (
+                DefaultWeightOnlyQuantConfig,
+                GPTQWeightOnlyQuantConfig,
+                HQQWeightOnlyQuantConfig,
+                MatMulNBitsQuantizer,
+                RTNWeightOnlyQuantConfig,
+            )
+        else:
             from onnxruntime.quantization.matmul_4bits_quantizer import (
                 DefaultWeightOnlyQuantConfig,
                 GPTQWeightOnlyQuantConfig,
@@ -788,14 +796,6 @@ class OnnxMatMul4Quantizer(Pass):
             )
             from onnxruntime.quantization.matmul_4bits_quantizer import (
                 MatMul4BitsQuantizer as MatMulNBitsQuantizer,
-            )
-        else:
-            from onnxruntime.quantization.matmul_nbits_quantizer import (
-                DefaultWeightOnlyQuantConfig,
-                GPTQWeightOnlyQuantConfig,
-                HQQWeightOnlyQuantConfig,
-                MatMulNBitsQuantizer,
-                RTNWeightOnlyQuantConfig,
             )
 
         algo_to_config = {
