@@ -368,7 +368,7 @@
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ],
-            "extra_dependencies": [ "optimum-intel", "openvino" ]
+            "extra_dependencies": [ "openvino" ]
         },
         "AutoAWQQuantizer": {
             "module_path": "olive.passes.pytorch.autoawq.AutoAWQQuantizer",
