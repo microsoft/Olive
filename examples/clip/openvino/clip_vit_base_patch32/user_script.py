@@ -1,19 +1,16 @@
-from pathlib import Path
+from io import BytesIO
 
+import requests
 import torch
 from datasets import load_dataset
-from transformers import CLIPProcessor, CLIPModel
-import numpy as np
-import requests
-from io import BytesIO
 from PIL import Image
-from tqdm import tqdm
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+from tqdm import tqdm
+from transformers import CLIPModel, CLIPProcessor
 
-from olive.constants import Framework
 from olive.data.registry import Registry
-from olive.model import OliveModelHandler
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 # -------------------------------------------------------------------------
 # Common Dataset
@@ -36,25 +33,27 @@ processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
 max_length = model.config.text_config.max_position_embeddings
 
+
 def check_text_data(data):
-    """Check if the given data is text-based.
-    """
+    """Check if the given data is text-based."""
     if isinstance(data, str):
         return True
     if isinstance(data, list):
         return all(isinstance(x, str) for x in data)
     return False
 
+
 def get_pil_from_url(url):
-    """Downloads and converts an image from a URL to a PIL Image object.
-    """
+    """Download and convert an image from a URL to a PIL Image object."""
     response = requests.get(url, verify=False, timeout=20)
     image = Image.open(BytesIO(response.content))
     return image.convert("RGB")
 
+
 def collate_fn(example, image_column="image_url", text_column="caption"):
-    """Preprocesses an example by loading and transforming image and text data.
-    Checks if the text data in the example is valid by calling the `check_text_data` function.
+    """Preprocess an example by loading and transforming image and text data.
+
+    Check if the text data in the example is valid by calling the `check_text_data` function.
     Downloads the image specified by the URL in the image_column by calling the `get_pil_from_url` function.
     If there is any error during the download process, returns None.
     Returns the preprocessed inputs with transformed image and text data.
@@ -79,12 +78,13 @@ def collate_fn(example, image_column="image_url", text_column="caption"):
         return None
     return inputs
 
+
 def prepare_calibration_data(dataloader, init_steps):
-    """This function prepares calibration data from a dataloader for a specified number of initialization steps.
-    It iterates over the dataloader, fetching batches and storing the relevant data.
+    """Prepare calibration data from a dataloader for a specified number of initialization steps.
+
+    Iterate over the dataloader, fetching batches and storing the relevant data.
     """
     data = []
-    print(f"Fetching {init_steps} samples for the initialization...")
     with tqdm(total=init_steps) as pbar:
         for batch in dataloader:
             if len(data) == init_steps:
@@ -96,20 +96,20 @@ def prepare_calibration_data(dataloader, init_steps):
                         {
                             "pixel_values": batch["pixel_values"].to("cpu"),
                             "input_ids": batch["input_ids"].to("cpu"),
-                            "attention_mask": batch["attention_mask"].to("cpu")
+                            "attention_mask": batch["attention_mask"].to("cpu"),
                         }
                     )
     return data
 
+
 @Registry.register_dataset()
 def conceptual_captions_dataset(opt_init_steps=50, max_train_samples=1000):
-    """Prepares a vision-text dataset for quantization.
-    """
+    """Prepare a vision-text dataset for quantization."""
     dataset = load_dataset("google-research-datasets/conceptual_captions", trust_remote_code=True)
     train_dataset = dataset["train"].shuffle(seed=42)
     dataloader = torch.utils.data.DataLoader(train_dataset, collate_fn=collate_fn, batch_size=1)
-    calibration_data = prepare_calibration_data(dataloader, opt_init_steps)
-    return calibration_data
+    return prepare_calibration_data(dataloader, opt_init_steps)
+
 
 def custom_transform_func(data_item):
     np_inputs = {}
