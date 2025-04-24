@@ -133,7 +133,13 @@ class ConvertAdaptersCommand(BaseOliveCLICommand):
         # Not the same as OnnxMatMul4Quantizer pass which quantizes an entire model
         # TODO(jambayk): When ORT 1.18.0 is released, use DefaultWeightOnlyQuantizer.int4_block_quant
         import numpy as np
-        from onnxruntime.quantization.matmul_4bits_quantizer import quantize_matmul_4bits
+        from onnxruntime import __version__ as ort_version
+        from packaging import version
+
+        if version.parse(ort_version) < version.parse("1.22.0"):
+            from onnxruntime.quantization.matmul_4bits_quantizer import quantize_matmul_4bits as quantize_matmul_nbits
+        else:
+            from onnxruntime.quantization.matmul_nbits_quantizer import quantize_matmul_nbits
 
         rows, cols = float_weight.shape
 
@@ -148,6 +154,6 @@ class ConvertAdaptersCommand(BaseOliveCLICommand):
         packed = np.zeros((cols, k_blocks, blob_size), dtype="uint8")
         scales = np.zeros((cols * k_blocks), dtype=float_weight.dtype)
         zero_point = np.zeros(cols * ((k_blocks + 1) // 2), dtype="uint8")
-        quantize_matmul_4bits(packed, float_weight, scales, zero_point, block_size, cols, rows, is_symmetric)
+        quantize_matmul_nbits(packed, float_weight, scales, zero_point, block_size, cols, rows, is_symmetric)
 
         return packed, scales, zero_point
