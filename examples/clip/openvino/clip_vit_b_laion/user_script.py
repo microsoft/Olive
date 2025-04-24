@@ -46,7 +46,7 @@ def check_text_data(data):
 
 def get_pil_from_url(url):
     """Download and convert an image from a URL to a PIL Image object."""
-    response = requests.get(url, verify=False, timeout=20)
+    response = requests.get(url, verify=True, timeout=20)
     image = Image.open(BytesIO(response.content))
     return image.convert("RGB")
 
