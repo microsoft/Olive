@@ -19,20 +19,14 @@ The config file: [clip_vit_base_patch32_context_ov_static.json](clip_vit_base_pa
 Install the necessary python packages:
 
 ```bash
-python -m pip install -r olive-ai[openvino]
+python -m pip install olive-ai[openvino]
 ```
 
 ### Run sample using config
 
 The optimization techniques to run are specified in the relevant config json file.
 
-First, install required packages according to passes.
-
-```bash
-olive run --config clip_vit_base_patch32_context_ov_static.json --setup
-```
-
-Then, optimize the model
+Optimize the model
 
 ```bash
 olive run --config clip_vit_base_patch32_context_ov_static.json
