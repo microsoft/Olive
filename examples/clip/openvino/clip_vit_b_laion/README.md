@@ -19,20 +19,15 @@ The config file: [clip_vit_b32_laion2b_s34B_b79k_context_ov_static.json](clip_vi
 Install the necessary python packages:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install olive-ai[openvino]
+python -m pip install torchvision
 ```
 
 ### Run sample using config
 
 The optimization techniques to run are specified in the relevant config json file.
 
-First, install required packages according to passes.
-
-```bash
-olive run --config clip_vit_b32_laion2b_s34B_b79k_context_ov_static.json --setup
-```
-
-Then, optimize the model
+Optimize the model
 
 ```bash
 olive run --config clip_vit_b32_laion2b_s34B_b79k_context_ov_static.json
