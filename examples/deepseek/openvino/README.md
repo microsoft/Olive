@@ -19,7 +19,7 @@ The workflow in Config file: [DeepSeek-R1-Distill-Qwen-1.5B_context_ov_dynamic_s
 Install the necessary python packages:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install olive-ai[openvino]
 ```
 
 ### Run sample using config
