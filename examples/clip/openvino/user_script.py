@@ -104,7 +104,9 @@ def conceptual_captions_dataset(opt_init_steps=200, max_train_samples=1000, **kw
     dataset = load_dataset("google-research-datasets/conceptual_captions", trust_remote_code=True)
     model_path = kwargs.get("model_path")
     if not model_path:
-        raise ValueError("The 'model_path' parameter is required in data_configs.load_dataset_config but was not provided.")
+        raise ValueError(
+            "The 'model_path' parameter is required in data_configs.load_dataset_config but was not provided."
+        )
     model = CLIPModel.from_pretrained(model_path)
     processor = CLIPProcessor.from_pretrained(model_path)
     max_length = model.config.text_config.max_position_embeddings
