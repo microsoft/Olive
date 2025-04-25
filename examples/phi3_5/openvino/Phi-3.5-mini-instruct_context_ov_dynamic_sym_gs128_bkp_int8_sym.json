@@ -1,0 +1,38 @@
+{
+    "input_model": { "type": "HfModel", "model_path": "microsoft/Phi-3.5-mini-instruct" },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "execution_providers": [ "OpenVINOExecutionProvider" ] } ]
+        }
+    },
+    "data_configs": [  ],
+    "passes": {
+        "optimum_convert": {
+            "type": "OpenVINOOptimumConversion",
+            "extra_args": { "device": "npu" },
+            "ov_quant_config": {
+                "weight_format": "int4",
+                "group_size": 128,
+                "dataset": "wikitext2",
+                "ratio": 1,
+                "awq": true,
+                "scale_estimation": true,
+                "sym": true,
+                "trust_remote_code": true,
+                "backup_precision": "int8_sym"
+            }
+        },
+        "io_update": { "type": "OpenVINOIoUpdate", "static": false },
+        "encapsulation": {
+            "type": "OpenVINOEncapsulation",
+            "target_device": "npu",
+            "keep_ov_dynamic_dims": true,
+            "ov_version": "2025.1"
+        }
+    },
+    "search_strategy": false,
+    "host": "local_system",
+    "evaluate_input_model": false,
+    "output_dir": "models/Phi-3.5-mini-instruct_context_ov_dynamic_sym_gs128_bkp_int8_sym"
+}

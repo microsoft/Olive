@@ -154,7 +154,21 @@ Olive will run the AOT compilation step in the **AOT Compilation Python Environm
 
 The optimized model can be used for inference using ONNX Runtime QNNExecutionProvider and ONNX Runtime GenAI. **Inference must be run on a Windows Copilot+ PC with a Qualcomm NPU.**
 
-#### **Install Required Packages (arm64 Python)**
+#### **Install Dependencies**
+1. Visual Studio Build Tools with the following individual components
+   1. Compilers, build tools, and runtimes
+      * C++ Universal Windows Platform support for v143 build tools (ARM64/ARM64EC)
+      * MSVC v143 - VS 2022 C++ ARM64/ARM64EC build tools (Latest)
+   2. SDKs, libraries, and frameworks
+      * C++ ATL for latest v143 build tools (ARM64/ARM64EC)
+      * C++ MFC for latest v143 build tools (ARM64/ARM64EC)
+
+2. Python ARM64 (version 3.11 or 3.12)
+3. NPU driver version 30.0.140.1000 or higher
+
+#### **Install Required Python Packages**
+
+Open ARM64 Native Tools Command Prompt for VS2022 and run the following commands:
 
 ```bash
 pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
@@ -164,7 +178,7 @@ pip install "onnxruntime-genai>=0.7.0rc2"
 
 #### **Run Console-Based Chat Interface**
 
-Execute the provided [`app.py`](app.py) script:
+Open ARM64 Native Tools Command Prompt for VS2022 and execute the provided [`app.py`](app.py) script:
 
 ```bash
 python app.py

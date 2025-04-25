@@ -1,6 +1,6 @@
 numpy
 onnx
-onnxscript>=0.2.4
+onnxscript>=0.2.5
 optuna
 pandas
 pydantic
