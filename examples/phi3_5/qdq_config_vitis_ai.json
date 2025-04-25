@@ -52,7 +52,9 @@
             "save_as_external_data": true
         },
         "sp": { "type": "SplitModel" },
-        "st": { "type": "StaticLLM", "batch_size": 1, "context_length": 64 }
+        "st": { "type": "StaticLLM", "batch_size": 1, "context_length": 64 },
+        "p": {"type": "VitisAIAddProviderGenAIConfig",
+                "provider_options":{"log_level":"info"}}
     },
     "log_severity_level": 1,
     "output_dir": "models/phi3_5_qdq",

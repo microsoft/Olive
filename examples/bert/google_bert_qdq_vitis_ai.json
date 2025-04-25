@@ -65,7 +65,14 @@
             "type": "OnnxStaticQuantization",
             "data_config": "xnli",
             "activation_type": "uint16",
-            "precision": "uint8"
+            "weight_type": "uint8"
+        },
+        "addmetadata":{
+            "type":"VitisAIAddMetaData",
+            "config_meta_data_keys":["architectures", "model_type"],
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8",
+            "quant_type": "OnnxStaticQuantization"
         }
     },
     "evaluator": "common_evaluator",

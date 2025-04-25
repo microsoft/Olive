@@ -123,62 +123,11 @@ class VitisAIAddProviderGenAIConfig(Pass):
         output_model_path: str
     ) -> CompositeModelHandler:
         """Main entry point for the pass execution."""
-        provider_options=config.provider_options
-        session_options= {
-            "log_id": "onnxruntime-genai",
-            "provider_options": [{"VitisAI": provider_options}],
-            "graph_optimization_level": "ORT_ENABLE_ALL",
-        }
-        # print(model)
-        
-        # pipeline = {
-        #     "embeddings": model.model_component_names[0],
-        #     "context": model.model_component_names[1:-1],
-        #     "iterator": model.model_component_names[1:-1],
-        #     "lm_head": model.model_component_names[-1],
-        # }
-        # def process_context_iterator(component_models, llm_pipeline, output_dir):
-        #     new_groups = {
-        #         "context": {},
-        #         "iterator": {},
-        #     }
-        #     is_split = len(llm_pipeline["context"]) > 1
-        #     for idx, component_name in enumerate(llm_pipeline["context"]):
-        #         suffix = f"_{idx}" if is_split else ""
-
-        #         # resave the model with external data
-        #         intermediate_model_path = output_dir / f"transformer{suffix}.onnx"
-        #         resave_model(
-        #             component_models[component_name].model_path, intermediate_model_path, force_external_data=True
-        #         )
-
-        #         for key in ["context","iterator"]:
-        #             new_component_name = f"{key}{suffix}"
-
-        #             component_proto = onnx.load(intermediate_model_path, load_external_data=False)
-
-        #             # save the model with fixed shapes
-        #             component_model_path = output_dir / f"{new_component_name}.onnx"
-        #             onnx.save_model(component_proto, component_model_path)
-        #             new_groups[key][new_component_name] = ONNXModelHandler(
-        #                 model_path=output_dir, onnx_file_name=component_model_path.name
-        #             )
-
-        #         # delete the intermediate model
-        #         intermediate_model_path.unlink()
-
-        #     return new_groups
-        # return process_llm_pipeline(model,pipeline,process_context_iterator,output_model_path,group_session_options=session_options)
-
-
-                
+    
         model_components_list = list(model.model_components)
         model_path = model_components_list[0].model_path
-        breakpoint()
         genai_config_path = Path(model_path).parent / "genai_config.json"
-        print(genai_config_path)
         ouput_genai_config_path=Path(os.path.join(output_model_path,'genai_config.json'))
-        print(ouput_genai_config_path)
 
         
         if not genai_config_path.exists():
@@ -193,7 +142,6 @@ class VitisAIAddProviderGenAIConfig(Pass):
             self._write_config(ouput_genai_config_path, updated_config)
         except Exception as e:
             raise
-
         return model
 
     def _update_genai_config(

@@ -77,6 +77,13 @@
             "precision": "uint8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
+        },
+        "addmetadata":{
+            "type":"VitisAIAddMetaData",
+            "config_meta_data_keys":["architectures","model_type"],
+            "activation_type": "QUInt16",
+            "weight_type": "QUInt8",
+            "quant_type": "OnnxQuantization"
         }
     },
     "evaluator": "common_evaluator",
