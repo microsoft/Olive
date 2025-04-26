@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional,List
 
 import onnx
 
@@ -46,8 +46,6 @@ class VitisAIAddMetaData(Pass):
         model_details = model.model_attributes
         config_meta_data_keys = config.config_meta_data_keys
 
-        # Verify required keys exist
-        missing_keys = [key for key in config_meta_data_keys if key not in model_details]
 
         def get_attribute(key: str) -> Optional[str]:
             value = model_details.get(key)
@@ -114,61 +112,59 @@ class VitisAIAddProviderGenAIConfig(Pass):
             )
         }
 
-    def _run_for_config(
-        self, model: CompositeModelHandler, config: BasePassConfig, output_model_path: str
-    ) -> CompositeModelHandler:
-        """Main entry point for the pass execution."""
-        model_components_list = list(model.model_components)
-        model_path = model_components_list[0].model_path
-        genai_config_path = Path(model_path).parent / "genai_config.json"
-        ouput_genai_config_path = Path(os.path.join(output_model_path, "genai_config.json"))
+    # def _run_for_config(
+    #     self, model: CompositeModelHandler, config: BasePassConfig, output_model_path: str
+    # ) -> CompositeModelHandler:
+        
+    #     session_options = self._create_session_options(provider_options=config.provider_options or {})
+    #     assert isinstance(model, CompositeModelHandler), "VitisAIAddProviderGenAIConfig pass only supports CompositeModelHandler"
+    #     model_components = list(model.model_components)
+    #     assert all(isinstance(m, ONNXModelHandler) for m in model_components), "All components must be ONNXModelHandler"
+    #     assert len(model_components) >= 3, (
+    #         "There should be at least 3 components in the model: embedding, transformer, and lm_head."
+    #     )
 
-        if not genai_config_path.exists():
-            print("genai-config not present")
-            return model
+        
 
-        try:
-            updated_config = self._update_genai_config(
-                genai_config_path=genai_config_path, provider_options=config.provider_options
-            )
-            self._write_config(ouput_genai_config_path, updated_config)
-        except Exception:
-            raise
-        return model
+    #     output_model_path = Path(output_model_path).with_suffix("")
 
-    def _update_genai_config(self, genai_config_path: Path, provider_options: Optional[Dict] = None) -> Dict:
-        """Update and return the modified GenAI configuration."""
-        config = self._read_config(genai_config_path)
-        pipeline_config = self._get_pipeline_config(config)
+    #     pipeline = {
+    #         "embeddings": model.model_component_names[0],
+    #         "context": model.model_component_names[1],
+    #         "iterator": model.model_component_names[-2],
+    #         "lm_head": model.model_component_names[-1],
+    #     }
+    #     def process_context_iterator(model_components,llm_pipeline, output_dir):
+    #         print(llm_pipeline)
+    #         # llm_pipeline : {'embeddings': 'embeddings', 'context': 'context', 'iterator': 'iterator', 'lm_head': 'lm_head'}
+    #         """Save context/iterator models directly to output directory"""
+    #         output_dir = Path(output_dir)
+    #         print(output_dir)
+    #         print(model_components)
+    #         #model components {'embeddings': <olive.model.handler.onnx.ONNXModelHandler object at 0x00000183EEDCB4C0>, 'context': <olive.model.handler.onnx.ONNXModelHandler object at 0x00000183EED91C30>, 'iterator': <olive.model.handler.onnx.ONNXModelHandler object at 0x00000183EED90EE0>, 'lm_head': <olive.model.handler.onnx.ONNXModelHandler object at 0x00000183EED0C160>}
+            
+    #         # Extract specific components using their known positions
+    #         context_model = model_components['context']  # 2nd component
+    #         iterator_model = model_components['iterator']  # 3rd component
 
-        session_options = self._create_session_options(provider_options=provider_options or {})
+    #         # Save context model
+    #         context_path = output_dir / "context.onnx"
+    #         resave_model(context_model.model_path, context_path, force_external_data=True)
+            
+    #         # Save iterator model
+    #         iterator_path = output_dir / "iterator.onnx"
+    #         resave_model(iterator_model.model_path, iterator_path, force_external_data=True)
 
-        for component in ["context", "iterator"]:
-            if component not in pipeline_config:
-                raise KeyError(f"Missing required pipeline component: {component}")
-            pipeline_config[component]["session_options"] = session_options
+    #         return {
+    #             "context":{"context": ONNXModelHandler(model_path=output_dir, onnx_file_name="context.onnx")},
+    #             "iterator":{"iterator": ONNXModelHandler(model_path=output_dir, onnx_file_name="iterator.onnx")}
+    #         }
 
-        return config
+       
 
-    def _read_config(self, config_path: Path) -> Dict:
-        """Read and validate base configuration structure."""
-        with config_path.open("r") as f:
-            config = json.load(f)
-
-        if not config.get("model", {}).get("decoder", {}).get("pipeline"):
-            raise ValueError("Invalid GenAI config structure - missing decoder/pipeline")
-
-        return config
-
-    def _get_pipeline_config(self, config: Dict) -> Dict:
-        """Extract and validate pipeline configuration."""
-        pipeline = config["model"]["decoder"]["pipeline"]
-
-        if not isinstance(pipeline, list) or len(pipeline) < 1:
-            raise ValueError("Invalid pipeline configuration")
-
-        return pipeline[0]
-
+    #     return process_llm_pipeline(
+    #         model, pipeline, process_context_iterator, output_model_path,group_session_options=session_options
+    #     )
     def _create_session_options(self, provider_options: Dict) -> Dict:
         """Create standardized session options with VitisAI provider."""
         return {
@@ -176,8 +172,87 @@ class VitisAIAddProviderGenAIConfig(Pass):
             "provider_options": [{"VitisAI": provider_options}],
             "graph_optimization_level": "ORT_ENABLE_ALL",
         }
+    
 
-    def _write_config(self, config_path: Path, config: Dict):
-        """Write updated configuration back to file."""
-        with config_path.open("w") as f:
-            json.dump(config, f, indent=2)
+    def _run_for_config(
+        self, 
+        model: CompositeModelHandler, 
+        config: BasePassConfig, 
+        output_model_path: str
+    ) -> CompositeModelHandler:
+        
+        # Validate input model 
+        assert isinstance(model, CompositeModelHandler), "Requires CompositeModelHandler"
+        model_components = list(model.model_components)
+        assert all(isinstance(m, ONNXModelHandler) for m in model_components), "All components must be ONNX"
+        assert len(model_components) >= 3, "Need at least embedding, transformer, and lm_head components"
+
+        # Configure session and output paths
+        session_options = self._create_session_options(provider_options=config.provider_options or {})
+        output_path = Path(output_model_path).with_suffix("")
+
+        # Define pipeline configuration using model component metadata
+        pipeline = self._create_pipeline_config(model)
+
+        # Process context and iterator
+        return self._process_pipeline(
+            model,
+            pipeline,
+            output_path,
+            session_options
+        )
+
+    def _create_pipeline_config(self, model: CompositeModelHandler) -> Dict:
+        """Create dynamic pipeline configuration based on component metadata"""
+        return {
+            "embeddings": model.model_component_names[0],
+            "context": self._get_component_group(model, "context"),
+            "iterator": self._get_component_group(model, "iterator"),
+            "lm_head": model.model_component_names[-1]
+        }
+
+    def _get_component_group(self, model: CompositeModelHandler, pattern: str) -> List[str]:
+        """Identify components by naming pattern or position"""
+        # Example implementation - adjust based on your actual naming conventions
+        return [name for name in model.model_component_names if pattern in name.lower()]
+
+    def _process_pipeline(
+        self,
+        model: CompositeModelHandler,
+        pipeline: Dict[str, List[str]],
+        output_dir: Path,
+        session_options: dict
+    ) -> CompositeModelHandler:
+        """Generic pipeline processor with multiple component support"""
+        
+        def component_processor(model_components: Dict, llm_pipeline: Dict, output_dir: Path) -> Dict:
+            """Handle multiple context/iterator components with automatic naming"""
+            processed = {"context": {}, "iterator": {}}
+            
+            for group in ["context", "iterator"]:
+                for idx, comp_name in enumerate(llm_pipeline[group]):
+                    # Generate filename preserving original component identity
+                    base_name = f"{group}_{comp_name.split('_')[-1]}" if '_' in comp_name else group
+                    fname = f"{base_name}_{idx}.onnx"
+                    dest_path = output_dir / fname
+                    
+                    # Process and save component
+                    resave_model(
+                        model_components[comp_name].model_path,
+                        dest_path,
+                        force_external_data=True
+                    )
+                    
+                    processed[group][fname] = ONNXModelHandler(
+                        model_path=output_dir,
+                        onnx_file_name=fname
+                    )
+            
+            return processed
+        return process_llm_pipeline(
+            model,
+            pipeline,
+            component_processor,
+            output_dir,
+            group_session_options=session_options
+        )
