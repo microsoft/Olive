@@ -6,7 +6,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Optional, Type, Union
+from typing import Dict, Optional, Union
 
 import onnx
 

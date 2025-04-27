@@ -1,6 +1,7 @@
+from collections import OrderedDict
 from functools import lru_cache
 from random import Random
-from typing import Dict, OrderedDict
+from typing import Dict
 
 import numpy as np
 import torch
