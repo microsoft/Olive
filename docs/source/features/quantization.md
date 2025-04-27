@@ -171,9 +171,7 @@ Olive consolidates the Quark quantization into a single pass called QuarkQuantiz
     "type": "QuarkQuantization",
     "data_config": "calib_data",
     "config_template": "XINT8",
-    "enable_npu_transformer": true,
     "extra_options": {
-        "OpTypesToExcludeOutputQuantization": ["MatMul", "Gemm"],
         "ActivationSymmetric": true
     }
 }
