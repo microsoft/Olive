@@ -165,7 +165,7 @@ def get_ort_inference_session(
             install_dir = Path(os.environ["RYZEN_AI_INSTALLATION_PATH"])
             provider_options[idx]["config_file"] = str(install_dir / "voe-4.0-win_amd64" / "vaip_config.json")
             provider_options[idx]["cacheDir"] = str(cache.dirs.cache_dir)
-            provider_options[idx]["cacheKey"] = str(cache.dirs.vitis_ai.name)
+            provider_options[idx]["cacheKey"] = str(cache.dirs.evaluations / "temp_model_cache")
     logger.debug("Normalized providers: %s, provider_options: %s", providers, provider_options)
 
     # dml specific settings

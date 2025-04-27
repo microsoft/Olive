@@ -40,7 +40,6 @@ class CacheSubDirs:
     evaluations: Path
     resources: Path
     mlflow: Path
-    vitis_ai: Path
 
     @classmethod
     def from_cache_dir(cls, cache_dir: Path) -> "CacheSubDirs":
@@ -50,7 +49,6 @@ class CacheSubDirs:
             evaluations=cache_dir / "evaluations",
             resources=cache_dir / "resources",
             mlflow=cache_dir / "mlflow",
-            vitis_ai=cache_dir / "vitis_ai",
         )
 
 
