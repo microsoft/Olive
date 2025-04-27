@@ -587,15 +587,15 @@
             "extra_dependencies": [ "onnxscript" ]
         },
         "VitisAIAddMetaData": {
-            "module_path": "olive.passes.onnx.vitis_ai.add_meta_data.VitisAIAddMetaData",
+            "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIAddMetaData",
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
-        "VitisAIAddProviderGenAIConfig": {
-            "module_path": "olive.passes.onnx.vitis_ai.add_meta_data.VitisAIAddProviderGenAIConfig",
+        "VitisAIUpdateGenAIProviderOpts": {
+            "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIUpdateGenAIProviderOpts",
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "*" ],
