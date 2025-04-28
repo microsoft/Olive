@@ -83,7 +83,7 @@
             "config_meta_data_keys": [ "architectures", "model_type" ],
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
-            "quant_type": "OnnxQuantization"
+            "quant_type": "OnnxStaticQuantization"
         }
     },
     "evaluator": "common_evaluator",
