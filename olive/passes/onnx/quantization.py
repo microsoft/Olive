@@ -858,10 +858,10 @@ class OnnxMatMul4Quantizer(Pass):
 
         # TODO(team): Implement our own MatMulNBitsQuantizer
         if config.algorithm == Algorithm.HQQ:
-            kwargs["algo_config"]["bits"] = config.bits
+            kwargs["algo_config"].bits = config.bits
             quant.node_quantizer = HQQWeightOnlyQuantizer(kwargs["algo_config"])
         elif config.algorithm == Algorithm.DEFAULT:
-            kwargs["algo_config"]["bits"] = config.bits
+            kwargs["algo_config"].bits = config.bits
             quant.node_quantizer = DefaultWeightOnlyQuantizer(kwargs["algo_config"])
 
         quant.process()
