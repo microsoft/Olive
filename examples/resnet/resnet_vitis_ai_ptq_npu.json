@@ -19,11 +19,7 @@
             "all_tensors_to_one_file": true,
             "use_dynamo_exporter": false
         },
-        "quantization": {
-            "type": "QuarkQuantization",
-            "data_config": "calib_data",
-            "config_template": "XINT8"
-        }
+        "quantization": { "type": "QuarkQuantization", "data_config": "calib_data", "config_template": "XINT8" }
     },
     "systems": {
         "host_system": {

@@ -6,7 +6,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 import onnx
 
@@ -41,7 +41,7 @@ quark_quantization_config = {
         description="Quark configuration template to apply in quantization.",
     ),
     "data_config": PassConfigParam(
-        type_=Optional[Union[DataConfig, Dict]],
+        type_=Optional[Union[DataConfig, dict]],
         default_value=None,
         required=True,
         description="Data config for calibration.",

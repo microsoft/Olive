@@ -1,7 +1,6 @@
 from collections import OrderedDict
 from functools import lru_cache
 from random import Random
-from typing import Dict
 
 import numpy as np
 import torch
@@ -76,7 +75,7 @@ def image_pre_process(
 
 @Registry.register_post_process()
 def image_post_process(output):
-    if isinstance(output, (Dict, OrderedDict)):
+    if isinstance(output, (dict, OrderedDict)):
         return output["logits"].argmax(dim=-1)
     elif isinstance(output, torch.Tensor):
         return output.argmax(dim=-1)
