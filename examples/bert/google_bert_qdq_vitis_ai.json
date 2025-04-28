@@ -76,7 +76,7 @@
         }
     },
     "evaluator": "common_evaluator",
-    "cache_dir": "cache",
-    "output_dir": "models/google_bert",
-    "log_severity_level": 0
+    "cache_dir": "cache/google_bert",
+    "clean_cache": false,
+    "output_dir": "models/google-bert-bert-base-multilingual-cased"
 }

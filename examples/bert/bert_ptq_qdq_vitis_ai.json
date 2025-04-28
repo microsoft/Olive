@@ -87,6 +87,7 @@
         }
     },
     "evaluator": "common_evaluator",
-    "cache_dir": "cache",
-    "output_dir": "models/bert_ptq_qdq_with_Gelu"
+    "cache_dir": "cache/intel_bert",
+    "clean_cache": false,
+    "output_dir": "models/intel-bert-base-uncased-mrpc"
 }

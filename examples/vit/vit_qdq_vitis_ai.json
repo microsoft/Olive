@@ -87,5 +87,7 @@
         }
     },
     "evaluator": "common_evaluator",
-    "output_dir": "models/vit-base-patch16-224_Gelu"
+    "cache_dir": "cache/vit",
+    "clean_cache": false,
+    "output_dir": "models/vit-base-patch16-224"
 }
