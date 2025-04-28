@@ -1,9 +1,11 @@
 import logging
 from typing import Optional
+
 import numpy as np
 import numpy.typing as npt
-from onnx import GraphProto, NodeProto, TensorProto
 import onnx
+from onnx import GraphProto, NodeProto, TensorProto
+
 from olive.passes.onnx.matmul_quant.utils import MSFT_DOMAIN, Algorithm, OpType, WeightOnlyQuantConfig, get_initializer
 
 logger = logging.getLogger(__name__)
@@ -19,8 +21,7 @@ class DefaultWeightOnlyQuantConfig(WeightOnlyQuantConfig):
         op_types_to_quantize: Optional[tuple[str, ...]] = None,
         quant_axes: Optional[tuple[tuple[str, int], ...]] = None,
     ):
-        """
-        This is a class for weight only affine quantization configuration.
+        """This is a class for weight only affine quantization configuration.
 
         Args:
             block_size (int, optional):
@@ -39,6 +40,7 @@ class DefaultWeightOnlyQuantConfig(WeightOnlyQuantConfig):
                 set of operator types to quantize.
             quant_axes (dict[str, int], optional):
                 op:axis, which axis to quantize for an op. Default {MatMul: 0, Gather: 1}
+
         """
         from onnxruntime.quantization import QuantFormat
 
@@ -54,16 +56,14 @@ class DefaultWeightOnlyQuantConfig(WeightOnlyQuantConfig):
         self.accuracy_level = accuracy_level
 
 
-
 class DefaultWeightOnlyQuantizer:
     def __init__(self, config: DefaultWeightOnlyQuantConfig):
         self.config = config
 
     def qbits_block_quant(self, fp32weight: npt.ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """4b/8b quantize fp32 weight to int4 using C++ kernels."""
-        
-        from onnxruntime.quantization import QuantFormat
         from onnxruntime.capi._pybind_state import quantize_matmul_4bits, quantize_qdq_matmul_4bits
+        from onnxruntime.quantization import QuantFormat
 
         qbits = self.config.bits
         kpack = 8 // qbits
@@ -86,8 +86,8 @@ class DefaultWeightOnlyQuantizer:
             zero_point = np.zeros(cols * ((k_blocks + kpack - 1) // kpack), dtype="uint8")
             scales = np.zeros((cols * k_blocks), dtype=fp32weight.dtype)
             if qbits == 8:
-                from packaging import version
                 from onnxruntime import __version__ as OrtVersion
+                from packaging import version
 
                 if version.parse(OrtVersion) > version.parse("1.21.0"):
                     from onnxruntime.capi._pybind_state import quantize_matmul_8bits
@@ -114,13 +114,11 @@ class DefaultWeightOnlyQuantizer:
         return (packed, scales, zero_point)
 
     def quantize_matmul(self, node: NodeProto, graph_stack: list[GraphProto]) -> list[NodeProto]:
-        """
-        Quantize weight B of MatMul node to int4 or int8.
+        """Quantize weight B of MatMul node to int4 or int8.
         Currently only support 2D constant matrix and axis 0 blockwise quantization.
         """
-
         from onnxruntime.quantization import QuantFormat
-        
+
         bits = self.config.bits
         if bits == 8:
             qtype = TensorProto.INT8 if self.config.is_symmetric else TensorProto.UINT8
@@ -148,9 +146,9 @@ class DefaultWeightOnlyQuantizer:
             )
             scales_tensor = onnx.numpy_helper.from_array(scales, b_tensor.name + "_DQ_scales")
 
-        for input in b_graph.input:
-            if input.name == input_b:
-                b_graph.input.remove(input)
+        for graph_input in b_graph.input:
+            if graph_input.name == input_b:
+                b_graph.input.remove(graph_input)
                 break
 
         b_graph.initializer.extend([b_quant, scales_tensor])
@@ -267,6 +265,7 @@ class DefaultWeightOnlyQuantizer:
 
         data_reshape = data.reshape((m, k, n))
         scales = np.zeros((m, k_blocks, n), dtype=data.dtype)
+        zero_point_int8 = None
         if is_symmetric:
             quant_data_int8 = np.zeros((m, k, n), dtype="int8")
         else:
@@ -276,13 +275,14 @@ class DefaultWeightOnlyQuantizer:
         # slice and quantize
         for i in range(0, k, block_size):
             end_idx = min(i + block_size, k)
-            slice = data_reshape[:, i:end_idx, :]
+            block_slice = data_reshape[:, i:end_idx, :]
+            zero_point_slice_int8 = None
 
             if is_symmetric:
-                quantized_slice_int8, scale_slice = DefaultWeightOnlyQuantizer.quant_slice_symmetric(slice)
+                quantized_slice_int8, scale_slice = DefaultWeightOnlyQuantizer.quant_slice_symmetric(block_slice)
             else:
                 quantized_slice_int8, scale_slice, zero_point_slice_int8 = (
-                    DefaultWeightOnlyQuantizer.quant_slice_asymmetric(slice)
+                    DefaultWeightOnlyQuantizer.quant_slice_asymmetric(block_slice)
                 )
 
             quant_data_int8[:, i:end_idx, :] = quantized_slice_int8
@@ -301,7 +301,6 @@ class DefaultWeightOnlyQuantizer:
 
     def quantize_gather(self, node: NodeProto, graph_stack: list[GraphProto]) -> list[NodeProto]:
         """Quantize weight data of Gather node to int4."""
-
         from onnxruntime.quantization import QuantFormat
 
         assert self.config.quant_format == QuantFormat.QOperator, "Gather only supports QOperator format currently."
@@ -314,11 +313,11 @@ class DefaultWeightOnlyQuantizer:
             return [node]  # only care about constant weight
 
         data_ndarray = onnx.numpy_helper.to_array(data_tensorproto)
-        data_rank = len(data_ndarray.shape)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+        data_rank = len(data_ndarray.shape)
         quantize_axis = self.config.quant_axes.get("Gather", 1)
         block_size = self.config.block_size
 
-        assert quantize_axis < data_rank and quantize_axis >= -data_rank, "Invalid quantize axis for Gather node."
+        assert -data_rank <= quantize_axis < data_rank, "Invalid quantize axis for Gather node."
         assert block_size >= 16 and ((block_size - 1) & block_size == 0), "Invalid block size for Gather node."
 
         quantize_axis = (quantize_axis + data_rank) % data_rank
@@ -326,9 +325,9 @@ class DefaultWeightOnlyQuantizer:
             data_ndarray, quantize_axis, block_size, self.config.is_symmetric
         )
 
-        for input in data_graphproto.input:
-            if input.name == data_arg:
-                data_graphproto.input.remove(input)
+        for graph_input in data_graphproto.input:
+            if graph_input.name == data_arg:
+                data_graphproto.input.remove(graph_input)
                 break
 
         quantized_data_tensorproto = onnx.helper.make_tensor(
@@ -367,8 +366,7 @@ class DefaultWeightOnlyQuantizer:
         return [gather_q4_node]
 
     def quantize(self, node: NodeProto, graph_stack: list[GraphProto]) -> list[NodeProto]:
-        """
-        Target node:        QOperator node:            QDQ nodes:
+        """Target node:        QOperator node:            QDQ nodes:
         MatMul              MatMulNBits                DeQuantizeLinear -> MatMul
         Gather              GatherBlockQuantized       Gather, Gather, Gather (optional) -> DequantizeLinear
         If the node is target node with fp32 or fp16 const weight, quantize the weight to int4 and
@@ -380,7 +378,7 @@ class DefaultWeightOnlyQuantizer:
         """
         from onnxruntime.quantization import QuantFormat
 
-        logger.info(f"start to quantize {node.name} ...")
+        logger.info("start to quantize %s ...", node.name)
 
         bits = self.config.bits
         if node.op_type == "MatMul":
@@ -395,8 +393,8 @@ class DefaultWeightOnlyQuantizer:
 
             results = self.quantize_gather(node, graph_stack)
         else:
-            logger.error(f"Unsupported operator {node.op_type} for weight only quantization. Skip quantization.")
+            logger.error("Unsupported operator %s for weight only quantization. Skip quantization.", node.op_type)
             return [node]
 
-        logger.info(f"complete quantization of {node.name} with {self.config.bits} bits ...")
+        logger.info("complete quantization of %s with %s bits ...", node.name, self.config.bits)
         return results

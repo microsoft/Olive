@@ -1,12 +1,14 @@
 import logging
+
 import numpy as np
-from onnx import GraphProto, NodeProto, TensorProto
-import torch
 import onnx
+import torch
+from onnx import GraphProto, NodeProto
 
 from olive.passes.onnx.matmul_quant.utils import MSFT_DOMAIN, Algorithm, OpType, WeightOnlyQuantConfig, get_initializer
 
 logger = logging.getLogger(__name__)
+
 
 class HQQWeightOnlyQuantConfig(WeightOnlyQuantConfig):
     def __init__(
@@ -17,8 +19,7 @@ class HQQWeightOnlyQuantConfig(WeightOnlyQuantConfig):
         op_types_to_quantize: tuple[str, ...] | None = None,
         quant_axes: tuple[tuple[str, int], ...] | None = None,
     ):
-        """
-        This is a class for HQQ algorithm Weight Only Quant Configuration.
+        """This is a class for HQQ algorithm Weight Only Quant Configuration.
         HQQ algorithm quant weight without needing calibrate data.
 
         Args:
@@ -32,6 +33,7 @@ class HQQWeightOnlyQuantConfig(WeightOnlyQuantConfig):
                 set of operator types to quantize.
             quant_axes (dict[str, int], optional):
                 op:axis, which axis to quantize for an op. Default {MatMul: 0, Gather: 1}
+
         """
         from onnxruntime.quantization import QuantFormat
 
@@ -45,11 +47,11 @@ class HQQWeightOnlyQuantConfig(WeightOnlyQuantConfig):
         self.bits = bits
         self.axis = axis
 
+
 class HQQWeightOnlyQuantizer:
-    """
-    HQQ Quantizer class for quantizing ONNX models.
+    """HQQ Quantizer class for quantizing ONNX models.
     This class is a placeholder for the actual implementation of HQQ quantization.
-    
+
     HQQ only supports QOperator format
     """
 
@@ -81,7 +83,7 @@ class HQQWeightOnlyQuantizer:
 
         def shrink_op(x, beta, p=lp_norm):
             if p == 1:
-                 # Formula: sign(x) * max(abs(x) - 1/beta, 0)
+                # Formula: sign(x) * max(abs(x) - 1/beta, 0)
                 return torch.sign(x) * torch.nn.functional.relu(torch.abs(x) - 1.0 / beta)
             else:
                 # Formula: sign(x) * max(abs(x) - (1/beta) * abs(x)^(p-1), 0)
@@ -125,8 +127,6 @@ class HQQWeightOnlyQuantizer:
     def quantize_internal(
         self, tensor, bits=4, channel_wise=True, group_size=64, optimize=True, round_zero=True, axis=1
     ):
-        import torch
-
         weight = tensor.float()
         ori_shape = weight.shape
 
@@ -187,9 +187,8 @@ class HQQWeightOnlyQuantizer:
         return w_q, scale.to(tensor.dtype), zero.to(tensor.dtype)
 
     def quantize(self, node: NodeProto, graph_stack: list[GraphProto]) -> list[NodeProto]:
-        """
-        Target node:        QOperator node:    
-        MatMul              MatMulNBits             
+        """Target node:        QOperator node:
+        MatMul              MatMulNBits
         If the node is target node with fp32 or fp16 const weight, quantize the weight to int4 and
         return the new nodes.
         Return the corresponding QOperator nodes.
@@ -198,9 +197,7 @@ class HQQWeightOnlyQuantizer:
         if node.op_type == "Gather":
             raise NotImplementedError("Gather quantization is not supported yet in HQQ")
 
-        import torch
-
-        logger.info(f"start to quantize {node.name} ...")
+        logger.info("start to quantize %s ...", node.name)
         input_b = node.input[1]
         b_pb, bs_graph = get_initializer(input_b, graph_stack)
         if b_pb is None:
@@ -240,9 +237,9 @@ class HQQWeightOnlyQuantizer:
 
         b_quant = onnx.numpy_helper.from_array(packed_torch.cpu().numpy())
         b_quant.name = b_pb.name + "_Q4"
-        for input in bs_graph.input:
-            if input.name == input_b:
-                bs_graph.input.remove(input)
+        for graph_input in bs_graph.input:
+            if graph_input.name == input_b:
+                bs_graph.input.remove(graph_input)
                 break
 
         scales_tensor = onnx.numpy_helper.from_array(scales)
@@ -271,6 +268,6 @@ class HQQWeightOnlyQuantizer:
             **kwargs,
         )
 
-        logger.info(f"complete quantization of {node.name} ...")
+        logger.info("complete quantization of %s ...", node.name)
 
         return [matmul_q4_node]

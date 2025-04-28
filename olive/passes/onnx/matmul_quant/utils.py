@@ -1,26 +1,30 @@
 from typing import TYPE_CHECKING
 
 from onnx import GraphProto, TensorProto
+
 from olive.common.utils import StrEnumBase
+
 if TYPE_CHECKING:
     from onnxruntime.quantization import QuantFormat
 
 MSFT_DOMAIN = "com.microsoft"
 
+
 class OpType(StrEnumBase):
-    """
-    Enum for operator types.
-    """
+    """Enum for operator types."""
+
     MatMulNBits = "MatMulNBits"
     MatMul = "MatMul"
     Gather = "Gather"
     GatherBlockQuantized = "GatherBlockQuantized"
 
+
 class Algorithm(StrEnumBase):
-        DEFAULT = "DEFAULT"
-        HQQ = "HQQ"
-        RTN = "RTN"
-        GPTQ = "GPTQ"
+    DEFAULT = "DEFAULT"
+    HQQ = "HQQ"
+    RTN = "RTN"
+    GPTQ = "GPTQ"
+
 
 def get_initializer(name, graph_path: list[GraphProto]) -> tuple[TensorProto, GraphProto]:
     for gid in range(len(graph_path) - 1, -1, -1):
@@ -52,6 +56,7 @@ class WeightOnlyQuantConfig:
             customized_weight_config:
                 customized weight config for nodes if needed.
                 If both customized_weight_config and nodes_to_exclude are set, nodes_to_exclude overwrites customized_weight_config.
+
         """
         self.algorithm = str(algorithm)
         self.quant_format = quant_format
