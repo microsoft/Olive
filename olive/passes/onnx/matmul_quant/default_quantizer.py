@@ -1,3 +1,7 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 import logging
 from typing import Optional
 
@@ -250,7 +254,7 @@ class DefaultWeightOnlyQuantizer:
         quantize_axis: int,
         block_size: int,
         is_symmetric: bool,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    ) -> Optional[tuple[np.ndarray, np.ndarray, np.ndarray]]:
         """Quantize ndarray data to int4 using numpy, return (quantized data, scales, zero points)."""
         # Get the shape of the matrix
         m = 1  # dimension of the matrix before the quantize axis

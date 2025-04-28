@@ -1,4 +1,9 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 import logging
+from typing import Optional
 
 import onnx
 import torch
@@ -15,8 +20,8 @@ class HQQWeightOnlyQuantConfig(WeightOnlyQuantConfig):
         block_size=128,
         bits=4,
         axis=1,
-        op_types_to_quantize: tuple[str, ...] | None = None,
-        quant_axes: tuple[tuple[str, int], ...] | None = None,
+        op_types_to_quantize: Optional[tuple[str, ...]] = None,
+        quant_axes: Optional[tuple[tuple[str, int], ...]] = None,
     ):
         """Configure HQQ Weight Only Quantization parameters.
 

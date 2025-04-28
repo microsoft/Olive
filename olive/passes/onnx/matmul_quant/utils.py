@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from onnx import GraphProto, TensorProto
 
@@ -40,9 +40,9 @@ class WeightOnlyQuantConfig:
         self,
         algorithm: Algorithm,
         quant_format: "QuantFormat",
-        op_types_to_quantize: tuple[str, ...] | None = None,
-        quant_axes: tuple[tuple[str, int], ...] | None = None,
-        customized_weight_config: dict | None = None,
+        op_types_to_quantize: Optional[tuple[str, ...]] = None,
+        quant_axes: Optional[tuple[tuple[str, int], ...]] = None,
+        customized_weight_config: Optional[dict] = None,
     ):
         """Configure Weight Only blockwise quantization parameters.
 
