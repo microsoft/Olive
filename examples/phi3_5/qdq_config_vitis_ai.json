@@ -57,10 +57,10 @@
             "type": "VitisAIAddMetaData",
             "config_meta_data_keys": [ "architectures", "model_type" ],
             "activation_type": "QUInt16",
-            "weight_type": "QUInt8",
-            "quant_type": "OnnxStaticQuantization"
+            "weight_type": "QUInt4",
+            "quant_type": "QuaRot"
         },
-        "p": { "type": "VitisAIUpdateGenAIProviderOpts", "provider_options": {  } }
+        "p": { "type": "VitisAIUpdateGenAIProviderOpts", "provider_options": {} }
     },
     "log_severity_level": 1,
     "output_dir": "models/phi3_5_qdq",
