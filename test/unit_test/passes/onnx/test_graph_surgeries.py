@@ -346,9 +346,9 @@ def test_expose_quantized_output(tmp_path):
     # Validate that the scale node and its initializer exist in the modified model
     assert any(node.name == scale_node_name for node in output_model.graph.node), "Scale node not added."
     scale_initializer = next(init for init in output_model.graph.initializer if init.name == scale_initializer_name)
-    assert np.allclose(
-        numpy_helper.to_array(scale_initializer), np.array([original_scale_value], dtype=np.float32)
-    ), "Scale value mismatch."
+    assert np.allclose(numpy_helper.to_array(scale_initializer), np.array([original_scale_value], dtype=np.float32)), (
+        "Scale value mismatch."
+    )
 
     # Validate that the zero_point node and its initializer exist in the modified model
     assert any(node.name == zero_point_node_name for node in output_model.graph.node), "Zero point node not added."
