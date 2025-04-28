@@ -14,7 +14,7 @@ from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.pydantic_v1 import validator
-from olive.common.utils import IntEnumBase, StrEnumBase, exclude_keys, hash_string
+from olive.common.utils import IntEnumBase, exclude_keys, hash_string
 from olive.data.config import DataConfig
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
@@ -27,6 +27,9 @@ from olive.passes.onnx.common import (
     model_proto_to_file,
     model_proto_to_olive_model,
 )
+from olive.passes.onnx.matmul_quant.default_quantizer import DefaultWeightOnlyQuantConfig, DefaultWeightOnlyQuantizer
+from olive.passes.onnx.matmul_quant.hqq_quantizer import HQQWeightOnlyQuantConfig, HQQWeightOnlyQuantizer
+from olive.passes.onnx.matmul_quant.utils import Algorithm
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile
 from olive.search.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
@@ -689,15 +692,14 @@ class OnnxMatMul4Quantizer(Pass):
         bf16 = 3
         int8 = 4
 
-    class Algorithm(StrEnumBase):
-        DEFAULT = "DEFAULT"
-        HQQ = "HQQ"
-        RTN = "RTN"
-        GPTQ = "GPTQ"
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
+            "bits": PassConfigParam(
+                type_=int,
+                default_value=4,
+                description="Number of bits for quantization. Supported values are 4 and 8. Default value is 4.",
+            ),
             "block_size": PassConfigParam(
                 type_=int,
                 default_value=32,
@@ -741,7 +743,7 @@ class OnnxMatMul4Quantizer(Pass):
                 ),
             ),
             "algorithm": PassConfigParam(
-                type_=OnnxMatMul4Quantizer.Algorithm,
+                type_=Algorithm,
                 default_value=None,
                 description=(
                     "The algorithm used to quantize weight. If None, the default algorithm is used with quant"
@@ -781,17 +783,13 @@ class OnnxMatMul4Quantizer(Pass):
 
         if version.parse(OrtVersion) > version.parse("1.21.1"):
             from onnxruntime.quantization.matmul_nbits_quantizer import (
-                DefaultWeightOnlyQuantConfig,
                 GPTQWeightOnlyQuantConfig,
-                HQQWeightOnlyQuantConfig,
                 MatMulNBitsQuantizer,
                 RTNWeightOnlyQuantConfig,
             )
         else:
             from onnxruntime.quantization.matmul_4bits_quantizer import (
-                DefaultWeightOnlyQuantConfig,
                 GPTQWeightOnlyQuantConfig,
-                HQQWeightOnlyQuantConfig,
                 RTNWeightOnlyQuantConfig,
             )
             from onnxruntime.quantization.matmul_4bits_quantizer import (
@@ -799,13 +797,13 @@ class OnnxMatMul4Quantizer(Pass):
             )
 
         algo_to_config = {
-            "DEFAULT": DefaultWeightOnlyQuantConfig,
-            "HQQ": HQQWeightOnlyQuantConfig,
-            "RTN": RTNWeightOnlyQuantConfig,
-            "GPTQ": GPTQWeightOnlyQuantConfig,
+            Algorithm.DEFAULT: DefaultWeightOnlyQuantConfig,
+            Algorithm.HQQ: HQQWeightOnlyQuantConfig,
+            Algorithm.RTN: RTNWeightOnlyQuantConfig,
+            Algorithm.GPTQ: GPTQWeightOnlyQuantConfig,
         }
 
-        if model_has_adapters(model.model_path) and config.algorithm not in {None, "DEFAULT"}:
+        if model_has_adapters(model.model_path) and config.algorithm not in {None, Algorithm.DEFAULT}:
             logger.info(
                 "Model has adapters which should only be quantized with algorithm=None or DEFAULT. Got %s. Returning"
                 " the model without quantization.",
@@ -844,13 +842,21 @@ class OnnxMatMul4Quantizer(Pass):
                 elif key in kwargs:
                     # get value from pass config
                     algo_config[key] = kwargs[key]
-            if config.algorithm == "GPTQ":
+            if config.algorithm == Algorithm.GPTQ:
                 algo_config["calibration_data_reader"] = get_calibration_dataloader(config)
+            algo_config["bits"] = config.bits
             kwargs["algo_config"] = woq_config_class(**algo_config)
         else:
             kwargs["algo_config"] = None
 
         quant = MatMulNBitsQuantizer(model.load_model(), **kwargs)
+
+        # TODO(team): Implement our own MatMulNBitsQuantizer
+        if config.algorithm == Algorithm.HQQ:
+            quant.node_quantizer = HQQWeightOnlyQuantizer(kwargs["algo_config"])
+        elif config.algorithm == Algorithm.DEFAULT:
+            quant.node_quantizer = DefaultWeightOnlyQuantizer(kwargs["algo_config"])
+
         quant.process()
         # topologically sort the graph at the end since previous optimizations may have broken it
         quant.model.topological_sort()
@@ -869,13 +875,13 @@ def _validate_weight_only_quant_config(v, values, field):
         v = {}
 
     config_keys = list(v.keys())
-    if values["algorithm"] == "DEFAULT":
+    if values["algorithm"] == Algorithm.DEFAULT:
         default_config_keys = ["block_size", "is_symmetric", "accuracy_level"]
-    elif values["algorithm"] == "RTN":
+    elif values["algorithm"] == Algorithm.RTN:
         default_config_keys = ["ratios"]
-    elif values["algorithm"] == "HQQ":
+    elif values["algorithm"] == Algorithm.HQQ:
         default_config_keys = ["block_size", "bits", "axis"]
-    elif values["algorithm"] == "GPTQ":
+    elif values["algorithm"] == Algorithm.GPTQ:
         default_config_keys = ["percdamp", "block_size", "actorder", "mse", "perchannel"]
     else:
         raise ValueError(f"Unsupported algorithm: {values['algorithm']}")
