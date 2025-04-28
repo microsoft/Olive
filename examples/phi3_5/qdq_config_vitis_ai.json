@@ -53,17 +53,17 @@
         },
         "sp": { "type": "SplitModel" },
         "st": { "type": "StaticLLM", "batch_size": 1, "context_length": 64 },
-        "p": { "type": "VitisAIUpdateGenAIProviderOpts", "provider_options": { "log_level": "info" } },
         "addmetadata": {
             "type": "VitisAIAddMetaData",
             "config_meta_data_keys": [ "architectures", "model_type" ],
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
             "quant_type": "OnnxStaticQuantization"
-        }
+        },
+        "p": { "type": "VitisAIUpdateGenAIProviderOpts", "provider_options": {  } }
     },
     "log_severity_level": 1,
     "output_dir": "models/phi3_5_qdq",
-    "cache_dir": "cache/phi3_5_cache",
+    "cache_dir": "cache/phi3_5",
     "no_artifacts": true
 }
