@@ -21,9 +21,11 @@ class DefaultWeightOnlyQuantConfig(WeightOnlyQuantConfig):
         op_types_to_quantize: Optional[tuple[str, ...]] = None,
         quant_axes: Optional[tuple[tuple[str, int], ...]] = None,
     ):
-        """This is a class for weight only affine quantization configuration.
+        """Configure Default Weight Only Quantization parameters.
 
         Args:
+            bits (int, optional):
+                number of bits for quantization.
             block_size (int, optional):
                 channel number in one block to execute an affine quantization iteration.
             is_symmetric (bool, optional):
@@ -115,6 +117,7 @@ class DefaultWeightOnlyQuantizer:
 
     def quantize_matmul(self, node: NodeProto, graph_stack: list[GraphProto]) -> list[NodeProto]:
         """Quantize weight B of MatMul node to int4 or int8.
+
         Currently only support 2D constant matrix and axis 0 blockwise quantization.
         """
         from onnxruntime.quantization import QuantFormat
@@ -318,7 +321,8 @@ class DefaultWeightOnlyQuantizer:
         block_size = self.config.block_size
 
         assert -data_rank <= quantize_axis < data_rank, "Invalid quantize axis for Gather node."
-        assert block_size >= 16 and ((block_size - 1) & block_size == 0), "Invalid block size for Gather node."
+        assert block_size >= 16, "Block size must be greater than or equal to 16."
+        assert (block_size & (block_size - 1)) == 0, "Block size must be a power of 2."
 
         quantize_axis = (quantize_axis + data_rank) % data_rank
         quantized_data, scales, zero_points = self.quantize_ndarray(
@@ -366,7 +370,9 @@ class DefaultWeightOnlyQuantizer:
         return [gather_q4_node]
 
     def quantize(self, node: NodeProto, graph_stack: list[GraphProto]) -> list[NodeProto]:
-        """Target node:        QOperator node:            QDQ nodes:
+        """Quantize the weight of the target node and return the new nodes.
+
+        Target node:        QOperator node:            QDQ nodes:
         MatMul              MatMulNBits                DeQuantizeLinear -> MatMul
         Gather              GatherBlockQuantized       Gather, Gather, Gather (optional) -> DequantizeLinear
         If the node is target node with fp32 or fp16 const weight, quantize the weight to int4 and

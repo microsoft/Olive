@@ -74,7 +74,6 @@ class TestDefaultWeightOnlyQuantizer:
     def _assert_quantize_matmul_call_args(
         self, mock_quantize, packed, fp32weight, scales, zero_point, block_size, cols, rows, is_symmetric
     ):
-        """Helper function to assert quantize_matmul_4bits call arguments"""
         assert mock_quantize.called
         call_args = mock_quantize.call_args[0]
 
@@ -222,7 +221,7 @@ class TestDefaultWeightOnlyQuantizer:
         np.testing.assert_array_equal(packed, expected)
 
     @pytest.mark.parametrize(
-        "is_symmetric, quantize_axis, block_size, data_shape, expected_scales_shape",
+        ("is_symmetric", "quantize_axis", "block_size", "data_shape", "expected_scales_shape"),
         [
             # Symmetric quantization, quantize along axis 0
             (True, 0, 8, (16, 32), (2, 32)),

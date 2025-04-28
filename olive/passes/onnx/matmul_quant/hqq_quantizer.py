@@ -1,6 +1,5 @@
 import logging
 
-import numpy as np
 import onnx
 import torch
 from onnx import GraphProto, NodeProto
@@ -19,7 +18,8 @@ class HQQWeightOnlyQuantConfig(WeightOnlyQuantConfig):
         op_types_to_quantize: tuple[str, ...] | None = None,
         quant_axes: tuple[tuple[str, int], ...] | None = None,
     ):
-        """This is a class for HQQ algorithm Weight Only Quant Configuration.
+        """Configure HQQ Weight Only Quantization parameters.
+
         HQQ algorithm quant weight without needing calibrate data.
 
         Args:
@@ -50,7 +50,6 @@ class HQQWeightOnlyQuantConfig(WeightOnlyQuantConfig):
 
 class HQQWeightOnlyQuantizer:
     """HQQ Quantizer class for quantizing ONNX models.
-    This class is a placeholder for the actual implementation of HQQ quantization.
 
     HQQ only supports QOperator format
     """
@@ -63,14 +62,7 @@ class HQQWeightOnlyQuantizer:
 
     # Proximal solver || weight - dequantize(quantize(weight))||_p^p
     @staticmethod
-    def optimize_weights(
-        tensor,
-        scale,
-        zero,
-        min_max: list[int],
-        axis: int = 0,
-        verbose=False,
-    ):
+    def optimize_weights(tensor, scale, zero, min_max: list[int], axis: int = 0):
         lp_norm = 0.7
         beta = 1e1
         kappa = 1.01
@@ -92,7 +84,7 @@ class HQQWeightOnlyQuantizer:
                 )
 
         best_error = 1e4
-        for i in range(iters):
+        for _ in range(iters):
             w_q = torch.round(w_f * scale + zero).clamp(min_max[0], min_max[1])
             w_r = (w_q - zero) / scale
             w_e = shrink_op(w_f - w_r, beta)
@@ -100,8 +92,6 @@ class HQQWeightOnlyQuantizer:
             beta *= kappa
 
             current_error = float(torch.abs(w_f - w_r).mean())
-            if verbose:
-                print(i, np.round(current_error, 6))
             if current_error < best_error:
                 best_error = current_error
             else:
@@ -187,7 +177,9 @@ class HQQWeightOnlyQuantizer:
         return w_q, scale.to(tensor.dtype), zero.to(tensor.dtype)
 
     def quantize(self, node: NodeProto, graph_stack: list[GraphProto]) -> list[NodeProto]:
-        """Target node:        QOperator node:
+        """Quantize the weight of the target node and return the new nodes.
+
+        Target node:        QOperator node:
         MatMul              MatMulNBits
         If the node is target node with fp32 or fp16 const weight, quantize the weight to int4 and
         return the new nodes.

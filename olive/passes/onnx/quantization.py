@@ -698,7 +698,13 @@ class OnnxMatMul4Quantizer(Pass):
             "bits": PassConfigParam(
                 type_=int,
                 default_value=4,
-                description="Number of bits for quantization. Supported values are 4 and 8. Default value is 4.",
+                description=(
+                    "Number of bits for quantization. "
+                    "For HQQ, supports 2, 4 and 8. "
+                    "For Default, supports 4 and 8. "
+                    "For RTN and GPTQ, supports 4 only. "
+                    "Default value is 4."
+                ),
             ),
             "block_size": PassConfigParam(
                 type_=int,
@@ -844,7 +850,6 @@ class OnnxMatMul4Quantizer(Pass):
                     algo_config[key] = kwargs[key]
             if config.algorithm == Algorithm.GPTQ:
                 algo_config["calibration_data_reader"] = get_calibration_dataloader(config)
-            algo_config["bits"] = config.bits
             kwargs["algo_config"] = woq_config_class(**algo_config)
         else:
             kwargs["algo_config"] = None
@@ -853,8 +858,10 @@ class OnnxMatMul4Quantizer(Pass):
 
         # TODO(team): Implement our own MatMulNBitsQuantizer
         if config.algorithm == Algorithm.HQQ:
+            kwargs["algo_config"]["bits"] = config.bits
             quant.node_quantizer = HQQWeightOnlyQuantizer(kwargs["algo_config"])
         elif config.algorithm == Algorithm.DEFAULT:
+            kwargs["algo_config"]["bits"] = config.bits
             quant.node_quantizer = DefaultWeightOnlyQuantizer(kwargs["algo_config"])
 
         quant.process()

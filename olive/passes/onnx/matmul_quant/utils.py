@@ -44,11 +44,13 @@ class WeightOnlyQuantConfig:
         quant_axes: tuple[tuple[str, int], ...] | None = None,
         customized_weight_config: dict | None = None,
     ):
-        """This is the Base class for Weight Only blockwise quantization Configuration.
+        """Configure Weight Only blockwise quantization parameters.
 
         Args:
             algorithm:
                 weight only quantize algorithm name.
+            quant_format:
+                quantization format. QOperator or QDQ.
             op_types_to_quantize (optional):
                 set of operator types to quantize. Default {MatMul}
             quant_axes (dict[str, int], optional):

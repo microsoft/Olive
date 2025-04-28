@@ -65,9 +65,7 @@ class TestHQQWeightOnlyQuantizer:
         min_max = [0, 15]  # 4-bit range
 
         # Execute
-        opt_scale, opt_zero = HQQWeightOnlyQuantizer.optimize_weights(
-            tensor, scale, zero, min_max, axis=1, verbose=False
-        )
+        opt_scale, opt_zero = HQQWeightOnlyQuantizer.optimize_weights(tensor, scale, zero, min_max, axis=1)
 
         # Assert
         assert opt_scale.shape == scale.shape
