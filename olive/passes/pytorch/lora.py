@@ -61,8 +61,6 @@ class HFTrainingArguments(BaseHFTrainingArguments):
     Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.
     """
 
-    # TODO(jambayk): is this default optim required? does it work for regular lora? what about lr_scheduler_type?
-    optim: str = Field("paged_adamw_32bit", description="The optimizer to use.")
     learning_rate: float = Field(0.0002, description="The initial learning rate for AdamW.")
     lr_scheduler_type: str = Field(
         "constant",
@@ -699,12 +697,22 @@ class LoKr(LoRAVariant):
             raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
 
 
+class QLoRATrainingArguments(HFTrainingArguments):
+    """Training arguments for QLoRA fine-tuning.
+
+    Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.
+    """
+
+    optim: str = Field("paged_adamw_32bit", description="The optimizer to use.")
+
+
 class QLoRABase(LoRA):
     """Base class for QLoRA and LoftQ fine-tuning passes."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        config = {
+        return {
+            **super()._default_config(accelerator_spec),
             # quantization parameters
             "compute_dtype": PassConfigParam(
                 type_=str,
@@ -721,9 +729,16 @@ class QLoRABase(LoRA):
                     " model will be in the original precision. If True, the base model will be quantized on load."
                 ),
             ),
+            # training parameters
+            "training_args": PassConfigParam(
+                type_=Union[QLoRATrainingArguments, dict],
+                default_value=None,
+                description=(
+                    "Training arguments. If None, will use default arguments. See QLoRATrainingArguments for more"
+                    " details."
+                ),
+            ),
         }
-        config.update(super()._default_config(accelerator_spec))
-        return config
 
     def _run_for_config(
         self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
@@ -732,7 +747,7 @@ class QLoRABase(LoRA):
         self.check_dependencies(config, is_qlora=True)
 
         # use default training args if not provided
-        config.training_args = config.training_args or HFTrainingArguments()
+        config.training_args = config.training_args or QLoRATrainingArguments()
 
         # model cannot be quantized
         model_config = model.get_hf_model_config()
