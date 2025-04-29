@@ -1011,6 +1011,8 @@ class ReplaceAttentionMaskValue(ProtoSurgeon):
     This surgery is useful if the default mask value does not quantize well due to numerical instability.
     """
 
+    ALLOWED_CONSUMER_OPS: ClassVar[set[str]] = {"Add", "Mul", "Expand", "Where"}
+
     def __init__(self, threshold: float = -3e30, replacement: float = -1e4):
         self.threshold = threshold
         self.replacement = replacement
@@ -1028,34 +1030,28 @@ class ReplaceAttentionMaskValue(ProtoSurgeon):
                 and node_proto.attribute
                 and node_proto.attribute[0].t
                 and node_proto.attribute[0].t.data_type == onnx.TensorProto.FLOAT
-                and node_proto.attribute[0].t.dims in [[], [1]]
+                and self.valid_consumers(node_name, dag)
             ):
                 continue
 
             value = onnx.helper.get_attribute_value(node_proto.attribute[0])
             tensor_value = onnx.numpy_helper.to_array(value)
-            if tensor_value < self.threshold:
+            if (tensor_value_new := self.new_tensor_value(tensor_value)) is not None:
                 node_proto.ClearField("attribute")
                 node_proto.attribute.extend(
-                    [
-                        onnx.helper.make_attribute(
-                            "value", onnx.numpy_helper.from_array(np.full_like(tensor_value, self.replacement))
-                        )
-                    ]
+                    [onnx.helper.make_attribute("value", onnx.numpy_helper.from_array(tensor_value_new))]
                 )
                 modified += 1
 
         # update any initializer nodes with the threshold value
         for init_name in dag.get_initializer_names():
             init_proto = dag.get_initializer_proto(init_name)
-            if not (init_proto.data_type == onnx.TensorProto.FLOAT and init_proto.dims in [[], [1]]):
+            if not (init_proto.data_type == onnx.TensorProto.FLOAT and self.valid_consumers(init_name, dag)):
                 continue
 
             tensor_value = onnx.numpy_helper.to_array(init_proto)
-            if tensor_value < self.threshold:
-                dag.replace_initializer(
-                    onnx.numpy_helper.from_array(np.full_like(tensor_value, self.replacement), name=init_name)
-                )
+            if (tensor_value_new := self.new_tensor_value(tensor_value)) is not None:
+                dag.replace_initializer(onnx.numpy_helper.from_array(tensor_value_new, name=init_name))
                 modified += 1
 
         if modified > 0:
@@ -1063,6 +1059,24 @@ class ReplaceAttentionMaskValue(ProtoSurgeon):
 
         dag.update()
         return dag.model
+
+    def valid_consumers(self, name: str, dag: OnnxDAG) -> bool:
+        """Check if the consumers of the node are valid.
+
+        This is to prevent checking the tensor value of large tensors unnecessarily.
+        """
+        for consumer in dag.get_consumers(name):
+            if dag.get_node_op_type(consumer) not in ReplaceAttentionMaskValue.ALLOWED_CONSUMER_OPS:
+                return False
+        return True
+
+    def new_tensor_value(self, tensor_value: np.ndarray) -> Optional[np.ndarray]:
+        """Replace values below the threshold with the replacement value."""
+        if np.any(tensor_value < self.threshold):
+            tensor_value_new = tensor_value.copy()
+            tensor_value_new[tensor_value_new < self.threshold] = self.replacement
+            return tensor_value_new
+        return None
 
 
 class GraphSurgeries(Pass):

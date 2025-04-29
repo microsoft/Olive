@@ -143,7 +143,6 @@
             "type": "OnnxStaticQuantization",
             "quant_preprocess": true,
             "data_config": "quant_data_config",
-            "op_types_to_exclude": [ "Softmax", "Add" ],
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
             "calibrate_method": "MinMax"
