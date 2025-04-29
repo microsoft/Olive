@@ -6,7 +6,6 @@
 # ruff: noqa: T201
 # ruff: noqa: RUF012
 
-import logging
 from argparse import ArgumentParser
 from copy import deepcopy
 from typing import Any
@@ -26,8 +25,6 @@ from olive.cli.base import (
 from olive.common.utils import set_nested_dict_value
 from olive.constants import QuantAlgorithm
 from olive.package_config import OlivePackageConfig
-
-logger = logging.getLogger(__name__)
 
 
 class QuantizeCommand(BaseOliveCLICommand):
@@ -123,15 +120,21 @@ class QuantizeCommand(BaseOliveCLICommand):
                 and (algo is None or algo in pinfo.supported_algorithms)
                 and (precision is None or precision in pinfo.supported_precisions)
                 and (not self.args.use_qdq_encoding or "qdq" in pinfo.supported_quantization_encodings)
-                and self._check_data_name_arg(pinfo)
             ):
-                pass_list.append(r["pass_type"])
+                if not self._check_data_name_arg(pinfo):
+                    print(
+                        f"Warning: Quantization for {algo} {precision} {impl} implementation with QDQ {self.args.use_qdq_encoding}"
+                        " requires dataset. Please provide a dataset using --data_name option."
+                    )
+                else:
+                    pass_list.append(r["pass_type"])
 
         if not pass_list:
             raise ValueError(
-                f"Quantiation for precision {precision}, algorithm {algo} and implementation {impl} is not supported"
+                f"Quantiation for precision {precision}, algorithm {algo} and implementation {impl} "
+                f"with QDQ {self.args.use_qdq_encoding} is not supported"
             )
-        logger.info("pass list: %s", pass_list)
+        print(f"pass list: {pass_list}")
         return pass_list
 
     def _get_passes_dict(self, pass_list):
@@ -145,7 +148,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         to_add = {
             "AutoAWQQuantizer": {"w_bit": precision_in_bits},
             "GptqQuantizer": {"bits": precision_in_bits},
-            "OnnxBnB4Quantization": {"quant_type": precision_in_bits},
+            "OnnxBnB4Quantization": {"quant_type": self.args.precision},
             "NVModelOptQuantization": {"precision": precision_in_bits, "algorithm": self.args.algorithm.upper()},
             "OnnxDynamicQuantization": {"weight_type": wtypes, "quant_format": quant_format},
             "OnnxStaticQuantization": {
@@ -163,7 +166,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             if to_add.get(p) is not None:
                 pd.update(dict(to_add[p].items()))
             passes_dict[p.lower()] = pd
-        logger.info("selected pass configs: %s", passes_dict)
+        print(f"selected pass configs: {passes_dict}")
         return passes_dict
 
     def _customize_config(self, config):
