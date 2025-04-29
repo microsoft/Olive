@@ -5056,24 +5056,6 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-compute_dtype">
-<span class="sig-name descname"><span class="pre">compute_dtype</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-compute_dtype" title="Link to this definition">#</a></dt>
-<dd><p>Computation data type for the quantized modules. If not provided, will use the same dtype as torch_dtype</p>
-<p><strong>type:</strong> str</p>
-<p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-save_quant_config">
-<span class="sig-name descname"><span class="pre">save_quant_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-save_quant_config" title="Link to this definition">#</a></dt>
-<dd><p>Whether to save the output model with the bitsandbytes quantization config. If False, the base model will be in the original precision. If True, the base model will be quantized on load.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> True</p>
-<p><strong>search_defaults:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-265">
 <span class="sig-name descname"><span class="pre">r</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-265" title="Link to this definition">#</a></dt>
 <dd><p>R dimension.</p>
@@ -5174,9 +5156,27 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-276">
 <span class="sig-name descname"><span class="pre">training_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-276" title="Link to this definition">#</a></dt>
-<dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
-<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | dict</p>
+<dd><p>Training arguments. If None, will use default arguments. See QLoRATrainingArguments for more details.</p>
+<p><strong>type:</strong> olive.passes.pytorch.lora.QLoRATrainingArguments | dict</p>
 <p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-compute_dtype">
+<span class="sig-name descname"><span class="pre">compute_dtype</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-compute_dtype" title="Link to this definition">#</a></dt>
+<dd><p>Computation data type for the quantized modules. If not provided, will use the same dtype as torch_dtype</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-save_quant_config">
+<span class="sig-name descname"><span class="pre">save_quant_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-save_quant_config" title="Link to this definition">#</a></dt>
+<dd><p>Whether to save the output model with the bitsandbytes quantization config. If False, the base model will be in the original precision. If True, the base model will be quantized on load.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
@@ -5310,25 +5310,7 @@
 
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-289">
-<span class="sig-name descname"><span class="pre">compute_dtype</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-289" title="Link to this definition">#</a></dt>
-<dd><p>Computation data type for the quantized modules. If not provided, will use the same dtype as torch_dtype</p>
-<p><strong>type:</strong> str</p>
-<p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-290">
-<span class="sig-name descname"><span class="pre">save_quant_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-290" title="Link to this definition">#</a></dt>
-<dd><p>Whether to save the output model with the bitsandbytes quantization config. If False, the base model will be in the original precision. If True, the base model will be quantized on load.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> True</p>
-<p><strong>search_defaults:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-291">
-<span class="sig-name descname"><span class="pre">r</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-291" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">r</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-289" title="Link to this definition">#</a></dt>
 <dd><p>R dimension.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 64</p>
@@ -5336,8 +5318,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-292">
-<span class="sig-name descname"><span class="pre">alpha</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-292" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-290">
+<span class="sig-name descname"><span class="pre">alpha</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-290" title="Link to this definition">#</a></dt>
 <dd><p>The alpha parameter for scaling.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 16</p>
@@ -5345,8 +5327,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-293">
-<span class="sig-name descname"><span class="pre">lora_dropout</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-293" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-291">
+<span class="sig-name descname"><span class="pre">lora_dropout</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-291" title="Link to this definition">#</a></dt>
 <dd><p>The dropout probability for Lora layers.</p>
 <p><strong>type:</strong> float</p>
 <p><strong>default_value:</strong> 0.05</p>
@@ -5354,8 +5336,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-294">
-<span class="sig-name descname"><span class="pre">target_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-294" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-292">
+<span class="sig-name descname"><span class="pre">target_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-292" title="Link to this definition">#</a></dt>
 <dd><p>Target modules</p>
 <p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
@@ -5363,8 +5345,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-295">
-<span class="sig-name descname"><span class="pre">modules_to_save</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-295" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-293">
+<span class="sig-name descname"><span class="pre">modules_to_save</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-293" title="Link to this definition">#</a></dt>
 <dd><p>List of modules apart from LoRA layers to be set as trainable and saved in the final checkpoint.</p>
 <p><strong>type:</strong> None</p>
 <p><strong>default_value:</strong> None</p>
@@ -5372,8 +5354,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-296">
-<span class="sig-name descname"><span class="pre">torch_dtype</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-296" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-294">
+<span class="sig-name descname"><span class="pre">torch_dtype</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-294" title="Link to this definition">#</a></dt>
 <dd><p>Data type to use for training. Should be one of <cite>bfloat16</cite>, <cite>float16</cite> or <cite>float32</cite>. If <cite>float16</cite> will use fp16 mixed-precision training.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> bfloat16</p>
@@ -5381,8 +5363,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-297">
-<span class="sig-name descname"><span class="pre">device_map</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-297" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-295">
+<span class="sig-name descname"><span class="pre">device_map</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-295" title="Link to this definition">#</a></dt>
 <dd><p>Device map to use to load the model.</p>
 <p><strong>type:</strong> olive.passes.pytorch.lora.DeviceMap | None</p>
 <p><strong>default_value:</strong> auto</p>
@@ -5390,8 +5372,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-298">
-<span class="sig-name descname"><span class="pre">allow_tf32</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-298" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-296">
+<span class="sig-name descname"><span class="pre">allow_tf32</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-296" title="Link to this definition">#</a></dt>
 <dd><p>Whether or not to allow TF32 on Ampere GPUs. Can be used to speed up training. For more information, see ‘<a class="reference external" href="https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices">https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices</a>’</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
@@ -5399,8 +5381,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-299">
-<span class="sig-name descname"><span class="pre">ephemeral_gpu_offload</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-299" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-297">
+<span class="sig-name descname"><span class="pre">ephemeral_gpu_offload</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-297" title="Link to this definition">#</a></dt>
 <dd><p>Ephemeral GPU offload</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
@@ -5408,16 +5390,16 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-300">
-<span class="sig-name descname"><span class="pre">train_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-300" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-298">
+<span class="sig-name descname"><span class="pre">train_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-298" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning training.</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-301">
-<span class="sig-name descname"><span class="pre">eval_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-301" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-299">
+<span class="sig-name descname"><span class="pre">eval_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-299" title="Link to this definition">#</a></dt>
 <dd><p>Data config for fine-tuning evaluation. Optional if evaluation is not needed.</p>
 <p><strong>type:</strong> olive.data.config.DataConfig | dict</p>
 <p><strong>default_value:</strong> None</p>
@@ -5425,11 +5407,29 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-302">
-<span class="sig-name descname"><span class="pre">training_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-302" title="Link to this definition">#</a></dt>
-<dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
-<p><strong>type:</strong> olive.passes.pytorch.lora.HFTrainingArguments | dict</p>
+<dt class="sig sig-object std" id="cmdoption-arg-300">
+<span class="sig-name descname"><span class="pre">training_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-300" title="Link to this definition">#</a></dt>
+<dd><p>Training arguments. If None, will use default arguments. See QLoRATrainingArguments for more details.</p>
+<p><strong>type:</strong> olive.passes.pytorch.lora.QLoRATrainingArguments | dict</p>
 <p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-301">
+<span class="sig-name descname"><span class="pre">compute_dtype</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-301" title="Link to this definition">#</a></dt>
+<dd><p>Computation data type for the quantized modules. If not provided, will use the same dtype as torch_dtype</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-302">
+<span class="sig-name descname"><span class="pre">save_quant_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-302" title="Link to this definition">#</a></dt>
+<dd><p>Whether to save the output model with the bitsandbytes quantization config. If False, the base model will be in the original precision. If True, the base model will be quantized on load.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
@@ -5440,12 +5440,6 @@
 <em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.passes.pytorch.lora.</span></span><span class="sig-name descname"><span class="pre">HFTrainingArguments</span></span><a class="reference internal" href="../_modules/olive/passes/pytorch/lora.html#HFTrainingArguments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.passes.pytorch.lora.HFTrainingArguments" title="Link to this definition">#</a></dt>
 <dd><p>Training arguments for transformers.Trainer.</p>
 <p>Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.</p>
-<dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.passes.pytorch.lora.HFTrainingArguments.optim">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">optim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'paged_adamw_32bit'</span></em><a class="headerlink" href="#olive.passes.pytorch.lora.HFTrainingArguments.optim" title="Link to this definition">#</a></dt>
-<dd><p>The optimizer to use.</p>
-</dd></dl>
-
 <dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.passes.pytorch.lora.HFTrainingArguments.learning_rate">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">learning_rate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0002</span></em><a class="headerlink" href="#olive.passes.pytorch.lora.HFTrainingArguments.learning_rate" title="Link to this definition">#</a></dt>
@@ -5465,8 +5459,8 @@
 </dd></dl>
 
 <dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.passes.pytorch.lora.HFTrainingArguments.evaluation_strategy">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">evaluation_strategy</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.passes.pytorch.lora.HFTrainingArguments.evaluation_strategy" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="olive.passes.pytorch.lora.HFTrainingArguments.eval_strategy">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">eval_strategy</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.passes.pytorch.lora.HFTrainingArguments.eval_strategy" title="Link to this definition">#</a></dt>
 <dd><p>The evaluation strategy to use. Forced to ‘no’ if eval_dataset is not provided. Otherwise, ‘steps’ unless set to ‘epoch’.</p>
 </dd></dl>
 
@@ -6884,11 +6878,10 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#loftq">LoftQ</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#lora-qlora-loftq-hftrainingarguments">LoRA/QLoRA/LoftQ HFTrainingArguments</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.passes.pytorch.lora.HFTrainingArguments"><code class="docutils literal notranslate"><span class="pre">HFTrainingArguments</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.passes.pytorch.lora.HFTrainingArguments.optim"><code class="docutils literal notranslate"><span class="pre">HFTrainingArguments.optim</span></code></a></li>
 <li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.passes.pytorch.lora.HFTrainingArguments.learning_rate"><code class="docutils literal notranslate"><span class="pre">HFTrainingArguments.learning_rate</span></code></a></li>
 <li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.passes.pytorch.lora.HFTrainingArguments.lr_scheduler_type"><code class="docutils literal notranslate"><span class="pre">HFTrainingArguments.lr_scheduler_type</span></code></a></li>
 <li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.passes.pytorch.lora.HFTrainingArguments.warmup_ratio"><code class="docutils literal notranslate"><span class="pre">HFTrainingArguments.warmup_ratio</span></code></a></li>
-<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.passes.pytorch.lora.HFTrainingArguments.evaluation_strategy"><code class="docutils literal notranslate"><span class="pre">HFTrainingArguments.evaluation_strategy</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.passes.pytorch.lora.HFTrainingArguments.eval_strategy"><code class="docutils literal notranslate"><span class="pre">HFTrainingArguments.eval_strategy</span></code></a></li>
 <li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.passes.pytorch.lora.HFTrainingArguments.overwrite_output_dir"><code class="docutils literal notranslate"><span class="pre">HFTrainingArguments.overwrite_output_dir</span></code></a></li>
 <li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.passes.pytorch.lora.HFTrainingArguments.resume_from_checkpoint"><code class="docutils literal notranslate"><span class="pre">HFTrainingArguments.resume_from_checkpoint</span></code></a></li>
 </ul>

@@ -515,15 +515,13 @@ window.addEventListener("load", () => mermaid.run());
 <span class="sd">    Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="c1"># TODO(jambayk): is this default optim required? does it work for regular lora? what about lr_scheduler_type?</span>
-    <span class="n">optim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s2">&quot;paged_adamw_32bit&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The optimizer to use.&quot;</span><span class="p">)</span>
     <span class="n">learning_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mf">0.0002</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The initial learning rate for AdamW.&quot;</span><span class="p">)</span>
     <span class="n">lr_scheduler_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
         <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.&quot;</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">warmup_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Fraction of steps to do a warmup for.&quot;</span><span class="p">)</span>
-    <span class="n">evaluation_strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+    <span class="n">eval_strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
         <span class="kc">None</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">&quot;The evaluation strategy to use. Forced to &#39;no&#39; if eval_dataset is not provided. Otherwise, &#39;steps&#39; unless&quot;</span>
@@ -862,11 +860,11 @@ window.addEventListener("load", () => mermaid.run());
         <span class="n">train_dataset</span><span class="p">,</span> <span class="n">eval_dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_datasets</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
         <span class="c1"># get training arguments</span>
-        <span class="n">orig_eval_strat</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span>
-        <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span> <span class="o">=</span> <span class="s2">&quot;no&quot;</span>
+        <span class="n">orig_eval_strat</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">eval_strategy</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">eval_strategy</span> <span class="o">=</span> <span class="s2">&quot;no&quot;</span>
         <span class="k">if</span> <span class="n">eval_dataset</span><span class="p">:</span>
             <span class="c1"># default to &quot;steps&quot; if eval dataset is provided</span>
-            <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span> <span class="o">=</span> <span class="s2">&quot;steps&quot;</span> <span class="k">if</span> <span class="n">orig_eval_strat</span> <span class="ow">in</span> <span class="p">{</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;no&quot;</span><span class="p">}</span> <span class="k">else</span> <span class="n">orig_eval_strat</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">eval_strategy</span> <span class="o">=</span> <span class="s2">&quot;steps&quot;</span> <span class="k">if</span> <span class="n">orig_eval_strat</span> <span class="ow">in</span> <span class="p">{</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;no&quot;</span><span class="p">}</span> <span class="k">else</span> <span class="n">orig_eval_strat</span>
 
         <span class="c1"># We always create a temp dir even if output_dir is provided because we want the temp dir to be deleted</span>
         <span class="c1"># after training or if there is an error</span>
@@ -1029,14 +1027,18 @@ window.addEventListener("load", () => mermaid.run());
             <span class="s2">&quot;rank_pattern&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span>
                 <span class="n">default_value</span><span class="o">=</span><span class="p">{},</span>
-                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The mapping from layer names or regexp expression &quot;</span>
-                <span class="s2">&quot;to ranks which are different from the default rank specified by r.&quot;</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;The mapping from layer names or regexp expression &quot;</span>
+                    <span class="s2">&quot;to ranks which are different from the default rank specified by r.&quot;</span>
+                <span class="p">),</span>
             <span class="p">),</span>
             <span class="s2">&quot;alpha_pattern&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span>
                 <span class="n">default_value</span><span class="o">=</span><span class="p">{},</span>
-                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The mapping from layer names or regexp expression &quot;</span>
-                <span class="s2">&quot;to alphas which are different from the default alpha specified by alpha.&quot;</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;The mapping from layer names or regexp expression &quot;</span>
+                    <span class="s2">&quot;to alphas which are different from the default alpha specified by alpha.&quot;</span>
+                <span class="p">),</span>
             <span class="p">),</span>
         <span class="p">}</span>
         <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">))</span>
@@ -1150,12 +1152,22 @@ window.addEventListener("load", () => mermaid.run());
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Please install peft &gt;= 0.7.0 to use </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> pass.&quot;</span><span class="p">)</span>
 
 
+<span class="k">class</span><span class="w"> </span><span class="nc">QLoRATrainingArguments</span><span class="p">(</span><span class="n">HFTrainingArguments</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Training arguments for QLoRA fine-tuning.</span>
+
+<span class="sd">    Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">optim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s2">&quot;paged_adamw_32bit&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The optimizer to use.&quot;</span><span class="p">)</span>
+
+
 <span class="k">class</span><span class="w"> </span><span class="nc">QLoRABase</span><span class="p">(</span><span class="n">LoRA</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for QLoRA and LoftQ fine-tuning passes.&quot;&quot;&quot;</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
-        <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="o">**</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">),</span>
             <span class="c1"># quantization parameters</span>
             <span class="s2">&quot;compute_dtype&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
@@ -1172,9 +1184,16 @@ window.addEventListener("load", () => mermaid.run());
                     <span class="s2">&quot; model will be in the original precision. If True, the base model will be quantized on load.&quot;</span>
                 <span class="p">),</span>
             <span class="p">),</span>
+            <span class="c1"># training parameters</span>
+            <span class="s2">&quot;training_args&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">QLoRATrainingArguments</span><span class="p">,</span> <span class="nb">dict</span><span class="p">],</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Training arguments. If None, will use default arguments. See QLoRATrainingArguments for more&quot;</span>
+                    <span class="s2">&quot; details.&quot;</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
         <span class="p">}</span>
-        <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">config</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_for_config</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">HfModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
@@ -1183,7 +1202,7 @@ window.addEventListener("load", () => mermaid.run());
         <span class="bp">self</span><span class="o">.</span><span class="n">check_dependencies</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">is_qlora</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># use default training args if not provided</span>
-        <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="ow">or</span> <span class="n">HFTrainingArguments</span><span class="p">()</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="ow">or</span> <span class="n">QLoRATrainingArguments</span><span class="p">()</span>
 
         <span class="c1"># model cannot be quantized</span>
         <span class="n">model_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_hf_model_config</span><span class="p">()</span>
