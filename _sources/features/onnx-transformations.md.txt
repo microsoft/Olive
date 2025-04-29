@@ -1017,16 +1017,6 @@ graph {
 }
 ```
 
-```json
-{
-    "type": "AppendPrePostProcessingOps",
-    "tool_command": "whisper",
-    "tool_command_args": {
-        "use_audio_decoder": true
-    }
-}
-```
-
 `AppendPrePostProcessingOps` also supports pre/post processing ops by leveraging the [onnxruntime-extension steps](https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps) and `PrePostProcessor`.
 You can refer to [here](https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/Example%20usage%20of%20the%20PrePostProcessor.md) to see how to leverage `PrePostProcessor` to customize pre and post processing ops.
 
@@ -1127,19 +1117,6 @@ Here are some examples to describe the pre/post processing which is exactly same
         }
     ],
     "target_opset": 16,
-}
-```
-
-## Insert Beam Search Op
-
-`InsertBeamSearch` chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.
-
-### Example Configuration
-
-```json
-{
-    "type": "InsertBeamSearch",
-    "no_repeat_ngram_size": 4
 }
 ```
 

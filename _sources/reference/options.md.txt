@@ -405,7 +405,6 @@ Please also find the detailed options from following table for each pass:
 | [IncQuantization](../../reference/pass.rst#_inc_quantization) | Quantize ONNX model with Intel® Neural Compressor where we can search for best parameters for static/dynamic quantization at same time. |
 | [VitisAIQuantization](../../reference/pass.rst#_vitis_ai_quantization) | AMD-Xilinx Vitis-AI Quantization Pass. |
 | [AppendPrePostProcessingOps](../../reference/pass.rst#_append_pre_post_processing) | Add Pre/Post nodes to the input model. |
-| [InsertBeamSearch](../../reference/pass.rst#_insert_beam_search) | Insert Beam Search Op. Only used for whisper models. Uses WhisperBeamSearch contrib op if ORT version >= 1.17.1, else uses BeamSearch contrib op. |
 | [ExtractAdapters](../../reference/pass.rst#_extract_adapters) | Extract adapters from ONNX model |
 | [CaptureSplitInfo](../../reference/pass.rst#_capture_split_info) | Capture the split information of the model layers. Only splits the transformer layers. |
 | [SplitModel](../../reference/pass.rst#_split_model) | Split an ONNX model into multiple smaller sub-models based on predefined assignments. |

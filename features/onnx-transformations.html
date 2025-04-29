@@ -1505,15 +1505,6 @@ for more details on the optimizations done by this tool.</p>
 <span class="p">}</span>
 </pre></div>
 </div>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;whisper&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;tool_command_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;use_audio_decoder&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
 <p><code class="docutils literal notranslate"><span class="pre">AppendPrePostProcessingOps</span></code> also supports pre/post processing ops by leveraging the <a class="reference external" href="https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps">onnxruntime-extension steps</a> and <code class="docutils literal notranslate"><span class="pre">PrePostProcessor</span></code>.
 You can refer to <a class="reference external" href="https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/Example%20usage%20of%20the%20PrePostProcessor.md">here</a> to see how to leverage <code class="docutils literal notranslate"><span class="pre">PrePostProcessor</span></code> to customize pre and post processing ops.</p>
 <ul class="simple">
@@ -1616,19 +1607,6 @@ For example, for some ops like <code class="docutils literal notranslate"><span 
 </div>
 </section>
 </section>
-<section id="insert-beam-search-op">
-<h2>Insert Beam Search Op<a class="headerlink" href="#insert-beam-search-op" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">InsertBeamSearch</span></code> chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.</p>
-<section id="id38">
-<h3>Example Configuration<a class="headerlink" href="#id38" title="Link to this heading">#</a></h3>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InsertBeamSearch&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;no_repeat_ngram_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-</section>
 <section id="ort-performance-tuning">
 <h2>ORT Performance Tuning<a class="headerlink" href="#ort-performance-tuning" title="Link to this heading">#</a></h2>
 <p>ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
@@ -1636,8 +1614,8 @@ environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
 <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
-<section id="id39">
-<h3>Example Configuration<a class="headerlink" href="#id39" title="Link to this heading">#</a></h3>
+<section id="id38">
+<h3>Example Configuration<a class="headerlink" href="#id38" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtSessionParamsTuning&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;session_params_tuning_data_config&quot;</span><span class="p">,</span>
@@ -1810,12 +1788,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id37">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#insert-beam-search-op">Insert Beam Search Op</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id38">Example Configuration</a></li>
-</ul>
-</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ort-performance-tuning">ORT Performance Tuning</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id39">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id38">Example Configuration</a></li>
 </ul>
 </li>
 </ul>

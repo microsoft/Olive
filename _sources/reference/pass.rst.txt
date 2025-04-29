@@ -152,12 +152,6 @@ AppendPrePostProcessingOps
 --------------------------
 .. autoconfigclass:: olive.passes.AppendPrePostProcessingOps
 
-.. _insert_beam_search:
-
-InsertBeamSearch
-----------------
-.. autoconfigclass:: olive.passes.InsertBeamSearch
-
 .. _extract_adapters:
 
 ExtractAdapters

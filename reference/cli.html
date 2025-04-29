@@ -497,6 +497,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">max_seq_len</span> <span class="n">MAX_SEQ_LEN</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">add_special_tokens</span> <span class="n">ADD_SPECIAL_TOKENS</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">max_samples</span> <span class="n">MAX_SAMPLES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
@@ -577,6 +578,9 @@
 <dt><kbd>--batch_size</kbd></dt>
 <dd><p>Batch size.</p>
 <p>Default: 1</p>
+</dd>
+<dt><kbd>--input_cols</kbd></dt>
+<dd><p>List of input column names. Provide one or more names separated by space. Example: –input_cols sentence1 sentence2</p>
 </dd>
 <dt><kbd>--resource_group</kbd></dt>
 <dd><p>Resource group for the AzureML workspace to run the workflow remotely.</p>
@@ -807,6 +811,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">max_seq_len</span> <span class="n">MAX_SEQ_LEN</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">add_special_tokens</span> <span class="n">ADD_SPECIAL_TOKENS</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">max_samples</span> <span class="n">MAX_SAMPLES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
@@ -900,6 +905,9 @@
 <dt><kbd>--batch_size</kbd></dt>
 <dd><p>Batch size.</p>
 <p>Default: 1</p>
+</dd>
+<dt><kbd>--input_cols</kbd></dt>
+<dd><p>List of input column names. Provide one or more names separated by space. Example: –input_cols sentence1 sentence2</p>
 </dd>
 <dt><kbd>--resource_group</kbd></dt>
 <dd><p>Resource group for the AzureML workspace to run the workflow remotely.</p>
