@@ -61,9 +61,6 @@ jobs:
       resnet_qat:
         exampleFolder: resnet
         exampleName: resnet_qat
-      whisper:
-        exampleFolder: whisper
-        exampleName: whisper
       mobilenet_qnn_ep:
         exampleFolder: mobilenet/qnn
         exampleName: mobilenet_qnn_ep
@@ -82,9 +79,6 @@ jobs:
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
-      whisper:
-        exampleFolder: whisper
-        exampleName: whisper
       mobilenet_qnn_ep:
         exampleFolder: mobilenet/qnn
         exampleName: mobilenet_qnn_ep

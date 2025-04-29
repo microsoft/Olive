@@ -24,7 +24,6 @@ class CompositeModelHandler(OliveModelHandler):
     The only responsibility of CompositeModelHandler is to provider a get_model_components which will iterate all the
     child models.
 
-    Whisper is an example composite model that has encoder and decoder components.
     CompositeModelHandler is a collection of Models. All the child model in the container should have same model type.
     """
 

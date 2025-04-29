@@ -12,7 +12,6 @@ TASK_TO_PEFT_TASK_TYPE = {
 }
 
 MODEL_TYPE_MAPPING = {
-    "whisper": "bart",
     "camembert": "bert",
     "deberta": "bert",
     "deberta-v2": "bert",
