@@ -8,6 +8,8 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import transformers
+from packaging import version
+from transformers import __version__ as transformers_version
 
 from olive.common.config_utils import NestedConfig
 from olive.common.pydantic_v1 import Field, validator
@@ -73,6 +75,8 @@ class BaseHFTrainingArguments(NestedConfig):
             args["deepspeed"] = deepcopy(DEFAULT_DEEPSPEED_CONFIG)
         elif args["deepspeed"] is False:
             del args["deepspeed"]
+        if version.parse(transformers_version) < version.parse("4.41") and "eval_strategy" in args:
+            args["evaluation_strategy"] = args.pop("eval_strategy")
         extra_args = args.pop("extra_args")
         return transformers.TrainingArguments(**args, **extra_args)
 

@@ -61,15 +61,13 @@ class HFTrainingArguments(BaseHFTrainingArguments):
     Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.
     """
 
-    # TODO(jambayk): is this default optim required? does it work for regular lora? what about lr_scheduler_type?
-    optim: str = Field("paged_adamw_32bit", description="The optimizer to use.")
     learning_rate: float = Field(0.0002, description="The initial learning rate for AdamW.")
     lr_scheduler_type: str = Field(
         "constant",
         description="Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.",
     )
     warmup_ratio: float = Field(0.03, description="Fraction of steps to do a warmup for.")
-    evaluation_strategy: str = Field(
+    eval_strategy: str = Field(
         None,
         description=(
             "The evaluation strategy to use. Forced to 'no' if eval_dataset is not provided. Otherwise, 'steps' unless"
@@ -407,11 +405,11 @@ class LoRA(Pass):
         train_dataset, eval_dataset = self.get_datasets(config)
 
         # get training arguments
-        orig_eval_strat = config.training_args.evaluation_strategy
-        config.training_args.evaluation_strategy = "no"
+        orig_eval_strat = config.training_args.eval_strategy
+        config.training_args.eval_strategy = "no"
         if eval_dataset:
             # default to "steps" if eval dataset is provided
-            config.training_args.evaluation_strategy = "steps" if orig_eval_strat in {None, "no"} else orig_eval_strat
+            config.training_args.eval_strategy = "steps" if orig_eval_strat in {None, "no"} else orig_eval_strat
 
         # We always create a temp dir even if output_dir is provided because we want the temp dir to be deleted
         # after training or if there is an error
@@ -574,14 +572,18 @@ class LoRAVariant(LoRA):
             "rank_pattern": PassConfigParam(
                 type_=dict,
                 default_value={},
-                description="The mapping from layer names or regexp expression "
-                "to ranks which are different from the default rank specified by r.",
+                description=(
+                    "The mapping from layer names or regexp expression "
+                    "to ranks which are different from the default rank specified by r."
+                ),
             ),
             "alpha_pattern": PassConfigParam(
                 type_=dict,
                 default_value={},
-                description="The mapping from layer names or regexp expression "
-                "to alphas which are different from the default alpha specified by alpha.",
+                description=(
+                    "The mapping from layer names or regexp expression "
+                    "to alphas which are different from the default alpha specified by alpha."
+                ),
             ),
         }
         config.update(super()._default_config(accelerator_spec))
@@ -695,12 +697,22 @@ class LoKr(LoRAVariant):
             raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
 
 
+class QLoRATrainingArguments(HFTrainingArguments):
+    """Training arguments for QLoRA fine-tuning.
+
+    Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.
+    """
+
+    optim: str = Field("paged_adamw_32bit", description="The optimizer to use.")
+
+
 class QLoRABase(LoRA):
     """Base class for QLoRA and LoftQ fine-tuning passes."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        config = {
+        return {
+            **super()._default_config(accelerator_spec),
             # quantization parameters
             "compute_dtype": PassConfigParam(
                 type_=str,
@@ -717,9 +729,16 @@ class QLoRABase(LoRA):
                     " model will be in the original precision. If True, the base model will be quantized on load."
                 ),
             ),
+            # training parameters
+            "training_args": PassConfigParam(
+                type_=Union[QLoRATrainingArguments, dict],
+                default_value=None,
+                description=(
+                    "Training arguments. If None, will use default arguments. See QLoRATrainingArguments for more"
+                    " details."
+                ),
+            ),
         }
-        config.update(super()._default_config(accelerator_spec))
-        return config
 
     def _run_for_config(
         self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
@@ -728,7 +747,7 @@ class QLoRABase(LoRA):
         self.check_dependencies(config, is_qlora=True)
 
         # use default training args if not provided
-        config.training_args = config.training_args or HFTrainingArguments()
+        config.training_args = config.training_args or QLoRATrainingArguments()
 
         # model cannot be quantized
         model_config = model.get_hf_model_config()

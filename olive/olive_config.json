@@ -90,14 +90,6 @@
             "dataset": "dataset_required",
             "run_on_target": true
         },
-        "InsertBeamSearch": {
-            "module_path": "olive.passes.onnx.insert_beam_search.InsertBeamSearch",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
         "MatMulNBitsToQDQ": {
             "module_path": "olive.passes.onnx.mnb_to_qdq.MatMulNBitsToQDQ",
             "supported_providers": [ "*" ],

@@ -645,14 +645,20 @@ def test_replace_attention_mask_value(tmp_path):
         helper.make_tensor_value_info("input1", TensorProto.INT64, [1]),
         helper.make_tensor_value_info("input2", TensorProto.FLOAT, [1]),
         helper.make_tensor_value_info("input3", TensorProto.FLOAT, [1]),
+        helper.make_tensor_value_info("input4", TensorProto.FLOAT, [1]),
     ]
     output_tensors = [
         helper.make_tensor_value_info("output1", TensorProto.FLOAT, [1]),
         helper.make_tensor_value_info("output2", TensorProto.FLOAT, [1]),
         helper.make_tensor_value_info("output3", TensorProto.FLOAT, [1]),
+        helper.make_tensor_value_info("output4", TensorProto.FLOAT, [4, 1, 2, 2]),
+        helper.make_tensor_value_info("output5", TensorProto.FLOAT, [1, 1, 2, 2]),
     ]
+    expand_init = np.array([[[[0, min_value], [min_value, min_value]]]], dtype=np.float32)
     initializers = [
         helper.make_tensor("init", TensorProto.FLOAT, [], [min_value]),
+        numpy_helper.from_array(expand_init, name="add_init"),
+        helper.make_tensor("expand_shape", TensorProto.INT64, [4], [4, 1, 2, 2]),
     ]
     nodes = [
         helper.make_node(
@@ -680,6 +686,25 @@ def test_replace_attention_mask_value(tmp_path):
             inputs=["input3", "init"],
             outputs=["output3"],
             name="Mul_init",
+        ),
+        helper.make_node(
+            "Constant",
+            inputs=[],
+            outputs=["expand_constant"],
+            name="Constant_expand",
+            value=numpy_helper.from_array(expand_init, name=""),
+        ),
+        helper.make_node(
+            "Expand",
+            inputs=["expand_constant", "expand_shape"],
+            outputs=["output4"],
+            name="Expand_constant",
+        ),
+        helper.make_node(
+            "Add",
+            inputs=["input4", "add_init"],
+            outputs=["output5"],
+            name="Add_init",
         ),
     ]
     graph = helper.make_graph(
@@ -714,9 +739,16 @@ def test_replace_attention_mask_value(tmp_path):
             "input1": np.array([1], dtype=np.int64),
             "input2": np.array([1], dtype=np.float32),
             "input3": np.array([1], dtype=np.float32),
+            "input4": np.array([0], dtype=np.float32),
         },
     )
-    assert all(o == -1e4 for o in outputs)
+    assert all(o == -1e4 for o in outputs[:3])
+    expected_output_4 = np.repeat(expand_init, 4, axis=0)
+    expected_output_4[expected_output_4 == min_value] = -1e4
+    assert np.array_equal(outputs[3], expected_output_4)
+    expected_output_5 = expand_init.copy()
+    expected_output_5[expected_output_5 == min_value] = -1e4
+    assert np.array_equal(outputs[4], expected_output_5)
 
 
 def test_matmul_add_to_gemm(tmp_path):
