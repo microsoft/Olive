@@ -89,51 +89,37 @@ class AppendPrePostProcessingOps(Pass):
 
         tool_command = config.tool_command
         if tool_command:
-            if tool_command == "whisper":
-                from onnxruntime_extensions import __version__ as ortext_version
+            # Use the pre-defined helper to add pre/post processing to model.
+            from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
 
-                assert version.parse(ortext_version) >= version.parse("0.9.0"), (
-                    "Whisper pre-post processing requires onnxruntime_extensions>=0.9.0"
-                )
+            # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
+            # Results are much better when that can be used. Minimum opset is 16.
+            onnx_opset = config.target_opset
 
-                from olive.passes.utils.whisper_prepost import add_pre_post_processing_to_model
+            if version.parse(OrtVersion) >= version.parse("1.14.0"):
+                onnx_opset = 18
 
-                tool_command_args = config.tool_command_args or {}
-                onnx_model = add_pre_post_processing_to_model(
-                    model.load_model(), config.target_opset, **tool_command_args
-                )
-            else:
-                # Use the pre-defined helper to add pre/post processing to model.
-                from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
+            if isinstance(tool_command, str):
+                try:
+                    tool_command = getattr(add_ppp, tool_command)
+                except AttributeError:
+                    raise AttributeError(f"{tool_command} is not found in onnxruntime_extensions.tools") from None
+            elif not isinstance(tool_command, Callable):
+                raise ValueError(
+                    "tool_command must be a callable or a string defined in onnxruntime_extensions.tools"
+                ) from None
 
-                # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
-                # Results are much better when that can be used. Minimum opset is 16.
-                onnx_opset = config.target_opset
+            kwargs = config.tool_command_args or {}
+            kwargs["onnx_opset"] = onnx_opset
 
-                if version.parse(OrtVersion) >= version.parse("1.14.0"):
-                    onnx_opset = 18
-
-                if isinstance(tool_command, str):
-                    try:
-                        tool_command = getattr(add_ppp, tool_command)
-                    except AttributeError:
-                        raise AttributeError(f"{tool_command} is not found in onnxruntime_extensions.tools") from None
-                elif not isinstance(tool_command, Callable):
-                    raise ValueError(
-                        "tool_command must be a callable or a string defined in onnxruntime_extensions.tools"
-                    ) from None
-
-                kwargs = config.tool_command_args or {}
-                kwargs["onnx_opset"] = onnx_opset
-
-                # add the processing commands to the model
-                # save the model to a temporary directory, will save it to the output path later with
-                # external data config
-                with tempfile.TemporaryDirectory(prefix="olive_tmp") as tmp_dir:
-                    tmp_dir_path = Path(tmp_dir)
-                    tmp_model_path = tmp_dir_path / Path(output_model_path).name
-                    tool_command(Path(model.model_path), Path(tmp_model_path), **kwargs)
-                    onnx_model = onnx.load(tmp_model_path)
+            # add the processing commands to the model
+            # save the model to a temporary directory, will save it to the output path later with
+            # external data config
+            with tempfile.TemporaryDirectory(prefix="olive_tmp") as tmp_dir:
+                tmp_dir_path = Path(tmp_dir)
+                tmp_model_path = tmp_dir_path / Path(output_model_path).name
+                tool_command(Path(model.model_path), Path(tmp_model_path), **kwargs)
+                onnx_model = onnx.load(tmp_model_path)
         else:
             # Handle args pre and post
             new_model_proto = self._run_prepost_pipeline(model, config)
