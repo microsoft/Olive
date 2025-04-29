@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>How to extend Olive to add custom model evaluator &#8212; Olive  documentation</title>
+    <title>Introduction &#8212; Olive  documentation</title>
   
   
   
@@ -50,12 +50,12 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/configure-workflows/custom-model-evaluator';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/configure-workflows/build-workflow';</script>
     <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Examples" href="../../examples.html" />
-    <link rel="prev" title="How To Configure Engine" href="engine-configuration.html" />
+    <link rel="next" title="How To Configure Model" href="how-to-configure-model.html" />
+    <link rel="prev" title="Run Olive workflows" href="../cli/cli-run.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="latest" />
@@ -263,6 +263,10 @@
   
 
   
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
 </div>
 
     </header>
@@ -425,7 +429,7 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">How-to</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How to extend Olive to add custom model evaluator</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Introduction</span></li>
   </ul>
 </nav>
 </div>
@@ -442,85 +446,88 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="how-to-extend-olive-to-add-custom-model-evaluator">
-<h1>How to extend Olive to add custom model evaluator<a class="headerlink" href="#how-to-extend-olive-to-add-custom-model-evaluator" title="Link to this heading">#</a></h1>
-<p>This document describes how to add custom model evaluator to Olive.</p>
-<p>Olive implements evaluation logic via class (<code class="docutils literal notranslate"><span class="pre">OliveEvaluator</span></code>)[https://github.com/microsoft/Olive/blob/main/olive/evaluator/olive_evaluator.py#L59]. Users can extend this implementation and override the <code class="docutils literal notranslate"><span class="pre">evaluate</span></code> method to implement their own custom logic.</p>
-<p>Arguments to the <code class="docutils literal notranslate"><span class="pre">OliveEvaluator.evaluate</span></code> function:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">model:</span> <span class="pre">OliveModelHandler</span></code>: Model to evaluate.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">metrics:</span> <span class="pre">List[Metric]</span></code>: List of metrics to evaluate for.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">device:</span> <span class="pre">Device</span></code>: Target device to evaluate on.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">execution_providers:</span> <span class="pre">Union[str,</span> <span class="pre">List[str]]</span></code>: Evaluation provider(s) to use for the target device.</p></li>
-</ul>
-<p>Here is an example of how to subclass (<code class="docutils literal notranslate"><span class="pre">OliveEvaluator</span></code>)[https://github.com/microsoft/Olive/blob/main/olive/evaluator/olive_evaluator.py#L59]:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Registry</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Metric</span><span class="p">,</span>
-    <span class="n">MetricResult</span><span class="p">,</span>
-    <span class="n">OliveEvaluator</span><span class="p">,</span>
-    <span class="n">flatten_metric_result</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.handler</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveModelHandler</span>
-
-<span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;my_custom_evaluator&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">my_custom_evaluator</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">MyCustomEvaluator</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">MyCustomEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">):</span>
-  <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">,</span>
-        <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
-        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
-      <span class="c1"># Your custom evaluation logic goes in here</span>
-
-      <span class="c1"># Olive expects the return to be flattened</span>
-      <span class="k">return</span> <span class="n">flatten_metric_result</span><span class="p">(</span><span class="n">metrics</span><span class="p">)</span>
+  <section id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">#</a></h1>
+<p>To convert, quantize, optimize and tune your model Olive needs information about your model. For example, how to load the model, name and shape of input tensors. You can also select the target hardware and list of optimizations you want to perform on the model. You can provide this information in a json file as an input to the Olive. In this document we will walk through how to generate such .json configuration from scratch.</p>
+<p>We will focus on processing a Hugging Face model targeting CPU. After the .json configuration is prepared, one simple command will process the model and produce intended output model.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>my_model_processing_description.json
 </pre></div>
 </div>
-<p>For detailed information on supported metric types, refer to <a class="reference internal" href="metrics-configuration.html#metric-types"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">Metric</span></code></span></a>. <code class="docutils literal notranslate"><span class="pre">MetricResult</span></code> holds the final result of evaluation. Snippet below demonstrates how to build the final results from computed metrics.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;metrics&quot;</span><span class="p">:[</span>
-<span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acc&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">}},</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f1&quot;</span><span class="p">},</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;auroc&quot;</span><span class="p">}</span>
-<span class="w">            </span><span class="p">]</span>
+<section id="input-model">
+<h2>Input Model<a class="headerlink" href="#input-model" title="Link to this heading">#</a></h2>
+<p>Let’s use Phi-3.5 available on Hugging Face ( https://huggingface.co/microsoft/Phi-3.5-mini-instruct )</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;microsoft/Phi-3.5-mini-instruct&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Olive supports a number of different input model types including <strong>HuggingFace</strong>, <strong>Pytorch</strong>, <strong>ONNX</strong>, <strong>OpenVINO</strong>, <strong>QNN</strong>, <strong>SNPE</strong>, <strong>TensorFlow</strong>, and <strong>Composite</strong>. For detailed instructions on configuring your input model, see <a class="reference internal" href="how-to-configure-model.html"><span class="std std-doc">how to configure input model</span></a>.</p>
+</section>
+<section id="passes-to-apply">
+<h2>Passes to apply<a class="headerlink" href="#passes-to-apply" title="Link to this heading">#</a></h2>
+<p>Olive can apply various transformations and optimizations, also known as passes, on the input model. Let’s apply ONNX conversion and Graph Surgery passes to convert the model to ONNX and apply select graph transformations.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;passes&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;mb&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ModelBuilder&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int4&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;int4_block_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;int4_accuracy_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;int4_op_types_to_quantize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">&quot;MatMul&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Gather&quot;</span><span class="w"> </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;avg&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">}},</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max&quot;</span><span class="p">},</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;min&quot;</span><span class="p">}</span>
-<span class="w">            </span><span class="p">]</span>
+<span class="w">        </span><span class="nt">&quot;gs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveRopeMultiCache&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AttentionMaskToSequenceLengths&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SimplifiedLayerNormToL2Norm&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">            </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
 <span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Here we are using ModelBuilder to convert the model to ONNX and applying three different graph surgeries on the converted ONNX model. For detailed instructions on configuring passes, see <a class="reference internal" href="pass-configuration.html"><span class="std std-doc">how to configure pass</span></a>. For a complete list of available passes, see <a class="reference internal" href="../../reference/pass.html"><span class="std std-doc">passes</span></a>.</p>
+</section>
+<section id="complete-json-configuration">
+<h2>Complete .json configuration<a class="headerlink" href="#complete-json-configuration" title="Link to this heading">#</a></h2>
+<p>You can additionally select output directory, log severity level etc,. See <a class="reference internal" href="#../../reference/options.html"><span class="xref myst">options</span></a> for complete list of configuration option. Now you have the complete .json configuration that you can use.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;microsoft/Phi-3.5-mini-instruct&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;load_kwargs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;trust_remote_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">   </span><span class="nt">&quot;passes&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;mb&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ModelBuilder&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int4&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;int4_block_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;int4_accuracy_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;int4_op_types_to_quantize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">&quot;MatMul&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Gather&quot;</span><span class="w"> </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;gs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveRopeMultiCache&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AttentionMaskToSequenceLengths&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SimplifiedLayerNormToL2Norm&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">            </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;log_severity_level&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;output_dir&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;models/phi3_5&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">final_metric_results</span> <span class="o">=</span> <span class="p">{}</span>
-<span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">eval_results</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="n">sub_metrics</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">sub_metric_name</span><span class="p">,</span> <span class="n">sub_metric_result</span> <span class="ow">in</span> <span class="n">eval_results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="n">sub_metrics</span><span class="p">[</span><span class="n">m</span><span class="p">]</span> <span class="o">=</span> <span class="n">SubMetricResult</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">sub_metric_result</span><span class="p">,</span> <span class="n">priority</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">higher_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-    <span class="n">final_metric_results</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">sub_metrics</span><span class="p">)</span>
-
-<span class="k">return</span> <span class="n">flatten_metric_result</span><span class="p">(</span><span class="n">final_metric_results</span><span class="p">)</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">LMEvaluator</span></code> in (olive_evaluator.py)[https://github.com/microsoft/Olive/blob/main/olive/evaluator/olive_evaluator.py#L1068] is a good example that demonstrate evaluating a HuggingFace model using (<code class="docutils literal notranslate"><span class="pre">lm_eval</span></code>)[https://github.com/EleutherAI/lm-evaluation-harness] harness.</p>
+</section>
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">#</a></h2>
+<p>Olive provides additional opportunity to configure system, data, evaluation metrics and more. See <a class="reference internal" href="#how-to-customize-configuration"><span class="xref myst">How to customize configuration</span></a></p>
+</section>
 </section>
 
 
@@ -534,20 +541,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="engine-configuration.html"
+       href="../cli/cli-run.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">How To Configure Engine</p>
+        <p class="prev-next-title">Run Olive workflows</p>
       </div>
     </a>
     <a class="right-next"
-       href="../../examples.html"
+       href="how-to-configure-model.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Examples</p>
+        <p class="prev-next-title">How To Configure Model</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -557,6 +564,27 @@
             </div>
             
             
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#input-model">Input Model</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#passes-to-apply">Passes to apply</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#complete-json-configuration">Complete .json configuration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
           </div>

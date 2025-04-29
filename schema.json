@@ -697,6 +697,7 @@
       "properties": {
         "search_strategy": {
           "title": "Search Strategy",
+          "description": "Search strategy configuration to use to auto optimize the input model.",
           "anyOf": [
             {
               "$ref": "#/definitions/SearchStrategyConfig"
@@ -707,31 +708,53 @@
           ]
         },
         "host": {
-          "$ref": "#/definitions/SystemConfig"
+          "title": "Host",
+          "description": "The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SystemConfig"
+            }
+          ]
         },
         "target": {
-          "$ref": "#/definitions/SystemConfig"
+          "title": "Target",
+          "description": "The target to run model evaluations on. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`. If it is a dictionary, it contains the system information. If not specified, it is the local system.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SystemConfig"
+            }
+          ]
         },
         "evaluator": {
-          "$ref": "#/definitions/OliveEvaluatorConfig"
+          "title": "Evaluator",
+          "description": "The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator in `evaluators`. If it is a dictionary, it contains the evaluator information. This evaluator will be used to evaluate the input model if needed. It is also used to evaluate the output models of passes that don't have their own evaluators. If it is None, skip the evaluation for input model and any output models.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/OliveEvaluatorConfig"
+            }
+          ]
         },
         "plot_pareto_frontier": {
           "title": "Plot Pareto Frontier",
+          "description": "This decides whether to plot the pareto frontier of the search results.",
           "default": false,
           "type": "boolean"
         },
         "no_artifacts": {
           "title": "No Artifacts",
+          "description": "Set to false to skip generated output artifacts.",
           "default": false,
           "type": "boolean"
         },
         "evaluate_input_model": {
           "title": "Evaluate Input Model",
+          "description": "When true, input model will be evaluated using the engine's evaluator. Set this to false to skip.",
           "default": true,
           "type": "boolean"
         },
         "output_dir": {
           "title": "Output Dir",
+          "description": "Path where final output get saved.",
           "anyOf": [
             {
               "type": "string",
@@ -744,6 +767,7 @@
         },
         "packaging_config": {
           "title": "Packaging Config",
+          "description": "Artifacts packaging configuration.",
           "anyOf": [
             {
               "$ref": "#/definitions/PackagingConfig"
@@ -758,6 +782,7 @@
         },
         "cache_config": {
           "title": "Cache Config",
+          "description": "Cache configuration to speed up workflow runs.",
           "anyOf": [
             {
               "$ref": "#/definitions/CacheConfig"
@@ -769,6 +794,7 @@
         },
         "cache_dir": {
           "title": "Cache Dir",
+          "description": "Path where intermediate results get saved.  Default is .olive-cache in the current working directory.",
           "default": ".olive-cache",
           "anyOf": [
             {
@@ -788,36 +814,43 @@
         },
         "clean_cache": {
           "title": "Clean Cache",
+          "description": "Set this to true to force clean the cache on next run.",
           "default": false,
           "type": "boolean"
         },
         "clean_evaluation_cache": {
           "title": "Clean Evaluation Cache",
+          "description": "Set this to true to limit cache clean to generated evaluation results only.",
           "default": false,
           "type": "boolean"
         },
         "enable_shared_cache": {
           "title": "Enable Shared Cache",
+          "description": "Set this to true to enable shared cache.",
           "default": false,
           "type": "boolean"
         },
         "log_severity_level": {
           "title": "Log Severity Level",
+          "description": "Logging level. Default is 3. Available options: 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL",
           "default": 1,
           "type": "integer"
         },
         "ort_log_severity_level": {
           "title": "Ort Log Severity Level",
+          "description": "Log severity level for ONNX Runtime C++ logs. Default is 3. Available options: 0: VERBOSE, 1: INFO, 2: WARNING, 3: ERROR, 4: FATAL",
           "default": 3,
           "type": "integer"
         },
         "ort_py_log_severity_level": {
           "title": "Ort Py Log Severity Level",
+          "description": "Log severity level for ONNX Runtime Python logs. Available options: 0: VERBOSE, 1: INFO, 2: WARNING, 3: ERROR, 4: FATAL",
           "default": 3,
           "type": "integer"
         },
         "log_to_file": {
           "title": "Log To File",
+          "description": "Set this to true to reroute logs to a file instead of the console. If `true`, the log will be stored in a olive-<timestamp>.log file under the current working directory.",
           "default": false,
           "type": "boolean"
         }

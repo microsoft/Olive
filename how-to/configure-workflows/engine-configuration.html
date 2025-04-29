@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>How to extend Olive to add custom model evaluator &#8212; Olive  documentation</title>
+    <title>How To Configure Engine &#8212; Olive  documentation</title>
   
   
   
@@ -50,12 +50,12 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/configure-workflows/custom-model-evaluator';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/configure-workflows/engine-configuration';</script>
     <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Examples" href="../../examples.html" />
-    <link rel="prev" title="How To Configure Engine" href="engine-configuration.html" />
+    <link rel="next" title="How to extend Olive to add custom model evaluator" href="custom-model-evaluator.html" />
+    <link rel="prev" title="How To Configure Systems" href="systems.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="latest" />
@@ -263,6 +263,10 @@
   
 
   
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
 </div>
 
     </header>
@@ -425,7 +429,7 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">How-to</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How to extend Olive to add custom model evaluator</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How To Configure Engine</span></li>
   </ul>
 </nav>
 </div>
@@ -442,85 +446,81 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="how-to-extend-olive-to-add-custom-model-evaluator">
-<h1>How to extend Olive to add custom model evaluator<a class="headerlink" href="#how-to-extend-olive-to-add-custom-model-evaluator" title="Link to this heading">#</a></h1>
-<p>This document describes how to add custom model evaluator to Olive.</p>
-<p>Olive implements evaluation logic via class (<code class="docutils literal notranslate"><span class="pre">OliveEvaluator</span></code>)[https://github.com/microsoft/Olive/blob/main/olive/evaluator/olive_evaluator.py#L59]. Users can extend this implementation and override the <code class="docutils literal notranslate"><span class="pre">evaluate</span></code> method to implement their own custom logic.</p>
-<p>Arguments to the <code class="docutils literal notranslate"><span class="pre">OliveEvaluator.evaluate</span></code> function:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">model:</span> <span class="pre">OliveModelHandler</span></code>: Model to evaluate.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">metrics:</span> <span class="pre">List[Metric]</span></code>: List of metrics to evaluate for.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">device:</span> <span class="pre">Device</span></code>: Target device to evaluate on.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">execution_providers:</span> <span class="pre">Union[str,</span> <span class="pre">List[str]]</span></code>: Evaluation provider(s) to use for the target device.</p></li>
-</ul>
-<p>Here is an example of how to subclass (<code class="docutils literal notranslate"><span class="pre">OliveEvaluator</span></code>)[https://github.com/microsoft/Olive/blob/main/olive/evaluator/olive_evaluator.py#L59]:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Registry</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">olive.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Metric</span><span class="p">,</span>
-    <span class="n">MetricResult</span><span class="p">,</span>
-    <span class="n">OliveEvaluator</span><span class="p">,</span>
-    <span class="n">flatten_metric_result</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">olive.hardware</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">olive.model.handler</span><span class="w"> </span><span class="kn">import</span> <span class="n">OliveModelHandler</span>
-
-<span class="nd">@Registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;my_custom_evaluator&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">my_custom_evaluator</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">MyCustomEvaluator</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">MyCustomEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">):</span>
-  <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">,</span>
-        <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
-        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
-      <span class="c1"># Your custom evaluation logic goes in here</span>
-
-      <span class="c1"># Olive expects the return to be flattened</span>
-      <span class="k">return</span> <span class="n">flatten_metric_result</span><span class="p">(</span><span class="n">metrics</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>For detailed information on supported metric types, refer to <a class="reference internal" href="metrics-configuration.html#metric-types"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">Metric</span></code></span></a>. <code class="docutils literal notranslate"><span class="pre">MetricResult</span></code> holds the final result of evaluation. Snippet below demonstrates how to build the final results from computed metrics.</p>
+  <section id="how-to-configure-engine">
+<h1>How To Configure Engine<a class="headerlink" href="#how-to-configure-engine" title="Link to this heading">#</a></h1>
+<p>Engine, in Olive, is the driver of the entire workflow. Engine dictates how a model gets processed, cached, evaluated, and finally packaged. As a developer, you can configure each of these aspects of the engine through the various available options.</p>
+<section id="output-configuration">
+<h2>Output configuration<a class="headerlink" href="#output-configuration" title="Link to this heading">#</a></h2>
+<p>Use <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> option to provide a path to customize where the generated outputs gets saved. For dry runs i.e. process the model but generate no output, set <code class="docutils literal notranslate"><span class="pre">no_artifacts</span></code> option to true.</p>
+<p>Below is an example of providing a locally saved ONNX model as input and customizing the output path.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;metrics&quot;</span><span class="p">:[</span>
-<span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acc&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">}},</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f1&quot;</span><span class="p">},</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;auroc&quot;</span><span class="p">}</span>
-<span class="w">            </span><span class="p">]</span>
-<span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;avg&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">}},</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max&quot;</span><span class="p">},</span>
-<span class="w">                </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;min&quot;</span><span class="p">}</span>
-<span class="w">            </span><span class="p">]</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">]</span>
+<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/model.onnx&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="w">    </span><span class="nt">&quot;no_artifacts&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;output_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/where/generated/model/gets/saved&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">final_metric_results</span> <span class="o">=</span> <span class="p">{}</span>
-<span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">eval_results</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="n">sub_metrics</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">sub_metric_name</span><span class="p">,</span> <span class="n">sub_metric_result</span> <span class="ow">in</span> <span class="n">eval_results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="n">sub_metrics</span><span class="p">[</span><span class="n">m</span><span class="p">]</span> <span class="o">=</span> <span class="n">SubMetricResult</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">sub_metric_result</span><span class="p">,</span> <span class="n">priority</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">higher_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-    <span class="n">final_metric_results</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">sub_metrics</span><span class="p">)</span>
-
-<span class="k">return</span> <span class="n">flatten_metric_result</span><span class="p">(</span><span class="n">final_metric_results</span><span class="p">)</span>
+</section>
+<section id="caching-configuration">
+<h2>Caching configuration<a class="headerlink" href="#caching-configuration" title="Link to this heading">#</a></h2>
+<p>Developers have a few different options to customize caching.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cache_dir</span></code>: [str]:  Use this option to customize where local caching is saved.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cache_config</span></code>: [CacheConfig]: Use this option to customize shared i.e. in Azure cloud. Shared cache can be toggled ON and OFF using the <code class="docutils literal notranslate"><span class="pre">enable_shared_cache</span></code> option.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enable_shared_cache</span></code>: [bool]: Toggle to enable/disable use of shared cache.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clean_cache</span></code>: [bool]: To clean the local cache on next run, set <code class="docutils literal notranslate"><span class="pre">clean_cache</span></code> to true.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clean_evaluation_cache</span></code>: [bool]: To force clean only the evaluation results cache, set this to true.</p></li>
+</ul>
+<p><strong>NOTE</strong>: Don’t forget to toggle the <code class="docutils literal notranslate"><span class="pre">clean_cache</span></code> option back to default to avoid force cleaning previously generated cache on each run. Cache helps improve performance and cleaning the cache on each run and degrade performance substantially.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="w">    </span><span class="nt">&quot;cache_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/local/dir&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;cache_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;account_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;account-name&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;container_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;container-name&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;update_shared_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;enable_shared_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;clean_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;clean_evaluation_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="p">}</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">LMEvaluator</span></code> in (olive_evaluator.py)[https://github.com/microsoft/Olive/blob/main/olive/evaluator/olive_evaluator.py#L1068] is a good example that demonstrate evaluating a HuggingFace model using (<code class="docutils literal notranslate"><span class="pre">lm_eval</span></code>)[https://github.com/EleutherAI/lm-evaluation-harness] harness.</p>
+<p>For detailed discussion on configuring shared cache, see <a class="reference internal" href="../../features/azure-ai/shared-model-cache.html"><span class="std std-doc">shared-cache</span></a>.</p>
+</section>
+<section id="logging-configuration">
+<h2>Logging configuration<a class="headerlink" href="#logging-configuration" title="Link to this heading">#</a></h2>
+<p>Logging is controlled by four different options, all configurable as input to the engine.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">log_severity_level</span></code>: [int]: Controls verbosity of logging output from Olive.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ort_log_severity_level</span></code>: [int]: Controls verbosity of logging from use of ONNX runtime.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ort_py_log_severity_level</span></code>: [int]: Set logging verbosity of ONNX runtime python module.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">log_to_file</span></code>: [str]: Set this to redirect all console logs to a local file.</p></li>
+</ul>
+<p>Developers can configure each of the above three flags to any of the following to control the verbosity of the output log during workflow runs.</p>
+<ul class="simple">
+<li><p>0: VERBOSE (or DEBUG)</p></li>
+<li><p>1: INFO</p></li>
+<li><p>2: WARNING</p></li>
+<li><p>3: ERROR</p></li>
+<li><p>4: FATAL (or CRITICAL)</p></li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//...</span>
+<span class="w">    </span><span class="nt">&quot;log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;ort_log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;ort_py_log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;log_to_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/a/local/file&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>NOTE</strong>: If <code class="docutils literal notranslate"><span class="pre">log_to_file</span></code> is a relative path, it is considered relative to the current working directory.</p>
+</section>
 </section>
 
 
@@ -534,20 +534,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="engine-configuration.html"
+       href="systems.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">How To Configure Engine</p>
+        <p class="prev-next-title">How To Configure Systems</p>
       </div>
     </a>
     <a class="right-next"
-       href="../../examples.html"
+       href="custom-model-evaluator.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Examples</p>
+        <p class="prev-next-title">How to extend Olive to add custom model evaluator</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -557,6 +557,26 @@
             </div>
             
             
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#output-configuration">Output configuration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#caching-configuration">Caching configuration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#logging-configuration">Logging configuration</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
           </div>
