@@ -73,7 +73,29 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 
       :octicon:`arrow-right;1em;sd-text-info` `olive run <cli/cli-run.html>`_
 
-Configure Workflows (Advanced)
+How to prepare configuration
+----------------------------
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   configure-workflows/build-workflow
+
+For more complex scenarios, you can create a new configuration from scratch.
+
+.. grid:: 2 2 2 3
+   :class-container: cards
+
+   .. grid-item-card::
+
+      **How to write a new .json configuration**
+
+      Learn how to write a new .json configure from scratch.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Configure workflow <configure-workflows/build_workflow.html>`_
+
+How to customize configuration
 ------------------------------
 
 .. toctree::
@@ -86,9 +108,10 @@ Configure Workflows (Advanced)
    configure-workflows/metrics-configuration
    configure-workflows/model-packaging
    configure-workflows/systems
+   configure-workflows/engine-configuration
    configure-workflows/custom-model-evaluator
 
-For more complex scenarios, you can create fully customize workflows where you can run any of the 40+ supported optimization techniques in a sequence.
+For more complex scenarios, you can customize configuration where you can run any of the 40+ supported optimization techniques in a sequence.
 
 .. grid:: 2 2 2 3
    :class-container: cards
@@ -140,6 +163,14 @@ For more complex scenarios, you can create fully customize workflows where you c
       Learn how to configure systems such as local compute and remote compute to be a *host* (machine that executes optimization) and/or a *target* (machine that model will inference on).
 
       :octicon:`arrow-right;1em;sd-text-info` `Configure systems <configure-workflows/systems.html>`_
+
+   .. grid-item-card::
+
+      **How to configure engine**
+
+      Learn how to configure engine to control where output gets saved, logging verbosity, caching, and packaging.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Configure engine <configure-workflows/engine-configuration.html>`_
 
    .. grid-item-card::
 

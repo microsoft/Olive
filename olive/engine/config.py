@@ -20,12 +20,39 @@ PRUNED_CONFIGS = (FAILED_CONFIG, INVALID_CONFIG)
 
 
 class EngineConfig(ConfigBase, extra=Extra.forbid):
-    search_strategy: Union[SearchStrategyConfig, bool] = None
-    host: SystemConfig = None
-    target: SystemConfig = None
-    evaluator: OliveEvaluatorConfig = None
-    plot_pareto_frontier: bool = False
-    no_artifacts: bool = False
+    search_strategy: Union[SearchStrategyConfig, bool] = Field(
+        None, description="Search strategy configuration to use to auto optimize the input model."
+    )
+    host: SystemConfig = Field(
+        None,
+        description=(
+            "The host of the engine. It can be a string or a dictionary. "
+            "If it is a string, it is the name of a system in `systems`."
+        ),
+    )
+    target: SystemConfig = Field(
+        None,
+        description=(
+            "The target to run model evaluations on. It can be a string or a dictionary. "
+            "If it is a string, it is the name of a system in `systems`. "
+            "If it is a dictionary, it contains the system information. If not specified, it is the local system."
+        ),
+    )
+    evaluator: OliveEvaluatorConfig = Field(
+        None,
+        description=(
+            "The evaluator of the engine. It can be a string or a dictionary. "
+            "If it is a string, it is the name of an evaluator in `evaluators`. "
+            "If it is a dictionary, it contains the evaluator information. "
+            "This evaluator will be used to evaluate the input model if needed. "
+            "It is also used to evaluate the output models of passes that don't have their own evaluators. "
+            "If it is None, skip the evaluation for input model and any output models."
+        ),
+    )
+    plot_pareto_frontier: bool = Field(
+        False, description="This decides whether to plot the pareto frontier of the search results."
+    )
+    no_artifacts: bool = Field(False, description="Set to false to skip generated output artifacts.")
 
 
 class RunPassConfig(AbstractPassConfig):
