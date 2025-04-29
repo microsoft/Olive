@@ -25,9 +25,6 @@ jobs:
       bert_inc:
         exampleFolder: bert
         exampleName: bert_inc
-      resnet_vitis_ai_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_vitis_ai_ptq_cpu
       resnet_qat:
         exampleFolder: resnet
         exampleName: resnet_qat
@@ -52,9 +49,6 @@ jobs:
       bert_ptq_cpu_docker:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_docker
-      resnet_vitis_ai_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_vitis_ai_ptq_cpu
       resnet_qat:
         exampleFolder: resnet
         exampleName: resnet_qat
