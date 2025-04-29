@@ -15,6 +15,28 @@ from olive.data.registry import Registry
 
 logger = getLogger(__name__)
 
+def get_imagenet_label_map():
+    file_path = Path(__file__).parent / "imagenet_class_index.json"
+    if not file_path.exists():
+        import requests
+        imagenet_class_index_url = (
+            "https://raw.githubusercontent.com/pytorch/vision/main/gallery/assets/imagenet_class_index.json"
+        )
+        response = requests.get(imagenet_class_index_url)
+        response.raise_for_status()  # Ensure the request was successful
+        content = response.json()
+    else:
+        import json
+        with open(file_path) as f:
+            content = json.loads(f.read())
+
+    # Convert {0: ["n01440764", "tench"], ...} to {synset: index}
+    return {v[0]: int(k) for k, v in content.items()}
+
+def adapt_label_for_mini_imagenet(labels: list, label_names: list):
+    label_map = get_imagenet_label_map()
+    return [label_map[label_names[x]] for x in labels]
+
 
 class ImagenetDataset(Dataset):
     def __init__(self, data):
@@ -48,7 +70,11 @@ preprocess = transforms.Compose(
 
 
 @Registry.register_pre_process()
-def dataset_pre_process(output_data, **kwargs):
+def dataset_pre_process(output_data:Dataset, **kwargs) -> Dataset:
+    shuffle = kwargs.get("shuffle", True)
+    if shuffle:
+        seed = kwargs.get("seed", 42)
+        output_data = output_data.shuffle(seed=seed)
     cache_key = kwargs.get("cache_key")
     size = kwargs.get("size", 256)
     cache_file = None
@@ -69,6 +95,9 @@ def dataset_pre_process(output_data, **kwargs):
         image = preprocess(image)
         images.append(image)
         labels.append(label)
+
+    if(output_data.info.dataset_name == "mini-imagenet"):
+        labels = adapt_label_for_mini_imagenet(labels, output_data.features["label"].names)
 
     result_data = ImagenetDataset({"images": np.array(images), "labels": np.array(labels)})
 
