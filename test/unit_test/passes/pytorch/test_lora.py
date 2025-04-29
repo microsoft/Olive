@@ -51,7 +51,6 @@ def get_pass_config(model_name, task, **kwargs):
             "gradient_checkpointing": False,
             "max_steps": 2,
             "logging_steps": 1,
-            "optim": "adamw_hf",
         },
         **kwargs,
     }
