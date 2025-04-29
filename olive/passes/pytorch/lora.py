@@ -69,7 +69,7 @@ class HFTrainingArguments(BaseHFTrainingArguments):
         description="Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.",
     )
     warmup_ratio: float = Field(0.03, description="Fraction of steps to do a warmup for.")
-    evaluation_strategy: str = Field(
+    eval_strategy: str = Field(
         None,
         description=(
             "The evaluation strategy to use. Forced to 'no' if eval_dataset is not provided. Otherwise, 'steps' unless"
@@ -407,11 +407,11 @@ class LoRA(Pass):
         train_dataset, eval_dataset = self.get_datasets(config)
 
         # get training arguments
-        orig_eval_strat = config.training_args.evaluation_strategy
-        config.training_args.evaluation_strategy = "no"
+        orig_eval_strat = config.training_args.eval_strategy
+        config.training_args.eval_strategy = "no"
         if eval_dataset:
             # default to "steps" if eval dataset is provided
-            config.training_args.evaluation_strategy = "steps" if orig_eval_strat in {None, "no"} else orig_eval_strat
+            config.training_args.eval_strategy = "steps" if orig_eval_strat in {None, "no"} else orig_eval_strat
 
         # We always create a temp dir even if output_dir is provided because we want the temp dir to be deleted
         # after training or if there is an error
@@ -574,14 +574,18 @@ class LoRAVariant(LoRA):
             "rank_pattern": PassConfigParam(
                 type_=dict,
                 default_value={},
-                description="The mapping from layer names or regexp expression "
-                "to ranks which are different from the default rank specified by r.",
+                description=(
+                    "The mapping from layer names or regexp expression "
+                    "to ranks which are different from the default rank specified by r."
+                ),
             ),
             "alpha_pattern": PassConfigParam(
                 type_=dict,
                 default_value={},
-                description="The mapping from layer names or regexp expression "
-                "to alphas which are different from the default alpha specified by alpha.",
+                description=(
+                    "The mapping from layer names or regexp expression "
+                    "to alphas which are different from the default alpha specified by alpha."
+                ),
             ),
         }
         config.update(super()._default_config(accelerator_spec))
