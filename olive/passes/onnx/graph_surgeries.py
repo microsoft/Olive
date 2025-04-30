@@ -1102,37 +1102,6 @@ class AttentionMaskToSequenceLengths(ProtoSurgeon):
         return dag.model
 
 
-class ReplaceAttentionMaskValueTensor(ProtoSurgeon):
-    """Replace the value of extended attention mask with a new value.
-
-    This surgery is useful if the default mask value does not quantize well due to numerical instability.
-    """
-
-    def __init__(self, threshold: float = -3e30, replacement: float = -1e4):
-        self.threshold = threshold
-        self.replacement = replacement
-
-    def replace_large_neg_vals(self, tensor: onnx.TensorProto) -> onnx.TensorProto:
-        array = onnx.numpy_helper.to_array(tensor)
-        # logger.info("Constant tensor: {}".format(tensor.name))
-        if np.any(array <= self.threshold):
-            array = np.where(array <= self.threshold, self.replacement, array)
-            logger.info(f"Replaced constants for tensor: {tensor.name}")
-            return onnx.numpy_helper.from_array(array, tensor.name)
-        return tensor
-
-    def __call__(self, model: ModelProto):
-        dag = OnnxDAG(model)
-
-        # Update initializers
-        for init_name in dag.get_initializer_names():
-            init_proto = dag.get_initializer_proto(init_name)
-            dag.replace_initializer(self.replace_large_neg_vals(init_proto))
-
-        dag.update()
-        return dag.model
-
-
 class ReplaceAttentionMaskValue(ProtoSurgeon):
     """Replace the value of extended attention mask with a new value.
 

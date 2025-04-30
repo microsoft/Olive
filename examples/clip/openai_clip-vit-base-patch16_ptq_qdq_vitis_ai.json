@@ -87,10 +87,7 @@
         },
         "surgery": {
             "type": "GraphSurgeries",
-            "surgeries": [
-                { "surgeon": "ReplaceAttentionMaskValueTensor" },
-                { "surgeon": "PowReduceSumPowDiv2LpNorm" }
-            ]
+            "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" }, { "surgeon": "PowReduceSumPowDiv2LpNorm" } ]
         },
         "quantization": {
             "type": "OnnxStaticQuantization",
