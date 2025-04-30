@@ -1082,13 +1082,13 @@ class LMEvaluator(OliveEvaluator):
             else:
                 raise ValueError("Failed to automatically deduce model class. Provide it in user input!")
 
-        device = _OliveEvaluator.device_string_to_torch_device(device)
-        # device = torch.device("cuda:5")
         pretrained = None
         tokenizer = None
         if self.model_class == "hf":
             tokenizer = model.get_hf_tokenizer()
             pretrained = model.load_model().eval().to(device)
+            device = _OliveEvaluator.device_string_to_torch_device(device)
+
         elif self.model_class == "onnx":
             import onnxruntime_genai as og
 
@@ -1098,6 +1098,7 @@ class LMEvaluator(OliveEvaluator):
             model_path = model_path.parent if model_path.is_file() else model_path
             pretrained = og.Model(str(model_path))
             tokenizer = og.Tokenizer(pretrained)
+            device = None
 
         lmmodel = lm_eval.api.registry.get_model(self.model_class)(
             pretrained=pretrained,
