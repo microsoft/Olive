@@ -13,7 +13,7 @@ from packaging import version
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
+from olive.passes.onnx.quark_quantization import QuarkQuantization
 from test.unit_test.utils import get_onnx_model
 
 
@@ -44,7 +44,7 @@ def dummy_calibration_reader(dataset, batch_size, **kwargs):
     reason="Fails on onnxruntime 1.20+",
 )
 @pytest.mark.parametrize("calibrate_method", ["MinMSE", "NonOverflow"])
-def test_vitis_ai_quantization_pass(calibrate_method, tmp_path):
+def test_quark_quantization_pass(calibrate_method, tmp_path):
     # setup
     input_model = get_onnx_model()
     config = {
@@ -57,8 +57,8 @@ def test_vitis_ai_quantization_pass(calibrate_method, tmp_path):
     }
     output_folder = str(tmp_path / "vitis_ai_quantized")
 
-    # create VitisAIQuantization pass
-    p = create_pass_from_dict(VitisAIQuantization, config, disable_search=True)
+    # create QuarkQuantization pass
+    p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
     # execute
     quantized_model = p.run(input_model, output_folder)
     # assert

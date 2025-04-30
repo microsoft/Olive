@@ -28,9 +28,6 @@ jobs:
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu_aml
-      resnet_vitis_ai_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_vitis_ai_ptq_cpu_aml
       llama2:
         exampleFolder: llama2
         exampleName: llama2
@@ -50,6 +47,3 @@ jobs:
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu_aml
-      resnet_vitis_ai_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_vitis_ai_ptq_cpu_aml

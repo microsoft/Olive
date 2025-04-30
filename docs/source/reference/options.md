@@ -403,7 +403,7 @@ Please also find the detailed options from following table for each pass:
 | [IncDynamicQuantization](../../reference/pass.rst#_inc_dynamic_quantization) |  Intel® Neural Compressor Dynamic Quantization Pass. |
 | [IncStaticQuantization](../../reference/pass.rst#_inc_static_quantization) |  Intel® Neural Compressor Static Quantization Pass. |
 | [IncQuantization](../../reference/pass.rst#_inc_quantization) | Quantize ONNX model with Intel® Neural Compressor where we can search for best parameters for static/dynamic quantization at same time. |
-| [VitisAIQuantization](../../reference/pass.rst#_vitis_ai_quantization) | AMD-Xilinx Vitis-AI Quantization Pass. |
+| [QuarkQuantization](../../reference/pass.rst#_quark_quantization) | AMD Quark Quantization Pass. |
 | [AppendPrePostProcessingOps](../../reference/pass.rst#_append_pre_post_processing) | Add Pre/Post nodes to the input model. |
 | [ExtractAdapters](../../reference/pass.rst#_extract_adapters) | Extract adapters from ONNX model |
 | [CaptureSplitInfo](../../reference/pass.rst#_capture_split_info) | Capture the split information of the model layers. Only splits the transformer layers. |
