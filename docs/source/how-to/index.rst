@@ -93,7 +93,7 @@ For more complex scenarios, you can create a new configuration from scratch.
 
       Learn how to write a new .json configure from scratch.
 
-      :octicon:`arrow-right;1em;sd-text-info` `Configure workflow <configure-workflows/build_workflow.html>`_
+      :octicon:`arrow-right;1em;sd-text-info` `Configure workflow <configure-workflows/build-workflow.html>`_
 
 How to customize configuration
 ------------------------------

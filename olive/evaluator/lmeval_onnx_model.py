@@ -36,6 +36,9 @@ class LMEvalOnnxModelEvaluator(TemplateLM):
 
         self._params = og.GeneratorParams(self._model)
 
+        search_options = {"max_length": self._max_length}
+        self._params.set_search_options(**search_options)
+
     @property
     def eot_token_id(self):
         # we use EOT because end of *text* is more accurate for what we're doing than end of *sentence*
