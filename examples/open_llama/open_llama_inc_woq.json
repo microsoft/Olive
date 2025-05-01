@@ -45,7 +45,7 @@
         "quantization": {
             "type": "IncStaticQuantization",
             "approach": "weight_only",
-            "weight_only_config": { "bits": 4, "algorithm": "GPTQ" },
+            "weight_only_config": { "bits": 4, "algorithm": "gptq" },
             "data_config": "quant_data_config",
             "calibration_sampling_size": [ 8 ],
             "save_as_external_data": true,
