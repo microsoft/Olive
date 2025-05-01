@@ -475,7 +475,7 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <h3>Example Configuration<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AutoAWQQuantizer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;w_bit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">    </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -587,7 +587,7 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <span class="w">    </span><span class="nt">&quot;approach&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;weight_only&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;weight_only_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GPTQ&quot;</span>
+<span class="w">        </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gptq&quot;</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;calibration_sampling_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">],</span>
@@ -611,8 +611,8 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;VitisAIQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;calibrate_method&quot;</span><span class="p">:</span><span class="s2">&quot;NonOverflow&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;quant_format&quot;</span><span class="p">:</span><span class="s2">&quot;QDQ&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;activation_type&quot;</span><span class="p">:</span><span class="s2">&quot;QUInt8&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="s2">&quot;QInt8&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;activation_type&quot;</span><span class="p">:</span><span class="s2">&quot;uint8&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;precision&quot;</span><span class="p">:</span><span class="s2">&quot;int8&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span>
 <span class="p">}</span>
 </pre></div>
@@ -630,7 +630,7 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
 <h3>Example Configuration<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AWQ&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;tokenizer_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;microsoft/Phi-3-mini-4k-instruct&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;calibration&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq_lite&quot;</span>
 <span class="p">}</span>
