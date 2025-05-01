@@ -97,8 +97,8 @@
             "quant_preprocess": true,
             "data_config": "quant_data_config",
             "op_types_to_quantize": [ "MatMul", "LayerNormalization", "Gemm", "Sigmoid", "Gelu" ],
-            "activation_type": "QUInt16",
-            "weight_type": "QUInt8",
+            "activation_type": "uint16",
+            "precision": "uint8",
             "calibrate_method": "MinMax"
         }
     },

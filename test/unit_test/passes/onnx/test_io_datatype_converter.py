@@ -40,9 +40,10 @@ def test_onnx_io_datatype_conversion(source_dtype, target_dtype, tmp_path):
     output_model = p.run(input_model, output_folder)
 
     # assert
-    for i in output_model.get_graph().input:
+    model_proto = output_model.load_model()
+    for i in model_proto.graph.input:
         assert i.type.tensor_type.elem_type == target_dtype
-    for o in output_model.get_graph().output:
+    for o in model_proto.graph.output:
         assert o.type.tensor_type.elem_type == target_dtype
 
 

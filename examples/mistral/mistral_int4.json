@@ -36,7 +36,7 @@
             "type": "IncStaticQuantization",
             "user_script": "user_script.py",
             "approach": "weight_only",
-            "weight_only_config": { "bits": 4, "algorithm": "GPTQ" },
+            "weight_only_config": { "bits": 4, "algorithm": "gptq" },
             "recipes": { "gptq_args": { "accuracy_level": 0 } },
             "data_config": "inc_static_quant_data_config",
             "calibration_sampling_size": [ 8 ],

@@ -13,6 +13,7 @@ from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import exclude_keys
+from olive.constants import PrecisionBits, QuantAlgorithm
 from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric
 from olive.evaluator.metric_result import joint_metric_key
@@ -215,8 +216,8 @@ _inc_tuning_criterion_config = {
 
 _inc_woq_optional_config = {
     "bits": PassConfigParam(
-        type_=int,
-        default_value=4,
+        type_=PrecisionBits,
+        default_value=PrecisionBits.BITS4,
         description="""
             The number of bits to quantize to.
         """,
@@ -238,9 +239,9 @@ _inc_woq_optional_config = {
         """,
     ),
     "algorithm": PassConfigParam(
-        type_=str,
-        default_value="RTN",
-        search_defaults=Categorical(["RTN", "GPTQ"]),
+        type_=QuantAlgorithm,
+        default_value=QuantAlgorithm.RTN,
+        search_defaults=Categorical([QuantAlgorithm.RTN, QuantAlgorithm.GPTQ]),
         description="""
             Algorithm of weight only quantization. Support 'RTN' and 'GPTQ'.
         """,
@@ -438,10 +439,10 @@ class IncQuantization(Pass):
     def _set_woq_config(self, run_config):
         # set weight only quantization config for INC API
         weight_only_config = run_config["weight_only_config"]
-        bits = weight_only_config.get("bits", 4)
+        bits = weight_only_config.get("bits", PrecisionBits.BITS4).value
         group_size = weight_only_config.get("group_size", 32)
         scheme = weight_only_config.get("scheme", "asym")
-        algo = weight_only_config.get("algorithm", "RTN")
+        algo = (weight_only_config.get("algorithm") or QuantAlgorithm.RTN).value.upper()
         return {"bits": bits, "group_size": group_size, "scheme": scheme, "algorithm": algo}
 
     def _run_for_config(
@@ -474,7 +475,7 @@ class IncQuantization(Pass):
         run_config = config.dict()
         require_dataloader = run_config["approach"] == "static" or (
             run_config["approach"] == "weight_only"
-            and run_config["weight_only_config"]["algorithm"].upper() in {"GPTQ", "AWQ"}
+            and run_config["weight_only_config"]["algorithm"] in {QuantAlgorithm.GPTQ, QuantAlgorithm.AWQ}
         )
         if require_dataloader:
             assert config.data_config, "data_config is required for {} quantization.".format(run_config["approach"])
