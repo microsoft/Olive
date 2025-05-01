@@ -219,6 +219,7 @@ class OnnxDAG:
             elif ios[o].source is not None and not (
                 overwrite_input_initializers and SpecialInput.is_special_input(ios[o].source)
             ):
+                print(f"Output {o} {ios[o].source} is already connected to another node.")
                 # if the output's original source is an input/initializer, we can overwrite it
                 raise ValueError(f"Output {o} is already connected to another node.")
             ios[o].source = name
@@ -399,6 +400,7 @@ class OnnxDAG:
             raise ValueError(f"Node {node_name} does not exist in the graph.")
 
         if self.connections[node_name]:
+            print(f"Node {self.connections[node_name]}")
             raise ValueError(f"Node {node_name} has consumers.")
 
         node = self.nodes.pop(node_name)
@@ -812,6 +814,14 @@ class OnnxDAG:
             return parents
 
         return list(filter(lambda p: not SpecialInput.is_special_input(p), parents))
+    
+    def get_node_initializers(self, node_name: str) -> list[TensorProto]:
+        """Get the initializers of a node.
+
+        :param node_name: name of the node.
+        :return: list of initializers of the node.
+        """
+        return [self.get_initializer_proto(i) for i in self.get_node_inputs(node_name, skip_empty_io=True) if self.is_initializer(i)]
 
     def is_input_consumer(self, node_name: str) -> bool:
         """Check if a node is an input consumer.
@@ -938,6 +948,57 @@ class OnnxDAG:
         for node_name in nodes_to_remove:
             self.remove_node(node_name)
         logger.debug("Removed %d Identity nodes", len(nodes_to_remove))
+
+    def clean_unused_initializers(self):
+        """Remove unused initializers from the graph.
+        
+        This method identifies initializers that are not used by any node in the graph and removes them.
+        This can help reduce model size and memory footprint.
+        
+        Returns:
+            self: The updated OnnxDAG instance with unused initializers removed
+        """
+        # 获取所有使用中的张量（节点输入）
+        used_tensors = set()
+        for node_name in self.get_node_names():
+            node = self.get_node(node_name)
+            used_tensors.update(input_name for input_name in self.get_node_inputs(node_name) if input_name)
+        
+        # 获取图输出，这些也是必须保留的
+        used_tensors.update(output_name for output_name in self.get_output_names())
+        
+        # 获取所有初始化器的名称
+        initializer_names = self.get_initializer_names()
+        
+        # 找出未使用的初始化器
+        unused_initializers = []
+        for init_name in initializer_names:
+            if init_name not in used_tensors:
+                unused_initializers.append(init_name)
+        
+        # 记录删除的初始化器数量
+        if unused_initializers:
+            logger.debug("Removing %d unused initializers", len(unused_initializers))
+        
+        # 处理所有子图
+        for graph_idx, graph in enumerate(self.graphs):
+            # 找出这个图中未使用的初始化器
+            graph_unused_initializers = []
+            for initializer in graph.initializer:
+                if initializer.name in unused_initializers:
+                    graph_unused_initializers.append(initializer)
+            
+            # 从图中移除未使用的初始化器
+            for initializer in graph_unused_initializers:
+                graph.initializer.remove(initializer)
+                
+                # 也从图输入中移除（如果存在）
+                for input_idx, graph_input in enumerate(graph.input):
+                    if graph_input.name == initializer.name:
+                        del graph.input[input_idx]
+                        break
+        
+        return self
 
     @classmethod
     def from_model_path(cls, model_path: Union[str, Path], only_main_graph: bool = False) -> "OnnxDAG":

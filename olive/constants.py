@@ -4,6 +4,8 @@
 # --------------------------------------------------------------------------
 from olive.common.utils import StrEnumBase
 
+MSFT_DOMAIN = "com.microsoft"
+
 
 class Framework(StrEnumBase):
     """Framework of the model."""
@@ -68,3 +70,10 @@ class DatasetRequirement(StrEnumBase):
     REQUIRED = "dataset_required"
     OPTIONAL = "dataset_optional"
     NOT_REQUIRED = "dataset_not_required"
+
+
+class OpType(StrEnumBase):
+    """Enum for operator types."""
+
+    MatMulNBits = "MatMulNBits"
+    MatMul = "MatMul"

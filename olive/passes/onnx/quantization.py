@@ -691,7 +691,6 @@ class OnnxMatMul4Quantizer(Pass):
 
     class Algorithm(StrEnumBase):
         DEFAULT = "DEFAULT"
-        HQQ = "HQQ"
         RTN = "RTN"
         GPTQ = "GPTQ"
 
@@ -783,7 +782,6 @@ class OnnxMatMul4Quantizer(Pass):
             from onnxruntime.quantization.matmul_nbits_quantizer import (
                 DefaultWeightOnlyQuantConfig,
                 GPTQWeightOnlyQuantConfig,
-                HQQWeightOnlyQuantConfig,
                 MatMulNBitsQuantizer,
                 RTNWeightOnlyQuantConfig,
             )
@@ -791,7 +789,6 @@ class OnnxMatMul4Quantizer(Pass):
             from onnxruntime.quantization.matmul_4bits_quantizer import (
                 DefaultWeightOnlyQuantConfig,
                 GPTQWeightOnlyQuantConfig,
-                HQQWeightOnlyQuantConfig,
                 RTNWeightOnlyQuantConfig,
             )
             from onnxruntime.quantization.matmul_4bits_quantizer import (
@@ -799,13 +796,15 @@ class OnnxMatMul4Quantizer(Pass):
             )
 
         algo_to_config = {
-            "DEFAULT": DefaultWeightOnlyQuantConfig,
-            "HQQ": HQQWeightOnlyQuantConfig,
-            "RTN": RTNWeightOnlyQuantConfig,
-            "GPTQ": GPTQWeightOnlyQuantConfig,
+            OnnxMatMul4Quantizer.Algorithm.DEFAULT: DefaultWeightOnlyQuantConfig,
+            OnnxMatMul4Quantizer.Algorithm.RTN: RTNWeightOnlyQuantConfig,
+            OnnxMatMul4Quantizer.Algorithm.GPTQ: GPTQWeightOnlyQuantConfig,
         }
 
-        if model_has_adapters(model.model_path) and config.algorithm not in {None, "DEFAULT"}:
+        if model_has_adapters(model.model_path) and config.algorithm not in {
+            None,
+            OnnxMatMul4Quantizer.Algorithm.DEFAULT,
+        }:
             logger.info(
                 "Model has adapters which should only be quantized with algorithm=None or DEFAULT. Got %s. Returning"
                 " the model without quantization.",
@@ -844,7 +843,7 @@ class OnnxMatMul4Quantizer(Pass):
                 elif key in kwargs:
                     # get value from pass config
                     algo_config[key] = kwargs[key]
-            if config.algorithm == "GPTQ":
+            if config.algorithm == OnnxMatMul4Quantizer.Algorithm.GPTQ:
                 algo_config["calibration_data_reader"] = get_calibration_dataloader(config)
             kwargs["algo_config"] = woq_config_class(**algo_config)
         else:
@@ -869,13 +868,11 @@ def _validate_weight_only_quant_config(v, values, field):
         v = {}
 
     config_keys = list(v.keys())
-    if values["algorithm"] == "DEFAULT":
+    if values["algorithm"] == OnnxMatMul4Quantizer.Algorithm.DEFAULT:
         default_config_keys = ["block_size", "is_symmetric", "accuracy_level"]
-    elif values["algorithm"] == "RTN":
+    elif values["algorithm"] == OnnxMatMul4Quantizer.Algorithm.RTN:
         default_config_keys = ["ratios"]
-    elif values["algorithm"] == "HQQ":
-        default_config_keys = ["block_size", "bits", "axis"]
-    elif values["algorithm"] == "GPTQ":
+    elif values["algorithm"] == OnnxMatMul4Quantizer.Algorithm.GPTQ:
         default_config_keys = ["percdamp", "block_size", "actorder", "mse", "perchannel"]
     else:
         raise ValueError(f"Unsupported algorithm: {values['algorithm']}")

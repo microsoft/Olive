@@ -2,8 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
+
 import onnx
-from onnx import AttributeProto, GraphProto
+import onnx.helper as onnx_helper
+from onnx import AttributeProto, GraphProto, TensorProto
+
+logger = logging.getLogger(__name__)
 
 
 class OnnxGraphMixin:
@@ -99,3 +104,49 @@ class OnnxGraphMixin:
                 io_config[f"{prefix}_shapes"].append(shape)
 
         return io_config
+
+
+def get_initializer(name, graph_path: list[GraphProto]) -> tuple[TensorProto, GraphProto]:
+    for gid in range(len(graph_path) - 1, -1, -1):
+        graph = graph_path[gid]
+        for tensor in graph.initializer:
+            if tensor.name == name:
+                return tensor, graph
+    return None, None
+
+
+def attribute_to_kwarg(attribute):
+    """Convert attribute to kwarg format for use with onnx.helper.make_node.
+
+    :parameter attribute: attribute in AttributeProto format.
+    :return: attribute in {key: value} format.
+    """
+    if attribute.type == 0:
+        raise ValueError(f"attribute {attribute.name} does not have type specified.")
+
+    # Based on attribute type definitions from AttributeProto
+    # definition in https://github.com/onnx/onnx/blob/main/onnx/onnx.proto
+    if attribute.type == 1:
+        value = attribute.f
+    elif attribute.type == 2:
+        value = attribute.i
+    elif attribute.type == 3:
+        value = attribute.s
+    elif attribute.type == 4:
+        value = attribute.t
+    elif attribute.type == 5:
+        value = attribute.g
+    elif attribute.type == 6:
+        value = attribute.floats
+    elif attribute.type == 7:
+        value = attribute.ints
+    elif attribute.type == 8:
+        value = attribute.strings
+    elif attribute.type == 9:
+        value = attribute.tensors
+    elif attribute.type == 10:
+        value = attribute.graphs
+    else:
+        raise ValueError(f"attribute {attribute.name} has unsupported type {attribute.type}.")
+
+    return {attribute.name: value}

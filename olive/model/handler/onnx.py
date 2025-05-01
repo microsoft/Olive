@@ -111,6 +111,21 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         """Load the model as an ONNX IR model object."""
         return ir.load(self.model_path)
 
+    def set_opset_import(self, domain, version):
+        import onnx.helper as onnx_helper
+
+        model = self.load_model()
+        for opset in model.opset_import:
+            if opset.domain == domain:
+                opset.version = version
+                return
+
+        model.opset_import.extend([onnx_helper.make_opsetid(domain, version)])
+
+    def opset_import(self):
+        model = self.load_model()
+        return model.opset_import
+
     def prepare_session(
         self,
         inference_settings: Optional[dict[str, Any]] = None,
