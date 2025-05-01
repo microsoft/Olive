@@ -24,7 +24,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
-from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_pytorch
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,6 @@ class GptqQuantizer(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
-            **get_user_script_data_config(),
             "bits": PassConfigParam(
                 type_=PrecisionBits,
                 default_value=PrecisionBits.BITS4,
