@@ -1,6 +1,7 @@
 # BERT Optimization
 This folder contains examples of BERT optimization using different workflows.
 
+- QDQ: [Int8 Quantization with QDQ format](#bert-quantization-qdq)
 - CPU: [Optimization with PTQ for model from HF/AML](#bert-optimization-with-ptq-on-cpu)
 - CPU: [Optimization with Intel® Neural Compressor PTQ](#bert-optimization-with-intel®-neural-compressor-ptq-on-cpu)
 - CPU: [Optimization with QAT Customized Training Loop](#bert-optimization-with-qat-customized-training-loop-on-cpu)
@@ -12,6 +13,30 @@ Go to [How to run](#how-to-run)
 
 
 ## Optimization Workflows
+### BERT Quantization QDQ
+ This workflow quantizes the model. It performs the pipeline:
+ - *HF Model-> ONNX Model ->Quantized Onnx Model*
+ 
+ Config file: [Intel/bert-base-uncased](bert_ptq_qdq.json)
+ 
+ #### Accuracy / Latency / Throughput
+ 
+ | Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  | Throughput (token per second)| Dataset   |
+ |-----------------------|---------------------|----------------------|------------------------------|-----------|
+ | PyTorch FP32          | 90%                 | 2406                 | 0.41                         | glue-mrpc |
+ | ONNX INT8 (QDQ)       | 90%                 | 401                  | 2.51                         | glue-mrpc |
+ 
+ *Note: Latency can vary significantly depending on the hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
+ 
+ Config file: [google-bert/bert-base-multilingual-cased](google_bert_qdq.json)
+ 
+ #### Latency / Throughput
+ 
+ | Model Version         | Latency (ms/sample)  | Throughput (token per second)| Dataset       |
+ |-----------------------|----------------------|------------------------------|---------------|
+ | PyTorch FP32          | 1162                 | 0.81                         | facebook/xnli |
+ | ONNX INT8 (QDQ)       | 590                  | 1.75                         | facebook/xnli |
+ 
 ### BERT optimization with PTQ on CPU
 This workflow performs BERT optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Quantized Onnx Model -> ONNX Runtime performance tuning*
