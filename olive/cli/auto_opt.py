@@ -23,6 +23,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
+from olive.constants import Precision
 from olive.package_config import OlivePackageConfig
 
 
@@ -79,9 +80,9 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         sub_parser.add_argument(
             "--precision",
-            type=str,
-            default="fp32",
-            choices=["fp4", "fp8", "fp16", "fp32", "int4", "int8", "int16", "int32", "nf4"],
+            type=Precision,
+            default=Precision.FP32,
+            choices=[v.value for v in Precision],
             help=(
                 "The output precision of the optimized model. If not specified, "
                 "the default precision is fp32 for cpu and fp16 for gpu"
@@ -278,25 +279,16 @@ class AutoOptCommand(BaseOliveCLICommand):
             (("capture_split_info", "cost_model"), self.args.cost_model),
             (("conversion", "use_dynamo_exporter"), self.args.use_dynamo_exporter),
             (("conversion", "save_metadata_for_token_generation"), self.args.use_ort_genai),
-            (("bnb4", "quant_type"), PRECISION_MAPPING["bnb4"].get(self.args.precision, self.args.precision)),
-            (
-                ("dynamic_quant", "weight_type"),
-                PRECISION_MAPPING["dynamic_quant"].get(self.args.precision, self.args.precision),
-            ),
-            (
-                ("model_builder", "precision"),
-                PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
-            ),
-            (
-                ("genai_config_only", "precision"),
-                PRECISION_MAPPING["model_builder"].get(self.args.precision, self.args.precision),
-            ),
+            (("bnb4", "precision"), self.args.precision),
+            (("dynamic_quant", "precision"), self.args.precision),
+            (("model_builder", "precision"), self.args.precision),
+            (("genai_config_only", "precision"), self.args.precision),
             # select the float dtype based on the precision, int4 only quantizes matmuls so we still need to set
             # the float precision separately
             (
                 ("transformer_optimizer", "float16"),
-                self.args.precision == "fp16"
-                or (self.args.precision == "int4" and self.args.provider != "CPUExecutionProvider"),
+                self.args.precision == Precision.FP16
+                or (self.args.precision == Precision.INT4 and self.args.provider != "CPUExecutionProvider"),
             ),
             (("to_fixed_shape", "dim_param"), self.args.dynamic_to_fixed_shape_dim_param),
             (("to_fixed_shape", "dim_value"), self.args.dynamic_to_fixed_shape_dim_value),
@@ -424,8 +416,8 @@ TEMPLATE = {
             ("capture_split_info", {"type": "CaptureSplitInfo"}),
             # always convert in float32 since float16 doesn't work for all models
             ("conversion", {"type": "OnnxConversion", "torch_dtype": "float32", "use_dynamo_exporter": False}),
-            ("model_builder", {"type": "ModelBuilder", "precision": "fp32"}),
-            ("genai_config_only", {"type": "ModelBuilder", "precision": "fp32", "metadata_only": True}),
+            ("model_builder", {"type": "ModelBuilder", "precision": Precision.FP32}),
+            ("genai_config_only", {"type": "ModelBuilder", "precision": Precision.FP32, "metadata_only": True}),
             # model optimization passes
             ("peephole_optimizer", {"type": "OnnxPeepholeOptimizer"}),
             # use transformer optimizer for fp16 conversion too
@@ -442,9 +434,9 @@ TEMPLATE = {
             ("qnn_preprocess", {"type": "QNNPreprocess"}),
             ("mixed_precision_overrides", {"type": "MixedPrecisionOverrides", "overrides_config": None}),
             # quantization passes
-            ("dynamic_quant", {"type": "OnnxDynamicQuantization", "weight_type": "QInt8"}),
+            ("dynamic_quant", {"type": "OnnxDynamicQuantization", "precision": Precision.INT8}),
             ("matmul4", {"type": "OnnxMatMul4Quantizer"}),
-            ("bnb4", {"type": "OnnxBnb4Quantization", "quant_type": "nf4"}),
+            ("bnb4", {"type": "OnnxBnb4Quantization", "precision": Precision.NF4}),
             # post processing passes
             ("mnb_to_qdq", {"type": "MatMulNBitsToQDQ"}),
             ("split_model", {"type": "SplitModel"}),
@@ -456,23 +448,4 @@ TEMPLATE = {
     "evaluator": "common_evaluator",
     "target": "local_system",
     "no_artifacts": True,
-}
-
-PRECISION_MAPPING = {
-    "capture_split_info": {},
-    "conversion": {},
-    "model_builder": {},
-    "transformer_optimizer": {},
-    "peephole_optimizer": {},
-    "fp16_to_fp32": {},
-    "qnn_preprocess": {},
-    "dynamic_quant": {"int8": "QInt8", "uint8": "QUInt8"},
-    "matmul4": {},
-    "bnb4": {},
-    "to_fixed_shape": {},
-    "mixed_precision_overrides": {},
-    "mixed_precision": {},
-    "mnb_to_qdq": {},
-    "split_model": {},
-    "extract_adapters": {},
 }

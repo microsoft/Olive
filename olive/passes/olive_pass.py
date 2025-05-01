@@ -66,7 +66,7 @@ class Pass(ABC):
         :param accelerator_spec: the accelerator spec for the pass.
         :type accelerator_spec: AcceleratorSpec
         :param config: the configuration representing search space.
-        :type config: Type[BasePassConfig]
+        :type config: type[BasePassConfig]
         :param host_device: the host device for the pass.
         :type host_device: Optional[str]
         """
