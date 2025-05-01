@@ -7,3 +7,4 @@ Sample use cases of Olive to optimize a [DeepSeek R1 Distill](https://huggingfac
 - [PTQ + AOT Compilation for Qualcomm NPUs using QNN EP](../phi3_5/README.md):
   - Replace `model_path` in `qnn_config.json` with `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B`.
   - Chat template is `"<｜User｜>{input}<｜Assistant｜><think>"`.
+- [PTQ + AWQ ONNX OVIR Encapsulated 4-bit weight compression using Optimum OpenVINO](./openvino/)

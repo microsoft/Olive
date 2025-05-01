@@ -2,6 +2,7 @@
 This folder contains examples of ViT quantization using different workflows.
 - QDQ: [VIT with QDQ format](#vit-with-qdq)
 - Qualcomm NPU: [with QNN execution provider in ONNX Runtime](#vit-quantization-with-qnn-execution-providers)
+- Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
 
 Go to [How to run](#how-to-run)
 
