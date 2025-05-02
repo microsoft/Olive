@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive.common.utils import StrEnumBase
+from olive.common.utils import IntEnumBase, StrEnumBase
 
 
 class Framework(StrEnumBase):
@@ -48,6 +48,13 @@ class Precision(StrEnumBase):
     FP16 = "fp16"
     FP32 = "fp32"
     NF4 = "nf4"
+
+
+class PrecisionBits(IntEnumBase):
+    BITS4 = 4
+    BITS8 = 8
+    BITS16 = 16
+    BITS32 = 32
 
 
 class QuantAlgorithm(StrEnumBase):

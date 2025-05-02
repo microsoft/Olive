@@ -100,14 +100,14 @@ To use Intel® Neural Compressor 4-bits weight-only quantization, please install
 - GPTQ algorithm provides more accurate quantization but requires more computational resources.
 
 To compress model with 4-bits weight-only quantization, you may need
-1. set `approach` to `weight_only`, and set `algorithm` to `GPTQ` or `RTN` in `weight_only_config`.
+1. set `approach` to `weight_only`, and set `algorithm` to `gptq` or `rtn` in `weight_only_config`.
 ```json
 "quantization": {
     "type": "IncStaticQuantization",
     "user_script": "user_script.py",
     "approach": "weight_only",
     "weight_only_config":{
-        "algorithm": "RTN"
+        "algorithm": "rtn"
     }
 }
 ```
@@ -118,7 +118,7 @@ To compress model with 4-bits weight-only quantization, you may need
     "user_script": "user_script.py",
     "approach": "weight_only",
     "data_config": "calib_data_config",
-    "weight_only_config": { "algorithm": "GPTQ" },
+    "weight_only_config": { "algorithm": "gptq" },
 }
 ```
 ```python

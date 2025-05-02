@@ -220,6 +220,9 @@ class OpenVINOEncapsulation(Pass):
             dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
             hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
 
+        # generate the genai_config.json file for GenAI models
+        create_genai_config(output_model_path)
+
         return ONNXModelHandler(model_path=output_model_path)
 
 
@@ -235,3 +238,119 @@ def extract_shape_list(shape, config, prefix: str = "input_0_") -> list:
             else:
                 shape_list.append(-1)
     return shape_list
+
+
+def create_genai_config(output_path: str) -> None:
+    """Generate the genai_config.json from the model config files.
+
+    This is only for Generative AI models for which the config.json and generation_config.json files exist
+    Arguments:
+    @param output_path: path to the output directory where the genai_config.json file will be created
+    @return: None
+    """
+    ip_conf_pth = Path(output_path) / "config.json"
+
+    # do not create genai_config.json if config.json does not exist
+    if not ip_conf_pth.exists():
+        return
+
+    ip_gen_pth = Path(output_path) / "generation_config.json"
+
+    # do not create genai_config.json if generation_config.json does not exist
+    if not ip_gen_pth.exists():
+        return
+
+    # Step 1: Create your data structure
+    genai_config = {
+        "model": {
+            "bos_token_id": -1,
+            "context_length": -1,
+            "decoder": {
+                "session_options": {
+                    "log_id": "onnxruntime-genai",
+                    "graph_optimization_level": "ORT_DISABLE_ALL",
+                    "provider_options": [{"OpenVINO": {"device_type": "NPU", "enable_causallm": "True"}}],
+                },
+                "filename": "openvino_model.onnx",
+                "head_size": -1,
+                "hidden_size": -1,
+                "inputs": {},
+                "outputs": {},
+                "num_attention_heads": -1,
+                "num_hidden_layers": -1,
+                "num_key_value_heads": -1,
+            },
+            "eos_token_id": -1,
+            "pad_token_id": -1,
+            "type": "",
+            "vocab_size": -1,
+        },
+        "search": {
+            "diversity_penalty": 0.0,
+            "do_sample": False,
+            "early_stopping": True,
+            "length_penalty": 1.0,
+            "max_length": -1,
+            "min_length": 0,
+            "no_repeat_ngram_size": 0,
+            "num_beams": 1,
+            "num_return_sequences": 1,
+            "past_present_share_buffer": False,
+            "repetition_penalty": 1.0,
+            "temperature": 1.0,
+            "top_k": 1,
+            "top_p": 1.0,
+        },
+    }
+
+    import json
+
+    with open(ip_conf_pth) as f:
+        src_config = json.load(f)
+
+    with open(ip_gen_pth) as f:
+        src_gen_config = json.load(f)
+
+    try:
+        import onnx
+    except ImportError:
+        raise ImportError(
+            "Please install onnx to create genai_config.json for ONNX OpenVINO IR Encapsulated model"
+        ) from None
+
+    model_path = Path(output_path) / "openvino_model.onnx"
+    model = onnx.load(model_path)
+
+    # Get input and output tensor names
+    inputs = [inp.name for inp in model.graph.input]
+    outputs = [out.name for out in model.graph.output]
+
+    genai_config["model"]["bos_token_id"] = src_config.get("bos_token_id", -1)
+    genai_config["model"]["context_length"] = src_config.get("max_position_embeddings", -1)
+    genai_config["model"]["decoder"]["head_size"] = src_config.get("hidden_size", -1) // src_config.get(
+        "num_attention_heads", -1
+    )
+    genai_config["model"]["decoder"]["hidden_size"] = src_config.get("hidden_size", -1)
+
+    for name in inputs:
+        if name != "beam_idx":
+            genai_config["model"]["decoder"]["inputs"].update({name: name})
+
+    for name in outputs:
+        genai_config["model"]["decoder"]["outputs"].update({name: name})
+
+    genai_config["model"]["decoder"]["num_attention_heads"] = src_config.get("num_attention_heads", -1)
+    genai_config["model"]["decoder"]["num_hidden_layers"] = src_config.get("num_hidden_layers", -1)
+    genai_config["model"]["decoder"]["num_key_value_heads"] = src_config.get("num_key_value_heads", -1)
+
+    genai_config["model"]["eos_token_id"] = src_gen_config.get("eos_token_id", -1)
+    genai_config["model"]["pad_token_id"] = src_config.get("pad_token_id", -1)
+    genai_config["model"]["type"] = src_config.get("model_type", "")
+    genai_config["model"]["vocab_size"] = src_config.get("vocab_size", -1)
+
+    genai_config["search"]["max_length"] = src_config.get("max_position_embeddings", -1)
+
+    # Step 2: Write to JSON file
+    output_genai_config = Path(output_path) / "genai_config.json"
+    with open(output_genai_config, "w") as f:
+        json.dump(genai_config, f, indent=4)

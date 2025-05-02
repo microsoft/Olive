@@ -17,13 +17,14 @@ from transformers import PreTrainedModel
 from olive.common.config_utils import validate_config
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.utils import get_attr
+from olive.constants import PrecisionBits
 from olive.data.config import DataConfig
 from olive.data.template import huggingface_data_config_template
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
-from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_pytorch
 
 logger = logging.getLogger(__name__)
@@ -35,10 +36,9 @@ class GptqQuantizer(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
-            **get_user_script_data_config(),
             "bits": PassConfigParam(
-                type_=int,
-                default_value=4,
+                type_=PrecisionBits,
+                default_value=PrecisionBits.BITS4,
                 description="quantization bits. Default value is 4",
             ),
             "layers_block_name": PassConfigParam(
@@ -141,7 +141,7 @@ class GptqQuantizer(Pass):
             model_wrapper = ModelWrapper.from_model(pytorch_model)
 
         quantize_config = BaseQuantizeConfig(
-            bits=config.bits,
+            bits=config.bits.value,
             group_size=config.group_size,
             damp_percent=config.damp_percent,
             static_groups=config.static_groups,
@@ -182,7 +182,7 @@ class GptqQuantizer(Pass):
                 use_triton=False,
                 desc_act=config.desc_act,
                 group_size=config.group_size,
-                bits=config.bits,
+                bits=config.bits.value,
                 disable_exllama=False,
                 disable_exllamav2=True,
             )

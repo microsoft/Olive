@@ -5,10 +5,12 @@
 import logging
 import re
 from pathlib import Path
+from typing import Optional
 
 import onnx
 from packaging import version
 
+from olive.constants import Precision
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -25,8 +27,8 @@ class OnnxBnb4Quantization(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
-            "quant_type": PassConfigParam(
-                type_=str,
+            "precision": PassConfigParam(
+                type_=Optional[Precision],
                 default_value=None,
                 description="The quantization type. Only 'fp4' and 'nf4' are supported.",
             ),
@@ -46,6 +48,18 @@ class OnnxBnb4Quantization(Pass):
         config.update(get_external_data_config())
         return config
 
+    @classmethod
+    def validate_config(
+        cls,
+        config: type[BasePassConfig],
+        accelerator_spec: AcceleratorSpec,
+    ) -> bool:
+        if not super().validate_config(config, accelerator_spec):
+            return False
+
+        # Only fp4 and nf4 are supported
+        return not config.precision or config.precision in {Precision.FP4, Precision.NF4}
+
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
@@ -59,28 +73,28 @@ class OnnxBnb4Quantization(Pass):
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        quant_type = config.quant_type
+        precision = config.precision.value if config.precision else None
         quantized_modules = config.quantized_modules
         if model.model_attributes:
             quantized_modules = quantized_modules or model.model_attributes.get("quantized_modules")
 
-            # extract quant_type from model_attributes if not specified in config
-            if not quant_type:
+            # extract precision from model_attributes if not specified in config
+            if not precision:
                 quant_config = model.model_attributes.get("quantization_config") or {}
 
                 if quant_config.get("load_in_8bit"):
                     raise ValueError("load_in_8bit is not supported. Only 4-bit quantization is supported.")
 
-                quant_type = quant_config.get("bnb_4bit_quant_type")
-                if not quant_type:
-                    raise ValueError("quant_type is required.")
+                precision = quant_config.get("bnb_4bit_quant_type")
+                if not precision:
+                    raise ValueError("precision is required.")
 
                 if quant_config.get("bnb_4bit_use_double_quant"):
                     logger.info(
                         "bnb_4bit_use_double_quant is set to True but double quantization is not supported. Ignoring."
                     )
-        assert quant_type in ["fp4", "nf4"], f"quant_type must be one of 'fp4' or 'nf4'. Got {quant_type}."
-        quant_type_enum = getattr(MatMulBnb4Quantizer, quant_type.upper())
+        assert precision in {"fp4", "nf4"}, f"quant_type must be one of 'fp4' or 'nf4'. Got {precision}."
+        quant_type_enum = getattr(MatMulBnb4Quantizer, precision.upper())
 
         # load the model
         onnx_model = model.load_model()

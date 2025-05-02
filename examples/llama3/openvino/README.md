@@ -22,6 +22,13 @@ Install the necessary python packages:
 python -m pip install olive-ai[openvino]
 ```
 
+**NOTE:**
+
+- Access to the [meta-llama/Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) model is gated and therefore you will need to request access to the model. Once you have access to the model, you'll need to log-in to Hugging Face with a [user access token](https://huggingface.co/docs/hub/security-tokens) so that Olive can download it.
+
+```bash
+huggingface-cli login
+
 ### Run sample using config
 
 The optimization techniques to run are specified in the relevant config json file.

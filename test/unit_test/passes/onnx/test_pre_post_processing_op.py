@@ -109,7 +109,7 @@ def test_pre_post_pipeline(tmp_path):
 
     pytorch_model = get_superresolution_model()
     input_model = convert_superresolution_model(pytorch_model, tmp_path)
-    input_model_graph = input_model.get_graph()
+    input_model_graph = input_model.load_model().graph
     assert input_model_graph.node[0].op_type == "Conv"
     output_folder = str(tmp_path / "onnx_pre_post")
 
@@ -117,7 +117,7 @@ def test_pre_post_pipeline(tmp_path):
     model = p.run(input_model, output_folder)
     assert model is not None
     assert isinstance(model, ONNXModelHandler)
-    graph = model.get_graph()
+    graph = model.load_model().graph
 
     # assert the first node is ConvertImageToBGR
     assert graph.node[0].op_type == "DecodeImage"

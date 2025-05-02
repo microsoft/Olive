@@ -126,8 +126,8 @@
             "data_config": "calibration_data",
             "quant_preprocess": true,
             "calibrate_method": "MinMax",
-            "activation_type": "QUInt16",
-            "weight_type": "QUInt8"
+            "activation_type": "uint16",
+            "precision": "uint8"
         },
         "cb": {
             "type": "EPContextBinaryGenerator",
