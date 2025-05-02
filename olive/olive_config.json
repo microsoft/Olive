@@ -164,6 +164,14 @@
             "supported_algorithms": [ "rtn", "hqq" ],
             "supported_quantization_encodings": [ "qdq" ]
         },
+        "OnnxHqqQuantization": {
+            "module_path": "olive.passes.onnx.hqq_quantization.OnnxHqqQuantization",
+            "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "int4" ],
+            "supported_algorithms": [ "hqq" ],
+            "supported_quantization_encodings": [  ]
+        },
         "OnnxPeepholeOptimizer": {
             "module_path": "olive.passes.onnx.peephole_optimizer.OnnxPeepholeOptimizer",
             "supported_providers": [ "*" ],
