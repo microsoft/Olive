@@ -56,8 +56,7 @@ def image_pre_process(
 
     processor = AutoImageProcessor.from_pretrained(model_name, use_fast=True)
     processed_dataset = (
-        dataset
-        .align_labels_with_mapping(get_imagenet_label_map(), label_col)
+        dataset.align_labels_with_mapping(get_imagenet_label_map(), label_col)
         .map(
             lambda example: {
                 **processor([img.convert("RGB") for img in example[input_col]]),
