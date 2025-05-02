@@ -1,5 +1,6 @@
 numpy
 onnx
+onnx-diagnostic
 onnxscript>=0.2.5
 optuna
 pandas

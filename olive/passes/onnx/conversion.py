@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import collections
-import functools
 import inspect
 import logging
 import multiprocessing
@@ -14,10 +13,8 @@ from typing import Optional, Union
 
 import onnx
 import torch
-import transformers
 from onnxscript import version_converter
 from packaging import version
-from transformers.modeling_utils import PreTrainedModel
 
 from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
@@ -210,9 +207,6 @@ class OnnxConversion(Pass):
         if torch_dtype:
             pytorch_model = pytorch_model.to(torch_dtype)
 
-        # Apply any necessary patches
-        OnnxConversion._patch_model_if_necessary(pytorch_model)
-
         # get input and output names, and dynamic axes
         assert io_config is not None, "Cannot get io_config for the model."
         io_config = validate_config(io_config, IoConfig)
@@ -259,19 +253,24 @@ class OnnxConversion(Pass):
                 )
                 onnx_model = onnx_program.model_proto
             else:
-                # NOTE: Usually validation is done in io_config.py, but because
-                # dynamic_shapes has nested complexity, and it can't be validated multiple
-                # times like others, we validate it here.
-                io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
-                    io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
-                )
-
                 # there might be multiple files created during export, so we need to track the dir
                 # if there are other processes writing to the same dir, we might end up deleting files created by
                 # other processes
-                with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
+                from onnx_diagnostic import torch_export_patches
+
+                with (
+                    tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir,
+                    torch_export_patches.bypass_export_some_errors(patch_transformers=True),
+                ):
                     tmp_dir_path = Path(tmp_dir)
                     tmp_model_path = resolve_onnx_path(tmp_dir_path)
+
+                    # NOTE: Usually validation is done in io_config.py, but because
+                    # dynamic_shapes has nested complexity, and it can't be validated multiple
+                    # times like others, we validate it here.
+                    io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
+                        io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
+                    )
 
                     onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
                         pytorch_model,
@@ -284,9 +283,9 @@ class OnnxConversion(Pass):
                         dynamic_axes=io_config.dynamic_axes,
                         dynamic_shapes=io_config.dynamic_shapes,
                         dynamo=True,
-                        fallback=True,
+                        fallback=False,
                         optimize=config.optimize,
-                        report=logger.isEnabledFor(logging.DEBUG),
+                        report=True,
                     )
                     assert onnx_program is not None
                     onnx_model = onnx_program.model_proto
@@ -397,88 +396,6 @@ class OnnxConversion(Pass):
         model_config["load_kwargs"] = new_load_kwargs
         model_config["model_attributes"] = model_attributes
         return HfModelHandler(**model_config)
-
-    @staticmethod
-    def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
-        if not isinstance(pytorch_model, PreTrainedModel):
-            return
-
-        transformers_version = version.parse(transformers.__version__)
-        if transformers_version < version.parse("4.45"):
-            return
-
-        orig_forward_name = "forward" if hasattr(pytorch_model, "forward") else "call"
-        orig_forward = getattr(pytorch_model, orig_forward_name)
-        signature = inspect.signature(orig_forward)
-
-        logits_to_keep_name = (
-            "logits_to_keep" if transformers_version >= version.parse("4.49") else "num_logits_to_keep"
-        )
-        # num_logits_to_keep was added in transformers 4.45 and isn't added as inputs when exporting the model
-        logits_to_keep_index = (
-            list(signature.parameters.keys()).index(logits_to_keep_name)
-            if logits_to_keep_name in signature.parameters
-            else None
-        )
-        pkv_index = (
-            list(signature.parameters.keys()).index("past_key_values")
-            if "past_key_values" in signature.parameters
-            else None
-        )
-
-        @functools.wraps(orig_forward)
-        def patched_forward(*args, **kwargs):
-            from transformers.cache_utils import DynamicCache, EncoderDecoderCache
-
-            args = list(args) if args else []
-            kwargs = kwargs or {}
-
-            if logits_to_keep_name in kwargs or (
-                logits_to_keep_index is not None and len(args) <= logits_to_keep_index
-            ):
-                kwargs[logits_to_keep_name] = 0
-            elif logits_to_keep_index is not None:
-                args[logits_to_keep_index] = 0
-
-            if (
-                pkv_index
-                and pkv_index < len(args)  # pkv is in args
-                and isinstance(args[pkv_index], (list, tuple))
-                and isinstance(args[pkv_index][0], (list, tuple))
-            ):
-                if len(args[pkv_index][0]) == 2:
-                    args[pkv_index] = DynamicCache.from_legacy_cache(args[pkv_index])
-                elif len(args[pkv_index][0]) == 4:
-                    args[pkv_index] = EncoderDecoderCache.from_legacy_cache(args[pkv_index])
-                else:
-                    raise ValueError(
-                        "past_key_values should have either 2 or 4 elements, "
-                        f"but it has {len(args[pkv_index][0])} elements"
-                    )
-            elif (
-                "past_key_values" in kwargs  # pkv is in kwargs
-                and isinstance(kwargs["past_key_values"], (list, tuple))
-                and isinstance(kwargs["past_key_values"][0], (list, tuple))
-            ):
-                if len(kwargs["past_key_values"][0]) == 2:
-                    kwargs["past_key_values"] = DynamicCache.from_legacy_cache(kwargs["past_key_values"])
-                elif len(kwargs["past_key_values"][0]) == 4:
-                    kwargs["past_key_values"] = EncoderDecoderCache.from_legacy_cache(kwargs["past_key_values"])
-                else:
-                    raise ValueError(
-                        "past_key_values should have either 2 or 4 elements, "
-                        f"but it has {len(kwargs['past_key_values'][0])} elements"
-                    )
-
-            outputs = orig_forward(*args, **kwargs)
-
-            if isinstance(outputs.get("past_key_values"), (DynamicCache, EncoderDecoderCache)):
-                outputs["past_key_values"] = outputs["past_key_values"].to_legacy_cache()
-
-            return outputs
-
-        setattr(pytorch_model, orig_forward_name, patched_forward)
-        logger.debug("PyTorch model patched for transformers v%s.", transformers.__version__)
 
     def _convert_model_on_device(
         self,
@@ -666,11 +583,10 @@ class OnnxOpVersionConversion(Pass):
 def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
     """Validate dynamic_shapes.
 
-    This function validates two things:
+    This function validates:
 
     (1) To have a valid format of dynamic_shapes, we need to make sure the axes are converted to int.
         It was string in the JSON format.
-    (2) To make sure the dynamic_shapes is in the same tree structure as dummy_inputs.
 
     :param dynamic_shapes: the dynamic_shapes to validate
     :param dummy_inputs: the dummy_inputs to align the dynamic_shapes format
@@ -682,7 +598,7 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
 
     from torch.utils import _pytree
 
-    flat_dynamic_shapes, _ = get_the_flattened_and_tree_spec(dynamic_shapes)
+    flat_dynamic_shapes, tree_structure = get_the_flattened_and_tree_spec(dynamic_shapes)
 
     # dict: {axis: axis_name} -> {int(axis): axis_name}
     # list/tuple: [axis_name] -> [axis_name]
@@ -706,8 +622,6 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
             sorted(dummy_kwargs.items(), key=lambda item: param_order.index(item[0]))
         )
         return unflatten_dynamic_shapes, dummy_inputs, dummy_kwargs
-    # If dynamic_shapes and dummy_inputs are both list/tuple, we don't need to sort.
-    # dummy_inputs is args
-    _, tree_structure = get_the_flattened_and_tree_spec(dummy_inputs, leave_is_str=False)
+
     unflatten_dynamic_shapes = _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
     return unflatten_dynamic_shapes, dummy_inputs, dummy_kwargs
