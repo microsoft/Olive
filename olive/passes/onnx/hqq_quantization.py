@@ -114,9 +114,10 @@ class OnnxHqqQuantization(Pass):
                         dag.replace_node_input(consumer, node_output, new_node_output)
 
                     is_model_output = dag.is_output(node_output)
-                    original_proto = is_model_output and dag.get_io(node_output).proto[0]
+                    original_proto = None
 
                     if is_model_output:
+                        original_proto = dag.get_io(node_output).proto[0]
                         dag.remove_output(node_output)
 
                     dag.remove_node(node_name)
