@@ -94,7 +94,7 @@
             "quant_preprocess": true,
             "data_config": "quant_data_config",
             "activation_type": "uint16",
-            "weight_type": "uint8",
+            "precision": "uint8",
             "calibrate_method": "MinMax"
         },
         "addmetadata": {

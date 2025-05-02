@@ -76,7 +76,7 @@
             "type": "OnnxStaticQuantization",
             "data_config": "glue_mrpc",
             "activation_type": "uint16",
-            "weight_type": "uint8"
+            "precision": "uint8"
         },
         "addmetadata": {
             "type": "VitisAIAddMetaData",
