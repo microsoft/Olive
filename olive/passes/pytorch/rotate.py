@@ -85,7 +85,8 @@ class RotateBase(Pass):
             model.set_resource("adapter_path", None)
 
         # load pytorch model
-        torch_dtype = None
+        # use "auto" by default to keep the original dtype
+        torch_dtype = model.get_load_kwargs().get("torch_dtype") or "auto"
         if training_args:
             torch_dtype = torch.bfloat16 if training_args.bf16 else torch.float16
         pytorch_model = load_hf_base_model(model, torch_dtype=torch_dtype)

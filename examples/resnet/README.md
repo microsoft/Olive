@@ -7,6 +7,7 @@ This folder contains examples of ResNet optimization using different workflows.
 - AMD DPU: [with AMD Vitis-AI Quantization](#resnet-optimization-with-vitis-ai-ptq-on-amd-dpu)
 - Intel GPU: [with OpenVINO and DirectML execution providers in ONNX Runtime](#resnet-optimization-with-openvino-and-dml-execution-providers)
 - Qualcomm NPU: [with QNN execution provider in ONNX Runtime](#resnet-optimization-with-qnn-execution-providers)
+- Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
 
 Go to [How to run](#how-to-run)
 

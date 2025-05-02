@@ -53,8 +53,8 @@
         "onnx_quantization": {
             "type": "OnnxQuantization",
             "data_config": "data_config",
-            "weight_type": "QUInt8",
-            "activation_type": "QUInt8",
+            "precision": "uint8",
+            "activation_type": "uint8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
         },

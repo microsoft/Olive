@@ -50,7 +50,7 @@
     },
     "passes": {
         "onnx_conversion": { "type": "OnnxConversion", "target_opset": 13 },
-        "onnx_dynamic_quantization": { "type": "OnnxDynamicQuantization", "weight_type": "QUInt8" },
+        "onnx_dynamic_quantization": { "type": "OnnxDynamicQuantization", "precision": "uint8" },
         "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "data_config" }
     },
     "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
