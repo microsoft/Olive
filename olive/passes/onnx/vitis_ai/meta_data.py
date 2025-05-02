@@ -1,3 +1,8 @@
+#
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: MIT
+#
+
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 

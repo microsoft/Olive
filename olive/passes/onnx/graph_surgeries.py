@@ -2,6 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+#
+# Modifications Copyright(C) 2025 Advanced Micro Devices, Inc. All rights reserved.
+#
 import inspect
 import logging
 import math
