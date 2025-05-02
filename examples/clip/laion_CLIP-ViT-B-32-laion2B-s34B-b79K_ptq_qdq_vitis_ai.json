@@ -110,6 +110,6 @@
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache/clip_laion",
-    "clean_cache": true,
+    "clean_cache": false,
     "output_dir": "models/CLIP-ViT-B-32-laion2B-s34B-b79K"
 }
