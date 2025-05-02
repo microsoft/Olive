@@ -108,10 +108,25 @@ class OnnxHqqQuantization(Pass):
                         dag.add_initializer(initializer, graph_idx)
 
                     dag.add_node(quantized_nodes[0], graph_idx)
+                    node_output = node.proto.output[0]
+                    new_node_output = quantized_nodes[0].output[0]
                     for consumer in dag.get_consumers(node_name):
-                        dag.replace_node_input(consumer, node.proto.output[0], quantized_nodes[0].output[0])
+                        dag.replace_node_input(consumer, node_output, new_node_output)
+
+                    is_model_output = dag.is_output(node_output)
+                    original_proto = is_model_output and dag.get_io(node_output).proto[0]
+
+                    if is_model_output:
+                        dag.remove_output(node_output)
 
                     dag.remove_node(node_name)
+
+                    if is_model_output:
+                        dag.rename_node_output(quantized_nodes[0].name, new_node_output, node_output)
+                        vi = onnx.ValueInfoProto()
+                        vi.CopyFrom(original_proto)
+                        dag.get_io(node_output).proto = [vi]
+                        dag.make_output(node_output)
 
             else:
                 logger.debug("skip to quantize %s ...", node.proto.name)

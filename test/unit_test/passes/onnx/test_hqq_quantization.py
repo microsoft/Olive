@@ -28,8 +28,7 @@ class TestHQQQuantization:
 
         # Create model
         input_name = "input"
-        matmul_output_name = "matmul_output"  # Intermediate output from MatMul
-        output_name = "output"  # Final output from ReLU
+        output_name = "output"
         weight_name = "weight"
 
         input_tensor_proto = onnx.helper.make_tensor_value_info(input_name, onnx.TensorProto.FLOAT, input_shape)
@@ -40,15 +39,11 @@ class TestHQQQuantization:
 
         # Create MatMul node
         matmul_node = onnx.helper.make_node(
-            str(OpType.MatMul), inputs=[input_name, weight_name], outputs=[matmul_output_name], name="MatMul_Node"
+            str(OpType.MatMul), inputs=[input_name, weight_name], outputs=[output_name], name="MatMul_Node"
         )
 
-        # Create ReLU node
-        relu_node = onnx.helper.make_node("Relu", inputs=[matmul_output_name], outputs=[output_name], name="Relu_Node")
-
-        # Create graph with both nodes
         graph_def = onnx.helper.make_graph(
-            nodes=[matmul_node, relu_node],
+            nodes=[matmul_node],
             name="test-model",
             inputs=[input_tensor_proto],
             outputs=[output_tensor_proto],
