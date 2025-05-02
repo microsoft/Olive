@@ -283,9 +283,9 @@ class OnnxConversion(Pass):
                         dynamic_axes=io_config.dynamic_axes,
                         dynamic_shapes=io_config.dynamic_shapes,
                         dynamo=True,
-                        fallback=False,
+                        fallback=True,
                         optimize=config.optimize,
-                        report=True,
+                        report=logger.isEnabledFor(logging.DEBUG),
                     )
                     assert onnx_program is not None
                     onnx_model = onnx_program.model_proto
