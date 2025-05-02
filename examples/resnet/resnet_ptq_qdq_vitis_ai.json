@@ -61,8 +61,8 @@
         "OnnxQuantization": {
             "type": "OnnxQuantization",
             "data_config": "quantize_data_config",
-            "activation_type": "QUInt8",
-            "weight_type": "QUInt8",
+            "activation_type": "uint8",
+            "weight_type": "uint8",
             "calibrate_method": "MinMax"
         },
         "addmetadata": {
@@ -75,6 +75,6 @@
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache/resnet",
-    "clean_cache": true,
+    "clean_cache": false,
     "output_dir": "models/resnet_ptq_qdq"
 }

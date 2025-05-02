@@ -78,8 +78,8 @@
             "activation_type": "uint16",
             "weight_type": "uint8"
         },
-        "addmetadata":{
-            "type":"VitisAIAddMetaData",
+        "addmetadata": {
+            "type": "VitisAIAddMetaData",
             "config_meta_data_keys": [ "architectures", "model_type" ],
             "activation_type": "QUInt16",
             "weight_type": "QUInt8",
