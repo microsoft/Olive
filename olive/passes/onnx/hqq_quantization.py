@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from copy import deepcopy
 from pathlib import Path
 from typing import Optional
 
@@ -64,11 +63,9 @@ class OnnxHqqQuantization(Pass):
             )
             return model
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-        model_copy = deepcopy(model.load_model())
-        dag = OnnxDAG(model_copy)
+        dag = OnnxDAG(model.load_model())
         dag.set_opset_import(MSFT_DOMAIN, 1)
         dag = self._process_graph(dag, config.block_size, config.axis, config.nodes_to_exclude, config.nodes_to_include)
-        dag.clean_unused_initializers()
         dag.update()
         return model_proto_to_olive_model(dag.model, output_model_path, config)
 
@@ -90,20 +87,20 @@ class OnnxHqqQuantization(Pass):
         for node_name in ordered_nodes:
             node = dag.get_node(node_name)
 
-            if node.proto.name in nodes_to_exclude:
-                logger.debug("exclude to quantize %s as specified by nodes_to_exclude...", node.proto.name)
+            if node_name in nodes_to_exclude:
+                logger.debug("exclude to quantize %s as specified by nodes_to_exclude...", node_name)
                 continue
 
-            elif (node.proto.name in nodes_to_include) or (node.op_type == str(OpType.MatMul)):
+            elif node.op_type == str(OpType.MatMul) and (node_name in nodes_to_include or len(nodes_to_include) == 0):
                 graph_idx = dag.get_graph_idx(node_name)
-                logger.debug("quantize node %s", node.proto.name)
+                logger.debug("quantize node %s", node_name)
                 node_initializers = dag.get_node_initializers(node_name)
                 if len(node_initializers) == 0:
                     logger.debug("MatMul doesn't have const weight. Skip to quantize")
                     continue
                 quantized_nodes, initializers = node_quantizer.quantize(node.proto, node_initializers)
 
-                if len(quantized_nodes) == 1 and quantized_nodes[0].op_type == str(OpType.MatMulNBits):
+                if quantized_nodes[0].op_type == str(OpType.MatMulNBits):
                     for initializer in initializers:
                         dag.add_initializer(initializer, graph_idx)
 
@@ -130,7 +127,7 @@ class OnnxHqqQuantization(Pass):
                         dag.make_output(node_output)
 
             else:
-                logger.debug("skip to quantize %s ...", node.proto.name)
+                logger.debug("skip to quantize %s ...", node_name)
         return dag
 
 

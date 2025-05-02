@@ -962,41 +962,6 @@ class OnnxDAG:
 
         self.model.opset_import.extend([onnx_helper.make_opsetid(domain, version)])
 
-    def clean_unused_initializers(self):
-        """Remove unused initializers from the graph.
-
-        This method identifies initializers that are not used by any node in the graph and removes them.
-        This can help reduce model size and memory footprint.
-
-        Returns:
-            self: The updated OnnxDAG instance with unused initializers removed
-
-        """
-        used_tensors = set()
-        for node_name in self.get_node_names():
-            used_tensors.update(input_name for input_name in self.get_node_inputs(node_name) if input_name)
-
-        used_tensors.update(output_name for output_name in self.get_output_names())
-
-        initializer_names = self.get_initializer_names()
-        unused_initializers = [init_name for init_name in initializer_names if init_name not in used_tensors]
-
-        if unused_initializers:
-            logger.debug("Removing %d unused initializers", len(unused_initializers))
-
-        for graph in self.graphs:
-            graph_unused_initializers = [
-                initializer for initializer in graph.initializer if initializer.name in unused_initializers
-            ]
-
-            for initializer in graph_unused_initializers:
-                graph.initializer.remove(initializer)
-
-                for input_idx, graph_input in enumerate(graph.input):
-                    if graph_input.name == initializer.name:
-                        del graph.input[input_idx]
-                        break
-
     @classmethod
     def from_model_path(cls, model_path: Union[str, Path], only_main_graph: bool = False) -> "OnnxDAG":
         """Load an ONNX model and create an self.
