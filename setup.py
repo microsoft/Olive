@@ -4,6 +4,8 @@
 # --------------------------------------------------------------------------
 import json
 import os
+import re
+import subprocess
 
 from setuptools import find_packages, setup
 
@@ -28,6 +30,18 @@ def get_extra_deps(rel_path):
         return json.load(fp)["extra_dependencies"]
 
 
+def get_cuda_version():
+    """Detect CUDA version from nvcc."""
+    try:
+        output = subprocess.check_output(["nvcc", "--version"]).decode()
+        match = re.search(r"release (\d+)\.", output)
+        if match:
+            return int(match.group(1))  # 11, 12, etc.
+    except Exception:
+        pass
+    return None
+
+
 # use techniques described at https://packaging.python.org/en/latest/guides/single-sourcing-package-version/
 # Don't use technique 6 since it needs extra dependencies.
 VERSION = get_version("olive/__init__.py")
@@ -36,6 +50,11 @@ EXTRAS = get_extra_deps("olive/olive_config.json")
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "requirements.txt")) as req_file:
     requirements = req_file.read().splitlines()
 
+cuda_version = get_cuda_version()
+if cuda_version == 11:
+    requirements.append("cupy-cuda11x")
+elif cuda_version == 12:
+    requirements.append("cupy-cuda12x")
 
 CLASSIFIERS = [
     "Development Status :: 3 - Alpha",

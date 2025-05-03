@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Callable, Optional, Union
 
 import onnx
+from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
 from olive.common.config_utils import validate_config
@@ -366,8 +367,6 @@ class OnnxQuantization(Pass):
         if model_has_adapters(model.model_path):
             logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")
             return model
-
-        from onnxruntime import __version__ as OrtVersion
 
         if version.parse(OrtVersion) < version.parse("1.18.0"):
             raise ValueError("Onnx Quantization is only supported for onnxruntime>=1.18.0")
@@ -824,8 +823,6 @@ class OnnxMatMul4Quantizer(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        from onnxruntime import __version__ as OrtVersion
-
         if version.parse(OrtVersion) < version.parse("1.18.0"):
             raise ValueError("MatMul4BitsQuantizer is only supported for onnxruntime>=1.18.0")
 
@@ -852,6 +849,12 @@ class OnnxMatMul4Quantizer(Pass):
             QuantAlgorithm.GPTQ: GPTQWeightOnlyQuantConfig,
         }
 
+        if version.parse(OrtVersion) > version.parse("1.22.0"):
+            from onnxruntime.quantization.matmul_nbits_quantizer import KQuantWeightOnlyQuantConfig
+
+            algo_to_config[QuantAlgorithm.K_QUANT_MIXED] = KQuantWeightOnlyQuantConfig
+            algo_to_config[QuantAlgorithm.K_QUANT_LAST] = KQuantWeightOnlyQuantConfig
+
         if model_has_adapters(model.model_path) and config.algorithm:
             logger.info(
                 "Model has adapters which should only be quantized with algorithm=None. Got %s. Returning"
@@ -874,6 +877,8 @@ class OnnxMatMul4Quantizer(Pass):
                     raise ValueError(f"MatMulNBitsQuantizer {key} is only supported for onnxruntime>=1.20.0")
                 kwargs[key] = value
 
+        onnx_model = model.load_model()
+
         if woq_config_class := algo_to_config.get(config.algorithm, None):
             algo_config = config.weight_only_quant_configs or {}
             for key in inspect.signature(woq_config_class.__init__).parameters:
@@ -893,11 +898,40 @@ class OnnxMatMul4Quantizer(Pass):
                     algo_config[key] = kwargs[key]
             if config.algorithm == QuantAlgorithm.GPTQ:
                 algo_config["calibration_data_reader"] = get_calibration_dataloader(config)
+            elif config.algorithm == QuantAlgorithm.K_QUANT_MIXED:
+                node_names = [node.name for node in onnx_model.graph.node]
+
+                import re
+
+                pattern = r"/model/layers\.(\d{1,2})/mlp/down_proj/MatMul"
+                layers = set()
+                for s in node_names:
+                    match = re.search(pattern, s)
+                    if match:
+                        layer_number = int(match.group(1))
+                        layers.add(layer_number)
+                n_layers = len(layers)
+                layers_to_exclude = [
+                    i
+                    for i in range(n_layers)
+                    if i < n_layers / 8 or i >= 7 * n_layers / 8 or (i - (round)(n_layers / 8)) % 3 == 2
+                ]
+                customized_weight_config = {}
+                for i in layers_to_exclude:
+                    customized_weight_config["/model/layers." + str(i) + "/attn/qkv_proj/MatMul"] = {"bits": 8}
+                    customized_weight_config["/model/layers." + str(i) + "/mlp/down_proj/MatMul"] = {"bits": 8}
+                    # Gemma model
+                    customized_weight_config["/model/layers." + str(i) + "/attn/v_proj/MatMul"] = {"bits": 8}
+                customized_weight_config["/lm_head/MatMul"] = {"bits": 8}
+                algo_config["customized_weight_config"] = customized_weight_config
+            elif config.algorithm == QuantAlgorithm.K_QUANT_LAST:
+                customized_weight_config = {"/lm_head/MatMul": {"bits": 8}}
+                algo_config["customized_weight_config"] = customized_weight_config
             kwargs["algo_config"] = woq_config_class(**algo_config)
         else:
             kwargs["algo_config"] = None
 
-        quant = MatMulNBitsQuantizer(model.load_model(), **kwargs)
+        quant = MatMulNBitsQuantizer(onnx_model, **kwargs)
         quant.process()
         # topologically sort the graph at the end since previous optimizations may have broken it
         quant.model.topological_sort()
@@ -918,7 +952,7 @@ def _validate_weight_only_quant_config(v, values, field):
     config_keys = list(v.keys())
     if not values["algorithm"]:
         default_config_keys = ["block_size", "is_symmetric", "accuracy_level"]
-    elif values["algorithm"] == QuantAlgorithm.RTN:
+    elif values["algorithm"] in [QuantAlgorithm.RTN, QuantAlgorithm.K_QUANT_MIXED, QuantAlgorithm.K_QUANT_LAST]:
         default_config_keys = ["ratios"]
     elif values["algorithm"] == QuantAlgorithm.GPTQ:
         default_config_keys = ["percdamp", "block_size", "actorder", "mse", "perchannel"]
@@ -939,7 +973,10 @@ def _validate_weight_only_quant_config(v, values, field):
 
 
 def _validate_algorithm(v, values, field):
-    if v not in (None, QuantAlgorithm.RTN, QuantAlgorithm.GPTQ):
+    valid_algorithm = [None, QuantAlgorithm.RTN, QuantAlgorithm.GPTQ]
+    if version.parse(OrtVersion) > version.parse("1.22.0"):
+        valid_algorithm.extend([QuantAlgorithm.K_QUANT_MIXED, QuantAlgorithm.K_QUANT_LAST])
+    if v not in valid_algorithm:
         raise ValueError(f"Unsupported algorithm: {v}")
     return v
 
