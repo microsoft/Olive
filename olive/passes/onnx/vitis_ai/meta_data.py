@@ -80,7 +80,7 @@ class VitisAIAddMetaData(Pass):
     def _run_for_config(
         self, model: Union[ONNXModelHandler, CompositeModelHandler], config: BasePassConfig, output_model_path: str
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
-        if not (isinstance(CompositeModelHandler, ONNXModelHandler)):
+        if not (isinstance(model, (CompositeModelHandler, ONNXModelHandler))):
             raise NotImplementedError
 
         if not hasattr(model, "model_attributes") or not model.model_attributes:
