@@ -785,7 +785,7 @@ class PowReduceSumPowDiv2LpNorm(ProtoSurgeon):
 
     def replace_with_lp_normalization(self, model: ModelProto):
         matches = self.find_lp_norm_pattern(model)
-        logger.info(f"Replacing {len(matches)} instance of the pattern with LpNorm")
+        logger.info("Replacing %d instance of the pattern with LpNorm", len(matches))
         for div_node, pow_half_node, sum_node, pow2_node in matches:
             input_name = pow2_node.input[0]
             output_name = div_node.output[0]

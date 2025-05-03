@@ -4,7 +4,7 @@
 #
 
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 import onnx
 
@@ -22,7 +22,7 @@ class VitisAIAddMetaData(Pass):
     _accepts_composite_model = True
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "config_meta_data_keys": PassConfigParam(
                 type_=list,
@@ -43,8 +43,8 @@ class VitisAIAddMetaData(Pass):
             "quant_type": PassConfigParam(type_=str, required=False, description="Quant dtype", default_value="NA"),
         }
 
-    def _create_pipeline_config(self, model: CompositeModelHandler) -> Dict:
-        """Create dynamic pipeline configuration based on component metadata"""
+    def _create_pipeline_config(self, model: CompositeModelHandler) -> dict:
+        """Create dynamic pipeline configuration based on component metadata."""
         return {
             "embeddings": model.model_component_names[0],
             "context": self._get_component_group(model, "context"),
@@ -52,13 +52,13 @@ class VitisAIAddMetaData(Pass):
             "lm_head": model.model_component_names[-1],
         }
 
-    def _get_component_group(self, model: CompositeModelHandler, pattern: str) -> List[str]:
-        """Identify components by naming pattern or position"""
+    def _get_component_group(self, model: CompositeModelHandler, pattern: str) -> list[str]:
+        """Identify components by naming pattern or position."""
         # Example implementation - adjust based on your actual naming conventions
         return [name for name in model.model_component_names if pattern in name.lower()]
 
-    def _add_meta_data(self, model: ONNXModelHandler, metadata: Dict):
-        """Load the model and add the meta data to the model proto"""
+    def _add_meta_data(self, model: ONNXModelHandler, metadata: dict):
+        """Load the model and add the meta data to the model proto."""
         try:
             onnx_model = model.load_model()
         except Exception as e:
@@ -80,7 +80,7 @@ class VitisAIAddMetaData(Pass):
     def _run_for_config(
         self, model: Union[ONNXModelHandler, CompositeModelHandler], config: BasePassConfig, output_model_path: str
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
-        if not (isinstance(model, ONNXModelHandler) or isinstance(model, CompositeModelHandler)):
+        if not (isinstance(CompositeModelHandler, ONNXModelHandler)):
             raise NotImplementedError
 
         if not hasattr(model, "model_attributes") or not model.model_attributes:
@@ -109,7 +109,7 @@ class VitisAIAddMetaData(Pass):
             return model
 
         if isinstance(model, ONNXModelHandler):
-            onnx_model = self._add_meta_data(model, metadata)  # type: ignore
+            onnx_model = self._add_meta_data(model, metadata)
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
             return model_proto_to_olive_model(
                 onnx_model, output_model_path, config
@@ -119,7 +119,7 @@ class VitisAIAddMetaData(Pass):
             pipeline = self._create_pipeline_config(model)
 
             def process_context_iterator(component_models, llm_pipeline, output_dir):
-                """Metadata will only be added to context and iterator models"""
+                """Metadata will only be added to context and iterator models."""
                 new_groups = {
                     "context": {},
                     "iterator": {},
@@ -161,6 +161,9 @@ class VitisAIAddMetaData(Pass):
 
             return process_llm_pipeline(model, pipeline, process_context_iterator, output_model_path)
 
+        else:
+            return None
+
 
 class VitisAIUpdateGenAIProviderOpts(Pass):
     """Add VitisAI provider configuration to GenAI pipeline elements in genai_config.json."""
@@ -168,17 +171,17 @@ class VitisAIUpdateGenAIProviderOpts(Pass):
     _accepts_composite_model = True
 
     @classmethod
-    def _default_config(cls, accelerator_spec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec) -> dict[str, PassConfigParam]:
         return {
             "provider_options": PassConfigParam(
-                type_=Dict,
+                type_=dict,
                 required=False,
                 description="Custom options for VitisAI provider configuration",
                 default_value={},
             )
         }
 
-    def _create_session_options(self, provider_options: Dict) -> Dict:
+    def _create_session_options(self, provider_options: dict) -> dict:
         """Create standardized session options with VitisAI provider."""
         return {
             "log_id": "onnxruntime-genai",
@@ -196,7 +199,6 @@ class VitisAIUpdateGenAIProviderOpts(Pass):
         assert len(model_components) >= 3, "Need at least embedding, transformer, and lm_head components"
 
         # Configure session and output paths
-        # TODO: Add option to load Session option from the config aswell
         session_options = self._create_session_options(provider_options=config.provider_options or {})
         output_path = Path(output_model_path).with_suffix("")
 
@@ -204,10 +206,10 @@ class VitisAIUpdateGenAIProviderOpts(Pass):
         pipeline = self._create_pipeline_config(model)
 
         # Process context and iterator
-        return self._process_pipeline(model, pipeline, output_path, session_options)
+        return self._update_genai_config(model, pipeline, output_path, session_options)
 
-    def _create_pipeline_config(self, model: CompositeModelHandler) -> Dict:
-        """Create dynamic pipeline configuration based on component metadata"""
+    def _create_pipeline_config(self, model: CompositeModelHandler) -> dict:
+        """Create dynamic pipeline configuration based on component metadata."""
         return {
             "embeddings": model.model_component_names[0],
             "context": self._get_component_group(model, "context"),
@@ -215,14 +217,14 @@ class VitisAIUpdateGenAIProviderOpts(Pass):
             "lm_head": model.model_component_names[-1],
         }
 
-    def _get_component_group(self, model: CompositeModelHandler, pattern: str) -> List[str]:
-        """Identify components by naming pattern or position"""
+    def _get_component_group(self, model: CompositeModelHandler, pattern: str) -> list[str]:
+        """Identify components by naming pattern or position."""
         return [name for name in model.model_component_names if pattern in name.lower()]
 
-    def _process_pipeline(
-        self, model: CompositeModelHandler, pipeline: Dict[str, List[str]], output_dir: Path, session_options: dict
+    def _update_genai_config(
+        self, model: CompositeModelHandler, pipeline: dict[str, list[str]], output_dir: Path, session_options: dict
     ) -> CompositeModelHandler:
-        """Generic pipeline processor with multiple component support"""
+        """Update genai_config with VitisAI provider options."""
 
         def process_context_iterator(component_models, llm_pipeline, output_dir):
             # Reference to process the context and iterator models : static_llm pass
