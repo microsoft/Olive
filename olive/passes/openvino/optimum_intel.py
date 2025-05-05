@@ -5,7 +5,7 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, List, Type, Union
+from typing import Union
 
 from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
 
@@ -54,11 +54,11 @@ class OpenVINOOptimumConversion(Pass):
     """Convert a Hugging Face PyTorch model to OpenVINO model using the Optimum export function."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             "components": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=None,
                 description=(
                     "List of component models to export. E.g. ['decoder_model', 'decoder_with_past_model']. None means"
@@ -92,7 +92,7 @@ class OpenVINOOptimumConversion(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
         try:
@@ -172,7 +172,7 @@ class OpenVINOOptimumConversion(Pass):
         return True
 
     def _run_for_config(
-        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> Union[OpenVINOModelHandler, CompositeModelHandler]:
         try:
             from optimum.exporters.openvino import main_export as export_optimum_intel
