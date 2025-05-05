@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Callable, Union
+from typing import Callable, Dict, List, Type, Union
 
 import torch
 
@@ -18,11 +18,11 @@ class OpenVINOConversion(Pass):
     """Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             "input_shapes": PassConfigParam(
-                type_=Union[Callable, str, list],
+                type_=Union[Callable, str, List],
                 required=False,
                 description=(
                     "Set or override shapes for model inputs."
@@ -48,7 +48,7 @@ class OpenVINOConversion(Pass):
                 description="Compress weights in output OpenVINO model to FP16. Default is True.",
             ),
             "extra_configs": PassConfigParam(
-                type_=dict,
+                type_=Dict,
                 default_value=None,
                 required=False,
                 description=(
@@ -75,7 +75,7 @@ class OpenVINOConversion(Pass):
     def _run_for_config(
         self,
         model: Union[HfModelHandler, PyTorchModelHandler, ONNXModelHandler],
-        config: type[BasePassConfig],
+        config: Type[BasePassConfig],
         output_model_path: str,
     ) -> OpenVINOModelHandler:
         try:
@@ -102,7 +102,7 @@ class OpenVINOConversion(Pass):
         input_shapes = None
         if config.input_shapes:
             config_input = config.input_shapes
-            if isinstance(config_input, list):
+            if isinstance(config_input, List):
                 input_shapes = config_input
             else:
                 input_shapes = self._user_module_loader.call_object(config_input)
