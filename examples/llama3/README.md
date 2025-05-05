@@ -7,6 +7,7 @@ Sample use cases of Olive to optimize a [Llama 3.2 1B Instruct](meta-llama/Llama
 - [PTQ + AOT Compilation for Qualcomm NPUs using QNN EP](../phi3_5/README.md):
   - Replace `model_path` in `qnn_config.json` with `meta-llama/Llama-3.2-1B-Instruct`.
   - Chat template is `"<|start_header_id|>user<|end_header_id|>\n{input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"`
+- [PTQ + AWQ ONNX OVIR Encapsulated 4-bit weight compression using Optimum OpenVINO](./openvino/)
 
 **NOTE:**
 - Access to the model is gated and therefore you will need to request access to the model. Once you have access to the model, you'll need to log-in to Hugging Face with a [user access token](https://huggingface.co/docs/hub/security-tokens) so that Olive can download it.

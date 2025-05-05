@@ -3,6 +3,7 @@ This folder contains examples of CLIP VIT quantization using different workflows
 
 - QDQ: [CLIP VIT Quantization encoded in QDQ format](#clip-vit-quantization-encoded-in-qdq-format)
 - NPU: [PTQ on Qualcomm NPU using QNN EP](#ptq-on-npu)
+- Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
 
 Go to [How to run](#how-to-run)
 

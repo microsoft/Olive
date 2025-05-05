@@ -7,34 +7,35 @@ This folder contains examples of BERT optimization using different workflows.
 - CPU: [Optimization with QAT Customized Training Loop](#bert-optimization-with-qat-customized-training-loop-on-cpu)
 - GPU: [Optimization with CUDA/TensorRT](#bert-optimization-with-cudatensorrt-on-gpu)
 - NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](#bert-optimization-with-ptq-on-npu)
+- Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
 
 Go to [How to run](#how-to-run)
 
 
 ## Optimization Workflows
 ### BERT Quantization QDQ
-This workflow quantizes the model. It performs the pipeline:
-- *HF Model-> ONNX Model ->Quantized Onnx Model*
+ This workflow quantizes the model. It performs the pipeline:
+ - *HF Model-> ONNX Model ->Quantized Onnx Model*
 
-Config file: [Intel/bert-base-uncased](bert_ptq_qdq.json)
+ Config file: [Intel/bert-base-uncased](bert_ptq_qdq.json)
 
-#### Accuracy / Latency / Throughput
+ #### Accuracy / Latency / Throughput
 
-| Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  | Throughput (token per second)| Dataset   |
-|-----------------------|---------------------|----------------------|------------------------------|-----------|
-| PyTorch FP32          | 90%                 | 2406                 | 0.41                         | glue-mrpc |
-| ONNX INT8 (QDQ)       | 90%                 | 401                  | 2.51                         | glue-mrpc |
+ | Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  | Throughput (token per second)| Dataset   |
+ |-----------------------|---------------------|----------------------|------------------------------|-----------|
+ | PyTorch FP32          | 90%                 | 2406                 | 0.41                         | glue-mrpc |
+ | ONNX INT8 (QDQ)       | 90%                 | 401                  | 2.51                         | glue-mrpc |
 
-*Note: Latency can vary significantly depending on the hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
+ *Note: Latency can vary significantly depending on the hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
-Config file: [google-bert/bert-base-multilingual-cased](google_bert_qdq.json)
+ Config file: [google-bert/bert-base-multilingual-cased](google_bert_qdq.json)
 
-#### Latency / Throughput
+ #### Latency / Throughput
 
-| Model Version         | Latency (ms/sample)  | Throughput (token per second)| Dataset       |
-|-----------------------|----------------------|------------------------------|---------------|
-| PyTorch FP32          | 1162                 | 0.81                         | facebook/xnli |
-| ONNX INT8 (QDQ)       | 590                  | 1.75                         | facebook/xnli |
+ | Model Version         | Latency (ms/sample)  | Throughput (token per second)| Dataset       |
+ |-----------------------|----------------------|------------------------------|---------------|
+ | PyTorch FP32          | 1162                 | 0.81                         | facebook/xnli |
+ | ONNX INT8 (QDQ)       | 590                  | 1.75                         | facebook/xnli |
 
 ### BERT optimization with PTQ on CPU
 This workflow performs BERT optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
@@ -46,8 +47,6 @@ This workflow also demonstrates how to use:
 - Huggingface `evaluate` to load multi metrics from [metric hub](https://huggingface.co/evaluate-metric).
 
 Config file: [bert_ptq_cpu.json](bert_ptq_cpu.json)
-
-- *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> QDQ Quantized Onnx Model -> ONNX Runtime performance tuning*
 
 #### AzureML Model Source and No Auto-tuning
 The workflow in [bert_ptq_cpu_aml.json](bert_ptq_cpu_aml.json) is similar to the above workflow, but uses AzureML Model Source to load the model and does not perform auto-tuning. Without auto-tuning, the passes will be run with the default parameters (no search space) and the final model and metrics will be saved in the output directory.

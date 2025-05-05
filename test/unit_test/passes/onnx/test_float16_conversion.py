@@ -28,5 +28,5 @@ def test_onnxfloattofloat16(keep_io_types, tmp_path):
         assert io_type == ("float32" if keep_io_types else "float16")
 
     # check that the model initializer types are float16
-    for initializer in output_model.get_graph().initializer:
+    for initializer in output_model.load_model().graph.initializer:
         assert initializer.data_type == onnx.TensorProto.FLOAT16

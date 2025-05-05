@@ -468,6 +468,7 @@ class OnnxDAG:
         :param old_output: name of the output to rename.
         :param new_output: new name of the output.
         """
+        assert not self.is_output(old_output), f"Output {old_output} is a model output. Can't rename it."
         assert new_output not in self.ios, f"Output {new_output} already exists in the graph."
         node = self.nodes[node_name]
         assert old_output in node.outputs, f"Output {old_output} does not exist in node {node_name}."
@@ -813,6 +814,18 @@ class OnnxDAG:
 
         return list(filter(lambda p: not SpecialInput.is_special_input(p), parents))
 
+    def get_node_initializers(self, node_name: str) -> list[TensorProto]:
+        """Get the initializers of a node.
+
+        :param node_name: name of the node.
+        :return: list of initializers of the node.
+        """
+        return [
+            self.get_initializer_proto(i)
+            for i in self.get_node_inputs(node_name, skip_empty_io=True)
+            if self.is_initializer(i)
+        ]
+
     def is_input_consumer(self, node_name: str) -> bool:
         """Check if a node is an input consumer.
 
@@ -938,6 +951,16 @@ class OnnxDAG:
         for node_name in nodes_to_remove:
             self.remove_node(node_name)
         logger.debug("Removed %d Identity nodes", len(nodes_to_remove))
+
+    def set_opset_import(self, domain, version):
+        import onnx.helper as onnx_helper
+
+        for opset in self.model.opset_import:
+            if opset.domain == domain:
+                opset.version = version
+                return
+
+        self.model.opset_import.extend([onnx_helper.make_opsetid(domain, version)])
 
     @classmethod
     def from_model_path(cls, model_path: Union[str, Path], only_main_graph: bool = False) -> "OnnxDAG":

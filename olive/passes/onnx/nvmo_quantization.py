@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer
 
 from olive.common.utils import StrEnumBase
+from olive.constants import Precision, QuantAlgorithm
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OliveModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -28,14 +29,6 @@ logger = logging.getLogger(__name__)
 class NVModelOptQuantization(Pass):
     """Quantize ONNX model with Nvidia-ModelOpt."""
 
-    class Precision(StrEnumBase):
-        FP8 = "fp8"
-        INT8 = "int8"
-        INT4 = "int4"
-
-    class Algorithm(StrEnumBase):
-        AWQ = "AWQ"
-
     class Calibration(StrEnumBase):
         AWQ_LITE = "awq_lite"
         AWQ_CLIP = "awq_clip"
@@ -44,21 +37,21 @@ class NVModelOptQuantization(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "precision": PassConfigParam(
-                type_=NVModelOptQuantization.Precision,
-                default_value="int4",
-                search_defaults=Categorical(["fp8", "int8", "int4"]),
+                type_=Precision,
+                default_value=Precision.INT4,
+                search_defaults=Categorical([Precision.FP8, Precision.INT8, Precision.INT4]),
                 description="NVModelOpt Quantization mode.",
             ),
             "algorithm": PassConfigParam(
-                type_=NVModelOptQuantization.Algorithm,
-                default_value="AWQ",
-                search_defaults=Categorical(["AWQ"]),
+                type_=QuantAlgorithm,
+                default_value=QuantAlgorithm.AWQ,
+                search_defaults=Categorical([QuantAlgorithm.AWQ]),
                 description="Algorithm of weight only quantization. Supports 'AWQ'.",
             ),
             "calibration": PassConfigParam(
                 type_=NVModelOptQuantization.Calibration,
-                default_value="awq_clip",
-                search_defaults=Categorical(["awq_lite", "awq_clip"]),
+                default_value=NVModelOptQuantization.Calibration.AWQ_CLIP,
+                search_defaults=Categorical(list(NVModelOptQuantization.Calibration)),
                 description="Calibration method for weight only quantization. Supports 'awq_lite' and 'awq_clip'.",
             ),
             "tokenizer_dir": PassConfigParam(
@@ -83,20 +76,17 @@ class NVModelOptQuantization(Pass):
             return False
 
         # Validate Precision
-        if config.precision != NVModelOptQuantization.Precision.INT4:
+        if config.precision != Precision.INT4:
             logger.error("Only INT4 quantization is supported.")
             return False
 
         # Validate Algorithm
-        if config.algorithm not in [NVModelOptQuantization.Algorithm.AWQ.value]:
+        if config.algorithm not in [QuantAlgorithm.AWQ]:
             logger.error("Only 'AWQ' algorithm is supported.")
             return False
 
         # Validate Calibration
-        if config.calibration not in [
-            NVModelOptQuantization.Calibration.AWQ_LITE.value,
-            NVModelOptQuantization.Calibration.AWQ_CLIP.value,
-        ]:
+        if config.calibration not in list(NVModelOptQuantization.Calibration):
             logger.error("Calibration method must be either 'awq_lite' or 'awq_clip'.")
             return False
 
@@ -142,9 +132,9 @@ class NVModelOptQuantization(Pass):
 
         # Return a dictionary containing necessary configuration for quantization
         return {
-            "algorithm": config.algorithm or self.Algorithm.AWQ.value,
-            "precision": config.precision or self.Precision.INT4.value,
-            "calibration_method": config.calibration or self.Calibration.AWQ_CLIP.value,
+            "algorithm": config.algorithm or QuantAlgorithm.AWQ.value,
+            "precision": config.precision or Precision.INT4.value,
+            "calibration_method": config.calibration or NVModelOptQuantization.Calibration.AWQ_CLIP.value,
             "tokenizer_dir": config.tokenizer_dir or "",
             "calibration_data_reader": calib_inputs,
         }

@@ -7,14 +7,15 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import onnx
 from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.pydantic_v1 import validator
-from olive.common.utils import IntEnumBase, StrEnumBase, exclude_keys, hash_string
+from olive.common.utils import IntEnumBase, exclude_keys, hash_string
+from olive.constants import Precision, PrecisionBits, QuantAlgorithm
 from olive.data.config import DataConfig
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
@@ -37,14 +38,14 @@ logger = logging.getLogger(__name__)
 
 # common config for both static and dynamic quantization
 _onnx_quantization_config = {
-    "weight_type": PassConfigParam(
-        type_=str,
-        default_value="QInt8",
-        search_defaults=Categorical(["QInt8", "QUInt8"]),
+    "precision": PassConfigParam(
+        type_=Precision,
+        default_value=Precision.INT8,
+        search_defaults=Categorical([Precision.INT8, Precision.UINT8]),
         description="""
             Data type for quantizing weights which is used both in dynamic
-            and static quantization. 'QInt8' for signed 8-bit integer,
-            'QUInt8' for unsigned 8-bit integer.
+            and static quantization. 'int8' for signed 8-bit integer,
+            'uint8' for unsigned 8-bit integer.
         """,
     ),
     "op_types_to_quantize": PassConfigParam(
@@ -118,7 +119,7 @@ _onnx_quantization_config = {
         default_value=None,
         description="""
             Symmetric quantization for weights. Defaults to None. If set to None, it is assumed true if
-            weight_type is signed, false otherwise.
+            precision is signed, false otherwise.
         """,
     ),
 }
@@ -172,19 +173,23 @@ _static_optional_config = {
         """,
     ),
     "activation_type": PassConfigParam(
-        type_=str,
-        default_value="QInt8",
-        # the search space is conditional on quant_format and weight_type
-        # the equivalent joint search space for (quant_format, weight_type, activation) is
-        # {(QDQ, QInt8, QInt8), (QDQ, QUInt8, QUInt8), (QOperator, QUInt8, QUInt8)}
+        type_=Precision,
+        default_value=Precision.INT8,
+        # the search space is conditional on quant_format and precision
+        # the equivalent joint search space for (quant_format, precision, activation) is
+        #   {
+        #       (QDQ, Precision.INT8, Precision.INT8),
+        #       (QDQ, Precision.UINT8, Precision.UINT8),
+        #       (QOperator, Precision.UINT8, Precision.UINT8),
+        #   }
         search_defaults=Conditional(
-            parents=("quant_format", "weight_type"),
+            parents=("quant_format", "precision"),
             support={
-                ("QDQ", "QInt8"): Categorical(["QInt8"]),
-                ("QDQ", "QUInt8"): Categorical(["QUInt8"]),
-                ("QOperator", "QUInt8"): Categorical(["QUInt8"]),
-                # invalid choice for QOperator, QInt8
-                ("QOperator", "QInt8"): Conditional.get_invalid_choice(),
+                ("QDQ", Precision.INT8): Categorical([Precision.INT8]),
+                ("QDQ", Precision.UINT8): Categorical([Precision.UINT8]),
+                ("QOperator", Precision.UINT8): Categorical([Precision.UINT8]),
+                # invalid choice for QOperator, Precision.INT8
+                ("QOperator", Precision.INT8): Conditional.get_invalid_choice(),
             },
         ),
         description="""
@@ -215,6 +220,34 @@ _static_optional_config = {
         """,
     ),
 }
+
+
+def quant_type_from_precision(p):
+    from onnxruntime.quantization import QuantType
+
+    mapping = {
+        Precision.INT4: QuantType["QInt4"],
+        Precision.UINT4: QuantType["QUInt4"],
+        Precision.INT8: QuantType["QInt8"],
+        Precision.UINT8: QuantType["QUInt8"],
+        Precision.INT16: QuantType["QInt16"],
+        Precision.UINT16: QuantType["QUInt16"],
+    }
+    return mapping.get(p)
+
+
+def precision_bits_from_precision(p):
+    mapping = {
+        Precision.INT4: PrecisionBits.BITS4,
+        Precision.INT8: PrecisionBits.BITS8,
+        Precision.INT16: PrecisionBits.BITS16,
+        Precision.INT32: PrecisionBits.BITS32,
+        Precision.UINT4: PrecisionBits.BITS4,
+        Precision.UINT8: PrecisionBits.BITS8,
+        Precision.UINT16: PrecisionBits.BITS16,
+        Precision.UINT32: PrecisionBits.BITS32,
+    }
+    return mapping.get(p)
 
 
 def get_calibration_dataloader(config, model_path=None, io_config=None, calibration_providers=None):
@@ -305,18 +338,26 @@ class OnnxQuantization(Pass):
         if not super().validate_config(config, accelerator_spec):
             return False
 
-        if (
-            config.quant_mode == "static"
-            and config.weight_type == "QInt8"
-            and config.activation_type == "QInt8"
-            and config.quant_format == "QOperator"
-        ):
-            # S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general.
-            # https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html#data-type-selection
-            # But we still allow it for users to try at their own risk. Olive just warns this to users.
-            logger.warning(
-                "S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general, try QDQ instead."
-            )
+        if not quant_type_from_precision(config.precision):
+            logger.warning("Unsupported precision: %s", config.precision)
+            return False
+
+        if config.quant_mode == "static":
+            if not quant_type_from_precision(config.activation_type):
+                logger.warning("Unsupported activation_type: %s", config.activation_type)
+                return False
+
+            if (
+                config.precision == Precision.INT8
+                and config.activation_type == Precision.INT8
+                and config.quant_format == "QOperator"
+            ):
+                # S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general.
+                # https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html#data-type-selection
+                # But we still allow it for users to try at their own risk. Olive just warns this to users.
+                logger.warning(
+                    "S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general, try QDQ instead."
+                )
         return True
 
     def _run_for_config(
@@ -334,7 +375,7 @@ class OnnxQuantization(Pass):
         # use .release so that nightly releases are counted as above the version
         ort_less_than_1_21 = version.parse(OrtVersion).release < version.parse("1.21.0").release
 
-        from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
+        from onnxruntime.quantization import QuantFormat, quantize_dynamic, quantize_static
         from onnxruntime.quantization.calibrate import CalibrationMethod
 
         # start with a copy of the config
@@ -394,8 +435,8 @@ class OnnxQuantization(Pass):
                 {
                     "calibrate_method": CalibrationMethod[run_config["calibrate_method"]],
                     "quant_format": QuantFormat[run_config["quant_format"]],
-                    "activation_type": QuantType[run_config["activation_type"]],
-                    "weight_type": QuantType[run_config["weight_type"]],
+                    "activation_type": run_config["activation_type"],
+                    "precision": run_config["precision"],
                     "extra_options": extra_options,
                 }
             )
@@ -405,9 +446,10 @@ class OnnxQuantization(Pass):
                 to_delete += ["calibration_providers"]
         else:
             to_delete += list(_static_optional_config.keys())
+            to_delete += ["precision"]
             run_config.update(
                 {
-                    "weight_type": QuantType[run_config["weight_type"]],
+                    "weight_type": quant_type_from_precision(run_config["precision"]),
                     "extra_options": extra_options,
                 }
             )
@@ -496,7 +538,15 @@ class OnnxQuantization(Pass):
         """Prepare the run config for static quantization."""
         dataloader = get_calibration_dataloader(config, model.model_path, model.io_config, config.calibration_providers)
         if config.quant_format != "QDQ" or not config.prepare_qdq_config:
-            run_config.update({"calibration_data_reader": dataloader, "use_external_data_format": True})
+            run_config.update(
+                {
+                    "calibration_data_reader": dataloader,
+                    "use_external_data_format": True,
+                    "weight_type": quant_type_from_precision(run_config["precision"]),
+                    "activation_type": quant_type_from_precision(run_config["activation_type"]),
+                }
+            )
+            run_config.pop("precision", None)
             return run_config
 
         is_qnn_ep = self.accelerator_spec.execution_provider == "QNNExecutionProvider"
@@ -511,10 +561,11 @@ class OnnxQuantization(Pass):
         get_qdq_config_kwargs = {
             "model_input": model.model_path,
             "calibration_data_reader": dataloader,
+            "weight_type": quant_type_from_precision(run_config["precision"]),
+            "activation_type": quant_type_from_precision(run_config["activation_type"]),
+            "calibrate_method": run_config["calibrate_method"],
+            "per_channel": run_config["per_channel"],
         }
-        # copy values from run_config
-        for key in ["calibrate_method", "activation_type", "weight_type", "per_channel"]:
-            get_qdq_config_kwargs[key] = run_config[key]
         if not ort_less_than_1_21:
             # only available in onnxruntime>=1.21.0 for prepare_qnn_config
             for key in ["calibration_providers", "op_types_to_quantize", "nodes_to_exclude"]:
@@ -669,8 +720,12 @@ class OnnxStaticQuantization(OnnxQuantization):
             # Recently Int16/Uint16 is added into onnx runtime quantization only in QDQ mode.
             # for QNN EP integration, we give this workaround to support Int16/Uint16 in QDQ mode.
             # TODO(jiapli): remove this workaround once figure out the Int16/UInt16 in latest quantization
-            config["activation_type"].search_defaults = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
-            config["weight_type"].search_defaults = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
+            config["activation_type"].search_defaults = Categorical(
+                [Precision.INT8, Precision.UINT8, Precision.INT16, Precision.UINT16]
+            )
+            config["precision"].search_defaults = Categorical(
+                [Precision.INT8, Precision.UINT8, Precision.INT16, Precision.UINT16]
+            )
         return config
 
     @staticmethod
@@ -688,12 +743,6 @@ class OnnxMatMul4Quantizer(Pass):
         fp16 = 2
         bf16 = 3
         int8 = 4
-
-    class Algorithm(StrEnumBase):
-        DEFAULT = "DEFAULT"
-        HQQ = "HQQ"
-        RTN = "RTN"
-        GPTQ = "GPTQ"
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -741,7 +790,7 @@ class OnnxMatMul4Quantizer(Pass):
                 ),
             ),
             "algorithm": PassConfigParam(
-                type_=OnnxMatMul4Quantizer.Algorithm,
+                type_=Optional[QuantAlgorithm],
                 default_value=None,
                 description=(
                     "The algorithm used to quantize weight. If None, the default algorithm is used with quant"
@@ -769,6 +818,7 @@ class OnnxMatMul4Quantizer(Pass):
             "validate_quant_config": validator("weight_only_quant_configs", allow_reuse=True)(
                 _validate_weight_only_quant_config
             ),
+            "validate_algorithm": validator("algorithm", allow_reuse=True)(_validate_algorithm),
         }
 
     def _run_for_config(
@@ -783,7 +833,6 @@ class OnnxMatMul4Quantizer(Pass):
             from onnxruntime.quantization.matmul_nbits_quantizer import (
                 DefaultWeightOnlyQuantConfig,
                 GPTQWeightOnlyQuantConfig,
-                HQQWeightOnlyQuantConfig,
                 MatMulNBitsQuantizer,
                 RTNWeightOnlyQuantConfig,
             )
@@ -791,7 +840,6 @@ class OnnxMatMul4Quantizer(Pass):
             from onnxruntime.quantization.matmul_4bits_quantizer import (
                 DefaultWeightOnlyQuantConfig,
                 GPTQWeightOnlyQuantConfig,
-                HQQWeightOnlyQuantConfig,
                 RTNWeightOnlyQuantConfig,
             )
             from onnxruntime.quantization.matmul_4bits_quantizer import (
@@ -799,15 +847,14 @@ class OnnxMatMul4Quantizer(Pass):
             )
 
         algo_to_config = {
-            "DEFAULT": DefaultWeightOnlyQuantConfig,
-            "HQQ": HQQWeightOnlyQuantConfig,
-            "RTN": RTNWeightOnlyQuantConfig,
-            "GPTQ": GPTQWeightOnlyQuantConfig,
+            None: DefaultWeightOnlyQuantConfig,
+            QuantAlgorithm.RTN: RTNWeightOnlyQuantConfig,
+            QuantAlgorithm.GPTQ: GPTQWeightOnlyQuantConfig,
         }
 
-        if model_has_adapters(model.model_path) and config.algorithm not in {None, "DEFAULT"}:
+        if model_has_adapters(model.model_path) and config.algorithm:
             logger.info(
-                "Model has adapters which should only be quantized with algorithm=None or DEFAULT. Got %s. Returning"
+                "Model has adapters which should only be quantized with algorithm=None. Got %s. Returning"
                 " the model without quantization.",
                 config.algorithm,
             )
@@ -844,7 +891,7 @@ class OnnxMatMul4Quantizer(Pass):
                 elif key in kwargs:
                     # get value from pass config
                     algo_config[key] = kwargs[key]
-            if config.algorithm == "GPTQ":
+            if config.algorithm == QuantAlgorithm.GPTQ:
                 algo_config["calibration_data_reader"] = get_calibration_dataloader(config)
             kwargs["algo_config"] = woq_config_class(**algo_config)
         else:
@@ -869,13 +916,11 @@ def _validate_weight_only_quant_config(v, values, field):
         v = {}
 
     config_keys = list(v.keys())
-    if values["algorithm"] == "DEFAULT":
+    if not values["algorithm"]:
         default_config_keys = ["block_size", "is_symmetric", "accuracy_level"]
-    elif values["algorithm"] == "RTN":
+    elif values["algorithm"] == QuantAlgorithm.RTN:
         default_config_keys = ["ratios"]
-    elif values["algorithm"] == "HQQ":
-        default_config_keys = ["block_size", "bits", "axis"]
-    elif values["algorithm"] == "GPTQ":
+    elif values["algorithm"] == QuantAlgorithm.GPTQ:
         default_config_keys = ["percdamp", "block_size", "actorder", "mse", "perchannel"]
     else:
         raise ValueError(f"Unsupported algorithm: {values['algorithm']}")
@@ -890,6 +935,12 @@ def _validate_weight_only_quant_config(v, values, field):
             default_config_keys,
         )
         v = {key: v[key] for key in default_config_keys if key in v}
+    return v
+
+
+def _validate_algorithm(v, values, field):
+    if v not in (None, QuantAlgorithm.RTN, QuantAlgorithm.GPTQ):
+        raise ValueError(f"Unsupported algorithm: {v}")
     return v
 
 
@@ -912,6 +963,6 @@ def _get_qnn_init_overrides(model_handler: ONNXModelHandler, config: type[BasePa
             init_overrides[output_name] = init_overrides.get(output_name, [{}])
             init_overrides[output_name][0]["quant_type"] = init_overrides[output_name][0].get(
                 "quant_type"
-            ) or QuantType.from_string(config.activation_type or "QUInt8")
+            ) or quant_type_from_precision(config.activation_type or Precision.UINT8)
             init_overrides[output_name][0]["convert"] = {"quant_type": QuantType.from_string(output_convert_type)}
     return init_overrides

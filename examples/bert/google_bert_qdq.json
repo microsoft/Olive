@@ -51,8 +51,8 @@
         "quantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "xnli",
-            "activation_type": "QUInt16",
-            "weight_type": "QUInt8"
+            "activation_type": "uint16",
+            "precision": "uint8"
         }
     },
     "evaluator": "common_evaluator",

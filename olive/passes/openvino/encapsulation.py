@@ -234,6 +234,9 @@ class OpenVINOEncapsulation(Pass):
         # generate the genai_config.json file for GenAI models
         create_genai_config(context_model_output, output_model_path)
 
+        # generate the genai_config.json file for GenAI models
+        create_genai_config(output_model_path)
+
         return ONNXModelHandler(model_path=output_model_path)
 
 
