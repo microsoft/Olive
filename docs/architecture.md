@@ -39,7 +39,7 @@ class Pass(ABC):
         ...
 
     @classmethod
-    def get_config_class(cls, disable_search: Optional[bool] = False) -> Type[BaseModel]:
+    def get_config_class(cls, disable_search: Optional[bool] = False) -> type[BaseModel]:
         ...
 
     @classmethod

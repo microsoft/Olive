@@ -1,1 +1,2 @@
+olive-ai[openvino]
 torchvision

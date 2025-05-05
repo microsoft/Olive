@@ -15,7 +15,7 @@
         "builder": { "type": "ModelBuilder", "precision": "fp16" },
         "quantization": {
             "type": "NVModelOptQuantization",
-            "algorithm": "AWQ",
+            "algorithm": "awq",
             "tokenizer_dir": "microsoft/Phi-3-mini-4k-instruct",
             "calibration": "awq_lite"
         }
