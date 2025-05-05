@@ -249,9 +249,6 @@ def extract_shape_list(shape, config, prefix: str = "input_0_") -> list:
             else:
                 shape_list.append(-1)
     return shape_list
-<<<<<<< Updated upstream
-=======
-
 
 def create_genai_config(model_name: str, output_path: str) -> None:
     """Generate the genai_config.json from the model config files.
@@ -368,4 +365,3 @@ def create_genai_config(model_name: str, output_path: str) -> None:
     output_genai_config = Path(output_path) / "genai_config.json"
     with open(output_genai_config, "w") as f:
         json.dump(genai_config, f, indent=4)
->>>>>>> Stashed changes
