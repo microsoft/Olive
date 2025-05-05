@@ -234,9 +234,6 @@ class OpenVINOEncapsulation(Pass):
         # generate the genai_config.json file for GenAI models
         create_genai_config(context_model_output, output_model_path)
 
-        # generate the genai_config.json file for GenAI models
-        create_genai_config(output_model_path)
-
         return ONNXModelHandler(model_path=output_model_path)
 
 
@@ -252,6 +249,7 @@ def extract_shape_list(shape, config, prefix: str = "input_0_") -> list:
             else:
                 shape_list.append(-1)
     return shape_list
+
 
 def create_genai_config(model_name: str, output_path: str) -> None:
     """Generate the genai_config.json from the model config files.
