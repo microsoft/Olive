@@ -231,12 +231,9 @@ class OpenVINOEncapsulation(Pass):
                 dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
                 hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
 
-<<<<<<< Updated upstream
-=======
         # generate the genai_config.json file for GenAI models
         create_genai_config(context_model_output, output_model_path)
 
->>>>>>> Stashed changes
         return ONNXModelHandler(model_path=output_model_path)
 
 
