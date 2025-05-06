@@ -339,6 +339,7 @@ def create_genai_config(model_name: str, output_path: str) -> None:
 
     genai_config["model"]["bos_token_id"] = src_config.get("bos_token_id", -1)
     genai_config["model"]["context_length"] = src_config.get("max_position_embeddings", -1)
+    genai_config["model"]["decoder"]["filename"] = model_name
     genai_config["model"]["decoder"]["head_size"] = src_config.get("hidden_size", -1) // src_config.get(
         "num_attention_heads", -1
     )
