@@ -243,10 +243,31 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
         quantized_model = nncf.quantize(
             loaded_model, calibration_dataset, advanced_parameters=advanced_params, **extra_params
         )
+
+        if not config.reuse_cache:
+            # copy JSON and text files for genai models
+            all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
+            for genai_file in all_genai_files:
+                src_pth = Path(model.model_path) / genai_file
+                dest_path = Path(output_model_path)
+                hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
+
+            # copy tokenizer folder if it exists
+            src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
+            if src_tokenizer.exists() and src_tokenizer.is_dir():
+                dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
+                hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
+
+            # copy detokenizer folder if it exists
+            src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
+            if src_detokenizer.exists() and src_detokenizer.is_dir():
+                dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
+                hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
+
         model_name = model.model_config["model_name"]
-        model_name_path = Path(model.model_path) / (f"{model_name}_quant")
-        output_dir = Path(output_model_path) / model_name_path
-        ov.save_model(quantized_model, output_model=output_dir.with_suffix(".xml"))
+        output_model_name = f"{model_name}_quant.xml"
+        output_model_path = Path(output_model_path) / output_model_name
+        ov.save_model(quantized_model, output_model=output_model_path)
 
 
 class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
@@ -362,6 +383,6 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
                 hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
 
         model_name = model.model_config["model_name"]
-        model_name_path = Path(model.model_path) / (f"{model_name}_quant")
-        output_dir = Path(output_model_path) / model_name_path
-        ov.save_model(quantized_model, output_model=output_dir.with_suffix(".xml"))
+        output_model_name = f"{model_name}_quant.xml"
+        output_model_path = Path(output_model_path) / output_model_name
+        ov.save_model(quantized_model, output_model=output_model_path)

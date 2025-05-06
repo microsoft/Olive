@@ -124,9 +124,8 @@ class OpenVINOIoUpdate(Pass):
                     inputs[loaded_model.input(i)] = ov.PartialShape(dim)
 
                 loaded_model.reshape(inputs)
-
-                model_name_path = Path(output_model_path) / (f"{output_model_name}.xml")
-                ov.save_model(loaded_model, model_name_path)
+                model_name_path_dst = Path(output_model_path) / (f"{output_model_name}.xml")
+                ov.save_model(loaded_model, model_name_path_dst)
 
             elif not config.input_shapes:
                 msg = "Error! Missing input shapes"
@@ -138,16 +137,19 @@ class OpenVINOIoUpdate(Pass):
                     f"do not match the number of entries in the input_shapes in config, {len(config.input_shapes)}"
                 )
                 raise ValueError(msg) from None
-        else:
-            if update_io_names:
-                ov.save_model(loaded_model, Path(output_model_path) / (f"{output_model_name}.xml"))
 
-        if not config.reuse_cache:
+        # dynamic model will be saved to new location only if io names change
+        elif update_io_names:
+            ov.save_model(loaded_model, Path(output_model_path) / (f"{output_model_name}.xml"))
+
+        # dynamic model with no io name change and hence it can just be copied to new location if reuse_cache is false
+        elif not config.reuse_cache:
             model_name_path_dst = Path(output_model_path) / (f"{output_model_name}.xml")
             weight_name_path_dst = Path(output_model_path) / (f"{output_model_name}.bin")
             hardlink_copy_file(model_name_path, model_name_path_dst, follow_symlinks=True)
             hardlink_copy_file(weight_name_path, weight_name_path_dst, follow_symlinks=True)
 
+        if not config.reuse_cache:
             # copy JSON and text files for genai models
             all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
             for genai_file in all_genai_files:
