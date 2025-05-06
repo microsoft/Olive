@@ -72,6 +72,7 @@ class SplitModel(Pass):
             opset_import=model_proto.opset_import,
             producer_name="olive",
             graph=onnx.GraphProto(name=model_proto.graph.name),
+            metadata_props=model_proto.metadata_props,
         )
         split_dags = [OnnxDAG(deepcopy(split_proto)) for _ in range(num_splits)]
 

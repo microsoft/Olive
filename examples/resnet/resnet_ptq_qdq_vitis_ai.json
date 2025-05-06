@@ -1,7 +1,7 @@
 {
     "input_model": {
         "type": "HfModel",
-        "model_path": "google/vit-base-patch16-224",
+        "model_path": "microsoft/resnet-50",
         "task": "image-classification",
         "io_config": {
             "input_names": [ "pixel_values" ],
@@ -20,8 +20,8 @@
                 "streaming": true,
                 "trust_remote_code": true
             },
-            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet256" },
-            "post_process_data_config": { "type": "dataset_post_process" }
+            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet" },
+            "post_process_data_config": { "type": "imagenet_post_fun" }
         }
     ],
     "evaluators": {
@@ -43,7 +43,7 @@
                     "name": "latency",
                     "type": "latency",
                     "data_config": "quantize_data_config",
-                    "sub_types": [ { "name": "avg", "priority": 2 } ]
+                    "sub_types": [ { "name": "avg" } ]
                 }
             ]
         }
@@ -55,39 +55,26 @@
             "target_opset": 17,
             "save_as_external_data": true,
             "all_tensors_to_one_file": true,
+            "dynamic": false,
             "use_dynamo_exporter": false
-        },
-        "transformer_optimizer": {
-            "type": "orttransformersoptimization",
-            "model_type": "vit",
-            "opt_level": 1,
-            "optimization_options": {
-                "enable_gelu": true,
-                "enable_bias_gelu": false,
-                "enable_layer_norm": true,
-                "enable_skip_layer_norm": false,
-                "enable_bias_skip_layer_norm": false,
-                "enable_attention": false
-            }
         },
         "OnnxQuantization": {
             "type": "OnnxQuantization",
             "data_config": "quantize_data_config",
-            "activation_type": "uint16",
+            "activation_type": "uint8",
             "precision": "uint8",
-            "calibrate_method": "MinMax",
-            "quant_preprocess": true
+            "calibrate_method": "MinMax"
         },
         "addmetadata": {
             "type": "VitisAIAddMetaData",
             "config_meta_data_keys": [ "architectures", "model_type" ],
-            "activation_type": "uint16",
+            "activation_type": "uint8",
             "weight_type": "uint8",
             "quant_type": "OnnxStaticQuantization"
         }
     },
     "evaluator": "common_evaluator",
-    "cache_dir": "cache/vit",
+    "cache_dir": "cache/resnet",
     "clean_cache": false,
-    "output_dir": "models/vit-base-patch16-224"
+    "output_dir": "models/resnet_ptq_qdq"
 }

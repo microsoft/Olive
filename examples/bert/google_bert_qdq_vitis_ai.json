@@ -66,10 +66,17 @@
             "data_config": "xnli",
             "activation_type": "uint16",
             "precision": "uint8"
+        },
+        "addmetadata": {
+            "type": "VitisAIAddMetaData",
+            "config_meta_data_keys": [ "architectures", "model_type" ],
+            "activation_type": "uint16",
+            "weight_type": "uint8",
+            "quant_type": "OnnxStaticQuantization"
         }
     },
     "evaluator": "common_evaluator",
-    "cache_dir": "cache",
-    "output_dir": "models/google_bert",
-    "log_severity_level": 0
+    "cache_dir": "cache/google_bert",
+    "clean_cache": false,
+    "output_dir": "models/google-bert-bert-base-multilingual-cased"
 }
