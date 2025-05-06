@@ -77,9 +77,17 @@
             "data_config": "glue_mrpc",
             "activation_type": "uint16",
             "precision": "uint8"
+        },
+        "addmetadata": {
+            "type": "VitisAIAddMetaData",
+            "config_meta_data_keys": [ "architectures", "model_type" ],
+            "activation_type": "uint16",
+            "weight_type": "uint8",
+            "quant_type": "OnnxStaticQuantization"
         }
     },
     "evaluator": "common_evaluator",
-    "cache_dir": "cache",
-    "output_dir": "models/bert_ptq_qdq_with_Gelu"
+    "cache_dir": "cache/intel_bert",
+    "clean_cache": false,
+    "output_dir": "models/intel-bert-base-uncased-mrpc"
 }
