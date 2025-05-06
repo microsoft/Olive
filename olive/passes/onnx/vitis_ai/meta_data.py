@@ -78,11 +78,6 @@ class VitisAIAddMetaData(Pass):
 
         return True
 
-    def _get_component_group(self, model: CompositeModelHandler, pattern: str) -> list[str]:
-        """Identify components by naming pattern or position."""
-        # Example implementation - adjust based on your actual naming conventions
-        return [name for name in model.model_component_names if pattern in name.lower()]
-
     def _add_meta_data(self, onnx_model: onnx.ModelProto, metadata: dict) -> onnx.ModelProto:
         """Add the meta data to the model proto."""
         new_metadata_props = {entry.key: entry.value for entry in onnx_model.metadata_props}
