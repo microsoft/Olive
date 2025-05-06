@@ -14,7 +14,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import resave_model
+from olive.passes.onnx.common import model_proto_to_file, resave_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -85,17 +85,10 @@ class VitisAIAddMetaData(Pass):
 
     def _add_meta_data(self, onnx_model: onnx.ModelProto, metadata: dict) -> onnx.ModelProto:
         """Add the meta data to the model proto."""
-        existing_metadata = {entry.key: idx for idx, entry in enumerate(onnx_model.metadata_props)}
-
-        for key in metadata:
-            if key in existing_metadata:
-                del onnx_model.metadata_props[existing_metadata[key]]
-
-        # Add validated metadata
-        for key, value in metadata.items():
-            entry = onnx_model.metadata_props.add()
-            entry.key = key
-            entry.value = str(value)
+        new_metadata_props = {entry.key: entry.value for entry in onnx_model.metadata_props}
+        # update the metadata properties, this will overwrite the existing ones
+        new_metadata_props.update(metadata)
+        onnx.helper.set_model_props(onnx_model, new_metadata_props)
         return onnx_model
 
     def _run_for_config(
@@ -136,8 +129,8 @@ class VitisAIAddMetaData(Pass):
         has_external_data = resave_model(model.model_path, output_model_path)
         # load the model without external data
         onnx_model = self._add_meta_data(onnx.load_model(output_model_path, load_external_data=False), metadata)
-        # save the model with metadata
-        onnx.save_model(onnx_model, output_model_path)
+        # save the model with metadata, will unlink to avoid modifying the hardlinked original
+        model_proto_to_file(onnx_model, output_model_path)
 
         return ONNXModelHandler(
             model_path=output_model_path.parent if has_external_data else output_model_path,

@@ -45,16 +45,7 @@ def test_vitis_ai_add_metadata(a_type, w_type, expected_a_type, expected_w_type,
     if not valid:
         return
 
-    output_model = create_pass_from_dict(
-        VitisAIAddMetaData,
-        {
-            "config_meta_data_keys": ["architectures", "model_type"],
-            "activation_type": a_type,
-            "weight_type": w_type,
-            "quant_type": "OnnxStaticQuantization",
-        },
-        disable_search=True,
-    ).run(input_model, str(tmp_path))
+    output_model = p.run(input_model, str(tmp_path))
 
     metatadata_props = {entry.key: entry.value for entry in output_model.load_model().metadata_props}
     assert metatadata_props["architectures"] == "TestArchitecture"
