@@ -26,6 +26,7 @@
         "io_update": {
             "type": "OpenVINOIoUpdate",
             "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
+            "input_names": [ "input_ids", "attention_mask", "token_type_ids" ],
             "static": true
         },
         "ov_quantize": {
