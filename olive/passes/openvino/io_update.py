@@ -53,7 +53,6 @@ class OpenVINOIoUpdate(Pass):
                 required=False,
                 description=("Create a static model instead of a dynamic model.Enabled by default."),
             ),
-            
         }
 
     def _run_for_config(
