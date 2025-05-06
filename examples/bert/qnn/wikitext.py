@@ -1,4 +1,3 @@
-import logging
 from random import Random
 from typing import Optional
 
@@ -9,8 +8,6 @@ from nltk.tokenize import sent_tokenize
 
 nltk.download("punkt")
 nltk.download("punkt_tab")
-
-logger = logging.getLogger("Evaluate")
 
 
 def extract_sentences(text, min_length=20):
@@ -84,94 +81,3 @@ def create_nsp_dataset(
     }
 
     return Dataset.from_pandas(pd.DataFrame(data))
-
-
-def parse_args():
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--output-csv",
-        type=str,
-        default="nsp_wikitext_pairs.csv",
-        help="Output CSV file name.",
-    )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default="wikitext",
-        help="Dataset name to load.",
-    )
-    parser.add_argument(
-        "--name",
-        type=str,
-        default="wikitext-2-raw-v1",
-        help="Dataset name to load.",
-    )
-    parser.add_argument(
-        "--split",
-        type=str,
-        default="train",
-        help="Dataset split to load.",
-    )
-    parser.add_argument(
-        "--max-samples",
-        type=int,
-        default=10000,
-        help="Number of sentence pairs to generate.",
-    )
-    parser.add_argument(
-        "--sentence-cols",
-        type=list[str],
-        default=["sentence1", "sentence2"],
-        help="Column names for the sentences.",
-    )
-    parser.add_argument(
-        "--label-col",
-        type=str,
-        default="label",
-        help="Column name for the labels.",
-    )
-    parser.add_argument(
-        "--min-length",
-        type=int,
-        default=20,
-        help="Minimum length of sentences to include.",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Random seed for reproducibility.",
-    )
-    parser.add_argument(
-        "--shuffle",
-        action="store_true",
-        help="Shuffle the dataset.",
-    )
-
-    return parser.parse_args()
-
-
-if __name__ == "__main__":
-    args = parse_args()
-
-    # Create NSP dataset
-    ds = create_nsp_dataset(
-        args.dataset,
-        name=args.name,
-        sent_cols=args.sentence_cols,
-        label_col=args.label_col,
-        max_samples=args.max_samples,
-        min_length=args.min_length,
-        seed=args.seed,
-        shuffle=args.shuffle,
-    )
-
-    # Save the dataset to CSV
-    data_set = ds.to_pandas()
-    # print(f"Dataset size: {len(data_set)}")
-    # print(data_set.head())
-
-    data_set.to_csv(args.output_csv, index=False)
-    # print(f"Dataset saved to {args.output_csv}")

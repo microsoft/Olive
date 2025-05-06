@@ -1,8 +1,6 @@
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -81,74 +79,7 @@ def create_4d_mask(
     return inverted_mask.masked_fill(inverted_mask.bool(), masked_value)
 
 
-def npz_to_hfdataset(npz_path: Path, max_samples: int):
-    from datasets import Dataset
-
-    data_source = np.load(npz_path)
-    data = {key: value.tolist()[:max_samples] for key, value in data_source.items()}
-    return Dataset.from_dict(data)
-
-
 def tokenize_hfdataset(
-    dataset: "Dataset",
-    tokenizer: "Union[PreTrainedTokenizer, PreTrainedTokenizerFast]",
-    input_cols: list[str],
-    label_col: Optional[str] = None,
-    seq_length: int = 512,
-    max_samples: Optional[int] = None,
-):
-    def generate_inputs(sample, indices):
-        encoded_input = tokenizer(
-            *[sample[input_col] for input_col in input_cols],
-            padding="max_length",
-            max_length=seq_length,
-            truncation=True,
-            add_special_tokens=True,
-            return_tensors="pt",
-        )
-
-        batch_sz = encoded_input.input_ids.shape[0]
-        input_ids = encoded_input.input_ids
-        attention_mask = create_4d_mask(
-            encoded_input.attention_mask,
-            (batch_sz, seq_length),
-        )
-        token_type_ids = (
-            encoded_input.token_type_ids
-            if "token_type_ids" in encoded_input
-            else torch.zeros(seq_length).expand(batch_sz, -1)
-        )
-
-        return {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "token_type_ids": token_type_ids,
-            **({label_col: sample.get(label_col, indices)} if label_col is not None else {}),
-        }
-
-    if max_samples is not None and max_samples < len(dataset):
-        dataset = dataset.select(range(max_samples))
-
-    tokenized_datasets = dataset.map(
-        generate_inputs,
-        batched=True,
-        with_indices=True,
-        remove_columns=dataset.column_names,
-    )
-
-    def enforce_dtype(batch):
-        batch = {k: torch.Tensor(v) for k, v in batch.items()}
-        batch["input_ids"] = batch["input_ids"].int()
-        if "token_type_ids" in batch:
-            batch["token_type_ids"] = batch["token_type_ids"].int()
-        return batch
-
-    tokenized_datasets.with_transform(enforce_dtype)
-
-    return tokenized_datasets
-
-
-def tokenize_hfdataset2(
     dataset: "Dataset",
     tokenizer: "Union[PreTrainedTokenizer, PreTrainedTokenizerFast]",
     input_cols: list[str],

@@ -77,25 +77,16 @@
             "dim_param": [ "batch_size", "sequence_length" ],
             "dim_value": [ 1, 128 ]
         },
-        "surgery": {
-            "type": "GraphSurgeries",
-            "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" }, { "surgeon": "MatMulAddToGemm" } ]
-        },
-        "quantization": {
-            "type": "OnnxStaticQuantization",
-            "data_config": "glue_mrpc",
-            "activation_type": "uint16",
-            "precision": "uint8",
-            "calibrate_method": "MinMax",
-            "quant_preprocess": true
-        },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
         "cb": {
             "type": "EPContextBinaryGenerator",
             "provider_options": {
                 "htp_graph_finalization_optimization_mode": "3",
-                "offload_graph_io_quantization": "0"
-            },
-            "weight_sharing": true
+                "soc_model": "60",
+                "htp_arch": "73",
+                "vtcm_mb": "8",
+                "enable_htp_fp16_precision": "1"
+            }
         }
     },
     "evaluator": "common_evaluator",
@@ -103,6 +94,6 @@
     "host": "qnn_system",
     "target": "qnn_system",
     "cache_dir": "cache/intel_bert",
-    "output_dir": "models/intel_bert/qdq_ctx",
-    "clean_cache": false
+    "clean_cache": false,
+    "output_dir": "models/intel_bert/fp32_ctx"
 }
