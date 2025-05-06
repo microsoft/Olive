@@ -41,12 +41,19 @@ class OpenVINOIoUpdate(Pass):
                     "Static parameter is required to be enabled if static dimensions are required. "
                 ),
             ),
+            "input_names": PassConfigParam(
+                type_=list,
+                default_value=None,
+                required=False,
+                description=("Reshapes the model input names with given inputs. "),
+            ),
             "static": PassConfigParam(
                 type_=bool,
                 default_value=False,
                 required=False,
                 description=("Create a static model instead of a dynamic model.Enabled by default."),
             ),
+            
         }
 
     def _run_for_config(
@@ -71,6 +78,14 @@ class OpenVINOIoUpdate(Pass):
         # Ensure at least 1 input name is present for all inputs
         update_io_names = False
         for i, _ in enumerate(loaded_model.inputs):
+            if config.input_names:
+                if len(config.input_names) == len(loaded_model.inputs):
+                    loaded_model.input(i).set_names({config.input_names[i]})
+                    update_io_names = True
+                else:
+                    raise ValueError(
+                        f"Number of model inputs {len(loaded_model.inputs)} does not match number of given inputs {len(config.input_names)}"
+                    ) from None
             if not loaded_model.input(i).get_names():
                 loaded_model.input(i).set_names({f"input_{i}"})
                 update_io_names = True
