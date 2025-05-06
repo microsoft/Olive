@@ -593,14 +593,6 @@
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
-        },
-        "VitisAIUpdateGenAIProviderOpts": {
-            "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIUpdateGenAIProviderOpts",
-            "supported_providers": [ "CPUExecutionProvider" ],
-            "supported_accelerators": [ "cpu" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
         }
     },
     "extra_dependencies": {
