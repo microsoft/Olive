@@ -39,5 +39,6 @@
     "search_strategy": false,
     "host": "local_system",
     "evaluate_input_model": false,
+    "cache_dir": "cache",
     "output_dir": "models/resnet_context_ov_static"
 }
