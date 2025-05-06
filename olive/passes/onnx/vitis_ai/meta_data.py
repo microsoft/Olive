@@ -9,6 +9,7 @@ from typing import Optional
 
 import onnx
 
+from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -17,6 +18,20 @@ from olive.passes.onnx.common import resave_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
+
+
+def dtype_from_precision(p: Precision) -> Optional[str]:
+    """Convert Precision enum to VAI metadata data type string."""
+    mapping = {
+        Precision.INT4: "Int4",
+        # is this UInt4 or QUInt4?
+        Precision.UINT4: "UInt4",
+        Precision.INT8: "QInt8",
+        Precision.UINT8: "QUInt8",
+        Precision.INT16: "QInt16",
+        Precision.UINT16: "QUInt16",
+    }
+    return mapping.get(p)
 
 
 class VitisAIAddMetaData(Pass):
@@ -32,17 +47,36 @@ class VitisAIAddMetaData(Pass):
                 default_value=["architectures", "model_type"],
             ),
             "activation_type": PassConfigParam(
-                type_=str,
+                type_=Precision,
                 required=False,
                 description="Activation dytpe",
             ),
             "weight_type": PassConfigParam(
-                type_=str,
+                type_=Precision,
                 required=False,
-                description="weight dtype",
+                description="Weight dtype",
             ),
             "quant_type": PassConfigParam(type_=str, required=False, description="Quant dtype", default_value="NA"),
         }
+
+    @classmethod
+    def validate_config(
+        cls,
+        config: type[BasePassConfig],
+        accelerator_spec: AcceleratorSpec,
+    ) -> bool:
+        if not super().validate_config(config, accelerator_spec):
+            return False
+
+        if config.activation_type and not dtype_from_precision(config.activation_type):
+            logger.warning("Unsupported activation type: %s", config.activation_type)
+            return False
+
+        if config.weight_type and not dtype_from_precision(config.weight_type):
+            logger.warning("Unsupported weight type: %s", config.weight_type)
+            return False
+
+        return True
 
     def _get_component_group(self, model: CompositeModelHandler, pattern: str) -> list[str]:
         """Identify components by naming pattern or position."""
@@ -86,9 +120,9 @@ class VitisAIAddMetaData(Pass):
         metadata = {key: get_attribute(key) for key in config_meta_data_keys if get_attribute(key) is not None}
 
         if config.activation_type:
-            metadata["activation_dtype"] = config.activation_type
+            metadata["activation_dtype"] = dtype_from_precision(config.activation_type)
         if config.weight_type:
-            metadata["weight_dtype"] = config.weight_type
+            metadata["weight_dtype"] = dtype_from_precision(config.weight_type)
         if config.quant_type:
             metadata["quant_type"] = config.quant_type
 

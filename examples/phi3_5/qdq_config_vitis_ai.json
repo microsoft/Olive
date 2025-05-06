@@ -54,8 +54,8 @@
         "addmetadata": {
             "type": "VitisAIAddMetaData",
             "config_meta_data_keys": [ "architectures", "model_type" ],
-            "activation_type": "QUInt16",
-            "weight_type": "Int4",
+            "activation_type": "uint16",
+            "weight_type": "int4",
             "quant_type": "QuaRot"
         },
         "sp": { "type": "SplitModel" },
