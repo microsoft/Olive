@@ -38,7 +38,7 @@ def convert_pt_to_ov_model(tmp_path, static=False):
         model_name = "ov_model_st"
     else:
         model_name = "ov_model_dy"
-    
+
     assert (Path(output_folder_reshape) / f"{model_name}.bin").is_file()
     assert (Path(output_folder_reshape) / f"{model_name}.xml").is_file()
 
