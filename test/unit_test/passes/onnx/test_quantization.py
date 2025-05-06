@@ -156,7 +156,6 @@ def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected, is_qnn)
     [
         (None, None),
         ("rtn", {"ratios": {}}),
-        ("hqq", None),
     ],
 )
 def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight_only_quant_configs):

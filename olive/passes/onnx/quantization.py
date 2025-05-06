@@ -818,6 +818,7 @@ class OnnxMatMul4Quantizer(Pass):
             "validate_quant_config": validator("weight_only_quant_configs", allow_reuse=True)(
                 _validate_weight_only_quant_config
             ),
+            "validate_algorithm": validator("algorithm", allow_reuse=True)(_validate_algorithm),
         }
 
     def _run_for_config(
@@ -832,7 +833,6 @@ class OnnxMatMul4Quantizer(Pass):
             from onnxruntime.quantization.matmul_nbits_quantizer import (
                 DefaultWeightOnlyQuantConfig,
                 GPTQWeightOnlyQuantConfig,
-                HQQWeightOnlyQuantConfig,
                 MatMulNBitsQuantizer,
                 RTNWeightOnlyQuantConfig,
             )
@@ -840,7 +840,6 @@ class OnnxMatMul4Quantizer(Pass):
             from onnxruntime.quantization.matmul_4bits_quantizer import (
                 DefaultWeightOnlyQuantConfig,
                 GPTQWeightOnlyQuantConfig,
-                HQQWeightOnlyQuantConfig,
                 RTNWeightOnlyQuantConfig,
             )
             from onnxruntime.quantization.matmul_4bits_quantizer import (
@@ -849,7 +848,6 @@ class OnnxMatMul4Quantizer(Pass):
 
         algo_to_config = {
             None: DefaultWeightOnlyQuantConfig,
-            QuantAlgorithm.HQQ: HQQWeightOnlyQuantConfig,
             QuantAlgorithm.RTN: RTNWeightOnlyQuantConfig,
             QuantAlgorithm.GPTQ: GPTQWeightOnlyQuantConfig,
         }
@@ -922,8 +920,6 @@ def _validate_weight_only_quant_config(v, values, field):
         default_config_keys = ["block_size", "is_symmetric", "accuracy_level"]
     elif values["algorithm"] == QuantAlgorithm.RTN:
         default_config_keys = ["ratios"]
-    elif values["algorithm"] == QuantAlgorithm.HQQ:
-        default_config_keys = ["block_size", "bits", "axis"]
     elif values["algorithm"] == QuantAlgorithm.GPTQ:
         default_config_keys = ["percdamp", "block_size", "actorder", "mse", "perchannel"]
     else:
@@ -939,6 +935,12 @@ def _validate_weight_only_quant_config(v, values, field):
             default_config_keys,
         )
         v = {key: v[key] for key in default_config_keys if key in v}
+    return v
+
+
+def _validate_algorithm(v, values, field):
+    if v not in (None, QuantAlgorithm.RTN, QuantAlgorithm.GPTQ):
+        raise ValueError(f"Unsupported algorithm: {v}")
     return v
 
 
