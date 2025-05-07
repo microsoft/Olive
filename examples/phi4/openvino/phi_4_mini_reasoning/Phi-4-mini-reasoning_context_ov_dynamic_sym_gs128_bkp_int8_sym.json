@@ -6,7 +6,6 @@
             "accelerators": [ { "execution_providers": [ "OpenVINOExecutionProvider" ] } ]
         }
     },
-    "data_configs": [  ],
     "passes": {
         "optimum_convert": {
             "type": "OpenVINOOptimumConversion",
