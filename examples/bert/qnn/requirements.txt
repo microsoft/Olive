@@ -1,0 +1,6 @@
+datasets
+evaluate
+nltk
+optimum
+pandas
+tabulate
