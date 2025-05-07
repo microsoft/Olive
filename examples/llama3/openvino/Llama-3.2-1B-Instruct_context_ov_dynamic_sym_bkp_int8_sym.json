@@ -34,6 +34,8 @@
     },
     "search_strategy": false,
     "host": "local_system",
+    "cache_dir": "cache",
+    "clean_cache": true,
     "evaluate_input_model": false,
     "output_dir": "models/Llama-3.2-1B-Instruct_context_ov_dynamic_sym_bkp_int8_sym"
 }

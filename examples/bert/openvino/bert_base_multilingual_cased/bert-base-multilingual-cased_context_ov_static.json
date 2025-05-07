@@ -43,6 +43,8 @@
     },
     "search_strategy": false,
     "host": "local_system",
+    "cache_dir": "cache",
+    "clean_cache": true,
     "evaluate_input_model": false,
     "output_dir": "models/bert-base-multilingual-cased_context_ov_static"
 }
