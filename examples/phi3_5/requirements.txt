@@ -1,2 +1,3 @@
+auto_gptq
 datasets
 optimum
