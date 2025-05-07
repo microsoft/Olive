@@ -56,7 +56,7 @@
                                         "backend_path": "QnnHtp.dll",
                                         "htp_performance_mode": "burst",
                                         "htp_graph_finalization_optimization_mode": "3",
-                                        "offload_graph_io_quantization": "0"
+                                        "enable_htp_fp16_precision": "1"
                                     }
                                 ]
                             }
@@ -95,7 +95,7 @@
                                         "backend_path": "QnnHtp.dll",
                                         "htp_performance_mode": "burst",
                                         "htp_graph_finalization_optimization_mode": "3",
-                                        "offload_graph_io_quantization": "0"
+                                        "enable_htp_fp16_precision": "1"
                                     }
                                 ]
                             }
@@ -115,22 +115,14 @@
         }
     },
     "passes": {
-        "conversion": { "device": "cpu", "type": "OnnxConversion", "target_opset": 20 },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
-        "OnnxQuantization": {
-            "type": "OnnxQuantization",
-            "data_config": "quantize_data_config",
-            "activation_type": "uint16",
-            "precision": "uint8",
-            "calibrate_method": "MinMax",
-            "quant_preprocess": true
-        }
+        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] }
     },
     "host": "qnn_system",
     "target": "qnn_system",
     "evaluator": "common_evaluator",
-    "output_dir": "models/vit-base-patch16-224/qdq",
-    "evaluate_input_model": false,
+    "output_dir": "models/vit-base-patch16-224/fp32",
     "clean_cache": false,
-    "cache_dir": "cache/vit-base-patch16-224"
+    "cache_dir": "cache/vit-base-patch16-224",
+    "evaluate_input_model": false
 }

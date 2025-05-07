@@ -23,12 +23,6 @@ Config file: [vit_qdq.json](vit_qdq.json)
 
 *Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
-### ViT quantization with QNN execution providers
-This example performs ViT quantization with QNN execution providers in one workflow. It performs the pipeline:
-- *Huggingface Model -> Onnx Model -> QNN Quantized Onnx Model*
-
-Config file: [vit_qnn.json](vit_qnn.json)
-
 ## How to run
 ```
 olive run --config <config_file>.json

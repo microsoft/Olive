@@ -91,14 +91,7 @@
         }
     },
     "passes": {
-        "conversion": {
-            "device": "cpu",
-            "type": "OnnxConversion",
-            "target_opset": 20,
-            "save_as_external_data": true,
-            "all_tensors_to_one_file": true,
-            "use_dynamo_exporter": false
-        },
+        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
         "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
         "cb": {
             "type": "EPContextBinaryGenerator",
@@ -108,8 +101,7 @@
                 "htp_arch": "73",
                 "vtcm_mb": "8",
                 "enable_htp_fp16_precision": "1"
-            },
-            "weight_sharing": true
+            }
         }
     },
     "host": "qnn_system",
