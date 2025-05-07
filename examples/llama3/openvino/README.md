@@ -4,7 +4,7 @@ This folder contains a sample use case of Olive to optimize a [meta-llama/Llama-
 
 ## Quantization Workflows
 
-This workflow performs quantization with OpenVINO NNCF. It performs the optimization pipeline:
+This workflow performs quantization with Optimum Intel®. It performs the optimization pipeline:
 
 - *HuggingFace Model -> Quantized OpenVINO model -> Quantized encapsulated ONNX OpenVINO IR model*
 
@@ -14,7 +14,7 @@ The workflow in Config file: [Llama-3.2-1B-Instruct_context_ov_dynamic_sym_bkp_i
 
 ## How to run
 
-### Pip requirements
+### Setup
 
 Install the necessary python packages:
 
@@ -28,8 +28,9 @@ python -m pip install olive-ai[openvino]
 
 ```bash
 huggingface-cli login
+```
 
-### Run sample using config
+### Run Olive config
 
 The optimization techniques to run are specified in the relevant config json file.
 
@@ -47,3 +48,15 @@ olive_run("Llama-3.2-1B-Instruct_context_ov_dynamic_sym_bkp_int8_sym.json")
 ```
 
 After running the above command, the model candidates and corresponding config will be saved in the output directory.
+
+### (Optional) Run Console-Based Chat Interface
+
+To run ONNX OpenVINO IR Encapsulated GenAI models, please setup latest ONNXRuntime GenAI with ONNXRuntime OpenVINO EP support.
+
+The sample chat app to run is found as [model-chat.py](https://github.com/microsoft/onnxruntime-genai/blob/main/examples/python/model-chat.py) in the [onnxruntime-genai](https://github.com/microsoft/onnxruntime-genai/) Github repository.
+
+The sample command to run after all setup would be as follows:-
+
+```bash
+python model-chat.py -e follow_config -v -g -m models/Llama-3.2-1B-Instruct_context_ov_dynamic_sym_bkp_int8_sym/model/
+```
