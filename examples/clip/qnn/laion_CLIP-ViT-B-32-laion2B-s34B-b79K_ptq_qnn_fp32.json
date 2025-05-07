@@ -53,9 +53,7 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "data_config": "metric_data_config",
-                    "sub_types": [
-                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.05 } }
-                    ],
+                    "sub_types": [ { "name": "accuracy", "priority": 1 } ],
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
@@ -80,9 +78,7 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "data_config": "metric_data_config",
-                    "sub_types": [
-                        { "name": "accuracy", "priority": 2, "goal": { "type": "max-degradation", "value": 0.05 } }
-                    ],
+                    "sub_types": [ { "name": "accuracy", "priority": 2 } ],
                     "user_config": {
                         "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                     }

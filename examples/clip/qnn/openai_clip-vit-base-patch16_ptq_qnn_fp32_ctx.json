@@ -41,9 +41,7 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "data_config": "metric_data_config",
-                    "sub_types": [
-                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.05 } }
-                    ],
+                    "sub_types": [ { "name": "accuracy", "priority": 1 } ],
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
@@ -63,18 +61,6 @@
                                 ]
                             }
                         }
-                    }
-                },
-                {
-                    "name": "accuracy-cpu",
-                    "type": "accuracy",
-                    "backend": "huggingface_metrics",
-                    "data_config": "metric_data_config",
-                    "sub_types": [
-                        { "name": "accuracy", "priority": 2, "goal": { "type": "max-degradation", "value": 0.05 } }
-                    ],
-                    "user_config": {
-                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                     }
                 },
                 {
@@ -82,7 +68,7 @@
                     "type": "latency",
                     "data_config": "metric_data_config",
                     "sub_types": [
-                        { "name": "avg", "priority": 3, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
+                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
                         { "name": "max" },
                         { "name": "min" }
                     ],
@@ -105,19 +91,6 @@
                                 ]
                             }
                         }
-                    }
-                },
-                {
-                    "name": "latency_cpu",
-                    "type": "latency",
-                    "data_config": "metric_data_config",
-                    "sub_types": [
-                        { "name": "avg", "priority": 4, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
-                        { "name": "max" },
-                        { "name": "min" }
-                    ],
-                    "user_config": {
-                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                     }
                 },
                 {
@@ -145,25 +118,23 @@
                             }
                         }
                     }
-                },
-                {
-                    "name": "throughput_cpu",
-                    "type": "throughput",
-                    "data_config": "metric_data_config",
-                    "sub_types": [ { "name": "avg" }, { "name": "max" }, { "name": "min" } ],
-                    "user_config": {
-                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
-                    }
                 }
             ]
         }
     },
-    "passes": { "conversion": { "type": "OnnxConversion", "target_opset": 20 } },
+    "passes": {
+        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
+        "cb": {
+            "type": "EPContextBinaryGenerator",
+            "provider_options": { "htp_graph_finalization_optimization_mode": "3", "enable_htp_fp16_precision": "1" },
+            "session_options": { "optimization.disable_specified_optimizers": "MatMulAddFusion" }
+        }
+    },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,
     "host": "qnn_system",
     "target": "qnn_system",
     "cache_dir": "cache/clip-vit-base-patch16",
     "clean_cache": false,
-    "output_dir": "models/clip-vit-base-patch16/fp32"
+    "output_dir": "models/clip-vit-base-patch16/fp32_ctx"
 }

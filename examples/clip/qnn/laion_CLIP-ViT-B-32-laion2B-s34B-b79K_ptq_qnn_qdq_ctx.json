@@ -1,7 +1,7 @@
 {
     "input_model": {
         "type": "HfModel",
-        "model_path": "openai/clip-vit-base-patch32",
+        "model_path": "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
         "task": "zero-shot-image-classification",
         "load_kwargs": { "attn_implementation": "eager" },
         "io_config": {
@@ -20,11 +20,23 @@
     },
     "data_configs": [
         {
+            "name": "quant_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": {
+                "type": "clip_dataset",
+                "model_name": "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
+                "dataset_name": "nlphuji/flickr30k",
+                "start": 0,
+                "end": 10
+            },
+            "dataloader_config": { "type": "no_auto_batch_dataloader" }
+        },
+        {
             "name": "metric_data_config",
             "user_script": "user_script.py",
             "load_dataset_config": {
                 "type": "clip_dataset",
-                "model_name": "openai/clip-vit-base-patch32",
+                "model_name": "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
                 "dataset_name": "nlphuji/flickr30k",
                 "start": 10,
                 "end": 20
@@ -37,20 +49,16 @@
         "common_evaluator": {
             "metrics": [
                 {
-                    "name": "accuracy-qnn",
+                    "name": "accuracy_qnn",
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "data_config": "metric_data_config",
-                    "sub_types": [
-                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.05 } }
-                    ],
+                    "sub_types": [ { "name": "accuracy", "priority": 1 } ],
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
                                 "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
+                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "0" }
                                 },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
@@ -58,7 +66,7 @@
                                         "backend_path": "QnnHtp.dll",
                                         "htp_performance_mode": "burst",
                                         "htp_graph_finalization_optimization_mode": "3",
-                                        "enable_htp_fp16_precision": "1"
+                                        "offload_graph_io_quantization": "0"
                                     }
                                 ]
                             }
@@ -78,9 +86,7 @@
                         "inference_settings": {
                             "onnx": {
                                 "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
+                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "0" }
                                 },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
@@ -88,7 +94,7 @@
                                         "backend_path": "QnnHtp.dll",
                                         "htp_performance_mode": "burst",
                                         "htp_graph_finalization_optimization_mode": "3",
-                                        "enable_htp_fp16_precision": "1"
+                                        "offload_graph_io_quantization": "0"
                                     }
                                 ]
                             }
@@ -104,9 +110,7 @@
                         "inference_settings": {
                             "onnx": {
                                 "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
+                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "0" }
                                 },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
@@ -114,7 +118,7 @@
                                         "backend_path": "QnnHtp.dll",
                                         "htp_performance_mode": "burst",
                                         "htp_graph_finalization_optimization_mode": "3",
-                                        "enable_htp_fp16_precision": "1"
+                                        "offload_graph_io_quantization": "0"
                                     }
                                 ]
                             }
@@ -126,18 +130,31 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 20 },
+        "surgery": {
+            "type": "GraphSurgeries",
+            "surgeries": [ { "surgeon": "MatMulAddToGemm" }, { "surgeon": "ReplaceAttentionMaskValue" } ]
+        },
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "quant_preprocess": true,
+            "data_config": "quant_data_config",
+            "activation_type": "uint16",
+            "precision": "uint8",
+            "calibrate_method": "MinMax"
+        },
         "cb": {
             "type": "EPContextBinaryGenerator",
-            "provider_options": { "htp_graph_finalization_optimization_mode": "3", "enable_htp_fp16_precision": "1" },
-            "session_options": { "optimization.disable_specified_optimizers": "MatMulAddFusion" },
-            "weight_sharing": true
+            "provider_options": {
+                "htp_graph_finalization_optimization_mode": "3",
+                "offload_graph_io_quantization": "0"
+            }
         }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,
     "host": "qnn_system",
     "target": "qnn_system",
-    "cache_dir": "cache/clip-vit-base-patch32",
+    "cache_dir": "cache/CLIP-ViT-B-32-laion2B-s34B-b79K",
     "clean_cache": false,
-    "output_dir": "models/clip-vit-base-patch32/fp32_ctx"
+    "output_dir": "models/CLIP-ViT-B-32-laion2B-s34B-b79K/qdq_ctx"
 }

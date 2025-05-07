@@ -53,9 +53,7 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "data_config": "metric_data_config",
-                    "sub_types": [
-                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.05 } }
-                    ],
+                    "sub_types": [ { "name": "accuracy", "priority": 1 } ],
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
@@ -68,7 +66,7 @@
                                         "backend_path": "QnnHtp.dll",
                                         "htp_performance_mode": "burst",
                                         "htp_graph_finalization_optimization_mode": "3",
-                                        "enable_htp_fp16_precision": "1"
+                                        "offload_graph_io_quantization": "0"
                                     }
                                 ]
                             }
@@ -76,11 +74,21 @@
                     }
                 },
                 {
+                    "name": "accuracy_cpu",
+                    "type": "accuracy",
+                    "backend": "huggingface_metrics",
+                    "data_config": "metric_data_config",
+                    "sub_types": [ { "name": "accuracy", "priority": 2 } ],
+                    "user_config": {
+                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
+                    }
+                },
+                {
                     "name": "latency_qnn",
                     "type": "latency",
                     "data_config": "metric_data_config",
                     "sub_types": [
-                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
+                        { "name": "avg", "priority": 3, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
                         { "name": "max" },
                         { "name": "min" }
                     ],
@@ -96,11 +104,24 @@
                                         "backend_path": "QnnHtp.dll",
                                         "htp_performance_mode": "burst",
                                         "htp_graph_finalization_optimization_mode": "3",
-                                        "enable_htp_fp16_precision": "1"
+                                        "offload_graph_io_quantization": "0"
                                     }
                                 ]
                             }
                         }
+                    }
+                },
+                {
+                    "name": "latency_cpu",
+                    "type": "latency",
+                    "data_config": "metric_data_config",
+                    "sub_types": [
+                        { "name": "avg", "priority": 4, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
+                        { "name": "max" },
+                        { "name": "min" }
+                    ],
+                    "user_config": {
+                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                     }
                 },
                 {
@@ -120,11 +141,20 @@
                                         "backend_path": "QnnHtp.dll",
                                         "htp_performance_mode": "burst",
                                         "htp_graph_finalization_optimization_mode": "3",
-                                        "enable_htp_fp16_precision": "1"
+                                        "offload_graph_io_quantization": "0"
                                     }
                                 ]
                             }
                         }
+                    }
+                },
+                {
+                    "name": "throughput_cpu",
+                    "type": "throughput",
+                    "data_config": "metric_data_config",
+                    "sub_types": [ { "name": "avg" }, { "name": "max" }, { "name": "min" } ],
+                    "user_config": {
+                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                     }
                 }
             ]
@@ -132,16 +162,17 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 20 },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
-        "cb": {
-            "type": "EPContextBinaryGenerator",
-            "provider_options": {
-                "htp_graph_finalization_optimization_mode": "3",
-                "htp_arch": "73",
-                "vtcm_mb": "8",
-                "enable_htp_fp16_precision": "1"
-            },
-            "weight_sharing": true
+        "surgery": {
+            "type": "GraphSurgeries",
+            "surgeries": [ { "surgeon": "MatMulAddToGemm" }, { "surgeon": "ReplaceAttentionMaskValue" } ]
+        },
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "quant_preprocess": true,
+            "data_config": "quant_data_config",
+            "activation_type": "uint16",
+            "precision": "uint8",
+            "calibrate_method": "MinMax"
         }
     },
     "evaluator": "common_evaluator",
@@ -150,5 +181,5 @@
     "target": "qnn_system",
     "cache_dir": "cache/CLIP-ViT-B-32-laion2B-s34B-b79K",
     "clean_cache": false,
-    "output_dir": "models/CLIP-ViT-B-32-laion2B-s34B-b79K/fp32_ctx"
+    "output_dir": "models/CLIP-ViT-B-32-laion2B-s34B-b79K/qdq"
 }

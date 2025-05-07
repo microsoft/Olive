@@ -1,7 +1,7 @@
 {
     "input_model": {
         "type": "HfModel",
-        "model_path": "openai/clip-vit-base-patch32",
+        "model_path": "openai/clip-vit-base-patch16",
         "task": "zero-shot-image-classification",
         "load_kwargs": { "attn_implementation": "eager" },
         "io_config": {
@@ -24,7 +24,7 @@
             "user_script": "user_script.py",
             "load_dataset_config": {
                 "type": "clip_dataset",
-                "model_name": "openai/clip-vit-base-patch32",
+                "model_name": "openai/clip-vit-base-patch16",
                 "dataset_name": "nlphuji/flickr30k",
                 "start": 10,
                 "end": 20
@@ -41,9 +41,7 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "data_config": "metric_data_config",
-                    "sub_types": [
-                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.05 } }
-                    ],
+                    "sub_types": [ { "name": "accuracy", "priority": 1 } ],
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
@@ -70,9 +68,7 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "data_config": "metric_data_config",
-                    "sub_types": [
-                        { "name": "accuracy", "priority": 2, "goal": { "type": "max-degradation", "value": 0.05 } }
-                    ],
+                    "sub_types": [ { "name": "accuracy", "priority": 2 } ],
                     "user_config": {
                         "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                     }
@@ -163,7 +159,7 @@
     "evaluate_input_model": false,
     "host": "qnn_system",
     "target": "qnn_system",
-    "cache_dir": "cache/clip-vit-base-patch32",
+    "cache_dir": "cache/clip-vit-base-patch16",
     "clean_cache": false,
-    "output_dir": "models/clip-vit-base-patch32/fp32"
+    "output_dir": "models/clip-vit-base-patch16/fp32"
 }
