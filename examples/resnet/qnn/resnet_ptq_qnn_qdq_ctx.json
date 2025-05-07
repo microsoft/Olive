@@ -41,90 +41,70 @@
                         {
                             "name": "accuracy_score",
                             "priority": 1,
-                            "metric_config": { "task": "multiclass", "num_classes": 1001 }
+                            "metric_config": { "task": "multiclass", "num_classes": 1000 }
                         }
                     ],
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
-                                "session_options": {
-                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "1" }
-                                },
                                 "execution_provider": "QNNExecutionProvider",
-                                "provider_options": [ { "backend_path": "QnnHtp.dll" } ]
+                                "provider_options": [
+                                    {
+                                        "htp_performance_mode": "burst",
+                                        "htp_graph_finalization_optimization_mode": "3",
+                                        "offload_graph_io_quantization": "0"
+                                    }
+                                ]
                             }
                         }
-                    }
-                },
-                {
-                    "name": "accuracy_cpu",
-                    "type": "accuracy",
-                    "data_config": "quantize_data_config",
-                    "sub_types": [
-                        {
-                            "name": "accuracy_score",
-                            "priority": 2,
-                            "metric_config": { "task": "multiclass", "num_classes": 1001 }
-                        }
-                    ],
-                    "user_config": {
-                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                     }
                 },
                 {
                     "name": "latency_qnn",
                     "type": "latency",
                     "data_config": "quantize_data_config",
-                    "sub_types": [ { "name": "avg", "priority": 3 } ],
+                    "sub_types": [ { "name": "avg", "priority": 2 } ],
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
-                                "session_options": {
-                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "1" }
-                                },
                                 "execution_provider": "QNNExecutionProvider",
-                                "provider_options": [ { "backend_path": "QnnHtp.dll" } ]
+                                "provider_options": [
+                                    {
+                                        "htp_performance_mode": "burst",
+                                        "htp_graph_finalization_optimization_mode": "3",
+                                        "offload_graph_io_quantization": "0"
+                                    }
+                                ]
                             }
                         }
-                    }
-                },
-                {
-                    "name": "latency_cpu",
-                    "type": "latency",
-                    "data_config": "quantize_data_config",
-                    "sub_types": [ { "name": "avg", "priority": 4 } ],
-                    "user_config": {
-                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                     }
                 }
             ]
         }
     },
     "passes": {
-        "conversion": {
-            "device": "cpu",
-            "type": "OnnxConversion",
-            "target_opset": 17,
-            "save_as_external_data": true,
-            "all_tensors_to_one_file": true,
-            "dynamic": false,
-            "use_dynamo_exporter": false
-        },
-        "QNNPreprocess": { "type": "QNNPreprocess" },
+        "conversion": { "device": "cpu", "type": "OnnxConversion", "target_opset": 20 },
         "OnnxQuantization": {
-            "type": "OnnxQuantization",
+            "type": "OnnxStaticQuantization",
             "data_config": "quantize_data_config",
-            "activation_type": "uint16",
+            "activation_type": "uint8",
             "precision": "uint8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
+        },
+        "cb": {
+            "type": "EPContextBinaryGenerator",
+            "provider_options": {
+                "htp_graph_finalization_optimization_mode": "3",
+                "offload_graph_io_quantization": "0"
+            }
         }
     },
     "host": "qnn_system",
     "target": "qnn_system",
     "evaluator": "common_evaluator",
-    "cache_dir": "cache",
-    "clean_cache": true,
-    "output_dir": "models/resnet_ptq_qnn",
-    "evaluate_input_model": false
+    "output_dir": "models/resnet_qdq_ctx",
+    "evaluate_input_model": false,
+    "clean_cache": false,
+    "cache_dir": "cache/resnet"
 }

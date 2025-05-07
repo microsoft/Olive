@@ -86,8 +86,7 @@
         "conversion": { "device": "cpu", "type": "OnnxConversion", "target_opset": 20 },
         "cb": {
             "type": "EPContextBinaryGenerator",
-            "provider_options": { "htp_graph_finalization_optimization_mode": "3", "enable_htp_fp16_precision": "1" },
-            "weight_sharing": true
+            "provider_options": { "htp_graph_finalization_optimization_mode": "3", "enable_htp_fp16_precision": "1" }
         }
     },
     "host": "qnn_system",
