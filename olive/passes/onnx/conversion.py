@@ -19,7 +19,7 @@ from onnxscript import version_converter
 from packaging import version
 from transformers.modeling_utils import PreTrainedModel
 
-from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
+from olive.common.config_utils import validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
 from olive.hardware import AcceleratorSpec
 from olive.model import (
@@ -682,32 +682,19 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
 
     from torch.utils import _pytree
 
-    flat_dynamic_shapes, _ = get_the_flattened_and_tree_spec(dynamic_shapes)
-
-    # dict: {axis: axis_name} -> {int(axis): axis_name}
-    # list/tuple: [axis_name] -> [axis_name]
-    new_dynamic_shapes = [
-        {int(k): v for k, v in axes.items()} if isinstance(axes, dict) else axes for axes in flat_dynamic_shapes
-    ]
-
+    dummy_inputs = _pytree.tree_map_only(tuple, lambda x: [x], dummy_inputs)
     # The input can only be either args or kwargs according to line 237.
     if len(dummy_inputs) == 0:
-        # dummy_inputs is empty, so it must be kwargs
-        _, tree_structure = get_the_flattened_and_tree_spec(dummy_kwargs, leave_is_str=False)
-        unflatten_dynamic_shapes = _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
-
         # NOTE: dynamic_shapes need to follow the same model.forward signature when it's referring to kwargs.
         param_order = list(inspect.signature(model.forward).parameters)
         # Sort io_config.dynamic_shapes based on this order
-        unflatten_dynamic_shapes = collections.OrderedDict(
-            sorted(unflatten_dynamic_shapes.items(), key=lambda item: param_order.index(item[0]))
+        dynamic_shapes = collections.OrderedDict(
+            sorted(dynamic_shapes.items(), key=lambda item: param_order.index(item[0]))
         )
         dummy_kwargs = collections.OrderedDict(
             sorted(dummy_kwargs.items(), key=lambda item: param_order.index(item[0]))
         )
-        return unflatten_dynamic_shapes, dummy_inputs, dummy_kwargs
+        return dynamic_shapes, dummy_inputs, dummy_kwargs
     # If dynamic_shapes and dummy_inputs are both list/tuple, we don't need to sort.
     # dummy_inputs is args
-    _, tree_structure = get_the_flattened_and_tree_spec(dummy_inputs, leave_is_str=False)
-    unflatten_dynamic_shapes = _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
-    return unflatten_dynamic_shapes, dummy_inputs, dummy_kwargs
+    return dynamic_shapes, dummy_inputs, dummy_kwargs
