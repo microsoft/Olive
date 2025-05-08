@@ -109,7 +109,6 @@ How to customize configuration
    configure-workflows/model-packaging
    configure-workflows/systems
    configure-workflows/engine-configuration
-   configure-workflows/custom-model-evaluator
 
 For more complex scenarios, you can customize configuration where you can run any of the 40+ supported optimization techniques in a sequence.
 

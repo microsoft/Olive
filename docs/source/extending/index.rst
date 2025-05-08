@@ -39,4 +39,5 @@ Extending Olive
 
    design
    how-to-add-optimization-pass
+   custom-model-evaluator
    custom-scripts
