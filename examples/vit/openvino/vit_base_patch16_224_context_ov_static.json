@@ -54,6 +54,5 @@
     "cache_dir": "cache",
     "clean_cache": true,
     "evaluate_input_model": false,
-    "cache_dir": "cache",
     "output_dir": "models/vit_base_patch16_224_ov_static"
 }
