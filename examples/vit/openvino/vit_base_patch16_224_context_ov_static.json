@@ -25,21 +25,34 @@
         "ov_convert": {
             "type": "OpenVINOConversion",
             "input_shapes": [ [ 1, 3, 224, 224 ] ],
-            "compress_to_fp16": true,
-            "static": true
+            "output_model": "vit_base_patch16_224",
+            "compress_to_fp16": true
         },
-        "io_update": { "type": "OpenVINOIoUpdate", "input_shapes": [ [ 1, 3, 224, 224 ] ], "static": true },
+        "io_update": {
+            "type": "OpenVINOIoUpdate",
+            "input_shapes": [ [ 1, 3, 224, 224 ] ],
+            "static": true,
+            "reuse_cache": true
+        },
         "ov_quantize": {
             "type": "OpenVINOQuantization",
             "target_device": "npu",
             "data_config": "quantize_data_config",
             "model_type": "TRANSFORMER",
-            "extra_configs": [ { "advanced_quantization_parameters": { "smooth_quant_alpha": 0.6 } } ]
+            "extra_configs": [ { "advanced_quantization_parameters": { "smooth_quant_alpha": 0.6 } } ],
+            "reuse_cache": true
         },
-        "encapsulation": { "type": "OpenVINOEncapsulation", "target_device": "npu", "ov_version": "2025.1" }
+        "encapsulation": {
+            "type": "OpenVINOEncapsulation",
+            "target_device": "npu",
+            "ov_version": "2025.1",
+            "reuse_cache": true
+        }
     },
     "search_strategy": false,
     "host": "local_system",
+    "cache_dir": "cache",
+    "clean_cache": true,
     "evaluate_input_model": false,
     "output_dir": "models/vit_base_patch16_224_ov_static"
 }

@@ -26,17 +26,26 @@
             "model_type": "TRANSFORMER",
             "user_script": "user_script.py",
             "transform_fn": "custom_transform_func",
-            "extra_configs": [ { "advanced_quantization_parameters": { "smooth_quant_alpha": 0.6 } } ]
+            "extra_configs": [ { "advanced_quantization_parameters": { "smooth_quant_alpha": 0.6 } } ],
+            "reuse_cache": true
         },
         "io_update": {
             "type": "OpenVINOIoUpdate",
             "input_shapes": [ [ 10, 77 ], [ 1, 3, 224, 224 ], [ 10, 77 ] ],
-            "static": true
+            "static": true,
+            "reuse_cache": true
         },
-        "encapsulation": { "type": "OpenVINOEncapsulation", "target_device": "npu", "ov_version": "2025.1" }
+        "encapsulation": {
+            "type": "OpenVINOEncapsulation",
+            "target_device": "npu",
+            "ov_version": "2025.1",
+            "reuse_cache": true
+        }
     },
     "search_strategy": false,
     "host": "local_system",
+    "cache_dir": "cache",
+    "clean_cache": true,
     "evaluate_input_model": false,
     "output_dir": "models/clip_vit_base_patch16_context_ov_static"
 }
