@@ -20,6 +20,7 @@ Some methods require a GPU and/or a calibration dataset.
 | ORT | Static and dynamic quantizations. | ONNX | RTN | ❌ |
 | INC | Intel® Neural Compressor model compression tool. | ONNX | GPTQ | ❌ |
 | NVMO | NVIDIA TensorRT Model Optimizer is a library comprising state-of-the-art model optimization techniques including quantization, sparsity, distillation, and pruning to compress models. | ONNX | AWQ | ❌ |
+| Olive | Olive implemented Half-Quadratic Quantization for MatMul to 4 bits | ONNX | HQQ | ❌ |
 
 ## {octicon}`zap` Quickstart
 

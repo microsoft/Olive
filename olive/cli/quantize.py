@@ -62,7 +62,6 @@ class QuantizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--implementation",
             type=str,
-            # choices=sorted(TEMPLATE["passes"].keys()),
             help="The specific implementation of quantization algorithms to use.",
         )
         sub_parser.add_argument(
@@ -216,5 +215,6 @@ ONNX_QUANT_IMPLEMENTATION_MAPPING = [
     {"impl_name": "ort", "pass_type": "OnnxStaticQuantization"},
     {"impl_name": "nvmo", "pass_type": "NVModelOptQuantization"},
     {"impl_name": "inc", "pass_type": "IncDynamicQuantization"},
+    {"pass_type": "OnnxHqqQuantization"},
     # "impl_name": "inc", "pass_type": "IncStaticQuantization"},
 ]
