@@ -4,6 +4,7 @@ This folder contains examples of CLIP VIT quantization using different workflows
 - QDQ: [CLIP VIT Quantization encoded in QDQ format](#clip-vit-quantization-encoded-in-qdq-format)
 - Qualcomm NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](./qnn/)
 - Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
+- AMD NPU: [Optimization and Quantization with QDQ format for AMD NPU (VitisAI)](#optimization-and-quantization-for-amd-npu)
 
 Go to [How to run](#how-to-run)
 
@@ -44,6 +45,15 @@ Accuracy / latency
 
 *Note: Latency can vary significantly depending on the hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
+### Optimization and Quantization for AMD NPU
+
+ This workflow quantizes the model. It performs the pipeline:
+ - *HF Model-> ONNX Model -> Optimizations -> Quantized Onnx Model*
+
+ Config files for VitisAI:
+ - [laion/CLIP-ViT-B-32-laion2B-s34B-b79K](laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_qdq_vitis_ai.json)
+ - [openai/clip-vit-base-patch16](openai_clip-vit-base-patch16_ptq_qdq_vitis_ai.json)
+ - [openai/clip-vit-base-patch32](openai_clip-vit-base-patch32_ptq_qdq_vitis_ai.json)
 
 ## How to run
 ### Pip requirements

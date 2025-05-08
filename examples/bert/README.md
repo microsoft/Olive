@@ -8,6 +8,7 @@ This folder contains examples of BERT optimization using different workflows.
 - GPU: [Optimization with CUDA/TensorRT](#bert-optimization-with-cudatensorrt-on-gpu)
 - Qualcomm NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](./qnn/)
 - Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
+- AMD NPU: [Optimization and Quantization with QDQ format for AMD NPU (VitisAI)](#optimization-and-quantization-for-amd-npu)
 
 Go to [How to run](#how-to-run)
 
@@ -36,6 +37,16 @@ Go to [How to run](#how-to-run)
  |-----------------------|----------------------|------------------------------|---------------|
  | PyTorch FP32          | 1162                 | 0.81                         | facebook/xnli |
  | ONNX INT8 (QDQ)       | 590                  | 1.75                         | facebook/xnli |
+
+### Optimization and Quantization for AMD NPU
+
+ This workflow quantizes the model. It performs the pipeline:
+ - *HF Model-> ONNX Model -> Optimizations -> Quantized Onnx Model*
+
+ Config files for VitisAI:
+ - [Intel/bert-base-uncased](bert_ptq_qdq_vitis_ai.json)
+ - [google-bert/bert-base-multilingual-cased](google_bert_qdq_vitis_ai.json)
+
 
 ### BERT optimization with PTQ on CPU
 This workflow performs BERT optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
