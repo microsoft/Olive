@@ -20,7 +20,6 @@ Install the necessary python packages:
 
 ```bash
 python -m pip install olive-ai[openvino]
-python -m pip install -r requirements.txt
 ```
 
 ### Run sample using config
