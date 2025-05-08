@@ -1,4 +1,4 @@
-# ONNX
+# ONNX Transformations
 
 [ONNX](https://onnx.ai/) is an open graph format to represent machine learning models. [ONNX Runtime](https://onnxruntime.ai/docs/) is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.
 
@@ -60,7 +60,7 @@ The `OnnxPeepholeOptimizer` leverages `onnxscript` (https://onnxscript.ai/tutori
 | **GEMM to MatMul+Add**            | Converts GEMM operations into MatMul and Add for improved compatibility.   |
 | **No-Op Removal**                 | Removes redundant or no-op operations in the computation graph.            |
 
-Please refer to [OnnxPeepholeOptimizer](../../../reference/pass.rst#onnx_peephole_optimizer) for more details about the pass and its config parameters.
+Please refer to [OnnxPeepholeOptimizer](../reference/pass.rst#onnx_peephole_optimizer) for more details about the pass and its config parameters.
 
 ### Example Configuration
 
@@ -81,7 +81,7 @@ These optimizations are provided by onnxruntime through
 refer to the [corresponding documentation](https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/README.md)
 for more details on the optimizations done by this tool.
 
-Please refer to [OrtTransformersOptimization](../../../reference/pass.rst#ort_transformers_optimization) for more details about the pass and its config parameters.
+Please refer to [OrtTransformersOptimization](../reference/pass.rst#ort_transformers_optimization) for more details about the pass and its config parameters.
 
 ### Example Configuration
 

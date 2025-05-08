@@ -1,6 +1,6 @@
-# How to configure a Workflow Pass
+# How to configure a Pass
 
-This document describes how to configure an Olive workflow Pass.
+This document describes how to configure an Olive Pass.
 
 When configuring a Pass, the user can chose to set the values of parameters to their default value (no search), pre-defined search space
 (search for the best value from the possible options) or a combination of the two (fix some parameters to a certain value, default or
