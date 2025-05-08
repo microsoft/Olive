@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Union
 
@@ -130,6 +131,12 @@ class OpenVINOQuantizationBase(Pass):
                     "https://docs.openvino.ai/2023.3/basic_quantization_flow.html#tune-quantization-parameters."
                 ),
             ),
+            "reuse_cache": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description=("Reuse cache of previous passes to reduce storage footprint."),
+            ),
         }
 
     @staticmethod
@@ -197,6 +204,23 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
     def _run_for_config(
         self, model: OpenVINOModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> OpenVINOModelHandler:
+        if config.reuse_cache:
+            output_model_path = model.model_path
+            model_name = model.model_config["model_name"]
+            model_name_path = Path(model.model_path) / (f"{model_name}.xml")
+            weight_name_path = Path(model.model_path) / (f"{model_name}.bin")
+
+        self._run_pass(model, config, output_model_path)
+
+        if config.reuse_cache:
+            if os.path.exists(model_name_path):
+                os.remove(model_name_path)
+            if os.path.exists(weight_name_path):
+                os.remove(weight_name_path)
+
+        return OpenVINOModelHandler(model_path=output_model_path)
+
+    def _run_pass(self, model: OpenVINOModelHandler, config: type[BasePassConfig], output_model_path: str):
         try:
             import nncf
             import openvino as ov
@@ -204,7 +228,7 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
 
         calibration_dataset = self._get_nncf_dataset(config)
-        model = model.load_model()
+        loaded_model = model.load_model()
         extra_params = self._get_extra_params(config)
 
         # nncf.AdvancedQuantizationParameters
@@ -216,12 +240,34 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
                         **extra_config["advanced_quantization_parameters"]
                     )
 
-        quantized_model = nncf.quantize(model, calibration_dataset, advanced_parameters=advanced_params, **extra_params)
+        quantized_model = nncf.quantize(
+            loaded_model, calibration_dataset, advanced_parameters=advanced_params, **extra_params
+        )
 
-        model_name = "ov_model"
-        output_dir = Path(output_model_path) / model_name
-        ov.save_model(quantized_model, output_model=output_dir.with_suffix(".xml"))
-        return OpenVINOModelHandler(model_path=output_model_path)
+        if not config.reuse_cache:
+            # copy JSON and text files for genai models
+            all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
+            for genai_file in all_genai_files:
+                src_pth = Path(model.model_path) / genai_file
+                dest_path = Path(output_model_path)
+                hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
+
+            # copy tokenizer folder if it exists
+            src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
+            if src_tokenizer.exists() and src_tokenizer.is_dir():
+                dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
+                hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
+
+            # copy detokenizer folder if it exists
+            src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
+            if src_detokenizer.exists() and src_detokenizer.is_dir():
+                dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
+                hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
+
+        model_name = model.model_config["model_name"]
+        output_model_name = f"{model_name}_quant.xml"
+        output_model_path = Path(output_model_path) / output_model_name
+        ov.save_model(quantized_model, output_model=output_model_path)
 
 
 class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
@@ -257,6 +303,12 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
                     "The default value is 'ABSOLUTE'."
                 ),
             ),
+            "reuse_cache": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description=("Reuse cache of previous passes to reduce storage footprint."),
+            ),
         }
         config.update(super()._default_config(accelerator_spec))
         return config
@@ -264,6 +316,22 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
     def _run_for_config(
         self, model: OliveModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> OliveModelHandler:
+        if config.reuse_cache:
+            output_model_path = model.model_path
+            model_name = model.model_config["model_name"]
+            model_name_path = Path(model.model_path) / (f"{model_name}.xml")
+            weight_name_path = Path(model.model_path) / (f"{model_name}.bin")
+
+        self._run_pass(model, config, output_model_path)
+
+        if config.reuse_cache:
+            if os.path.exists(model_name_path):
+                os.remove(model_name_path)
+            if os.path.exists(weight_name_path):
+                os.remove(weight_name_path)
+        return OpenVINOModelHandler(model_path=output_model_path)
+
+    def _run_pass(self, model: OliveModelHandler, config: type[BasePassConfig], output_model_path: str):
         try:
             import nncf
             import openvino as ov
@@ -273,7 +341,7 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
         calibration_dataset = self._get_nncf_dataset(config)
         validation_dataset = self._get_nncf_dataset(config)
 
-        model = model.load_model()
+        loaded_model = model.load_model()
         extra_params = self._get_extra_params(config)
 
         validate_func = (
@@ -285,7 +353,7 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
         drop_type = nncf.DropType.ABSOLUTE if config.drop_type == "ABSOLUTE" else nncf.DropType.RELATIVE
 
         quantized_model = nncf.quantize_with_accuracy_control(
-            model,
+            loaded_model,
             calibration_dataset=calibration_dataset,
             validation_dataset=validation_dataset,
             validation_fn=validate_func,
@@ -294,27 +362,27 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
             **extra_params,
         )
 
-        model_name = "ov_model"
-        output_dir = Path(output_model_path) / model_name
-        ov.save_model(quantized_model, output_model=output_dir.with_suffix(".xml"))
+        if not config.reuse_cache:
+            # copy JSON and text files for genai models
+            all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
+            for genai_file in all_genai_files:
+                src_pth = Path(model.model_path) / genai_file
+                dest_path = Path(output_model_path)
+                hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
 
-        # copy JSON and text files for genai models
-        all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
-        for genai_file in all_genai_files:
-            src_pth = Path(model.model_path) / genai_file
-            dest_path = Path(output_model_path)
-            hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
+            # copy tokenizer folder if it exists
+            src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
+            if src_tokenizer.exists() and src_tokenizer.is_dir():
+                dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
+                hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
 
-        # copy tokenizer folder if it exists
-        src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
-        if src_tokenizer.exists() and src_tokenizer.is_dir():
-            dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
-            hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
+            # copy detokenizer folder if it exists
+            src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
+            if src_detokenizer.exists() and src_detokenizer.is_dir():
+                dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
+                hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
 
-        # copy detokenizer folder if it exists
-        src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
-        if src_detokenizer.exists() and src_detokenizer.is_dir():
-            dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
-            hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
-
-        return OpenVINOModelHandler(model_path=output_model_path)
+        model_name = model.model_config["model_name"]
+        output_model_name = f"{model_name}_quant.xml"
+        output_model_path = Path(output_model_path) / output_model_name
+        ov.save_model(quantized_model, output_model=output_model_path)

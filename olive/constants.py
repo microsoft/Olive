@@ -2,7 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive.common.utils import StrEnumBase
+from olive.common.config_utils import CaseInsensitiveEnum
+from olive.common.utils import IntEnumBase, StrEnumBase
+
+MSFT_DOMAIN = "com.microsoft"
 
 
 class Framework(StrEnumBase):
@@ -50,7 +53,14 @@ class Precision(StrEnumBase):
     NF4 = "nf4"
 
 
-class QuantAlgorithm(StrEnumBase):
+class PrecisionBits(IntEnumBase):
+    BITS4 = 4
+    BITS8 = 8
+    BITS16 = 16
+    BITS32 = 32
+
+
+class QuantAlgorithm(CaseInsensitiveEnum):
     AWQ = "awq"
     GPTQ = "gptq"
     HQQ = "hqq"
@@ -68,3 +78,10 @@ class DatasetRequirement(StrEnumBase):
     REQUIRED = "dataset_required"
     OPTIONAL = "dataset_optional"
     NOT_REQUIRED = "dataset_not_required"
+
+
+class OpType(StrEnumBase):
+    """Enum for operator types."""
+
+    MatMulNBits = "MatMulNBits"
+    MatMul = "MatMul"

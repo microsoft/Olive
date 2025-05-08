@@ -109,8 +109,8 @@ class VitisDPUQuantizer(QDQQuantizer):
 
             if weight_qType != QuantType.QInt8:
                 logger.warning(
-                    "Only QuantType.QInt8 weight_type is supported when enable_dpu=True, `weight_type` will "
-                    "be set to QuantType.QInt8."
+                    "Only Precision.INT8 precision is supported when enable_dpu=True, `precision` will "
+                    "be set to Precision.INT8."
                 )
 
             # If using enable_dpu, QDQ should always appear as a pair.
@@ -187,8 +187,8 @@ class VitisDPUQuantizer(QDQQuantizer):
 
             if weight_qType != QuantType.QInt8:
                 logger.warning(
-                    "Only QuantType.QInt8 weight_type is supported when enable_dpu=True, `weight_type` will "
-                    "be set to QuantType.QInt8."
+                    "Only Precision.INT8 precision is supported when enable_dpu=True, `precision` will "
+                    "be set to Precision.INT8."
                 )
 
             # If using enable_dpu, QDQ should always appear as a pair.

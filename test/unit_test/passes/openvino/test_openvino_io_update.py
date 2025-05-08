@@ -28,7 +28,7 @@ def convert_pt_to_ov_model(tmp_path, output_folder=None):
     return openvino_model
 
 
-def test_openvino_reshape_pass_static(tmp_path):
+def test_openvino_io_update_pass_static(tmp_path):
     # setup
     openvino_model = convert_pt_to_ov_model(tmp_path)
     openvino_conversion_config = {"input_shapes": [[1]], "static": True}
@@ -48,7 +48,7 @@ def test_openvino_reshape_pass_static(tmp_path):
     shutil.rmtree(openvino_model.model_path)
 
 
-def test_openvino_reshape_pass_dynamic(tmp_path):
+def test_openvino_io_update_pass_dynamic(tmp_path):
     # setup
     openvino_model = convert_pt_to_ov_model(tmp_path)
     openvino_conversion_config = {"input_shapes": [[1]], "static": False}
@@ -61,8 +61,8 @@ def test_openvino_reshape_pass_dynamic(tmp_path):
 
     # assert
     assert Path(openvino_model.model_path).exists()
-    assert (Path(openvino_model.model_path) / "ov_model.bin").is_file()
-    assert (Path(openvino_model.model_path) / "ov_model.xml").is_file()
+    assert (Path(openvino_model.model_path) / "ov_model_dy.bin").is_file()
+    assert (Path(openvino_model.model_path) / "ov_model_dy.xml").is_file()
 
     # cleanup
     shutil.rmtree(openvino_model.model_path)

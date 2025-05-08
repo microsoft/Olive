@@ -12,6 +12,7 @@ from onnxruntime.quantization.calibrate import CalibrationDataReader
 from packaging import version
 
 from olive.common.pydantic_v1 import ValidationError
+from olive.constants import Precision
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.hardware.accelerator import AcceleratorSpec
@@ -63,8 +64,8 @@ def test_static_quantization(quant_format, tmp_path):
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
             dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
         ),
-        "weight_type": "QUInt8",
-        "activation_type": "QUInt8",
+        "precision": Precision.UINT8,
+        "activation_type": Precision.UINT8,
         "quant_preprocess": True,
     }
     p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
@@ -154,9 +155,7 @@ def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected, is_qnn)
     ("algorithm", "weight_only_quant_configs"),
     [
         (None, None),
-        ("RTN", {"ratios": {}}),
-        ("DEFAULT", None),
-        ("HQQ", None),
+        ("rtn", {"ratios": {}}),
     ],
 )
 def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight_only_quant_configs):
@@ -185,7 +184,7 @@ def test_matmul_4bits_gptq_with_dataloader(tmp_path, caplog):
         "is_symmetric": True,
         "nodes_to_exclude": [],
         "accuracy_level": 4,
-        "algorithm": "GPTQ",
+        "algorithm": "gptq",
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
@@ -204,7 +203,7 @@ def test_matmul_4bits_gptq_with_dataloader(tmp_path, caplog):
     p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
     out = p.run(input_model, tmp_path)
     assert out is not None
-    assert "Invalid weight_only_quant_configs: {'use_less_config'} for algorithm GPTQ" in caplog.text
+    assert "Invalid weight_only_quant_configs: {'use_less_config'} for algorithm gptq" in caplog.text
     assert (
         "The pass config parameter block_size's value 32 is different from the algorithm config's value 128. The"
         " algorithm config's value will be used." in caplog.text

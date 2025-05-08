@@ -1,7 +1,9 @@
 # Vision Transformer (ViT) Quantization
 This folder contains examples of ViT quantization using different workflows.
 - QDQ: [VIT with QDQ format](#vit-with-qdq)
-- Qualcomm NPU: [with QNN execution provider in ONNX Runtime](#vit-quantization-with-qnn-execution-providers)
+- Qualcomm NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](./qnn/)
+- Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
+- AMD NPU: [Optimization and Quantization with QDQ format for AMD NPU (VitisAI)](#optimization-and-quantization-for-amd-npu)
 
 Go to [How to run](#how-to-run)
 
@@ -22,27 +24,18 @@ Config file: [vit_qdq.json](vit_qdq.json)
 
 *Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
-### ViT quantization with QNN execution providers
-This example performs ViT quantization with QNN execution providers in one workflow. It performs the pipeline:
-- *Huggingface Model -> Onnx Model -> QNN Quantized Onnx Model*
+### Optimization and Quantization for AMD NPU
 
-Config file: [vit_qnn.json](vit_qnn.json)
+ This workflow quantizes the model. It performs the pipeline:
+ - *HF Model-> ONNX Model -> Optimizations -> Quantized Onnx Model*
+
+ Config files for VitisAI:
+ - [google/vit-base-patch16-224](vit_qdq_vitis_ai.json)
 
 ## How to run
 ```
 olive run --config <config_file>.json
 ```
 
-After running the above command, the model candidates and corresponding config will be saved in the output directory.
-You can then select the best model and config from the candidates and run the model with the selected config.
+After running the above command, the final model will be saved in the *output_dir* specified in the config file.
 
-### Test with Tiny-ImageNet-200
-Tiny-ImageNet-200 is a smaller subset of the ImageNet dataset containing 200 classes, commonly used for benchmarking deep learning models.
-
-You can test output model with provided scripts. It is also a example you can refer about inference with model.
-- Download dataset from http://cs231n.stanford.edu/tiny-imagenet-200.zip and extract.
-- Go to subfolder *val_tiny_imagenet*. In *val_tiny_imagenet.py*, update *path_to_tiny_imagenet* with Tiny-ImageNet-200 root path and *path_to_model*. Modify *limit* as how many number you want in your test.
-- Run
-```
-python .\val_tiny_imagenet.py
-```

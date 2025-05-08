@@ -31,7 +31,7 @@ Please refer to [AutoAWQQuantizer](awq_quantizer) for more details about the pas
 ```json
 {
     "type": "AutoAWQQuantizer",
-    "w_bit": 4
+    "bits": 4
 }
 ```
 
@@ -147,7 +147,7 @@ If the user desires to only tune either of dynamic or static quantization, Olive
     "approach": "weight_only",
     "weight_only_config": {
         "bits": 4,
-        "algorithm": "GPTQ"
+        "algorithm": "gptq"
     },
     "data_config": "calib_data_config",
     "calibration_sampling_size": [8],
@@ -171,8 +171,8 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
     "type": "VitisAIQuantization",
     "calibrate_method":"NonOverflow",
     "quant_format":"QDQ",
-    "activation_type":"QUInt8",
-    "weight_type":"QInt8",
+    "activation_type":"uint8",
+    "precision":"int8",
     "data_config": "calib_data_config"
 }
 ```
@@ -191,11 +191,10 @@ Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into
 ```json
 "quantization": {
     "type": "NVModelOptQuantization",
-    "algorithm": "AWQ",
+    "algorithm": "awq",
     "tokenizer_dir": "microsoft/Phi-3-mini-4k-instruct",
     "calibration": "awq_lite"
 }
 ```
 
 Please refer to [Phi3 example](https://github.com/microsoft/Olive/tree/main/examples/phi3#quantize-using-nvidia-tensorrt-model-optimizer)  for usability and setup details.
-

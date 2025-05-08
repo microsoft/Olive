@@ -48,6 +48,12 @@ class StaticLLM(Pass):
                 default_value=64,
                 description="Input length of the context model.",
             ),
+            "group_session_options": PassConfigParam(
+                type_=dict,
+                description=(
+                    "Session options for the context and iterator models. Only used for models with genai_config."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -148,7 +154,12 @@ class StaticLLM(Pass):
         }
 
         return process_llm_pipeline(
-            model, pipeline, process_context_iterator, output_model_path, decoder_config_extra=decoder_config_extra
+            model,
+            pipeline,
+            process_context_iterator,
+            output_model_path,
+            decoder_config_extra=decoder_config_extra,
+            group_session_options=config.group_session_options,
         )
 
     @staticmethod

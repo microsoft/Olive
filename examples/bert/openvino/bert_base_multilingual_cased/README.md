@@ -2,6 +2,8 @@
 
 This folder contains a sample use case of Olive to optimize a [google-bert/bert-base-multilingual-cased](https://huggingface.co/google-bert/bert-base-multilingual-cased) model using OpenVINO tools.
 
+- Intel® NPU: [BERT Base Multilingual Cased static shape model](#static-shape-model)
+
 ## Quantization Workflows
 
 This workflow performs quantization with OpenVINO NNCF. It performs the optimization pipeline:
@@ -14,26 +16,15 @@ The config file: [bert-base-multilingual-cased_context_ov_static.json](bert-base
 
 ## How to run
 
-### Pip requirements
-
 Install the necessary python packages:
 
 ```bash
 python -m pip install olive-ai[openvino]
-python -m pip install -r requirements.txt
 ```
 
 ### Run sample using config
 
 The optimization techniques to run are specified in the relevant config json file.
-
-First, install required packages according to passes.
-
-```bash
-olive run --config bert-base-multilingual-cased_context_ov_static.json --setup
-```
-
-Then, optimize the model
 
 ```bash
 olive run --config bert-base-multilingual-cased_context_ov_static.json

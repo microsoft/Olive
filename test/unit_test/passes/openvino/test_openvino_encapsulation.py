@@ -28,7 +28,7 @@ def convert_pt_to_ov_model(tmp_path, static=False):
     openvino_conversion_config = {"input_shapes": [[1, 1]], "static": static}
 
     p = create_pass_from_dict(OpenVINOIoUpdate, openvino_conversion_config, disable_search=True)
-    output_folder_reshape = str(tmp_path / "openvino_reshape")
+    output_folder_reshape = str(tmp_path / "openvino_io_update")
 
     # execute
     openvino_model = p.run(openvino_model, output_folder_reshape)
@@ -37,10 +37,10 @@ def convert_pt_to_ov_model(tmp_path, static=False):
     if static:
         model_name = "ov_model_st"
     else:
-        model_name = "ov_model"
+        model_name = "ov_model_dy"
 
-    assert (Path(openvino_model.model_path) / f"{model_name}.bin").is_file()
-    assert (Path(openvino_model.model_path) / f"{model_name}.xml").is_file()
+    assert (Path(output_folder_reshape) / f"{model_name}.bin").is_file()
+    assert (Path(output_folder_reshape) / f"{model_name}.xml").is_file()
 
     return openvino_model
 

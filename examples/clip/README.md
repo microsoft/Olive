@@ -2,7 +2,9 @@
 This folder contains examples of CLIP VIT quantization using different workflows.
 
 - QDQ: [CLIP VIT Quantization encoded in QDQ format](#clip-vit-quantization-encoded-in-qdq-format)
-- NPU: [PTQ on Qualcomm NPU using QNN EP](#ptq-on-npu)
+- Qualcomm NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](./qnn/)
+- Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
+- AMD NPU: [Optimization and Quantization with QDQ format for AMD NPU (VitisAI)](#optimization-and-quantization-for-amd-npu)
 
 Go to [How to run](#how-to-run)
 
@@ -43,26 +45,22 @@ Accuracy / latency
 
 *Note: Latency can vary significantly depending on the hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
-### PTQ on NPU
-This workflow performs CLIP VIT quantization on Qualcomm NPU with ONNX Runtime PTQ. It performs the pipeline:
-- *PyTorch Model -> Onnx Model -> Static shaped Onnx Model -> Quantized Onnx Model*
+### Optimization and Quantization for AMD NPU
 
-It requires x86 python environment on a Windows ARM machine with `onnxruntime-qnn` installed.
+ This workflow quantizes the model. It performs the pipeline:
+ - *HF Model-> ONNX Model -> Optimizations -> Quantized Onnx Model*
 
-OpenAI clip model config file: [openai_clip-vit-base-patch16_ptq_qnn.json](openai_clip-vit-base-patch16_ptq_qnn.json)
- [openai_clip-vit-base-patch32_ptq_qnn.json](openai_clip-vit-base-patch32_ptq_qnn.json)
- [openai_clip-vit-large-patch14_ptq_qnn.json](openai_clip-vit-large-patch14_ptq_qnn.json)
-
-Open clip model config file: [laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_qnn.json](laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_qnn.json)
-
-**NOTE:** The model quantization part of the workflow can also be done on a Linux/Windows machine with a different onnxruntime package installed. Remove the `"evaluators"` and `"evaluator"` sections from the configuration file to skip the evaluation step.
+ Config files for VitisAI:
+ - [laion/CLIP-ViT-B-32-laion2B-s34B-b79K](laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_qdq_vitis_ai.json)
+ - [openai/clip-vit-base-patch16](openai_clip-vit-base-patch16_ptq_qdq_vitis_ai.json)
+ - [openai/clip-vit-base-patch32](openai_clip-vit-base-patch32_ptq_qdq_vitis_ai.json)
 
 ## How to run
 ### Pip requirements
 Install the necessary python packages:
 ```sh
 # [NPU]
-pip install git+https://github.com/microsoft/Olive#egg=olive-ai[qnn]
+pip install git+https://github.com/microsoft/Olive#egg=olive-ai
 ```
 
 ### Other dependencies
@@ -84,11 +82,4 @@ Then, quantize the model
 olive run --config <config_file>.json
 ```
 
-or run simply with python code:
-```python
-from olive.workflows import run as olive_run
-olive_run("<config_file>.json")
-```
-
-After running the above command, the model candidates and corresponding config will be saved in the output directory.
-You can then select the best model and config from the candidates and run the model with the selected config.
+After running the above command, the final model will be saved in the *output_dir* specified in the config file.

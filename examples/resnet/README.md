@@ -6,7 +6,9 @@ This folder contains examples of ResNet optimization using different workflows.
 - CPU: [with PyTorch QAT PyTorch Lightning Module and ORT optimizations](#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu)
 - AMD DPU: [with AMD Vitis-AI Quantization](#resnet-optimization-with-vitis-ai-ptq-on-amd-dpu)
 - Intel GPU: [with OpenVINO and DirectML execution providers in ONNX Runtime](#resnet-optimization-with-openvino-and-dml-execution-providers)
-- Qualcomm NPU: [with QNN execution provider in ONNX Runtime](#resnet-optimization-with-qnn-execution-providers)
+- Qualcomm NPU: [with QNN execution provider in ONNX Runtime](./qnn/)
+- Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
+- AMD NPU: [Optimization and Quantization with QDQ format for AMD NPU (VitisAI)](#optimization-and-quantization-for-amd-npu)
 
 Go to [How to run](#how-to-run)
 
@@ -25,6 +27,14 @@ Config file: [resnet_ptq_qdq.json](resnet_ptq_qdq.json)
 | ONNX INT8 (QDQ)       | 78.1%               | 74.7                 | Imagenet |
 
 *Note: Latency can vary significantly depending on the CPU hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
+
+### Optimization and Quantization for AMD NPU
+
+ This workflow quantizes the model. It performs the pipeline:
+ - *HF Model-> ONNX Model -> Optimizations -> Quantized Onnx Model*
+
+ Config file for VitisAI:
+ - [microsoft/resnet-50](resnet_ptq_qdq_vitis_ai.json)
 
 ### ResNet optimization with PTQ on CPU
 This workflow performs ResNet optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
@@ -63,11 +73,6 @@ This example performs ResNet optimization with OpenVINO and DML execution provid
 
 Config file: [resnet_multiple_ep.json](resnet_multiple_ep.json)
 
-### ResNet optimization with QNN execution providers
-This example performs ResNet optimization with QNN execution providers in one workflow. It performs the optimization pipeline:
-- *PyTorch Model -> Onnx Model -> QNN Quantized Onnx Model*
-
-Config file: [resnet_ptq_qnn.json](resnet_ptq_qnn.json)
 ## How to run
 ### Pip requirements
 Install the necessary python packages:
@@ -94,11 +99,4 @@ Then, optimize the model
 olive run --config <config_file>.json
 ```
 
-or run simply with python code:
-```python
-from olive.workflows import run as olive_run
-olive_run("<config_file>.json")
-```
-
-After running the above command, the model candidates and corresponding config will be saved in the output directory.
-You can then select the best model and config from the candidates and run the model with the selected config.
+After running the above command, the final model will be saved in the *output_dir* specified in the config file.

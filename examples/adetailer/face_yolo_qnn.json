@@ -102,8 +102,8 @@
             "type": "OnnxStaticQuantization",
             "quant_preprocess": true,
             "data_config": "face_data_config",
-            "activation_type": "QUInt16",
-            "weight_type": "QUInt8",
+            "activation_type": "uint16",
+            "precision": "uint8",
             "calibrate_method": "MinMax",
             "op_types_to_exclude": [ "Mul" ]
         }

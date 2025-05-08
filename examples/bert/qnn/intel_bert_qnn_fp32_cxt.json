@@ -1,0 +1,99 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "Intel/bert-base-uncased-mrpc",
+        "task": "text-classification",
+        "load_kwargs": { "attn_implementation": "eager" }
+    },
+    "systems": {
+        "qnn_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
+        }
+    },
+    "data_configs": [
+        {
+            "name": "glue_mrpc",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": { "data_name": "glue", "subset": "mrpc", "split": "validation" },
+            "pre_process_data_config": {
+                "max_length": 128,
+                "padding": "max_length",
+                "input_cols": [ "sentence1", "sentence2" ],
+                "max_samples": 100
+            },
+            "dataloader_config": { "batch_size": 1 }
+        }
+    ],
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "accuracy_qnn",
+                    "type": "accuracy",
+                    "data_config": "glue_mrpc",
+                    "sub_types": [ { "name": "accuracy_score", "priority": 1 } ],
+                    "user_config": {
+                        "inference_settings": {
+                            "execution_provider": "QNNExecutionProvider",
+                            "provider_options": [
+                                {
+                                    "backend_path": "QnnHtp.dll",
+                                    "htp_performance_mode": "burst",
+                                    "htp_graph_finalization_optimization_mode": "3",
+                                    "enable_htp_fp16_precision": "1"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "latency_qnn",
+                    "type": "latency",
+                    "data_config": "glue_mrpc",
+                    "sub_types": [ { "name": "avg", "priority": 2 } ],
+                    "user_config": {
+                        "inference_settings": {
+                            "onnx": {
+                                "session_options": {
+                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "0" }
+                                },
+                                "execution_provider": "QNNExecutionProvider",
+                                "provider_options": [
+                                    { "backend_path": "QnnHtp.dll", "htp_performance_mode": "burst" }
+                                ]
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
+        "onnx_simplify": { "type": "OnnxPeepholeOptimizer" },
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [ "batch_size", "sequence_length" ],
+            "dim_value": [ 1, 128 ]
+        },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
+        "cb": {
+            "type": "EPContextBinaryGenerator",
+            "provider_options": {
+                "htp_graph_finalization_optimization_mode": "3",
+                "soc_model": "60",
+                "htp_arch": "73",
+                "vtcm_mb": "8",
+                "enable_htp_fp16_precision": "1"
+            }
+        }
+    },
+    "evaluator": "common_evaluator",
+    "evaluate_input_model": false,
+    "host": "qnn_system",
+    "target": "qnn_system",
+    "cache_dir": "cache/intel_bert",
+    "clean_cache": false,
+    "output_dir": "models/intel_bert/fp32_ctx"
+}

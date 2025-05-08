@@ -6,7 +6,6 @@
             "accelerators": [ { "execution_providers": [ "OpenVINOExecutionProvider" ] } ]
         }
     },
-    "data_configs": [  ],
     "passes": {
         "optimum_convert": {
             "type": "OpenVINOOptimumConversion",
@@ -23,16 +22,19 @@
                 "backup_precision": "int8_sym"
             }
         },
-        "io_update": { "type": "OpenVINOIoUpdate", "static": false },
+        "io_update": { "type": "OpenVINOIoUpdate", "static": false, "reuse_cache": true },
         "encapsulation": {
             "type": "OpenVINOEncapsulation",
             "target_device": "npu",
             "keep_ov_dynamic_dims": true,
-            "ov_version": "2025.1"
+            "ov_version": "2025.1",
+            "reuse_cache": true
         }
     },
     "search_strategy": false,
     "host": "local_system",
+    "cache_dir": "cache",
+    "clean_cache": true,
     "evaluate_input_model": false,
     "output_dir": "models/Llama-3.2-1B-Instruct_context_ov_dynamic_sym_bkp_int8_sym"
 }

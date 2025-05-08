@@ -6,35 +6,47 @@ This folder contains examples of BERT optimization using different workflows.
 - CPU: [Optimization with Intel® Neural Compressor PTQ](#bert-optimization-with-intel®-neural-compressor-ptq-on-cpu)
 - CPU: [Optimization with QAT Customized Training Loop](#bert-optimization-with-qat-customized-training-loop-on-cpu)
 - GPU: [Optimization with CUDA/TensorRT](#bert-optimization-with-cudatensorrt-on-gpu)
-- NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](#bert-optimization-with-ptq-on-npu)
+- Qualcomm NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](./qnn/)
+- Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
+- AMD NPU: [Optimization and Quantization with QDQ format for AMD NPU (VitisAI)](#optimization-and-quantization-for-amd-npu)
 
 Go to [How to run](#how-to-run)
 
 
 ## Optimization Workflows
 ### BERT Quantization QDQ
-This workflow quantizes the model. It performs the pipeline:
-- *HF Model-> ONNX Model ->Quantized Onnx Model*
+ This workflow quantizes the model. It performs the pipeline:
+ - *HF Model-> ONNX Model ->Quantized Onnx Model*
 
-Config file: [Intel/bert-base-uncased](bert_ptq_qdq.json)
+ Config file: [Intel/bert-base-uncased](bert_ptq_qdq.json)
 
-#### Accuracy / Latency / Throughput
+ #### Accuracy / Latency / Throughput
 
-| Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  | Throughput (token per second)| Dataset   |
-|-----------------------|---------------------|----------------------|------------------------------|-----------|
-| PyTorch FP32          | 90%                 | 2406                 | 0.41                         | glue-mrpc |
-| ONNX INT8 (QDQ)       | 90%                 | 401                  | 2.51                         | glue-mrpc |
+ | Model Version         | Accuracy (Top-1)    | Latency (ms/sample)  | Throughput (token per second)| Dataset   |
+ |-----------------------|---------------------|----------------------|------------------------------|-----------|
+ | PyTorch FP32          | 90%                 | 2406                 | 0.41                         | glue-mrpc |
+ | ONNX INT8 (QDQ)       | 90%                 | 401                  | 2.51                         | glue-mrpc |
 
-*Note: Latency can vary significantly depending on the hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
+ *Note: Latency can vary significantly depending on the hardware and system environment. The values provided here are for reference only and may not reflect performance on all devices.*
 
-Config file: [google-bert/bert-base-multilingual-cased](google_bert_qdq.json)
+ Config file: [google-bert/bert-base-multilingual-cased](google_bert_qdq.json)
 
-#### Latency / Throughput
+ #### Latency / Throughput
 
-| Model Version         | Latency (ms/sample)  | Throughput (token per second)| Dataset       |
-|-----------------------|----------------------|------------------------------|---------------|
-| PyTorch FP32          | 1162                 | 0.81                         | facebook/xnli |
-| ONNX INT8 (QDQ)       | 590                  | 1.75                         | facebook/xnli |
+ | Model Version         | Latency (ms/sample)  | Throughput (token per second)| Dataset       |
+ |-----------------------|----------------------|------------------------------|---------------|
+ | PyTorch FP32          | 1162                 | 0.81                         | facebook/xnli |
+ | ONNX INT8 (QDQ)       | 590                  | 1.75                         | facebook/xnli |
+
+### Optimization and Quantization for AMD NPU
+
+ This workflow quantizes the model. It performs the pipeline:
+ - *HF Model-> ONNX Model -> Optimizations -> Quantized Onnx Model*
+
+ Config files for VitisAI:
+ - [Intel/bert-base-uncased](bert_ptq_qdq_vitis_ai.json)
+ - [google-bert/bert-base-multilingual-cased](google_bert_qdq_vitis_ai.json)
+
 
 ### BERT optimization with PTQ on CPU
 This workflow performs BERT optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
@@ -46,8 +58,6 @@ This workflow also demonstrates how to use:
 - Huggingface `evaluate` to load multi metrics from [metric hub](https://huggingface.co/evaluate-metric).
 
 Config file: [bert_ptq_cpu.json](bert_ptq_cpu.json)
-
-- *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> QDQ Quantized Onnx Model -> ONNX Runtime performance tuning*
 
 #### AzureML Model Source and No Auto-tuning
 The workflow in [bert_ptq_cpu_aml.json](bert_ptq_cpu_aml.json) is similar to the above workflow, but uses AzureML Model Source to load the model and does not perform auto-tuning. Without auto-tuning, the passes will be run with the default parameters (no search space) and the final model and metrics will be saved in the output directory.
@@ -126,16 +136,6 @@ This workflow performs BERT optimization on GPU with CUDA/TensorRT. It performs 
     - *PyTorch Model -> Onnx Model -> ONNX Runtime performance tuning with trt_fp16_enable*
     Config file: [bert_trt_gpu.json](bert_trt_gpu.json)
 
-### BERT optimization with PTQ on NPU
-This workflow performs BERT optimization on Qualcomm NPU with ONNX Runtime PTQ. It performs the optimization pipeline:
-- *PyTorch Model -> Onnx Model -> Static shaped Onnx Model -> Quantized Onnx Model*
-
-It requires x86 python environment on a Windows ARM machine with `onnxruntime-qnn` installed.
-
-Config file: [bert_ptq_qnn.json](bert_ptq_qnn.json)
-
-**NOTE:** The model optimization part of the workflow can also be done on a Linux/Windows machine with a different onnxruntime package installed. Remove the `"evaluators"` and `"evaluator"` sections from the configuration file to skip the evaluation step.
-
 ## How to run
 ### Pip requirements
 Install the necessary python packages:
@@ -166,11 +166,4 @@ Then, optimize the model
 olive run --config <config_file>.json
 ```
 
-or run simply with python code:
-```python
-from olive.workflows import run as olive_run
-olive_run("<config_file>.json")
-```
-
-After running the above command, the model candidates and corresponding config will be saved in the output directory.
-You can then select the best model and config from the candidates and run the model with the selected config.
+After running the above command, the final model will be saved in the *output_dir* specified in the config file.

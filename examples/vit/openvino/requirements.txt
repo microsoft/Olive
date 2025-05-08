@@ -1,2 +1,2 @@
-datasets
+olive-ai[openvino]
 torchvision
