@@ -593,6 +593,14 @@
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
+        },
+        "InputNCHWtoNHWC": {
+            "module_path": "olive.passes.onnx.vitis_ai.preprocess.InputNCHWtoNHWC",
+            "supported_providers": [ "CPUExecutionProvider" ],
+            "supported_accelerators": [ "cpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         }
     },
     "extra_dependencies": {

@@ -2,10 +2,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+#
+# Modifications Copyright(C) 2025 Advanced Micro Devices, Inc. All rights reserved.
+#
 from logging import getLogger
 from pathlib import Path
 
 import numpy as np
+import torch
 import torchvision.transforms as transforms
 import transformers
 from torch import from_numpy
@@ -51,9 +55,11 @@ preprocess = transforms.Compose(
 def dataset_pre_process(output_data, **kwargs):
     cache_key = kwargs.get("cache_key")
     size = kwargs.get("size", 256)
+    transpose = kwargs.get("transpose", False)
     cache_file = None
     if cache_key:
-        cache_file = Path(f"./cache/data/{cache_key}_{size}.npz")
+        suffix = "nhwc" if transpose else "nchw"
+        cache_file = Path(f"./cache/data/{cache_key}_{size}_{suffix}.npz")
         if cache_file.exists():
             with np.load(Path(cache_file), allow_pickle=True) as data:
                 return ImagenetDataset(data)
@@ -67,6 +73,8 @@ def dataset_pre_process(output_data, **kwargs):
         label = sample["label"]
         image = image.convert("RGB")
         image = preprocess(image)
+        if transpose:
+            image = torch.permute(image, (1, 2, 0))
         images.append(image)
         labels.append(label)
 

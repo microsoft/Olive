@@ -20,7 +20,12 @@
                 "streaming": true,
                 "trust_remote_code": true
             },
-            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet" },
+            "pre_process_data_config": {
+                "type": "dataset_pre_process",
+                "size": 256,
+                "cache_key": "imagenet",
+                "transpose": true
+            },
             "post_process_data_config": { "type": "imagenet_post_fun" }
         }
     ],
@@ -58,6 +63,7 @@
             "dynamic": false,
             "use_dynamo_exporter": false
         },
+        "transpose_input": { "type": "InputNCHWtoNHWC" },
         "OnnxQuantization": {
             "type": "OnnxQuantization",
             "data_config": "quantize_data_config",
@@ -73,6 +79,7 @@
             "quant_type": "OnnxStaticQuantization"
         }
     },
+    "evaluate_input_model": false,
     "evaluator": "common_evaluator",
     "cache_dir": "cache/resnet",
     "clean_cache": false,
