@@ -5,6 +5,8 @@ Sample use cases of Olive to optimize [meta-llama/Llama-3.2-1B-Instruct](https:/
 - [Quantize, Finetune and Optimize for CPU/CUDA](../getting_started/olive-awq-ft-llama.ipynb)
 - [QDQ Model with 4-bit Weights & 16-bit Activations](../phi3_5/README.md):
   - Replace `model_path` in `qdq_config.json` with `meta-llama/Llama-3.2-1B-Instruct`.
+- [AMD NPU: Optimization and Quantization with for VitisAI](../phi3_5/README.md):
+  - Replace `model_path` in `qdq_config_vitis_ai.json` with `meta-llama/Llama-3.2-1B-Instruct`.
 - [PTQ + AOT Compilation for Qualcomm NPUs using QNN EP](../phi3_5/README.md):
   - Replace `model_path` in `qnn_config.json` with `meta-llama/Llama-3.2-1B-Instruct`.
   - Chat template is `"<|start_header_id|>user<|end_header_id|>\n{input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"`

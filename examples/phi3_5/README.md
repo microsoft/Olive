@@ -21,6 +21,7 @@ This repository demonstrates the optimization of the [Microsoft Phi-3.5 Mini Ins
       - [**Install Required Python Packages**](#install-required-python-packages)
       - [**Run Console-Based Chat Interface**](#run-console-based-chat-interface)
   - [**PTQ + AOT Compilation for Intel® NPUs using Optimum Intel®**](#ptq--aot-compilation-for-intel-npus-using-optimum-intel)
+  - [**AMD NPU: Optimization and Quantization with for VitisAI**](#optimization-and-quantization-for-amd-npu)
 
 ## **QDQ Model with 4-bit Weights & 16-bit Activations**
 
@@ -89,6 +90,18 @@ olive run --config qdq_config.json
 
 ✅ Optimized model saved in: `models/phi3_5_qdq/`
 
+
+## **Optimization and Quantization for AMD NPU**
+
+#### **Run the Quantization Config**
+
+Follow above mentioned setup instruction and run the below command to generate the optimized model for VitisAI EP.
+
+```bash
+olive run --config qdq_config_vitis_ai.json.json
+```
+
+✅ Optimized model saved in: `models/phi3_5_qdq/`
 
 ## **PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**
 

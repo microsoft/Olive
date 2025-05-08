@@ -4,7 +4,6 @@
 #
 
 from pathlib import Path
-from typing import Optional
 
 import onnx
 
@@ -13,8 +12,9 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import model_proto_to_file, resave_model
-from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.onnx.onnx_dag import OnnxDAG
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
+
 
 class InputNCHWtoNHWC(Pass):
     """Updates model inputs from NCHW to NHWC by adding a transpose node at the input."""
@@ -37,7 +37,11 @@ class InputNCHWtoNHWC(Pass):
         orig_inval_info = {tensor.name: tensor for tensor in graph.input}
         inputs_to_update = None
         if config.input_names:
-            inputs_to_update = [tensor.name for tensor in graph.input if tensor.name in config.input_names and len(tensor.type.tensor_type.shape.dim) == 4]
+            inputs_to_update = [
+                tensor.name
+                for tensor in graph.input
+                if tensor.name in config.input_names and len(tensor.type.tensor_type.shape.dim) == 4
+            ]
         else:
             inputs_to_update = [tensor.name for tensor in graph.input if len(tensor.type.tensor_type.shape.dim) == 4]
 
@@ -85,7 +89,7 @@ class InputNCHWtoNHWC(Pass):
     ) -> ONNXModelHandler:
         if not isinstance(model, ONNXModelHandler):
             raise ValueError("Model must be an instance of ONNXModelHandler")
-        
+
         output_model_path = Path(resolve_onnx_path(output_model_path, Path(model.model_path).name))
 
         # resave the original model to the new path
