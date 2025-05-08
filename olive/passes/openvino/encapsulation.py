@@ -346,6 +346,8 @@ def create_genai_config(output_path: str) -> None:
     pad_token_id = src_gen_config.get("pad_token_id", -1)
     if pad_token_id != -1:
         genai_config["model"]["pad_token_id"] = pad_token_id
+    else:
+        genai_config["model"]["pad_token_id"] = genai_config["model"]["eos_token_id"]
     genai_config["model"]["type"] = src_config.get("model_type", "")
     genai_config["model"]["vocab_size"] = src_config.get("vocab_size", -1)
 
