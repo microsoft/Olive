@@ -109,7 +109,6 @@ How to customize configuration
    configure-workflows/model-packaging
    configure-workflows/systems
    configure-workflows/engine-configuration
-   configure-workflows/custom-model-evaluator
 
 For more complex scenarios, you can customize configuration where you can run any of the 40+ supported optimization techniques in a sequence.
 
@@ -171,11 +170,3 @@ For more complex scenarios, you can customize configuration where you can run an
       Learn how to configure engine to control where output gets saved, logging verbosity, caching, and packaging.
 
       :octicon:`arrow-right;1em;sd-text-info` `Configure engine <configure-workflows/engine-configuration.html>`_
-
-   .. grid-item-card::
-
-      **How to add custom model evaluator**
-
-      Learn how to add custom model evaluator.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Add custom model evaluator <configure-workflows/custom-model-evaluator.html>`_

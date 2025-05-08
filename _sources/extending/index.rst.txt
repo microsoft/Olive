@@ -19,6 +19,14 @@ Extending Olive
       :octicon:`arrow-right;1em;sd-text-info` `Add new pass <how-to-add-optimization-pass.html>`_
 
    .. grid-item-card::
+
+      **How to add custom model evaluator**
+
+      Learn how to add custom model evaluator.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Add custom model evaluator <custom-model-evaluator.html>`_
+
+   .. grid-item-card::
       **Custom Scripts**
 
       Learn how to extend Olive by adding your own custom scripts for specific tasks like loading datasets.
@@ -31,4 +39,5 @@ Extending Olive
 
    design
    how-to-add-optimization-pass
+   custom-model-evaluator
    custom-scripts

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Introduction &#8212; Olive  documentation</title>
+    <title>How to prepare Olive configuration &#8212; Olive  documentation</title>
   
   
   
@@ -429,7 +429,7 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">How-to</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Introduction</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How to prepare Olive configuration</span></li>
   </ul>
 </nav>
 </div>
@@ -446,8 +446,8 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="introduction">
-<h1>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">#</a></h1>
+  <section id="how-to-prepare-olive-configuration">
+<h1>How to prepare Olive configuration<a class="headerlink" href="#how-to-prepare-olive-configuration" title="Link to this heading">#</a></h1>
 <p>To convert, quantize, optimize and tune your model Olive needs information about your model. For example, how to load the model, name and shape of input tensors. You can also select the target hardware and list of optimizations you want to perform on the model. You can provide this information in a json file as an input to the Olive. In this document we will walk through how to generate such .json configuration from scratch.</p>
 <p>We will focus on processing a Hugging Face model targeting CPU. After the .json configuration is prepared, one simple command will process the model and produce intended output model.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>my_model_processing_description.json
@@ -492,7 +492,7 @@
 </section>
 <section id="complete-json-configuration">
 <h2>Complete .json configuration<a class="headerlink" href="#complete-json-configuration" title="Link to this heading">#</a></h2>
-<p>You can additionally select output directory, log severity level etc,. See <a class="reference internal" href="#../../reference/options.html"><span class="xref myst">options</span></a> for complete list of configuration option. Now you have the complete .json configuration that you can use.</p>
+<p>You can additionally select output directory, log severity level etc,. See <a class="reference internal" href="../../reference/options.html"><span class="std std-doc">options</span></a> for complete list of configuration option. Now you have the complete .json configuration that you can use.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>

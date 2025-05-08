@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>ONNX &#8212; Olive  documentation</title>
+    <title>ONNX Transformations &#8212; Olive  documentation</title>
   
   
   
@@ -429,7 +429,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Features</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">ONNX</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">ONNX Transformations</span></li>
   </ul>
 </nav>
 </div>
@@ -446,8 +446,8 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="onnx">
-<h1>ONNX<a class="headerlink" href="#onnx" title="Link to this heading">#</a></h1>
+  <section id="onnx-transformations">
+<h1>ONNX Transformations<a class="headerlink" href="#onnx-transformations" title="Link to this heading">#</a></h1>
 <p><a class="reference external" href="https://onnx.ai/">ONNX</a> is an open graph format to represent machine learning models. <a class="reference external" href="https://onnxruntime.ai/docs/">ONNX Runtime</a> is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.</p>
 <p>Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.</p>
 <section id="peeophole-optimizer">
@@ -605,7 +605,7 @@
 </tbody>
 </table>
 </div>
-<p>Please refer to <a class="reference internal" href="#../../../reference/pass.rst#onnx_peephole_optimizer"><span class="xref myst">OnnxPeepholeOptimizer</span></a> for more details about the pass and its config parameters.</p>
+<p>Please refer to <a class="reference internal" href="../reference/pass.html#onnx_peephole_optimizer"><span class="std std-ref">OnnxPeepholeOptimizer</span></a> for more details about the pass and its config parameters.</p>
 <section id="example-configuration">
 <h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -625,7 +625,7 @@ These optimizations are provided by onnxruntime through
 <a class="reference external" href="https://github.com/microsoft/onnxruntime/tree/main/onnxruntime/python/tools/transformers">onnxruntime.transformers</a>. Please
 refer to the <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/README.md">corresponding documentation</a>
 for more details on the optimizations done by this tool.</p>
-<p>Please refer to <a class="reference internal" href="#../../../reference/pass.rst#ort_transformers_optimization"><span class="xref myst">OrtTransformersOptimization</span></a> for more details about the pass and its config parameters.</p>
+<p>Please refer to <a class="reference internal" href="../reference/pass.html#ort_transformers_optimization"><span class="std std-ref">OrtTransformersOptimization</span></a> for more details about the pass and its config parameters.</p>
 <section id="id1">
 <h3>Example Configuration<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
