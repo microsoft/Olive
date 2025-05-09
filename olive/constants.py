@@ -67,6 +67,8 @@ class QuantAlgorithm(CaseInsensitiveEnum):
     RTN = "rtn"
     SPINQUANT = "spinquant"
     QUAROT = "quarot"
+    K_QUANT_MIXED = "k_quant_mixed"  # k_quant algorithm with mixed precision
+    K_QUANT_LAST = "k_quant_last"  # k_quant algorithm, only the last MatMul /lm_head/MatMul is quantized as int8, other MatMuls are quantized as int4.
 
 
 class QuantEncoding(StrEnumBase):
