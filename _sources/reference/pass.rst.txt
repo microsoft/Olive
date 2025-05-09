@@ -104,6 +104,12 @@ OnnxMatMul4Quantizer
 --------------------
 .. autoconfigclass:: olive.passes.OnnxMatMul4Quantizer
 
+.. _onnx_hqq_quantization:
+
+OnnxHqqQuantization
+--------------------
+.. autoconfigclass:: olive.passes.OnnxHqqQuantization
+
 .. _graph_surgeries:
 
 GraphSurgeries
