@@ -161,7 +161,7 @@
             "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
             "supported_accelerators": [ "cpu", "gpu" ],
             "supported_precisions": [ "int4" ],
-            "supported_algorithms": [ "rtn", "hqq" ],
+            "supported_algorithms": [ "rtn" ],
             "supported_quantization_encodings": [ "qdq" ]
         },
         "OnnxHqqQuantization": {

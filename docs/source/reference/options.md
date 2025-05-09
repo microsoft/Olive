@@ -17,13 +17,13 @@ to apply from user in the form of a json dictionary. In this document, we docume
 The options are organized into following sections:
 
 - [Workflow id](#workflow-id) `workflow_id`
+- [Workflow Host](#workflow-host) `workflow_host`
 - [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
 - [Systems Information](#systems-information) `systems`
 - [Evaluators Information](#evaluators-information) `evaluators`
 - [Passes Information](#passes-information) `passes`
 - [Engine Information](#engine-information) `engine`
-- [Workflow Host](#workflow-host) `workflow_host`
 
 ## Workflow ID
 
@@ -112,12 +112,11 @@ The default value is 3. User can increase if there are network issues and the op
 
 User should specify input model type and configuration using `input model` dictionary. It contains following items:
 
-- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `HfModelHandler`, `PyTorchModelHandler`, `ONNXModelHandler`, `OpenVINOModelHandler`,`SNPEModelHandler` and etc. You can
-find more details in [Olive Models](model.rst).
+- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `HfModelHandler`, `PyTorchModelHandler`, `ONNXModelHandler`, `OpenVINOModelHandler`,`SNPEModelHandler` and etc.
 
 - `config: [Dict]` The configuration of the pass. Its fields can be provided directly to the parent dictionary. For example, for `HfModelHandler`, the input model config dictionary specifies following items:
 
-    - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is a huggingface hub model id or a local directory. If it is a dictionary, it contains information about the model path. Please refer to [Configuring Model Path](../configure-workflows/model-opt-and-transform/configure-model-path.md) for the more information of the model path dictionary.
+    - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is a huggingface hub model id or a local directory. If it is a dictionary, it contains information about the model path. Please refer to [Configuring Model Path](../how-to/configure-workflows/how-to-configure-model.md#configuring-model-path) for the more information of the model path dictionary.
 
     - `task: [str]` The task of the model. The default task is `text-generation-with-past` which is equivalent to a causal language model with key-value cache enabled.
 
@@ -165,18 +164,20 @@ find more details in [Olive Models](model.rst).
 
     - `load_kwargs: [dict]`: Arguments to pass to the `from_pretrained` method of the model class. Refer to [this documentation](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained).
 
-Please find the detailed config options from following table for each model type:
+Please find the detailed list for each model type:
 
 | Model Type | Description |
 |:----------|:-------------|
-| [HfModelHandler](model.rst#_hf_model) | Hf model |
-| [DistributedHfModelHandler](model.rst#_distributed_hf_model) | Distributed Hf Model |
-| [PytorchModelHandler](model.rst#_pytorch_model) | Pytorch model |
-| [ONNXModelHandler](model.rst#_onnx_model) | ONNX model |
-| [DistributedOnnxModelHandler](model.rst#_distributed_onnx_model) | ONNX model |
-| [OpenVINOModelHandler](model.rst#_openvino_model) | OpenVINO IR model |
-| [SNPEModelHandler](model.rst#_snpe_model) | SNPE DLC model |
-| [CompositeModelHandler](model.rst#_composite_model) | Composite Model |
+| HfModelHandler | Hf model |
+| DistributedHfModelHandler | Distributed Hf Model |
+| PytorchModelHandler | Pytorch model |
+| ONNXModelHandler | ONNX model |
+| DistributedOnnxModelHandler | ONNX model |
+| QNNModelHandler | QNN model |
+| OpenVINOModelHandler | OpenVINO IR model |
+| SNPEModelHandler | SNPE DLC model |
+| TensorFlowModelHandler | TensorFlow model |
+| CompositeModelHandler | Composite Model |
 
 ### Example
 
@@ -202,7 +203,7 @@ information of the system contains following items:
  - `accelerators: [List[str]]` The accelerators that will be used for this workflow.
  - `hf_token: [bool]` Whether to use a Huggingface token to access Huggingface resources. If it is set to `True`, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the `HF_TOKEN` environment variable or from the token file located at `~/.huggingface/token`. For AzureML system, Olive will retrieve the token from user keyvault secret. If set to `False`, no token will be utilized during this workflow run. The default value is `False`.
 
-Please refer to [How To Configure System](../configure-workflows/systems.md) for the more information of the system config dictionary.
+Please refer to [How To Configure System](../how-to/configure-workflows/systems.md) for the more information of the system config dictionary.
 
 ### Example
 
@@ -375,66 +376,67 @@ evaluator in `evaluators`. If it is a dictionary, it contains the evaluator info
 will be used.
 
 
-Please refer to [Configuring Pass](../../reference/pass.rst) for more details on `type` and `config`.
+Please refer to [Configuring Pass](pass.rst) for more details on `type` and `config`.
 
 Please also find the detailed options from following table for each pass:
 
 | Pass Name | Description |
 |:----------|:-------------|
-| [OnnxConversion](../../reference/pass.rst#_onnx_conversion) | Convert a PyTorch model to ONNX model |
-| [OnnxOpVersionConversion](../../reference/pass.rst#_onnx_op_version_conversion) | Convert a Onnx model to target op version |
-| [OnnxScriptFusion](../../reference/pass.rst#_onnxscript_fusion) | Fuse Ops using onnxscript |
-| [ModelBuilder](../../reference/pass.rst#_model_builder) | Convert a generative PyTorch model to ONNX model using [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module |
-| [OnnxPeepholeOptimizer](../../reference/pass.rst#_onnx_peephole_optimizer) | Optimize ONNX model by fusing nodes. |
-| [OnnxTransformersOptimization](../../reference/pass.rst#_onnx_transformers_optimization) | Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time. It is based on onnxruntime.transformers.optimizer. |
-| [OrtSessionParamsTuning](../../reference/pass.rst#_ort_session_params_tuning) | Optimize ONNX Runtime inference settings. |
-| [OnnxFloatToFloat16](../../reference/pass.rst#_onnx_float_to_float16) | Converts a model to float16. It uses the float16 converter from onnxruntime to convert the model to float16. |
-| [OnnxIODataTypeConverter](../../reference/pass.rst#_onnx_io_float16_to_float32) | Converts model inputs/outputs from a source dtype to a target dtype based on a name pattern. |
-| [OrtMixedPrecision](../../reference/pass.rst#_ort_mixed_precision) | Convert model to mixed precision. |
-| [QNNPreprocess](../../reference/pass.rst#_qnn_preprocess) | Preprocess ONNX model for quantization targeting QNN Execution Provider. |
-| [MixedPrecisionOverrides](../../reference/pass.rst#_mixed_precision_overrides) | Pre-processes the model for mixed precision quantization with qnn configs. |
-| [OnnxDynamicQuantization](../../reference/pass.rst#_onnx_dynamic_quantization) | ONNX Dynamic Quantization Pass. |
-| [OnnxStaticQuantization](../../reference/pass.rst#_onnx_static_quantization) | ONNX Static Quantization Pass. |
-| [OnnxQuantization](../../reference/pass.rst#_onnx_quantization) | Quantize ONNX model with onnxruntime where we can search for best parameters for static/dynamic quantization at same time. |
-| [OnnxMatMul4Quantizer](../../reference/pass.rst#_onnx_matmul4_quantizer) | Quantize ONNX models' MatMul operations to 4-bit weights |
-| [GraphSurgeries](../../reference/pass.rst#_graph_surgeries) | ONNX graph surgeries collections. |
-| [MatMulNBitsToQDQ](../../reference/pass.rst#_matmulnbits_to_qdq) | Convert ONNX MatMulNBits nodes to standard ONNX quantized-dequantized (QDQ) format. |
-| [DynamicToFixedShape](../../reference/pass.rst#_dynamic_to_fixed_shape) | Convert dynamic shape to fixed shape for ONNX model |
-| [IncDynamicQuantization](../../reference/pass.rst#_inc_dynamic_quantization) |  Intel® Neural Compressor Dynamic Quantization Pass. |
-| [IncStaticQuantization](../../reference/pass.rst#_inc_static_quantization) |  Intel® Neural Compressor Static Quantization Pass. |
-| [IncQuantization](../../reference/pass.rst#_inc_quantization) | Quantize ONNX model with Intel® Neural Compressor where we can search for best parameters for static/dynamic quantization at same time. |
-| [VitisAIQuantization](../../reference/pass.rst#_vitis_ai_quantization) | AMD-Xilinx Vitis-AI Quantization Pass. |
-| [AppendPrePostProcessingOps](../../reference/pass.rst#_append_pre_post_processing) | Add Pre/Post nodes to the input model. |
-| [ExtractAdapters](../../reference/pass.rst#_extract_adapters) | Extract adapters from ONNX model |
-| [CaptureSplitInfo](../../reference/pass.rst#_capture_split_info) | Capture the split information of the model layers. Only splits the transformer layers. |
-| [SplitModel](../../reference/pass.rst#_split_model) | Split an ONNX model into multiple smaller sub-models based on predefined assignments. |
-| [LoRA](../../reference/pass.rst#_lora) | Run LoRA fine-tuning on a Hugging Face PyTorch model. |
-| [LoHa](../../reference/pass.rst#_loha) | Run LoHa fine-tuning on a Hugging Face PyTorch model. |
-| [LoKr](../../reference/pass.rst#_lokr) | Run LoKr fine-tuning on a Hugging Face PyTorch model. |
-| [QLoRA](../../reference/pass.rst#_qlora) | Run QLoRA fine-tuning on a Hugging Face PyTorch model. |
-| [DoRA](../../reference/pass.rst#_dora) | Run DoRA fine-tuning on a Hugging Face PyTorch model. |
-| [LoftQ](../../reference/pass.rst#_loftq) | Run LoftQ fine-tuning on a Hugging Face PyTorch model. |
-| [QuantizationAwareTraining](../../reference/pass.rst#_onnx_quantization_aware_training) | Run quantization aware training on PyTorch model. |
+| [OnnxConversion](pass.rst#onnxconversion) | Convert a PyTorch model to ONNX model |
+| [OnnxOpVersionConversion](pass.rst#onnxopversionconversion) | Convert a Onnx model to target op version |
+| [OnnxScriptFusion](pass.rst#onnxscriptfusion) | Fuse Ops using onnxscript |
+| [ModelBuilder](pass.rst#modelbuilder) | Convert a generative PyTorch model to ONNX model using [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module |
+| [OnnxPeepholeOptimizer](pass.rst#onnxpeepholeoptimizer) | Optimize ONNX model by fusing nodes. |
+| [OnnxTransformersOptimization](pass.rst#onnxtransformersoptimization) | Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time. It is based on onnxruntime.transformers.optimizer. |
+| [OrtSessionParamsTuning](pass.rst#ortsessionparamstuning) | Optimize ONNX Runtime inference settings. |
+| [OnnxFloatToFloat16](pass.rst#onnxfloattofloat16) | Converts a model to float16. It uses the float16 converter from onnxruntime to convert the model to float16. |
+| [OnnxIODataTypeConverter](pass.rst#onnxiofloat16tofloat32) | Converts model inputs/outputs from a source dtype to a target dtype based on a name pattern. |
+| [OrtMixedPrecision](pass.rst#ortmixedprecision) | Convert model to mixed precision. |
+| [QNNPreprocess](pass.rst#qnnpreprocess) | Preprocess ONNX model for quantization targeting QNN Execution Provider. |
+| [MixedPrecisionOverrides](pass.rst#mixedprecisionoverrides) | Pre-processes the model for mixed precision quantization with qnn configs. |
+| [OnnxDynamicQuantization](pass.rst#onnxdynamicquantization) | ONNX Dynamic Quantization Pass. |
+| [OnnxStaticQuantization](pass.rst#onnxstaticquantization) | ONNX Static Quantization Pass. |
+| [OnnxQuantization](pass.rst#onnxquantization) | Quantize ONNX model with onnxruntime where we can search for best parameters for static/dynamic quantization at same time. |
+| [OnnxMatMul4Quantizer](pass.rst#onnxmatmul4quantizer) | Quantize ONNX models' MatMul operations to 4-bit weights |
+| [OnnxHqqQuantization](pass.rst#onnxhqqquantization) | Quantize ONNX models' MatMul operations to 4-bit weights by HQQ algorithm. |
+| [GraphSurgeries](pass.rst#graphsurgeries) | ONNX graph surgeries collections. |
+| [MatMulNBitsToQDQ](pass.rst#matmulnbitstoqdq) | Convert ONNX MatMulNBits nodes to standard ONNX quantized-dequantized (QDQ) format. |
+| [DynamicToFixedShape](pass.rst#dynamictofixedshape) | Convert dynamic shape to fixed shape for ONNX model |
+| [IncDynamicQuantization](pass.rst#incdynamicquantization) |  Intel® Neural Compressor Dynamic Quantization Pass. |
+| [IncStaticQuantization](pass.rst#incstaticquantization) |  Intel® Neural Compressor Static Quantization Pass. |
+| [IncQuantization](pass.rst#incquantization) | Quantize ONNX model with Intel® Neural Compressor where we can search for best parameters for static/dynamic quantization at same time. |
+| [VitisAIQuantization](pass.rst#vitisaiquantization) | AMD-Xilinx Vitis-AI Quantization Pass. |
+| [AppendPrePostProcessingOps](pass.rst#appendprepostprocessing) | Add Pre/Post nodes to the input model. |
+| [ExtractAdapters](pass.rst#extractadapters) | Extract adapters from ONNX model |
+| [CaptureSplitInfo](pass.rst#capturesplitinfo) | Capture the split information of the model layers. Only splits the transformer layers. |
+| [SplitModel](pass.rst#splitmodel) | Split an ONNX model into multiple smaller sub-models based on predefined assignments. |
+| [LoRA](pass.rst#lora) | Run LoRA fine-tuning on a Hugging Face PyTorch model. |
+| [LoHa](pass.rst#loha) | Run LoHa fine-tuning on a Hugging Face PyTorch model. |
+| [LoKr](pass.rst#lokr) | Run LoKr fine-tuning on a Hugging Face PyTorch model. |
+| [QLoRA](pass.rst#qlora) | Run QLoRA fine-tuning on a Hugging Face PyTorch model. |
+| [DoRA](pass.rst#dora) | Run DoRA fine-tuning on a Hugging Face PyTorch model. |
+| [LoftQ](pass.rst#loftq) | Run LoftQ fine-tuning on a Hugging Face PyTorch model. |
+| [QuantizationAwareTraining](pass.rst#onnxquantizationawaretraining) | Run quantization aware training on PyTorch model. |
 | [OpenVINOConversion](pass.rst#openvinoconversion) | Converts PyTorch, ONNX or TensorFlow Model to OpenVINO Model. |
 | [OpenVINOIoUpdate](pass.rst#openvinoioupdate) | Converts dynamic OpenVINO Model to static OpenVINO Model and updates IO names. |
 | [OpenVINOQuantization](pass.rst#openvinoquantization) | Post-training quantization for OpenVINO model. |
 | [OpenVINOEncapsulation](pass.rst#openvinoencapsulation) | Generates an ONNX model that encapsulates an OpenVINO IR model. |
 | [OpenVINOOptimumConversion](pass.rst#openvinooptimumconversion) | Run [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) command using Optimum Intel® to convert Huggingface Model to OpenVINO Model and optionally perform weight compression or quantization. |
-| [SNPEConversion](../../reference/pass.rst#_snpe_conversion) | Convert ONNX or TensorFlow model to SNPE DLC. Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK. |
-| [SNPEQuantization](../../reference/pass.rst#_snpe_quantization) | Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK. |
-| [SNPEtoONNXConversion](../../reference/pass.rst#_snpe_to_onnx_conversion) | Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node. |
-| [QNNConversion](../../reference/pass.rst#_qnn_conversion) | Convert ONNX, TensorFlow, or PyTorch model to QNN C++ model. Quantize the model if –input_list is provided as extra_args. Uses qnn-[framework]-converter tool from the QNN SDK. |
-| [QNNModelLibGenerator](../../reference/pass.rst#_qnn_model_lib_generator) |  |
-| [QNNContextBinaryGenerator](../../reference/pass.rst#_) | Compile QNN C++ model source code into QNN model library for a specific target. Uses qnn-model-lib-generator tool from the QNN SDK. |
-| [MergeAdapterWeights](../../reference/pass.rst#_merge_adapter_weights) | Merge adapter weights into the base model and save transformer context files. |
-| [SparseGPT](../../reference/pass.rst#_sparsegpt) | Run SparseGPT on a Hugging Face PyTorch model.  |
-| [SliceGPT](../../reference/pass.rst#_slicegpt) | Run SliceGPT on a Hugging Face PyTorch model. |
-| [QuaRot](../../reference/pass.rst#_quarot) | Rotate model using QuaRot. |
-| [GptqQuantizer](../../reference/pass.rst#_gptq_quantizer) | GPTQ quantization Pass On Pytorch Model. |
-| [AutoAWQQuantizer](../../reference/pass.rst#_awq_quantizer) | AWQ quantization Pass On Pytorch Model. |
-| [TorchTRTConversion](../../reference/pass.rst#_torch_trt_conversion) | Convert torch.nn.Linear modules in the transformer layers of a HuggingFace PyTorch model to TensorRT modules. |
-| [OptimumConversion](../../reference/pass.rst#_optimum_conversion) | Convert huggingface models to ONNX via the Optimum library. |
-| [OptimumMerging](../../reference/pass.rst#_optimum_merging) | Merge 2 models together with an `if` node via the Optimum library. |
+| [SNPEConversion](pass.rst#snpeconversion) | Convert ONNX or TensorFlow model to SNPE DLC. Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK. |
+| [SNPEQuantization](pass.rst#snpequantization) | Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK. |
+| [SNPEtoONNXConversion](pass.rst#snpetoonnxconversion) | Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node. |
+| [QNNConversion](pass.rst#qnnconversion) | Convert ONNX, TensorFlow, or PyTorch model to QNN C++ model. Quantize the model if –input_list is provided as extra_args. Uses qnn-[framework]-converter tool from the QNN SDK. |
+| [QNNModelLibGenerator](pass.rst#qnnmodellibgenerator) |  |
+| [QNNContextBinaryGenerator](pass.rst#qnncontextbinarygenerator) | Compile QNN C++ model source code into QNN model library for a specific target. Uses qnn-model-lib-generator tool from the QNN SDK. |
+| [MergeAdapterWeights](pass.rst#mergeadapterweights) | Merge adapter weights into the base model and save transformer context files. |
+| [SparseGPT](pass.rst#sparsegpt) | Run SparseGPT on a Hugging Face PyTorch model.  |
+| [SliceGPT](pass.rst#slicegpt) | Run SliceGPT on a Hugging Face PyTorch model. |
+| [QuaRot](pass.rst#quarot) | Rotate model using QuaRot. |
+| [GptqQuantizer](pass.rst#gptqquantizer) | GPTQ quantization Pass On Pytorch Model. |
+| [AutoAWQQuantizer](pass.rst#awqquantizer) | AWQ quantization Pass On Pytorch Model. |
+| [TorchTRTConversion](pass.rst#torchtrtconversion) | Convert torch.nn.Linear modules in the transformer layers of a HuggingFace PyTorch model to TensorRT modules. |
+| [OptimumConversion](pass.rst#optimumconversion) | Convert huggingface models to ONNX via the Optimum library. |
+| [OptimumMerging](pass.rst#optimummerging) | Merge 2 models together with an `if` node via the Optimum library. |
 
 ### Example
 
@@ -525,15 +527,15 @@ This is a dictionary that contains the information of the engine. Its fields can
 - `log_to_file: [Boolean]`, `false` by default. This decides whether to log to file. If `true`, the log will be stored in a olive-<timestamp>.log file
     under the current working directory.
 
-Please find the detailed config options from following table for each search sampler:
+Please find the detailed list for each search sampler
 
 Note that if `max_samples` is set to zero, each of the below sampler will be exhaustive.
 
 | Sampler  | Description |
 |:----------|:-------------|
-| [random](../../reference/search-samplers.rst#_random_sampler) | Samples random points from the search space |
-| [sequential](../../reference/search-samplers.rst#_sequential_sampler) | Iterates over the entire search space sequentially |
-| [tpe](../../reference/search-samplers.rst#_tpe_sampler) | Sample using TPE (Tree-structured Parzen Estimator) algorithm. |
+| random | Samples random points from the search space |
+| sequential| Iterates over the entire search space sequentially |
+| tpe | Sample using TPE (Tree-structured Parzen Estimator) algorithm. |
 
 ### Example
 
