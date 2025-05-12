@@ -1,0 +1,711 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Quantize &#8212; Olive  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/cli/cli-quantize';</script>
+    <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Run Olive workflows" href="cli-run.html" />
+    <link rel="prev" title="Finetune" href="cli-finetune.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.9.0" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Olive  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../examples.html">
+    Examples
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    How-to
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../examples.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../extending/index.html">
+    Extending Olive
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/microsoft/Olive" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/olive-ai" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-pypi fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">How-to</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Quantize</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="quantize">
+<h1>Quantize<a class="headerlink" href="#quantize" title="Link to this heading">#</a></h1>
+<p>Quantization refers to techniques for performing computations and storing tensors at lower bitwidths than floating point precision. A quantized model executes some or all of the operations on tensors with reduced precision rather than full precision (floating point) values. This allows for a more compact model representation and the use of high performance vectorized operations on many hardware platforms.</p>
+<p>Olive encapsulates all the latest cutting edge quantization techniques into a single command line tool that enables you to easily experiment/test the impact of different techniques.</p>
+<section id="supported-quantization-techniques">
+<h2>Supported quantization techniques<a class="headerlink" href="#supported-quantization-techniques" title="Link to this heading">#</a></h2>
+<p>Currently, Olive supports the following techniques:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Some methods require a GPU and/or a calibration dataset.</p>
+</div>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Implementation</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Model format(s)</p></th>
+<th class="head"><p>Algorithm</p></th>
+<th class="head"><p>GPU required</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>AWQ</p></td>
+<td><p>Activation-aware Weight Quantization (AWQ) creates 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16.</p></td>
+<td><p>PyTorch <br> ONNX</p></td>
+<td><p>Awq</p></td>
+<td><p>✔️</p></td>
+</tr>
+<tr class="row-odd"><td><p>GPTQ</p></td>
+<td><p>Generative Pre-trained Transformer Quantization (GPTQ) is a one-shot weight quantization method. You can quantize your favorite language model to 8, 4, 3 or even 2 bits.</p></td>
+<td><p>PyTorch <br> ONNX</p></td>
+<td><p>GptQ</p></td>
+<td><p>✔️</p></td>
+</tr>
+<tr class="row-even"><td><p>Quarot</p></td>
+<td><p>QuaRot enables full 4-bit quantization of LLMs, including weights, activations, and KV cache, by using Hadamard rotations to remove outliers</p></td>
+<td><p>PyTorch</p></td>
+<td><p>quarot</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-odd"><td><p>Spinquant</p></td>
+<td><p>SpinQuant is a quantization method that learns rotation matrices to eliminate outliers in weights and activations, improving low-bit quantization without altering model architecture.</p></td>
+<td><p>PyTorch</p></td>
+<td><p>spinquant</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-even"><td><p>BitsAndBytes</p></td>
+<td><p>Is a MatMul with weight quantized with N bits (e.g., 2, 3, 4, 5, 6, 7).</p></td>
+<td><p>ONNX</p></td>
+<td><p>RTN</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-odd"><td><p>ORT</p></td>
+<td><p>Static and dynamic quantizations.</p></td>
+<td><p>ONNX</p></td>
+<td><p>RTN</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-even"><td><p>INC</p></td>
+<td><p>Intel® Neural Compressor model compression tool.</p></td>
+<td><p>ONNX</p></td>
+<td><p>GPTQ</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-odd"><td><p>NVMO</p></td>
+<td><p>NVIDIA TensorRT Model Optimizer is a library comprising state-of-the-art model optimization techniques including quantization, sparsity, distillation, and pruning to compress models.</p></td>
+<td><p>ONNX</p></td>
+<td><p>AWQ</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-even"><td><p>Olive</p></td>
+<td><p>Olive implemented Half-Quadratic Quantization for MatMul to 4 bits</p></td>
+<td><p>ONNX</p></td>
+<td><p>HQQ</p></td>
+<td><p>❌</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="quickstart">
+<h2><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-zap" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"></path></svg> Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading">#</a></h2>
+<p>To use AWQ quantization on <a class="reference external" href="https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main">Llama-3.2-1B-Instruct</a> run the following command:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>You’ll need to execute this command on a GPU machine.</p></li>
+<li><p>If you want to quantize a different model, update the <code class="docutils literal notranslate"><span class="pre">--model_name_or_path</span></code> to a different Hugging Face Repo ID (`{username}/{model})</p></li>
+</ul>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>quantize<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--model_name_or_path<span class="w"> </span>meta-llama/Llama-3.2-1B-Instruct<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--algorithm<span class="w"> </span>awq<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output_path<span class="w"> </span>models/llama/awq<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--log_level<span class="w"> </span><span class="m">1</span>
+</pre></div>
+</div>
+</section>
+<section id="quantization-with-onnx-optimizations">
+<h2>Quantization with ONNX Optimizations<a class="headerlink" href="#quantization-with-onnx-optimizations" title="Link to this heading">#</a></h2>
+<p>As articulated in <a class="reference internal" href="#supported-quantization-techniques"><span class="xref myst">Supported quantization techniques</span></a>, you may wish to take the PyTorch/Hugging Face output of AWQ/GPTQ quantization methods and convert into an optimized ONNX format so that you can inference using the ONNX runtime.</p>
+<p>You can use Olive’s automatic optimizer (<code class="docutils literal notranslate"><span class="pre">auto-opt</span></code>) to create an optimized ONNX model from a quantized model:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 1: AWQ (will output a PyTorch model)</span>
+olive<span class="w"> </span>quantize<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--model_name_or_path<span class="w"> </span>meta-llama/Llama-3.2-1B-Instruct<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--algorithm<span class="w"> </span>awq<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output_path<span class="w"> </span>models/llama/awq<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--log_level<span class="w"> </span><span class="m">1</span>
+
+<span class="c1"># Step 2: Create an optimized ONNX model</span>
+olive<span class="w"> </span>auto-opt<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--model_name_or_path<span class="w"> </span>models/llama/awq<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--provider<span class="w"> </span>CPUExecutionProvider<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--use_ort_genai<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--output_path<span class="w"> </span>models/llama/onnx<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--log_level<span class="w"> </span><span class="m">1</span>
+</pre></div>
+</div>
+</section>
+<section id="pre-processing-for-finetuning">
+<h2>Pre-processing for Finetuning<a class="headerlink" href="#pre-processing-for-finetuning" title="Link to this heading">#</a></h2>
+<p>Quantizing a model as a <em>pre</em>-processing step for finetuning rather than as a <em>post</em>-processing step leads to more accurate quantized models because the loss due to quantization can be recovered during fine-tuning. The chain of Olive CLI commands required to quantize, finetune and output an ONNX model for the ONNX runtime are:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 1: AWQ (will output a PyTorch model)</span>
+olive<span class="w"> </span>quantize<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--model_name_or_path<span class="w"> </span>meta-llama/Llama-3.2-1B-Instruct<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--trust_remote_code<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--algorithm<span class="w"> </span>awq<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--output_path<span class="w"> </span>models/llama/awq<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--log_level<span class="w"> </span><span class="m">1</span>
+
+<span class="c1"># Step 2: Finetune (will output a PEFT adapter)</span>
+olive<span class="w"> </span>finetune<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--method<span class="w"> </span>lora<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--model_name_or_path<span class="w"> </span>models/llama/awq<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--data_name<span class="w"> </span>xxyyzzz/phrase_classification<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--text_template<span class="w"> </span><span class="s2">&quot;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;\n{phrase}&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;\n{tone}&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--max_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output_path<span class="w"> </span>./models/llama/ft<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--log_level<span class="w"> </span><span class="m">1</span>
+
+<span class="c1"># Step 3: Optimized ONNX model (will output an ONNX Model)</span>
+olive<span class="w"> </span>auto-opt<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--model_name_or_path<span class="w"> </span>models/llama/ft/model<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--adapter_path<span class="w"> </span>models/llama/ft/adapter<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--provider<span class="w"> </span>CPUExecutionProvider<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--use_ort_genai<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--output_path<span class="w"> </span>models/llama/onnx<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--log_level<span class="w"> </span><span class="m">1</span>
+</pre></div>
+</div>
+<p>Once the automatic optimizer has successfully completed, you’ll have:</p>
+<ol class="arabic simple">
+<li><p>The base model in an optimized ONNX format.</p></li>
+<li><p>The adapter weights in a format for ONNX Runtime.</p></li>
+</ol>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="cli-finetune.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Finetune</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="cli-run.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Run Olive workflows</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-quantization-techniques">Supported quantization techniques</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quickstart"><svg aria-hidden="true" class="sd-octicon sd-octicon-zap" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"></path></svg> Quickstart</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantization-with-onnx-optimizations">Quantization with ONNX Optimizations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pre-processing-for-finetuning">Pre-processing for Finetuning</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2025, Olive Dev team.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
