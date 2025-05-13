@@ -27,6 +27,7 @@ DEVICE_TO_EXECUTION_PROVIDERS = {
         "ROCMExecutionProvider",
         "MIGraphXExecutionProvider",
         "TensorrtExecutionProvider",
+        "NvTensorRTRTXExecutionProvider",
         "OpenVINOExecutionProvider",
         "JsExecutionProvider",
     },
