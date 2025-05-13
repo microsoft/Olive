@@ -143,13 +143,14 @@ jobs:
       pool: $(OLIVE_POOL_UBUNTU2004)
       test_type: 'integ_test'
 
-  - template: job_templates/olive-test-cpu-template.yaml
-    parameters:
-      name: Windows_CPU_CI_Integration_Test
-      pool: $(OLIVE_POOL_WIN2019)
-      test_type: 'integ_test'
-      onnxruntime: onnxruntime==1.21.1
-      windows: True
+  # Re-enable this when the cluster is ready
+  # - template: job_templates/olive-test-cpu-template.yaml
+  #   parameters:
+  #     name: Windows_CPU_CI_Integration_Test
+  #     pool: $(OLIVE_POOL_WIN2019)
+  #     test_type: 'integ_test'
+  #     onnxruntime: onnxruntime==1.21.1
+  #     windows: True
 
   # Multiple EP Linux testing
   - template: job_templates/olive-test-cpu-template.yaml
