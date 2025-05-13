@@ -28,7 +28,7 @@ class OnnxEpValidateMixin:
             logger.warning(
                 "Error: %(error)s Olive will ignore this %(ep)s."
                 "Please make sure the environment with %(ep)s has the required dependencies.",
-                {"error": str(e), "ep": ep}
+                {"error": str(e), "ep": ep},
             )
             return False
         return True
