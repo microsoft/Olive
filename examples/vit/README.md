@@ -35,7 +35,7 @@ Config file: [vit_qdq.json](vit_qdq.json)
 
 ### Optimization with Nvidia TensorRT-RTX execution provider
  This example performs optimization with Nvidia TensorRT-RTX execution provider. It performs the optimization pipeline:
- - *ONNX Model -> fp16 Onnx Model*
+ - *PyTorch Model -> ONNX Model -> fp16 Onnx Model*
 
  Config file: [vit_trtrtx.json](vit_trtrtx.json)
 

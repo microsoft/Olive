@@ -58,7 +58,7 @@ Accuracy / latency
 
 ### Optimization with Nvidia TensorRT-RTX execution provider
  This example performs optimization with Nvidia TensorRT-RTX execution provider. It performs the optimization pipeline:
- - *ONNX Model -> fp16 Onnx Model*
+ - *PyTorch Model -> ONNX Model -> fp16 Onnx Model*
 
  Config files for TensorRT-RTX:
  - [laion/CLIP-ViT-B-32-laion2B-s34B-b79K](laion_CLIP-ViT-B-32-laion2B-s34B-b79K_trtrtx.json)
