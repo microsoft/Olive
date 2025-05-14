@@ -10,6 +10,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
+from olive.auto_optimizer.auto_optimizer import AutoOptimizer
 from olive.common.utils import set_tempdir
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
@@ -166,11 +167,16 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     if is_azureml_system:
         set_olive_config_for_aml_system(olive_config)
 
-    auto_optimizer_enabled = (
-        not run_config.passes
-        and run_config.auto_optimizer_config is not None
-        and not run_config.auto_optimizer_config.disable_auto_optimizer
-    )
+    if run_config.auto_optimizer_config:
+        optimizer = AutoOptimizer(run_config.input_model, run_config.auto_optimizer_config)
+        run_config.passes = optimizer.generate_run_passes_configs(run_config.passes)
+
+        if run_config.auto_optimizer_config.generate_config_only:
+            with open("auto_opt_config.json", "w") as strm:
+                import json
+
+                json.dump(run_config.to_json(check_object=True), strm, indent=2)
+                return 0
 
     # check if target is not used
     used_passes_configs = get_used_passes_configs(run_config)
@@ -187,7 +193,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
         )
     )
 
-    is_ep_required = auto_optimizer_enabled or is_execution_provider_required(run_config, package_config)
+    is_ep_required = run_config.auto_optimizer_config or is_execution_provider_required(run_config, package_config)
     accelerator_specs = create_accelerators(
         engine.target_config, skip_supported_eps_check=target_not_used, is_ep_required=is_ep_required
     )

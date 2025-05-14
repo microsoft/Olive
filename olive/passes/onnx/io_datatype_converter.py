@@ -138,6 +138,19 @@ class OnnxIODataTypeConverter(Pass):
                 "for details."
             )
 
+    @classmethod
+    def validate_config(cls, config: type[BasePassConfig], accelerator_spec: AcceleratorSpec) -> bool:
+        if not super().validate_config(config, accelerator_spec):
+            return False
+
+        if config.target_dtype == onnx.TensorProto.FLOAT16 and (
+            accelerator_spec.execution_provider in {"JsExecutionProvider", "WebGpuExecutionProvider"}
+        ):
+            logger.info("Web execution providers don't support fp16.")
+            return False
+
+        return True
+
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:

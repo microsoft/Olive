@@ -29,6 +29,7 @@ DEVICE_TO_EXECUTION_PROVIDERS = {
         "TensorrtExecutionProvider",
         "OpenVINOExecutionProvider",
         "JsExecutionProvider",
+        "WebGpuExecutionProvider",
     },
     "npu": {"DmlExecutionProvider", "QNNExecutionProvider", "VitisAIExecutionProvider", "OpenVINOExecutionProvider"},
 }
