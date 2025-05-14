@@ -176,7 +176,9 @@ def get_ort_inference_session(
             provider_options[idx]["device_id"] = str(device_id)
         elif provider == "QNNExecutionProvider":
             # add backend_path for QNNExecutionProvider
-            provider_options[idx]["backend_path"] = "QnnHtp.dll"
+            # WinML should not use provider options
+            # provider_options[idx]["backend_path"] = "QnnHtp.dll"
+            pass
     logger.debug("Normalized providers: %s, provider_options: %s", providers, provider_options)
 
     # dml specific settings
