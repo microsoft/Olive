@@ -13,11 +13,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
+from packaging import version
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
     from onnxruntime import InferenceSession, IOBinding
 
+    from olive.hardware.accelerator import Device
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +28,73 @@ class OrtSessionFallbackError(Exception):
     """Raised when the onnxruntime fallback happens."""
 
 
+def is_winml_installation() -> bool:
+    from onnxruntime import __version__ as OrtVersion
+
+    if version.parse(OrtVersion) >= version.parse("1.22.0"):
+        try:
+            from onnxruntime import winml  # noqa: F401 # pylint: disable=unused-import
+        except ImportError:
+            logger.info("onnxruntime-winml not installed")
+            return False
+        return True
+    return False
+
+
+def get_ort_hardware_device_type(device: Union["Device", str]):
+    if is_winml_installation():
+        from onnxruntime import OrtHardwareDeviceType
+
+        mapping = {
+            "cpu": OrtHardwareDeviceType.CPU,
+            "gpu": OrtHardwareDeviceType.GPU,
+            "npu": OrtHardwareDeviceType.NPU,
+        }
+        return mapping.get(device.lower())
+    return None
+
+
+def get_ort_execution_provider_device_policy(policy: str):
+    if is_winml_installation():
+        from onnxruntime import OrtExecutionProviderDevicePolicy
+
+        mapping = {
+            "default": OrtExecutionProviderDevicePolicy.DEFAULT,
+            "prefer_cpu": OrtExecutionProviderDevicePolicy.PREFER_CPU,
+            "prefer_npu": OrtExecutionProviderDevicePolicy.PREFER_NPU,
+            "prefer_gpu": OrtExecutionProviderDevicePolicy.PREFER_GPU,
+            "max_performance": OrtExecutionProviderDevicePolicy.MAX_PERFORMANCE,
+            "max_efficiency": OrtExecutionProviderDevicePolicy.MAX_EFFICIENCY,
+            "overall_power": OrtExecutionProviderDevicePolicy.MIN_OVERALL_POWER,
+        }
+        return mapping.get(policy.lower())
+    return None
+
+
+def initialize_inference_session_options_for_winml(
+    sess_options, device, providers, provider_options, provider_selection_policy=None
+):
+    import onnxruntime as ort
+
+    providers = providers or []
+    provider_options = provider_options or []
+    provider_options_by_ep = dict(zip(providers, provider_options))
+    ort_device_type = get_ort_hardware_device_type(device)
+    for ep_device in ort.get_ep_devices():
+        if ep_device.device.type == ort_device_type and ep_device.ep_name in provider_options_by_ep:
+            sess_options.add_provider_for_devices([ep_device], provider_options_by_ep.get(ep_device.ep_name) or {})
+
+    if provider_selection_policy:
+        provider_selection_policy = get_ort_execution_provider_device_policy(provider_selection_policy)
+        sess_options.set_provider_selection_policy(provider_selection_policy)
+
+
 # NOTE: `device_id` is only used internally for inference with Distributed ONNX models.
 # For regular ONNX models, the recommended way to specify the device is to set the environment variable
-# `CUDA_VISIBLE_DEVICES` before runnning a workflow.
+# `CUDA_VISIBLE_DEVICES` before running a workflow.
 def get_ort_inference_session(
     model_path: Union[Path, str],
+    device: Union["Device", str],
     inference_settings: dict[str, Any],
     use_ort_extensions: bool = False,
     device_id: Optional[int] = None,
@@ -119,11 +183,18 @@ def get_ort_inference_session(
     if len(providers) >= 1 and providers[0] == "DmlExecutionProvider":
         sess_options.enable_mem_pattern = False
 
+    sess_kwargs = {}
+    if is_winml_installation():
+        initialize_inference_session_options_for_winml(
+            sess_options, device, providers, provider_options, inference_settings.get("provider_selection_policy")
+        )
+    else:
+        sess_kwargs.update({"providers": providers, "provider_options": provider_options})
+
     # create session
-    session = ort.InferenceSession(
-        str(model_path), sess_options=sess_options, providers=providers, provider_options=provider_options
-    )
+    session = ort.InferenceSession(str(model_path), sess_options=sess_options, **sess_kwargs)
     check_ort_fallback(session, providers)
+
     # set tuning results for tunable operators (currently only for ROCM EP)
     tuning_op_result = inference_settings.get("tuning_op_result")
     if tuning_op_result:
