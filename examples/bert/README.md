@@ -5,7 +5,7 @@ This folder contains examples of BERT optimization using different workflows.
 - CPU: [Optimization with PTQ for model from HF/AML](#bert-optimization-with-ptq-on-cpu)
 - CPU: [Optimization with Intel® Neural Compressor PTQ](#bert-optimization-with-intel®-neural-compressor-ptq-on-cpu)
 - CPU: [Optimization with QAT Customized Training Loop](#bert-optimization-with-qat-customized-training-loop-on-cpu)
-- GPU: [Optimization with CUDA/TensorRT](#bert-optimization-with-cudatensorrt-on-gpu)
+- GPU: [Optimization with CUDA/TensorRT/TensorRT-RTX](#bert-optimization-with-cudatensorrt-on-gpu)
 - Qualcomm NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](./qnn/)
 - Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
 - AMD NPU: [Optimization and Quantization with QDQ format for AMD NPU (VitisAI)](#optimization-and-quantization-for-amd-npu)
@@ -135,6 +135,9 @@ This workflow performs BERT optimization on GPU with CUDA/TensorRT. It performs 
 2. TensorRT: `TensorrtExecutionProvider`
     - *PyTorch Model -> Onnx Model -> ONNX Runtime performance tuning with trt_fp16_enable*
     Config file: [bert_trt_gpu.json](bert_trt_gpu.json)
+3. TensorRT-RTX: `NvTensorRTRTXExecutionProvider`
+    - *PyTorch Model -> Onnx Model -> fp16 Onnx Model*
+    Config file: [bert_trtrtx_gpu.json](bert_trtrtx_gpu.json)
 
 ## How to run
 ### Pip requirements
