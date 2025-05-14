@@ -49,6 +49,7 @@ def main(raw_args=None):
     # create session
     session = get_ort_inference_session(
         args.model_path,
+        config.get("device", "cpu"),
         config["inference_settings"],
         config.get("use_ort_extensions", False),
         external_initializers=np.load(args.external_initializers_path) if args.external_initializers_path else None,
