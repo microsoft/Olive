@@ -9,6 +9,7 @@ This folder contains examples of ResNet optimization using different workflows.
 - Qualcomm NPU: [with QNN execution provider in ONNX Runtime](./qnn/)
 - Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
 - AMD NPU: [Optimization and Quantization with QDQ format for AMD NPU (VitisAI)](#optimization-and-quantization-for-amd-npu)
+- Nvidia GPU:[With Nvidia TensorRT-RTX execution provider in ONNX Runtime](#resnet-optimization-with-nvidia-tensorrt-rtx-execution-provider)
 
 Go to [How to run](#how-to-run)
 
@@ -72,6 +73,12 @@ This example performs ResNet optimization with OpenVINO and DML execution provid
 - *ONNX Model -> ONNX Runtime performance tuning on multiple ep*
 
 Config file: [resnet_multiple_ep.json](resnet_multiple_ep.json)
+
+### ResNet optimization with Nvidia TensorRT-RTX execution provider
+This example performs ResNet optimization with Nvidia TensorRT-RTX execution provider. It performs the optimization pipeline:
+- *ONNX Model -> fp16 Onnx Model*
+
+Config file: [resnet_trtrtx.json](resnet_trtrtx.json)
 
 ## How to run
 ### Pip requirements
