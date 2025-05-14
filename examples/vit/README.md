@@ -4,6 +4,7 @@ This folder contains examples of ViT quantization using different workflows.
 - Qualcomm NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](./qnn/)
 - Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
 - AMD NPU: [Optimization and Quantization with QDQ format for AMD NPU (VitisAI)](#optimization-and-quantization-for-amd-npu)
+- Nvidia GPU: [With Nvidia TensorRT-RTX execution provider in ONNX Runtime](#optimization-with-nvidia-tensorrt-rtx-execution-provider)
 
 Go to [How to run](#how-to-run)
 
@@ -31,6 +32,12 @@ Config file: [vit_qdq.json](vit_qdq.json)
 
  Config files for VitisAI:
  - [google/vit-base-patch16-224](vit_qdq_vitis_ai.json)
+
+### Optimization with Nvidia TensorRT-RTX execution provider
+ This example performs optimization with Nvidia TensorRT-RTX execution provider. It performs the optimization pipeline:
+ - *ONNX Model -> fp16 Onnx Model*
+
+ Config file: [vit_trtrtx.json](vit_trtrtx.json)
 
 ## How to run
 ```
