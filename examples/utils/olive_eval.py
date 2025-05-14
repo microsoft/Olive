@@ -3,12 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from time import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional, Union
 
+import onnxruntime as ort
 from logger import get_logger, set_logger_level
 from pydantic import BaseModel, ValidationError
 
+from olive.hardware.accelerator import Device
 from olive.model.config import ModelConfig
+from olive.model.handler.onnx import ONNXModelHandler as _ONNXModelHandler
 from olive.package_config import OlivePackageConfig
 from olive.resource_path import LocalFile, create_resource_path
 from olive.systems.accelerator_creator import create_accelerators
@@ -22,8 +25,62 @@ if TYPE_CHECKING:
 logger = get_logger("Evaluate")
 
 
+def get_ort_ep_policy(p):
+    from onnxruntime import OrtExecutionProviderDevicePolicy as Policy
+
+    mapping = {
+        "DEFAULT": Policy.DEFAULT,
+        "PREFER_CPU": Policy.PREFER_CPU,
+        "PREFER_GPU": Policy.PREFER_GPU,
+        "PREFER_NPU": Policy.PREFER_NPU,
+        "MAX_PERFORMANCE": Policy.MAX_PERFORMANCE,
+        "MAX_EFFICIENCY": Policy.MAX_EFFICIENCY,
+        "MIN_OVERALL_POWER": Policy.MIN_OVERALL_POWER,
+    }
+
+    return mapping.get(p)
+
+
+class ONNXModelHandler(_ONNXModelHandler):
+    def _get_ep_selection(self, inference_settings: dict[str, Any]):
+        """Check if the session is autoep."""
+        session_options = inference_settings.get("session_options")
+        return session_options.get("ep_selection") if session_options else None
+
+    def prepare_session(
+        self,
+        inference_settings: Optional[dict[str, Any]] = None,
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+        rank: Optional[int] = None,
+    ):
+        # user provided inference_settings > model's inference_settings > default settings
+        inference_settings = self.merge_inference_settings(inference_settings, execution_providers)
+
+        ep_selection = self._get_ep_selection(inference_settings)
+        if ep_selection:
+            policy = get_ort_ep_policy(ep_selection["policy"])
+            if policy is None:
+                raise ValueError(f"Invalid EP selection policy: {ep_selection['policy']}")
+            sess_options = ort.SessionOptions()
+            sess_options.set_provider_selection_policy(policy)
+            return ort.InferenceSession(str(self.model_path), sess_options=sess_options)
+
+        return super().prepare_session(
+            inference_settings=inference_settings,
+            device=device,
+            execution_providers=execution_providers,
+            rank=rank,
+        )
+
+
+class ONNXModelConfig(ModelConfig):
+    def create_model(self):
+        return ONNXModelHandler(**self.config)
+
+
 class InferenceSetting(BaseModel):
-    execution_provider: str
+    execution_provider: str | None = None
     provider_options: list[dict] | None = None
     session_options: dict | None = {}
 
@@ -111,8 +168,8 @@ def evaluate(
 
     accelerator_specs = create_accelerators(
         target_config,
-        skip_supported_eps_check=False,
-        is_ep_required=True,
+        skip_supported_eps_check=True,
+        is_ep_required=False,
     )
 
     target_system: OliveSystem = target_config.create_system()
@@ -126,8 +183,8 @@ def evaluate(
     logger.info("Parsing model config ...")
     model_config_file: LocalFile = cast("LocalFile", create_resource_path(p))
     model_config = cast(
-        "ModelConfig",
-        ModelConfig.parse_file_or_obj(model_config_file.get_path()),
+        "ONNXModelConfig",
+        ONNXModelConfig.parse_file_or_obj(model_config_file.get_path()),
     )
     logger.info("Model path: %s", model_config.config["model_path"])
 

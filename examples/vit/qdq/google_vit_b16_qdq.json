@@ -25,8 +25,15 @@
             "type": "OnnxQuantization",
             "data_config": "calib_data",
             "quant_preprocess": true,
-            "activation_type": "QUInt16",
-            "weight_type": "QUInt8"
+            "activation_type": "uint16",
+            "precision": "uint8"
+        },
+        "addmetadata": {
+            "type": "VitisAIAddMetaData",
+            "config_meta_data_keys": [ "architectures", "model_type" ],
+            "activation_type": "uint16",
+            "weight_type": "uint8",
+            "quant_type": "OnnxStaticQuantization"
         }
     },
     "data_configs": [

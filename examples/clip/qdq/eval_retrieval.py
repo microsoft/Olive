@@ -12,86 +12,42 @@ from tqdm.auto import tqdm
 from transformers import AutoTokenizer, CLIPProcessor
 
 
-class QNPUModule:
-    def __init__(self, model_path: Path, device="npu", **kwargs) -> None:
-        self.model_path = model_path
+def get_ort_ep_policy(p):
+    from onnxruntime import OrtExecutionProviderDevicePolicy as Policy
 
-        if device == "npu":
-            self._init_npu_session(**kwargs)
-        elif device == "cpu":
-            self._init_cpu_session(**kwargs)
-        else:
-            raise ValueError(f"QNPUModule does not support device: {device}")
+    mapping = {
+        "DEFAULT": Policy.DEFAULT,
+        "PREFER_CPU": Policy.PREFER_CPU,
+        "PREFER_GPU": Policy.PREFER_GPU,
+        "PREFER_NPU": Policy.PREFER_NPU,
+        "MAX_PERFORMANCE": Policy.MAX_PERFORMANCE,
+        "MAX_EFFICIENCY": Policy.MAX_EFFICIENCY,
+        "MIN_OVERALL_POWER": Policy.MIN_OVERALL_POWER,
+    }
+    return mapping.get(p)
+
+
+class OrtModule:
+    def __init__(self, model_path: Path, policy="PREFER_NPU", **kwargs) -> None:
+        self.model_path = model_path
+        self.session = self._init_ort_session(policy, **kwargs)
 
         self._input_names = [i.name for i in self.session.get_inputs()]
         self._outputs_names = [o.name for o in self.session.get_outputs()]
         self._batch_size = self.session.get_inputs()[0].shape[0]
         self._latency_trace = []
 
-    def _init_cpu_session(self, **kwargs):
-        if not self.model_path.exists():
-            raise FileNotFoundError(f"Model file not found: {self.model_path}")
+    def _init_ort_session(self, policy, **kwargs):
+        policy = get_ort_ep_policy(policy)
+        if policy is None:
+            raise ValueError(f"Invalid EP selection policy: {policy}")
 
-        options = ort.SessionOptions()
-        self.session = ort.InferenceSession(
+        sess_options = ort.SessionOptions()
+        sess_options.set_provider_selection_policy(policy)
+
+        return ort.InferenceSession(
             str(self.model_path),
-            sess_options=options,
-            providers=["CPUExecutionProvider"],
-        )
-
-    def _init_npu_session(self, **kwargs):
-        disable_cpu_fallback = kwargs.get("disable_cpu_fallback", "0")
-        ep_context_enable = kwargs.get("ep_context_enable", "0")
-        ep_context_embed = kwargs.get("ep_context_embed", "0")
-        htp_performance_mode = kwargs.get("htp_performance_mode", "burst")
-        htp_graph_opt_mode = kwargs.get("htp_graph_optimization_mode", "3")
-
-        options = ort.SessionOptions()
-        options.add_session_config_entry("session.disable_cpu_ep_fallback", disable_cpu_fallback)
-
-        if not str(self.model_path.name).endswith(".onnx_ctx.onnx"):
-            epctx_model_path = self.model_path.with_suffix(".onnx_ctx.onnx")
-            if epctx_model_path.exists():
-                self.model_path = epctx_model_path
-            else:
-                options.add_session_config_entry("ep.context_enable", ep_context_enable)
-                options.add_session_config_entry("ep.context_embed_mode", ep_context_embed)
-
-        if not self.model_path.exists():
-            raise FileNotFoundError(f"Model file not found: {self.model_path}")
-
-        providers = ["QNNExecutionProvider"]
-        provider_options = [
-            {
-                "backend_path": "QnnHtp.dll",
-                "htp_performance_mode": htp_performance_mode,
-                "htp_graph_finalization_optimization_mode": htp_graph_opt_mode,
-            },
-        ]
-
-        if disable_cpu_fallback == "0":
-            providers.append("CPUExecutionProvider")
-            provider_options.append({})
-
-        if kwargs.get("qnpu_prof", False):
-            prof_path = Path(kwargs.get("qnpu_prof_file_path", "qnpu_profile.csv"))
-            prof_level = kwargs.get("qnpu_prof_level", "detailed")
-
-            if prof_path.exists():
-                prof_path.unlink()
-
-            provider_options[0].update(
-                {
-                    "profiling_level": prof_level,
-                    "profiling_file_path": str(prof_path),
-                }
-            )
-
-        self.session = ort.InferenceSession(
-            str(self.model_path),
-            sess_options=options,
-            providers=providers,
-            provider_options=provider_options,
+            sess_options=sess_options,
         )
 
     def run(self, tensors: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -131,7 +87,7 @@ class QNPUModule:
         )
 
 
-class QNPUCLIPModel:
+class OrtCLIPModel:
     def __init__(
         self,
         model_name: str,
@@ -141,8 +97,8 @@ class QNPUCLIPModel:
     ) -> None:
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name or model_name)
         self.processor = CLIPProcessor.from_pretrained(model_name, use_fast=True)
-        self.text_model = QNPUModule(text_model_path)
-        self.vision_model = QNPUModule(vision_model_path)
+        self.text_model = OrtModule(text_model_path)
+        self.vision_model = OrtModule(vision_model_path)
 
     def get_image_features(self, images):
         inputs = self.processor(images=images, return_tensors="pt")
@@ -208,7 +164,7 @@ def eval_retrieval_accuracy(
     captions = list(chain(*stacked_captions))
     images = dataset["image"]
 
-    model = QNPUCLIPModel(
+    model = OrtCLIPModel(
         model_name,
         text_model_path=text_model_path,
         vision_model_path=vision_model_path,

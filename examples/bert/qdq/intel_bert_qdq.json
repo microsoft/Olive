@@ -5,7 +5,7 @@
         "task": "text-classification",
         "io_config": {
             "input_names": [ "input_ids", "attention_mask", "token_type_ids" ],
-            "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
+            "input_shapes": [ [ 1, 512 ], [ 1, 512 ], [ 1, 512 ] ],
             "input_types": [ "int32", "int32", "int32" ],
             "output_names": [ "logits" ]
         }
@@ -15,7 +15,7 @@
         "dynamic_shape_to_fixed": {
             "type": "DynamicToFixedShape",
             "dim_param": [ "batch_size", "sequence_length" ],
-            "dim_value": [ 1, 128 ]
+            "dim_value": [ 1, 512 ]
         },
         "surgery": {
             "type": "GraphSurgeries",
@@ -41,8 +41,15 @@
             "type": "OnnxStaticQuantization",
             "data_config": "calib_data",
             "quant_preprocess": true,
-            "activation_type": "QUInt16",
-            "weight_type": "QUInt8"
+            "activation_type": "uint16",
+            "precision": "uint8"
+        },
+        "addmetadata": {
+            "type": "VitisAIAddMetaData",
+            "config_meta_data_keys": [ "architectures", "model_type" ],
+            "activation_type": "uint16",
+            "weight_type": "uint8",
+            "quant_type": "OnnxStaticQuantization"
         }
     },
     "data_configs": [
@@ -52,7 +59,7 @@
             "load_dataset_config": { "data_name": "glue", "subset": "mrpc", "split": "validation[:12]" },
             "pre_process_data_config": {
                 "input_cols": [ "sentence1", "sentence2" ],
-                "max_length": 128,
+                "max_length": 512,
                 "padding": "max_length"
             },
             "dataloader_config": { "batch_size": 1 }
@@ -63,7 +70,7 @@
             "load_dataset_config": { "data_name": "glue", "subset": "mrpc", "split": "test" },
             "pre_process_data_config": {
                 "input_cols": [ "sentence1", "sentence2" ],
-                "max_length": 128,
+                "max_length": 512,
                 "padding": "max_length"
             },
             "dataloader_config": { "batch_size": 1 }

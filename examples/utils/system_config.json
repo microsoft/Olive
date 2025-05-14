@@ -1,11 +1,11 @@
 {
+    "npu": {
+        "type": "LocalSystem",
+        "inference_settings": [ { "session_options": { "ep_selection": { "policy": "PREFER_NPU" } } } ]
+    },
     "cpu": {
         "type": "LocalSystem",
         "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
-    },
-    "vitis": {
-        "type": "LocalSystem",
-        "accelerators": [ { "device": "npu", "execution_providers": [ "VitisAIExecutionProvider" ] } ]
     },
     "qnn": {
         "type": "LocalSystem",
@@ -22,6 +22,10 @@
                 ]
             }
         ]
+    },
+    "vitis": {
+        "type": "LocalSystem",
+        "accelerators": [ { "device": "npu", "execution_providers": [ "VitisAIExecutionProvider" ] } ]
     },
     "ov": {
         "type": "LocalSystem",
