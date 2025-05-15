@@ -213,6 +213,29 @@ def set_olive_config_for_aml_system(olive_config: dict):
     AzureMLSystem.olive_config = olive_config
 
 
+def _setup_for_winml():
+    # pylint: disable=protected-access
+    # TODO(olivedev): Remove post ORT release >1.22.0
+    try:
+        import onnxruntime as ort
+        from packaging import version
+
+        if version.parse(ort.__version__) >= version.parse("1.22.0"):
+            ort.winml.register_execution_providers(sys.modules["onnxruntime"])
+            ort._get_available_providers = ort.get_available_providers
+
+            def get_available_providers_winml():
+                # pylint: disable=protected-access
+                providers = ort._get_available_providers()
+                extra_providers = {ep_device.ep_name for ep_device in ort.get_ep_devices()} - set(providers)
+                return providers + list(extra_providers)
+
+            ort.get_available_providers = get_available_providers_winml
+    except Exception as e:
+        logger.warning("An error occurred during WinML setup: %s", e)
+        logger.debug("Exception details:", exc_info=True)
+
+
 def run(
     run_config: Union[str, Path, dict],
     setup: bool = False,
@@ -220,6 +243,12 @@ def run(
     tempdir: Union[str, Path] = None,
     packages: bool = False,
 ):
+    # TODO(olivedev): Remove post ORT release >1.22.0
+    # Temporary logic to setup for WinML. WinML is ORT 1.22 + something more.
+    # Version check alone can't be used to auto register execution providers,
+    # required for WinML to load successfully.
+    _setup_for_winml()
+
     # set tempdir
     set_tempdir(tempdir)
 

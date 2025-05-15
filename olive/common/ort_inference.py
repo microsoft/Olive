@@ -71,9 +71,7 @@ def get_ort_execution_provider_device_policy(policy: str):
     return None
 
 
-def initialize_inference_session_options_for_winml(
-    sess_options, device, providers, provider_options, provider_selection_policy=None
-):
+def initialize_ort_session_options(sess_options, device, providers, provider_options, provider_selection_policy=None):
     import onnxruntime as ort
 
     providers = providers or []
@@ -174,9 +172,11 @@ def get_ort_inference_session(
     for idx, provider in enumerate(providers):
         if provider in ["CUDAExecutionProvider", "DmlExecutionProvider"] and device_id is not None:
             provider_options[idx]["device_id"] = str(device_id)
-        elif provider == "QNNExecutionProvider":
+        elif provider == "QNNExecutionProvider" and "backend_path" not in provider_options[idx]:
             # add backend_path for QNNExecutionProvider
-            provider_options[idx]["backend_path"] = "QnnHtp.dll"
+            # WinML should not use provider options
+            # provider_options[idx]["backend_path"] = "QnnHtp.dll"
+            pass
     logger.debug("Normalized providers: %s, provider_options: %s", providers, provider_options)
 
     # dml specific settings
@@ -185,7 +185,7 @@ def get_ort_inference_session(
 
     sess_kwargs = {}
     if is_winml_installation():
-        initialize_inference_session_options_for_winml(
+        initialize_ort_session_options(
             sess_options, device, providers, provider_options, inference_settings.get("provider_selection_policy")
         )
     else:
