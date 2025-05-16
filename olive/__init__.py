@@ -20,6 +20,7 @@ try:
     import onnxruntime as ort
     from onnxruntime import winml  # noqa: F401 # pylint: disable=unused-import
 
+    # pylint: disable=protected-access
     ort._get_available_providers = ort.get_available_providers
 
     def get_available_providers_winml():
@@ -29,5 +30,5 @@ try:
         return providers + list(extra_providers)
 
     ort.get_available_providers = get_available_providers_winml
-except:
+except Exception:
     pass
