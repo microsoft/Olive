@@ -17,8 +17,9 @@ _logger.propagate = False
 __version__ = "0.9.1"
 
 try:
-    from onnxruntime import winml  # noqa: F401 # pylint: disable=unused-import
     import onnxruntime as ort
+    from onnxruntime import winml  # noqa: F401 # pylint: disable=unused-import
+
     ort._get_available_providers = ort.get_available_providers
 
     def get_available_providers_winml():
