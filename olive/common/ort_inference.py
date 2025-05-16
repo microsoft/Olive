@@ -174,7 +174,7 @@ def get_ort_inference_session(
     for idx, provider in enumerate(providers):
         if provider in ["CUDAExecutionProvider", "DmlExecutionProvider"] and device_id is not None:
             provider_options[idx]["device_id"] = str(device_id)
-        elif provider == "QNNExecutionProvider":
+        elif provider == "QNNExecutionProvider" and not is_winml_installation():
             # add backend_path for QNNExecutionProvider
             provider_options[idx]["backend_path"] = "QnnHtp.dll"
     logger.debug("Normalized providers: %s, provider_options: %s", providers, provider_options)
