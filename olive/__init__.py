@@ -15,3 +15,20 @@ _logger.addHandler(_sc)
 _logger.propagate = False
 
 __version__ = "0.9.1"
+
+try:
+    import onnxruntime as ort
+    from onnxruntime import winml  # noqa: F401 # pylint: disable=unused-import
+
+    # pylint: disable=protected-access
+    ort._get_available_providers = ort.get_available_providers
+
+    def get_available_providers_winml():
+        # pylint: disable=protected-access
+        providers = ort._get_available_providers()
+        extra_providers = {ep_device.ep_name for ep_device in ort.get_ep_devices()} - set(providers)
+        return providers + list(extra_providers)
+
+    ort.get_available_providers = get_available_providers_winml
+except Exception:
+    pass
