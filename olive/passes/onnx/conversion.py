@@ -560,7 +560,7 @@ class OnnxConversion(Pass):
                 restore_llama2_tensor_parallel_layers as restore_tensor_parallel_layers,
             )
         else:
-            raise ValueError("Unsupported model type '{model_type}' for conversion pass")
+            raise ValueError(f"Unsupported model type '{model_type}' for conversion pass")
 
         output_filename = DistributedOnnxModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(local_rank)
         output_filepath = resolve_onnx_path(output_dirpath, output_filename)
