@@ -21,6 +21,14 @@ class Device(StrEnumBase):
     INTEL_MYRIAD = "intel_myriad"
 
 
+class ExecutionProvider(StrEnumBase):
+    CPUExecutionProvider = "CPUExecutionProvider"
+    CUDAExecutionProvider = "CUDAExecutionProvider"
+    DMLExecutionProvider = "DMLExecutionProvider"
+    OpenVINOExecutionProvider = "OpenVINOExecutionProvider"
+    TensorRTExecutionProvider = "TensorRTExecutionProvider"
+
+
 MEM_TO_INT = {"KB": 1e3, "MB": 1e6, "GB": 1e9, "TB": 1e12}
 
 
@@ -29,7 +37,7 @@ class AcceleratorSpec:
     """Accelerator specification is the concept of a hardware device that be used to optimize or evaluate a model."""
 
     accelerator_type: Union[str, Device]
-    execution_provider: Optional[str] = None
+    execution_provider: Optional[Union[str, ExecutionProvider]] = None
     memory: int = None
 
     def __str__(self) -> str:
@@ -43,7 +51,7 @@ class AcceleratorSpec:
     def to_json(self):
         json_data = {"accelerator_type": str(self.accelerator_type)}
         if self.execution_provider:
-            json_data["execution_provider"] = self.execution_provider
+            json_data["execution_provider"] = str(self.execution_provider)
         if self.memory is not None:
             json_data["memory"] = self.memory
 
@@ -64,17 +72,21 @@ class AcceleratorSpec:
         return int(v[:-2]) * int(MEM_TO_INT[v[-2:]])
 
 
-DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="CPUExecutionProvider")
-DEFAULT_GPU_CUDA_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider")
+DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(
+    accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+)
+DEFAULT_GPU_CUDA_ACCELERATOR = AcceleratorSpec(
+    accelerator_type=Device.GPU, execution_provider=ExecutionProvider.CUDAExecutionProvider
+)
 DEFAULT_GPU_TRT_ACCELERATOR = AcceleratorSpec(
-    accelerator_type=Device.GPU, execution_provider="TensorrtExecutionProvider"
+    accelerator_type=Device.GPU, execution_provider=ExecutionProvider.TensorRTExecutionProvider
 )
 
 
 class AcceleratorLookup:
     @staticmethod
     def get_managed_supported_execution_providers(device: Device):
-        return [*DEVICE_TO_EXECUTION_PROVIDERS.get(device), "CPUExecutionProvider"]
+        return [*DEVICE_TO_EXECUTION_PROVIDERS.get(device), ExecutionProvider.CPUExecutionProvider]
 
     @staticmethod
     def get_execution_providers_for_device(device: Device):
@@ -122,7 +134,7 @@ class AcceleratorLookup:
 
         ep_to_devices = {}
         for ep in execution_providers:
-            if ep == "CPUExecutionProvider":
+            if ep == ExecutionProvider.CPUExecutionProvider:
                 # cannot infer device for CPUExecutionProvider since all ORT EP supports CPU
                 continue
 
@@ -164,8 +176,8 @@ class AcceleratorLookup:
         if not execution_providers:
             return None
 
-        if execution_providers == ["CPUExecutionProvider"]:
-            inferred_devices = ["cpu"]
+        if execution_providers == [ExecutionProvider.CPUExecutionProvider]:
+            inferred_devices = [str(Device.CPU).lower()]
         else:
             inferred_devices = AcceleratorLookup.infer_devices_from_execution_providers(execution_providers)
             assert inferred_devices, (
