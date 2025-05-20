@@ -243,7 +243,7 @@ class Engine:
             run_history = self.footprints[accelerator_spec].summarize_run_history()
             self.dump_run_history(run_history, output_subdirs[accelerator_spec] / "run_history.txt")
 
-        workflow_output = WorkflowOutput(outputs, self.footprints, output_dir)
+        workflow_output = WorkflowOutput(outputs, self.footprints)
         if self.input_passes_configs and workflow_output.has_output_model():
             if packaging_config:
                 # TODO(trajep): should we support packaging pytorch model?
