@@ -8,7 +8,6 @@ import os
 import pytest
 
 from olive.common.utils import retry_func, run_subprocess
-from olive.hardware import AcceleratorSpec
 
 from ..utils import get_example_dir
 
@@ -32,9 +31,9 @@ def test_mobilenet_qnn_ep():
     del config["evaluators"], config["evaluator"]
 
     # need to pass [] since the parser reads from sys.argv
-    result = olive_run(config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
+    workflow_output = olive_run(config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
 
-    expected_accelerator_spec = AcceleratorSpec(accelerator_type="npu", execution_provider="QNNExecutionProvider")
     # make sure it only ran for npu-qnn
-    assert len(result) == 1
-    assert expected_accelerator_spec in result
+    assert len(workflow_output.get_available_devices()) == 1
+    assert workflow_output["qnn"] is not None
+    assert workflow_output["qnn"]["QNNExecutionProvider"] is not None

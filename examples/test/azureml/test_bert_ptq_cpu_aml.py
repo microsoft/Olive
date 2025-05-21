@@ -37,5 +37,5 @@ def test_bert(olive_test_knob):
     metrics[0]["sub_types"][0].pop("goal", None)
     metrics[1]["sub_types"][0].pop("goal", None)
 
-    output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
-    check_output(output)
+    workflow_output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
+    check_output(workflow_output)
