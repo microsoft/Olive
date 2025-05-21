@@ -153,9 +153,8 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
                 continue
 
             for model_output in workflow_output.get_output_models_by_device(device):
-                infer_setting_output_path = (
-                    output_path / f"{model_output.from_device()}-{model_output.from_execution_provider()}.json"
-                )
+                acc_ep = f"{model_output.from_device().lower()}-{model_output.from_execution_provider()[:-17].lower()}"
+                infer_setting_output_path = output_path / f"{acc_ep}.json"
                 infer_settings = model_output.get_inference_config()
                 with infer_setting_output_path.open("w") as f:
                     json.dump(infer_settings, f, indent=4)

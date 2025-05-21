@@ -208,7 +208,8 @@ class TestEngine:
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_search_model_components(self, mock_local_system_init, tmpdir):
         model_config = get_pytorch_model_config()
-        composite_onnx_model_config = get_composite_onnx_model_config()
+        output_dir = Path(tmpdir)
+        composite_onnx_model_config = get_composite_onnx_model_config(output_dir)
 
         mock_local_system = MagicMock()
         mock_local_system_init.return_value = mock_local_system
@@ -220,8 +221,6 @@ class TestEngine:
 
         engine = Engine(cache_config={"cache_dir": tmpdir})
         engine.register(OptimumConversion)
-        # output model to output_dir
-        output_dir = Path(tmpdir)
 
         # execute
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
@@ -296,7 +295,7 @@ class TestEngine:
 
         # assert
         output_model = workflow_output.get_best_candidate()
-        assert output_model.olive_model_config == onnx_model_config
+        assert output_model.olive_model_config == expected_saved_model_config.to_json()
         assert expected_metrics.to_json() == output_model.metrics_value
 
         model_json_path = output_dir / "model_config.json"

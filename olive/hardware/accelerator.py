@@ -24,7 +24,7 @@ class Device(StrEnumBase):
 class ExecutionProvider(StrEnumBase):
     CPUExecutionProvider = "CPUExecutionProvider"
     CUDAExecutionProvider = "CUDAExecutionProvider"
-    DMLExecutionProvider = "DMLExecutionProvider"
+    DmlExecutionProvider = "DmlExecutionProvider"
     OpenVINOExecutionProvider = "OpenVINOExecutionProvider"
     TensorRTExecutionProvider = "TensorRTExecutionProvider"
 

@@ -96,12 +96,9 @@ def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_
     engine = Engine(**config)
     engine.register(OrtSessionParamsTuning)
     accelerator_specs = create_accelerators(system_config)
-    output = engine.run(
+    return engine.run(
         model_config,
         accelerator_specs,
         output_dir=output_dir,
         evaluate_input_model=True,
     )
-
-    results = [next(iter(output[accelerator].nodes.values())) for accelerator in accelerator_specs]
-    return tuple(results)
