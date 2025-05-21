@@ -57,7 +57,7 @@ class TestOliveManagedDockerSystem:
             get_latency_metric(),
             only_target=True,
         )
-        assert workflow_output.cpu[str(ExecutionProvider.CPUExecutionProvider)].metrics
-        assert workflow_output.openvino[str(ExecutionProvider.OpenVINOExecutionProvider)].metrics
+        assert workflow_output.cpu[str(ExecutionProvider.CPUExecutionProvider)][0].metrics
+        assert workflow_output.openvino[str(ExecutionProvider.OpenVINOExecutionProvider)][0].metrics
         assert "Creating olive_managed_env Docker with EP CPUExecutionProvider" in caplog.text
         assert "Creating olive_managed_env Docker with EP OpenVINOExecutionProvider" in caplog.text

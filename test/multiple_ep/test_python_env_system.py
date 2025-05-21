@@ -56,5 +56,5 @@ class TestOliveManagedPythonEnvironmentSystem:
         )
         workflow_output = create_and_run_workflow(tmp_path, system_config, self.input_model_config, get_custom_metric())
 
-        assert workflow_output.cpu[str(ExecutionProvider.CPUExecutionProvider)].metrics
-        assert workflow_output.openvino[str(ExecutionProvider.OpenVINOExecutionProvider)].metrics
+        assert workflow_output.cpu[str(ExecutionProvider.CPUExecutionProvider)][0].metrics
+        assert workflow_output.openvino[str(ExecutionProvider.OpenVINOExecutionProvider)][0].metrics
