@@ -20,7 +20,6 @@ def setup():
     retry_func(run_subprocess, kwargs={"cmd": "python download_files.py", "check": True})
 
 
-# TODO(team): add test back to pipeline when update the qnn sdk to support python 3.10
 def test_mobilenet_qnn_ep():
     from olive.workflows import run as olive_run
 
@@ -35,5 +34,5 @@ def test_mobilenet_qnn_ep():
 
     # make sure it only ran for npu-qnn
     assert len(workflow_output.get_available_devices()) == 1
-    assert workflow_output["qnn"] is not None
-    assert workflow_output["qnn"]["QNNExecutionProvider"] is not None
+    assert workflow_output["npu"] is not None
+    assert workflow_output["npu"]["QNNExecutionProvider"] is not None
