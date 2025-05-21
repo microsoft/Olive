@@ -88,4 +88,6 @@ You can additionally select output directory, log severity level etc,. See [opti
 
 ## Summary
 
-Olive provides additional opportunity to configure system, data, evaluation metrics and more. See [How to customize configuration](#how-to-customize-configuration)
+Olive provides additional opportunity to configure system, data, evaluation metrics and more. See [How to customize configuration](#how-to-customize-configuration).
+
+

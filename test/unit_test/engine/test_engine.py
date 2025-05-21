@@ -206,7 +206,8 @@ class TestEngine:
         system_object.evaluate_model.assert_called_with(onnx_model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run_no_search_model_components(self, mock_local_system_init, tmpdir):
+    @patch("olive.cache.OliveCache.save_model")
+    def test_run_no_search_model_components(self, mock_save_model, mock_local_system_init, tmpdir):
         model_config = get_pytorch_model_config()
         output_dir = Path(tmpdir)
         composite_onnx_model_config = get_composite_onnx_model_config(output_dir)
@@ -218,6 +219,7 @@ class TestEngine:
         mock_local_system.accelerators = ["CPU"]
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.olive_managed_env = False
+        mock_save_model.return_value = composite_onnx_model_config.to_json()
 
         engine = Engine(cache_config={"cache_dir": tmpdir})
         engine.register(OptimumConversion)
