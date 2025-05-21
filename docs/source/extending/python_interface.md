@@ -133,6 +133,6 @@ output_models = workflow_output.CPU["CPUExecutionProvider"]
 
 - Use `get_best_candidate()` to quickly obtain the model with the best metrics across all devices
 - Use `get_output_models()` to get a list of all optimized models sorted by metrics
-- Access device-specific outputs using the device value as a key or attribute: `workflow_output["cpu"]` or `workflow_output.cpu`
+- Access device-specific outputs using the device value as a key or attribute: `workflow_output["cpu"]` or `workflow_output.cpu`. Device keys are case insensitive.
 - Always verify the existence of specific devices or execution providers before accessing them, since the output model might be empty if a pass run has failed.
 - Compare the input model metrics with optimized model metrics to quantify improvements
