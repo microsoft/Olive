@@ -30,6 +30,7 @@ DEVICE_TO_EXECUTION_PROVIDERS = {
         "NvTensorRTRTXExecutionProvider",
         "OpenVINOExecutionProvider",
         "JsExecutionProvider",
+        "WebGpuExecutionProvider",
     },
     "npu": {"DmlExecutionProvider", "QNNExecutionProvider", "VitisAIExecutionProvider", "OpenVINOExecutionProvider"},
 }
