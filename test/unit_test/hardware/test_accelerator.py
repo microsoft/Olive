@@ -65,23 +65,23 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
                 "type": "PythonEnvironment",
                 "config": {"accelerators": [{"device": "cpu"}], "python_environment_path": Path(sys.executable).parent},
             },
-            [("CPU", "OpenVINOExecutionProvider"), ("cpu", "CPUExecutionProvider")],
-            ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
+            [("cpu", "CPUExecutionProvider")],
+            ["CPUExecutionProvider"],
         ),
         (
             {
                 "type": "PythonEnvironment",
                 "config": {"accelerators": [{"device": "gpu"}], "python_environment_path": Path(sys.executable).parent},
             },
-            [("gpu", "TensorrtExecutionProvider"), ("gpu", "CUDAExecutionProvider"), ("gpu", "CPUExecutionProvider")],
-            ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"],
+            [("gpu", "CUDAExecutionProvider")],
+            ["CUDAExecutionProvider"],
         ),
         # only EP provided
         (
             {
                 "type": "PythonEnvironment",
                 "config": {
-                    "accelerators": [{"device": "cpu"}],
+                    "accelerators": [{"execution_providers": ["CPUExecutionProvider"]}],
                     "python_environment_path": Path(sys.executable).parent,
                 },
             },
@@ -209,15 +209,28 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
         (
             # fill the EPs.
             {"type": "LocalSystem", "config": {"accelerators": [{"device": "cpu"}]}},
-            [{"device": "cpu", "execution_providers": ["OpenVINOExecutionProvider", "CPUExecutionProvider"]}],
+            [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
             [
-                "The following execution providers are filtered: DmlExecutionProvider.",
+                "The following execution providers are filtered: OpenVINOExecutionProvider,DmlExecutionProvider.",
                 (
                     "The accelerator execution providers is not specified for cpu. Use the inferred ones. "
-                    "['OpenVINOExecutionProvider', 'CPUExecutionProvider']"
+                    "['CPUExecutionProvider']"
                 ),
             ],
             ["OpenVINOExecutionProvider", "CPUExecutionProvider", "DmlExecutionProvider"],
+        ),
+        (
+            # fill the EPs.
+            {"type": "LocalSystem", "config": {"accelerators": [{"device": "gpu"}]}},
+            [{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}],
+            [
+                "The following execution providers are filtered: CPUExecutionProvider.",
+                (
+                    "The accelerator execution providers is not specified for gpu. Use the inferred ones. "
+                    "['CUDAExecutionProvider']"
+                ),
+            ],
+            ["CPUExecutionProvider", "CUDAExecutionProvider"],
         ),
         (
             # user only specify EPs
@@ -315,15 +328,15 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             [
                 {
                     "device": "cpu",
-                    "execution_providers": ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
+                    "execution_providers": ["CPUExecutionProvider"],
                     "memory": 10000,
                 }
             ],
             [
-                "The following execution providers are filtered: DmlExecutionProvider.",
+                "The following execution providers are filtered: OpenVINOExecutionProvider,DmlExecutionProvider.",
                 (
                     "The accelerator execution providers is not specified for cpu. Use the inferred ones. "
-                    "['OpenVINOExecutionProvider', 'CPUExecutionProvider']"
+                    "['CPUExecutionProvider']"
                 ),
             ],
             ["OpenVINOExecutionProvider", "CPUExecutionProvider", "DmlExecutionProvider"],
