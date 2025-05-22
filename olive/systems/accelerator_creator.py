@@ -110,7 +110,7 @@ class AcceleratorNormalizer:
                 if filtered_eps:
                     logger.warning(
                         "The following execution providers are filtered: %s. "
-                        "Please raise issue in Olive site since it might be a bug. ",
+                        "Please add the specific execution provider to the config if you want to enable it. ",
                         ",".join(filtered_eps),
                     )
 
