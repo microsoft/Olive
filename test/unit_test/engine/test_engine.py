@@ -5,6 +5,7 @@
 import json
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,6 +31,9 @@ from test.unit_test.utils import (
     get_pytorch_model_config,
     get_pytorch_model_io_config,
 )
+
+if TYPE_CHECKING:
+    from olive.engine.output import WorkflowOutput
 
 # pylint: disable=protected-access
 
@@ -90,18 +94,17 @@ class TestEngine:
         engine = Engine(cache_config={"cache_dir": tmpdir})
 
         engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13})
-        outputs = engine.run(
+        outputs: WorkflowOutput = engine.run(
             model_config,
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=tmpdir,
         )
 
         assert outputs
-        for fp_nodes in outputs.values():
-            for node in fp_nodes.nodes.values():
-                assert node.model_config
-                assert node.from_pass == "onnxconversion"
-                assert node.metrics is None, "Should not evaluate input/output model by default"
+        for model_output in outputs.get_output_models():
+            assert model_output.model_config
+            assert model_output.from_pass() == "onnxconversion"
+            assert model_output.metrics is None, "Should not evaluate input/output model by default"
 
     @patch("olive.systems.local.LocalSystem")
     def test_run(self, mock_local_system, tmp_path):
@@ -158,13 +161,14 @@ class TestEngine:
             engine.cache.get_output_model_id(p1.__class__.__name__, p1.config.to_json(), input_model_id),
             engine.cache.get_output_model_id(p2.__class__.__name__, p2.config.to_json(), input_model_id),
         ]
+        cmp_direction = {f"{metric.name}-{sub.name}": 1 if sub.higher_is_better else -1 for sub in metric.sub_types}
         expected_res = {
             model_id: {
                 "model_id": model_id,
                 "parent_model_id": input_model_id,
                 "metrics": {
                     "value": metric_result_dict,
-                    "cmp_direction": {},
+                    "cmp_direction": cmp_direction,
                     "if_goals_met": True,
                 },
             }
@@ -173,40 +177,40 @@ class TestEngine:
 
         # execute
         output_dir = Path(tmp_path)
-        actual_res = engine.run(model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=output_dir)
-        actual_res = actual_res[DEFAULT_CPU_ACCELERATOR]
+        workflow_output: WorkflowOutput = engine.run(model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=output_dir)
 
         # make sure the input model always be in engine.footprints
         footprint = engine.footprints[DEFAULT_CPU_ACCELERATOR]
         assert input_model_id in footprint.nodes
         # make sure the input model always not in engine's pareto frontier
-        assert input_model_id not in actual_res.nodes
+        assert input_model_id not in workflow_output.get_output_models()
 
         # assert
-        assert len(actual_res.nodes) == 2
-        assert model_ids == list(actual_res.nodes.keys())
+        assert len(workflow_output.get_output_models()) == 2
+        assert model_ids == [model.model_id for model in workflow_output.get_output_models()]
 
-        assert actual_res.nodes[model_ids[0]].model_id != actual_res.nodes[model_ids[1]].model_id
+        assert workflow_output.get_output_models()[0].model_id != workflow_output.get_output_models()[1].model_id
 
         for model_id, result in expected_res.items():
+            output_model = workflow_output.get_output_model_by_id(model_id)
             # ensure two converted models are from the same input model
-            assert actual_res.nodes[model_id].parent_model_id == input_model_id
+            assert output_model.get_parent_model_id() == input_model_id
 
-            assert engine.cache.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
-            for k, v in result.items():
-                if k == "metrics":
-                    assert actual_res.nodes[model_id].metrics.if_goals_met
-                else:
-                    assert getattr(actual_res.nodes[model_id], k) == v
+            assert engine.cache.get_model_json_path(model_id).exists()
+            assert result["model_id"] == output_model.model_id
+            assert result["metrics"] == output_model.metrics
+            assert result["parent_model_id"] == output_model.get_parent_model_id()
 
         assert system_object.run_pass.call_count == 2
         assert system_object.evaluate_model.call_count == 3
         system_object.evaluate_model.assert_called_with(onnx_model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run_no_search_model_components(self, mock_local_system_init, tmpdir):
+    @patch("olive.cache.OliveCache.save_model")
+    def test_run_no_search_model_components(self, mock_save_model, mock_local_system_init, tmpdir):
         model_config = get_pytorch_model_config()
-        composite_onnx_model_config = get_composite_onnx_model_config()
+        output_dir = Path(tmpdir)
+        composite_onnx_model_config = get_composite_onnx_model_config(output_dir)
 
         mock_local_system = MagicMock()
         mock_local_system_init.return_value = mock_local_system
@@ -215,23 +219,22 @@ class TestEngine:
         mock_local_system.accelerators = ["CPU"]
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.olive_managed_env = False
+        mock_save_model.return_value = composite_onnx_model_config.to_json()
 
         engine = Engine(cache_config={"cache_dir": tmpdir})
         engine.register(OptimumConversion)
-        # output model to output_dir
-        output_dir = Path(tmpdir)
 
         # execute
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        _actual_res = engine.run(
+        workflow_output: WorkflowOutput = engine.run(
             model_config,
             [accelerator_spec],
             output_dir=output_dir,
         )
 
         # assert
-        actual_res = next(iter(_actual_res[accelerator_spec].nodes.values()))
-        assert composite_onnx_model_config.to_json() == actual_res.model_config
+        output_model = workflow_output.get_best_candidate()
+        assert composite_onnx_model_config.to_json() == output_model.olive_model_config
 
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_search(self, mock_local_system_init, tmp_path):
@@ -286,16 +289,16 @@ class TestEngine:
         expected_saved_model_config = get_onnx_model_config(model_path=output_dir / "model.onnx")
 
         # execute
-        footprint = engine.run(
+        workflow_output: WorkflowOutput = engine.run(
             model_config,
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
         )
-        output_node = next(iter(footprint[accelerator_spec].nodes.values()))
 
         # assert
-        assert output_node.model_config == onnx_model_config
-        assert expected_metrics == output_node.metrics.value
+        output_model = workflow_output.get_best_candidate()
+        assert output_model.olive_model_config == expected_saved_model_config.to_json()
+        assert expected_metrics.to_json() == output_model.metrics_value
 
         model_json_path = output_dir / "model_config.json"
         assert model_json_path.is_file()
@@ -423,19 +426,18 @@ class TestEngine:
         expected_res = MetricResult.parse_obj(metric_result_dict)
 
         # execute
-        actual_res = engine.run(
+        workflow_output: WorkflowOutput = engine.run(
             model_config,
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
             evaluate_input_model=True,
         )
-        accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        actual_res = next(iter(actual_res[accelerator_spec].nodes.values())).metrics.value
+        output_model = workflow_output.get_best_candidate()
 
-        assert expected_res == actual_res
+        assert expected_res.to_json() == output_model.metrics_value
         result_json_path = Path(output_dir / "input_model_metrics.json")
         assert result_json_path.is_file()
-        assert MetricResult.parse_file(result_json_path) == actual_res
+        assert MetricResult.parse_file(result_json_path).to_json() == output_model.metrics_value
 
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_pass(self, mock_local_system_init, tmp_path):
@@ -474,19 +476,17 @@ class TestEngine:
         expected_res = MetricResult.parse_obj(metric_result_dict)
 
         # execute
-        actual_res = engine.run(
+        workflow_output: WorkflowOutput = engine.run(
             model_config,
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
             evaluate_input_model=True,
         )
-        accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        actual_res = actual_res[accelerator_spec]
 
-        assert expected_res == actual_res
+        assert expected_res.to_json() == workflow_output.get_input_model_metrics()
         result_json_path = output_dir / "input_model_metrics.json"
         assert result_json_path.is_file()
-        assert MetricResult.parse_file(result_json_path) == actual_res
+        assert MetricResult.parse_file(result_json_path).to_json() == workflow_output.get_input_model_metrics()
 
     @patch("olive.systems.local.LocalSystem")
     @patch("onnxruntime.get_available_providers")
@@ -626,12 +626,12 @@ class TestEngine:
             )
             with patch("onnxruntime.quantization.quantize_static") as mock_quantize_static:
                 mock_quantize_static.side_effect = AttributeError("test")
-                actual_res = engine.run(
+                workflow_output: WorkflowOutput = engine.run(
                     onnx_model_config,
                     [DEFAULT_CPU_ACCELERATOR],
                     output_dir=output_dir,
                 )
-                assert not actual_res, "Expect empty dict when quantization fails"
+                assert not workflow_output.has_output_model(), "Expect no output model when quantization fails"
         else:
             options = {
                 "cache_config": {
@@ -644,10 +644,10 @@ class TestEngine:
             engine.register(OnnxDynamicQuantization)
             with patch("onnxruntime.quantization.quantize_dynamic") as mock_quantize_dynamic:
                 mock_quantize_dynamic.side_effect = AttributeError("test")
-                actual_res = engine.run(
+                workflow_output: WorkflowOutput = engine.run(
                     onnx_model_config,
                     [DEFAULT_CPU_ACCELERATOR],
                     output_dir=output_dir,
                     evaluate_input_model=False,
                 )
-                assert not actual_res[DEFAULT_CPU_ACCELERATOR].nodes, "Expect empty dict when quantization fails"
+                assert not workflow_output.has_output_model(), "Expect no output model when quantization fails"

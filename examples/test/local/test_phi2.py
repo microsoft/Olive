@@ -27,5 +27,5 @@ def test_phi2_genai():
     with open("phi2_genai.json") as f:
         olive_config = json.load(f)
 
-    footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
-    assert_nodes(footprint)
+    workflow_output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
+    assert_nodes(workflow_output)

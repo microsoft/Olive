@@ -103,8 +103,8 @@ def get_onnx_model_config(model_path=None):
     return ModelConfig.parse_obj({"type": "ONNXModel", "config": {"model_path": str(model_path or ONNX_MODEL_PATH)}})
 
 
-def get_composite_onnx_model_config():
-    onnx_model_config = get_onnx_model_config().dict()
+def get_composite_onnx_model_config(model_path=None):
+    onnx_model_config = get_onnx_model_config(model_path).dict()
     return ModelConfig.parse_obj(
         {
             "type": "CompositeModel",

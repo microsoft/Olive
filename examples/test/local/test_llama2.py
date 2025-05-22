@@ -40,5 +40,5 @@ def test_llama2(sampler, execution_order, system, olive_json):
     if version.parse(ort_version) < version.parse("1.20"):
         olive_config["passes"]["e"]["save_format"] = "numpy"
 
-    footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
-    assert_nodes(footprint)
+    workflow_output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
+    assert_nodes(workflow_output)

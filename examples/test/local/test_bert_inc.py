@@ -23,5 +23,5 @@ def test_bert(olive_json):
     with open(olive_json) as f:
         olive_config = json.load(f)
 
-    footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
-    check_output(footprint)
+    workflow_output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
+    check_output(workflow_output)

@@ -11,26 +11,27 @@ from pathlib import Path
 
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
+from olive.engine.output import WorkflowOutput
 
-# pylint: disable=broad-exception-raised
+# pylint: disable=broad-exception-raised, W0212
 
 
-def check_output(footprints):
+def check_output(workflow_output: WorkflowOutput):
     """Check if the search output is valid."""
-    assert_nodes(footprints)
-    assert_metrics(footprints)
+    assert_nodes(workflow_output)
+    assert_metrics(workflow_output)
 
 
-def assert_nodes(footprints):
-    assert footprints, "footprints is empty. The search must have failed for all accelerator specs."
-    for footprint in footprints.values():
-        assert footprint.nodes
+def assert_nodes(workflow_output: WorkflowOutput):
+    assert workflow_output, "workflow_output is empty. The search must have failed for all accelerator specs."
+    assert workflow_output.has_output_model(), "No output model found."
 
 
-def assert_metrics(footprints):
-    for footprint in footprints.values():
-        for v in footprint.nodes.values():
-            assert all(metric_result.value > 0 for metric_result in v.metrics.value.values())
+def assert_metrics(workflow_output: WorkflowOutput):
+    for output_model in workflow_output.get_output_models():
+        assert all(metric_result.value > 0 for metric_result in output_model._model_node.metrics.value.values()), (
+            "No metrics found."
+        )
 
 
 def patch_config(

@@ -15,3 +15,9 @@ _logger.addHandler(_sc)
 _logger.propagate = False
 
 __version__ = "0.10.0.dev0"
+
+# pylint: disable=C0413
+
+from olive.engine.output import DeviceOutput, ModelOutput, WorkflowOutput  # noqa: E402
+
+__all__ = ["DeviceOutput", "ModelOutput", "WorkflowOutput"]

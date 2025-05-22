@@ -5,6 +5,13 @@ Extending Olive
    :class-container: cards
 
    .. grid-item-card::
+      **Python Interface**
+
+      Learn about the Python interface of Olive and how to get output models from the Olive workflow.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Python Interface <python_interface.html>`_
+
+   .. grid-item-card::
       **Design**
 
       Learn about the design and architecture of Olive.
@@ -37,6 +44,7 @@ Extending Olive
    :maxdepth: 2
    :hidden:
 
+   python_interface
    design
    how-to-add-optimization-pass
    custom-model-evaluator

@@ -7,6 +7,7 @@ import platform
 import pytest
 
 from olive.common.constants import OS
+from olive.hardware.accelerator import ExecutionProvider
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
 from test.unit_test.utils import create_onnx_model_file, get_custom_metric, get_onnx_model_config
 
@@ -34,11 +35,9 @@ class TestOliveManagedPythonEnvironmentSystem:
                 olive_managed_env=True,
             ),
         )
-        dml_res, openvino_res = create_and_run_workflow(
-            tmp_path, system_config, self.input_model_config, get_custom_metric()
-        )
-        assert dml_res.metrics.value.__root__
-        assert openvino_res.metrics.value.__root__
+        workflow_output = create_and_run_workflow(tmp_path, system_config, self.input_model_config, get_custom_metric())
+        assert workflow_output.gpu[str(ExecutionProvider.DmlExecutionProvider)].metrics
+        assert workflow_output.gpu[str(ExecutionProvider.OpenVINOExecutionProvider)].metrics
 
     @pytest.mark.skipif(platform.system() == OS.WINDOWS, reason="Test for Linux only")
     def test_run_pass_evaluate_linux(self, tmp_path):
@@ -55,8 +54,7 @@ class TestOliveManagedPythonEnvironmentSystem:
                 olive_managed_env=True,
             ),
         )
-        cpu_res, openvino_res = create_and_run_workflow(
-            tmp_path, system_config, self.input_model_config, get_custom_metric()
-        )
-        assert cpu_res.metrics.value.__root__
-        assert openvino_res.metrics.value.__root__
+        workflow_output = create_and_run_workflow(tmp_path, system_config, self.input_model_config, get_custom_metric())
+
+        assert workflow_output.cpu[str(ExecutionProvider.CPUExecutionProvider)][0].metrics
+        assert workflow_output.cpu[str(ExecutionProvider.OpenVINOExecutionProvider)][0].metrics

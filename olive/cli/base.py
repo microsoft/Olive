@@ -39,12 +39,12 @@ class BaseOliveCLICommand(ABC):
             run_config = self._get_run_config(tempdir)
             if self.args.save_config_file:
                 self._save_config_file(run_config)
-            output = olive_run(run_config)
-            if output is None:
+            workflow_output = olive_run(run_config)
+            if not workflow_output.has_output_model():
                 print("No output model produced. Please check the log for details.")
             else:
                 print(f"Model is saved at {self.args.output_path}")
-            return output
+            return workflow_output
 
     @staticmethod
     def _save_config_file(config: dict):

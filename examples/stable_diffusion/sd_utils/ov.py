@@ -450,10 +450,8 @@ def update_ov_config(config: dict):
     return config
 
 
-def save_optimized_ov_submodel(run_res, submodel, optimized_model_dir, optimized_model_path_map):
-    res = next(iter(run_res.values()))
-
-    output_model_dir = res.get_output_model_path()
+def save_optimized_ov_submodel(workflow_output, submodel, optimized_model_dir, optimized_model_path_map):
+    output_model_dir = workflow_output.get_best_candidate().model_path
     optimized_model_path = optimized_model_dir / submodel
     shutil.copytree(output_model_dir, optimized_model_path)
     model_path = (optimized_model_path / submodel).with_suffix(".xml")

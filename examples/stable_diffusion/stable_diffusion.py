@@ -258,12 +258,12 @@ def optimize(
             # base model ID should be able to reuse previously optimized copies.
             olive_config["input_model"]["model_path"] = base_model_id
 
-        run_res = olive_run(olive_config)
+        workflow_output = olive_run(olive_config)
 
         if provider == "openvino":
             from sd_utils.ov import save_optimized_ov_submodel
 
-            save_optimized_ov_submodel(run_res, submodel_name, optimized_model_dir, model_info)
+            save_optimized_ov_submodel(workflow_output, submodel_name, optimized_model_dir, model_info)
         else:
             from sd_utils.ort import save_optimized_onnx_submodel
 

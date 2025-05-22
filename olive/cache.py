@@ -187,7 +187,7 @@ class OliveCache:
         if self.enable_shared_cache and self.update_shared_cache:
             self.shared_cache.cache_model(model_id, model_json)
 
-    def load_model(self, model_id: str) -> Optional[ModelConfig]:
+    def load_model(self, model_id: str) -> Optional[dict]:
         """Load the model from the cache directory."""
         model_json_path = self.get_model_json_path(model_id)
         if model_json_path.exists():
