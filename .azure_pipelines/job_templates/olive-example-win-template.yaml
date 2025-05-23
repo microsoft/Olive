@@ -46,6 +46,7 @@ jobs:
         python -m pip install pytest
         python -m pip install azure-identity azure-storage-blob tabulate
         python -m pip install -r $(Build.SourcesDirectory)/examples/$(exampleFolder)/$(exampleRequirements)
+        python -m pip list
         python -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test_examples-TestOlive.xml $(Build.SourcesDirectory)/examples/test/${{ parameters.subfolder }}/test_$(exampleName).py --basetemp $(PYTEST_BASETEMP)
     displayName: Test Examples
     env:
