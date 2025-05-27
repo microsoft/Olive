@@ -270,12 +270,12 @@ class SingnatureOnlyModel(torch.nn.Module):
                 {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 None,
             ],
-            (
+            [
                 {0: "axis_batch", 1: "x_axis"},
-                ({1: "x_axis"}, {0: "axis_batch"}),
+                [{1: "x_axis"}, {0: "axis_batch"}],
                 {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 None,
-            ),
+            ],
             _get_simulate_torch_float_tensor_inputs(return_tuple=True),
         ),
         (
@@ -289,7 +289,7 @@ class SingnatureOnlyModel(torch.nn.Module):
             },
             {
                 "w": {0: "axis_batch", 1: "x_axis"},
-                "x": ({1: "x_axis"}, {0: "axis_batch"}),
+                "x": [{1: "x_axis"}, {0: "axis_batch"}],
                 "y": {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 "z": None,
             },
