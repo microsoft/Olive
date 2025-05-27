@@ -15,7 +15,7 @@ class OnnxEpValidateMixin:
         # It should be a bug for onnxruntime where the execution provider is not be fallback.
         import onnxruntime as ort
 
-        from olive.common.ort_inference import is_winml_installation
+        from olive.common.ort_inference import ort_supports_ep_devices
 
         sess_options = ort.SessionOptions()
         if self.use_ort_extensions:
@@ -26,7 +26,7 @@ class OnnxEpValidateMixin:
 
         valid = True
         e = None
-        if is_winml_installation():
+        if ort_supports_ep_devices():
             sess_options.add_provider_for_devices(
                 [ep_device for ep_device in ort.get_ep_devices() if ep_device.ep_name == ep], {}
             )
