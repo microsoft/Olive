@@ -497,7 +497,6 @@ def test__package_dockerfile(tmp_path):
     model_path = "fake_model_file"
     footprints = get_footprints(model_id, model_path)
     output_dir = tmp_path / "outputs"
-    docker_context_path = output_dir / "docker_content"
 
     packaging_config = PackagingConfig(type=PackagingType.Dockerfile)
 
