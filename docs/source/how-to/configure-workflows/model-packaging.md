@@ -188,8 +188,6 @@ If not specified, Olive will not package artifacts.
     * `Dockerfile`
       * `requirements_file [str]`:
         `requirements.txt` file path. The packages will be installed to docker image.
-  * `include_runtime_packages [bool]`:
-    Whether or not to include runtime packages (like onnxruntime) in zip file. Defaults to True
 
 You can add different types `PackagingConfig` as a list to Engine configurations. e.g.:
 
