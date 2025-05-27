@@ -4,20 +4,15 @@
 # --------------------------------------------------------------------------
 import json
 import logging
-import platform
 import shutil
 import sys
 import tempfile
-import urllib.request
 from collections import OrderedDict
 from pathlib import Path
 from string import Template
 from typing import TYPE_CHECKING, Union
 
-import pkg_resources
-
-from olive.common.constants import OS
-from olive.common.utils import retry_func, run_subprocess
+from olive.common.utils import retry_func
 from olive.engine.footprint import get_best_candidate_node
 from olive.engine.packaging.packaging_config import (
     AzureMLDeploymentPackagingConfig,
@@ -28,7 +23,6 @@ from olive.engine.packaging.packaging_config import (
 )
 from olive.model import ONNXModelHandler
 from olive.resource_path import ResourceType, create_resource_path
-from olive.systems.utils import get_package_name_from_ep
 
 if TYPE_CHECKING:
     from olive.azureml.azureml_client import AzureMLClientConfig
@@ -580,6 +574,7 @@ def create_python_download_command(base_url=None):
         command += f" -i {base_url}"
     command += " $package_name==$version --no-deps -d $python_download_path --python-version=$python_version"
     return Template(command)
+
 
 def _get_python_version():
     major_version = sys.version_info.major
