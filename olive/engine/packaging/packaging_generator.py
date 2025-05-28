@@ -12,10 +12,7 @@ from pathlib import Path
 from string import Template
 from typing import TYPE_CHECKING, Union
 
-import pkg_resources
-
-from olive.common.constants import OS
-from olive.common.utils import retry_func, run_subprocess
+from olive.common.utils import retry_func
 from olive.engine.output import ModelOutput, WorkflowOutput
 from olive.engine.packaging.packaging_config import (
     AzureMLDeploymentPackagingConfig,
