@@ -8,6 +8,10 @@ We will focus on processing a Hugging Face model targeting CPU. After the .json 
 olive run --config my_model_processing_description.json
 ```
 
+> **Note:**
+> If you prefer to run Olive workflows programmatically or want to access optimization results from Python, refer to the [Python Interface documentation](../../extending/python_interface.md) for details on using Olive from Python.
+
+
 ## Input Model
 
 Let's use Phi-3.5 available on Hugging Face ( https://huggingface.co/microsoft/Phi-3.5-mini-instruct )
@@ -84,4 +88,6 @@ You can additionally select output directory, log severity level etc,. See [opti
 
 ## Summary
 
-Olive provides additional opportunity to configure system, data, evaluation metrics and more. See [How to customize configuration](#how-to-customize-configuration)
+Olive provides additional opportunity to configure system, data, evaluation metrics and more. See [How to customize configuration](#how-to-customize-configuration).
+
+
