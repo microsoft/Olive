@@ -21,6 +21,14 @@ class Device(StrEnumBase):
     INTEL_MYRIAD = "intel_myriad"
 
 
+class ExecutionProvider(StrEnumBase):
+    CPUExecutionProvider = "CPUExecutionProvider"
+    CUDAExecutionProvider = "CUDAExecutionProvider"
+    DmlExecutionProvider = "DmlExecutionProvider"
+    OpenVINOExecutionProvider = "OpenVINOExecutionProvider"
+    TensorrtExecutionProvider = "TensorrtExecutionProvider"
+
+
 MEM_TO_INT = {"KB": 1e3, "MB": 1e6, "GB": 1e9, "TB": 1e12}
 
 
@@ -29,7 +37,7 @@ class AcceleratorSpec:
     """Accelerator specification is the concept of a hardware device that be used to optimize or evaluate a model."""
 
     accelerator_type: Union[str, Device]
-    execution_provider: Optional[str] = None
+    execution_provider: Optional[Union[str, ExecutionProvider]] = None
     memory: int = None
 
     def __str__(self) -> str:
@@ -43,7 +51,7 @@ class AcceleratorSpec:
     def to_json(self):
         json_data = {"accelerator_type": str(self.accelerator_type)}
         if self.execution_provider:
-            json_data["execution_provider"] = self.execution_provider
+            json_data["execution_provider"] = str(self.execution_provider)
         if self.memory is not None:
             json_data["memory"] = self.memory
 
