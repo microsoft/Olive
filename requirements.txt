@@ -1,5 +1,5 @@
 numpy
-onnx
+onnx<1.18.0
 onnxscript>=0.2.5
 optuna
 pandas
