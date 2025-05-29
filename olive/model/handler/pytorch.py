@@ -175,6 +175,14 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
 
         self.model = model if cache_model else None
 
+        try:
+            self.model_attributes = {
+                **model.config.to_dict(),
+                **(self.model_attributes or {}),
+            }
+        except Exception as _:
+            pass
+
         return model
 
     def _load_slicegpt_model(self):
