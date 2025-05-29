@@ -42,12 +42,10 @@ jobs:
     onnxruntime_nightly: true
 
 # Linux examples test
-- template: job_templates/olive-example-linux-template.yaml
+- template: job_templates/olive-example-win-template.yaml
   parameters:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
-    onnxruntime: onnxruntime
-    onnxruntime_nightly: true
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -55,9 +53,6 @@ jobs:
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
-      # resnet_vitis_ai_ptq_cpu:
-      #   exampleFolder: resnet
-      #   exampleName: resnet_vitis_ai_ptq_cpu
       resnet_qat:
         exampleFolder: resnet
         exampleName: resnet_qat
@@ -70,7 +65,6 @@ jobs:
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
-    onnxruntime: onnxruntime
     onnxruntime_nightly: true
     examples:
       bert_ptq_cpu:
