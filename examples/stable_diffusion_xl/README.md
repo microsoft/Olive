@@ -97,3 +97,29 @@ The result will be saved as `result_<i>.png` on disk.
 
 Refer to the corresponding section in the DirectML READMEs for more details on the test inference options:
 - [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md#test-inference)
+
+## Stable Diffusion XL Quantization encoded in QDQ format
+
+## Generate data for static quantization
+
+To get better result, we need to generate real data from original model instead of using random data for static quantization.
+
+First generate onnx unoptimized model:
+
+`python stable_diffusion_xl.py --model_id stabilityai/sdxl-turbo --provider cpu --format qdq --optimize --only_conversion`
+
+Then generate data:
+
+`python ..\stable_diffusion\evaluation.py --save_data --model_id stabilityai/sdxl-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0 --data_dir quantize_data_xl --xl`
+
+## Optimize
+
+`python stable_diffusion_xl.py --model_id stabilityai/sdxl-turbo --provider cpu --format qdq --optimize --data_dir quantize_data_xl/data`
+
+## Test and evaluate
+
+`python ..\stable_diffusion\evaluation.py --model_id stabilityai/sdxl-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0 --data_dir quantize_data_xl --xl`
+
+To generate one image:
+
+`python stable_diffusion_xl.py --model_id stabilityai/sdxl-turbo --provider cpu --format qdq --guidance_scale 0 --seed 0 --num_inference_steps 1 --prompt "A baby is laying down with a teddy bear" --image_size 512`

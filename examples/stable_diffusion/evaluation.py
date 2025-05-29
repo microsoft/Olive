@@ -217,6 +217,7 @@ def parse_args(raw_args):
     parser.add_argument("--train_ratio", default=0.5, type=float)
     parser.add_argument("--image_size", default=512, type=int, help="Width and height of the images to generate")
     parser.add_argument("--hpsv2_style", default=None, type=str, help="Style for hpsv2 benchmark")
+    parser.add_argument("--xl", action="store_true")
     return parser.parse_args(raw_args)
 
 
@@ -240,7 +241,12 @@ def main(raw_args=None):
     optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     model_dir = unoptimized_model_dir if args.save_data else optimized_model_dir
-    pipeline = OnnxStableDiffusionPipelineWithSave.from_pretrained(model_dir, provider="CPUExecutionProvider")
+    if args.xl:
+        from sd_utils.qdq_xl import ORTStableDiffusionXLPipelineWithSave
+
+        pipeline = ORTStableDiffusionXLPipelineWithSave.from_pretrained(model_dir, provider="CPUExecutionProvider")
+    else:
+        pipeline = OnnxStableDiffusionPipelineWithSave.from_pretrained(model_dir, provider="CPUExecutionProvider")
     pipeline.save_data_dir = None
 
     if args.save_data:

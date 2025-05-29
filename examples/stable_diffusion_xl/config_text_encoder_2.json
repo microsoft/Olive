@@ -96,6 +96,12 @@
             "user_script": "user_script.py",
             "load_dataset_config": { "type": "simple_dataset" },
             "dataloader_config": { "type": "text_encoder_2_dataloader", "batch_size": 1 }
+        },
+        {
+            "name": "quantize_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "local_dataset" },
+            "dataloader_config": { "type": "text_encoder_2_quantize_data_loader", "data_num": 100 }
         }
     ],
     "evaluators": {
@@ -111,7 +117,7 @@
         }
     },
     "passes": {
-        "convert": { "type": "OnnxConversion", "target_opset": 14 },
+        "convert": { "type": "OnnxConversion", "target_opset": 17 },
         "optimize": {
             "type": "OrtTransformersOptimization",
             "model_type": "clip",
@@ -150,6 +156,46 @@
             "float16": true,
             "use_gpu": true,
             "keep_io_types": true
+        },
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [ "batch_size", "sequence_length" ],
+            "dim_value": [ 1, 77 ]
+        },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
+        "optimize_qdq": {
+            "type": "OrtTransformersOptimization",
+            "model_type": "clip",
+            "opt_level": 0,
+            "optimization_options": {
+                "enable_gelu": true,
+                "enable_layer_norm": true,
+                "enable_attention": false,
+                "use_multi_head_attention": false,
+                "enable_skip_layer_norm": false,
+                "enable_embed_layer_norm": false,
+                "enable_bias_skip_layer_norm": false,
+                "enable_bias_gelu": false,
+                "enable_gelu_approximation": false,
+                "enable_qordered_matmul": false,
+                "enable_shape_inference": false,
+                "enable_gemm_fast_gelu": false,
+                "enable_nhwc_conv": false,
+                "enable_group_norm": false,
+                "enable_bias_splitgelu": false,
+                "enable_packed_qkv": false,
+                "enable_packed_kv": false,
+                "enable_bias_add": false,
+                "group_norm_channels_last": false
+            }
+        },
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "data_config": "quantize_data_config",
+            "activation_type": "uint16",
+            "precision": "uint8",
+            "calibrate_method": "MinMax",
+            "quant_preprocess": true
         }
     },
     "evaluator": "common_evaluator",

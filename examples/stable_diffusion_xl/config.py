@@ -7,3 +7,4 @@ vae_sample_size = 1024
 unet_sample_size = 128
 cross_attention_dim = 2048
 time_ids_size = 6
+data_dir = "quantize_data_xl"
