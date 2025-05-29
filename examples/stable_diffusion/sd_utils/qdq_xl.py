@@ -3,12 +3,20 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Dict, Optional, Union
 
-import onnxruntime as ort
 import numpy as np
+import onnxruntime as ort
 import torch
-from optimum.onnxruntime.modeling_diffusion import ORTDiffusionPipeline, ORTModelTextEncoder, ORTModelUnet, ORTModelVaeDecoder, ORTModelVaeEncoder, ORTWrapperVae
-from transformers.modeling_outputs import ModelOutput
 from diffusers import StableDiffusionXLPipeline
+from optimum.onnxruntime.modeling_diffusion import (
+    ORTDiffusionPipeline,
+    ORTModelTextEncoder,
+    ORTModelUnet,
+    ORTModelVaeDecoder,
+    ORTModelVaeEncoder,
+    ORTWrapperVae,
+)
+from transformers.modeling_outputs import ModelOutput
+
 
 class ORTDiffusionPipelineWithSave(ORTDiffusionPipeline):
     def __init__(
@@ -96,10 +104,9 @@ class ORTDiffusionPipelineWithSave(ORTDiffusionPipeline):
         self.unet.save_data_index = 0
         self.vae_decoder.save_data_dir = dir
 
+
 class ORTStableDiffusionXLPipelineWithSave(ORTDiffusionPipelineWithSave, StableDiffusionXLPipeline):
-    """
-    ONNX Runtime-powered stable diffusion pipeline corresponding to [diffusers.StableDiffusionXLPipeline](https://huggingface.co/docs/diffusers/api/pipelines/stable_diffusion/stable_diffusion_xl#diffusers.StableDiffusionXLPipeline).
-    """
+    """ONNX Runtime-powered stable diffusion pipeline corresponding to [diffusers.StableDiffusionXLPipeline](https://huggingface.co/docs/diffusers/api/pipelines/stable_diffusion/stable_diffusion_xl#diffusers.StableDiffusionXLPipeline)."""
 
     main_input_name = "prompt"
     export_feature = "text-to-image"
@@ -118,7 +125,9 @@ class ORTStableDiffusionXLPipelineWithSave(ORTDiffusionPipelineWithSave, StableD
         add_time_ids = torch.tensor([add_time_ids], dtype=dtype)
         return add_time_ids
 
+
 # Wrappers
+
 
 class ORTModelTextEncoderWithSave(ORTModelTextEncoder):
     def forward(
@@ -152,7 +161,8 @@ class ORTModelTextEncoderWithSave(ORTModelTextEncoder):
             return model_outputs
 
         return ModelOutput(**model_outputs)
-    
+
+
 class ORTModelUnetWithSave(ORTModelUnet):
     def forward(
         self,
@@ -193,7 +203,8 @@ class ORTModelUnetWithSave(ORTModelUnet):
             return model_outputs
 
         return ModelOutput(**model_outputs)
-    
+
+
 class ORTModelVaeDecoderWithSave(ORTModelVaeDecoder):
     def forward(
         self,
@@ -207,10 +218,10 @@ class ORTModelVaeDecoderWithSave(ORTModelVaeDecoder):
 
         onnx_inputs = self.prepare_onnx_inputs(use_torch, **model_inputs)
         if self.save_data_dir:
-            np.savez(self.save_data_dir / f"vae_decoder.npz", **onnx_inputs)
+            np.savez(self.save_data_dir / "vae_decoder.npz", **onnx_inputs)
         onnx_outputs = self.session.run(None, onnx_inputs)
         if self.save_data_dir:
-            np.savez(self.save_data_dir / f"vae_decoder_output.npz", sample = onnx_outputs[0])
+            np.savez(self.save_data_dir / "vae_decoder_output.npz", sample=onnx_outputs[0])
         model_outputs = self.prepare_onnx_outputs(use_torch, *onnx_outputs)
 
         if "latent_sample" in model_outputs:

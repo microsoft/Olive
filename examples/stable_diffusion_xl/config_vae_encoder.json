@@ -94,12 +94,7 @@
         },
         "dynamic_shape_to_fixed": {
             "type": "DynamicToFixedShape",
-            "dim_param": [
-                "batch_size",
-                "num_channels",
-                "height",
-                "width"
-            ],
+            "dim_param": [ "batch_size", "num_channels", "height", "width" ],
             "dim_value": [ 1, 3, 512, 512 ]
         },
         "quantization": {

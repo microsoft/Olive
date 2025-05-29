@@ -162,7 +162,7 @@
             "dim_param": [ "batch_size", "sequence_length" ],
             "dim_value": [ 1, 77 ]
         },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue"} ] },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
         "optimize_qdq": {
             "type": "OrtTransformersOptimization",
             "model_type": "clip",

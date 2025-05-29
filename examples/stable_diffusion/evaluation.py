@@ -243,13 +243,10 @@ def main(raw_args=None):
     model_dir = unoptimized_model_dir if args.save_data else optimized_model_dir
     if args.xl:
         from sd_utils.qdq_xl import ORTStableDiffusionXLPipelineWithSave
-        pipeline = ORTStableDiffusionXLPipelineWithSave.from_pretrained(
-            model_dir, provider="CPUExecutionProvider"
-        )
+
+        pipeline = ORTStableDiffusionXLPipelineWithSave.from_pretrained(model_dir, provider="CPUExecutionProvider")
     else:
-        pipeline = OnnxStableDiffusionPipelineWithSave.from_pretrained(
-            model_dir, provider="CPUExecutionProvider"
-        )
+        pipeline = OnnxStableDiffusionPipelineWithSave.from_pretrained(model_dir, provider="CPUExecutionProvider")
     pipeline.save_data_dir = None
 
     if args.save_data:

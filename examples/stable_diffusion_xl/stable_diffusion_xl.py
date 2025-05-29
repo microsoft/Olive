@@ -15,10 +15,10 @@ import onnxruntime as ort
 import torch
 from diffusers import DiffusionPipeline, OnnxRuntimeModel
 from diffusers.utils import load_image
+from huggingface_hub import hf_hub_download
 from onnxruntime import __version__ as OrtVersion
 from optimum.onnxruntime import ORTStableDiffusionXLImg2ImgPipeline, ORTStableDiffusionXLPipeline
 from packaging import version
-from huggingface_hub import hf_hub_download
 
 from olive.common.utils import set_tempdir
 from olive.model import ONNXModelHandler
@@ -39,6 +39,8 @@ def run_inference_loop(
     base_images=None,
     image_callback=None,
     step_callback=None,
+    guidance_scale=None,
+    seed=None,
 ):
     images_saved = 0
 
@@ -51,6 +53,13 @@ def run_inference_loop(
     kwargs = {}
     if disable_classifier_free_guidance:
         kwargs["guidance_scale"] = 0.0
+    elif guidance_scale is not None:
+        kwargs["guidance_scale"] = guidance_scale
+
+    if seed is not None:
+        import numpy as np
+
+        kwargs["generator"] = np.random.RandomState(seed=seed)
 
     if base_images is None:
         result = pipeline(
@@ -219,6 +228,8 @@ def run_inference(
     interactive,
     is_fp16,
     base_images=None,
+    guidance_scale=None,
+    seed=None,
 ):
     ort.set_default_logger_severity(3)
 
@@ -288,10 +299,14 @@ def run_inference(
             num_inference_steps,
             disable_classifier_free_guidance,
             base_images,
+            guidance_scale=guidance_scale,
+            seed=seed,
         )
 
 
-def update_config_with_provider(config: dict, provider: str, is_fp16: bool, only_conversion: bool, submodel_name: str, format: str) -> dict:
+def update_config_with_provider(
+    config: dict, provider: str, is_fp16: bool, only_conversion: bool, submodel_name: str, format: str
+) -> dict:
     used_passes = {}
     if only_conversion:
         used_passes = {"convert"}
@@ -331,9 +346,13 @@ def update_config_with_provider(config: dict, provider: str, is_fp16: bool, only
         config["evaluator"] = None
     return config
 
+
 def save_config(configs: dict, module_name: str, model_info: dict, optimized: bool = False):
     config_path = hf_hub_download(repo_id=configs[module_name], filename="config.json", subfolder=module_name)
-    shutil.copyfile(config_path, model_info[module_name]["optimized" if optimized else "unoptimized"]["path"].parent / "config.json")
+    shutil.copyfile(
+        config_path, model_info[module_name]["optimized" if optimized else "unoptimized"]["path"].parent / "config.json"
+    )
+
 
 def optimize(
     model_id: str,
@@ -376,7 +395,9 @@ def optimize(
         olive_config = None
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
-        olive_config = update_config_with_provider(olive_config, provider, use_fp16_fixed_vae, only_conversion, submodel_name, format)
+        olive_config = update_config_with_provider(
+            olive_config, provider, use_fp16_fixed_vae, only_conversion, submodel_name, format
+        )
 
         if is_refiner_model and submodel_name == "vae_encoder" and not use_fp16_fixed_vae:
             # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen
@@ -405,7 +426,9 @@ def optimize(
                     conversion_footprint = footprint
                     if only_conversion:
                         optimizer_footprint = footprint
-                elif from_pass == "OrtTransformersOptimization".lower() or from_pass == "OnnxStaticQuantization".lower():
+                elif (
+                    from_pass == "OrtTransformersOptimization".lower() or from_pass == "OnnxStaticQuantization".lower()
+                ):
                     optimizer_footprint = footprint
 
             assert conversion_footprint
@@ -545,6 +568,18 @@ def main(raw_args=None):
             "Whether to disable classifier free guidance. Classifier free guidance should be disabled for turbo models."
         ),
     )
+    parser.add_argument(
+        "--guidance_scale",
+        default=None,
+        type=float,
+        help="Guidance scale as defined in Classifier-Free Diffusion Guidance",
+    )
+    parser.add_argument(
+        "--seed",
+        default=None,
+        type=int,
+        help="The seed to give to the generator to generate deterministic results.",
+    )
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
     parser.add_argument("--image_size", default=768, type=int, help="Image size to use during inference")
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
@@ -669,6 +704,8 @@ def main(raw_args=None):
                 args.interactive,
                 args.use_fp16_fixed_vae,
                 args.base_images,
+                args.guidance_scale,
+                args.seed,
             )
 
 

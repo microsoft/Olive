@@ -5,8 +5,8 @@
 import os
 import random
 
-import numpy as np
 import config
+import numpy as np
 import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from transformers.models.clip.modeling_clip import CLIPTextModel, CLIPTextModelWithProjection
@@ -16,6 +16,7 @@ from olive.data.registry import Registry
 # ruff: noqa: T201
 
 # Generated data helpers
+
 
 class BaseDataLoader:
     def __init__(self, total):
@@ -29,13 +30,14 @@ class BaseDataLoader:
             raise StopIteration
         print(f"Process data {idx}")
         return self.data[idx]
-    
+
     def load(self, file):
         self.data.append({key: torch.from_numpy(value) for key, value in np.load(file).items()})
 
     def finish_load(self):
         if len(self.data) > self.total:
             self.data = random.sample(self.data, self.total)
+
 
 class UnetGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
