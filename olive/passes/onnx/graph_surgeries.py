@@ -1179,6 +1179,212 @@ class ReplaceAttentionMaskValue(ProtoSurgeon):
         return None
 
 
+class RemoveQDQ(ProtoSurgeon):
+    def __init__(self, keep_clip_after_inputs: bool = False):
+        self.keep_clip_after_inputs = keep_clip_after_inputs
+
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_remove_qdq
+
+        transform_remove_qdq(model, keep_clip_after_inputs=self.keep_clip_after_inputs)
+        return model
+
+
+class MatMulToTransposeConvTranspose(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_matmul_to_transpose_conv_transpose
+
+        transform_matmul_to_transpose_conv_transpose(model)
+        return model
+
+
+class RemoveIntermediarySqueezeAndUnsqueeze(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_remove_intermediary_squeeze_and_unsqueeze
+
+        transform_remove_intermediary_squeeze_and_unsqueeze(model)
+        return model
+
+
+class QDQToClip(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_qdq_to_clip
+
+        transform_qdq_to_clip(model)
+        return model
+
+
+class RemoveQDQTransform(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_remove_qdq
+
+        transform_remove_qdq(model)
+        return model
+
+
+class RemoveDeqLin(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_remove_deqlin
+
+        transform_remove_deqlin(model)
+        return model
+
+
+class Non4DModelInputs(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_non4d_model_inputs
+
+        transform_non4d_model_inputs(model)
+        return model
+
+
+class Non4DModelOutputs(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_non4d_model_outputs
+
+        transform_non4d_model_outputs(model)
+        return model
+
+
+class StandaloneReduceSum(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_standalone_reducesum
+
+        transform_standalone_reducesum(model)
+        return model
+
+
+class Gather(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_gather
+
+        transform_gather(model)
+        return model
+
+
+class GatherElements(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_gatherelements
+
+        transform_gatherelements(model)
+        return model
+
+
+class Non4DInitializers(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_non4d_initializers
+
+        transform_non4d_initializers(model)
+        return model
+
+
+class RemoveAllTensorValueShapes(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_remove_all_tensor_value_shapes
+
+        transform_remove_all_tensor_value_shapes(model)
+        return model
+
+
+class Non4DReshape(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_non4d_reshape
+
+        transform_non4d_reshape(model)
+        return model
+
+
+class Non4DExpand(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_non4d_expand
+
+        transform_non4d_expand(model)
+        return model
+
+
+class Non4DTranspose(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_non4d_transpose
+
+        transform_non4d_transpose(model)
+        return model
+
+
+class Non4DSlice(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_non4d_slice
+
+        transform_non4d_slice(model)
+        return model
+
+
+class Non4DLpNorm(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_non4d_lpnorm
+
+        transform_non4d_lpnorm(model)
+        return model
+
+
+class Flatten(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_flatten
+
+        transform_flatten(model)
+        return model
+
+
+class AddIntermediateTensorsToOutputs(ProtoSurgeon):
+    def __init__(self, intermediate_tensor_to_add: list = None):
+        self.intermediate_tensor_to_add = intermediate_tensor_to_add
+
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_add_intermediate_tensors_to_outputs
+
+        transform_add_intermediate_tensors_to_outputs(model, intermediate_tensor_to_add=self.intermediate_tensor_to_add)
+        return model
+
+
+class RemoveUnusedInitializers(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_remove_unused_initializers
+
+        transform_remove_unused_initializers(model)
+        return model
+
+
+class ReshapeReduceSum(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_reshape_reducesum
+
+        transform_reshape_reducesum(model)
+        return model
+
+
+class ReshapeClipReduceSum(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_reshape_clip_reducesum
+
+        transform_reshape_clip_reducesum(model)
+        return model
+
+
+class ReduceMaxMin(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_reducemax_min
+
+        transform_reducemax_min(model)
+        return model
+
+
+class ReduceMax(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        from olive.passes.onnx.dla_transforms import transform_reducemax
+
+        transform_reducemax(model)
+        return model
+
+
 class GraphSurgeries(Pass):
     """ONNX graph surgeries collections.
 
