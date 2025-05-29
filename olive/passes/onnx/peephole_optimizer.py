@@ -246,7 +246,7 @@ class ModelOptimizer:
                     "onnxscript optimizer failed with %s. Rerunning with shape inference disabled.",
                     str(e),
                 )
-                onnxscript.optimizer.optimize(self.model, onnx_shape_inference=False)
+                self.model = onnxscript.optimizer.optimize(self.model, onnx_shape_inference=False)
             else:
                 raise
 
