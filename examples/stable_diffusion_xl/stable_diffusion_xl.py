@@ -477,7 +477,6 @@ def optimize(
             tokenizer_2=pipeline.tokenizer_2,
             scheduler=pipeline.scheduler,
             feature_extractor=feature_extractor,
-            config=dict(pipeline.config),
         )
 
     print("Saving unoptimized models...")
