@@ -238,7 +238,8 @@ class ModelOptimizer:
             logger.warning("Please install `onnxscript` to apply more optimization.")
             return
         try:
-            onnxscript.optimizer.optimize(self.model)
+            logger.debug("Running onnxscript optimizer")
+            self.model = onnxscript.optimizer.optimize(self.model)
         except Exception as e:
             if "TypeInferenceError" in str(e):
                 logger.info(
