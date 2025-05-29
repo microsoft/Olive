@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# pylint: disable=relative-beyond-top-level, redefined-outer-name
 import html
 import re
 

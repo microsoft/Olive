@@ -7,17 +7,7 @@ import shutil
 import tempfile
 from functools import partial
 from pathlib import Path
-from test.unit_test.utils import (
-    ONNX_MODEL_PATH,
-    get_accuracy_metric,
-    get_custom_metric,
-    get_glue_latency_metric,
-    get_hf_model_config,
-    get_latency_metric,
-    get_onnx_model_config,
-    get_onnxconversion_pass,
-)
-from typing import ClassVar, List
+from typing import ClassVar
 from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pytest
@@ -41,6 +31,16 @@ from olive.systems.azureml.aml_evaluation_runner import main as aml_evaluation_r
 from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
 from olive.systems.common import AzureMLDockerConfig, AzureMLEnvironmentConfig
+from test.unit_test.utils import (
+    ONNX_MODEL_PATH,
+    get_accuracy_metric,
+    get_custom_metric,
+    get_glue_latency_metric,
+    get_hf_model_config,
+    get_latency_metric,
+    get_onnx_model_config,
+    get_onnxconversion_pass,
+)
 
 # pylint: disable=attribute-defined-outside-init, protected-access
 
@@ -75,7 +75,7 @@ class TestAzureMLSystem:
             "type": "HfModel",
         }
 
-    METRIC_TEST_CASE: ClassVar[List[Metric]] = [
+    METRIC_TEST_CASE: ClassVar[list[Metric]] = [
         (partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE)),
         (partial(get_accuracy_metric, AccuracySubType.F1_SCORE)),
         (partial(get_accuracy_metric, AccuracySubType.PRECISION)),

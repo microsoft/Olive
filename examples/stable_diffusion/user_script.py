@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
+import random
+
 import numpy as np
 import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel
@@ -27,9 +29,9 @@ class BaseDataLoader:
     def __getitem__(self, idx):
         if idx >= len(self.data) or idx >= self.total:
             raise StopIteration
-        print(f"Process data {idx}")
+        # print(f"Process data {idx}")
         return self.data[idx]
-    
+
     def load(self, file):
         self.data.append({key: torch.from_numpy(value) for key, value in np.load(file).items()})
 

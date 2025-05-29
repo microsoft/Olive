@@ -54,8 +54,8 @@
             "type": "VitisAIQuantization",
             "calibrate_method": "NonOverflow",
             "quant_format": "QDQ",
-            "activation_type": "QUInt8",
-            "weight_type": "QInt8",
+            "activation_type": "uint8",
+            "precision": "int8",
             "data_config": "quantize_data_config"
         }
     },

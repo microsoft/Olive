@@ -4,12 +4,13 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Any, Dict, Type, Union
+from typing import Any, Union
 
 import torch
 from packaging import version
 
 from olive.common.utils import StrEnumBase, get_attr
+from olive.constants import PrecisionBits
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
@@ -39,7 +40,7 @@ class AutoAWQQuantizer(Pass):
             }[self]
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             "input_model_dtype": PassConfigParam(
@@ -63,9 +64,9 @@ class AutoAWQQuantizer(Pass):
                     "128 and -1 uses per-column quantization."
                 ),
             ),
-            "w_bit": PassConfigParam(
-                type_=int,
-                default_value=4,
+            "bits": PassConfigParam(
+                type_=PrecisionBits,
+                default_value=PrecisionBits.BITS4,
                 description="The number of bits to quantize to.",
             ),
             "version": PassConfigParam(
@@ -101,7 +102,7 @@ class AutoAWQQuantizer(Pass):
                 ),
             ),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 default_value=None,
                 description="Data config for quantization. If not provided, pile validation data will be used.",
             ),
@@ -109,7 +110,7 @@ class AutoAWQQuantizer(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> HfModelHandler:
         from awq import AutoAWQForCausalLM
 
@@ -149,7 +150,7 @@ class AutoAWQQuantizer(Pass):
             quant_config={
                 "zero_point": config.zero_point,
                 "q_group_size": config.q_group_size,
-                "w_bit": config.w_bit,
+                "w_bit": config.bits.value,
                 "version": config.version,
                 "modules_to_not_convert": config.modules_to_not_convert,
             },
@@ -168,7 +169,7 @@ class AutoAWQQuantizer(Pass):
             new_load_kwargs["extra_args"]["use_safetensors"] = True
         return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path, load_kwargs=new_load_kwargs)
 
-    def _resolve_load_args(self, hf_loading_args: Dict[str, Any]):
+    def _resolve_load_args(self, hf_loading_args: dict[str, Any]):
         return {
             # want to default to using safetensors like in AutoAWQ
             "safetensors": hf_loading_args.get("use_safetensors", True),

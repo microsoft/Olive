@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Type, Union
+from typing import Optional, Union
 
 import numpy as np
 
@@ -42,19 +42,19 @@ class ComposeOnnxModels(Pass):
     _accepts_composite_model = True
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return get_external_data_config()
 
     def _run_for_config(
         self,
         model: CompositeModelHandler,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         assert isinstance(model, CompositeModelHandler), "ComposeOnnxModels pass only supports CompositeModelHandler"
-        assert all(
-            isinstance(m, ONNXModelHandler) for m in model.model_components
-        ), "All components must be ONNXModelHandler"
+        assert all(isinstance(m, ONNXModelHandler) for m in model.model_components), (
+            "All components must be ONNXModelHandler"
+        )
 
         if pipeline := (model.model_attributes or {}).get("llm_pipeline"):
             output_model_path = Path(output_model_path).with_suffix("")
@@ -117,13 +117,13 @@ class ComposeOnnxModels(Pass):
             dag_inputs = set(dag.get_input_names())
             dag_outputs = set(dag.get_output_names())
             # avoid circular connection, model_2 output cannot be model_1 input
-            assert dag_outputs.isdisjoint(
-                seen_inputs
-            ), f"Output names {dag_outputs.intersection(seen_inputs)} are already used as input names."
+            assert dag_outputs.isdisjoint(seen_inputs), (
+                f"Output names {dag_outputs.intersection(seen_inputs)} are already used as input names."
+            )
             # avoid reused output name
-            assert dag_outputs.isdisjoint(
-                seen_outputs
-            ), f"Output names {dag_outputs.intersection(seen_outputs)} are already used as output names."
+            assert dag_outputs.isdisjoint(seen_outputs), (
+                f"Output names {dag_outputs.intersection(seen_outputs)} are already used as output names."
+            )
 
             # update seen inputs and outputs
             seen_inputs.update(dag_inputs)
@@ -143,12 +143,12 @@ class ComposeOnnxModels(Pass):
             cd_initializer_names = set(composed_dag.get_initializer_names())
             for input_name in dag.get_input_names():
                 if input_name in cd_input_names | cd_output_names:
-                    assert dag.get_io_shape(input_name) == composed_dag.get_io_shape(
-                        input_name
-                    ), f"Input shape mismatch: {input_name}"
-                    assert dag.get_io_dtype(input_name) == composed_dag.get_io_dtype(
-                        input_name
-                    ), f"Input dtype mismatch: {input_name}"
+                    assert dag.get_io_shape(input_name) == composed_dag.get_io_shape(input_name), (
+                        f"Input shape mismatch: {input_name}"
+                    )
+                    assert dag.get_io_dtype(input_name) == composed_dag.get_io_dtype(input_name), (
+                        f"Input dtype mismatch: {input_name}"
+                    )
                     continue
 
                 # will add to graph 0 for now
@@ -160,9 +160,12 @@ class ComposeOnnxModels(Pass):
 
             for init_name in dag.get_initializer_names():
                 if init_name in cd_initializer_names:
-                    np.testing.assert_array_equal(
-                        dag.get_initializer_np_array(init_name), composed_dag.get_initializer_np_array(init_name)
-                    ), f"Initializer mismatch: {init_name}"
+                    (
+                        np.testing.assert_array_equal(
+                            dag.get_initializer_np_array(init_name), composed_dag.get_initializer_np_array(init_name)
+                        ),
+                        f"Initializer mismatch: {init_name}",
+                    )
                     continue
 
                 composed_dag.add_initializer(dag.get_initializer_proto(init_name), 0)

@@ -6,11 +6,11 @@ import logging
 import platform
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Optional, Type, Union
+from typing import Optional, Union
 
 from packaging import version
 
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
@@ -26,7 +26,7 @@ class EPContextBinaryGenerator(Pass):
     _accepts_composite_model = True
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "embed_context": PassConfigParam(
                 type_=bool,
@@ -66,16 +66,16 @@ class EPContextBinaryGenerator(Pass):
     def _run_for_config(
         self,
         model: Union[ONNXModelHandler, CompositeModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime import get_available_providers
 
         # TODO(jambayk): validate and support other NPU EPs
-        assert (
-            self.accelerator_spec.execution_provider == "QNNExecutionProvider"
-        ), "Only QNNExecutionProvider is supported for now."
+        assert self.accelerator_spec.execution_provider == "QNNExecutionProvider", (
+            "Only QNNExecutionProvider is supported for now."
+        )
         assert self.accelerator_spec.execution_provider in get_available_providers(), (
             f"Execution provider {self.accelerator_spec.execution_provider} is not available. Available providers:"
             f" {get_available_providers()}"
@@ -93,6 +93,7 @@ class EPContextBinaryGenerator(Pass):
             return self._generate_context_binary(
                 model_path=model.model_path,
                 output_model_path=resolve_onnx_path(output_model_path, f"{Path(model.model_path).stem}_ctx.onnx"),
+                device=self.accelerator_spec.accelerator_type,
                 **generate_kwargs,
             )
 
@@ -122,6 +123,7 @@ class EPContextBinaryGenerator(Pass):
                             new_ctx_model_name: component_models[ctx_model_name].model_path,
                             new_iter_model_name: component_models[iter_model_name].model_path,
                         },
+                        device=self.accelerator_spec.accelerator_type,
                         output_model_dir=output_dir,
                         generate_kwargs=generate_kwargs,
                         weight_sharing=config.weight_sharing,
@@ -150,6 +152,7 @@ class EPContextBinaryGenerator(Pass):
         new_component_models = self._generate_composite_binaries(
             model_paths_map={f"{name}_ctx": component.model_path for name, component in component_map.items()},
             output_model_dir=output_model_path,
+            device=self.accelerator_spec.accelerator_type,
             generate_kwargs=generate_kwargs,
             weight_sharing=config.weight_sharing,
         )
@@ -163,11 +166,12 @@ class EPContextBinaryGenerator(Pass):
     @classmethod
     def _generate_composite_binaries(
         cls,
-        model_paths_map: Dict[str, str],
+        model_paths_map: dict[str, str],
+        device: Union[Device, str],
         output_model_dir: str,
-        generate_kwargs: Dict[str, str],
+        generate_kwargs: dict[str, str],
         weight_sharing: bool = False,
-    ) -> Dict[str, ONNXModelHandler]:
+    ) -> dict[str, ONNXModelHandler]:
         """Generate context binary for each model in the composite model.
 
         :param model_paths_map: Map of model names to model paths.
@@ -188,6 +192,7 @@ class EPContextBinaryGenerator(Pass):
             new_models[model_name] = cls._generate_context_binary(
                 model_path=model_path,
                 output_model_path=Path(output_model_dir) / f"{model_name}.onnx",
+                device=device,
                 **generate_kwargs,
             )
 
@@ -197,6 +202,7 @@ class EPContextBinaryGenerator(Pass):
     def _generate_context_binary(
         model_path: str,
         output_model_path: Union[str, Path],
+        device: Union[Device, str],
         execution_provider: str,
         provider_options: Optional[dict] = None,
         session_options: Optional[dict] = None,
@@ -219,7 +225,9 @@ class EPContextBinaryGenerator(Pass):
         :param ignore_missing_cb_bin: Whether to ignore missing context binary files.
         :return: ONNXModelHandler for the generated context binary.
         """
-        from onnxruntime import InferenceSession, SessionOptions
+        import onnxruntime as ort
+
+        from olive.common.ort_inference import initialize_inference_session_options_for_winml, is_winml_installation
 
         # prepare provider options
         provider_options = provider_options or {}
@@ -239,7 +247,7 @@ class EPContextBinaryGenerator(Pass):
                 "ep.stop_share_ep_contexts": int(stop_share_ep_contexts),
             }
         )
-        sess_options = SessionOptions()
+        sess_options = ort.SessionOptions()
         for key, value in session_options.items():
             sess_options.add_session_config_entry(key, str(value))
 
@@ -257,12 +265,15 @@ class EPContextBinaryGenerator(Pass):
 
         # create the inference session
         logger.debug("Creating context binary for model %s", str(model_path))
-        InferenceSession(
-            model_path,
-            sess_options=sess_options,
-            providers=[execution_provider],
-            provider_options=[provider_options],
-        )
+
+        sess_kwargs = {}
+        if is_winml_installation():
+            initialize_inference_session_options_for_winml(
+                sess_options, device, [execution_provider], [provider_options or {}]
+            )
+        else:
+            sess_kwargs.update({"providers": [execution_provider], "provider_options": [provider_options]})
+        ort.InferenceSession(model_path, sess_options=sess_options, **sess_kwargs)
 
         assert output_model_path.exists(), f"Context binary not found at {output_model_path}"
 

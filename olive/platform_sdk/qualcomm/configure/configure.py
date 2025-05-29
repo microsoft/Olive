@@ -36,7 +36,7 @@ def configure_dev(py_version: str, sdk: str):
 
     logger.info("Configuring %s for %s with python %s...", sdk, sdk_arch, py_version)
     cmd = None
-    with resources.path(resource_path, script_name) as create_python_env_path:
+    with resources.path(resource_path, script_name) as create_python_env_path:  # pylint: disable=deprecated-method
         if platform.system() == OS.LINUX:
             cmd = f"bash {create_python_env_path} -v {py_version} --sdk {sdk}"
         elif platform.system() == OS.WINDOWS:
@@ -76,7 +76,7 @@ def configure_eval(sdk: str):
             (olive_sdk_path / member.name).symlink_to(member)
 
     # copy over libcdsprpc.dll
-    with resources.path(resource_path, "copy_libcdsprpc.ps1") as copy_libcdsprpc_path:
+    with resources.path(resource_path, "copy_libcdsprpc.ps1") as copy_libcdsprpc_path:  # pylint: disable=deprecated-method
         cmd = f"powershell {copy_libcdsprpc_path} {olive_sdk_path}"
         run_subprocess(cmd, check=True)
         if not (olive_sdk_path / "libcdsprpc.dll").exists():

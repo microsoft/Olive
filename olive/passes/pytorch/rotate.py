@@ -4,9 +4,10 @@
 # --------------------------------------------------------------------------
 import logging
 import tempfile
+from collections.abc import Iterable
 from copy import deepcopy
 from functools import partial
-from typing import Any, Dict, Iterable, Optional, Tuple, Type, Union
+from typing import Any, Optional, Union
 
 import torch
 from torch import nn
@@ -41,7 +42,7 @@ class RotateBase(Pass):
         RANDOM = "random"
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "seed": PassConfigParam(
                 type_=int,
@@ -84,7 +85,8 @@ class RotateBase(Pass):
             model.set_resource("adapter_path", None)
 
         # load pytorch model
-        torch_dtype = None
+        # use "auto" by default to keep the original dtype
+        torch_dtype = model.get_load_kwargs().get("torch_dtype") or "auto"
         if training_args:
             torch_dtype = torch.bfloat16 if training_args.bf16 else torch.float16
         pytorch_model = load_hf_base_model(model, torch_dtype=torch_dtype)
@@ -242,7 +244,7 @@ class QuaRot(RotateBase):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> HfModelHandler:
         model_wrapper, _, save_replacements = self.rotate_model(model, config.rotate_mode, config.seed)
 
@@ -296,7 +298,7 @@ class SpinQuant(RotateBase):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = super()._default_config(accelerator_spec)
         config.update(
             {
@@ -317,7 +319,7 @@ class SpinQuant(RotateBase):
                 ),
                 # training parameters
                 "training_args": PassConfigParam(
-                    type_=Union[HFTrainingArguments, Dict],
+                    type_=Union[HFTrainingArguments, dict],
                     default_value=None,
                     description="Training arguments. If None, will use default arguments.",
                 ),
@@ -325,7 +327,7 @@ class SpinQuant(RotateBase):
         )
         return config
 
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+    def _run_for_config(self, model: HfModelHandler, config: dict[str, Any], output_model_path: str) -> HfModelHandler:
         from transformers import Trainer
 
         from olive.passes.pytorch.sgdg import SGDG
@@ -491,7 +493,7 @@ class RotateLinear(nn.Module):
         self.Q_pre = Q_pre
         self.Q_post = Q_post
 
-    def get_rotated_weights(self, device: Optional[torch.device] = None) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def get_rotated_weights(self, device: Optional[torch.device] = None) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
         weight = self.linear.weight
         bias = self.linear.bias if hasattr(self.linear, "bias") and self.linear.bias is not None else None
 

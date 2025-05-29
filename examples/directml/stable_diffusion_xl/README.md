@@ -15,6 +15,22 @@ Stable Diffusion XL comprises multiple PyTorch models tied together into a *pipe
 
 Olive is currently under pre-release, with constant updates and improvements to the functions and usage. This sample code will be frequently updated as Olive evolves, so it is important to install Olive from source when checking out this code from the main branch. See the [README for examples](https://github.com/microsoft/Olive/blob/main/examples/README.md#important) for detailed instructions on how to do this.
 
+**Alternatively**, you may install a stable release that we have validated. For example:
+
+```
+# Install stable release of the Olive tool
+pip install olive-ai[directml]==0.4.0
+
+# Clone Olive repo to access sample code
+git clone https://github.com/microsoft/olive --branch v0.4.0
+```
+
+Once you've installed Olive, install the requirements for this sample matching the version of the library you are using:
+```
+cd olive/examples/stable_diffusion_xl
+pip install -r requirements.txt
+```
+
 ## Conversion to ONNX and Latency Optimization
 
 The easiest way to optimize the pipeline is with the `stable_diffusion_xl.py` helper script. For SDXL Base, run the following:

@@ -104,6 +104,12 @@ OnnxMatMul4Quantizer
 --------------------
 .. autoconfigclass:: olive.passes.OnnxMatMul4Quantizer
 
+.. _onnx_hqq_quantization:
+
+OnnxHqqQuantization
+--------------------
+.. autoconfigclass:: olive.passes.OnnxHqqQuantization
+
 .. _graph_surgeries:
 
 GraphSurgeries
@@ -151,12 +157,6 @@ VitisAIQuantization
 AppendPrePostProcessingOps
 --------------------------
 .. autoconfigclass:: olive.passes.AppendPrePostProcessingOps
-
-.. _insert_beam_search:
-
-InsertBeamSearch
-----------------
-.. autoconfigclass:: olive.passes.InsertBeamSearch
 
 .. _extract_adapters:
 
@@ -321,11 +321,29 @@ OpenVINOConversion
 ------------------
 .. autoconfigclass:: olive.passes.OpenVINOConversion
 
+.. _openvino_ioupdate:
+
+OpenVINOIoUpdate
+------------------
+.. autoconfigclass:: olive.passes.OpenVINOIoUpdate
+
 .. _openvino_quantization:
 
 OpenVINOQuantization
 --------------------
 .. autoconfigclass:: olive.passes.OpenVINOQuantization
+
+.. _openvino_encapsulation:
+
+OpenVINOEncapsulation
+----------------------
+.. autoconfigclass:: olive.passes.OpenVINOEncapsulation
+
+.. _openvino_optimum_conversion:
+
+OpenVINOOptimumConversion
+-------------------------
+.. autoconfigclass:: olive.passes.OpenVINOOptimumConversion
 
 SNPE
 =================================

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.constants import DEFAULT_HF_TASK
@@ -27,21 +27,23 @@ logger = logging.getLogger(__name__)
 
 @model_handler_registry("HFModel")
 class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):  # pylint: disable=too-many-ancestors
-    resource_keys: Tuple[str, ...] = ("model_path", "adapter_path")
-    json_config_keys: Tuple[str, ...] = ("task", "load_kwargs", "generative")
+    resource_keys: tuple[str, ...] = ("model_path", "adapter_path")
+    json_config_keys: tuple[str, ...] = ("task", "load_kwargs", "generative")
 
     def __init__(
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS,
         task: str = DEFAULT_HF_TASK,
-        load_kwargs: Union[Dict[str, Any], HfLoadKwargs] = None,
-        io_config: Union[Dict[str, Any], IoConfig, str] = None,
+        load_kwargs: Union[dict[str, Any], HfLoadKwargs] = None,
+        io_config: Union[dict[str, Any], IoConfig, str] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
-        model_attributes: Optional[Dict[str, Any]] = None,
-        generative: bool = False,
+        model_attributes: Optional[dict[str, Any]] = None,
+        generative: Optional[bool] = None,
     ):
+        if generative is None:
+            generative = task and task.startswith("text-generation")
+
         super().__init__(
-            framework=Framework.PYTORCH,
             model_file_format=None,
             model_path=model_path,
             model_attributes=model_attributes,
@@ -88,7 +90,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         return model
 
     @property
-    def io_config(self) -> Dict[str, Any]:
+    def io_config(self) -> dict[str, Any]:
         """Return io config of the model.
 
         Priority: io_config > hf onnx_config
@@ -142,7 +144,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
 
 @model_handler_registry("DistributedHfModel")
 class DistributedHfModelHandler(OliveModelHandler):
-    json_config_keys: Tuple[str, ...] = (
+    json_config_keys: tuple[str, ...] = (
         "model_name_pattern",
         "num_ranks",
         "task",
@@ -158,10 +160,10 @@ class DistributedHfModelHandler(OliveModelHandler):
         model_path: OLIVE_RESOURCE_ANNOTATIONS,
         model_name_pattern: str,
         num_ranks: int,
-        task: str,
-        load_kwargs: Union[Dict[str, Any], HfLoadKwargs] = None,
-        io_config: Union[Dict[str, Any], IoConfig] = None,
-        model_attributes: Optional[Dict[str, Any]] = None,
+        task: str = DEFAULT_HF_TASK,
+        load_kwargs: Union[dict[str, Any], HfLoadKwargs] = None,
+        io_config: Union[dict[str, Any], IoConfig] = None,
+        model_attributes: Optional[dict[str, Any]] = None,
         generative: bool = False,
     ):
         super().__init__(
@@ -170,8 +172,10 @@ class DistributedHfModelHandler(OliveModelHandler):
             model_path=model_path,
             model_attributes=model_attributes,
             io_config=io_config,
-            generative=generative,
         )
+        if generative is None:
+            generative = task and task.startswith("text-generation")
+        self.generative = generative
 
         self.add_resources(locals())
 
@@ -198,9 +202,9 @@ class DistributedHfModelHandler(OliveModelHandler):
 
     def prepare_session(
         self,
-        inference_settings: Optional[Dict[str, Any]] = None,
+        inference_settings: Optional[dict[str, Any]] = None,
         device: Device = Device.GPU,  # pylint: disable=signature-differs
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Union[str, list[str]] = None,
         rank: Optional[int] = 0,
     ) -> "torch.nn.Module":
         return self.load_model(rank).load_model(rank).eval()
@@ -208,8 +212,8 @@ class DistributedHfModelHandler(OliveModelHandler):
     def run_session(
         self,
         session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
+        inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
+        **kwargs: dict[str, Any],
     ) -> Any:
         if isinstance(inputs, dict):
             results = session.generate(**inputs, **kwargs) if self.generative else session(**inputs, **kwargs)

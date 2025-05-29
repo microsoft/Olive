@@ -1,4 +1,4 @@
-# ONNX
+# ONNX Transformations
 
 [ONNX](https://onnx.ai/) is an open graph format to represent machine learning models. [ONNX Runtime](https://onnxruntime.ai/docs/) is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.
 
@@ -60,7 +60,7 @@ The `OnnxPeepholeOptimizer` leverages `onnxscript` (https://onnxscript.ai/tutori
 | **GEMM to MatMul+Add**            | Converts GEMM operations into MatMul and Add for improved compatibility.   |
 | **No-Op Removal**                 | Removes redundant or no-op operations in the computation graph.            |
 
-Please refer to [OnnxPeepholeOptimizer](../../../reference/pass.rst#onnx_peephole_optimizer) for more details about the pass and its config parameters.
+Please refer to [OnnxPeepholeOptimizer](../reference/pass.rst#onnx_peephole_optimizer) for more details about the pass and its config parameters.
 
 ### Example Configuration
 
@@ -81,7 +81,7 @@ These optimizations are provided by onnxruntime through
 refer to the [corresponding documentation](https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/README.md)
 for more details on the optimizations done by this tool.
 
-Please refer to [OrtTransformersOptimization](../../../reference/pass.rst#ort_transformers_optimization) for more details about the pass and its config parameters.
+Please refer to [OrtTransformersOptimization](../reference/pass.rst#ort_transformers_optimization) for more details about the pass and its config parameters.
 
 ### Example Configuration
 
@@ -833,6 +833,67 @@ Transformed model graph:
             (p=2, axis=-1)
 ```
 
+### `MatMulAddToGemm`
+
+#### Description
+
+Replace MatMul + Add with Gemm.
+
+Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor. If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm node and reshaped back to the original shape after the Gemm node.
+
+#### Example
+
+Initial model graph:
+
+```
+Static/Dynamic shaped input:
+             [2D weight]   [1D bias]
+                 |            |
+                 v            v
+[2D Input] --> MatMul -----> Add
+
+Static shaped input:
+             [2D weight]    [1D bias]
+                 |             |
+                 v             v
+[N-D Input] --> MatMul -----> Add
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "MatMulAddToGemm"
+        }
+    ]
+}
+```
+
+
+Transformed model graph:
+
+```
+Static/Dynamic shaped inputs:
+             [2D weight]
+                 |
+                 v
+[2D Input] --> Gemm (alpha=1.0, beta=1.0)
+                 ^
+                 |
+              [1D bias]
+
+Static shaped inputs:
+                          [2D weight]
+                              |
+                              v
+[N-D Input] --> Reshape --> Gemm (alpha=1.0, beta=1.0) --> Reshape
+                              ^
+                              |
+                          [1D bias]
+```
 
 ### `ReplaceAttentionMaskValue`
 
@@ -956,16 +1017,6 @@ graph {
 }
 ```
 
-```json
-{
-    "type": "AppendPrePostProcessingOps",
-    "tool_command": "whisper",
-    "tool_command_args": {
-        "use_audio_decoder": true
-    }
-}
-```
-
 `AppendPrePostProcessingOps` also supports pre/post processing ops by leveraging the [onnxruntime-extension steps](https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps) and `PrePostProcessor`.
 You can refer to [here](https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/Example%20usage%20of%20the%20PrePostProcessor.md) to see how to leverage `PrePostProcessor` to customize pre and post processing ops.
 
@@ -1066,19 +1117,6 @@ Here are some examples to describe the pre/post processing which is exactly same
         }
     ],
     "target_opset": 16,
-}
-```
-
-## Insert Beam Search Op
-
-`InsertBeamSearch` chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.
-
-### Example Configuration
-
-```json
-{
-    "type": "InsertBeamSearch",
-    "no_repeat_ngram_size": 4
 }
 ```
 

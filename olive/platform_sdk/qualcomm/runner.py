@@ -2,13 +2,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 import logging
 import os
 import shlex
 import shutil
 import time
 from pathlib import Path
-from typing import List, Union
 
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
@@ -45,7 +46,7 @@ class SDKRunner:
     def _use_olive_env(self):
         return os.environ.get(USE_OLIVE_ENV, USE_OLIVE_ENV_DEFAULT_VALUE) == USE_OLIVE_ENV_DEFAULT_VALUE
 
-    def _resolve_cmd(self, cmd: Union[str, List[str]]) -> List[str]:
+    def _resolve_cmd(self, cmd: str | list[str]) -> list[str]:
         # TODO(trajep): use list instead of string to avoid shlex.split error in non-posix mode
         import platform
 

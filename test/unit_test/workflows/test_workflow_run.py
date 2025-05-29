@@ -1,18 +1,17 @@
 from copy import deepcopy
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from olive.data.registry import Registry
+from olive.workflows import run as olive_run
 from test.unit_test.utils import (
     get_pytorch_model,
     get_pytorch_model_config,
     get_pytorch_model_io_config,
     pytorch_model_loader,
 )
-from unittest.mock import patch
-
-import pytest
-
-from olive.data.registry import Registry
-from olive.hardware.accelerator import AcceleratorSpec
-from olive.workflows import run as olive_run
 
 
 @Registry.register_dataloader()
@@ -109,9 +108,9 @@ def test_run_without_ep(mock_model_to_json, mock_model_from_json, mock_run, conf
     mock_run.return_value = get_pytorch_model()
     mock_model_from_json.return_value = get_pytorch_model_config()
     mock_model_to_json.return_value = {"type": "PyTorchModel", "config": {"io_config": {}}}
-    ret = olive_run(config)
-    assert len(ret) == 1
-    assert next(iter(ret)) == AcceleratorSpec("cpu")
+    workflow_output = olive_run(config)
+    assert len(workflow_output.get_available_devices()) == 1
+    assert workflow_output.get_available_devices()[0] == "cpu"
 
 
 def test_run_packages():

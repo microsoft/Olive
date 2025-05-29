@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import math
 from argparse import ArgumentParser
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 from olive.cli.base import BaseOliveCLICommand, add_logging_options
 from olive.common.utils import WeightsFileFormat, save_weights
@@ -127,13 +127,19 @@ class ConvertAdaptersCommand(BaseOliveCLICommand):
     @staticmethod
     def int4_block_quant(
         float_weight: "NDArray", block_size: int, is_symmetric: bool
-    ) -> Tuple["NDArray", "NDArray", "NDArray"]:
+    ) -> tuple["NDArray", "NDArray", "NDArray"]:
         """Quantize a weight tensor to int4."""
         # Only need to quantize the weight tensors directly
         # Not the same as OnnxMatMul4Quantizer pass which quantizes an entire model
         # TODO(jambayk): When ORT 1.18.0 is released, use DefaultWeightOnlyQuantizer.int4_block_quant
         import numpy as np
-        from onnxruntime.quantization.matmul_4bits_quantizer import quantize_matmul_4bits
+        from onnxruntime import __version__ as ort_version
+        from packaging import version
+
+        if version.parse(ort_version) < version.parse("1.22.0"):
+            from onnxruntime.quantization.matmul_4bits_quantizer import quantize_matmul_4bits
+        else:
+            from onnxruntime.quantization.matmul_nbits_quantizer import quantize_matmul_4bits
 
         rows, cols = float_weight.shape
 

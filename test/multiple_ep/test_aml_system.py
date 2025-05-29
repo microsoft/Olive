@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from olive.common.constants import OS
+from olive.hardware.accelerator import ExecutionProvider
 from olive.model import ModelConfig
 
 # pylint: disable=attribute-defined-outside-init
@@ -19,11 +20,10 @@ class TestOliveAzureMLSystem:
     @pytest.fixture(autouse=True)
     def setup(self):
         # use the olive managed AzureML system as the test environment
-        from test.integ_test.utils import get_olive_workspace_config
-        from test.multiple_ep.utils import download_data, download_models, get_onnx_model
-
         from olive.azureml.azureml_client import AzureMLClientConfig
         from olive.systems.system_config import AzureMLTargetUserConfig, SystemConfig
+        from test.integ_test.utils import get_olive_workspace_config
+        from test.multiple_ep.utils import download_data, download_models, get_onnx_model
 
         aml_compute = "cpu-cluster"
         azureml_client_config = AzureMLClientConfig(**get_olive_workspace_config())
@@ -51,8 +51,8 @@ class TestOliveAzureMLSystem:
     def test_run_pass_evaluate(self, tmp_path):
         from test.multiple_ep.utils import create_and_run_workflow, get_latency_metric
 
-        cpu_res, openvino_res = create_and_run_workflow(
+        workflow_output = create_and_run_workflow(
             tmp_path, self.system_config, self.input_model_config, get_latency_metric()
         )
-        assert cpu_res.metrics.value.__root__
-        assert openvino_res.metrics.value.__root__
+        assert workflow_output.cpu[str(ExecutionProvider.CPUExecutionProvider)].metrics
+        assert workflow_output.openvino[str(ExecutionProvider.OpenVINOExecutionProvider)].metrics

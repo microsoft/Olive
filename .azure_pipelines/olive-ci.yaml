@@ -92,9 +92,6 @@ jobs:
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
-      whisper:
-        exampleFolder: whisper
-        exampleName: whisper
       mobilenet_qnn_ep:
         exampleFolder: mobilenet/qnn
         exampleName: mobilenet_qnn_ep
@@ -104,7 +101,6 @@ jobs:
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
-    onnxruntime: onnxruntime
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -112,9 +108,6 @@ jobs:
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
-      whisper:
-        exampleFolder: whisper
-        exampleName: whisper
       mobilenet_qnn_ep:
         exampleFolder: mobilenet/qnn
         exampleName: mobilenet_qnn_ep
@@ -147,12 +140,13 @@ jobs:
       pool: $(OLIVE_POOL_UBUNTU2004)
       test_type: 'integ_test'
 
-  - template: job_templates/olive-test-cpu-template.yaml
-    parameters:
-      name: Windows_CPU_CI_Integration_Test
-      pool: $(OLIVE_POOL_WIN2019)
-      test_type: 'integ_test'
-      windows: True
+  # Re-enable this when the cluster is ready
+  # - template: job_templates/olive-test-cpu-template.yaml
+  #   parameters:
+  #     name: Windows_CPU_CI_Integration_Test
+  #     pool: $(OLIVE_POOL_WIN2019)
+  #     test_type: 'integ_test'
+  #     windows: True
 
   # Multiple EP Linux testing
   - template: job_templates/olive-test-cpu-template.yaml

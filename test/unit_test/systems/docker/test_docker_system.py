@@ -6,7 +6,6 @@ import copy
 import json
 import shutil
 from pathlib import Path
-from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_onnx_model_config, get_pytorch_model_config
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -21,6 +20,7 @@ from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
 from olive.systems.utils import create_managed_system
+from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_onnx_model_config, get_pytorch_model_config
 
 # pylint: disable=attribute-defined-outside-init,protected-access
 
@@ -235,10 +235,11 @@ class TestDockerSystem:
         def is_dir_mock(self):
             return self == Path("data_dir")
 
-        with patch("olive.resource_path._validate_file_path", side_effect=validate_file_or_folder), patch(
-            "olive.resource_path._validate_folder_path", side_effect=validate_file_or_folder
-        ), patch("olive.resource_path._validate_path", side_effect=validate_file_or_folder), patch.object(
-            Path, "is_dir", side_effect=is_dir_mock, autospec=True
+        with (
+            patch("olive.resource_path._validate_file_path", side_effect=validate_file_or_folder),
+            patch("olive.resource_path._validate_folder_path", side_effect=validate_file_or_folder),
+            patch("olive.resource_path._validate_path", side_effect=validate_file_or_folder),
+            patch.object(Path, "is_dir", side_effect=is_dir_mock, autospec=True),
         ):
             output_model = docker_system.run_pass(p, onnx_model, output_folder)
             assert output_model is not None

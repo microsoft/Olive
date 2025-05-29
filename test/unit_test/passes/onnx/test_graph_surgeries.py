@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import json
 from pathlib import Path
-from test.unit_test.utils import make_local_tiny_llama
 
 import numpy as np
 import onnx
@@ -18,6 +17,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
 from olive.passes.onnx.model_builder import ModelBuilder
 from olive.passes.onnx.onnx_dag import OnnxDAG
+from test.unit_test.utils import make_local_tiny_llama
 
 
 def get_onnx_model(model_path):
@@ -346,9 +346,9 @@ def test_expose_quantized_output(tmp_path):
     # Validate that the scale node and its initializer exist in the modified model
     assert any(node.name == scale_node_name for node in output_model.graph.node), "Scale node not added."
     scale_initializer = next(init for init in output_model.graph.initializer if init.name == scale_initializer_name)
-    assert np.allclose(
-        numpy_helper.to_array(scale_initializer), np.array([original_scale_value], dtype=np.float32)
-    ), "Scale value mismatch."
+    assert np.allclose(numpy_helper.to_array(scale_initializer), np.array([original_scale_value], dtype=np.float32)), (
+        "Scale value mismatch."
+    )
 
     # Validate that the zero_point node and its initializer exist in the modified model
     assert any(node.name == zero_point_node_name for node in output_model.graph.node), "Zero point node not added."
@@ -645,14 +645,20 @@ def test_replace_attention_mask_value(tmp_path):
         helper.make_tensor_value_info("input1", TensorProto.INT64, [1]),
         helper.make_tensor_value_info("input2", TensorProto.FLOAT, [1]),
         helper.make_tensor_value_info("input3", TensorProto.FLOAT, [1]),
+        helper.make_tensor_value_info("input4", TensorProto.FLOAT, [1]),
     ]
     output_tensors = [
         helper.make_tensor_value_info("output1", TensorProto.FLOAT, [1]),
         helper.make_tensor_value_info("output2", TensorProto.FLOAT, [1]),
         helper.make_tensor_value_info("output3", TensorProto.FLOAT, [1]),
+        helper.make_tensor_value_info("output4", TensorProto.FLOAT, [4, 1, 2, 2]),
+        helper.make_tensor_value_info("output5", TensorProto.FLOAT, [1, 1, 2, 2]),
     ]
+    expand_init = np.array([[[[0, min_value], [min_value, min_value]]]], dtype=np.float32)
     initializers = [
         helper.make_tensor("init", TensorProto.FLOAT, [], [min_value]),
+        numpy_helper.from_array(expand_init, name="add_init"),
+        helper.make_tensor("expand_shape", TensorProto.INT64, [4], [4, 1, 2, 2]),
     ]
     nodes = [
         helper.make_node(
@@ -680,6 +686,25 @@ def test_replace_attention_mask_value(tmp_path):
             inputs=["input3", "init"],
             outputs=["output3"],
             name="Mul_init",
+        ),
+        helper.make_node(
+            "Constant",
+            inputs=[],
+            outputs=["expand_constant"],
+            name="Constant_expand",
+            value=numpy_helper.from_array(expand_init, name=""),
+        ),
+        helper.make_node(
+            "Expand",
+            inputs=["expand_constant", "expand_shape"],
+            outputs=["output4"],
+            name="Expand_constant",
+        ),
+        helper.make_node(
+            "Add",
+            inputs=["input4", "add_init"],
+            outputs=["output5"],
+            name="Add_init",
         ),
     ]
     graph = helper.make_graph(
@@ -714,6 +739,75 @@ def test_replace_attention_mask_value(tmp_path):
             "input1": np.array([1], dtype=np.int64),
             "input2": np.array([1], dtype=np.float32),
             "input3": np.array([1], dtype=np.float32),
+            "input4": np.array([0], dtype=np.float32),
         },
     )
-    assert all(o == -1e4 for o in outputs)
+    assert all(o == -1e4 for o in outputs[:3])
+    expected_output_4 = np.repeat(expand_init, 4, axis=0)
+    expected_output_4[expected_output_4 == min_value] = -1e4
+    assert np.array_equal(outputs[3], expected_output_4)
+    expected_output_5 = expand_init.copy()
+    expected_output_5[expected_output_5 == min_value] = -1e4
+    assert np.array_equal(outputs[4], expected_output_5)
+
+
+def test_matmul_add_to_gemm(tmp_path):
+    # setup input and output tensors
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 3])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 3, 3])
+
+    constant1_data = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float32)
+    constant2_data = np.array([1, 2, 3], dtype=np.float32)
+    # Create constant tensors
+    initializers = [
+        helper.make_tensor("constant1", TensorProto.FLOAT, [3, 3], constant1_data),
+        helper.make_tensor("constant2", TensorProto.FLOAT, [3], constant2_data),
+    ]
+
+    nodes = [
+        helper.make_node("MatMul", inputs=["input", "constant1"], outputs=["matmul_output"]),
+        helper.make_node("Add", inputs=["matmul_output", "constant2"], outputs=["inter"]),
+        helper.make_node("Identity", inputs=["inter"], outputs=["output"]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=initializers,
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "MatMulAddToGemm"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # Matmul->Add->Identity will be replaced with Reshape->Gemm->Reshape->Identity
+    expected_num_nodes = 4
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    assert len(dag.nodes) == expected_num_nodes
+    assert "matmul" not in dag.get_node_op_types()
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+    output_session = output_model.prepare_session()
+
+    # Define the input data
+    input_data = np.array([[[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[1, 2, 3], [4, 5, 6], [7, 8, 9]]], dtype=np.float32)
+
+    outputs = output_session.run(None, {"input": input_data})
+
+    matmul_output = np.matmul(input_data, constant1_data)
+    expected_output = matmul_output + constant2_data
+    assert np.allclose(outputs[0], expected_output)

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Dict, List, Type, Union
+from typing import Union
 
 import torch
 
@@ -35,7 +35,7 @@ class TorchTRTConversion(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "min_layer": PassConfigParam(
                 type_=int, default_value=None, description="Convert all layers with id >= min_layer."
@@ -44,7 +44,7 @@ class TorchTRTConversion(Pass):
                 type_=int, default_value=None, description="Convert all layers with id < max_layer."
             ),
             "layer_name_filter": PassConfigParam(
-                type_=Union[str, List[str]],
+                type_=Union[str, list[str]],
                 default_value=None,
                 description="Only convert layers whose name contains the given string(s).",
             ),
@@ -54,7 +54,7 @@ class TorchTRTConversion(Pass):
                 description="Convert entire model to fp16. If False, only the sparse modules are converted to fp16.",
             ),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description=(
                     "Data config to use for compiling module to TensorRT. The batch size of the compiled module is set"
@@ -66,7 +66,7 @@ class TorchTRTConversion(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
         if not super().validate_config(config, accelerator_spec):
@@ -81,7 +81,7 @@ class TorchTRTConversion(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: HfModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
         from olive.passes.pytorch.trt_utils import compile_trt_model
 

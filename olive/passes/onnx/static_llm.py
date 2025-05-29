@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Dict, Type
 
 import onnx
 
@@ -37,7 +36,7 @@ class StaticLLM(Pass):
     _accepts_composite_model = True
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "batch_size": PassConfigParam(
                 type_=int,
@@ -49,17 +48,23 @@ class StaticLLM(Pass):
                 default_value=64,
                 description="Input length of the context model.",
             ),
+            "group_session_options": PassConfigParam(
+                type_=dict,
+                description=(
+                    "Session options for the context and iterator models. Only used for models with genai_config."
+                ),
+            ),
         }
 
     def _run_for_config(
-        self, model: CompositeModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: CompositeModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> CompositeModelHandler:
         assert isinstance(model, CompositeModelHandler), "StaticLLM pass only supports CompositeModelHandler"
         model_components = list(model.model_components)
         assert all(isinstance(m, ONNXModelHandler) for m in model_components), "All components must be ONNXModelHandler"
-        assert (
-            len(model_components) >= 3
-        ), "There should be at least 3 components in the model: embedding, transformer, and lm_head."
+        assert len(model_components) >= 3, (
+            "There should be at least 3 components in the model: embedding, transformer, and lm_head."
+        )
 
         # only gqa models are supported for now
         assert (
@@ -149,11 +154,16 @@ class StaticLLM(Pass):
         }
 
         return process_llm_pipeline(
-            model, pipeline, process_context_iterator, output_model_path, decoder_config_extra=decoder_config_extra
+            model,
+            pipeline,
+            process_context_iterator,
+            output_model_path,
+            decoder_config_extra=decoder_config_extra,
+            group_session_options=config.group_session_options,
         )
 
     @staticmethod
-    def fix_shape(model_proto: onnx.ModelProto, param_mapping: Dict[str, int]):
+    def fix_shape(model_proto: onnx.ModelProto, param_mapping: dict[str, int]):
         """Fix the shape of the model based on the param mapping.
 
         :param model_path: Path to the model.
@@ -175,7 +185,7 @@ class StaticLLM(Pass):
             for old_dim, new_dim in zip(original_shape, new_shape):
                 if isinstance(old_dim, str) and isinstance(new_dim, int):
                     if old_dim in param_mapping:
-                        assert (
-                            param_mapping[old_dim] == new_dim
-                        ), f"Param {old_dim} already exists with different value. Something is wrong."
+                        assert param_mapping[old_dim] == new_dim, (
+                            f"Param {old_dim} already exists with different value. Something is wrong."
+                        )
                     param_mapping[old_dim] = new_dim

@@ -6,12 +6,13 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Type, Union
+from typing import Union
 
 import onnx
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import exclude_keys, hash_string
+from olive.constants import Precision
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -23,6 +24,7 @@ from olive.passes.onnx.common import (
     model_proto_to_file,
     model_proto_to_olive_model,
 )
+from olive.passes.onnx.quantization import quant_type_from_precision
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile
 from olive.search.search_parameter import Boolean, Categorical, Conditional
@@ -35,17 +37,17 @@ logger = logging.getLogger(__name__)
 # common config for Vitis-AI quantization
 vai_q_onnx_quantization_config = {
     "data_config": PassConfigParam(
-        type_=Union[DataConfig, Dict],
+        type_=Union[DataConfig, dict],
         required=True,
         description="Data config for calibration.",
     ),
-    "weight_type": PassConfigParam(
-        type_=str,
-        default_value="QInt8",
-        search_defaults=Categorical(["QInt8"]),
+    "precision": PassConfigParam(
+        type_=Precision,
+        default_value=Precision.INT8,
+        search_defaults=Categorical([Precision.INT8]),
         description="""
             Data type for quantizing weights which is used in vai_q_onnx quantization.
-            'QInt8' for signed 8-bit integer,
+            'int8' for signed 8-bit integer,
         """,
     ),
     "input_nodes": PassConfigParam(
@@ -143,19 +145,23 @@ vai_q_onnx_quantization_config = {
         """,
     ),
     "activation_type": PassConfigParam(
-        type_=str,
-        default_value="QUInt8",
-        # the search space is conditional on quant_format and weight_type
-        # the equivalent joint search space for (quant_format, weight_type, activation) is
-        # {(QDQ, QInt8, QInt8), (QDQ, QUInt8, QUInt8), (QOperator, QUInt8, QUInt8)}
+        type_=Precision,
+        default_value=Precision.UINT8,
+        # the search space is conditional on quant_format and precision
+        # the equivalent joint search space for (quant_format, precision, activation) is
+        # {
+        #   (QDQ, Precision.INT8, Precision.INT8),
+        #   (QDQ, Precision.UINT8, Precision.UINT8),
+        #   (QOperator, Precision.UINT8, Precision.UINT8)
+        # }
         search_defaults=Conditional(
-            parents=("quant_format", "weight_type"),
+            parents=("quant_format", "precision"),
             support={
-                ("QDQ", "QInt8"): Categorical(["QInt8"]),
-                ("QDQ", "QUInt8"): Categorical(["QUInt8"]),
-                ("QOperator", "QUInt8"): Categorical(["QUInt8"]),
-                # invalid choice for QOperator, QInt8
-                ("QOperator", "QInt8"): Conditional.get_invalid_choice(),
+                ("QDQ", Precision.INT8): Categorical([Precision.INT8]),
+                ("QDQ", Precision.UINT8): Categorical([Precision.UINT8]),
+                ("QOperator", Precision.UINT8): Categorical([Precision.UINT8]),
+                # invalid choice for QOperator, Precision.INT8
+                ("QOperator", Precision.INT8): Conditional.get_invalid_choice(),
             },
         ),
         description="""
@@ -215,7 +221,7 @@ class VitisAIQuantization(Pass):
         return False
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "quant_mode": PassConfigParam(
                 type_=str,
@@ -236,13 +242,13 @@ class VitisAIQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         if model_has_adapters(model.model_path):
             logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")
             return model
 
-        from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
+        from onnxruntime.quantization.quant_utils import QuantFormat
 
         from olive.passes.onnx.vitis_ai import quantize_static
         from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
@@ -295,8 +301,8 @@ class VitisAIQuantization(Pass):
             {
                 "calibrate_method": PowerOfTwoMethod[run_config["calibrate_method"]],
                 "quant_format": QuantFormat[run_config["quant_format"]],
-                "activation_type": QuantType[run_config["activation_type"]],
-                "weight_type": QuantType[run_config["weight_type"]],
+                "activation_type": quant_type_from_precision(run_config["activation_type"]),
+                "weight_type": quant_type_from_precision(run_config["precision"]),
                 "extra_options": extra_options,
             }
         )

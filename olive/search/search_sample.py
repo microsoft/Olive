@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 from olive.search.search_parameter import SpecialParamValue
 from olive.search.search_point import SearchPoint
@@ -19,7 +19,7 @@ class SearchSample:
     Includes the search point and the input model ids to use to process the search point.
     """
 
-    def __init__(self, search_point: SearchPoint, model_ids: List[str]):
+    def __init__(self, search_point: SearchPoint, model_ids: list[str]):
         self.search_point = search_point
         self.model_ids = model_ids
 
@@ -28,7 +28,7 @@ class SearchSample:
         return f"SearchSample({self.search_point.index}, {self.passes_configs}, {self.model_ids})"
 
     @property
-    def passes_configs(self) -> Dict[str, Any]:
+    def passes_configs(self) -> dict[str, Any]:
         """Return the pass config that can be merged with the workflow config.
 
         If any value in the hierarchy is SearchParameter.INVALID, return value would be None.

@@ -90,14 +90,6 @@
             "dataset": "dataset_required",
             "run_on_target": true
         },
-        "InsertBeamSearch": {
-            "module_path": "olive.passes.onnx.insert_beam_search.InsertBeamSearch",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
         "MatMulNBitsToQDQ": {
             "module_path": "olive.passes.onnx.mnb_to_qdq.MatMulNBitsToQDQ",
             "supported_providers": [ "*" ],
@@ -169,8 +161,16 @@
             "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
             "supported_accelerators": [ "cpu", "gpu" ],
             "supported_precisions": [ "int4" ],
-            "supported_algorithms": [ "rtn", "hqq" ],
+            "supported_algorithms": [ "rtn" ],
             "supported_quantization_encodings": [ "qdq" ]
+        },
+        "OnnxHqqQuantization": {
+            "module_path": "olive.passes.onnx.hqq_quantization.OnnxHqqQuantization",
+            "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "int4" ],
+            "supported_algorithms": [ "hqq" ],
+            "supported_quantization_encodings": [  ]
         },
         "OnnxPeepholeOptimizer": {
             "module_path": "olive.passes.onnx.peephole_optimizer.OnnxPeepholeOptimizer",
@@ -336,6 +336,33 @@
         },
         "OpenVINOQuantization": {
             "module_path": "olive.passes.openvino.quantization.OpenVINOQuantization",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
+        "OpenVINOEncapsulation": {
+            "module_path": "olive.passes.openvino.encapsulation.OpenVINOEncapsulation",
+            "supported_providers": [ "OpenVINOExecutionProvider" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
+        "OpenVINOIoUpdate": {
+            "module_path": "olive.passes.openvino.io_update.OpenVINOIoUpdate",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
+        "OpenVINOOptimumConversion": {
+            "module_path": "olive.passes.openvino.optimum_intel.OpenVINOOptimumConversion",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
@@ -549,6 +576,31 @@
             "supported_algorithms": [ "awq" ],
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "nvmo" ]
+        },
+        "TrtMatMulToConvTransform": {
+            "module_path": "olive.passes.onnx.tensorrt.trt_dla_transforms.TrtMatMulToConvTransform",
+            "supported_providers": [ "TensorrtExecutionProvider" ],
+            "supported_accelerators": [ "gpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "onnxscript" ]
+        },
+        "VitisAIAddMetaData": {
+            "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIAddMetaData",
+            "supported_providers": [ "CPUExecutionProvider" ],
+            "supported_accelerators": [ "cpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "InputNCHWtoNHWC": {
+            "module_path": "olive.passes.onnx.vitis_ai.preprocess.InputNCHWtoNHWC",
+            "supported_providers": [ "CPUExecutionProvider" ],
+            "supported_accelerators": [ "cpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         }
     },
     "extra_dependencies": {
@@ -566,7 +618,7 @@
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "nvmo": [ "nvidia-modelopt", "onnx-graphsurgeon", "datasets>=2.14.4", "cppimport==22.8.2" ],
-        "openvino": [ "openvino>=2023.2.0", "nncf==2.7.0", "numpy<2.0" ],
+        "openvino": [ "openvino>=2025.1.0", "nncf>=2.16.0", "numpy<2.0", "optimum[openvino]<=1.24" ],
         "optimum": [ "optimum" ],
         "qnn": [ "onnxruntime-qnn" ],
         "tf": [ "tensorflow==1.15.0" ],

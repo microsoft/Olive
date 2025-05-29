@@ -10,11 +10,12 @@ import multiprocessing
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Type, Union
+from typing import Optional, Union
 
 import onnx
 import torch
 import transformers
+from onnxscript import version_converter
 from packaging import version
 from transformers.modeling_utils import PreTrainedModel
 
@@ -31,7 +32,7 @@ from olive.model import (
 from olive.model.config import IoConfig
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model, model_proto_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
@@ -52,12 +53,12 @@ class OnnxConversion(Pass):
     """Convert a PyTorch model to ONNX model using torch.onnx.export on CPU."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             **get_external_data_config(),
             "target_opset": PassConfigParam(
-                type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
+                type_=int, default_value=20, description="The version of the default (ai.onnx) opset to target."
             ),
             "use_dynamo_exporter": PassConfigParam(
                 type_=bool, default_value=False, description="Whether to use dynamo_export API to export ONNX model."
@@ -121,27 +122,29 @@ class OnnxConversion(Pass):
     def _run_for_config(
         self,
         model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
         output_model = self._run_for_config_internal(model, config, output_model_path)
 
-        if isinstance(model, HfModelHandler) and config.save_metadata_for_token_generation:
-            # output_model can only be an ONNXModelHandler
-            output_dir = output_model.change_model_path_to_dir()
-
+        if isinstance(model, HfModelHandler):
             output_model.model_attributes = model_attributes = output_model.model_attributes or {}
-            model_attributes["additional_files"] = additional_files = model_attributes.get("additional_files", [])
-            # quantization config is already popped from the model and included in model_attributes
-            # don't want the information to be saved in metadata (issues with generation config save)
-            additional_files.extend(model.save_metadata(str(output_dir), exclude_load_keys=["quantization_config"]))
+            model_attributes["hf_task"] = model.task
+
+            if config.save_metadata_for_token_generation:
+                # output_model can only be an ONNXModelHandler
+                output_dir = output_model.change_model_path_to_dir()
+                model_attributes["additional_files"] = additional_files = model_attributes.get("additional_files", [])
+                # quantization config is already popped from the model and included in model_attributes
+                # don't want the information to be saved in metadata (issues with generation config save)
+                additional_files.extend(model.save_metadata(str(output_dir), exclude_load_keys=["quantization_config"]))
 
         return output_model
 
     def _run_for_config_internal(
         self,
         model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
@@ -169,7 +172,7 @@ class OnnxConversion(Pass):
         pytorch_model: torch.nn.Module,
         dummy_inputs,
         io_config,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         device: Union[str, torch.device],
         torch_dtype: Optional[torch.dtype] = None,
         tempdir: Optional[Union[Path, str]] = None,
@@ -480,7 +483,7 @@ class OnnxConversion(Pass):
     def _convert_model_on_device(
         self,
         model: Union[HfModelHandler, PyTorchModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
         device: str,
         torch_dtype: Optional[torch.dtype] = None,
@@ -520,8 +523,8 @@ class OnnxConversion(Pass):
 
     @staticmethod
     def _get_dummy_inputs(
-        model: Union[HfModelHandler, PyTorchModelHandler], config: Type[BasePassConfig]
-    ) -> Union[Dict, Tuple]:
+        model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig]
+    ) -> Union[dict, tuple]:
         """Get dummy inputs for the model."""
         return model.get_dummy_inputs(
             filter_hook=(
@@ -557,7 +560,7 @@ class OnnxConversion(Pass):
                 restore_llama2_tensor_parallel_layers as restore_tensor_parallel_layers,
             )
         else:
-            raise ValueError("Unsupported model type '{model_type}' for conversion pass")
+            raise ValueError(f"Unsupported model type '{model_type}' for conversion pass")
 
         output_filename = DistributedOnnxModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(local_rank)
         output_filepath = resolve_onnx_path(output_dirpath, output_filename)
@@ -592,7 +595,7 @@ class OnnxConversion(Pass):
     def _convert_distributed_model_on_device(
         self,
         model: DistributedHfModelHandler,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
         device: str,
         torch_dtype: Optional[torch.dtype] = None,
@@ -638,7 +641,7 @@ class OnnxConversion(Pass):
 
 class OnnxOpVersionConversion(Pass):
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         latest_opset_version = onnx.defs.onnx_opset_version()
 
         config = {
@@ -652,31 +655,12 @@ class OnnxOpVersionConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path)
-        # since external data is saved in a separate file, we need to load the model to get the opset version
-        model_proto = onnx.load(model.model_path, load_external_data=False)
-
-        model_opset_version = model_proto.opset_import[0].version
-        if model_opset_version == config.target_opset:
-            logger.info("Model is already in target opset version %s.", config.target_opset)
-            return model
-
-        converted_model_proto = onnx.version_converter.convert_version(model_proto, config.target_opset)
-        # copy the external data of original model to the new model
-        dst_init_map = {init.name: init for init in converted_model_proto.graph.initializer}
-        for src_init in model_proto.graph.initializer:
-            if (
-                src_init.name in dst_init_map
-                and src_init.HasField("data_location")
-                and src_init.data_location == onnx.TensorProto.EXTERNAL
-            ):
-                dst_init_map[src_init.name].CopyFrom(src_init)
-        onnx.external_data_helper.load_external_data_for_model(
-            converted_model_proto, str(Path(model.model_path).resolve().parent)
-        )
-        return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
+        model_ir = model.load_ir_model()
+        version_converter.convert_version(model_ir, config.target_opset, fallback=True)
+        return ir_model_to_olive_model(model_ir, output_model_path, config)
 
 
 def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):

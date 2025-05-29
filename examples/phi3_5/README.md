@@ -2,16 +2,26 @@
 
 This repository demonstrates the optimization of the [Microsoft Phi-3.5 Mini Instruct](https://huggingface.co/microsoft/Phi-3.5-mini-instruct) model using **post-training quantization (PTQ)** techniques. The optimization process is divided into two main workflows:
 
-1. [**QDQ Model with 4-bit Weights & 16-bit Activations**](#qdq-model-with-4-bit-weights--16-bit-activations)
-    - [Optimization Process](#optimization-process)
-    - [Handling Dynamic and Static Input Shapes](#handling-dynamic-and-static-input-shapes)
-    - [Usage](#usage)
-
-2. [**PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**](#ptq--aot-compilation-for-qualcomm-npus-using-qnn-ep)
-    - [Resource Optimization Strategy](#resource-optimization-strategy)
-    - [Compilation for Qualcomm NPU Deployment](#compilation-for-qualcomm-npu-deployment)
-    - [Usage](#usage-1)
-    - [Inference](#inference)
+- [Phi-3.5 Model Optimization](#phi-35-model-optimization)
+  - [**QDQ Model with 4-bit Weights \& 16-bit Activations**](#qdq-model-with-4-bit-weights--16-bit-activations)
+    - [**Optimization Process**](#optimization-process)
+    - [**Handling Dynamic and Static Input Shapes**](#handling-dynamic-and-static-input-shapes)
+    - [**Usage**](#usage)
+      - [**Quantization Python Environment Setup**](#quantization-python-environment-setup)
+      - [**Run the Quantization Config**](#run-the-quantization-config)
+  - [**PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**](#ptq--aot-compilation-for-qualcomm-npus-using-qnn-ep)
+    - [**Resource Optimization Strategy**](#resource-optimization-strategy)
+    - [**Compilation for Qualcomm NPU Deployment**](#compilation-for-qualcomm-npu-deployment)
+    - [**Usage**](#usage-1)
+      - [Quantization Python Environment Setup](#quantization-python-environment-setup-1)
+      - [AOT Compilation Python Environment Setup](#aot-compilation-python-environment-setup)
+      - [**Run the Quantization + Compilation Config**](#run-the-quantization--compilation-config)
+    - [**Inference**](#inference)
+      - [**Install Dependencies**](#install-dependencies)
+      - [**Install Required Python Packages**](#install-required-python-packages)
+      - [**Run Console-Based Chat Interface**](#run-console-based-chat-interface)
+  - [**PTQ + AOT Compilation for Intel® NPUs using Optimum Intel®**](#ptq--aot-compilation-for-intel-npus-using-optimum-intel)
+  - [**AMD NPU: Optimization and Quantization with for VitisAI**](#optimization-and-quantization-for-amd-npu)
 
 ## **QDQ Model with 4-bit Weights & 16-bit Activations**
 
@@ -80,6 +90,18 @@ olive run --config qdq_config.json
 
 ✅ Optimized model saved in: `models/phi3_5_qdq/`
 
+
+## **Optimization and Quantization for AMD NPU**
+
+#### **Run the Quantization Config**
+
+Follow above mentioned setup instruction and run the below command to generate the optimized model for VitisAI EP.
+
+```bash
+olive run --config qdq_config_vitis_ai.json.json
+```
+
+✅ Optimized model saved in: `models/phi3_5_qdq/`
 
 ## **PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**
 
@@ -154,7 +176,21 @@ Olive will run the AOT compilation step in the **AOT Compilation Python Environm
 
 The optimized model can be used for inference using ONNX Runtime QNNExecutionProvider and ONNX Runtime GenAI. **Inference must be run on a Windows Copilot+ PC with a Qualcomm NPU.**
 
-#### **Install Required Packages (arm64 Python)**
+#### **Install Dependencies**
+1. Visual Studio Build Tools with the following individual components
+   1. Compilers, build tools, and runtimes
+      * C++ Universal Windows Platform support for v143 build tools (ARM64/ARM64EC)
+      * MSVC v143 - VS 2022 C++ ARM64/ARM64EC build tools (Latest)
+   2. SDKs, libraries, and frameworks
+      * C++ ATL for latest v143 build tools (ARM64/ARM64EC)
+      * C++ MFC for latest v143 build tools (ARM64/ARM64EC)
+
+2. Python ARM64 (version 3.11 or 3.12)
+3. NPU driver version 30.0.140.1000 or higher
+
+#### **Install Required Python Packages**
+
+Open ARM64 Native Tools Command Prompt for VS2022 and run the following commands:
 
 ```bash
 pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
@@ -164,8 +200,12 @@ pip install "onnxruntime-genai>=0.7.0rc2"
 
 #### **Run Console-Based Chat Interface**
 
-Execute the provided [`app.py`](app.py) script:
+Open ARM64 Native Tools Command Prompt for VS2022 and execute the provided [`app.py`](app.py) script:
 
 ```bash
 python app.py
 ```
+
+## **PTQ + AOT Compilation for Intel® NPUs using Optimum Intel®**
+
+- [**Intel® NPU**](./openvino/): Optimization with Optimum Intel® on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model instructions are in the in the [openvino](./openvino/) folder.

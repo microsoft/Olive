@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import torch
 import transformers
@@ -32,7 +32,7 @@ class HfLoadKwargs(NestedConfig):
         ),
     )
     # str suffices for torch.dtype, otherwise serializer won't recognize it
-    device_map: Union[int, str, Dict] = Field(
+    device_map: Union[int, str, dict] = Field(
         None,
         description=(
             "A map that specifies where each submodule should go. Refer to `device_map` in the docstring of"
@@ -40,7 +40,7 @@ class HfLoadKwargs(NestedConfig):
         ),
     )
     # A dictionary device identifier to maximum memory
-    max_memory: Dict = Field(
+    max_memory: dict = Field(
         None,
         description=(
             "A dictionary that specifies the maximum memory that can be used by each device. Refer to `max_memory`"
@@ -56,7 +56,7 @@ class HfLoadKwargs(NestedConfig):
         ),
     )
     # A dictionary of configuration parameters for quantization
-    quantization_config: Dict = Field(
+    quantization_config: dict = Field(
         None,
         description=(
             "A dictionary of configuration parameters for quantization. Must be provided if quantization_config is"
@@ -73,7 +73,7 @@ class HfLoadKwargs(NestedConfig):
         ),
     )
     # other kwargs to pass during model loading
-    extra_args: Dict = Field(
+    extra_args: dict = Field(
         None,
         description=(
             "Other kwargs to pass to the .from_pretrained method of the model class. Values can be provided directly to"
@@ -122,7 +122,7 @@ class HfLoadKwargs(NestedConfig):
             )
             return v
 
-    def get_load_kwargs(self, exclude_load_keys: Optional[List[str]] = None) -> Dict[str, Any]:
+    def get_load_kwargs(self, exclude_load_keys: Optional[list[str]] = None) -> dict[str, Any]:
         """Return all args in a dict with types expected by `from_pretrained`."""
         loading_args = {}
         # copy args that can be directly copied
@@ -168,7 +168,7 @@ class HfLoadKwargs(NestedConfig):
         return device
 
     @staticmethod
-    def dict_to_quantization_config(quantization_method: str, config_dict: Dict[str, Any]):
+    def dict_to_quantization_config(quantization_method: str, config_dict: dict[str, Any]):
         method_to_class_name = {"bitsandbytes": "BitsAndBytesConfig", "gptq": "GPTQConfig"}
         method_to_min_version = {
             # bitsandbytes exists from 4.27.0, but 4bit quantization is only supported from 4.30.0

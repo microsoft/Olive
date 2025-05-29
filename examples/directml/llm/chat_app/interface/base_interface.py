@@ -1,3 +1,6 @@
+# pylint: disable=disallowed-name
+
+
 class BaseLLMInterface:
     def __init__(self):
         pass

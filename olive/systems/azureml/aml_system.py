@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
@@ -77,13 +77,13 @@ class AzureMLSystem(OliveSystem):
         self,
         azureml_client_config: AzureMLClientConfig,
         aml_compute: str,
-        aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig] = None,
-        aml_environment_config: Union[Dict[str, Any], AzureMLEnvironmentConfig] = None,
-        tags: Dict = None,
-        resources: Dict = None,
+        aml_docker_config: Union[dict[str, Any], AzureMLDockerConfig] = None,
+        aml_environment_config: Union[dict[str, Any], AzureMLEnvironmentConfig] = None,
+        tags: dict = None,
+        resources: dict = None,
         instance_count: int = 1,
         is_dev: bool = False,
-        accelerators: List[AcceleratorConfig] = None,
+        accelerators: list[AcceleratorConfig] = None,
         hf_token: bool = None,
         **kwargs,
     ):
@@ -268,9 +268,9 @@ class AzureMLSystem(OliveSystem):
 
     def create_inputs_and_args(
         self,
-        all_configs: Dict[str, Dict],
+        all_configs: dict[str, dict],
         tmp_dir: Path,
-        ignore_keys: Optional[List[str]] = None,
+        ignore_keys: Optional[list[str]] = None,
     ):
         """Create inputs and args for a job.
 
@@ -493,7 +493,7 @@ class AzureMLSystem(OliveSystem):
         pipeline_job,
         experiment_name: str,
         tmp_dir: Optional[Union[str, Path]] = None,
-        tags: Dict = None,
+        tags: dict = None,
         output_name: str = None,
         download_outputs: bool = True,
     ) -> Path:
@@ -694,7 +694,7 @@ class AzureMLSystem(OliveSystem):
         # metric component
         return cmd(**args)
 
-    def copy_files(self, code_files: List, target_path: Path):
+    def copy_files(self, code_files: list, target_path: Path):
         target_path.mkdir(parents=True, exist_ok=True)
         for code_file in code_files:
             shutil.copy2(str(code_file), str(target_path))

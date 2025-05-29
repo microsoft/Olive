@@ -199,7 +199,6 @@ def use_passes(template_json, *passes):
 
 
 def generate_config(args):
-
     json_file_template = "phi3_template.json"
     with open(json_file_template) as f:
         template_json = json.load(f)
@@ -261,14 +260,13 @@ def generate_config(args):
 
 
 def genai_run(prompt, model_path, max_length):
-
     print("\nModel inference starts...")
 
     print("Loading model...")
     app_started_timestamp = time.time()
     model = og.Model(model_path)
     model_loaded_timestamp = time.time()
-    print("Model loaded in {:.2f} seconds".format(model_loaded_timestamp - app_started_timestamp))
+    print(f"Model loaded in {model_loaded_timestamp - app_started_timestamp:.2f} seconds")
 
     print("Creating tokenizer...")
     tokenizer = og.Tokenizer(model)
@@ -320,7 +318,7 @@ def genai_run(prompt, model_path, max_length):
             "\n\n"
             f"Prompt tokens: {len(input_tokens)}, New tokens: {len(new_tokens)},"
             f" Time to first: {(first_token_timestamp - started_timestamp):.2f}s,"
-            f" New tokens per second: {len(new_tokens)/run_time:.2f} tps"
+            f" New tokens per second: {len(new_tokens) / run_time:.2f} tps"
         )
 
 

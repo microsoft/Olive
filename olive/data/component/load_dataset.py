@@ -2,7 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Mapping, Optional, Sequence, Union
+from collections.abc import Mapping, Sequence
+from typing import Optional, Union
 
 from olive.constants import Framework
 from olive.data.component.dataset import DummyDataset, RawDataset, TransformersDummyDataset
@@ -26,7 +27,7 @@ def huggingface_dataset(
     split: Optional[str] = "validation",
     data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
     col_filters: Optional[Mapping[str, Union[str, int, float]]] = None,
-    **kwargs
+    **kwargs,
 ):
     """Create a dataset from huggingface datasets."""
     from datasets.utils.logging import disable_progress_bar, set_verbosity_error

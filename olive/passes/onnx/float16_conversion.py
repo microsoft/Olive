@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Dict, List, Type
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -20,7 +19,7 @@ class OnnxFloatToFloat16(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "min_positive_val": PassConfigParam(
                 type_=float, default_value=1e-7, description="Constant values will be clipped against this value"
@@ -37,17 +36,17 @@ class OnnxFloatToFloat16(Pass):
                 description="Use symbolic shape inference instead of onnx shape inference. Defaults to True.",
             ),
             "op_block_list": PassConfigParam(
-                type_=List[str], default_value=None, description="List of op types to leave as float32"
+                type_=list[str], default_value=None, description="List of op types to leave as float32"
             ),
             "node_block_list": PassConfigParam(
-                type_=List[str], default_value=None, description="List of node names to leave as float32"
+                type_=list[str], default_value=None, description="List of node names to leave as float32"
             ),
         }
         config.update(get_external_data_config())
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime.transformers.onnx_model import OnnxModel
 

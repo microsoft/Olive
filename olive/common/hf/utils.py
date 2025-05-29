@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from transformers import AutoConfig, AutoModel, AutoTokenizer, GenerationConfig
 
@@ -112,7 +112,7 @@ def save_model_config(config: Union["PretrainedConfig", "GenerationConfig"], out
 
 def save_module_files(
     config: "PretrainedConfig", model_name_or_path: str, output_dir: str, **kwargs
-) -> Tuple["PretrainedConfig", List[str]]:
+) -> tuple["PretrainedConfig", list[str]]:
     """Save module files for the given model_name_or_path.
 
     Returns updated config and list of saved module files.
@@ -156,7 +156,7 @@ def get_module_file(
     code_revision: Optional[str] = None,
     revision: Optional[str] = None,
     **kwargs,
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """Get module file for the given class_reference.
 
     Returns class_reference and module file path.
@@ -202,7 +202,7 @@ def get_tokenizer(model_name_or_path: str, **kwargs) -> Union["PreTrainedTokeniz
 
 def save_tokenizer(
     tokenizer: Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"], output_dir: str, **kwargs
-) -> Tuple[str]:
+) -> tuple[str]:
     """Save input tokenizer to output directory."""
     return tokenizer.save_pretrained(output_dir, **kwargs)
 

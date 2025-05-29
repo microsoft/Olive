@@ -24,14 +24,17 @@ For examples corresponding to a specific release of Olive, checkout the correspo
 git checkout tags/v0.2.0
 ```
 
+**Note:** Olive installs `torch` as a dependency from the PyPI feed. On Windows, this feed installs the CPU version of `torch` by default. If you want to install a version of `torch` with CUDA support, please install it manually following the instructions in the [PyTorch documentation](https://pytorch.org/get-started/locally/).
+
 ### Conda env
 To create a new conda environment and activate it, run the following command:
 
 ```bash
-conda create -n olive-env python=3.8
+conda create -n olive-env python=3.12
 conda activate olive-env
 ```
-You can replace `olive-env` with any name you want and `python=3.8` with the version of python you want to use.
+
+You can replace `olive-env` with any name you want and `python=3.12` with the version of python you want to use.
 
 Please refer to the [conda documentation](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) for more information on how to create and manage conda environments.
 

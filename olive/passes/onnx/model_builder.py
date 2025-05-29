@@ -8,12 +8,13 @@ import copy
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Type, Union
+from typing import Any, Union
 
 import onnx
 import transformers
 
-from olive.common.utils import IntEnumBase, StrEnumBase
+from olive.common.utils import IntEnumBase
+from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -30,12 +31,6 @@ class ModelBuilder(Pass):
     See https://github.com/microsoft/onnxruntime-genai
     """
 
-    class Precision(StrEnumBase):
-        FP32 = "fp32"
-        FP16 = "fp16"
-        INT8 = "int8"
-        INT4 = "int4"
-
     class BlockSize(IntEnumBase):
         B16 = 16
         B32 = 32
@@ -50,10 +45,11 @@ class ModelBuilder(Pass):
         int8 = 4
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "precision": PassConfigParam(
-                type_=ModelBuilder.Precision,
+                type_=Precision,
+                default_value=Precision.FP32,
                 required=True,
                 description="Precision of model.",
             ),
@@ -64,7 +60,16 @@ class ModelBuilder(Pass):
                 description="Whether to export the model or generate required metadata only.",
             ),
             "search": PassConfigParam(
-                type_=Dict[str, Any], required=False, description="Search options to use for generate loop."
+                type_=dict[str, Any], required=False, description="Search options to use for generate loop."
+            ),
+            "use_qdq": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description=(
+                    "Use this option when you want to use quantize-dequantize ops. "
+                    "For example, you will have a quantized MatMul op instead of the MatMulNBits op."
+                ),
             ),
             "int4_block_size": PassConfigParam(
                 type_=ModelBuilder.BlockSize,
@@ -77,7 +82,7 @@ class ModelBuilder(Pass):
                 description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
             ),
             "int4_op_types_to_quantize": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 required=False,
                 description=(
                     'Specify the op types to quantize for int4 quantization. Default is None (= [ "MatMul" ]). Example:'
@@ -111,14 +116,14 @@ class ModelBuilder(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
         if not super().validate_config(config, accelerator_spec):
             return False
 
         # if device is GPU, but user choose CPU EP, the is_cpu should be True
-        if (config.precision == ModelBuilder.Precision.FP16) and not (
+        if (config.precision == Precision.FP16) and not (
             accelerator_spec.accelerator_type == Device.GPU
             and accelerator_spec.execution_provider != "CPUExecutionProvider"
         ):
@@ -127,7 +132,9 @@ class ModelBuilder(Pass):
                 "provider combinations are: FP32 CPU, FP32 CUDA, FP16 CUDA, INT4 CPU, INT4 CUDA"
             )
             return False
-        return True
+
+        # Support for limited precision types
+        return config.precision in {Precision.FP32, Precision.FP16, Precision.INT8, Precision.INT4}
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
@@ -136,7 +143,7 @@ class ModelBuilder(Pass):
     def _run_for_config(
         self,
         model: Union[HfModelHandler, ONNXModelHandler],
-        config: Type[BasePassConfig],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
         try:
@@ -188,6 +195,9 @@ class ModelBuilder(Pass):
         if config.int4_block_size:
             extra_args["int4_block_size"] = config.int4_block_size.value
 
+        if config.use_qdq:
+            extra_args["use_qdq"] = config.use_qdq
+
         if config.int4_accuracy_level:
             extra_args["int4_accuracy_level"] = config.int4_accuracy_level.value
 
@@ -222,7 +232,7 @@ class ModelBuilder(Pass):
 
             # add split information if present
             split_assignments = model_attributes.get("split_assignments")
-            if split_assignments:
+            if not metadata_only and split_assignments:
                 # NOTE: currently the model builder renames modules to it's own naming convention
                 # so the assignments for the renamed modules won't match
                 split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
@@ -258,7 +268,6 @@ class ModelBuilder(Pass):
             model.save_metadata(output_model_filepath.parent)
 
         # add additional files generated by model builder to model_attributes
-        model_attributes["generative"] = True
         additional_files = model_attributes.get("additional_files") or []
         if metadata_only:
             # add genai_config.json to additional_files since the model_builder creates copy of the other files

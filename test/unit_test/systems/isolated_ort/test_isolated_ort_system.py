@@ -9,7 +9,6 @@ import shutil
 import sys
 import venv
 from pathlib import Path
-from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_onnx_model_config
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -27,6 +26,7 @@ from olive.systems.isolated_ort import IsolatedORTSystem
 from olive.systems.isolated_ort.inference_runner import main as inference_runner_main
 from olive.systems.isolated_ort.isolated_ort_system import IsolatedORTEvaluator
 from olive.systems.system_config import IsolatedORTTargetUserConfig, SystemConfig
+from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_onnx_model_config
 
 # pylint: disable=attribute-defined-outside-init, protected-access
 
@@ -234,7 +234,7 @@ class TestIsolatedORTEvaluator:
 
         # assert
         mock_get_session.assert_called_once_with(
-            Path(model), config["inference_settings"], False, external_initializers=None
+            Path(model), "cpu", config["inference_settings"], False, external_initializers=None
         )
         mock_wrapper_class.assert_called_once_with(
             mock_get_session.return_value,

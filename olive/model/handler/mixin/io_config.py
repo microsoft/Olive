@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Any, Dict
+from typing import Any
 
 
 class IoConfigMixin:
@@ -13,5 +13,5 @@ class IoConfigMixin:
     """
 
     @property
-    def io_config(self) -> Dict[str, Any]:
+    def io_config(self) -> dict[str, Any]:
         return self._io_config

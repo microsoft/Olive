@@ -5,37 +5,29 @@
 
 import inspect
 import os
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import onnxruntime as ort
 import sd_utils
+import sd_utils.config
 import torch
 from diffusers import OnnxStableDiffusionPipeline
 from diffusers.pipelines.onnx_utils import ORT_TO_NP_TYPE
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 
-import sd_utils.config
+# ruff: noqa: T201
 
 
-def update_qdq_config(config: Dict, submodel_name: str):
+def update_qdq_config(config: dict, provider: str, submodel_name: str):
     used_passes = {}
     if sd_utils.config.only_conversion:
-        used_passes = { "convert" }
-    # TODO(hualxie): onnx or onnxruntime needs to fix this
-    elif submodel_name == "unet":
-        config["input_model"]["io_config"]["dynamic_axes"] = None
-        config["input_model"]["io_config"]["input_shapes"] = [
-            # 512 / 8 instead of sd_utils.config.unet_sample_size
-            [ 1, 4, 64, 64 ],
-            [ 1 ],
-            [ 1, 77, sd_utils.config.cross_attention_dim ],
-            [1]
-        ]
-        config["input_model"]["dummy_inputs_func"] = None
-        used_passes = {"convert", "quantization"}
+        used_passes = {"convert"}
+        config["evaluator"] = None
     elif submodel_name == "text_encoder":
-        used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "quantization"}
+        used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "optimize_qdq", "quantization"}
+    elif submodel_name == "unet":
+        used_passes = {"convert", "dynamic_shape_to_fixed", "optimize_qdq", "quantization"}
     else:
         used_passes = {"convert", "dynamic_shape_to_fixed", "quantization"}
 
@@ -43,21 +35,28 @@ def update_qdq_config(config: Dict, submodel_name: str):
         if pass_name not in used_passes:
             config["passes"].pop(pass_name, None)
 
-    config["systems"]["local_system"]["accelerators"][0]["device"] = "cpu"
-    config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
-    config["evaluator"] = None
+    if provider == "cuda":
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
+    elif provider == "qnn":
+        config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
+    else:
+        config["systems"]["local_system"]["accelerators"][0]["device"] = "cpu"
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
+        # not meaningful to evaluate QDQ latency on CPU
+        config["evaluator"] = None
     return config
 
 
 class OnnxStableDiffusionPipelineWithSave(OnnxStableDiffusionPipeline):
     def __call__(
         self,
-        prompt: Union[str, List[str]] = None,
+        prompt: Union[str, list[str]] = None,
         height: Optional[int] = 512,
         width: Optional[int] = 512,
         num_inference_steps: Optional[int] = 50,
         guidance_scale: Optional[float] = 7.5,
-        negative_prompt: Optional[Union[str, List[str]]] = None,
+        negative_prompt: Optional[Union[str, list[str]]] = None,
         num_images_per_prompt: Optional[int] = 1,
         eta: Optional[float] = 0.0,
         generator: Optional[np.random.RandomState] = None,
@@ -145,7 +144,8 @@ class OnnxStableDiffusionPipelineWithSave(OnnxStableDiffusionPipeline):
         timestep_dtype = ORT_TO_NP_TYPE[timestep_dtype]
 
         if do_classifier_free_guidance:
-            neg_embeds, text_embeds = np.split(prompt_embeds, 2)
+            splits = np.split(prompt_embeds, 2)
+            neg_embeds, text_embeds = splits[0], splits[1]
 
         for i, t in enumerate(self.progress_bar(self.scheduler.timesteps)):
             latent_model_input = latents
@@ -231,9 +231,25 @@ class OnnxStableDiffusionPipelineWithSave(OnnxStableDiffusionPipeline):
 
 def get_qdq_pipeline(model_dir, common_args, qdq_args, script_dir):
     ort.set_default_logger_severity(3)
+
+    print("Loading models into ORT session...")
     sess_options = ort.SessionOptions()
+    provider_options = [{}]
+
+    provider = common_args.provider
+
+    provider_map = {
+        "cpu": "CPUExecutionProvider",
+        "cuda": "CUDAExecutionProvider",
+        "qnn": "QNNExecutionProvider",
+    }
+    assert provider in provider_map, f"Unsupported provider: {provider}"
+
+    if provider == "qnn":
+        provider_options[0]["backend_path"] = "QnnHtp.dll"
+
     pipeline = OnnxStableDiffusionPipelineWithSave.from_pretrained(
-        model_dir, provider="CPUExecutionProvider", sess_options=sess_options
+        model_dir, provider=provider_map[provider], sess_options=sess_options, provider_options=provider_options
     )
     if qdq_args.save_data:
         pipeline.save_data_dir = script_dir / qdq_args.data_dir / common_args.prompt

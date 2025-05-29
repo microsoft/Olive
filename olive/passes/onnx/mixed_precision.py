@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Dict, List, Type
 
 from onnx import ValueInfoProto
 
@@ -22,10 +21,10 @@ class OrtMixedPrecision(Pass):
     """Convert model to mixed precision."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "op_block_list": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=["SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization", "Relu", "Add"],
                 description="List of op types to leave as float32",
             ),
@@ -37,7 +36,7 @@ class OrtMixedPrecision(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         """Convert model to mixed precision.
 
@@ -45,20 +44,23 @@ class OrtMixedPrecision(Pass):
         and set parameters for float16 conversion automatically.
         """
         from onnxruntime.transformers.float16 import float_to_float16_max_diff
+        from onnxruntime.transformers.onnx_model import OnnxModel
+
+        onnx_model = OnnxModel(model.load_model())
 
         op_block_list = config.op_block_list
-        op_full_set = {node.op_type for node in model.nodes()}
+        op_full_set = {node.op_type for node in onnx_model.nodes()}
         fp32_op_set = set(op_block_list)
         fp16_op_set = op_full_set.difference(fp32_op_set)
         logger.info("fp32 op: %s fp16 op: %s", fp32_op_set, fp16_op_set)
 
         # logits is the first output
-        logits_output_name = model.get_graph().output[0].name
+        logits_output_name = onnx_model.graph().output[0].name
 
         # We use the weight in last MatMul node to detect
         # whether the model is stored with float16 weights from training.
         is_weight_fp16_precision = False
-        output_name_to_node = model.output_name_to_node()
+        output_name_to_node = onnx_model.output_name_to_node()
         assert logits_output_name in output_name_to_node
         node = output_name_to_node[logits_output_name]
         last_matmul_node = None
@@ -67,7 +69,7 @@ class OrtMixedPrecision(Pass):
             logger.info("Found last MatMul node for logits: %s", node.name)
             initializer = None
             for node_input in node.input:
-                initializer = model.get_initializer(node_input)
+                initializer = onnx_model.get_initializer(node_input)
                 if initializer is not None:
                     break
 
@@ -95,9 +97,7 @@ class OrtMixedPrecision(Pass):
         }
 
         logger.info("auto_mixed_precision parameters: %s", parameters)
-        fp16_model = self._convert_float_to_float16(
-            model=model.load_model(), use_symbolic_shape_infer=True, **parameters
-        )
+        fp16_model = self._convert_float_to_float16(model=onnx_model.model, use_symbolic_shape_infer=True, **parameters)
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
         return model_proto_to_olive_model(fp16_model, output_model_path, config)
 

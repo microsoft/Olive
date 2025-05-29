@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Dict, Type
 
 from onnx import ModelProto
 
@@ -25,7 +24,7 @@ class OptimumMerging(Pass):
         return False
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "strict": PassConfigParam(
                 type_=bool,
@@ -43,9 +42,11 @@ class OptimumMerging(Pass):
         return config
 
     def _run_for_config(
-        self, model: CompositeModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: CompositeModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        import onnxruntime
+        import onnxruntime as ort
+
+        from olive.common.ort_inference import initialize_inference_session_options_for_winml, is_winml_installation
 
         assert len(model.model_components) == 2
 
@@ -76,11 +77,18 @@ class OptimumMerging(Pass):
         olive_model = model_proto_to_olive_model(merged_model, output_model_path, config)
 
         # Doing a dry run of ORT allows us to remove the initializers that were orphaned by the merging step
-        sess_options = onnxruntime.SessionOptions()
-        sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_BASIC
+        sess_options = ort.SessionOptions()
+        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
         sess_options.optimized_model_filepath = output_model_path
 
         execution_provider = self.accelerator_spec.execution_provider
-        onnxruntime.InferenceSession(output_model_path, sess_options, providers=[execution_provider])
+        sess_kwargs = {}
+        if is_winml_installation():
+            initialize_inference_session_options_for_winml(
+                sess_options, self.accelerator_spec.accelerator_type, [execution_provider], [{}]
+            )
+        else:
+            sess_kwargs = {"providers": [execution_provider]}
+        ort.InferenceSession(output_model_path, sess_options, **sess_kwargs)
 
         return olive_model

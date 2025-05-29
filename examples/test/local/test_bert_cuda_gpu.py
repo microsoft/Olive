@@ -31,5 +31,5 @@ def test_bert(sampler, execution_order, system, olive_json, cmd_args):
     olive_config = patch_config(olive_json, sampler, execution_order, system, is_gpu=True)
     olive_config["passes"]["session_params_tuning"]["enable_cuda_graph"] = False
 
-    footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
-    check_output(footprint)
+    workflow_output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
+    check_output(workflow_output)

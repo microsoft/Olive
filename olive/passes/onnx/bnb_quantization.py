@@ -5,11 +5,12 @@
 import logging
 import re
 from pathlib import Path
-from typing import Dict, List, Type
+from typing import Optional
 
 import onnx
 from packaging import version
 
+from olive.constants import Precision
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -24,15 +25,15 @@ class OnnxBnb4Quantization(Pass):
     """Quantize MatMul nodes in ONNX model using 4bit FP4/NF4 quantization."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
-            "quant_type": PassConfigParam(
-                type_=str,
+            "precision": PassConfigParam(
+                type_=Optional[Precision],
                 default_value=None,
                 description="The quantization type. Only 'fp4' and 'nf4' are supported.",
             ),
             "quantized_modules": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 description=(
                     "The list of modules to quantize. Node names will be matched as '.*[./]{module}[./]MatMul$'. If not"
                     " specified, all MatMul nodes will be quantized except those specified in nodes_to_exclude."
@@ -47,41 +48,53 @@ class OnnxBnb4Quantization(Pass):
         config.update(get_external_data_config())
         return config
 
+    @classmethod
+    def validate_config(
+        cls,
+        config: type[BasePassConfig],
+        accelerator_spec: AcceleratorSpec,
+    ) -> bool:
+        if not super().validate_config(config, accelerator_spec):
+            return False
+
+        # Only fp4 and nf4 are supported
+        return not config.precision or config.precision in {Precision.FP4, Precision.NF4}
+
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Type[BasePassConfig], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
-        assert version.parse(OrtVersion) >= version.parse(
-            "1.16.2"
-        ), "MatMulBnb4Quantizer is only supported in onnxruntime >= 1.16.2"
+        assert version.parse(OrtVersion) >= version.parse("1.16.2"), (
+            "MatMulBnb4Quantizer is only supported in onnxruntime >= 1.16.2"
+        )
 
         from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        quant_type = config.quant_type
+        precision = config.precision.value if config.precision else None
         quantized_modules = config.quantized_modules
         if model.model_attributes:
             quantized_modules = quantized_modules or model.model_attributes.get("quantized_modules")
 
-            # extract quant_type from model_attributes if not specified in config
-            if not quant_type:
+            # extract precision from model_attributes if not specified in config
+            if not precision:
                 quant_config = model.model_attributes.get("quantization_config") or {}
 
                 if quant_config.get("load_in_8bit"):
                     raise ValueError("load_in_8bit is not supported. Only 4-bit quantization is supported.")
 
-                quant_type = quant_config.get("bnb_4bit_quant_type")
-                if not quant_type:
-                    raise ValueError("quant_type is required.")
+                precision = quant_config.get("bnb_4bit_quant_type")
+                if not precision:
+                    raise ValueError("precision is required.")
 
                 if quant_config.get("bnb_4bit_use_double_quant"):
                     logger.info(
                         "bnb_4bit_use_double_quant is set to True but double quantization is not supported. Ignoring."
                     )
-        assert quant_type in ["fp4", "nf4"], f"quant_type must be one of 'fp4' or 'nf4'. Got {quant_type}."
-        quant_type_enum = getattr(MatMulBnb4Quantizer, quant_type.upper())
+        assert precision in {"fp4", "nf4"}, f"quant_type must be one of 'fp4' or 'nf4'. Got {precision}."
+        quant_type_enum = getattr(MatMulBnb4Quantizer, precision.upper())
 
         # load the model
         onnx_model = model.load_model()
@@ -111,7 +124,7 @@ class OnnxBnb4Quantization(Pass):
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
     @classmethod
-    def _find_matmul_nodes(cls, graph: onnx.GraphProto) -> List[str]:
+    def _find_matmul_nodes(cls, graph: onnx.GraphProto) -> list[str]:
         """Find all MatMul nodes in the graph and return their names."""
         matmul_nodes = []
         for node in graph.node:

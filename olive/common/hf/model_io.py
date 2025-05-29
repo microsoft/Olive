@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from olive.common.hf.mlflow import get_pretrained_name_or_path
 from olive.common.hf.peft import is_peft_model
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from transformers import PreTrainedModel
 
 
-def get_preprocessors(model_name: str, **kwargs) -> Optional[Dict]:
+def get_preprocessors(model_name: str, **kwargs) -> Optional[dict]:
     """Get the preprocessors for the model_name."""
     from optimum.utils.save_utils import maybe_load_preprocessors
 
@@ -104,7 +104,7 @@ def get_export_config(model_name: str, task: str, **kwargs) -> Optional["OnnxCon
     return export_config
 
 
-def get_model_io_config(model_name: str, task: str, model: "PreTrainedModel", **kwargs) -> Optional[Dict]:
+def get_model_io_config(model_name: str, task: str, model: "PreTrainedModel", **kwargs) -> Optional[dict]:
     """Get the input/output config for the model_name and task."""
     # just log a debug message if io_config is not found
     # this is not a critical error and the caller may not need the io_config
@@ -137,7 +137,7 @@ def get_model_io_config(model_name: str, task: str, model: "PreTrainedModel", **
     }
 
 
-def _unflatten_past_key_values_with_check(flattened_inputs: Dict[str, Any]) -> Dict[str, Any]:
+def _unflatten_past_key_values_with_check(flattened_inputs: dict[str, Any]) -> dict[str, Any]:
     max_idx = -1
     past_key_value_count = 0  # Track number of key-value pairs
 
@@ -182,7 +182,7 @@ def _unflatten_past_key_values_with_check(flattened_inputs: Dict[str, Any]) -> D
     return unflattened
 
 
-def get_model_dummy_input(model_name: str, task: str, **kwargs) -> Optional[Dict]:
+def get_model_dummy_input(model_name: str, task: str, **kwargs) -> Optional[dict]:
     """Get dummy inputs for the model_name and task."""
     export_config = get_export_config(model_name, task, **kwargs)
     if not export_config:

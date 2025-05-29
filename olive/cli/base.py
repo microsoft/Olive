@@ -8,7 +8,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import ClassVar, Dict, Optional, Union
+from typing import ClassVar, Optional, Union
 
 import yaml
 
@@ -39,10 +39,15 @@ class BaseOliveCLICommand(ABC):
             run_config = self._get_run_config(tempdir)
             if self.args.save_config_file:
                 self._save_config_file(run_config)
-            return olive_run(run_config)
+            workflow_output = olive_run(run_config)
+            if not workflow_output.has_output_model():
+                print("No output model produced. Please check the log for details.")
+            else:
+                print(f"Model is saved at {self.args.output_path}")
+            return workflow_output
 
     @staticmethod
-    def _save_config_file(config: Dict):
+    def _save_config_file(config: dict):
         """Save the config file."""
         config_file_path = Path(config["output_dir"]) / "config.json"
         with open(config_file_path, "w") as f:
@@ -59,7 +64,7 @@ class BaseOliveCLICommand(ABC):
         raise NotImplementedError
 
 
-def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> Dict:
+def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> dict:
     """Get the input model config for HuggingFace model.
 
     args.task is optional.
@@ -86,7 +91,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     return input_model
 
 
-def _get_onnx_input_model(args: Namespace, model_path: str) -> Dict:
+def _get_onnx_input_model(args: Namespace, model_path: str) -> dict:
     """Get the input model config for ONNX model.
 
     Only supports local ONNX model file path.
@@ -95,7 +100,6 @@ def _get_onnx_input_model(args: Namespace, model_path: str) -> Dict:
     model_config = {
         "type": "OnnxModel",
         "model_path": model_path,
-        "generative": args.is_generative_model,
     }
 
     # additional processing for the model folder
@@ -117,7 +121,7 @@ def _get_onnx_input_model(args: Namespace, model_path: str) -> Dict:
     return model_config
 
 
-def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> Dict:
+def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> dict:
     """Get the input model config for PyTorch model.
 
     args.model_script is required.
@@ -162,7 +166,7 @@ def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     return input_model_config
 
 
-def get_input_model_config(args: Namespace) -> Dict:
+def get_input_model_config(args: Namespace) -> dict:
     """Parse the model_name_or_path and return the input model config.
 
     Check model_name_or_path formats in order:
@@ -339,7 +343,7 @@ def add_input_model_options(
         help=(
             "Path to the input model. "
             "See https://microsoft.github.io/Olive/reference/cli.html#providing-input-models "
-            "for more informsation."
+            "for more information."
         ),
     )
     if enable_hf:
@@ -368,7 +372,7 @@ def add_input_model_options(
             help=(
                 "The directory containing the local PyTorch model script file."
                 "See https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information "
-                "for more informsation."
+                "for more information."
             ),
         )
     model_group.add_argument("--is_generative_model", type=bool, default=True, help="Is this a generative model?")
@@ -399,7 +403,7 @@ def is_remote_run(args: Namespace) -> bool:
     return all([args.resource_group, args.workspace_name, args.aml_compute])
 
 
-def update_remote_options(config: Dict, args: Namespace, cli_action: str, tempdir: Union[str, Path]):
+def update_remote_options(config: dict, args: Namespace, cli_action: str, tempdir: Union[str, Path]):
     """Update the config for remote run."""
     if args.resource_group or args.workspace_name or args.aml_compute:
         if not is_remote_run(args):
@@ -506,6 +510,12 @@ def add_dataset_options(sub_parser, required=True, include_train=True, include_e
         default=1,
         help="Batch size.",
     )
+    dataset_group.add_argument(
+        "--input_cols",
+        type=str,
+        nargs="+",
+        help="List of input column names. Provide one or more names separated by space. Example: --input_cols sentence1 sentence2",
+    )
 
     return dataset_group, text_group
 
@@ -530,6 +540,7 @@ def update_dataset_options(args, config):
         ((*preprocess_key, "chat_template"), args.use_chat_template),
         ((*preprocess_key, "max_seq_len"), args.max_seq_len),
         ((*preprocess_key, "add_special_tokens"), args.add_special_tokens),
+        ((*preprocess_key, "input_cols"), args.input_cols),
         ((*preprocess_key, "max_samples"), args.max_samples),
         ((*dataloader_key, "batch_size"), args.batch_size),
     ]

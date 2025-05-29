@@ -75,21 +75,19 @@ class FileListDataLoader:
 
         self.batches = []
         for i in range(0, len(self.batch_input_list_metadata), self.batch_size):
-            self.batches.append(self.batch_input_list_metadata[i : i + self.batch_size])  # noqa: E203, RUF100
+            self.batches.append(self.batch_input_list_metadata[i : i + self.batch_size])
         self.num_batches = len(self.batches)
 
     def get_batch(self, batch_id):
         if batch_id >= self.num_batches:
-            raise ValueError("batch_id should be less than {}".format(self.num_batches))
+            raise ValueError(f"batch_id should be less than {self.num_batches}")
 
         if self.batch_size is None:
             return self.data_dir, self.input_list, self.annotation
         else:
             annotation = None
             if self.annotation is not None:
-                annotation = self.annotation[
-                    self.batch_size * batch_id : self.batch_size * (batch_id + 1)  # noqa: E203, RUF100
-                ]
+                annotation = self.annotation[self.batch_size * batch_id : self.batch_size * (batch_id + 1)]
             batch = self.batches[batch_id]
 
             # empty batch directory and copy current batch data
@@ -279,9 +277,9 @@ class FileListCommonDataLoader(FileListDataLoader):
 
             # get permutation from source shape to target shape
             target_shape = input_spec["target_shape"]
-            assert len(source_shape) == len(
-                target_shape
-            ), f"Source shape {source_shape} and target shape {target_shape} must have the same length"
+            assert len(source_shape) == len(target_shape), (
+                f"Source shape {source_shape} and target shape {target_shape} must have the same length"
+            )
 
             # find the permutation of the source shape that matches the target shape
             # e.g. source_shape = [1, 3, 224, 224], target_shape = [1, 224, 224, 3]
@@ -321,9 +319,9 @@ class FileListCommonDataLoader(FileListDataLoader):
                 input_data = dict(zip(input_specs.keys(), [input_data_i]))
             else:
                 input_data = input_data_i
-                assert isinstance(
-                    input_data, dict
-                ), f"Input data must be a tuple, torch.Tensor, np.ndarray, or dict. Got {type(input_data)}"
+                assert isinstance(input_data, dict), (
+                    f"Input data must be a tuple, torch.Tensor, np.ndarray, or dict. Got {type(input_data)}"
+                )
 
             input_file_name = f"{i}.bin".zfill(sample_digits + 4)
             input_order.append(input_file_name)

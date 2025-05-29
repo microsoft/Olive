@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import json
 from pathlib import Path
-from typing import List
 
 import mteb
 import numpy as np
@@ -12,7 +11,6 @@ import torch
 from transformers import AutoTokenizer
 
 from olive.constants import Framework
-from olive.engine.footprint import Footprint, FootprintNode
 from olive.model import OliveModelHandler
 from olive.workflows import run as olive_run
 
@@ -23,7 +21,7 @@ class OliveEncoder:
         self.session = session
         self.tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-small-en-v1.5")
 
-    def encode(self, corpus: List, **kwargs):
+    def encode(self, corpus: list, **kwargs):
         model_output = None
         if self.model.framework == Framework.ONNX:
             encoded_input = self.tokenizer(
@@ -96,10 +94,8 @@ if __name__ == "__main__":
         if op in olive_config["passes"]["OnnxQuantization"]["op_types_to_quantize"]:
             continue
         olive_config["passes"]["OnnxQuantization"]["op_types_to_quantize"].append(op)
-        result = olive_run(olive_config)
-        footprint: Footprint = next(iter(result.values()))
-        node: FootprintNode = next(iter(footprint.nodes.values()))
-        accuracy = node.metrics.value["accuracy-accuracy_custom"].value
+        workflow_output = olive_run(olive_config)
+        accuracy = workflow_output.get_best_candidate().metrics_value["accuracy-accuracy_custom"]["value"]
         logger.info(
             "Ops: %s Accuracy: %f", olive_config["passes"]["OnnxQuantization"]["op_types_to_quantize"], accuracy
         )

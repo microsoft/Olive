@@ -2,8 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 from pathlib import Path
-from typing import List, Union
 
 
 def resolve_input_list(
@@ -69,12 +70,12 @@ def get_dir_members(dir_path: str) -> set:
 
 def create_input_list(
     data_dir: str,
-    input_names: List[str],
-    input_dirs: List[Union[str, None]] = None,
+    input_names: list[str],
+    input_dirs: list[str | None] = None,
     input_list_file: str = None,
     add_input_names: bool = False,
     add_output_names: bool = False,
-    output_names: List[str] = None,
+    output_names: list[str] = None,
     append_0: bool = False,
     num_samples: int = None,
 ) -> str:
@@ -172,7 +173,7 @@ def get_input_list(data_dir: str, input_list_file: str, tmp_dir: str):
     return resolve_input_list(data_dir, str(input_list_file_path), tmp_dir)
 
 
-def get_input_ids(input_list_file: str) -> List[str]:
+def get_input_ids(input_list_file: str) -> list[str]:
     """Get the input IDs from an input list file.
 
     Only returns one id per sample (line) if there are multiple inputs.
