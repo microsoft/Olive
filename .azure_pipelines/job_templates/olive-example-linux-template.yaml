@@ -30,10 +30,6 @@ jobs:
     OLIVE_TEMPDIR: $(Pipeline.Workspace)/.olive_tempdir
 
   steps:
-  - script: docker system df && docker system prune -a -f && docker system df
-    displayName: Clean docker images
-    continueOnError: true
-
   - template: build-docker-image-template.yaml
     parameters:
       python_version: ${{ parameters.python_version }}
