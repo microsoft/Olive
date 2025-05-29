@@ -61,7 +61,7 @@
             "dim_value": [ 1, 128 ]
         },
         "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
-        "quantization": {
+        "OnnxQuantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "xnli",
             "activation_type": "uint16",
