@@ -21,13 +21,13 @@ from sd_utils.qdq import OnnxStableDiffusionPipelineWithSave
 from torchmetrics.functional.multimodal import clip_score
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchvision.transforms import functional as F
-from sd_utils.qnn_xl import ORTStableDiffusionXLPipelineWithSave
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 
 # Clip score
+
 
 def get_clip_score(prompt: str, path: Path, clip_score_fn):
     with torch.no_grad():
@@ -51,6 +51,7 @@ def get_clip_scores(prompts: list[str], path: Path, clip_score_fn):
 
 
 # MSE score
+
 
 def calc_error(image1, image2):
     image1 = Image.open(image1)
@@ -241,6 +242,7 @@ def main(raw_args=None):
 
     model_dir = unoptimized_model_dir if args.save_data else optimized_model_dir
     if args.xl:
+        from sd_utils.qdq_xl import ORTStableDiffusionXLPipelineWithSave
         pipeline = ORTStableDiffusionXLPipelineWithSave.from_pretrained(
             model_dir, provider="CPUExecutionProvider"
         )

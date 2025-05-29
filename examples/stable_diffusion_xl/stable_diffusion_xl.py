@@ -246,7 +246,8 @@ def run_inference(
     provider_map = {
         "dml": "DmlExecutionProvider",
         "cuda": "CUDAExecutionProvider",
-        "qnn": "CPUExecutionProvider",
+        "cpu": "CPUExecutionProvider",
+        "qnn": "QNNExecutionProvider",
     }
     assert provider in provider_map, f"Unsupported provider: {provider}"
 
@@ -476,6 +477,7 @@ def optimize(
             tokenizer_2=pipeline.tokenizer_2,
             scheduler=pipeline.scheduler,
             feature_extractor=feature_extractor,
+            config=dict(pipeline.config),
         )
 
     print("Saving unoptimized models...")
