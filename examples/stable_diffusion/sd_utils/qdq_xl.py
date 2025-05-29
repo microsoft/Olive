@@ -1,3 +1,8 @@
+# --------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
 import inspect
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -17,7 +22,8 @@ from optimum.onnxruntime.modeling_diffusion import (
 )
 from transformers.modeling_outputs import ModelOutput
 
-# ruff: noqa: F821, SIM118
+# ruff: noqa: F821
+# ruff: noqa: SIM118
 
 
 class ORTDiffusionPipelineWithSave(ORTDiffusionPipeline):

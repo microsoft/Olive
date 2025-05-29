@@ -312,7 +312,7 @@ def update_config_with_provider(
         used_passes = {"convert"}
         config["evaluator"] = None
     elif model_format == "qdq":
-        if submodel_name == "text_encoder" or submodel_name == "text_encoder_2":
+        if submodel_name in ("text_encoder", "text_encoder_2"):
             used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "optimize_qdq", "quantization"}
         elif submodel_name == "unet":
             used_passes = {"convert", "dynamic_shape_to_fixed", "optimize_qdq", "quantization"}
