@@ -110,7 +110,7 @@ First generate onnx unoptimized model:
 
 Then generate data:
 
-`python ..\..\stable_diffusion\evaluation.py --save_data --model_id stabilityai/sdxl-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0 --data_dir quantize_data_xl --xl`
+`python ..\stable_diffusion\evaluation.py --save_data --model_id stabilityai/sdxl-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0 --data_dir quantize_data_xl --xl`
 
 ## Optimize
 
@@ -118,7 +118,7 @@ Then generate data:
 
 ## Test and evaluate
 
-`python ..\..\stable_diffusion\evaluation.py --model_id stabilityai/sdxl-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0 --data_dir quantize_data_xl --xl`
+`python ..\stable_diffusion\evaluation.py --model_id stabilityai/sdxl-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0 --data_dir quantize_data_xl --xl`
 
 To generate one image:
 

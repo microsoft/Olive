@@ -1,7 +1,7 @@
 import inspect
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import onnxruntime as ort
@@ -16,6 +16,8 @@ from optimum.onnxruntime.modeling_diffusion import (
     ORTWrapperVae,
 )
 from transformers.modeling_outputs import ModelOutput
+
+# ruff: noqa: F821, SIM118
 
 
 class ORTDiffusionPipelineWithSave(ORTDiffusionPipeline):
@@ -54,8 +56,8 @@ class ORTDiffusionPipelineWithSave(ORTDiffusionPipeline):
         self.vae = ORTWrapperVae(self.vae_encoder, self.vae_decoder)
 
         # we allow passing these as torch models for now
-        self.image_encoder = kwargs.pop("image_encoder", None)  # TODO: maybe implement ORTModelImageEncoder
-        self.safety_checker = kwargs.pop("safety_checker", None)  # TODO: maybe implement ORTModelSafetyChecker
+        self.image_encoder = kwargs.pop("image_encoder", None)  # TODO(anyone): maybe implement ORTModelImageEncoder
+        self.safety_checker = kwargs.pop("safety_checker", None)  # TODO(anyone): maybe implement ORTModelSafetyChecker
 
         self.scheduler = scheduler
         self.tokenizer = tokenizer
@@ -95,19 +97,17 @@ class ORTDiffusionPipelineWithSave(ORTDiffusionPipeline):
         return self.text_encoder.save_data_dir
 
     @save_data_dir.setter
-    def save_data_dir(self, dir: Path):
-        self.text_encoder.save_data_dir = dir
+    def save_data_dir(self, save_dir: Path):
+        self.text_encoder.save_data_dir = save_dir
         self.text_encoder.save_data_index = 10
-        self.text_encoder_2.save_data_dir = dir
+        self.text_encoder_2.save_data_dir = save_dir
         self.text_encoder_2.save_data_index = 20
-        self.unet.save_data_dir = dir
+        self.unet.save_data_dir = save_dir
         self.unet.save_data_index = 0
-        self.vae_decoder.save_data_dir = dir
+        self.vae_decoder.save_data_dir = save_dir
 
 
 class ORTStableDiffusionXLPipelineWithSave(ORTDiffusionPipelineWithSave, StableDiffusionXLPipeline):
-    """ONNX Runtime-powered stable diffusion pipeline corresponding to [diffusers.StableDiffusionXLPipeline](https://huggingface.co/docs/diffusers/api/pipelines/stable_diffusion/stable_diffusion_xl#diffusers.StableDiffusionXLPipeline)."""
-
     main_input_name = "prompt"
     export_feature = "text-to-image"
     auto_model_class = StableDiffusionXLPipeline
@@ -122,8 +122,7 @@ class ORTStableDiffusionXLPipelineWithSave(ORTDiffusionPipelineWithSave, StableD
     ):
         add_time_ids = list(original_size + crops_coords_top_left + target_size)
 
-        add_time_ids = torch.tensor([add_time_ids], dtype=dtype)
-        return add_time_ids
+        return torch.tensor([add_time_ids], dtype=dtype)
 
 
 # Wrappers
@@ -172,8 +171,8 @@ class ORTModelUnetWithSave(ORTModelUnet):
         text_embeds: Optional[Union[np.ndarray, torch.Tensor]] = None,
         time_ids: Optional[Union[np.ndarray, torch.Tensor]] = None,
         timestep_cond: Optional[Union[np.ndarray, torch.Tensor]] = None,
-        cross_attention_kwargs: Optional[Dict[str, Any]] = None,
-        added_cond_kwargs: Optional[Dict[str, Any]] = None,
+        cross_attention_kwargs: Optional[dict[str, Any]] = None,
+        added_cond_kwargs: Optional[dict[str, Any]] = None,
         return_dict: bool = False,
     ):
         use_torch = isinstance(sample, torch.Tensor)

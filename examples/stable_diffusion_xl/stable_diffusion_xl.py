@@ -305,13 +305,13 @@ def run_inference(
 
 
 def update_config_with_provider(
-    config: dict, provider: str, is_fp16: bool, only_conversion: bool, submodel_name: str, format: str
+    config: dict, provider: str, is_fp16: bool, only_conversion: bool, submodel_name: str, model_format: str
 ) -> dict:
     used_passes = {}
     if only_conversion:
         used_passes = {"convert"}
         config["evaluator"] = None
-    elif format == "qdq":
+    elif model_format == "qdq":
         if submodel_name == "text_encoder" or submodel_name == "text_encoder_2":
             used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "optimize_qdq", "quantization"}
         elif submodel_name == "unet":
@@ -362,7 +362,7 @@ def optimize(
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
     only_conversion: bool,
-    format: str,
+    model_format: str,
 ):
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
@@ -396,7 +396,7 @@ def optimize(
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
         olive_config = update_config_with_provider(
-            olive_config, provider, use_fp16_fixed_vae, only_conversion, submodel_name, format
+            olive_config, provider, use_fp16_fixed_vae, only_conversion, submodel_name, model_format
         )
 
         if is_refiner_model and submodel_name == "vae_encoder" and not use_fp16_fixed_vae:
