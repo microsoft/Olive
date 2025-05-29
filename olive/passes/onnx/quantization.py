@@ -906,13 +906,13 @@ class OnnxMatMul4Quantizer(Pass):
                 elif key in kwargs:
                     # get value from pass config
                     algo_config[key] = kwargs[key]
-                algo_config["bits"] = bits_from_precision(config.precision)
+                if woq_config_class == DefaultWeightOnlyQuantConfig:
+                    algo_config["bits"] = bits_from_precision(config.precision)
             if config.algorithm == QuantAlgorithm.GPTQ:
                 algo_config["calibration_data_reader"] = get_calibration_dataloader(config)
             kwargs["algo_config"] = woq_config_class(**algo_config)
         else:
             kwargs["algo_config"] = None
-
         quant = MatMulNBitsQuantizer(model.load_model(), **kwargs)
         quant.process()
         # topologically sort the graph at the end since previous optimizations may have broken it
