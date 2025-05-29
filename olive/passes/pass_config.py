@@ -2,8 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import builtins
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Set, Type, Union
+from typing import Any, Callable, ClassVar, Optional, Union
 
 from olive.common.config_utils import (
     ConfigBase,
@@ -15,6 +16,7 @@ from olive.common.config_utils import (
 )
 from olive.common.pydantic_v1 import Field, create_model, validator
 from olive.common.utils import StrEnumBase
+from olive.constants import DatasetRequirement, Precision, QuantAlgorithm, QuantEncoding
 from olive.hardware.accelerator import Device
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import validate_resource_path
@@ -64,7 +66,7 @@ class PassConfigParam(ConfigParam):
 
 def get_user_script_data_config(
     required: Optional[bool] = False, allow_path: Optional[bool] = True
-) -> Dict[str, PassConfigParam]:
+) -> dict[str, PassConfigParam]:
     type_ = str
     if allow_path:
         type_ = Union[Path, str]
@@ -93,7 +95,6 @@ DEFAULT_SET = set(PassParamDefault)
 
 
 class BasePassConfig(ConfigBase):
-
     @validator("*", pre=True)
     def _validate_default_str(cls, v, field):
         if not isinstance(v, (str, PassParamDefault)) or v not in DEFAULT_SET:
@@ -115,7 +116,7 @@ class AbstractPassConfig(NestedConfig):
     """Base class for pass configuration."""
 
     type: str = Field(description="The type of the pass.")
-    config: Dict[str, Any] = Field(
+    config: Union[dict[str, Any], builtins.type[BasePassConfig]] = Field(
         None,
         description=(
             "The configuration of the pass. Values for required parameters must be provided. For optional parameters,"
@@ -131,10 +132,10 @@ class AbstractPassConfig(NestedConfig):
 
 def create_config_class(
     pass_type: str,
-    default_config: Dict[str, PassConfigParam],
+    default_config: dict[str, PassConfigParam],
     disable_search: Optional[bool] = False,
-    validators: Dict[str, Callable] = None,
-) -> Type[BasePassConfig]:
+    validators: dict[str, Callable] = None,
+) -> type[BasePassConfig]:
     """Create a Pydantic model class from a configuration dictionary."""
     config = {}
     validators = validators.copy() if validators else {}
@@ -166,39 +167,39 @@ def create_config_class(
 
 
 class PassModuleConfig(ConfigBase):
-    class Precision(StrEnumBase):
-        INT4 = "int4"
-        INT8 = "int8"
-        INT16 = "int16"
-        INT32 = "int32"
-        UINT4 = "uint4"
-        UINT8 = "uint8"
-        UINT16 = "uint16"
-        UINT32 = "uint32"
-        FP4 = "fp4"
-        FP8 = "fp8"
-        FP16 = "fp16"
-        FP32 = "fp32"
-        NF4 = "nf4"
-
-    ACCELERATORS: ClassVar[Set[str]] = {v.value for v in Device}
-    PRECISIONS: ClassVar[Set[str]] = {v.value for v in Precision}
-    EXECUTION_PROVIDERS: ClassVar[Set[str]] = {
+    ACCELERATORS: ClassVar[set[str]] = {v.value for v in Device}
+    PRECISIONS: ClassVar[set[str]] = {v.value for v in Precision}
+    QUANT_ALGORITHMS: ClassVar[set[str]] = {v.value for v in QuantAlgorithm}
+    QUANT_ENCODINGS: ClassVar[set[str]] = {v.value for v in QuantEncoding}
+    EXECUTION_PROVIDERS: ClassVar[set[str]] = {
         provider for provider_list in DEVICE_TO_EXECUTION_PROVIDERS.values() for provider in provider_list
     }
 
     module_path: str
-    supported_providers: Set[str] = Field(default_factory=set)
-    supported_accelerators: Set[str] = Field(default_factory=set)
-    supported_precisions: Set[str] = Field(default_factory=set)
-    module_dependencies: List[str] = Field(default_factory=list)
-    extra_dependencies: List[str] = Field(default_factory=list)
+    supported_providers: set[str] = Field(default_factory=set)
+    supported_accelerators: set[str] = Field(default_factory=set)
+    supported_precisions: set[str] = Field(default_factory=set)
+    supported_algorithms: set[str] = Field(default_factory=set)
+    supported_quantization_encodings: set[str] = Field(default_factory=set)
+    module_dependencies: list[str] = Field(default_factory=list)
+    extra_dependencies: list[str] = Field(default_factory=list)
 
     # Flag indicate whether the pass need to be run in target instead of host
     run_on_target: bool = False
 
+    # Flag indicate whether the pass requires dataset
+    dataset: str = DatasetRequirement.NOT_REQUIRED
+
     def set_class_variables(self, cls):
-        attrs = {"supported_providers", "supported_accelerators", "supported_precisions", "run_on_target"}
+        attrs = {
+            "supported_providers",
+            "supported_accelerators",
+            "supported_precisions",
+            "supported_algorithms",
+            "run_on_target",
+            "dataset",
+            "supported_quantization_encodings",
+        }
         for attr in attrs:
             setattr(cls, attr, getattr(self, attr))
 
@@ -244,5 +245,31 @@ class PassModuleConfig(ConfigBase):
     @validator("supported_precisions", pre=True, each_item=True)
     def validate_supported_precision(cls, v, values):
         if v not in PassModuleConfig.PRECISIONS:
-            raise ValueError(f"Invalid precision: {v}")
+            raise ValueError(f"Invalid algorithm: {v}")
+        return v
+
+    @validator("supported_algorithms", pre=True)
+    def validate_supported_algorithm(cls, v, values):
+        v = v or []
+        if v == ["*"]:
+            v = PassModuleConfig.QUANT_ALGORITHMS
+        return v
+
+    @validator("supported_algorithms", pre=True, each_item=True)
+    def validate_supported_algorithms(cls, v, values):
+        if v not in PassModuleConfig.QUANT_ALGORITHMS:
+            raise ValueError(f"Invalid algorithm: {v}")
+        return v
+
+    @validator("supported_quantization_encodings", pre=True)
+    def validate_supported_quantization_encoding(cls, v, values):
+        v = v or []
+        if v == ["*"]:
+            v = PassModuleConfig.QUANT_ENCODINGS
+        return v
+
+    @validator("supported_quantization_encodings", pre=True, each_item=True)
+    def validate_supported_quantization_encodings(cls, v, values):
+        if v not in PassModuleConfig.QUANT_ENCODINGS:
+            raise ValueError(f"Invalid algorithm: {v}")
         return v

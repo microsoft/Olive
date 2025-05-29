@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Dict
 
 import numpy as np
 import onnx
@@ -15,7 +14,7 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +127,7 @@ class ModelOptimizer:
             graph.node.insert(node_index, node)
 
     @staticmethod
-    def _create_node_name(nodes: Dict[str, Message], op_type: str, prefix_a: str, prefix_b: str):
+    def _create_node_name(nodes: dict[str, Message], op_type: str, prefix_a: str, prefix_b: str):
         prefix: str = ""
         last_slash: int = -1
         for i in range(min(len(prefix_a), len(prefix_b))):
@@ -238,8 +237,17 @@ class ModelOptimizer:
         except ImportError:
             logger.warning("Please install `onnxscript` to apply more optimization.")
             return
-
-        onnxscript.optimizer.optimize(self.model)
+        try:
+            onnxscript.optimizer.optimize(self.model)
+        except Exception as e:
+            if "TypeInferenceError" in str(e):
+                logger.info(
+                    "onnxscript optimizer failed with %s. Rerunning with shape inference disabled.",
+                    str(e),
+                )
+                onnxscript.optimizer.optimize(self.model, onnx_shape_inference=False)
+            else:
+                raise
 
     def onnxoptimizer_optimize(self):
         try:
@@ -255,11 +263,11 @@ class OnnxPeepholeOptimizer(Pass):
     """Optimize ONNX model by fusing nodes."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return get_external_data_config()
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 

@@ -6,7 +6,6 @@
 import argparse
 import json
 import platform
-from pathlib import Path
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
@@ -118,16 +117,6 @@ def get_args(raw_args):
     return parser.parse_args(raw_args)
 
 
-def get_output_model_path(footprints):
-    # only one model output in phi2 optimization
-    model_path = None
-    for footprint in footprints.values():
-        for model_id in footprint.nodes:
-            model_path = Path(footprint.get_model_path(model_id)) / "model.onnx"
-            break
-    return model_path
-
-
 def main(raw_args=None):
     args = get_args(raw_args)
     if not args.model_type and not args.finetune_method and not args.slicegpt:
@@ -230,8 +219,8 @@ def main(raw_args=None):
             json.dump(template_json, f, indent=4)
 
     # only evaluate onnx generate model
-    footprints = olive_run(new_json_file)  # pylint: disable=not-callable
-    output_model_path = get_output_model_path(footprints)
+    workflow_output = olive_run(new_json_file)
+    output_model_path = workflow_output.get_best_candidate().model_path
     if args.genai_optimization and args.inference:
         # TODO(anyone): add genai generation script to examples/utils/generator.py
         from generate import genai_run

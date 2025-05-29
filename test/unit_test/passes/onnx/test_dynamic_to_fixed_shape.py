@@ -1,10 +1,9 @@
-from test.unit_test.utils import create_onnx_model_with_dynamic_axis
-
 import pytest
 
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.dynamic_to_fixed_shape import DynamicToFixedShape
+from test.unit_test.utils import create_onnx_model_with_dynamic_axis
 
 
 @pytest.mark.parametrize(
@@ -30,9 +29,16 @@ from olive.passes.onnx.dynamic_to_fixed_shape import DynamicToFixedShape
         (
             {
                 "dim_param": ["batch_size"],
-                "dim_value": [0],
+                "dim_value": [-1],
             },
-            "dim_value must be all > 0 when dim_param is provided.",
+            "dim_value must be all >= 0 when dim_param is provided.",
+        ),
+        (
+            {
+                "input_name": ["input"],
+                "input_shape": [[1, 0, 256, 256]],
+            },
+            "input_shape must be all > 0 when input_name is provided.",
         ),
     ],
 )

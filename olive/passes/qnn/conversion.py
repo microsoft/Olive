@@ -5,7 +5,7 @@
 
 import platform
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Union
 
 from olive.common.constants import OS
 from olive.constants import ModelFileFormat
@@ -13,7 +13,7 @@ from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler, PyTorchModelHandler, QNNModelHandler, TensorFlowModelHandler
 from olive.model.utils import normalize_path_suffix
 from olive.passes.olive_pass import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 
 
@@ -25,12 +25,12 @@ class QNNConversion(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             # input_network is required for qnn conversion, but we don't have it in the config.
             # The `input_network` will be set in the runtime.
             "input_dim": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 required=False,
                 description=(
                     "The names and dimensions of the network input layers specified in the format"
@@ -45,7 +45,7 @@ class QNNConversion(Pass):
                 ),
             ),
             "out_node": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 required=False,
                 description=(
                     "The name of the output node. If not specified, the output node will be inferred from the model."
@@ -67,7 +67,7 @@ class QNNConversion(Pass):
     def _run_for_config(
         self,
         model: Union[TensorFlowModelHandler, PyTorchModelHandler, ONNXModelHandler],
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> QNNModelHandler:
         if isinstance(model, TensorFlowModelHandler):
@@ -90,15 +90,15 @@ class QNNConversion(Pass):
 
         # get input dim from io_config
         input_dims = None
-        if config.get("input_dim"):
-            input_dims = map(str.split, config["input_dim"])
+        if config.input_dim:
+            input_dims = map(str.split, config.input_dim)
         elif model.io_config:
             input_dims_tuple = zip(model.io_config["input_names"], model.io_config["input_shapes"])
             input_dims = [[name, ",".join(map(str, shape))] for name, shape in input_dims_tuple]
 
         out_nodes = None
-        if config.get("out_node"):
-            out_nodes = config["out_node"]
+        if config.out_node:
+            out_nodes = config.out_node
         elif model.io_config:
             out_nodes = model.io_config["output_names"]
 
@@ -117,8 +117,8 @@ class QNNConversion(Pass):
         if out_nodes:
             for o in out_nodes:
                 cmd_list.extend(["--out_node", o])
-        if config["extra_args"]:
-            cmd_list.extend(config["extra_args"].split())
+        if config.extra_args:
+            cmd_list.extend(config.extra_args.split())
 
         runner.run(cmd_list)
         return QNNModelHandler(output_model_path, model_file_format=ModelFileFormat.QNN_CPP)

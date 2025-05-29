@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from olive.hardware.accelerator import DEVICE_TO_EXECUTION_PROVIDERS, AcceleratorLookup, AcceleratorSpec, Device
 from olive.systems.common import SystemType
@@ -35,12 +35,16 @@ class AcceleratorNormalizer:
                     raise ValueError(
                         f"Managed environment requires execution providers to be specified for {accelerator.device}"
                     )
+        elif not self.system_config.config.accelerators:
+            # default to cpu, available on all ort packages, most general
+            logger.info("No accelerators specified. Defaulting to cpu.")
+            self.system_config.config.accelerators = [
+                {"device": "cpu", **({"execution_providers": ["CPUExecutionProvider"]} if self.is_ep_required else {})}
+            ]
         else:
             if self.system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.IsolatedORT):
                 if self.is_ep_required:
                     target = self.system_config.create_system()
-                    # TODO(myguo): Handle the ORT not installed scenario. In this case, the call will raise ImportError.
-                    # and the system_supported_eps will be None.
                     self.system_supported_eps = target.get_supported_execution_providers()
                     # Remove the AzureMLExecutionProvider
                     if "AzureExecutionProvider" in self.system_supported_eps:
@@ -53,8 +57,6 @@ class AcceleratorNormalizer:
                     self._fill_device()
             else:
                 # for AzureML and Docker System
-                if not self.system_config.config.accelerators:
-                    raise ValueError("AzureML and Docker system requires accelerators to be specified.")
                 for accelerator in self.system_config.config.accelerators:
                     if not accelerator.device or (not accelerator.execution_providers and self.is_ep_required):
                         raise ValueError(
@@ -80,54 +82,45 @@ class AcceleratorNormalizer:
     def _fill_accelerators(self):
         """Fill the accelerators including device and execution providers in the system config.
 
-        * If the accelerators are not specified, fill the device and execution providers based on the installed ORT for
-        local/python system.
         * If the device is specified but the execution providers are not, fill the execution providers based on the
         installed ORT for local/python system.
         * If the execution providers are specified but the device is not, fill the device based on the installed ORT.
         """
-        if not self.system_config.config.accelerators:
-            # User does not specify the accelerators.
-            inferred_device = AcceleratorLookup.infer_single_device_from_execution_providers(self.system_supported_eps)
-            # here the pydantic validate_assignment will initialize the accelerator instances
-            self.system_config.config.accelerators = [
-                {"device": inferred_device, "execution_providers": self.system_supported_eps}
-            ]
-            logger.info(
-                "There is no any accelerator specified. Inferred accelerators: %s",
-                self.system_config.config.accelerators,
-            )
-        else:
-            for accelerator in self.system_config.config.accelerators:
-                if not accelerator.device:
-                    # User does not specify the device but providing the execution providers
-                    assert accelerator.execution_providers, "The execution providers are not specified."
-                    inferred_device = AcceleratorLookup.infer_single_device_from_execution_providers(
-                        accelerator.execution_providers
-                    )
-                    logger.info("the accelerator device is not specified. Inferred device: %s.", inferred_device)
-                    accelerator.device = inferred_device
-                elif not accelerator.execution_providers:
-                    # User specify the device but missing the execution providers
-                    execution_providers = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
-                        accelerator.device.lower(), self.system_supported_eps
-                    )
-                    accelerator.execution_providers = execution_providers
-                    filtered_eps = [ep for ep in self.system_supported_eps if ep not in execution_providers]
-                    if filtered_eps:
-                        logger.warning(
-                            "The following execution providers are filtered: %s. "
-                            "Please raise issue in Olive site since it might be a bug. ",
-                            ",".join(filtered_eps),
-                        )
-
-                    logger.info(
-                        "The accelerator execution providers is not specified for %s. Use the inferred ones. %s",
-                        accelerator.device,
-                        accelerator.execution_providers,
-                    )
+        for accelerator in self.system_config.config.accelerators:
+            if not accelerator.device:
+                # User does not specify the device but providing the execution providers
+                assert accelerator.execution_providers, "The execution providers are not specified."
+                inferred_device = AcceleratorLookup.infer_single_device_from_execution_providers(
+                    accelerator.execution_providers
+                )
+                logger.info("the accelerator device is not specified. Inferred device: %s.", inferred_device)
+                accelerator.device = inferred_device
+            elif not accelerator.execution_providers:
+                # User specify the device but missing the execution providers
+                if str(accelerator.device).lower() == "cpu":
+                    execution_providers = ["CPUExecutionProvider"]
+                elif str(accelerator.device).lower() == "gpu":
+                    execution_providers = ["CUDAExecutionProvider"]
                 else:
-                    logger.debug("The accelerator device and execution providers are specified, skipping deduce.")
+                    raise ValueError(
+                        f"Please specify the execution providers for the device: {accelerator.device}.",
+                    )
+                accelerator.execution_providers = execution_providers
+                filtered_eps = [ep for ep in self.system_supported_eps if ep not in execution_providers]
+                if filtered_eps:
+                    logger.warning(
+                        "The following execution providers are filtered: %s. "
+                        "Please add the specific execution provider to the config if you want to enable it. ",
+                        ",".join(filtered_eps),
+                    )
+
+                logger.info(
+                    "The accelerator execution providers is not specified for %s. Use the inferred ones. %s",
+                    accelerator.device,
+                    accelerator.execution_providers,
+                )
+            else:
+                logger.debug("The accelerator device and execution providers are specified, skipping deduce.")
 
     def _check_execution_providers(self):
         """Check the execution providers are supported by the device and remove the unsupported ones.
@@ -176,6 +169,11 @@ class AcceleratorNormalizer:
                     eps.append(ep)
 
             # remove the unsupported execution providers
+            if not self.skip_supported_eps_check and not eps:
+                raise ValueError(
+                    f"None of the execution providers {accelerator.execution_providers} cannot be found in the target"
+                    " system but at least one is required to run the workflow."
+                )
             accelerator.execution_providers = eps or ["CPUExecutionProvider"]
 
         if ep_not_supported:
@@ -189,7 +187,7 @@ class AcceleratorNormalizer:
 
 def create_accelerators(
     system_config: "SystemConfig", skip_supported_eps_check: bool = True, is_ep_required=True
-) -> List[AcceleratorSpec]:
+) -> list[AcceleratorSpec]:
     normalizer = AcceleratorNormalizer(system_config, skip_supported_eps_check, is_ep_required)
     system_config = normalizer.normalize()
 
@@ -199,7 +197,7 @@ def create_accelerators(
     logger.debug("Initial accelerators and execution providers: %s", device_to_eps)
 
     # Flatten the accelerators to list of AcceleratorSpec
-    accelerator_specs: List[AcceleratorSpec] = []
+    accelerator_specs: list[AcceleratorSpec] = []
     is_cpu_available = "cpu" in [accelerator.lower() for accelerator in device_to_eps]
     for accelerator in system_config.config.accelerators:
         device = Device(accelerator.device.lower())

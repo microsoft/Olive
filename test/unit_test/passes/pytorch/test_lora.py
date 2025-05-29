@@ -12,7 +12,7 @@ from olive.common.constants import OS
 from olive.data.template import huggingface_data_config_template
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch.lora import LoftQ, LoHa, LoKr, LoRA, QLoRA
+from olive.passes.pytorch.lora import DoRA, LoftQ, LoHa, LoKr, LoRA, QLoRA
 
 # pylint: disable=redefined-outer-name
 
@@ -51,7 +51,6 @@ def get_pass_config(model_name, task, **kwargs):
             "gradient_checkpointing": False,
             "max_steps": 2,
             "logging_steps": 1,
-            "optim": "adamw_hf",
         },
         **kwargs,
     }
@@ -137,6 +136,17 @@ def test_lokr(tmp_path):
     out = run_finetuning(
         LoKr, tmp_path, torch_dtype="float16", training_args={"remove_unused_columns": False, "save_safetensors": False}
     )
+
+    assert Path(out.get_resource("adapter_path")).exists()
+
+
+@pytest.mark.skipif(
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
+    reason="bitsandbytes requires Linux GPU.",
+)
+def test_dora(tmp_path):
+    # execute
+    out = run_finetuning(DoRA, tmp_path, torch_dtype="float32")
 
     # assert
     assert Path(out.get_resource("adapter_path")).exists()

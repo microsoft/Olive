@@ -2,7 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive.common.utils import StrEnumBase
+from olive.common.config_utils import CaseInsensitiveEnum
+from olive.common.utils import IntEnumBase, StrEnumBase
+
+MSFT_DOMAIN = "com.microsoft"
 
 
 class Framework(StrEnumBase):
@@ -32,3 +35,53 @@ class ModelFileFormat(StrEnumBase):
     QNN_SERIALIZED_BIN = "QNN.SERIALIZED.BIN"
     OPENVINO_IR = "OpenVINO.IR"
     COMPOSITE_MODEL = "Composite"
+
+
+class Precision(StrEnumBase):
+    INT4 = "int4"
+    INT8 = "int8"
+    INT16 = "int16"
+    INT32 = "int32"
+    UINT4 = "uint4"
+    UINT8 = "uint8"
+    UINT16 = "uint16"
+    UINT32 = "uint32"
+    FP4 = "fp4"
+    FP8 = "fp8"
+    FP16 = "fp16"
+    FP32 = "fp32"
+    NF4 = "nf4"
+
+
+class PrecisionBits(IntEnumBase):
+    BITS4 = 4
+    BITS8 = 8
+    BITS16 = 16
+    BITS32 = 32
+
+
+class QuantAlgorithm(CaseInsensitiveEnum):
+    AWQ = "awq"
+    GPTQ = "gptq"
+    HQQ = "hqq"
+    RTN = "rtn"
+    SPINQUANT = "spinquant"
+    QUAROT = "quarot"
+
+
+class QuantEncoding(StrEnumBase):
+    QDQ = "qdq"
+    QOP = "qop"
+
+
+class DatasetRequirement(StrEnumBase):
+    REQUIRED = "dataset_required"
+    OPTIONAL = "dataset_optional"
+    NOT_REQUIRED = "dataset_not_required"
+
+
+class OpType(StrEnumBase):
+    """Enum for operator types."""
+
+    MatMulNBits = "MatMulNBits"
+    MatMul = "MatMul"

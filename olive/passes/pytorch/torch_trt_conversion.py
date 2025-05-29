@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Union
 
 import torch
 
@@ -16,6 +16,7 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pass_config import BasePassConfig
 from olive.passes.pytorch.common import inherit_pytorch_from_hf
 from olive.passes.pytorch.sparsegpt_utils import get_layer_submodules, supported_models, validate_min_max_layers
 
@@ -34,7 +35,7 @@ class TorchTRTConversion(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "min_layer": PassConfigParam(
                 type_=int, default_value=None, description="Convert all layers with id >= min_layer."
@@ -43,7 +44,7 @@ class TorchTRTConversion(Pass):
                 type_=int, default_value=None, description="Convert all layers with id < max_layer."
             ),
             "layer_name_filter": PassConfigParam(
-                type_=Union[str, List[str]],
+                type_=Union[str, list[str]],
                 default_value=None,
                 description="Only convert layers whose name contains the given string(s).",
             ),
@@ -53,7 +54,7 @@ class TorchTRTConversion(Pass):
                 description="Convert entire model to fp16. If False, only the sparse modules are converted to fp16.",
             ),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description=(
                     "Data config to use for compiling module to TensorRT. The batch size of the compiled module is set"
@@ -65,11 +66,10 @@ class TorchTRTConversion(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
 
         # since the run will leverage the host device to move the model to device,
@@ -81,7 +81,7 @@ class TorchTRTConversion(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
         from olive.passes.pytorch.trt_utils import compile_trt_model
 
@@ -94,7 +94,7 @@ class TorchTRTConversion(Pass):
         device = "cuda"
 
         # load_data
-        data_config = validate_config(config["data_config"], DataConfig)
+        data_config = validate_config(config.data_config, DataConfig)
         first_batch = data_config.to_data_container().get_first_batch()[0]
         first_batch = tensor_data_to_device(first_batch, device=device)
         batch_size = first_batch["input_ids"].shape[0]
@@ -105,7 +105,7 @@ class TorchTRTConversion(Pass):
         # move model to device
         pytorch_model.to(device=device)
         # convert model to fp16 if needed
-        if config["float16"]:
+        if config.float16:
             pytorch_model = pytorch_model.to(dtype=torch.float16)
         # disable cache
         use_cache = pytorch_model.config.use_cache
@@ -121,8 +121,8 @@ class TorchTRTConversion(Pass):
         layers = model_wrapper.get_layers(False)
 
         # get layer information
-        min_layer, max_layer = validate_min_max_layers(config["min_layer"], config["max_layer"], len(layers))
-        layer_name_filter = config["layer_name_filter"] or []
+        min_layer, max_layer = validate_min_max_layers(config.min_layer, config.max_layer, len(layers))
+        layer_name_filter = config.layer_name_filter or []
         if isinstance(layer_name_filter, str):
             layer_name_filter = [layer_name_filter]
         # layer information storage

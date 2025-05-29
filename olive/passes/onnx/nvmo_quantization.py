@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Union
 
 import onnx
 import torch
@@ -14,12 +14,13 @@ from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer
 
 from olive.common.utils import StrEnumBase
+from olive.constants import Precision, QuantAlgorithm
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OliveModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.search.search_parameter import Categorical
 
 logger = logging.getLogger(__name__)
@@ -28,37 +29,29 @@ logger = logging.getLogger(__name__)
 class NVModelOptQuantization(Pass):
     """Quantize ONNX model with Nvidia-ModelOpt."""
 
-    class Precision(StrEnumBase):
-        FP8 = "fp8"
-        INT8 = "int8"
-        INT4 = "int4"
-
-    class Algorithm(StrEnumBase):
-        AWQ = "AWQ"
-
     class Calibration(StrEnumBase):
         AWQ_LITE = "awq_lite"
         AWQ_CLIP = "awq_clip"
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "precision": PassConfigParam(
-                type_=NVModelOptQuantization.Precision,
-                default_value="int4",
-                search_defaults=Categorical(["fp8", "int8", "int4"]),
+                type_=Precision,
+                default_value=Precision.INT4,
+                search_defaults=Categorical([Precision.FP8, Precision.INT8, Precision.INT4]),
                 description="NVModelOpt Quantization mode.",
             ),
             "algorithm": PassConfigParam(
-                type_=NVModelOptQuantization.Algorithm,
-                default_value="AWQ",
-                search_defaults=Categorical(["AWQ"]),
+                type_=QuantAlgorithm,
+                default_value=QuantAlgorithm.AWQ,
+                search_defaults=Categorical([QuantAlgorithm.AWQ]),
                 description="Algorithm of weight only quantization. Supports 'AWQ'.",
             ),
             "calibration": PassConfigParam(
                 type_=NVModelOptQuantization.Calibration,
-                default_value="awq_clip",
-                search_defaults=Categorical(["awq_lite", "awq_clip"]),
+                default_value=NVModelOptQuantization.Calibration.AWQ_CLIP,
+                search_defaults=Categorical(list(NVModelOptQuantization.Calibration)),
                 description="Calibration method for weight only quantization. Supports 'awq_lite' and 'awq_clip'.",
             ),
             "tokenizer_dir": PassConfigParam(
@@ -76,31 +69,24 @@ class NVModelOptQuantization(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
 
-        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
-        config = config_cls(**config)
-
         # Validate Precision
-        if config.precision != NVModelOptQuantization.Precision.INT4:
+        if config.precision != Precision.INT4:
             logger.error("Only INT4 quantization is supported.")
             return False
 
         # Validate Algorithm
-        if config.algorithm not in [NVModelOptQuantization.Algorithm.AWQ.value]:
+        if config.algorithm not in [QuantAlgorithm.AWQ]:
             logger.error("Only 'AWQ' algorithm is supported.")
             return False
 
         # Validate Calibration
-        if config.calibration not in [
-            NVModelOptQuantization.Calibration.AWQ_LITE.value,
-            NVModelOptQuantization.Calibration.AWQ_CLIP.value,
-        ]:
+        if config.calibration not in list(NVModelOptQuantization.Calibration):
             logger.error("Calibration method must be either 'awq_lite' or 'awq_clip'.")
             return False
 
@@ -120,14 +106,14 @@ class NVModelOptQuantization(Pass):
 
         return True
 
-    def initialize_quant_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def initialize_quant_config(self, config: type[BasePassConfig]) -> dict[str, Any]:
         # Check if 'tokenizer_dir' is provided and not empty
-        random_calib = config.get("random_calib_data", False)
+        random_calib = config.random_calib_data or False
         if not random_calib:
             # Prepare calibration inputs only if tokenizer_dir is specified
             calib_inputs = self.get_calib_inputs(
                 dataset_name="cnn",
-                model_name=config["tokenizer_dir"],
+                model_name=config.tokenizer_dir,
                 cache_dir="./cache",
                 calib_size=32,
                 batch_size=1,
@@ -146,10 +132,10 @@ class NVModelOptQuantization(Pass):
 
         # Return a dictionary containing necessary configuration for quantization
         return {
-            "algorithm": config.get("algorithm", self.Algorithm.AWQ.value),
-            "precision": config.get("precision", self.Precision.INT4.value),
-            "calibration_method": config.get("calibration", self.Calibration.AWQ_CLIP.value),
-            "tokenizer_dir": config.get("tokenizer_dir", ""),
+            "algorithm": config.algorithm or QuantAlgorithm.AWQ.value,
+            "precision": config.precision or Precision.INT4.value,
+            "calibration_method": config.calibration or NVModelOptQuantization.Calibration.AWQ_CLIP.value,
+            "tokenizer_dir": config.tokenizer_dir or "",
             "calibration_data_reader": calib_inputs,
         }
 
@@ -311,7 +297,7 @@ class NVModelOptQuantization(Pass):
 
         return batched_inputs_list
 
-    def quantize_awq(self, model: Union[ModelProto, str], quant_config: Dict[str, Any]) -> ModelProto:
+    def quantize_awq(self, model: Union[ModelProto, str], quant_config: dict[str, Any]) -> ModelProto:
         """Perform nvidia_awq quantization using ModelOpt's int4 quantize function.
 
         Args:
@@ -384,9 +370,8 @@ class NVModelOptQuantization(Pass):
         return model_proto
 
     def _run_for_config(
-        self, model: OliveModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: OliveModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> OliveModelHandler:
-
         try:
             logger.debug("Loading the original ONNX model from %s.", model.model_path)
             quant_config = self.initialize_quant_config(config)

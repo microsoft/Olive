@@ -20,6 +20,7 @@ jobs:
     name: Linux_Examples
     pool: $(OLIVE_POOL_UBUNTU2004)
     onnxruntime: onnxruntime
+    hf_token: true
     examples:
       bert_inc:
         exampleFolder: bert
@@ -33,6 +34,9 @@ jobs:
       super_resolution:
         exampleFolder: super_resolution
         exampleName: super_resolution
+      mobilenet_onnx:
+        exampleFolder: mobilenet/onnx
+        exampleName: mobilenet
 
 # Windows examples test
 - template: job_templates/olive-example-win-template.yaml
@@ -40,6 +44,7 @@ jobs:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     onnxruntime: onnxruntime
+    hf_token: true
     examples:
       bert_inc:
         exampleFolder: bert
@@ -56,12 +61,6 @@ jobs:
       super_resolution:
         exampleFolder: super_resolution
         exampleName: super_resolution
-      mobilenet_qnn_toolkit:
-        exampleFolder: mobilenet
-        exampleName: qnn_tooklit
-      inception_snpe_toolkit:
-        exampleFolder: inception
-        exampleName: snpe_toolkit
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-linux-template.yaml
@@ -70,8 +69,9 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     device: 'gpu'
     onnxruntime: onnxruntime-gpu
+    hf_token: true
     dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
-    base_image: 'nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04'
+    base_image: 'mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
     trt_version: '10.5.0.18-1+cuda12.6'
     examples:
       mistral:

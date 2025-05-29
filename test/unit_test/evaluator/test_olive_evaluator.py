@@ -3,19 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from functools import partial
-from test.unit_test.utils import (
-    get_accuracy_metric,
-    get_custom_metric,
-    get_custom_metric_no_eval,
-    get_latency_metric,
-    get_mock_openvino_model,
-    get_mock_snpe_model,
-    get_onnx_model,
-    get_pytorch_model,
-    get_throughput_metric,
-)
 from types import FunctionType
-from typing import ClassVar, List
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -32,10 +21,21 @@ from olive.evaluator.olive_evaluator import (
 )
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
+from test.unit_test.utils import (
+    get_accuracy_metric,
+    get_custom_metric,
+    get_custom_metric_no_eval,
+    get_latency_metric,
+    get_mock_openvino_model,
+    get_mock_snpe_model,
+    get_onnx_model,
+    get_pytorch_model,
+    get_throughput_metric,
+)
 
 
 class TestOliveEvaluator:
-    ACCURACY_TEST_CASE: ClassVar[List] = [
+    ACCURACY_TEST_CASE: ClassVar[list] = [
         (
             PyTorchEvaluator(),
             get_pytorch_model,
@@ -127,7 +127,7 @@ class TestOliveEvaluator:
             for sub_type in metric.sub_types:
                 assert expected_res == actual_res.get_value(metric.name, sub_type.name)
 
-    LATENCY_TEST_CASE: ClassVar[List] = [
+    LATENCY_TEST_CASE: ClassVar[list] = [
         (
             PyTorchEvaluator(),
             get_pytorch_model,
@@ -214,7 +214,7 @@ class TestOliveEvaluator:
         ):
             evaluator.evaluate(model, [latency_metric], Device.CPU, execution_providers)
 
-    THROUGHPUT_TEST_CASE: ClassVar[List] = [
+    THROUGHPUT_TEST_CASE: ClassVar[list] = [
         (
             PyTorchEvaluator(),
             get_pytorch_model,
@@ -254,7 +254,7 @@ class TestOliveEvaluator:
         for sub_type in metric.sub_types:
             assert expected_res > actual_res.get_value(metric.name, sub_type.name)
 
-    CUSTOM_TEST_CASE: ClassVar[List] = [
+    CUSTOM_TEST_CASE: ClassVar[list] = [
         (PyTorchEvaluator(), get_pytorch_model, get_custom_metric, 0.382715310),
         (OnnxEvaluator(), get_onnx_model, get_custom_metric, 0.382715310),
         (SNPEEvaluator(), get_mock_snpe_model, get_custom_metric, 0.382715310),
@@ -308,7 +308,7 @@ class TestOliveEvaluator:
             {
                 "ep": "ROCMExecutionProvider",
                 "results": {
-                    "onnxruntime::rocm::tunable::blas::internal::GemmTunableOp<__half, ck::tensor_layout::gemm::RowMajor, ck::tensor_layout::gemm::RowMajor>": {  # noqa: E501
+                    "onnxruntime::rocm::tunable::blas::internal::GemmTunableOp<__half, ck::tensor_layout::gemm::RowMajor, ck::tensor_layout::gemm::RowMajor>": {
                         "NN_992_4096_4096": 300,
                         "NN_992_4096_11008": 664,
                         "NN_984_4096_4096": 1295,
@@ -445,7 +445,7 @@ class TestOliveEvaluatorConfig:
             OliveEvaluatorConfig(metrics=metric_config)
 
     @pytest.mark.parametrize(
-        ("metric_args", "is_accuracy_drop_tolerance"),
+        ("metric_args", "is_accuracy_drop_tolerant"),
         [
             ([{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {}}], False),
             ([{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {"goal_type": "min-improvement"}}], False),
@@ -454,17 +454,17 @@ class TestOliveEvaluatorConfig:
             ([{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {"goal_type": "percent-max-degradation"}}], True),
         ],
     )
-    def test_is_accuracy_drop_tolerance(self, metric_args, is_accuracy_drop_tolerance):
+    def test_is_accuracy_drop_tolerant(self, metric_args, is_accuracy_drop_tolerant):
         evaluator_config = [get_accuracy_metric(*m_arg["args"], **m_arg["kwargs"]) for m_arg in metric_args]
         evaluator_config_instance = OliveEvaluatorConfig(metrics=evaluator_config)
-        assert evaluator_config_instance.is_accuracy_drop_tolerance == is_accuracy_drop_tolerance
+        assert evaluator_config_instance.is_accuracy_drop_tolerant == is_accuracy_drop_tolerant
 
     @patch("olive.common.import_lib.import_user_module")
     @patch("olive.evaluator.registry.Registry.get")
     def test_valid_custom_type_validation(self, registry_get_mock, import_user_module_mock):
         registry_get_mock.return_value = MagicMock()
         OliveEvaluatorConfig.from_json({"type": "test_evaluator"})
-        registry_get_mock.called_once_with("test_evaluator")
+        registry_get_mock.assert_called_once_with("test_evaluator")
 
     @patch("olive.common.import_lib.import_user_module")
     @patch("olive.evaluator.registry.Registry.get")
@@ -474,4 +474,4 @@ class TestOliveEvaluatorConfig:
         with pytest.raises(ValidationError):
             OliveEvaluatorConfig.from_json({"type": "test_evaluator"})
 
-        registry_get_mock.called_once_with("test_evaluator")
+        registry_get_mock.assert_called_once_with("test_evaluator")

@@ -6,14 +6,14 @@
 import logging
 import platform
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Union
 
 from olive.common.constants import OS
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
 from olive.model import QNNModelHandler, SNPEModelHandler
 from olive.passes.olive_pass import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class QNNContextBinaryGenerator(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "backend": PassConfigParam(
                 type_=str,
@@ -51,7 +51,7 @@ class QNNContextBinaryGenerator(Pass):
     def _run_for_config(
         self,
         model: Union[QNNModelHandler, SNPEModelHandler],
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> QNNModelHandler:
         if platform.system() == OS.WINDOWS:
@@ -60,7 +60,7 @@ class QNNContextBinaryGenerator(Pass):
         main_cmd = "qnn-context-binary-generator"
         runner = QNNSDKRunner(use_dev_tools=True)
 
-        extra_args = config["extra_args"] or ""
+        extra_args = config.extra_args or ""
         model_arg = f"--model {model.model_path}"
 
         if model.model_file_format == ModelFileFormat.SNPE_DLC and "--dlc_path" not in extra_args:
@@ -77,7 +77,7 @@ class QNNContextBinaryGenerator(Pass):
         # TODO(trajep): find .so file in the same directory as the model
         output_model_path = Path(output_model_path).resolve()
 
-        binary_file = config["binary_file"]
+        binary_file = config.binary_file
         if not binary_file:
             binary_file = output_model_path.with_suffix(".serialized").name
 
@@ -86,7 +86,7 @@ class QNNContextBinaryGenerator(Pass):
         cmd_list = [
             main_cmd,
             model_arg,
-            f"--backend {config['backend']}",
+            f"--backend {config.backend}",
             f"--output_dir {output_model_path}",
             f"--binary_file {binary_file}" if binary_file else "",
             extra_args,
@@ -96,5 +96,5 @@ class QNNContextBinaryGenerator(Pass):
         return QNNModelHandler(
             output_model_full_path,
             model_file_format=ModelFileFormat.QNN_SERIALIZED_BIN,
-            model_attributes={"backend": config["backend"]},
+            model_attributes={"backend": config.backend},
         )

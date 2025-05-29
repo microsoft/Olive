@@ -2,7 +2,6 @@
 
 This folder contains sample use cases of Olive with ONNX Runtime and OpenVINO to optimize:
 - Stable Diffusion: [Stable Diffusion v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4), [Stable Diffusion v2](https://huggingface.co/stabilityai/stable-diffusion-2)
-- Stable Diffusion XL: [Stable Diffusion XL Base](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0), [Stable Diffusion XL Refiner](https://huggingface.co/stabilityai/stable-diffusion-xl-refiner-1.0)
 
 Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*.
 
@@ -11,11 +10,11 @@ The ONNX Runtime optimization sample will convert each PyTorch model to ONNX, an
 The OpenVINO optimization sample will convert each PyTorch model to OpenVINO IR model by `OpenVINOConversion` pass, and create an `OpenVINOStableDiffusionPipeline` for inference.
 
 - ONNX Runtime with
-    - [CUDA EP](#stable-diffusion-and-stable-diffusion-xl-optimization-with-onnx-runtime-cuda-ep)
-    - DirectML EP: go to examples [Stable Diffusion](../directml/stable_diffusion/README.md), [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md)
+    - [CUDA EP](#stable-diffusion-optimization-with-onnx-runtime-cuda-ep)
+    - DirectML EP: go to examples [Stable Diffusion](../directml/stable_diffusion/README.md)
 - [OpenVINO](#stable-diffusion-optimization-with-openvino)
 
-## Stable Diffusion and Stable Diffusion XL Optimization with ONNX Runtime CUDA EP
+## Stable Diffusion Optimization with ONNX Runtime CUDA EP
 
 This sample performs the following optimization workflow for each model in the Stable Diffusion pipeline:
 - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16*
@@ -37,18 +36,13 @@ Transformers optimization uses the following optimizations to speed up Stable Di
 Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
 
 
-We use the same olive workflow config files and scripts as the DirectML examples. The only difference is the `--provider cuda` option provided to the `stable_diffusion.py`  and `stable_diffusion_xl.py` scripts.
+We use the same olive workflow config files and scripts as the DirectML examples. The only difference is the `--provider cuda` option provided to the `stable_diffusion.py` scripts.
 
 So, cd into the corresponding DirectML example folder from the root of the cloned repository:
 
 **_Stable Diffusion_**
 ```bash
 cd examples/stable_diffusion
-```
-
-**_Stable Diffusion XL_**
-```bash
-cd examples/directml/stable_diffusion_xl
 ```
 
 ##### Install onnxruntime
@@ -74,7 +68,7 @@ python -m pip install -r requirements-common.txt
 
 #### Conversion to ONNX and Latency Optimization
 
-The easiest way to optimize the pipeline is with the `stable_diffusion.py` and `stable_diffusion_xl.py` scripts. These scripts will enumerate the `config_<model_name>.json` files and optimize each with Olive, then gather the optimized models into a directory structure suitable for testing inference.
+The easiest way to optimize the pipeline is with the `stable_diffusion.py` scripts. These scripts will enumerate the `config_<model_name>.json` files and optimize each with Olive, then gather the optimized models into a directory structure suitable for testing inference.
 
 **_Stable Diffusion_**
 ```bash
@@ -82,21 +76,9 @@ The easiest way to optimize the pipeline is with the `stable_diffusion.py` and `
 python stable_diffusion.py --provider cuda --optimize
 ```
 
-**_Stable Diffusion XL_**
-```bash
-# default model_id is "stabilityai/stable-diffusion-xl-base-1.0"
-python stable_diffusion_xl.py --provider cuda --optimize [--use_fp16_fixed_vae]
-
-# or specify a different model_id
-python stable_diffusion_xl.py --provider cuda --model_id stabilityai/stable-diffusion-xl-refiner-1.0 --optimize [--use_fp16_fixed_vae]
-```
-
-`--use_fp16_fixed_vae` is optional. If provided, will use [madebyollin/sdxl-vae-fp16-fix](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix) for the vae models and all sub-models will be entirely in fp16.
-Otherwise, the vae models (vae-decoder for base and both vae-decoder and vae-encoder for refiner) will be in fp32 and all other sub-models will be in fp16 with fp32 input/output.
-
 Once the script successfully completes:
-- The optimized ONNX pipeline will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/CompVis/stable-diffusion-v1-4` or `models/optimized-cuda/stabilityai/stable-diffusion-xl-base-1.0`).
-- The unoptimized ONNX pipeline (models converted to ONNX, but not run through transformer optimization pass) will be stored under `models/unoptimized/[model_id]` (for example `models/unoptimized/CompVis/stable-diffusion-v1-4` or `models/unoptimized/stabilityai/stable-diffusion-xl-base-1.0`).
+- The optimized ONNX pipeline will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/CompVis/stable-diffusion-v1-4`).
+- The unoptimized ONNX pipeline (models converted to ONNX, but not run through transformer optimization pass) will be stored under `models/unoptimized/[model_id]` (for example `models/unoptimized/CompVis/stable-diffusion-v1-4`).
 
 Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
 
@@ -110,16 +92,8 @@ python stable_diffusion.py --provider cuda --num_images 2
 ```
 Inference will loop until the generated image passes the safety checker (otherwise you would see black images). The result will be saved as `result_<i>.png` on disk.
 
-**_Stable Diffusion XL_**
-```bash
-python stable_diffusion_xl.py --provider cuda --num_images 2
-```
-The result will be saved as `result_<i>.png` on disk.
-
 Refer to the corresponding section in the DirectML READMEs for more details on the test inference options:
 - [Stable Diffusion](../directml/stable_diffusion/README.md#test-inference)
-- [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md#test-inference)
-
 
 ## Stable Diffusion Optimization with OpenVINO
 
@@ -146,6 +120,14 @@ Once you've installed Olive, install the requirements for this sample matching t
 ```
 cd olive/examples/stable_diffusion
 pip install -r requirements-ov.txt
+```
+
+##### Install onnxruntime
+
+This example requires onnxruntime and its openvino module to be installed:
+
+```bash
+pip install onnxruntime-openvino
 ```
 
 ### Convert to OpenVINO IR model
@@ -179,3 +161,29 @@ Inference will loop until the generated image. The result will be saved as `resu
 Run `python stable_diffusion.py --help` for additional options. A few particularly relevant ones:
 - `--image_path <str>`: the input image path for image to image inference.
 - `--img_to_img_example`: image to image example. The default input image is `assets/dog.png`, the default prompt is `amazing watercolor painting`.
+
+## Stable Diffusion Quantization encoded in QDQ format
+
+### Generate data for static quantization
+
+To get better result, we need to generate real data from original model instead of using random data for static quantization.
+
+First generate onnx unoptimized model:
+
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu --format qdq --optimize --only_conversion`
+
+Then generate data:
+
+`python .\evaluation.py --save_data --model_id stabilityai/sd-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0`
+
+### Optimize
+
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu --format qdq --optimize`
+
+### Test and evaluate
+
+`python .\evaluation.py --model_id stabilityai/sd-turbo --num_inference_steps 1 --seed 0 --num_data 100 --guidance_scale 0`
+
+To generate one image:
+
+`python stable_diffusion.py --model_id stabilityai/sd-turbo --provider cpu --format qdq --guidance_scale 0 --seed 0 --num_inference_steps 1 --prompt "A baby is laying down with a teddy bear"`

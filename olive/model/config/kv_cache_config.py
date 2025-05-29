@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from itertools import chain
-from typing import Dict, Optional
+from typing import Optional
 
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import validator
@@ -32,8 +32,8 @@ class KVCacheConfig(ConfigBase):
     # but in some cases, the past_sequence_length is not the 3rd dimension
     # [batch_size, past_sequence_length, num_heads, hidden_size/num_heads]
     sequence_length_idx: int = 2
-    past_kv_dynamic_axis: Optional[Dict] = None
-    present_kv_dynamic_axis: Optional[Dict] = None
+    past_kv_dynamic_axis: Optional[dict] = None
+    present_kv_dynamic_axis: Optional[dict] = None
 
     @validator("past_kv_dynamic_axis", always=True)
     def check_past_kv_dynamic_axis(cls, v, values):
@@ -106,3 +106,11 @@ class KVCacheConfig(ConfigBase):
         for present_name in self.get_ort_present_kv_names():
             dynamic_axis[present_name] = self.present_kv_dynamic_axis
         return dynamic_axis
+
+    def get_dynamic_shapes(self):
+        dynamic_shapes = {}
+        past_kv_names = self.get_ort_past_kv_names()
+        dynamic_shapes["past_key_values"] = [
+            [self.past_kv_dynamic_axis, self.past_kv_dynamic_axis] for _ in range(0, len(past_kv_names), 2)
+        ]
+        return dynamic_shapes

@@ -4,38 +4,67 @@
             "module_path": "olive.passes.onnx.append_pre_post_processing_ops.AppendPrePostProcessingOps",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "ComposeOnnxModels": {
+            "module_path": "olive.passes.onnx.compose.ComposeOnnxModels",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "DynamicToFixedShape": {
             "module_path": "olive.passes.onnx.dynamic_to_fixed_shape.DynamicToFixedShape",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
-        "GraphSurgeries": {
-            "module_path": "olive.passes.onnx.graph_surgeries.GraphSurgeries",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+        "EPContextBinaryGenerator": {
+            "module_path": "olive.passes.onnx.context_binary.EPContextBinaryGenerator",
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "run_on_target": true
         },
         "ExtractAdapters": {
             "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "GraphSurgeries": {
+            "module_path": "olive.passes.onnx.graph_surgeries.GraphSurgeries",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "ModelBuilder": {
             "module_path": "olive.passes.onnx.model_builder.ModelBuilder",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "fp16", "fp32" ],
-            "extra_dependencies": [ "ort-genai" ]
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "IncDynamicQuantization": {
             "module_path": "olive.passes.onnx.inc_quantization.IncDynamicQuantization",
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int4", "int8" ],
+            "supported_algorithms": [ "gptq" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_not_required",
             "extra_dependencies": [ "inc" ],
             "run_on_target": true
         },
@@ -44,6 +73,9 @@
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int4", "int8" ],
+            "supported_algrithms": [ "gptq" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional",
             "extra_dependencies": [ "inc" ],
             "run_on_target": true
         },
@@ -52,106 +84,153 @@
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "int4", "int8" ],
+            "supported_algorithms": [ "gptq" ],
+            "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "inc" ],
+            "dataset": "dataset_required",
             "run_on_target": true
-        },
-        "InsertBeamSearch": {
-            "module_path": "olive.passes.onnx.insert_beam_search.InsertBeamSearch",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
         },
         "MatMulNBitsToQDQ": {
             "module_path": "olive.passes.onnx.mnb_to_qdq.MatMulNBitsToQDQ",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "MixedPrecisionOverrides": {
             "module_path": "olive.passes.onnx.mixed_precision_overrides.MixedPrecisionOverrides",
             "supported_providers": [ "QNNExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "MoEExpertsDistributor": {
             "module_path": "olive.passes.onnx.moe_experts_distributor.MoEExpertsDistributor",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "OnnxBnb4Quantization": {
             "module_path": "olive.passes.onnx.bnb_quantization.OnnxBnb4Quantization",
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
-            "supported_precisions": [ "fp4", "nf4" ]
+            "supported_precisions": [ "fp4", "nf4" ],
+            "supported_algorithms": [ "rtn" ],
+            "supported_quantization_encodings": [  ]
         },
         "OnnxConversion": {
             "module_path": "olive.passes.onnx.conversion.OnnxConversion",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional"
         },
         "OnnxDynamicQuantization": {
             "module_path": "olive.passes.onnx.quantization.OnnxDynamicQuantization",
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
-            "supported_precisions": [ "int8", "uint8" ]
+            "supported_precisions": [ "int8", "uint8" ],
+            "supported_algorithms": [ "rtn" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_not_required"
         },
         "OnnxFloatToFloat16": {
             "module_path": "olive.passes.onnx.float16_conversion.OnnxFloatToFloat16",
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
-            "supported_precisions": [ "fp16" ]
+            "supported_precisions": [ "fp16" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "OnnxIODataTypeConverter": {
             "module_path": "olive.passes.onnx.io_datatype_converter.OnnxIODataTypeConverter",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "OnnxMatMul4Quantizer": {
             "module_path": "olive.passes.onnx.quantization.OnnxMatMul4Quantizer",
             "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
             "supported_accelerators": [ "cpu", "gpu" ],
-            "supported_precisions": [ "int4" ]
+            "supported_precisions": [ "int4" ],
+            "supported_algorithms": [ "rtn" ],
+            "supported_quantization_encodings": [ "qdq" ]
+        },
+        "OnnxHqqQuantization": {
+            "module_path": "olive.passes.onnx.hqq_quantization.OnnxHqqQuantization",
+            "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "int4" ],
+            "supported_algorithms": [ "hqq" ],
+            "supported_quantization_encodings": [  ]
         },
         "OnnxPeepholeOptimizer": {
             "module_path": "olive.passes.onnx.peephole_optimizer.OnnxPeepholeOptimizer",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "onnxoptimizer", "onnxscript" ]
         },
         "OnnxOpVersionConversion": {
             "module_path": "olive.passes.onnx.conversion.OnnxOpVersionConversion",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "OnnxScriptFusion": {
+            "module_path": "olive.passes.onnx.onnxscript_fusion.OnnxScriptFusion",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "OnnxQuantization": {
             "module_path": "olive.passes.onnx.quantization.OnnxQuantization",
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
-            "supported_precisions": [ "int8" ]
+            "supported_precisions": [ "int8" ],
+            "supported_algorithms": [ "rtn" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional"
         },
         "OnnxStaticQuantization": {
             "module_path": "olive.passes.onnx.quantization.OnnxStaticQuantization",
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
-            "supported_precisions": [ "int8", "int16", "uint8", "uint16" ]
+            "supported_precisions": [ "int8", "int16", "uint8", "uint16" ],
+            "supported_algorithms": [ "rtn" ],
+            "supported_quantization_encodings": [ "qdq" ],
+            "dataset": "dataset_required"
         },
         "OptimumConversion": {
             "module_path": "olive.passes.onnx.optimum_conversion.OptimumConversion",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "extra_dependencies": [ "optimum" ]
+            "extra_dependencies": [ "optimum" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "OptimumMerging": {
             "module_path": "olive.passes.onnx.optimum_merging.OptimumMerging",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "optimum" ],
             "run_on_target": true
         },
@@ -159,13 +238,17 @@
             "module_path": "olive.passes.onnx.mixed_precision.OrtMixedPrecision",
             "supported_providers": [ "CUDAExecutionProvider", "DmlExecutionProvider" ],
             "supported_accelerators": [ "gpu", "npu" ],
-            "supported_precisions": [ "fp16" ]
+            "supported_precisions": [ "fp16" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "OrtSessionParamsTuning": {
             "module_path": "olive.passes.onnx.session_params_tuning.OrtSessionParamsTuning",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "module_dependencies": [ "psutil" ],
             "run_on_target": true
         },
@@ -173,226 +256,370 @@
             "module_path": "olive.passes.onnx.transformer_optimization.OrtTransformersOptimization",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "QNNPreprocess": {
             "module_path": "olive.passes.onnx.qnn.qnn_preprocess.QNNPreprocess",
             "supported_providers": [ "QNNExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "OnnxQuantizationPreprocess": {
+            "module_path": "olive.passes.onnx.quantization.OnnxQuantizationPreprocess",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "VitisAIQuantization": {
             "module_path": "olive.passes.onnx.vitis_ai_quantization.VitisAIQuantization",
             "supported_providers": [ "VitisAIExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "int8" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "run_on_target": true
         },
         "VitisQDQQuantizer": {
             "module_path": "olive.passes.onnx.vitis_ai.quantizer.VitisQDQQuantizer",
             "supported_providers": [ "VitisAIExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
-            "supported_precisions": [ "int8" ]
+            "supported_precisions": [ "int8" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [ "qdq" ]
         },
         "VitisQOpQuantizer": {
             "module_path": "olive.passes.onnx.vitis_ai.quantizer.VitisQOpQuantizer",
             "supported_providers": [ "VitisAIExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
-            "supported_precisions": [ "int8" ]
+            "supported_precisions": [ "int8" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [ "qop" ]
         },
         "PowerOfTwoMethod": {
             "module_path": "olive.passes.onnx.vitis_ai.quant_utils.PowerOfTwoMethod",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "SplitModel": {
             "module_path": "olive.passes.onnx.split.SplitModel",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "StaticLLM": {
+            "module_path": "olive.passes.onnx.static_llm.StaticLLM",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "OpenVINOConversion": {
             "module_path": "olive.passes.openvino.conversion.OpenVINOConversion",
-            "supported_providers": [ "OpenVINOExecutionProvider" ],
-            "supported_accelerators": [ "cpu", "gpu", "npu" ],
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "openvino" ]
         },
         "OpenVINOQuantization": {
             "module_path": "olive.passes.openvino.quantization.OpenVINOQuantization",
-            "supported_providers": [ "OpenVINOExecutionProvider" ],
-            "supported_accelerators": [ "cpu", "gpu", "npu" ],
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
+        "OpenVINOEncapsulation": {
+            "module_path": "olive.passes.openvino.encapsulation.OpenVINOEncapsulation",
+            "supported_providers": [ "OpenVINOExecutionProvider" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
+        "OpenVINOIoUpdate": {
+            "module_path": "olive.passes.openvino.io_update.OpenVINOIoUpdate",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
+        "OpenVINOOptimumConversion": {
+            "module_path": "olive.passes.openvino.optimum_intel.OpenVINOOptimumConversion",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "openvino" ]
         },
         "AutoAWQQuantizer": {
             "module_path": "olive.passes.pytorch.autoawq.AutoAWQQuantizer",
-            "supported_providers": [ "CPUExecutionProvider" ],
-            "supported_accelerators": [ "cpu" ],
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "int16", "uint4", "uint8", "uint16" ],
+            "supported_algorithms": [ "awq" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional",
             "module_dependencies": [ "autoawq" ]
         },
         "GptqQuantizer": {
             "module_path": "olive.passes.pytorch.gptq.GptqQuantizer",
-            "supported_providers": [ "CPUExecutionProvider" ],
-            "supported_accelerators": [ "cpu" ],
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "int16", "uint4", "uint8", "uint16" ],
+            "supported_algorithms": [ "gptq", "quarot", "spinquant" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional",
             "module_dependencies": [ "auto-gptq", "optimum" ]
         },
         "CaptureSplitInfo": {
             "module_path": "olive.passes.pytorch.capture_split_info.CaptureSplitInfo",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "MergeAdapterWeights": {
             "module_path": "olive.passes.pytorch.merge_adapter_weights.MergeAdapterWeights",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "LoftQ": {
             "module_path": "olive.passes.pytorch.lora.LoftQ",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "LoRA": {
             "module_path": "olive.passes.pytorch.lora.LoRA",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "extra_dependencies": [ "lora" ]
+            "extra_dependencies": [ "lora" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "LoHa": {
             "module_path": "olive.passes.pytorch.lora.LoHa",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "extra_dependencies": [ "lora" ]
+            "extra_dependencies": [ "lora" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "LoKr": {
             "module_path": "olive.passes.pytorch.lora.LoKr",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "extra_dependencies": [ "lora" ]
+            "extra_dependencies": [ "lora" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "PyTorchTensorParallel": {
             "module_path": "olive.passes.pytorch.tensor_parallel.PyTorchTensorParallel",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "QLoRA": {
             "module_path": "olive.passes.pytorch.lora.QLoRA",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "extra_dependencies": [ "bnb", "lora" ]
+            "extra_dependencies": [ "bnb", "lora" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset"
+        },
+        "DoRA": {
+            "module_path": "olive.passes.pytorch.lora.DoRA",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "extra_dependencies": [ "bnb", "lora" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "QuantizationAwareTraining": {
             "module_path": "olive.passes.pytorch.quantization_aware_training.QuantizationAwareTraining",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "module_dependencies": [ "pytorch-lightning" ]
+            "module_dependencies": [ "pytorch-lightning" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "QuaRot": {
             "module_path": "olive.passes.pytorch.rotate.QuaRot",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [ "quarot" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional"
         },
         "SparseGPT": {
             "module_path": "olive.passes.pytorch.sparsegpt.SparseGPT",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "SpinQuant": {
             "module_path": "olive.passes.pytorch.rotate.SpinQuant",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [ "spinquant" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional"
         },
         "SliceGPT": {
             "module_path": "olive.passes.pytorch.slicegpt.SliceGPT",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "TorchTRTConversion": {
             "module_path": "olive.passes.pytorch.torch_trt_conversion.TorchTRTConversion",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "extra_dependencies": [ "torch-tensorrt" ]
+            "extra_dependencies": [ "torch-tensorrt" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "QNNConversion": {
             "module_path": "olive.passes.qnn.conversion.QNNConversion",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "QNNModelLibGenerator": {
             "module_path": "olive.passes.qnn.model_lib_generator.QNNModelLibGenerator",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "QNNContextBinaryGenerator": {
             "module_path": "olive.passes.qnn.context_binary_generator.QNNContextBinaryGenerator",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "SNPEConversion": {
             "module_path": "olive.passes.snpe.conversion.SNPEConversion",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "SNPEQuantization": {
             "module_path": "olive.passes.snpe.quantization.SNPEQuantization",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "SNPEtoONNXConversion": {
             "module_path": "olive.passes.snpe.snpe_to_onnx.SNPEtoONNXConversion",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ]
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "NVModelOptQuantization": {
             "module_path": "olive.passes.onnx.nvmo_quantization.NVModelOptQuantization",
             "supported_providers": [ "CUDAExecutionProvider" ],
             "supported_accelerators": [ "gpu" ],
             "supported_precisions": [ "int4", "int8", "fp8" ],
+            "supported_algorithms": [ "awq" ],
+            "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "nvmo" ]
+        },
+        "TrtMatMulToConvTransform": {
+            "module_path": "olive.passes.onnx.tensorrt.trt_dla_transforms.TrtMatMulToConvTransform",
+            "supported_providers": [ "TensorrtExecutionProvider" ],
+            "supported_accelerators": [ "gpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "onnxscript" ]
+        },
+        "VitisAIAddMetaData": {
+            "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIAddMetaData",
+            "supported_providers": [ "CPUExecutionProvider" ],
+            "supported_accelerators": [ "cpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "InputNCHWtoNHWC": {
+            "module_path": "olive.passes.onnx.vitis_ai.preprocess.InputNCHWtoNHWC",
+            "supported_providers": [ "CPUExecutionProvider" ],
+            "supported_accelerators": [ "cpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         }
     },
     "extra_dependencies": {
         "auto-opt": [ "optimum" ],
         "azureml": [ "azure-ai-ml>=1.11.1", "azure-keyvault-secrets", "azure-identity", "azureml-fsspec" ],
         "bnb": [ "bitsandbytes", "triton" ],
-        "capture-onnx-graph": [ "onnxruntime-genai", "optimum" ],
+        "capture-onnx-graph": [ "optimum" ],
         "cpu": [ "onnxruntime" ],
         "directml": [ "onnxruntime-directml" ],
         "docker": [ "docker" ],
         "shared-cache": [ "azure-identity", "azure-storage-blob" ],
-        "finetune": [ "onnxruntime-genai", "optimum", "accelerate>=0.30.0", "peft", "scipy", "bitsandbytes", "triton" ],
+        "finetune": [ "optimum", "accelerate>=0.30.0", "peft", "scipy", "bitsandbytes", "triton" ],
         "flash-attn": [ "flash_attn" ],
         "gpu": [ "onnxruntime-gpu" ],
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "nvmo": [ "nvidia-modelopt", "onnx-graphsurgeon", "datasets>=2.14.4", "cppimport==22.8.2" ],
-        "openvino": [ "openvino==2023.2.0", "nncf==2.7.0", "numpy<2.0" ],
+        "openvino": [ "openvino>=2025.1.0", "nncf>=2.16.0", "numpy<2.0", "optimum[openvino]<=1.24" ],
         "optimum": [ "optimum" ],
-        "ort-genai": [ "onnxruntime-genai" ],
-        "ort": [ "onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino", "numpy<2.0" ],
         "qnn": [ "onnxruntime-qnn" ],
         "tf": [ "tensorflow==1.15.0" ],
         "torch-tensorrt": [ "torch-tensorrt" ],

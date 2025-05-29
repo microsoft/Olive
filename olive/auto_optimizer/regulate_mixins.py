@@ -69,9 +69,9 @@ class RegulatePassConfigMixin:
 
         is_cuda_ep = self.accelerator_spec.execution_provider != "TensorrtExecutionProvider"
         is_trt_ep = self.accelerator_spec.execution_provider == "TensorrtExecutionProvider"
-        assert (
-            not is_cuda_ep or not is_trt_ep
-        ), "can not support CUDA/DmlExecutionProvider and TensorrtExecutionProvider at the same time"
+        assert not is_cuda_ep or not is_trt_ep, (
+            "can not support CUDA/DmlExecutionProvider and TensorrtExecutionProvider at the same time"
+        )
 
         customized_fp16 = self._allow_precision("fp16")
         cuda_fp16 = customized_fp16 and is_cuda_ep

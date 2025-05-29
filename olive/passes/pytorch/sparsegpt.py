@@ -7,7 +7,7 @@
 # https://arxiv.org/abs/2301.00774
 # -------------------------------------------------------------------------
 import logging
-from typing import Any, Dict, List, Union
+from typing import Union
 
 import torch
 
@@ -18,6 +18,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pass_config import BasePassConfig
 from olive.passes.pytorch.common import inherit_hf_from_hf
 from olive.passes.pytorch.sparsegpt_utils import (
     SparseGPTModule,
@@ -40,10 +41,10 @@ class SparseGPT(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "sparsity": PassConfigParam(
-                type_=Union[float, List[int]],
+                type_=Union[float, list[int]],
                 description=(
                     "Target sparsity. This can be a float or a list of two integers. Float is the target sparsity per"
                     " layer. List [n,m] applies semi-structured (n:m) sparsity patterns. Refer to"
@@ -66,7 +67,7 @@ class SparseGPT(Pass):
                 type_=int, default_value=None, description="Prune all layers with id < max_layer."
             ),
             "layer_name_filter": PassConfigParam(
-                type_=Union[str, List[str]],
+                type_=Union[str, list[str]],
                 default_value=None,
                 description="Only prune layers whose name contains the given string(s).",
             ),
@@ -82,7 +83,7 @@ class SparseGPT(Pass):
                 ),
             ),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description=(
                     "Data config to use for pruning weights. All samples in the data are expected to be of the"
@@ -92,22 +93,24 @@ class SparseGPT(Pass):
         }
 
     @torch.no_grad()
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+    def _run_for_config(
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
         model_type = model.model_attributes["model_type"]
         if model_type not in supported_models:
             raise ValueError(f"Unsupported model type: {model_type}. Supported types: {supported_models}")
 
         # get sparsity mode and parameters
-        if isinstance(config["sparsity"], float):
-            assert 0 <= config["sparsity"] <= 1, "Sparsity must be in [0,1]."
-        elif isinstance(config["sparsity"], list):
-            assert len(config["sparsity"]) == 2, "Sparsity must be a float or a list of two integers."
-        mode = "unstructured" if isinstance(config["sparsity"], float) else "structured"
-        sparsity = config["sparsity"]
+        if isinstance(config.sparsity, float):
+            assert 0 <= config.sparsity <= 1, "Sparsity must be in [0,1]."
+        elif isinstance(config.sparsity, list):
+            assert len(config.sparsity) == 2, "Sparsity must be a float or a list of two integers."
+        mode = "unstructured" if isinstance(config.sparsity, float) else "structured"
+        sparsity = config.sparsity
         n, m = sparsity if mode == "structured" else [0, 0]
 
         # get device to use for computations
-        device = config["device"]
+        device = config.device
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.debug(
@@ -115,7 +118,7 @@ class SparseGPT(Pass):
         )
 
         # load_data
-        data_config = validate_config(config["data_config"], DataConfig)
+        data_config = validate_config(config.data_config, DataConfig)
         dataloader = data_config.to_data_container().create_dataloader()
         logger.debug("Data loaded. Number of batches: %d", len(dataloader))
 
@@ -138,8 +141,8 @@ class SparseGPT(Pass):
         outputs = torch.zeros_like(inputs)
 
         # prune layers
-        min_layer, max_layer = validate_min_max_layers(config["min_layer"], config["max_layer"], len(layers))
-        layer_name_filter = config["layer_name_filter"] or []
+        min_layer, max_layer = validate_min_max_layers(config.min_layer, config.max_layer, len(layers))
+        layer_name_filter = config.layer_name_filter or []
         if isinstance(layer_name_filter, str):
             layer_name_filter = [layer_name_filter]
         # loop over layers
@@ -181,7 +184,7 @@ class SparseGPT(Pass):
             losses = {}
             for name, sparse_gpt_module in sparge_gpt_modules.items():
                 loss = sparse_gpt_module.prune(
-                    mode, sparsity, n, m, blocksize=config["blocksize"], percdamp=config["percdamp"]
+                    mode, sparsity, n, m, blocksize=config.blocksize, percdamp=config.percdamp
                 )
                 losses[name] = loss
                 sparse_gpt_module.free()

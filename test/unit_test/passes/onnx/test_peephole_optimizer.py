@@ -3,8 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from test.unit_test.utils import get_onnx_model
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
@@ -14,6 +13,7 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import model_proto_to_olive_model
 from olive.passes.onnx.peephole_optimizer import OnnxPeepholeOptimizer
+from test.unit_test.utils import get_onnx_model
 
 if TYPE_CHECKING:
     from olive.model import ONNXModelHandler
@@ -41,7 +41,7 @@ def test_onnx_peephole_optimizer_pass(tmp_path):
 
 
 def _make_model_for_patch_unsupported_argmax_operator(
-    data_type: TensorProto.DataType, filepath: str, config: Dict[str, Any]
+    data_type: TensorProto.DataType, filepath: str, config: dict[str, Any]
 ) -> "ONNXModelHandler":
     X = helper.make_tensor_value_info("X", data_type, [None, None])  # noqa: N806
     Y = helper.make_tensor_value_info("Y", data_type, [None])  # noqa: N806

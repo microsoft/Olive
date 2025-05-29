@@ -62,7 +62,7 @@ init_command = [
 is_formatter = true
 
 [[linter]]
-code = 'BLACK-ISORT'
+code = 'RUFF-FORMAT'
 include_patterns = [
   '**/*.py'
 ]
@@ -74,7 +74,7 @@ command = [
   '-m',
   'lintrunner_adapters',
   'run',
-  'black_isort_linter',
+  'ruff_format_linter',
   '--',
   '@{{PATHSFILE}}'
 ]
@@ -256,6 +256,7 @@ command = [
 code = "FORMAT-JSON"
 is_formatter = true
 include_patterns = ['**/*.json']
+exclude_patterns = ['**/vit_id2label.json']
 command = [
   'python',
   'scripts/format_json.py',

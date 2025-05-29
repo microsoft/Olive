@@ -8,11 +8,11 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Union
 
 import numpy as np
 
-from olive.common.utils import load_weights, run_subprocess, save_weights
+from olive.common.utils import format_data, load_weights, run_subprocess, save_weights
 from olive.evaluator.metric import get_latency_config_from_metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluatorMixin, _OliveEvaluator
 from olive.evaluator.registry import Registry
@@ -41,9 +41,9 @@ class IsolatedORTSystem(OliveSystem):
     def __init__(
         self,
         python_environment_path: Union[Path, str] = None,
-        environment_variables: Dict[str, str] = None,
-        prepend_to_path: List[str] = None,
-        accelerators: List[AcceleratorConfig] = None,
+        environment_variables: dict[str, str] = None,
+        prepend_to_path: list[str] = None,
+        accelerators: list[AcceleratorConfig] = None,
         hf_token: bool = None,
     ):
         if python_environment_path is None:
@@ -88,7 +88,7 @@ class IsolatedORTSystem(OliveSystem):
             model, evaluator_config.metrics, device=device, execution_providers=execution_providers
         )
 
-    def get_supported_execution_providers(self) -> List[str]:
+    def get_supported_execution_providers(self) -> list[str]:
         """Get the available execution providers."""
         if self.available_eps:
             return self.available_eps
@@ -103,7 +103,7 @@ class IsolatedORTSystem(OliveSystem):
 @Registry.register("ort_inference")
 @Registry.register("IsolatedORTEvaluator")
 class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
-    def __init__(self, environ: Dict[str, str]):
+    def __init__(self, environ: dict[str, str]):
         super().__init__()
 
         assert environ, "environ should not be None"
@@ -113,8 +113,8 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
     @classmethod
     def _get_common_config(
-        cls, model: "ONNXModelHandler", metric: "Metric", device: Device, execution_providers: Union[str, List[str]]
-    ) -> Dict:
+        cls, model: "ONNXModelHandler", metric: "Metric", device: Device, execution_providers: Union[str, list[str]]
+    ) -> dict:
         inference_settings = cls.get_inference_settings(metric, model)
         inference_settings = model.merge_inference_settings(inference_settings, execution_providers)
         return {
@@ -145,8 +145,8 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         dataloader: "Dataset",
         post_func: Callable = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
-    ) -> Tuple[OliveModelOutput, Any]:
+        execution_providers: Union[str, list[str]] = None,
+    ) -> tuple[OliveModelOutput, Any]:
         import torch
 
         inference_config = self._get_common_config(model, metric, device, execution_providers)
@@ -171,7 +171,7 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             num_batches = 0
             for idx, (input_data, labels) in enumerate(dataloader):
                 # save input data
-                np.savez(input_dir / f"input_{idx}.npz", **self.format_input(input_data, io_config))
+                np.savez(input_dir / f"input_{idx}.npz", **format_data(input_data, io_config))
                 # save labels
                 targets.append(labels.cpu())
                 num_batches += 1
@@ -234,7 +234,7 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         dataloader: "Dataset",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Union[str, list[str]] = None,
     ) -> "MetricResult":
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
@@ -246,8 +246,8 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         dataloader: "Dataset",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
-    ) -> List[float]:
+        execution_providers: Union[str, list[str]] = None,
+    ) -> list[float]:
         """For given repeat_test_num, return a list of latencies(ms)."""
         inference_config = self._get_common_config(model, metric, device, execution_providers)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
@@ -271,7 +271,7 @@ class IsolatedORTEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             output_dir.mkdir(parents=True, exist_ok=True)
 
             # save input data
-            np.savez(input_dir / "input.npz", **self.format_input(next(iter(dataloader))[0], io_config))
+            np.savez(input_dir / "input.npz", **format_data(next(iter(dataloader))[0], io_config))
 
             # save inference config
             config_path = temp_dir_path / "config.json"

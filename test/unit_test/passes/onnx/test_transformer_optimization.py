@@ -4,8 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 import shutil
-from copy import deepcopy
-from test.unit_test.utils import ONNX_MODEL_PATH, get_onnx_model
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,6 +13,7 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.onnx.transformer_optimization import OrtTransformersOptimization
+from test.unit_test.utils import ONNX_MODEL_PATH, get_onnx_model
 
 # pylint: disable=redefined-outer-name, abstract-method, protected-access
 
@@ -23,7 +22,7 @@ def test_fusion_options():
     config = {"model_type": "bart", "optimization_options": {"use_multi_head_attention": True}}
     config = OrtTransformersOptimization.generate_config(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
     transformer_optimization = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
-    run_config = deepcopy(config)
+    run_config = config.dict()
     del (
         run_config["float16"],
         run_config["input_int32"],
@@ -76,7 +75,7 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
     config = {"model_type": "bert", "use_gpu": use_gpu, "float16": fp16}
     config = OrtTransformersOptimization.generate_config(accelerator_spec, config, disable_search=True)
     p = OrtTransformersOptimization(accelerator_spec, config, True)
-    is_pruned = not p.validate_config(config, accelerator_spec, disable_search=True)
+    is_pruned = not p.validate_config(config, accelerator_spec)
 
     if accelerator_spec.execution_provider == "CPUExecutionProvider":
         if fp16 and use_gpu:

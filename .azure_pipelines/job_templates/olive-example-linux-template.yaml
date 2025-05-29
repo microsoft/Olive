@@ -7,9 +7,10 @@ parameters:
   device: 'cpu'
   dockerfile: '.azure_pipelines/dockerfiles/linux-cpu.dockerfile'
   docker_image: 'olive-pipeline:latest'
-  base_image: 'ubuntu:22.04'
+  base_image: 'mcr.microsoft.com/mirror/docker/library/ubuntu:22.04'
   trt_version: ''
   onnxruntime: 'onnxruntime'
+  hf_token: false
   subfolder: 'local'
   torch: 'torch'
   test_script: 'run_test.sh'
@@ -52,6 +53,10 @@ jobs:
       if [ "${{ parameters.device }}" = "gpu" ]; then
           GPU_OPTION="--gpus=all"
       fi
+      HF_TOKEN_OPTION=""
+      if [ ${{ parameters.hf_token }} = true ]; then
+          HF_TOKEN_OPTION="-e HF_TOKEN=$(hf_token)"
+      fi
       docker run \
       --shm-size=4g \
       $GPU_OPTION \
@@ -63,14 +68,16 @@ jobs:
       -e PIPELINE_TEST_ACCOUNT_NAME=$(pipeline-test-account-name) \
       -e PIPELINE_TEST_CONTAINER_NAME=$(pipeline-test-container-name) \
       -e KEYVAULT_NAME=$(keyvault-name) \
-      -e HF_TOKEN=$(hf_token) \
+      $HF_TOKEN_OPTION \
       ${{ parameters.docker_image }} \
       bash .azure_pipelines/scripts/${{ parameters.test_script }} \
       ${{ parameters.torch }} \
       ${{ parameters.onnxruntime }} \
       ${{ parameters.onnxruntime_nightly }} \
       examples/$(exampleFolder)/$(exampleRequirements) \
-      examples/test/${{ parameters.subfolder }}/test_$(exampleName).py
+      examples/test/${{ parameters.subfolder }}/test_$(exampleName).py \
+      false \
+      $(hf_token)
     displayName: Run Tests in Docker
 
   # Step 3: Publish test results

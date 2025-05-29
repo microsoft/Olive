@@ -5,14 +5,13 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict
 
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import get_external_data_config
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ class QNNPreprocess(Pass):
     """Preprocess ONNX model for quantization targeting QNN Execution Provider."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "fuse_layernorm": PassConfigParam(
                 type_=bool,
@@ -75,7 +74,7 @@ class QNNPreprocess(Pass):
     def _run_for_config(
         self,
         model: ONNXModelHandler,
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
@@ -85,17 +84,17 @@ class QNNPreprocess(Pass):
             raise RuntimeError("QNNPreprocess only supports ONNXRuntime version 1.17.0 or later")
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-        external_data_location = config["external_data_name"] or f"{Path(output_model_path).name}.data"
+        external_data_location = config.external_data_name or f"{Path(output_model_path).name}.data"
 
         # only 1.18.0 or later adds the following parameters
         extra_kwargs = {
-            "save_as_external_data": config["save_as_external_data"],
-            "all_tensors_to_one_file": config["all_tensors_to_one_file"],
-            "external_data_size_threshold": config["size_threshold"],
+            "save_as_external_data": config.save_as_external_data,
+            "all_tensors_to_one_file": config.all_tensors_to_one_file,
+            "external_data_size_threshold": config.size_threshold,
             "external_data_location": external_data_location,
-            "external_data_convert_attribute": config["convert_attribute"],
-            "inputs_to_make_channel_last": config["inputs_to_make_channel_last"],
-            "outputs_to_make_channel_last": config["outputs_to_make_channel_last"],
+            "external_data_convert_attribute": config.convert_attribute,
+            "inputs_to_make_channel_last": config.inputs_to_make_channel_last,
+            "outputs_to_make_channel_last": config.outputs_to_make_channel_last,
         }
         if version.parse(OrtVersion) < version.parse("1.18.0"):
             removed_config = [
@@ -114,7 +113,7 @@ class QNNPreprocess(Pass):
         modified = qnn_preprocess_model(
             model.model_path,
             output_model_path,
-            fuse_layernorm=config["fuse_layernorm"],
+            fuse_layernorm=config.fuse_layernorm,
             **extra_kwargs,
         )
         if not modified:

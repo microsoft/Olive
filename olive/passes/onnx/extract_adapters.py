@@ -6,7 +6,7 @@ import logging
 import re
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING
 
 import numpy as np
 import onnx
@@ -18,7 +18,7 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import LORA_NAME_PATTERNS, get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.onnx_dag import OnnxDAG
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExtractAdapters(Pass):
-    """Extract adapter weights from model and save them as external weights file.
+    """Extract adapter weights from ONNX model and save them as external weights file.
 
     If make_inputs is False, model proto is invalid after this pass as the adapter weights point to non-existent
     external files. Inference session must be created by first loading the adapter weights using
@@ -37,7 +37,7 @@ class ExtractAdapters(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "make_inputs": PassConfigParam(
                 type_=bool,
@@ -74,7 +74,7 @@ class ExtractAdapters(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
@@ -181,8 +181,8 @@ class ExtractAdapters(Pass):
         for node_name in nodes_to_remove:
             dag.remove_node(node_name)
 
-        if config["make_inputs"]:
-            if quant_modules and config["dynamic_lora_r"]:
+        if config.make_inputs:
+            if quant_modules and config.dynamic_lora_r:
                 # MatMulNBits has static K,N dimensions which are set as attributes
                 # No use case for DequantizeLinear with dynamic lora_r
                 logger.info("Quantized modules do not support dynamic_lora_r. Ignoring.")
@@ -196,15 +196,15 @@ class ExtractAdapters(Pass):
         dag.update()
 
         # save the weights
-        weights_path = save_weights(weights, Path(output_model_path).parent / "adapter_weights", config["save_format"])
+        weights_path = save_weights(weights, Path(output_model_path).parent / "adapter_weights", config.save_format)
 
         # save the model
         output_model = model_proto_to_olive_model(
             dag.model,
             output_model_path,
             config,
-            external_initializers_file_name=weights_path.name if not config["make_inputs"] else None,
-            constant_inputs_file_name=weights_path.name if config["make_inputs"] else None,
+            external_initializers_file_name=weights_path.name if not config.make_inputs else None,
+            constant_inputs_file_name=weights_path.name if config.make_inputs else None,
         )
         output_model.model_attributes = deepcopy(model.model_attributes) or {}
         # add adapter weights to the model attributes
@@ -214,7 +214,7 @@ class ExtractAdapters(Pass):
         additional_files.append(str(weights_path))
         # save information about the weights in the model attributes
         weights_info = {name: [list(value.shape), str(value.dtype)] for name, value in weights.items()}
-        if not config["make_inputs"]:
+        if not config.make_inputs:
             output_model.model_attributes["external_initializers"] = weights_info
         else:
             output_model.model_attributes["constant_inputs"] = weights_info
@@ -258,7 +258,7 @@ class ExtractAdapters(Pass):
         return new_initializer
 
     @classmethod
-    def _externalize_initializer(cls, dag: OnnxDAG, weights: Dict[str, "NDArray"], old_name: str, new_name: str):
+    def _externalize_initializer(cls, dag: OnnxDAG, weights: dict[str, "NDArray"], old_name: str, new_name: str):
         """Create a new initializer with the same shape and type as the old initializer.
 
         The initializer points to a dummy external location.
@@ -282,14 +282,16 @@ class ExtractAdapters(Pass):
         dag.add_initializer(new_initializer, dag.get_io(old_name).graph_idx)
 
     @classmethod
-    def _make_dynamic_optional(cls, dag: OnnxDAG, weights: Dict[str, "NDArray"], name: str, config: Dict[str, Any]):
+    def _make_dynamic_optional(
+        cls, dag: OnnxDAG, weights: dict[str, "NDArray"], name: str, config: type[BasePassConfig]
+    ):
         """Make the input dynamic and optional."""
         if "quant" in name:
             # dynamic shape not supported for quantized modules
             # cannot have empty tensor as default values, so create default initializers of the same shape
             # scales must be zero to make the dequantized weights zero
             # quant weight and zeros points also made zero to be clean and consistent
-            if config["optional_inputs"]:
+            if config.optional_inputs:
                 initializer_proto = onnx.numpy_helper.from_array(np.zeros_like(weights[name]), name)
                 dag.add_initializer(initializer_proto, 0, keep_input=True)
 
@@ -299,11 +301,11 @@ class ExtractAdapters(Pass):
         dim_idx = 1 if "lora_A" in name else 0
 
         # make the input dynamic
-        if config["dynamic_lora_r"]:
+        if config.dynamic_lora_r:
             dag.make_input_dim_dynamic(name, dim_idx, "lora_r")
 
         # create default initializer with the lora_r dimension set to 0
-        if config["optional_inputs"]:
+        if config.optional_inputs:
             shape = list(weights[name].shape)
             shape[dim_idx] = 0
             initializer_proto = onnx.numpy_helper.from_array(np.zeros(shape, dtype=weights[name].dtype), name)

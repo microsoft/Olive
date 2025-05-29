@@ -5,9 +5,11 @@
 import dataclasses
 import logging
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import transformers
+from packaging import version
+from transformers import __version__ as transformers_version
 
 from olive.common.config_utils import NestedConfig
 from olive.common.pydantic_v1 import Field, validator
@@ -33,18 +35,18 @@ class BaseHFTrainingArguments(NestedConfig):
     _nested_field_name = "extra_args"
 
     gradient_checkpointing: bool = Field(True, description="Use gradient checkpointing. Recommended.")
-    report_to: Union[str, List[str]] = Field(
+    report_to: Union[str, list[str]] = Field(
         "none", description="The list of integrations to report the results and logs to."
     )
     output_dir: str = Field(None, description="The output dir for logs and checkpoints. If None, will use a temp dir.")
-    deepspeed: Union[bool, str, Dict] = Field(
+    deepspeed: Union[bool, str, dict] = Field(
         None,
         description=(
             "Use [Deepspeed](https://github.com/microsoft/deepspeed). If True, will use default deepspeed config. Else,"
             " it is a path to a deepspeed config file or a dict with deepspeed config."
         ),
     )
-    extra_args: Dict[str, Any] = Field(
+    extra_args: dict[str, Any] = Field(
         None,
         description=(
             "Extra arguments to pass to the trainer. Values can be provided directly to this field as a dict or as"
@@ -73,6 +75,8 @@ class BaseHFTrainingArguments(NestedConfig):
             args["deepspeed"] = deepcopy(DEFAULT_DEEPSPEED_CONFIG)
         elif args["deepspeed"] is False:
             del args["deepspeed"]
+        if version.parse(transformers_version) < version.parse("4.41") and "eval_strategy" in args:
+            args["evaluation_strategy"] = args.pop("eval_strategy")
         extra_args = args.pop("extra_args")
         return transformers.TrainingArguments(**args, **extra_args)
 
@@ -80,7 +84,7 @@ class BaseHFTrainingArguments(NestedConfig):
 def load_hf_base_model(
     model_handler: HfModelHandler,
     torch_dtype: Optional["torch.dtype"] = None,
-    device_map: Optional[Union[int, str, Dict]] = None,
+    device_map: Optional[Union[int, str, dict]] = None,
     **kwargs,
 ) -> "PreTrainedModel":
     """Load a base PyTorch model.

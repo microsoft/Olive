@@ -6,7 +6,6 @@ import argparse
 import json
 import shutil
 from pathlib import Path
-from typing import List
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
@@ -29,7 +28,7 @@ def get_args(raw_args):
         type=str,
         required=True,
         help="Path to the Olive config file",
-        choices=["mistral_int4_optimize.json", "mistral_fp16_optimize.json"],
+        choices=["mistral_int4.json", "mistral_fp16.json"],
     )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--inference", action="store_true", help="Runs the inference step")
@@ -59,7 +58,7 @@ def optimize(model_name: str, olive_config: dict):
     olive_run(olive_config)
 
 
-def inference(model_id: str, optimized_model_dir: Path, execution_provider: str, prompt: List[str], max_length: int):
+def inference(model_id: str, optimized_model_dir: Path, execution_provider: str, prompt: list[str], max_length: int):
     import onnxruntime as ort
     from optimum.onnxruntime import ORTModelForCausalLM
     from optimum.utils.save_utils import maybe_save_preprocessors
@@ -100,17 +99,10 @@ def main(raw_args=None):
 
     # get ep and accelerator
     ep = config["systems"]["local_system"]["accelerators"][0]["execution_providers"][0]
-    ep_header = ep.replace("ExecutionProvider", "").lower()
-    accelerator = "gpu" if ep_header == "cuda" else "cpu"
 
     # output model dir
     script_dir = Path(__file__).resolve().parent
-    optimized_model_dir = (
-        script_dir
-        / config["output_dir"]
-        / "-".join(config["passes"].keys())
-        / f"{config['output_name']}_{accelerator}-{ep_header}_model"
-    )
+    optimized_model_dir = script_dir / config["output_dir"] / "model"
 
     if args.optimize:
         shutil.rmtree(optimized_model_dir, ignore_errors=True)

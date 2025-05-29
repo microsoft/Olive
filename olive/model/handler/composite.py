@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.utils import dict_diff
@@ -12,6 +12,7 @@ from olive.hardware.accelerator import Device
 from olive.model.config.model_config import ModelConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
 
@@ -23,18 +24,21 @@ class CompositeModelHandler(OliveModelHandler):
     The only responsibility of CompositeModelHandler is to provider a get_model_components which will iterate all the
     child models.
 
-    Whisper is an example composite model that has encoder and decoder components.
     CompositeModelHandler is a collection of Models. All the child model in the container should have same model type.
     """
 
+    resource_keys: tuple[str, ...] = ("model_path",)
+    json_config_keys: tuple[str, ...] = ("model_component_names",)
+
     def __init__(
         self,
-        model_components: List[Union[OliveModelHandler, Dict[str, Any]]],
-        model_component_names: List[str],
-        model_attributes: Optional[Dict[str, Any]] = None,
+        model_components: list[Union[OliveModelHandler, dict[str, Any]]],
+        model_component_names: list[str],
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        model_attributes: Optional[dict[str, Any]] = None,
     ):
         super().__init__(
-            model_path=None,
+            model_path=model_path,
             framework=Framework.ONNX,
             model_file_format=ModelFileFormat.COMPOSITE_MODEL,
             model_attributes=model_attributes,
@@ -42,9 +46,9 @@ class CompositeModelHandler(OliveModelHandler):
         self._model_components = [
             validate_config(m, ModelConfig).create_model() if isinstance(m, dict) else m for m in model_components
         ]
-        assert all(
-            isinstance(m, OliveModelHandler) for m in self._model_components
-        ), "All components must be OliveModelHandler or dict"
+        assert all(isinstance(m, OliveModelHandler) for m in self._model_components), (
+            "All components must be OliveModelHandler or dict"
+        )
 
         assert len(self._model_components) == len(model_component_names), "Number of components and names must match"
         self.model_component_names = model_component_names
@@ -58,10 +62,7 @@ class CompositeModelHandler(OliveModelHandler):
             yield m
 
     def to_json(self, check_object: bool = False):
-        json_dict = {
-            "type": self.model_type,
-            "config": {"model_attributes": self.model_attributes, "model_component_names": self.model_component_names},
-        }
+        json_dict = super().to_json(check_object)
         json_dict["config"]["model_components"] = []
         for m in self._model_components:
             component_json = m.to_json(check_object)
@@ -73,7 +74,7 @@ class CompositeModelHandler(OliveModelHandler):
 
         return serialize_to_json(json_dict, check_object)
 
-    def get_model_components(self) -> List[Tuple[str, OliveModelHandler]]:
+    def get_model_components(self) -> list[tuple[str, OliveModelHandler]]:
         return zip(self.model_component_names, self.model_components)
 
     def load_model(self, rank: int = None, cache_model: bool = True):
@@ -81,9 +82,9 @@ class CompositeModelHandler(OliveModelHandler):
 
     def prepare_session(
         self,
-        inference_settings: Optional[Dict[str, Any]] = None,
+        inference_settings: Optional[dict[str, Any]] = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Union[str, list[str]] = None,
         rank: Optional[int] = None,
     ):
         raise RuntimeError("CompositeModelHandler doesn't have a session of its own")
@@ -91,7 +92,7 @@ class CompositeModelHandler(OliveModelHandler):
     def run_session(
         self,
         session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
+        inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
+        **kwargs: dict[str, Any],
     ) -> Any:
         raise RuntimeError("CompositeModelHandler doesn't have a session of its own")

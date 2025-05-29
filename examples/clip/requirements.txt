@@ -1,0 +1,5 @@
+# TODO(anyone): load_metrics was removed since 3.0.0. Using evaluate instead
+datasets<3.0.0
+evaluate
+scikit-learn==1.5.2
+transformers

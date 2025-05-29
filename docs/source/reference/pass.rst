@@ -22,6 +22,12 @@ OnnxOpVersionConversion
 
 .. _onnx_peephole_optimizer:
 
+OnnxScriptFusion
+----------------
+.. autoconfigclass:: olive.passes.OnnxScriptFusion
+
+.. _onnxscript_fusion:
+
 OnnxPeepholeOptimizer
 ---------------------
 .. autoconfigclass:: olive.passes.OnnxPeepholeOptimizer
@@ -62,6 +68,12 @@ QNNPreprocess
 -------------
 .. autoconfigclass:: olive.passes.QNNPreprocess
 
+.. _onnx_quantization_preprocess:
+
+OnnxQuantizationPreprocess
+--------------------------
+.. autoconfigclass:: olive.passes.OnnxQuantizationPreprocess
+
 .. _mixed_precision_overrides:
 
 MixedPrecisionOverrides
@@ -91,6 +103,12 @@ OnnxQuantization
 OnnxMatMul4Quantizer
 --------------------
 .. autoconfigclass:: olive.passes.OnnxMatMul4Quantizer
+
+.. _onnx_hqq_quantization:
+
+OnnxHqqQuantization
+--------------------
+.. autoconfigclass:: olive.passes.OnnxHqqQuantization
 
 .. _graph_surgeries:
 
@@ -140,12 +158,6 @@ AppendPrePostProcessingOps
 --------------------------
 .. autoconfigclass:: olive.passes.AppendPrePostProcessingOps
 
-.. _insert_beam_search:
-
-InsertBeamSearch
-----------------
-.. autoconfigclass:: olive.passes.InsertBeamSearch
-
 .. _extract_adapters:
 
 ExtractAdapters
@@ -157,6 +169,24 @@ ExtractAdapters
 SplitModel
 ----------
 .. autoconfigclass:: olive.passes.SplitModel
+
+.. _static_llm:
+
+StaticLLM
+----------
+.. autoconfigclass:: olive.passes.StaticLLM
+
+.. _ep_context_binary_generator:
+
+EPContextBinaryGenerator
+------------------------
+.. autoconfigclass:: olive.passes.EPContextBinaryGenerator
+
+.. _compose_onnx_models:
+
+ComposeOnnxModels
+-----------------
+.. autoconfigclass:: olive.passes.ComposeOnnxModels
 
 .. _optimum_conversion:
 
@@ -208,6 +238,12 @@ LoKr
 QLoRA
 -----
 .. autoconfigclass:: olive.passes.QLoRA
+
+.. _dora:
+
+DoRA
+-----
+.. autoconfigclass:: olive.passes.DoRA
 
 .. _loftq:
 
@@ -285,11 +321,29 @@ OpenVINOConversion
 ------------------
 .. autoconfigclass:: olive.passes.OpenVINOConversion
 
+.. _openvino_ioupdate:
+
+OpenVINOIoUpdate
+------------------
+.. autoconfigclass:: olive.passes.OpenVINOIoUpdate
+
 .. _openvino_quantization:
 
 OpenVINOQuantization
 --------------------
 .. autoconfigclass:: olive.passes.OpenVINOQuantization
+
+.. _openvino_encapsulation:
+
+OpenVINOEncapsulation
+----------------------
+.. autoconfigclass:: olive.passes.OpenVINOEncapsulation
+
+.. _openvino_optimum_conversion:
+
+OpenVINOOptimumConversion
+-------------------------
+.. autoconfigclass:: olive.passes.OpenVINOOptimumConversion
 
 SNPE
 =================================

@@ -5,7 +5,7 @@
 
 from pathlib import Path
 from random import Random
-from typing import Callable, Dict, List, Union
+from typing import Callable, Union
 
 import transformers
 
@@ -43,6 +43,7 @@ class TextGenParams(ConfigBase):
     # might have to expose collator for dataloader to support dynamic padding of batches
     # if false, cannot guarantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
+    padding_side: str = "right"  # pad to the right or left
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
     use_attention_mask: bool = True  # add attention mask to each example
     # either use chat template or text
@@ -60,7 +61,7 @@ class TextGenParams(ConfigBase):
     # a python f-string template for the text with {column_name} as placeholders
     text_template: str = None
     # list of text columns, columns are concatenated together using a space
-    text_cols: Union[str, List[str]] = "text"
+    text_cols: Union[str, list[str]] = "text"
     # in JOIN strategies, the rows of text_cols are concatenated together
     strategy: TextGenStrategy = TextGenStrategy.JOIN
     stride: int = None  # required when strategy is JOIN_SLIDING_WINDOW
@@ -74,6 +75,12 @@ class TextGenParams(ConfigBase):
     random_retries: int = (
         10  # number of resamples to try before giving up when a sample is too short for RANDOM strategies
     )
+
+    @validator("padding_side", always=True)
+    def _check_padding_side(cls, v):
+        if v not in ["left", "right"]:
+            raise ValueError("padding_side must be either left or right")
+        return v
 
     @validator("drop_short_sequences", always=True)
     def _check_padding(cls, v, values):
@@ -168,6 +175,9 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
 
     args = validate_config(all_kwargs, TextGenParams, warn_unused_keys=True)
 
+    # set tokenizer padding side
+    tokenizer.padding_side = args.padding_side
+
     if isinstance(args.text_formatting_func, str):
         # load text_formatting_func
         args.text_formatting_func = args.get_user_module_loader().load_object(args.text_formatting_func)
@@ -186,7 +196,7 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
             )
         }
     )
-    text_list = dataset["text"]
+    text_list = [text for text in dataset["text"] if text]  # remove empty strings
     total_examples = len(text_list)  # total number of examples
 
     tokenized_inputs = {"input_ids": [], "labels": [], "attention_mask": []}
@@ -219,7 +229,7 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                 examples_to_get = min(args.processing_batch_size, total_examples - example_idx)
                 # batch tokenize
                 batched_input_ids = tokenizer(
-                    text_list[example_idx : example_idx + examples_to_get],  # noqa: E203, RUF100
+                    text_list[example_idx : example_idx + examples_to_get],
                     add_special_tokens=False,
                     truncation=False,
                 )["input_ids"]
@@ -297,7 +307,9 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
                     examples_to_get = min(args.max_samples - num_samples, total_examples - example_idx)
                     # batch tokenize
                     tokenized_texts = batch_tokenize_text(
-                        text_list[example_idx : example_idx + examples_to_get], tokenizer, args  # noqa: E203, RUF100
+                        text_list[example_idx : example_idx + examples_to_get],
+                        tokenizer,
+                        args,
                     )
                     for native_input_ids, native_attention_mask in tokenized_texts:
                         append_text_gen_input_ids(
@@ -351,12 +363,12 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
 
 
 def get_text(
-    example: Dict[str, str],
+    example: dict[str, str],
     chat_template: Union[bool, str] = None,
     message_col: str = "messages",
     formatting_func: Callable = None,
     template: str = None,
-    cols: List[str] = None,
+    cols: list[str] = None,
     add_special_tokens: bool = False,
     tokenizer: transformers.PreTrainedTokenizer = None,
 ):

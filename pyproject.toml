@@ -1,10 +1,3 @@
-[tool.black]
-line-length = 120
-
-[tool.isort]
-profile = "black"
-line_length = 120
-
 [tool.pylint.BASIC]
 good-names = [
   "a",
@@ -46,43 +39,51 @@ ignore-paths = [".*/examples/directml/llm/chat_app/.*"]
 
 [tool.pylint.messages_control]
 disable = [
-  # TODO:(myguo): consider remove them in the blacklist
+  "abstract-method",
   "broad-exception-caught",
   "c-extension-no-member",
-  "cyclic-import", # Disable cyclic-import because it is pylint bug
   "consider-using-f-string",
   "consider-using-from-import",
-  "format",
+  "cyclic-import", # Disable cyclic-import because it is pylint bug
   "expression-not-assigned",
-  "line-too-long",
+  "fixme",
+  "format",
   "import-error",
   "import-outside-toplevel",
   "invalid-name",
+  "line-too-long",
+  "missing-docstring",
   "no-else-continue",
   "no-else-raise",
   "no-else-return",
-  "no-name-in-module",
   "no-member",
+  "no-name-in-module",
   "no-self-argument",
   "too-few-public-methods",
+  "too-many-ancestors",
   "too-many-arguments",
   "too-many-branches",
   "too-many-function-args",
   "too-many-instance-attributes",
   "too-many-locals",
   "too-many-nested-blocks",
+  "too-many-positional-arguments",
   "too-many-public-methods",
   "too-many-return-statements",
   "too-many-statements",
-  "missing-docstring",
-  "fixme",
   "unspecified-encoding",
-  "unused-argument"
+  "unused-argument",
+  "unused-wildcard-import",
+  "used-before-assignment",
+  "wrong-import-order" # import order is handled by the formatter (ruff)
 ]
+
+[tool.pytest.ini_options]
+addopts = "-rsfEX --tb=short --color=yes"
 
 [tool.ruff]
 line-length = 120
-target-version = "py38"
+target-version = "py39"
 
 [tool.ruff.lint]
 select = [
@@ -95,6 +96,7 @@ select = [
   "F", # Pyflakes
   "FLY", # flake8-flynt
   "G", # flake8-logging-format
+  "I", # isort
   "ICN", # flake8-import-conventions
   "INP", # flake8-no-pep420
   "INT", # flake8-gettext
@@ -143,13 +145,14 @@ ignore = [
   "D107", # Ignore missing docstring in __init__
   "D406", # Ignore new line after section name
   "D407", # Ignore dashed-underline-after-section
+  "E501", # Ignore line too long. The formatter will handle it.
   "N803", # Argument casing
   "N812", # Allow import torch.nn.functional as F
   "N999", # Module names
   "NPY002", # np.random.Generator may not always fit our use cases
   "PERF203", # "try-except-in-loop" only affects Python <3.11, and the improvement is minor; can have false positives
+  "PGH004", # used to make ruff ignore the file
   "PLW0603", # TODO: temp disable global variable check
-  "PT004", # Ignore pytest fixture name
   "PT019", # Ignore pytest fixture name
   "PTH100", # We still support os.path.abspath
   "PTH103", # We still support os.makedirs
@@ -171,14 +174,7 @@ ignore = [
   "TRY002", # Ignore create custom exception
   "TRY003", # Ignore check message not defined in the exception class
   "TRY004", # Ignore prefer TypeError over ValueError
-  "TRY300", # Ignore check if return in try block
-  "UP032", # Ignore string format calls
-  "UP038" # Ignore old isinstance hints
-]
-ignore-init-module-imports = true
-unfixable = [
-  "F401", # Unused imports
-  "SIM112" # Use upper case for env vars
+  "TRY300" # Ignore check if return in try block
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]
@@ -197,4 +193,3 @@ classmethod-decorators = ["classmethod", "olive.common.pydantic_v1.validator", "
 "scripts/**" = ["INP001"]
 "examples/directml/llm/chat_app/**" = ["TID252", "UP006", "T201"]
 "olive/cli/**" = ["T201"]
-"olive/**/hadamard_utils.py" = ["E501"]

@@ -4,17 +4,18 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Any, Dict, Union
+from typing import Any, Union
 
 import torch
 from packaging import version
 
 from olive.common.utils import StrEnumBase, get_attr
+from olive.constants import PrecisionBits
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 from olive.passes.pytorch.common import inherit_hf_from_hf
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ class AutoAWQQuantizer(Pass):
             }[self]
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             "input_model_dtype": PassConfigParam(
@@ -63,9 +64,9 @@ class AutoAWQQuantizer(Pass):
                     "128 and -1 uses per-column quantization."
                 ),
             ),
-            "w_bit": PassConfigParam(
-                type_=int,
-                default_value=4,
+            "bits": PassConfigParam(
+                type_=PrecisionBits,
+                default_value=PrecisionBits.BITS4,
                 description="The number of bits to quantize to.",
             ),
             "version": PassConfigParam(
@@ -101,27 +102,29 @@ class AutoAWQQuantizer(Pass):
                 ),
             ),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 default_value=None,
                 description="Data config for quantization. If not provided, pile validation data will be used.",
             ),
         }
 
     @torch.no_grad()
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+    def _run_for_config(
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
         from awq import AutoAWQForCausalLM
 
         if not torch.cuda.is_available():
             raise ValueError("Please use GPU to run AWQ quantization.")
 
         data_kwargs = {}
-        if config["data_config"]:
+        if config.data_config:
             # set default values for data config
             data_kwargs.update(
                 {
-                    "calib_data": config["data_config"].load_dataset_params.get("data_name"),
-                    "split": config["data_config"].load_dataset_params.get("split"),
-                    "text_column": config["data_config"].pre_process_params.get("input_cols"),
+                    "calib_data": config.data_config.load_dataset_params.get("data_name"),
+                    "split": config.data_config.load_dataset_params.get("split"),
+                    "text_column": config.data_config.pre_process_params.get("input_cols"),
                 }
             )
 
@@ -145,14 +148,14 @@ class AutoAWQQuantizer(Pass):
         awq_model.quantize(
             tokenizer,
             quant_config={
-                "zero_point": config["zero_point"],
-                "q_group_size": config["q_group_size"],
-                "w_bit": config["w_bit"],
-                "version": config["version"],
-                "modules_to_not_convert": config["modules_to_not_convert"],
+                "zero_point": config.zero_point,
+                "q_group_size": config.q_group_size,
+                "w_bit": config.bits.value,
+                "version": config.version,
+                "modules_to_not_convert": config.modules_to_not_convert,
             },
-            duo_scaling=config["duo_scaling"],
-            export_compatible=config["export_compatible"],
+            duo_scaling=config.duo_scaling,
+            export_compatible=config.export_compatible,
             **data_kwargs,
         )
 
@@ -166,7 +169,7 @@ class AutoAWQQuantizer(Pass):
             new_load_kwargs["extra_args"]["use_safetensors"] = True
         return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path, load_kwargs=new_load_kwargs)
 
-    def _resolve_load_args(self, hf_loading_args: Dict[str, Any]):
+    def _resolve_load_args(self, hf_loading_args: dict[str, Any]):
         return {
             # want to default to using safetensors like in AutoAWQ
             "safetensors": hf_loading_args.get("use_safetensors", True),
@@ -180,11 +183,6 @@ class AutoAWQQuantizer(Pass):
         from awq import __version__ as autoawq_version
         from transformers import __version__ as transformers_version
 
-        # https://github.com/huggingface/transformers/issues/32420
-        # there is an issue in transformers with the rotary embedding where some tensors are still on CPU
-        # causing device mismatch error
-        # max limit on awq version in case fix is released
-        # transformers releases too frequently so we can't keep track of all versions
         if version.parse(transformers_version) >= version.parse("4.43") and version.parse(
             autoawq_version
         ) <= version.parse("0.2.6"):

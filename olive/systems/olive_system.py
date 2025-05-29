@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from olive.common.config_utils import validate_config
 from olive.systems.common import AcceleratorConfig, SystemType
@@ -25,7 +25,7 @@ class OliveSystem(ABC):
 
     def __init__(
         self,
-        accelerators: Union[List[AcceleratorConfig], List[Dict[str, Any]]] = None,
+        accelerators: Union[list[AcceleratorConfig], list[dict[str, Any]]] = None,
         hf_token: bool = None,
     ):
         # TODO(anyone): Is it possible to expose the arguments to

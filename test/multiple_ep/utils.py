@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from test.integ_test.utils import download_azure_blob
 
 from torchvision import datasets
 from torchvision.transforms import ToTensor
@@ -14,6 +13,7 @@ from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.passes.onnx.session_params_tuning import OrtSessionParamsTuning
 from olive.systems.accelerator_creator import create_accelerators
+from test.integ_test.utils import download_azure_blob
 
 # pylint: disable=redefined-outer-name
 
@@ -96,12 +96,9 @@ def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_
     engine = Engine(**config)
     engine.register(OrtSessionParamsTuning)
     accelerator_specs = create_accelerators(system_config)
-    output = engine.run(
+    return engine.run(
         model_config,
         accelerator_specs,
         output_dir=output_dir,
         evaluate_input_model=True,
     )
-
-    results = [next(iter(output[accelerator].nodes.values())) for accelerator in accelerator_specs]
-    return tuple(results)

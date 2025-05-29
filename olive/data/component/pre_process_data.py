@@ -5,7 +5,7 @@
 
 
 from copy import deepcopy
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from olive.common.hf.utils import get_model_config, get_tokenizer
 from olive.data.component.dataset import BaseDataset
@@ -81,7 +81,7 @@ def huggingface_pre_process(
     def _tokenizer_and_align_labels(examples):
         tokenizer = get_tokenizer(model_name, trust_remote_code=trust_remote_code)
         tokenized_inputs = tokenizer(
-            *[examples[input_col] for input_col in input_cols],
+            *[examples[input_col] for input_col in input_cols if examples[input_col]],
             padding=kwargs.get("padding", True),
             truncation=kwargs.get("truncation", True),
             max_length=kwargs.get("max_length"),
@@ -136,7 +136,7 @@ def ner_huggingface_preprocess(
     def _tokenizer_and_align_labels(examples):
         tokenizer = get_tokenizer(model_name, trust_remote_code=trust_remote_code)
         tokenized_inputs = tokenizer(
-            *[examples[input_col] for input_col in input_cols],
+            *[examples[input_col] for input_col in input_cols if examples[input_col]],
             padding=kwargs.get("padding", True),
             truncation=kwargs.get("truncation", True),
             is_split_into_words=kwargs.get("is_split_into_words", True),
@@ -184,12 +184,12 @@ def text_generation_huggingface_pre_process(
 def audio_classification_pre_process(
     dataset,
     model_name: str,
-    input_cols: List,
+    input_cols: list,
     label_col: str = "label",
     max_samples: Optional[int] = None,
     trust_remote_code: Optional[bool] = None,
-    feature_extractor_args: Optional[Dict[str, Any]] = None,
-    **kwargs
+    feature_extractor_args: Optional[dict[str, Any]] = None,
+    **kwargs,
 ):
     """Pre-process data for audio classification task.
 

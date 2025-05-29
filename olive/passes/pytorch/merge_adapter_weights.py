@@ -4,14 +4,13 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Any, Dict
 
 import torch
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
 
 logger = logging.getLogger(__name__)
@@ -21,11 +20,13 @@ class MergeAdapterWeights(Pass):
     """Merge adapter weights into the base model."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {}
 
     @torch.no_grad()
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
+    def _run_for_config(
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
         if not model.adapter_path:
             raise RuntimeError(
                 "No adapter path found in the model. Please check your input "

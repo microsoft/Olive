@@ -7,14 +7,14 @@ import logging
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Type, Union, get_args
+from typing import Any, Callable, ClassVar, Optional, Union, get_args
 
 from olive.common.config_utils import ParamCategory, validate_config
 from olive.common.pydantic_v1 import BaseModel, ValidationError, create_model
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
-from olive.model import CompositeModelHandler, DistributedOnnxModelHandler, OliveModelHandler, ONNXModelHandler
+from olive.model import OliveModelHandler
 from olive.passes.pass_config import (
     AbstractPassConfig,
     BasePassConfig,
@@ -43,7 +43,7 @@ class Pass(ABC):
     Each pass should derive its own configuration class that contains all information it needs to execute.
     """
 
-    registry: ClassVar[Dict[str, Type["Pass"]]] = {}
+    registry: ClassVar[dict[str, type["Pass"]]] = {}
     # True if the pass processes a composite model at once. Otherwise, the components of the
     # composite model will be processed individually.
     _accepts_composite_model: bool = False
@@ -58,7 +58,7 @@ class Pass(ABC):
     def __init__(
         self,
         accelerator_spec: AcceleratorSpec,
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         host_device=None,
     ):
         """Initialize the pass.
@@ -66,30 +66,24 @@ class Pass(ABC):
         :param accelerator_spec: the accelerator spec for the pass.
         :type accelerator_spec: AcceleratorSpec
         :param config: the configuration representing search space.
-        :type config: Dict[str, Any]
+        :type config: type[BasePassConfig]
         :param host_device: the host device for the pass.
         :type host_device: Optional[str]
         """
         assert accelerator_spec is not None, "Please specify the accelerator spec for the pass."
         assert config is not None, "Please specify the configuration for the pass."
 
-        # NOTE: The :disable_search argument isn't impactful here since the search isn't
-        # dependent on it. The same parameter in :generate_config is what decides
-        # how search points are handled. HEre, Using default values for each config
-        # parameter in the config class keeps it simple.
-        config_class, default_config = self.get_config_class(accelerator_spec, True)
-
+        self.config = config
         self.accelerator_spec = accelerator_spec
         self.host_device = host_device
 
-        self._config_class = config_class
-        self.config = config
-        self._user_module_loader = UserModuleLoader(self.config.get("user_script"), self.config.get("script_dir"))
+        if hasattr(self.config, "user_script") and hasattr(self.config, "script_dir"):
+            self._user_module_loader = UserModuleLoader(self.config.user_script, self.config.script_dir)
 
         # Params that are paths [(param_name, required)]
         self.path_params = [
             (param, param_config.required, param_config.category)
-            for param, param_config in default_config.items()
+            for param, param_config in self.default_config(accelerator_spec).items()
             if param_config.category in (ParamCategory.PATH, ParamCategory.DATA)
         ]
 
@@ -108,9 +102,9 @@ class Pass(ABC):
     def get_config_params(
         cls,
         accelerator_spec: AcceleratorSpec,
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
         disable_search: Optional[bool] = False,
-    ) -> Tuple[Dict[str, Any], Dict[str, SearchParameter]]:
+    ) -> tuple[type[BasePassConfig], dict[str, Any], dict[str, SearchParameter]]:
         """Generate search space for the pass."""
         assert accelerator_spec is not None, "Please specify the accelerator spec for the pass"
         config = config or {}
@@ -125,31 +119,31 @@ class Pass(ABC):
         # Generate the search space by using both default value and default search value and user provided config
         config = validate_config(config, config_class)
         config = cls._resolve_config(config, default_config)
-        return cls._init_fixed_and_search_params(config, default_config)
+        return config_class, *cls._init_fixed_and_search_params(config, default_config)
 
     @classmethod
     def generate_config(
         cls,
         accelerator_spec: AcceleratorSpec,
-        config: Optional[Dict[str, Any]] = None,
-        point: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
+        point: Optional[dict[str, Any]] = None,
         disable_search: Optional[bool] = False,
-    ) -> Dict[str, Any]:
+    ) -> type[BasePassConfig]:
         """Get the configuration for the pass at a specific point in the search space."""
         assert accelerator_spec is not None, "Please specify the accelerator spec for the pass"
 
         point = point or {}
-        fixed_values, search_params = cls.get_config_params(accelerator_spec, config, disable_search)
-        assert (
-            set(point.keys()).intersection(set(search_params.keys())) == point.keys()
-        ), "Search point is not in the search space."
-        return {**fixed_values, **search_params, **point}
+        config_class, fixed_values, search_params = cls.get_config_params(accelerator_spec, config, disable_search)
+        assert set(point.keys()).intersection(set(search_params.keys())) == point.keys(), (
+            "Search point is not in the search space."
+        )
+        return config_class.parse_obj({**fixed_values, **search_params, **point})
 
     @classmethod
     def _identify_search_values(
         cls,
-        config: Dict[str, Any],
-        default_config: Dict[str, PassConfigParam],
+        config: dict[str, Any],
+        default_config: dict[str, PassConfigParam],
     ):
         """Conditionally, replace user provided search values with Categorical."""
         for name, param in default_config.items():
@@ -160,7 +154,7 @@ class Pass(ABC):
                 # each elements" in the list is the same as the "param's expected type".
                 # If successful, treat it as a searchable value i.e. turn it into a Categorical.
                 if isinstance(value, list) and len(value) > 0:
-                    dummy_values_config = {name: (List[param.type_], None)}
+                    dummy_values_config = {name: (list[param.type_], None)}
                     dummy_values_model = create_model(
                         f"SearchableParamConfig_{name}_values", **dummy_values_config, __base__=BaseModel
                     )
@@ -186,7 +180,7 @@ class Pass(ABC):
         return config_class, default_config
 
     @classmethod
-    def default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         """Get the default configuration for the pass."""
         config = cls._default_config(accelerator_spec)
         # validate that all parameters ending with data_config are of type DataConfig, Union[DataConfig, dict], ...
@@ -194,23 +188,24 @@ class Pass(ABC):
         for param, param_config in config.items():
             if param.endswith("data_config"):
                 param_type = param_config.type_
-                assert param_type == DataConfig or DataConfig in get_args(
-                    param_type
-                ), f"{param} ending with data_config must be of type DataConfig."
+                assert param_type == DataConfig or DataConfig in get_args(param_type), (
+                    f"{param} ending with data_config must be of type DataConfig."
+                )
         return config
 
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
         """Validate the input config for the pass."""
         return True
 
     def run(self, model: OliveModelHandler, output_model_path: str) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
+        from olive.model import CompositeModelHandler, DistributedOnnxModelHandler
+
         if not self._initialized:
             self._initialize()
             self._initialized = True
@@ -231,52 +226,42 @@ class Pass(ABC):
                 inference_settings=model.inference_settings,
                 model_attributes=model.model_attributes,
             )
-            Pass._carry_forward_additional_files(model, output_model)
         elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
             components = []
             component_names = []
+            # all components will be saved in the same parent directory
+            model_dir = Path(output_model_path).with_suffix("")
+            model_dir.mkdir(parents=True, exist_ok=True)
             for component_name, component_model in model.get_model_components():
-                component_output_path = Path(output_model_path).with_suffix("") / component_name
-                output_model_component = self._run_for_config(component_model, self.config, str(component_output_path))
-                output_model_component.model_attributes = (
-                    output_model_component.model_attributes or component_model.model_attributes
-                )
+                component_output_path = model_dir / component_name
+                output_model_component = self.run(component_model, str(component_output_path))
                 components.append(output_model_component)
                 component_names.append(component_name)
-                Pass._carry_forward_additional_files(component_model, output_model_component)
-            output_model = CompositeModelHandler(components, component_names)
-            output_model.model_attributes = output_model.model_attributes or model.model_attributes
+            output_model = CompositeModelHandler(components, component_names, model_path=model_dir)
         else:
             output_model = self._run_for_config(model, self.config, output_model_path)
-            # assumption: the model attributes from passes, if any, are more important than
-            # the input model attributes, we should not update/extend anymore outside of the pass run
-            output_model.model_attributes = output_model.model_attributes or model.model_attributes
-            if not isinstance(output_model, CompositeModelHandler):
-                # save and carry forward additional files into the the output model path
-                # for composite model, the additional_files attribute is already present in the parent
-                # model_attributes
-                Pass._carry_forward_additional_files(model, output_model)
 
+        # assumption: the model attributes from passes, if any, are more important than
+        # the input model attributes, we should not update/extend anymore outside of the pass run
+        output_model.model_attributes = output_model.model_attributes or model.model_attributes
+        # save and carry forward additional files into the the output model path
+        Pass._carry_forward_additional_files(model, output_model)
         return output_model
 
     @staticmethod
     def _carry_forward_additional_files(input_model: OliveModelHandler, output_model: OliveModelHandler):
-        # NOTE: Can't use model.model_path because that always gets resolved to a filepath.
-        # We need the directory path here.
-        input_model_path = input_model.get_resource("model_path")
-        if not input_model_path:
-            return
+        from olive.model import ONNXModelHandler
 
-        input_model_path = Path(input_model_path)
-        if not input_model_path.is_dir():
-            return
-
-        input_model_attributes = input_model.model_attributes or {}
-        input_model_additional_files = set(input_model_attributes.get("additional_files", []))
+        input_model_additional_files = set((input_model.model_attributes or {}).get("additional_files") or [])
         if not input_model_additional_files:
             return
 
-        output_model_path = Path(output_model.get_resource("model_path"))
+        output_model_resource = output_model.get_resource("model_path")
+        if not output_model_resource:
+            logger.warning("Expecting the output model to have a model_path resource but found none.")
+            return
+
+        output_model_path = Path(output_model_resource)
         if not output_model_path.is_dir():
             if isinstance(output_model, ONNXModelHandler):
                 # change the "model_path" resource to the parent directory of the model file
@@ -310,27 +295,23 @@ class Pass(ABC):
         output_model_attributes["additional_files"] = sorted(output_model_additional_files)
         output_model.model_attributes = output_model_attributes
 
-    def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:
-        """Serialize the configuration."""
-        return self._config_class(**config).to_json(check_object)
-
-    def to_json(self, check_object: bool = False) -> Dict[str, Any]:
+    def to_json(self, check_object: bool = False) -> dict[str, Any]:
         """Convert the pass to json."""
         return {
             "type": self.__class__.__name__,
             "accelerator": self.accelerator_spec.to_json(),
             "host_device": self.host_device,
-            "config": self.serialize_config(self.config, check_object),
+            "config": self.config.to_json(check_object),
         }
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable]:
+    def _validators(cls) -> dict[str, Callable]:
         """Pydantic validators for config params."""
         return {}
 
     @classmethod
     @abstractmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         """Get the default configuration for the pass. Doesn't include user_script and script_dir.
 
         Example:
@@ -382,7 +363,7 @@ class Pass(ABC):
         raise NotImplementedError
 
     @classmethod
-    def _resolve_defaults(cls, config: Dict[str, Any], default_config: Dict[str, PassConfigParam]) -> Dict[str, Any]:
+    def _resolve_defaults(cls, config: dict[str, Any], default_config: dict[str, PassConfigParam]) -> dict[str, Any]:
         """Resolve default values."""
         for key, value in config.items():
             if value == PassParamDefault.DEFAULT_VALUE:
@@ -397,8 +378,8 @@ class Pass(ABC):
 
     @classmethod
     def _validate_user_script(
-        cls, config: Dict[str, Any], user_module_loader: UserModuleLoader, default_config: Dict[str, PassConfigParam]
-    ) -> Dict[str, Any]:
+        cls, config: dict[str, Any], user_module_loader: UserModuleLoader, default_config: dict[str, PassConfigParam]
+    ) -> dict[str, Any]:
         """Validate callables in the config."""
         for key, value in config.items():
             if default_config[key].category == ParamCategory.OBJECT and isinstance(value, str):
@@ -413,8 +394,8 @@ class Pass(ABC):
 
     @classmethod
     def _init_fixed_and_search_params(
-        cls, config: Dict[str, Any], default_config: Dict[str, PassConfigParam]
-    ) -> Tuple[Dict[str, Any], Dict[str, SearchParameter]]:
+        cls, config: dict[str, Any], default_config: dict[str, PassConfigParam]
+    ) -> tuple[dict[str, Any], dict[str, SearchParameter]]:
         """Get the fixed and search parameters from the config."""
         param_order = order_search_parameters(config)
 
@@ -446,7 +427,7 @@ class Pass(ABC):
         return fixed_params, search_space
 
     @classmethod
-    def _resolve_search_parameter(cls, param: SearchParameter, fixed_params: Dict[str, Any]) -> Any:
+    def _resolve_search_parameter(cls, param: SearchParameter, fixed_params: dict[str, Any]) -> Any:
         """Resolve a search parameter."""
         if isinstance(param, Conditional):
             # if value is conditional and one/more parents are fixed, use the condition to get new value
@@ -464,9 +445,9 @@ class Pass(ABC):
     @classmethod
     def _resolve_config(
         cls,
-        input_config: Union[Dict[str, Any], BasePassConfig],
-        default_config: Dict[str, PassConfigParam],
-    ) -> Dict[str, Any]:
+        input_config: Union[dict[str, Any], type[BasePassConfig]],
+        default_config: dict[str, PassConfigParam],
+    ) -> dict[str, Any]:
         """Resolve config to BasePassConfig."""
         config = input_config.dict()
         config = cls._resolve_defaults(config, default_config)
@@ -480,7 +461,7 @@ class Pass(ABC):
 
     @abstractmethod
     def _run_for_config(
-        self, model: OliveModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: OliveModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> OliveModelHandler:
         """Run the pass on the model with the given configuration."""
         raise NotImplementedError
@@ -493,7 +474,7 @@ class FullPassConfig(AbstractPassConfig):
     reconstruct the pass from the JSON file.
     """
 
-    accelerator: Dict[str, str] = None
+    accelerator: dict[str, str] = None
     host_device: Optional[str] = None
 
     def create_pass(self):
@@ -502,14 +483,15 @@ class FullPassConfig(AbstractPassConfig):
 
         pass_cls = Pass.registry[self.type.lower()]
         accelerator_spec = AcceleratorSpec(**self.accelerator)  # pylint: disable=not-a-mapping
+        self.config = pass_cls.generate_config(accelerator_spec, self.config)
         return pass_cls(accelerator_spec, self.config, self.host_device)
 
 
 # TODO(myguo): deprecate or remove this function by explicitly specify the accelerator_spec in the arguments
 # instead of using the default argument.
 def create_pass_from_dict(
-    pass_cls: Type[Pass],
-    config: Dict[str, Any] = None,
+    pass_cls: type[Pass],
+    config: dict[str, Any] = None,
     disable_search=False,
     accelerator_spec: AcceleratorSpec = None,
     host_device=None,
@@ -518,5 +500,5 @@ def create_pass_from_dict(
     if accelerator_spec is None:
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
 
-    config = pass_cls.generate_config(accelerator_spec, config, disable_search=disable_search)
+    config: type[BasePassConfig] = pass_cls.generate_config(accelerator_spec, config, disable_search=disable_search)
     return pass_cls(accelerator_spec, config, host_device)

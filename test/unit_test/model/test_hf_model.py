@@ -145,9 +145,9 @@ class TestHFDummyInput:
                 "token_type_ids": {"0": "batch_size", "1": "seq_length"},
             },
             "dynamic_shapes": {
-                "input_ids": {"0": ["batch_size", 1, 32], "1": ["seq_length", 1, 256]},
-                "attention_mask": {"0": ["batch_size", 1, 32], "1": ["seq_length", 1, 256]},
-                "token_type_ids": {"0": ["batch_size", 1, 32], "1": ["seq_length", 1, 256]},
+                "input_ids": {"0": "batch_size", "1": ["seq_length", 1, 256]},
+                "attention_mask": {"0": "batch_size", "1": "seq_length"},
+                "token_type_ids": {"0": "batch_size", "1": "seq_length"},
             },
         }
 
@@ -168,6 +168,17 @@ class TestHFDummyInput:
         # len(["input_ids", "attention_mask", "token_type_ids"]) + 2 * num_hidden_layers
         assert len(dummy_inputs) == 3 + 5 * 2
         assert list(dummy_inputs["past_key_values.0.key"].shape) == [1, 4, 0, 8]
+
+    def test_dynamic_shapes_is_generated_when_kv_cache_is_true(self):
+        io_config = self.io_config
+        io_config["kv_cache"] = True
+        olive_model = HfModelHandler(model_path=self.model_name, task=self.task, io_config=io_config)
+        io_config = olive_model.io_config
+        assert "dynamic_shapes" in io_config
+        assert "past_key_values" in io_config["dynamic_shapes"]
+        assert len(io_config["dynamic_shapes"]["past_key_values"]) == 5
+        assert len(io_config["dynamic_shapes"]["past_key_values"][0]) == 2
+        assert io_config["dynamic_shapes"]["past_key_values"][0][0] == {0: "batch_size", 2: "past_sequence_length"}
 
     def test_dict_io_config(self):
         olive_model = HfModelHandler(model_path=self.model_name, task=self.task, io_config=self.io_config)

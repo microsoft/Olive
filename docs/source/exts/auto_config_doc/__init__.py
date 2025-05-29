@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import inspect
 from importlib import import_module
-from typing import ClassVar, Dict, Union
+from typing import ClassVar, Union
 
 from docutils import nodes
 from docutils.parsers.rst import Directive
@@ -33,7 +33,7 @@ def import_class(class_name: str, package_config: OlivePackageConfig):
 class AutoConfigDirective(Directive):
     has_content = True
     required_arguments = 1
-    option_spec: ClassVar[Dict] = {}
+    option_spec: ClassVar[dict] = {}
 
     def make_doc(self, auto_config_class: Union[AutoConfigClass, Pass]):
         class_doc = auto_config_class.__doc__
@@ -73,9 +73,9 @@ class AutoConfigDirective(Directive):
         (class_name,) = self.arguments
         package_config = OlivePackageConfig.load_default_config()
         auto_config_class = import_class(class_name, package_config)
-        assert issubclass(auto_config_class, AutoConfigClass) or issubclass(
-            auto_config_class, Pass
-        ), f"{class_name} is not a subclass of AutoConfigClass or Pass"
+        assert issubclass(auto_config_class, AutoConfigClass) or issubclass(auto_config_class, Pass), (
+            f"{class_name} is not a subclass of AutoConfigClass or Pass"
+        )
 
         node = nodes.section()
         node.document = self.state.document

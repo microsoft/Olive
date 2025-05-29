@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import pytest
+import torch
 
 from olive.hardware import AcceleratorSpec
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
@@ -26,11 +27,11 @@ def input_model_info_fixture(request, tmp_path_factory):
     all_models = {}
 
     # input model
-    model_name = "katuni4ka/tiny-random-phi3"
-    input_model = HfModelHandler(
-        model_path=model_name,
-        load_kwargs={"trust_remote_code": False, "revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"},
-    )
+    # phi-3 has issues with calibration for transformers 4.48.0
+    # might be something to do with the how qkv projection is split
+    # TODO(jambayk): consider adding phi-3 to test once the issue is investigated and fixed
+    model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    input_model = HfModelHandler(model_path=model_name)
 
     # add split info to the model
     capture_config = {}
@@ -77,7 +78,7 @@ def input_model_info_fixture(request, tmp_path_factory):
         disable_search=True,
     ).run(all_models["convert_fp32"], tmp_path / "qdq")
 
-    return all_models, request.param, 4 if request.param else 2
+    return all_models, request.param, 3 if request.param else 2
 
 
 @pytest.mark.parametrize(
@@ -141,3 +142,65 @@ def test_split_model_all_nodes(tmp_path, input_model_info, model_type):
 
     # all non model outputs must be used between the splits
     assert (seen_outputs - used_outputs) == model_outputs
+
+
+class CustomModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.before_layer = torch.nn.Linear(2, 4)
+        self.layers = torch.nn.ModuleList([torch.nn.Linear(4, 4) for _ in range(2)])
+        self.after_layer = torch.nn.Linear(4, 2)
+
+    def forward(self, x):
+        x = self.before_layer(x)
+        x = self.layers[0](x) + self.layers[1](x)
+        return self.after_layer(x)
+
+
+@pytest.mark.parametrize(
+    ("split_assignments", "split_mid_io"),
+    [
+        # split vertically
+        (
+            {"layers.0": 0, "layers.1": 1},
+            ["/before_layer/Gemm_output_0", "/layers.0/Gemm_output_0"],
+        ),
+        (
+            "layers.0=0;layers.1=1",
+            ["/before_layer/Gemm_output_0", "/layers.0/Gemm_output_0"],
+        ),
+        # split horizontally
+        (
+            {"before_layer": 0, "layers.0": 1, "layers.1": 1},
+            ["/before_layer/Gemm_output_0"],
+        ),
+        (
+            "layers.0=0;layers.1=0;after_layer=1",
+            ["/Add_output_0"],
+        ),
+    ],
+)
+def test_split_model_split_assignments(split_assignments, split_mid_io, tmp_path):
+    config = {
+        "split_assignments": split_assignments,
+    }
+    p = create_pass_from_dict(SplitModel, config, disable_search=True)
+
+    dummy_input = torch.randn(1, 2)
+    input_model_path = tmp_path / "input_model.onnx"
+    torch.onnx.export(CustomModel(), dummy_input, input_model_path, input_names=["input"], output_names=["output"])
+    input_model = ONNXModelHandler(input_model_path)
+
+    out = p.run(input_model, str(tmp_path))
+
+    assert len(out.model_component_names) == 2
+    assert out.model_component_names[0] == "split_0"
+    assert out.model_component_names[1] == "split_1"
+
+    for i, model in enumerate(out.model_components):
+        if i == 0:
+            assert model.io_config["input_names"] == ["input"]
+            assert model.io_config["output_names"] == split_mid_io
+        elif i == 1:
+            assert model.io_config["input_names"] == split_mid_io
+            assert model.io_config["output_names"] == ["output"]

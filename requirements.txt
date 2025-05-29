@@ -1,8 +1,8 @@
 numpy
 onnx
+onnxscript>=0.2.5
 optuna
 pandas
-protobuf<4.0.0
 pydantic
 pyyaml
 torch

@@ -41,6 +41,14 @@ def set_verbosity_from_env():
     set_verbosity(log_level)
 
 
+def get_verbosity() -> int:
+    """Get the current verbosity level of the olive logger.
+
+    :return: Verbosity level as an integer.
+    """
+    return get_olive_logger().getEffectiveLevel()
+
+
 def get_logger_level(level):
     """Get Python logging level for the integer level.
 

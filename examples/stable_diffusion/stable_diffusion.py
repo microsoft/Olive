@@ -8,12 +8,10 @@ import shutil
 import sys
 import warnings
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import torch
 from diffusers import DiffusionPipeline
-from packaging import version
 from sd_utils import config
 from user_script import get_base_model_name
 
@@ -177,12 +175,12 @@ def run_inference_gui(
     window.mainloop()
 
 
-def update_config_with_provider(config: Dict, provider: str):
+def update_config_with_provider(config: dict, provider: str, model_format: str, submodel_name: str):
     if provider == "dml":
         from sd_utils.ort import update_dml_config
 
         return update_dml_config(config)
-    elif provider == "cuda":
+    elif provider == "cuda" and not model_format:
         from sd_utils.ort import update_cuda_config
 
         return update_cuda_config(config)
@@ -190,22 +188,22 @@ def update_config_with_provider(config: Dict, provider: str):
         from sd_utils.ov import update_ov_config
 
         return update_ov_config(config)
+    elif provider in ("cpu", "cuda", "qnn") and model_format == "qdq":
+        from sd_utils.qdq import update_qdq_config
+
+        return update_qdq_config(config, provider, submodel_name)
     else:
-        raise ValueError(f"Unsupported provider: {provider}")
+        raise ValueError(f"Unsupported provider: {provider} with format: {model_format}")
 
 
 def optimize(
-    model_id: str,
-    provider: str,
+    common_args,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
 ):
-    from google.protobuf import __version__ as protobuf_version
-
-    # protobuf 4.x aborts with OOM when optimizing unet
-    if version.parse(protobuf_version) > version.parse("3.20.3"):
-        print("This script requires protobuf 3.20.3. Please ensure your package version matches requirements.txt.")
-        sys.exit(1)
+    model_id = common_args.model_id
+    provider = common_args.provider
+    model_format = common_args.format
 
     script_dir = Path(__file__).resolve().parent
 
@@ -217,6 +215,7 @@ def optimize(
     # The model_id and base_model_id are identical when optimizing a standard stable diffusion model like
     # CompVis/stable-diffusion-v1-4. These variables are only different when optimizing a LoRA variant.
     base_model_id = get_base_model_name(model_id)
+    print(f"\nModel {base_model_id}")
 
     # Load the entire PyTorch pipeline to ensure all models and their configurations are downloaded and cached.
     # This avoids an issue where the non-ONNX components (tokenizer, scheduler, and feature extractor) are not
@@ -226,6 +225,9 @@ def optimize(
     config.vae_sample_size = pipeline.vae.config.sample_size
     config.cross_attention_dim = pipeline.unet.config.cross_attention_dim
     config.unet_sample_size = pipeline.unet.config.sample_size
+    if model_format == "qdq":
+        config.vae_sample_size = common_args.image_size
+        # config.unet_sample_size = common_args.image_size // 8
 
     model_info = {}
 
@@ -234,8 +236,9 @@ def optimize(
     has_safety_checker = getattr(pipeline, "safety_checker", None) is not None
 
     if has_safety_checker:
-        if provider == "openvino":
-            print("WARNING: Safety checker is not supported by OpenVINO. It will be disabled.")
+        if provider == "openvino" or model_format == "qdq":
+            print(f"WARNING: Safety checker is not supported by {provider}. It will be disabled.")
+            has_safety_checker = False
         else:
             submodel_names.append("safety_checker")
 
@@ -245,7 +248,7 @@ def optimize(
         olive_config = None
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
-        olive_config = update_config_with_provider(olive_config, provider)
+        olive_config = update_config_with_provider(olive_config, provider, model_format, submodel_name)
 
         if submodel_name in ("unet", "text_encoder"):
             olive_config["input_model"]["model_path"] = model_id
@@ -255,12 +258,12 @@ def optimize(
             # base model ID should be able to reuse previously optimized copies.
             olive_config["input_model"]["model_path"] = base_model_id
 
-        run_res = olive_run(olive_config)
+        workflow_output = olive_run(olive_config)
 
         if provider == "openvino":
             from sd_utils.ov import save_optimized_ov_submodel
 
-            save_optimized_ov_submodel(run_res, submodel_name, optimized_model_dir, model_info)
+            save_optimized_ov_submodel(workflow_output, submodel_name, optimized_model_dir, model_info)
         else:
             from sd_utils.ort import save_optimized_onnx_submodel
 
@@ -285,7 +288,11 @@ def parse_common_args(raw_args):
 
     parser.add_argument("--model_id", default="CompVis/stable-diffusion-v1-4", type=str)
     parser.add_argument(
-        "--provider", default="dml", type=str, choices=["dml", "cuda", "openvino"], help="Execution provider to use"
+        "--provider",
+        default="dml",
+        type=str,
+        choices=["dml", "cuda", "openvino", "cpu", "qnn"],
+        help="Execution provider to use",
     )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
@@ -326,6 +333,9 @@ def parse_common_args(raw_args):
         type=int,
         help="The seed to give to the generator to generate deterministic results.",
     )
+    parser.add_argument(
+        "--format", default=None, type=str, help="Currently only support qdq with provider cpu, cuda or qnn"
+    )
 
     return parser.parse_known_args(raw_args)
 
@@ -353,6 +363,18 @@ def parse_ov_args(raw_args):
     return parser.parse_known_args(raw_args)
 
 
+def parse_qdq_args(raw_args):
+    parser = argparse.ArgumentParser("QDQ arguments")
+
+    parser.add_argument("--save_data", action="store_true", help="Save the input data for qdq")
+    parser.add_argument("--data_dir", default="quantize_data/data", type=str)
+    parser.add_argument(
+        "--only_conversion", action="store_true", help="Only generate unoptimized model to generate data for qdq"
+    )
+
+    return parser.parse_known_args(raw_args)
+
+
 def main(raw_args=None):
     common_args, extra_args = parse_common_args(raw_args)
 
@@ -362,6 +384,8 @@ def main(raw_args=None):
     script_dir = Path(__file__).resolve().parent
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / model_id
     optimized_dir_name = f"optimized-{provider}"
+    if common_args.format:
+        optimized_dir_name += f"_{common_args.format}"
     optimized_model_dir = script_dir / "models" / optimized_dir_name / model_id
 
     if common_args.clean_cache:
@@ -373,9 +397,13 @@ def main(raw_args=None):
         guidance_scale = 0.0
         print(f"WARNING: Classifier free guidance has been forcefully disabled since {model_id} doesn't support it.")
 
-    ov_args, ort_args = None, None
+    ov_args, qdq_args, ort_args = None, None, None
     if provider == "openvino":
         ov_args, extra_args = parse_ov_args(extra_args)
+    elif common_args.format == "qdq":
+        qdq_args, extra_args = parse_qdq_args(extra_args)
+        config.only_conversion = qdq_args.only_conversion
+        config.data_dir = script_dir / qdq_args.data_dir
     else:
         ort_args, extra_args = parse_ort_args(extra_args)
 
@@ -385,11 +413,15 @@ def main(raw_args=None):
         # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            if provider != "openvino":
+            if not (provider == "openvino" or common_args.format == "qdq"):
                 from sd_utils.ort import validate_args
 
                 validate_args(ort_args, common_args.provider)
-            optimize(common_args.model_id, common_args.provider, unoptimized_model_dir, optimized_model_dir)
+            optimize(
+                common_args,
+                unoptimized_model_dir,
+                optimized_model_dir,
+            )
 
     generator = None if common_args.seed is None else np.random.RandomState(seed=common_args.seed)
 
@@ -401,6 +433,10 @@ def main(raw_args=None):
                 from sd_utils.ov import get_ov_pipeline
 
                 pipeline = get_ov_pipeline(common_args, ov_args, optimized_model_dir)
+            elif common_args.format == "qdq":
+                from sd_utils.qdq import get_qdq_pipeline
+
+                pipeline = get_qdq_pipeline(model_dir, common_args, qdq_args, script_dir)
             else:
                 from sd_utils.ort import get_ort_pipeline
 

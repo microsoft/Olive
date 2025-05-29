@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from olive.common.utils import StrEnumBase
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
@@ -21,6 +21,14 @@ class Device(StrEnumBase):
     INTEL_MYRIAD = "intel_myriad"
 
 
+class ExecutionProvider(StrEnumBase):
+    CPUExecutionProvider = "CPUExecutionProvider"
+    CUDAExecutionProvider = "CUDAExecutionProvider"
+    DmlExecutionProvider = "DmlExecutionProvider"
+    OpenVINOExecutionProvider = "OpenVINOExecutionProvider"
+    TensorrtExecutionProvider = "TensorrtExecutionProvider"
+
+
 MEM_TO_INT = {"KB": 1e3, "MB": 1e6, "GB": 1e9, "TB": 1e12}
 
 
@@ -29,7 +37,7 @@ class AcceleratorSpec:
     """Accelerator specification is the concept of a hardware device that be used to optimize or evaluate a model."""
 
     accelerator_type: Union[str, Device]
-    execution_provider: Optional[str] = None
+    execution_provider: Optional[Union[str, ExecutionProvider]] = None
     memory: int = None
 
     def __str__(self) -> str:
@@ -43,7 +51,7 @@ class AcceleratorSpec:
     def to_json(self):
         json_data = {"accelerator_type": str(self.accelerator_type)}
         if self.execution_provider:
-            json_data["execution_provider"] = self.execution_provider
+            json_data["execution_provider"] = str(self.execution_provider)
         if self.memory is not None:
             json_data["memory"] = self.memory
 
@@ -105,7 +113,7 @@ class AcceleratorLookup:
         return [ep for ep in available_providers if ep in execution_providers]
 
     @staticmethod
-    def infer_devices_from_execution_providers(execution_providers: List[str]):
+    def infer_devices_from_execution_providers(execution_providers: list[str]):
         """Infer the device from the execution provider name.
 
         If all the execution provider is uniquely mapped to a device, return the device list.
@@ -160,7 +168,7 @@ class AcceleratorLookup:
         return mapped_devices if mapped_devices else None
 
     @staticmethod
-    def infer_single_device_from_execution_providers(execution_providers: List[str]) -> str:
+    def infer_single_device_from_execution_providers(execution_providers: list[str]) -> str:
         if not execution_providers:
             return None
 

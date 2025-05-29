@@ -4,13 +4,13 @@
 # --------------------------------------------------------------------------
 
 from pathlib import Path
-from test.unit_test.utils import get_hf_model
 
 import pytest
 
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.optimum_conversion import OptimumConversion
+from test.unit_test.utils import get_hf_model
 
 
 @pytest.mark.parametrize("extra_args", [{"atol": 0.1}, {"atol": None}])
@@ -86,13 +86,13 @@ def test_optimum_configs(config, is_valid, tmp_path):
     output_folder = tmp_path
 
     if not is_valid:
-        assert p.validate_config(config, None) is False
+        assert p.validate_config(p.config, None) is False
         with pytest.raises(
             ValueError,
             match="FP16 export is supported only when exporting on GPU. Please pass the option `--device cuda`.",
         ):
             p.run(input_model, output_folder)
     else:
-        assert p.validate_config(config, None)
+        assert p.validate_config(p.config, None) is True
         onnx_model = p.run(input_model, output_folder)
         assert Path(onnx_model.model_path).exists()

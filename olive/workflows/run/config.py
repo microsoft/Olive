@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
@@ -26,18 +26,55 @@ from olive.systems.system_config import SystemConfig
 
 
 class RunEngineConfig(EngineConfig):
-    evaluate_input_model: bool = True
-    output_dir: Union[Path, str] = None
-    packaging_config: Union[PackagingConfig, List[PackagingConfig]] = None
-    cache_config: Union[CacheConfig, Dict[str, Any]] = None
-    cache_dir: Union[str, Path, List[str]] = DEFAULT_CACHE_DIR
-    clean_cache: bool = False
-    clean_evaluation_cache: bool = False
-    enable_shared_cache: bool = False
-    log_severity_level: int = 1
-    ort_log_severity_level: int = 3
-    ort_py_log_severity_level: int = 3
-    log_to_file: bool = False
+    evaluate_input_model: bool = Field(
+        True,
+        description="When true, input model will be evaluated using the engine's evaluator. Set this to false to skip.",
+    )
+    output_dir: Union[Path, str] = Field(None, description="Path where final output get saved.")
+    packaging_config: Union[PackagingConfig, list[PackagingConfig]] = Field(
+        None, description="Artifacts packaging configuration."
+    )
+    cache_config: Union[CacheConfig, dict[str, Any]] = Field(
+        None, description="Cache configuration to speed up workflow runs."
+    )
+    cache_dir: Union[str, Path, list[str]] = Field(
+        DEFAULT_CACHE_DIR,
+        description=(
+            "Path where intermediate results get saved.  Default is .olive-cache in the current working directory."
+        ),
+    )
+    clean_cache: bool = Field(False, description="Set this to true to force clean the cache on next run.")
+    clean_evaluation_cache: bool = Field(
+        False, description="Set this to true to limit cache clean to generated evaluation results only."
+    )
+    enable_shared_cache: bool = Field(False, description="Set this to true to enable shared cache.")
+    log_severity_level: int = Field(
+        1,
+        description=(
+            "Logging level. Default is 3. Available options: 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL"
+        ),
+    )
+    ort_log_severity_level: int = Field(
+        3,
+        description=(
+            "Log severity level for ONNX Runtime C++ logs. "
+            "Default is 3. Available options: 0: VERBOSE, 1: INFO, 2: WARNING, 3: ERROR, 4: FATAL"
+        ),
+    )
+    ort_py_log_severity_level: int = Field(
+        3,
+        description=(
+            "Log severity level for ONNX Runtime Python logs. "
+            "Available options: 0: VERBOSE, 1: INFO, 2: WARNING, 3: ERROR, 4: FATAL"
+        ),
+    )
+    log_to_file: bool = Field(
+        False,
+        description=(
+            "Set this to true to reroute logs to a file instead of the console. "
+            "If `true`, the log will be stored in a olive-<timestamp>.log file under the current working directory."
+        ),
+    )
 
     def create_engine(self, olive_config, azureml_client_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
@@ -79,11 +116,11 @@ class RunConfig(NestedConfig):
         ),
     )
     input_model: ModelConfig = Field(description="Input model configuration.")
-    systems: Dict[str, SystemConfig] = Field(
+    systems: dict[str, SystemConfig] = Field(
         None,
         description="System configurations. Other fields such as engine and passes can refer to these systems by name.",
     )
-    data_configs: List[DataConfig] = Field(
+    data_configs: list[DataConfig] = Field(
         default_factory=list,
         description=(
             "Data configurations. Each data config must have a unique name. Other fields such as engine, passes and"
@@ -91,7 +128,7 @@ class RunConfig(NestedConfig):
             " allowed."
         ),
     )
-    evaluators: Dict[str, OliveEvaluatorConfig] = Field(
+    evaluators: dict[str, OliveEvaluatorConfig] = Field(
         None,
         description=(
             "Evaluator configurations. Other fields such as engine and passes can refer to these evaluators by name."
@@ -104,7 +141,7 @@ class RunConfig(NestedConfig):
             " no-search or auto-optimizer mode based on whether passes field is provided."
         ),
     )
-    passes: Dict[str, List[RunPassConfig]] = Field(None, description="Pass configurations.")
+    passes: dict[str, list[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
     auto_optimizer_config: AutoOptimizerConfig = Field(
         default_factory=AutoOptimizerConfig,
         description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
@@ -161,9 +198,19 @@ class RunConfig(NestedConfig):
             v = v.dict()
 
         # all model related info used for auto filling
+        task = None
+        model_name = None
+        if input_model_config["type"].lower() == "onnxmodel" and "model_attributes" in input_model_config["config"]:
+            # Only valid for onnx model converted from Olive Conversion pass
+            task = input_model_config["config"]["model_attributes"].get("hf_task", DEFAULT_HF_TASK)
+            model_name = input_model_config["config"]["model_attributes"].get("_name_or_path")
+        else:
+            task = input_model_config["config"].get("task", DEFAULT_HF_TASK)
+            model_name = input_model_config["config"]["model_path"]
+
         model_info = {
-            "model_name": input_model_config["config"]["model_path"],
-            "task": input_model_config["config"].get("task", DEFAULT_HF_TASK),
+            "model_name": model_name,
+            "task": task,
             "trust_remote_code": input_model_config["config"].get("load_kwargs", {}).get("trust_remote_code"),
         }
         kv_cache = input_model_config.get("io_config", {}).get("kv_cache")
@@ -203,6 +250,11 @@ class RunConfig(NestedConfig):
     def validate_evaluators(cls, v, values):
         for idx, metric in enumerate(v.get("metrics", [])):
             v["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
+        return v
+
+    @validator("auto_optimizer_config", pre=True)
+    def validate_auto_optimizer_config(cls, v, values):
+        _resolve_all_data_configs(v, values)
         return v
 
     @validator("engine", pre=True)

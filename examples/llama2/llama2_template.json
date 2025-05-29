@@ -105,7 +105,7 @@
             "op_types_to_quantize": [ "MatMul", "Gemm" ],
             "per_channel": false,
             "reduce_range": false,
-            "MatMulConstBOnly": true
+            "extra_options": { "MatMulConstBOnly": true }
         },
         "blockwise_quant_int4": {
             "type": "OnnxMatMul4Quantizer",

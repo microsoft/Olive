@@ -5,7 +5,7 @@
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Set, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import onnx
 from onnx import AttributeProto, GraphProto, NodeProto, TensorProto, ValueInfoProto
@@ -56,8 +56,8 @@ class OnnxNode(ConfigBase):
     """ONNX node."""
 
     op_type: str
-    inputs: List[str]
-    outputs: List[str]
+    inputs: list[str]
+    outputs: list[str]
     graph_idx: int
     # reference to the node in the model graph
     # can't be serialized to JSON, but we don't need it
@@ -71,11 +71,11 @@ class OnnxIO(ConfigBase):
     """
 
     source: str = None
-    destination: List[str] = Field(default_factory=list)
+    destination: list[str] = Field(default_factory=list)
     graph_idx: int
     # reference to the protobuf object
     # can't be serialized to JSON, but we don't need it
-    proto: List[Union[ValueInfoProto, TensorProto]] = Field(default_factory=list)
+    proto: list[Union[ValueInfoProto, TensorProto]] = Field(default_factory=list)
 
 
 class OnnxDAG:
@@ -84,8 +84,8 @@ class OnnxDAG:
     def __init__(self, model: "ModelProto", only_main_graph: bool = False):
         self.model = model
         self.graphs = self.get_all_graphs(self.model, only_main_graph)
-        self.nodes: Dict[str, OnnxNode] = {}
-        self.ios: Dict[str, OnnxIO] = {}
+        self.nodes: dict[str, OnnxNode] = {}
+        self.ios: dict[str, OnnxIO] = {}
         self.connections = defaultdict(list)
         self.unique_node_counter = 0
 
@@ -96,7 +96,7 @@ class OnnxDAG:
                 self.add_node(node, idx)
 
     @staticmethod
-    def get_all_graphs(model: "ModelProto", only_main_graph: bool = False) -> List[GraphProto]:
+    def get_all_graphs(model: "ModelProto", only_main_graph: bool = False) -> list[GraphProto]:
         """Get all graphs in the model.
 
         :param model: ONNX model.
@@ -123,7 +123,7 @@ class OnnxDAG:
         return all_graphs
 
     @staticmethod
-    def _process_io(graph: GraphProto, ios: Dict[str, OnnxIO], graph_idx: int):
+    def _process_io(graph: GraphProto, ios: dict[str, OnnxIO], graph_idx: int):
         """Process inputs, outputs, and initializers in the graph.
 
         This will populate ios. Should be called before adding nodes.
@@ -172,9 +172,9 @@ class OnnxDAG:
     def _process_node(
         name: str,
         node_proto: NodeProto,
-        nodes: Dict[str, OnnxNode],
-        ios: Dict[str, OnnxIO],
-        connections: Dict[str, List[str]],
+        nodes: dict[str, OnnxNode],
+        ios: dict[str, OnnxIO],
+        connections: dict[str, list[str]],
         graph_idx: int,
         overwrite_input_initializers: bool = False,
     ):
@@ -254,6 +254,18 @@ class OnnxDAG:
         proto_list = self.ios[name].proto[:-1] + [initializer]
         self.ios[name].proto = proto_list
 
+    def add_output(self, output_proto: ValueInfoProto, graph_idx: int):
+        """Add an output to the graph.
+
+        :param output_proto: ValueInfoProto of the output.
+        :param graph_idx: index of the graph in the model.
+        """
+        if output_proto.name in self.ios:
+            raise ValueError(f"Output {output_proto.name} already exists in the graph.")
+        self.ios[output_proto.name] = OnnxIO(
+            proto=[output_proto], destination=[SpecialOutput.OUTPUT], graph_idx=graph_idx
+        )
+
     def add_value_info(self, value_info: ValueInfoProto, graph_idx: int, overwrite: bool = False):
         """Add a value info to the graph.
 
@@ -266,9 +278,9 @@ class OnnxDAG:
             self.ios[name] = OnnxIO(proto=[value_info], graph_idx=graph_idx)
             return
 
-        assert (
-            overwrite or not self.ios[name].proto
-        ), f"Value info for {name} already exists in the graph but overwrite is False."
+        assert overwrite or not self.ios[name].proto, (
+            f"Value info for {name} already exists in the graph but overwrite is False."
+        )
         self.ios[name].proto = [value_info]
 
     def is_io(self, io_name: str) -> bool:
@@ -393,12 +405,18 @@ class OnnxDAG:
 
         # remove node from the connections
         for i in node.inputs:
+            if i == "":
+                # some nodes have unnamed, unused inputs
+                continue
             self.ios[i].destination.remove(node_name)
             parent = self.ios[i].source
             if parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
                 self.connections[parent].remove(node_name)
 
         for o in node.outputs:
+            if o == "":
+                # some nodes have unnamed, unused outputs
+                continue
             del self.ios[o]
 
         del self.connections[node_name]
@@ -450,6 +468,7 @@ class OnnxDAG:
         :param old_output: name of the output to rename.
         :param new_output: new name of the output.
         """
+        assert not self.is_output(old_output), f"Output {old_output} is a model output. Can't rename it."
         assert new_output not in self.ios, f"Output {new_output} already exists in the graph."
         node = self.nodes[node_name]
         assert old_output in node.outputs, f"Output {old_output} does not exist in node {node_name}."
@@ -478,7 +497,14 @@ class OnnxDAG:
         # delete the old output
         self.ios.pop(old_output)
 
-    def get_node_names(self) -> List[str]:
+    def get_node_op_types(self) -> list[str]:
+        """Get all operator types in the graph.
+
+        :return: list of operator types.
+        """
+        return list({node.op_type for node in self.nodes.values()})
+
+    def get_node_names(self) -> list[str]:
         """Get the names of all nodes in the graph.
 
         :return: list of node names.
@@ -517,7 +543,7 @@ class OnnxDAG:
         """
         return self.nodes[node_name].proto
 
-    def get_node_inputs(self, node_name: str, skip_empty_io: bool = False) -> List[str]:
+    def get_node_inputs(self, node_name: str, skip_empty_io: bool = False) -> list[str]:
         """Get the input names of a node.
 
         :param node_name: name of the node.
@@ -529,7 +555,7 @@ class OnnxDAG:
             inputs = filter(lambda i: i != "", inputs)
         return list(inputs)
 
-    def get_node_outputs(self, node_name: str, skip_empty_io: bool = False) -> List[str]:
+    def get_node_outputs(self, node_name: str, skip_empty_io: bool = False) -> list[str]:
         """Get the output names of a node.
 
         :param node_name: name of the node.
@@ -541,7 +567,7 @@ class OnnxDAG:
             outputs = filter(lambda o: o != "", outputs)
         return list(outputs)
 
-    def get_node_attributes(self, node_name: str) -> Dict[str, Any]:
+    def get_node_attributes(self, node_name: str) -> dict[str, Any]:
         """Get the attributes of a node.
 
         :param node_name: name of the node.
@@ -586,19 +612,26 @@ class OnnxDAG:
 
         return (source == SpecialInput.INITIALIZER) or (allow_input_initializer and SpecialInput.is_initializer(source))
 
-    def get_input_names(self) -> List[str]:
+    def get_input_names(self) -> list[str]:
         """Get the names of all inputs in the graph.
 
         :return: list of input names.
         """
         return [i for i in self.ios if self.is_input(i)]
 
-    def get_initializer_names(self) -> List[str]:
+    def get_initializer_names(self) -> list[str]:
         """Get the names of all initializers in the graph.
 
         :return: list of initializer names.
         """
         return [i for i in self.ios if self.is_initializer(i)]
+
+    def get_intermediate_names(self) -> list[str]:
+        """Get the names of all intermediate inputs/outputs in the graph.
+
+        :return: list of intermediate input/output names.
+        """
+        return [i for i in self.ios if not any([self.is_input(i), self.is_initializer(i), self.is_output(i)])]
 
     def get_input_proto(self, input_name: str) -> ValueInfoProto:
         """Get the input proto.
@@ -617,6 +650,79 @@ class OnnxDAG:
         """
         assert self.is_initializer(initializer_name)
         return self.ios[initializer_name].proto[-1]
+
+    def get_output_proto(self, output_name: str) -> ValueInfoProto:
+        """Get the output proto.
+
+        :param output_name: name of the output.
+        :return: ValueInfoProto object.
+        """
+        assert self.is_output(output_name)
+        return self.ios[output_name].proto[0]
+
+    def get_value_info_proto(self, value_info_name: str) -> Optional[ValueInfoProto]:
+        """Get the value info proto.
+
+        :param value_info_name: name of the value info.
+        :return: ValueInfoProto object.
+        """
+        assert value_info_name in self.ios, f"{value_info_name} is not a value info."
+        return self.ios[value_info_name].proto[0] if self.ios[value_info_name].proto else None
+
+    def _get_vi_tensor_type(self, vi_name: str):
+        """Get the tensor type of an input/output.
+
+        :param vi_name: name of the input/output.
+        :return: tensor type of the input/output.
+        """
+        proto = self.get_value_info_proto(vi_name)
+        if proto is None:
+            return None
+
+        tensor_type = proto.type.tensor_type
+        if tensor_type.elem_type == 0:
+            # sequence type
+            # TODO(jambayk): add support for different types
+            # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
+            tensor_type = proto.type.sequence_type.elem_type.tensor_type
+        return tensor_type
+
+    def get_io_shape(self, io_name: str) -> Optional[list[Union[int, str]]]:
+        """Get the shape of an input/output.
+
+        :param io_name: name of the input/output.
+        :return: shape of the input/output.
+        """
+        if self.is_initializer(io_name):
+            return list(self.get_initializer_proto(io_name).dims)
+
+        tensor_type = self._get_vi_tensor_type(io_name)
+        return (
+            [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
+            if tensor_type
+            else None
+        )
+
+    def get_io_elem_type(self, io_name: str) -> Optional[int]:
+        """Get the element type of an input/output.
+
+        :param io_name: name of the input/output.
+        :return: element type of the input/output.
+        """
+        if self.is_initializer(io_name):
+            return self.get_initializer_proto(io_name).data_type
+
+        tensor_type = self._get_vi_tensor_type(io_name)
+        return tensor_type.elem_type if tensor_type else None
+
+    def get_io_dtype(self, io_name: str) -> Optional[str]:
+        """Get the data type of an input/output.
+
+        :param io_name: name of the input/output.
+        :return: data type of the input/output.
+        """
+        elem_type = self.get_io_elem_type(io_name)
+        return str(onnx.helper.tensor_dtype_to_np_dtype(elem_type)) if elem_type else None
 
     def get_graph_idx(self, name: str) -> int:
         """Get the index of the graph containing the input/output or node."""
@@ -642,6 +748,13 @@ class OnnxDAG:
         :return: True if the input/output is an output.
         """
         return SpecialOutput.OUTPUT in self.ios[io_name].destination
+
+    def get_output_names(self) -> list[str]:
+        """Get the names of all outputs in the graph.
+
+        :return: list of output names.
+        """
+        return [i for i in self.ios if self.is_output(i)]
 
     def make_output(self, io_name: str):
         """Make an input/output an output.
@@ -671,7 +784,7 @@ class OnnxDAG:
         """
         return self.ios[io_name].source
 
-    def get_consumers(self, node_name: str, return_special_outputs: bool = False) -> List[str]:
+    def get_consumers(self, node_name: str, return_special_outputs: bool = False) -> list[str]:
         """Get the consumers of a node.
 
         :param node_name: name of the node. It can also be an input or initializer.
@@ -688,7 +801,7 @@ class OnnxDAG:
 
         return list(filter(lambda c: c != SpecialOutput.OUTPUT, consumers))
 
-    def get_parents(self, node_name: str, return_special_inputs: bool = False) -> List[str]:
+    def get_parents(self, node_name: str, return_special_inputs: bool = False) -> list[str]:
         """Get the parents of a node.
 
         :param node_name: name of the node.
@@ -700,6 +813,18 @@ class OnnxDAG:
             return parents
 
         return list(filter(lambda p: not SpecialInput.is_special_input(p), parents))
+
+    def get_node_initializers(self, node_name: str) -> list[TensorProto]:
+        """Get the initializers of a node.
+
+        :param node_name: name of the node.
+        :return: list of initializers of the node.
+        """
+        return [
+            self.get_initializer_proto(i)
+            for i in self.get_node_inputs(node_name, skip_empty_io=True)
+            if self.is_initializer(i)
+        ]
 
     def is_input_consumer(self, node_name: str) -> bool:
         """Check if a node is an input consumer.
@@ -717,7 +842,7 @@ class OnnxDAG:
         """
         return SpecialOutput.OUTPUT in self.get_consumers(node_name, return_special_outputs=True)
 
-    def _topological_sort_util(self, v: str, visited: Set[str], order: List[str]):
+    def _topological_sort_util(self, v: str, visited: set[str], order: list[str]):
         """Do depth-first search starting from node v.
 
         Iterative instead of recursive to avoid stack overflow for large graphs.
@@ -739,7 +864,7 @@ class OnnxDAG:
             else:
                 order.insert(0, v)
 
-    def topological_sort(self) -> List[str]:
+    def topological_sort(self) -> list[str]:
         """Sort the nodes in topological order.
 
         :return: list of node names in topological order.
@@ -826,6 +951,16 @@ class OnnxDAG:
         for node_name in nodes_to_remove:
             self.remove_node(node_name)
         logger.debug("Removed %d Identity nodes", len(nodes_to_remove))
+
+    def set_opset_import(self, domain, version):
+        import onnx.helper as onnx_helper
+
+        for opset in self.model.opset_import:
+            if opset.domain == domain:
+                opset.version = version
+                return
+
+        self.model.opset_import.extend([onnx_helper.make_opsetid(domain, version)])
 
     @classmethod
     def from_model_path(cls, model_path: Union[str, Path], only_main_graph: bool = False) -> "OnnxDAG":

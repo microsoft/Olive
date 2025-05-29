@@ -7,7 +7,7 @@ import json
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Union
 
 import onnxruntime as ort
 
@@ -22,7 +22,7 @@ from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 from olive.search.search_parameter import Categorical
 
 logger = logging.getLogger(__name__)
@@ -85,14 +85,14 @@ class OrtSessionParamsTuning(Pass):
         return False
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         device = accelerator_spec.accelerator_type
         execution_provider = accelerator_spec.execution_provider
 
         return {
             **get_user_script_data_config(),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 description="Data config to load data for computing latency.",
             ),
             "device": PassConfigParam(
@@ -118,7 +118,7 @@ class OrtSessionParamsTuning(Pass):
                 description="Execution providers framework list to execute the ONNX models.",
             ),
             "provider_options_list": PassConfigParam(
-                type_=Dict[str, Any],
+                type_=dict[str, Any],
                 default_value={},
                 search_defaults=Categorical([{}]),
                 description="Execution provider options to execute the ONNX models.",
@@ -151,7 +151,7 @@ class OrtSessionParamsTuning(Pass):
                 description="List of inter thread number for test.",
             ),
             "extra_session_config": PassConfigParam(
-                type_=Dict[str, Any],
+                type_=dict[str, Any],
                 default_value=None,
                 description="Extra customized session options during tuning process.",
             ),
@@ -173,19 +173,15 @@ class OrtSessionParamsTuning(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
         """Validate the search point for the pass."""
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
 
-        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
-        config_cls.__config__.extra = Extra.allow
-        config = config_cls(**config)
-
         # Rename the search parameters with atomic/singular names for clarity
+        config.__class__.__config__.extra = Extra.allow
         config.execution_provider = config.providers_list
         config.provider_options = config.provider_options_list
         config.execution_mode = config.execution_mode_list
@@ -264,11 +260,11 @@ class OrtSessionParamsTuning(Pass):
         return True
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         # Rename the search parameters with atomic/singular names for clarity
-        self._config_class.__config__.extra = Extra.allow
-        config = self._config_class(**config)
+        config.__class__.__config__.extra = Extra.allow
+        config = config.copy()
         config.execution_provider = config.providers_list
         config.provider_options = config.provider_options_list
         config.execution_mode = config.execution_mode_list

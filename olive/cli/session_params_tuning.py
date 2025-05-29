@@ -6,7 +6,6 @@ import json
 from argparse import ArgumentParser
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -26,7 +25,6 @@ from olive.common.utils import set_nested_dict_value
 
 
 class SessionParamsTuningCommand(BaseOliveCLICommand):
-
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
@@ -104,7 +102,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=SessionParamsTuningCommand)
 
-    def _update_pass_config(self, default_pass_config) -> Dict:
+    def _update_pass_config(self, default_pass_config) -> dict:
         pass_config = deepcopy(default_pass_config)
         pass_config_keys = (
             "cpu_cores",
@@ -121,7 +119,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         pass_config.update({k: args_dict[k] for k in pass_config_keys if args_dict[k] is not None})
         return pass_config
 
-    def _get_run_config(self, tempdir) -> Dict:
+    def _get_run_config(self, tempdir) -> dict:
         config = deepcopy(TEMPLATE)
 
         session_params_tuning_key = ("passes", "session_params_tuning")
@@ -143,21 +141,23 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         return config
 
     def run(self):
-        output = self._run_workflow()
+        workflow_output = self._run_workflow()
 
         if is_remote_run(self.args):
             return
 
         output_path = Path(self.args.output_path).resolve()
-        for key, value in output.items():
-            if len(value.nodes) < 1:
-                print(f"Tuning for {key} failed. Please set the log_level to 1 for more detailed logs.")
+        for device in workflow_output.get_available_devices():
+            if len(workflow_output.get_output_models_by_device(device)) < 1:
+                print(f"Tuning for {device} failed. Please set the log_level to 1 for more detailed logs.")
                 continue
 
-            infer_setting_output_path = output_path / f"{key}.json"
-            infer_settings = value.get_model_inference_config(value.get_output_model_id())
-            with infer_setting_output_path.open("w") as f:
-                json.dump(infer_settings, f, indent=4)
+            for model_output in workflow_output.get_output_models_by_device(device):
+                acc_ep = f"{model_output.from_device().lower()}-{model_output.from_execution_provider()[:-17].lower()}"
+                infer_setting_output_path = output_path / f"{acc_ep}.json"
+                infer_settings = model_output.get_inference_config()
+                with infer_setting_output_path.open("w") as f:
+                    json.dump(infer_settings, f, indent=4)
         print(f"Inference session parameters are saved to {output_path}.")
 
 

@@ -5,7 +5,7 @@
 import logging
 import platform
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Union
 
 from olive.common.constants import OS
 from olive.constants import Framework, ModelFileFormat
@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 
 @model_handler_registry("QNNModel")
 class QNNModelHandler(OliveModelHandler):
-    json_config_keys: Tuple[str, ...] = ("io_config", "model_file_format")
+    json_config_keys: tuple[str, ...] = ("io_config", "model_file_format")
 
     def __init__(
         self,
         model_path: str,
-        model_attributes: Optional[Dict[str, Any]] = None,
-        io_config: Union[Dict[str, Any], IoConfig, str, Callable] = None,
+        model_attributes: Optional[dict[str, Any]] = None,
+        io_config: Union[dict[str, Any], IoConfig, str, Callable] = None,
         model_file_format: ModelFileFormat = ModelFileFormat.QNN_CPP,
     ):
         super().__init__(
@@ -79,9 +79,9 @@ class QNNModelHandler(OliveModelHandler):
 
     def prepare_session(
         self,
-        inference_settings: Union[Dict[str, Any], None] = None,
+        inference_settings: Union[dict[str, Any], None] = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, List[str]] = None,
+        execution_providers: Union[str, list[str]] = None,
         rank: Union[int, None] = None,
     ):
         inference_settings = inference_settings or {}
@@ -97,7 +97,7 @@ class QNNModelHandler(OliveModelHandler):
     def run_session(
         self,
         session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
+        inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
+        **kwargs: dict[str, Any],
     ) -> Any:
         return session(inputs, **kwargs)

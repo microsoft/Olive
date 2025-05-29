@@ -8,15 +8,18 @@
 import collections
 import logging
 import time
+from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
+from packaging import version
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
     from onnxruntime import InferenceSession, IOBinding
 
+    from olive.hardware.accelerator import Device
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +28,77 @@ class OrtSessionFallbackError(Exception):
     """Raised when the onnxruntime fallback happens."""
 
 
+def is_winml_installation() -> bool:
+    from onnxruntime import __version__ as OrtVersion
+
+    if version.parse(OrtVersion) >= version.parse("1.22.0"):
+        try:
+            from onnxruntime import winml  # noqa: F401 # pylint: disable=unused-import
+        except ImportError:
+            logger.info("onnxruntime-winml not installed")
+            return False
+        return True
+    return False
+
+
+def get_ort_hardware_device_type(device: Union["Device", str]):
+    if is_winml_installation():
+        from onnxruntime import OrtHardwareDeviceType
+
+        mapping = {
+            "cpu": OrtHardwareDeviceType.CPU,
+            "gpu": OrtHardwareDeviceType.GPU,
+            "npu": OrtHardwareDeviceType.NPU,
+        }
+        return mapping.get(device.lower())
+    return None
+
+
+def get_ort_execution_provider_device_policy(policy: str):
+    if is_winml_installation():
+        from onnxruntime import OrtExecutionProviderDevicePolicy
+
+        mapping = {
+            "default": OrtExecutionProviderDevicePolicy.DEFAULT,
+            "prefer_cpu": OrtExecutionProviderDevicePolicy.PREFER_CPU,
+            "prefer_npu": OrtExecutionProviderDevicePolicy.PREFER_NPU,
+            "prefer_gpu": OrtExecutionProviderDevicePolicy.PREFER_GPU,
+            "max_performance": OrtExecutionProviderDevicePolicy.MAX_PERFORMANCE,
+            "max_efficiency": OrtExecutionProviderDevicePolicy.MAX_EFFICIENCY,
+            "overall_power": OrtExecutionProviderDevicePolicy.MIN_OVERALL_POWER,
+        }
+        return mapping.get(policy.lower())
+    return None
+
+
+def initialize_inference_session_options_for_winml(
+    sess_options, device, providers, provider_options, provider_selection_policy=None
+):
+    import onnxruntime as ort
+
+    providers = providers or []
+    provider_options = provider_options or []
+    provider_options_by_ep = dict(zip(providers, provider_options))
+    ort_device_type = get_ort_hardware_device_type(device)
+    for ep_device in ort.get_ep_devices():
+        if ep_device.device.type == ort_device_type and ep_device.ep_name in provider_options_by_ep:
+            sess_options.add_provider_for_devices([ep_device], provider_options_by_ep.get(ep_device.ep_name) or {})
+
+    if provider_selection_policy:
+        provider_selection_policy = get_ort_execution_provider_device_policy(provider_selection_policy)
+        sess_options.set_provider_selection_policy(provider_selection_policy)
+
+
 # NOTE: `device_id` is only used internally for inference with Distributed ONNX models.
 # For regular ONNX models, the recommended way to specify the device is to set the environment variable
-# `CUDA_VISIBLE_DEVICES` before runnning a workflow.
+# `CUDA_VISIBLE_DEVICES` before running a workflow.
 def get_ort_inference_session(
     model_path: Union[Path, str],
-    inference_settings: Dict[str, Any],
+    device: Union["Device", str],
+    inference_settings: dict[str, Any],
     use_ort_extensions: bool = False,
     device_id: Optional[int] = None,
-    external_initializers: Optional[Dict[str, "NDArray"]] = None,
+    external_initializers: Optional[dict[str, "NDArray"]] = None,
 ):
     """Get an ONNXRuntime inference session.
 
@@ -79,6 +144,7 @@ def get_ort_inference_session(
     execution_mode = session_options.get("execution_mode")
     graph_optimization_level = session_options.get("graph_optimization_level")
     extra_session_config = session_options.get("extra_session_config")
+    log_severity_level = session_options.get("log_severity_level")
     if enable_profiling:
         sess_options.enable_profiling = True
     if inter_op_num_threads:
@@ -90,11 +156,14 @@ def get_ort_inference_session(
             sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         elif execution_mode == 1:
             sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
-    if graph_optimization_level:
+    if graph_optimization_level is not None:
+        # level can be 0, 1, 2, 3
         sess_options.graph_optimization_level = ort.GraphOptimizationLevel(graph_optimization_level)
     if extra_session_config:
         for key, value in extra_session_config.items():
             sess_options.add_session_config_entry(key, value)
+    if log_severity_level is not None:
+        sess_options.log_severity_level = log_severity_level
 
     # execution providers and provider options
     providers, provider_options = check_and_normalize_provider_args(
@@ -114,11 +183,18 @@ def get_ort_inference_session(
     if len(providers) >= 1 and providers[0] == "DmlExecutionProvider":
         sess_options.enable_mem_pattern = False
 
+    sess_kwargs = {}
+    if is_winml_installation():
+        initialize_inference_session_options_for_winml(
+            sess_options, device, providers, provider_options, inference_settings.get("provider_selection_policy")
+        )
+    else:
+        sess_kwargs.update({"providers": providers, "provider_options": provider_options})
+
     # create session
-    session = ort.InferenceSession(
-        str(model_path), sess_options=sess_options, providers=providers, provider_options=provider_options
-    )
+    session = ort.InferenceSession(str(model_path), sess_options=sess_options, **sess_kwargs)
     check_ort_fallback(session, providers)
+
     # set tuning results for tunable operators (currently only for ROCM EP)
     tuning_op_result = inference_settings.get("tuning_op_result")
     if tuning_op_result:
@@ -128,8 +204,8 @@ def get_ort_inference_session(
 
 
 def check_and_normalize_provider_args(
-    providers: Sequence[Union[str, Tuple[str, Dict[Any, Any]]]],
-    provider_options: Sequence[Dict[Any, Any]],
+    providers: Sequence[Union[str, tuple[str, dict[Any, Any]]]],
+    provider_options: Sequence[dict[Any, Any]],
     available_provider_names: Sequence[str],
 ):
     """Validate the 'providers' and 'provider_options' arguments and returns a normalized version.
@@ -232,8 +308,8 @@ class OrtInferenceSession:
         device: str = "cpu",
         shared_kv_buffer: bool = False,
         use_fp16: bool = False,
-        input_feed: Optional[Dict[str, "NDArray"]] = None,
-        constant_inputs: Optional[Dict[str, "NDArray"]] = None,
+        input_feed: Optional[dict[str, "NDArray"]] = None,
+        constant_inputs: Optional[dict[str, "NDArray"]] = None,
     ):
         """Initialize self.
 
@@ -281,11 +357,11 @@ class OrtInferenceSession:
                 kv_cache_ortvalues=self.kv_cache_ortvalues,
             )
 
-    def get_full_input_feed(self, input_feed: Dict[str, "NDArray"]) -> Dict[str, "NDArray"]:
+    def get_full_input_feed(self, input_feed: dict[str, "NDArray"]) -> dict[str, "NDArray"]:
         """Get the full input feed including constant inputs."""
         return {**input_feed, **self.constant_inputs}
 
-    def run(self, output_names, input_feed: Dict[str, "NDArray"], run_options=None) -> Sequence["NDArray"]:
+    def run(self, output_names, input_feed: dict[str, "NDArray"], run_options=None) -> Sequence["NDArray"]:
         """Run inference with the given input data."""
         input_feed = self.get_full_input_feed(input_feed)
         if self.io_bind and self.device == "gpu":
@@ -307,7 +383,7 @@ class OrtInferenceSession:
         return res
 
     def time_run(
-        self, input_feed: Dict[str, "NDArray"], num_runs: int, num_warmup: int = 0, sleep_time: int = 0
+        self, input_feed: dict[str, "NDArray"], num_runs: int, num_warmup: int = 0, sleep_time: int = 0
     ) -> Sequence[float]:
         """Time inference runs with the given input data."""
         input_feed = self.get_full_input_feed(input_feed)
@@ -342,7 +418,7 @@ class OrtInferenceSession:
 
 def bind_input_data(
     io_bind_op: "IOBinding",
-    input_data: Dict[str, "NDArray"],
+    input_data: dict[str, "NDArray"],
     use_fp16: bool,
     device: str,
     device_id: int = 0,
@@ -391,7 +467,7 @@ def bind_output_data(
 
 def prepare_io_bindings(
     session: "InferenceSession",
-    input_data: Dict[str, "NDArray"],
+    input_data: dict[str, "NDArray"],
     device: str,
     device_id: int = 0,
     shared_kv_buffer: bool = False,

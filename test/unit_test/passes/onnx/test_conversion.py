@@ -4,66 +4,96 @@
 # --------------------------------------------------------------------------
 import platform
 import shutil
-import sys
 from itertools import chain
 from pathlib import Path
-from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
 from unittest.mock import patch
 
 import pytest
 import torch
+from onnxscript import ir
 
 from olive.common.config_utils import validate_config
-from olive.common.constants import OS
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
+from olive.passes.pytorch.gptq import GptqQuantizer
+from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
 
 
-@pytest.mark.skipif(sys.version_info > (3, 8), reason="Failed with Python 3.10, need to investigate.")
 @pytest.mark.parametrize(
-    ("input_model", "use_dynamo_exporter"),
-    [(get_pytorch_model(), True), (get_hf_model(), True), (get_pytorch_model(), False), (get_hf_model(), False)],
+    ("input_model", "use_dynamo_exporter", "dynamic"),
+    [
+        (get_hf_model(), True, True),
+        (get_hf_model(), False, True),
+        (get_hf_model(), True, False),
+        (get_pytorch_model(), True, True),
+        (get_pytorch_model(), False, True),
+        (get_pytorch_model(), True, False),
+    ],
 )
-def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, tmp_path):
+def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, dynamic, tmp_path):
+    if platform.system() == "Windows" and use_dynamo_exporter:
+        # TODO(anyone): Investigate why this test fails on Windows and/or re-enable once torch 2.7 is released
+        pytest.skip("Dynamo export test is skipped on Windows")
+
     # setup
-    p = create_pass_from_dict(OnnxConversion, {"use_dynamo_exporter": use_dynamo_exporter}, disable_search=True)
+    p = create_pass_from_dict(
+        OnnxConversion, {"use_dynamo_exporter": use_dynamo_exporter, "dynamic": dynamic}, disable_search=True
+    )
     output_folder = str(tmp_path / "onnx")
-    # The conversion need torch version > 1.13.1, otherwise, it will complain
-    # Unsupported ONNX opset version: 18
     onnx_model = p.run(input_model, output_folder)
 
     assert Path(onnx_model.model_path).exists()
 
 
-# TODO(team): Failed in pipeline (linux gpu). Need to investigate.
-@pytest.mark.skipif(
-    platform.system() == OS.WINDOWS or not torch.cuda.is_available() or True,
-    reason="bitsandbytes requires Linux GPU.",
-)
-@pytest.mark.parametrize("add_quantized_modules", [True, False])
-def test_onnx_conversion_pass_quant_model(add_quantized_modules, tmp_path):
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="GPU is not available")
+def test_onnx_conversion_pass_quant_model(tmp_path):
     # setup
-    quantized_modules = ["v_proj", "k_proj", "fc_in", "fc_out", "out_proj", "q_proj"]
-    input_model = HfModelHandler(
-        model_path="hf-internal-testing/tiny-random-gptj",
-        load_kwargs={
-            "quantization_method": "bitsandbytes",
-            "quantization_config": {"load_in_4bit": True, "bnb_4bit_quant_type": "nf4"},
-        },
-        model_attributes={"quantized_modules": quantized_modules} if add_quantized_modules else None,
-    )
-    p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
+    base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
+    # awq has minimum hidden size of 64 or 64 multiples so this model is not compatible
+    # only testing with gptq quantized model
+    quantizer_pass = create_pass_from_dict(GptqQuantizer, disable_search=True)
+    quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
+
+    p = create_pass_from_dict(OnnxConversion, {"torch_dtype": "float32"}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
-    onnx_model = p.run(input_model, output_folder)
+    # run
+    onnx_model = p.run(quantized_model, output_folder)
 
     # assert
     assert Path(onnx_model.model_path).exists()
-    assert set(onnx_model.model_attributes["quantized_modules"]) == set(quantized_modules)
-    assert onnx_model.model_attributes["quantization_config"]["load_in_4bit"] is True
-    assert onnx_model.model_attributes["quantization_config"]["bnb_4bit_quant_type"] == "nf4"
+    model_ir = ir.load(onnx_model.model_path)
+    num_mnb = sum(node.op_type == "MatMulNBits" for node in model_ir.graph)
+    # 2 layers X 1 qkv, 1 o, 1 gate_up, 1 down
+    assert num_mnb == 2 * 4
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="GPU is not available")
+@pytest.mark.skipif(not hasattr(torch.onnx, "ops"), reason="requires torch>=2.8")
+def test_onnx_conversion_pass_quant_model_dynamo(tmp_path):
+    # setup
+    base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
+    # awq has minimum hidden size of 64 or 64 multiples so this model is not compatible
+    # only testing with gptq quantized model
+    quantizer_pass = create_pass_from_dict(GptqQuantizer, disable_search=True)
+    quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
+
+    p = create_pass_from_dict(
+        OnnxConversion, {"torch_dtype": "float32", "use_dynamo_exporter": True}, disable_search=True
+    )
+    output_folder = str(tmp_path / "onnx")
+
+    # run
+    onnx_model = p.run(quantized_model, output_folder)
+
+    # assert
+    assert Path(onnx_model.model_path).exists()
+    model_ir = ir.load(onnx_model.model_path)
+    num_mnb = sum(node.op_type == "MatMulNBits" for node in model_ir.graph)
+    # 2 layers X 1 qkv, 1 o, 1 gate_up, 1 down
+    assert num_mnb == 2 * 4
 
 
 @pytest.mark.parametrize("target_opset", [9, 10, 16])
@@ -189,10 +219,10 @@ def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_con
 @pytest.mark.parametrize(
     "dynamic_shapes",
     [
-        [{"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024], "1": ["y_axis", 0, 6]}],
+        [{0: "axis_batch", 1: "x_axis"}, {0: "axis_batch", 1: "y_axis"}],
         {
-            "input_x": {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
-            "input_y": {"0": ["axis_batch", 0, 1024], "1": ["y_axis", 0, 6]},
+            "input_x": {0: "axis_batch", 1: "x_axis"},
+            "input_y": {0: "axis_batch", 1: "y_axis"},
         },
     ],
 )
@@ -212,11 +242,22 @@ def _get_simulate_torch_float_tensor_inputs(return_tuple: bool = False):
             torch.ones(4),
         )
     return {
+        "y": {"a": torch.zeros(5), "b": torch.ones(5)},
         "w": torch.ones(5),
         "x": (torch.zeros(5), torch.ones(5)),
-        "y": {"a": torch.zeros(5), "b": torch.ones(5)},
         "z": torch.ones(4),
     }
+
+
+class SingnatureOnlyModel(torch.nn.Module):
+    def forward(
+        self,
+        w: torch.Tensor,
+        x: tuple[torch.Tensor, torch.Tensor],
+        y: dict[str, torch.Tensor],
+        z: torch.Tensor,
+    ):
+        pass
 
 
 @pytest.mark.parametrize(
@@ -224,30 +265,32 @@ def _get_simulate_torch_float_tensor_inputs(return_tuple: bool = False):
     [
         (
             [
-                {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
-                [{"1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024]}],
-                {"a": {"0": ["axis_batch", 0, 1024]}, "b": {"1": ["x_axis", 0, 8]}},
+                {0: "axis_batch", 1: "x_axis"},
+                [{1: "x_axis"}, {0: "axis_batch"}],
+                {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 None,
             ],
             (
-                {0: ["axis_batch", 0, 1024], 1: ["x_axis", 0, 8]},
-                ({1: ["x_axis", 0, 8]}, {0: ["axis_batch", 0, 1024]}),
-                {"a": {0: ["axis_batch", 0, 1024]}, "b": {1: ["x_axis", 0, 8]}},
+                {0: "axis_batch", 1: "x_axis"},
+                ({1: "x_axis"}, {0: "axis_batch"}),
+                {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 None,
             ),
             _get_simulate_torch_float_tensor_inputs(return_tuple=True),
         ),
         (
+            # We mess up the order of inputs and dynamic shapes from the model signature
+            # to test that the validation can order it back.
             {
-                "w": {"0": ["axis_batch", 0, 1024], "1": ["x_axis", 0, 8]},
-                "x": [{"1": ["x_axis", 0, 8]}, {"0": ["axis_batch", 0, 1024]}],
-                "y": {"a": {"0": ["axis_batch", 0, 1024]}, "b": {"1": ["x_axis", 0, 8]}},
+                "y": {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
+                "w": {0: "axis_batch", 1: "x_axis"},
+                "x": [{1: "x_axis"}, {0: "axis_batch"}],
                 "z": None,
             },
             {
-                "w": {0: ["axis_batch", 0, 1024], 1: ["x_axis", 0, 8]},
-                "x": ({1: ["x_axis", 0, 8]}, {0: ["axis_batch", 0, 1024]}),
-                "y": {"a": {0: ["axis_batch", 0, 1024]}, "b": {1: ["x_axis", 0, 8]}},
+                "w": {0: "axis_batch", 1: "x_axis"},
+                "x": ({1: "x_axis"}, {0: "axis_batch"}),
+                "y": {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 "z": None,
             },
             _get_simulate_torch_float_tensor_inputs(return_tuple=False),
@@ -255,8 +298,13 @@ def _get_simulate_torch_float_tensor_inputs(return_tuple: bool = False):
     ],
     ids=["in_nested_tuple_inputs", "in_nested_dict_format"],
 )
-def test___validate_dynamic_shapes_follow_input_format(dynamic_shapes, expected_dynamic_shapes, inputs):
+def test___validate_dynamic_shapes_follow_input_format_and_follow_order_of_model_sig(
+    dynamic_shapes, expected_dynamic_shapes, inputs
+):
     from olive.passes.onnx.conversion import _validate_dynamic_shapes
 
-    converted_dynamic_shapes = _validate_dynamic_shapes(dynamic_shapes, inputs)
+    if isinstance(dynamic_shapes, (tuple, list)):
+        converted_dynamic_shapes, _, _ = _validate_dynamic_shapes(dynamic_shapes, inputs, {}, SingnatureOnlyModel())
+    else:
+        converted_dynamic_shapes, _, _ = _validate_dynamic_shapes(dynamic_shapes, (), inputs, SingnatureOnlyModel())
     assert converted_dynamic_shapes == expected_dynamic_shapes

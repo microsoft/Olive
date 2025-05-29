@@ -15,12 +15,11 @@ from abc import abstractmethod
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import transformers
 from packaging import version
 
-from olive.common.config_utils import ConfigBase
 from olive.common.hf.mappings import MODELS_TO_LORA_TARGET_MODULES_MAPPING
 from olive.common.hf.utils import get_peft_task_type_from_task
 from olive.common.pydantic_v1 import Field, validator
@@ -32,6 +31,7 @@ from olive.model import HfModelHandler
 from olive.model.config.hf_config import HfLoadKwargs
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pass_config import BasePassConfig
 from olive.passes.pytorch.train_utils import (
     BaseHFTrainingArguments,
     count_trainable_parameters,
@@ -61,15 +61,13 @@ class HFTrainingArguments(BaseHFTrainingArguments):
     Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.
     """
 
-    # TODO(jambayk): is this default optim required? does it work for regular lora? what about lr_scheduler_type?
-    optim: str = Field("paged_adamw_32bit", description="The optimizer to use.")
     learning_rate: float = Field(0.0002, description="The initial learning rate for AdamW.")
     lr_scheduler_type: str = Field(
         "constant",
         description="Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.",
     )
     warmup_ratio: float = Field(0.03, description="Fraction of steps to do a warmup for.")
-    evaluation_strategy: str = Field(
+    eval_strategy: str = Field(
         None,
         description=(
             "The evaluation strategy to use. Forced to 'no' if eval_dataset is not provided. Otherwise, 'steps' unless"
@@ -102,7 +100,7 @@ class LoRA(Pass):
     """Run LoRA fine-tuning on a Hugging Face PyTorch model."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "r": PassConfigParam(
                 type_=int,
@@ -114,7 +112,7 @@ class LoRA(Pass):
             "lora_dropout": PassConfigParam(
                 type_=float, default_value=0.05, description="The dropout probability for Lora layers."
             ),
-            "target_modules": PassConfigParam(type_=List[str], default_value=None, description="Target modules"),
+            "target_modules": PassConfigParam(type_=list[str], default_value=None, description="Target modules"),
             "modules_to_save": PassConfigParam(
                 type_=None,
                 default_value=None,
@@ -144,19 +142,22 @@ class LoRA(Pass):
                     "see 'https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices'"
                 ),
             ),
+            "ephemeral_gpu_offload": PassConfigParam(
+                type_=bool, default_value=False, description="Ephemeral GPU offload"
+            ),
             # data parameters
             "train_data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description="Data config for fine-tuning training.",
             ),
             "eval_data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 description="Data config for fine-tuning evaluation. Optional if evaluation is not needed.",
             ),
             # training parameters
             "training_args": PassConfigParam(
-                type_=Union[HFTrainingArguments, Dict],
+                type_=Union[HFTrainingArguments, dict],
                 default_value=None,
                 description=(
                     "Training arguments. If None, will use default arguments. See HFTrainingArguments for more details."
@@ -165,7 +166,7 @@ class LoRA(Pass):
         }
 
     @classmethod
-    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+    def check_dependencies(cls, config: type[BasePassConfig], is_qlora: bool = False):
         """Check dependencies for the pass."""
         # bitsandbytes quantization only supported after transformers 4.30.0
         if is_qlora and version.parse(transformers.__version__) < version.parse("4.30.0"):
@@ -187,7 +188,7 @@ class LoRA(Pass):
 
     # TODO(jambayk): consider introducing a data collator component for data container
     @staticmethod
-    def collate_batch(batch: List[Dict], tokenizer: "PreTrainedTokenizer") -> Dict[str, "torch.Tensor"]:
+    def collate_batch(batch: list[dict], tokenizer: "PreTrainedTokenizer") -> dict[str, "torch.Tensor"]:
         """Collate a batch of samples into a padded batch of tensors.
 
         Add padding to the input_ids, attention_mask and labels.
@@ -220,9 +221,7 @@ class LoRA(Pass):
         return new_batch
 
     @staticmethod
-    def get_datasets(
-        config: ConfigBase,
-    ) -> Tuple["Dataset", Optional["Dataset"]]:
+    def get_datasets(config: type[BasePassConfig]) -> tuple["Dataset", Optional["Dataset"]]:
         """Load training and evaluation datasets."""
         # we return dataset.Dataset object since the trainer works better with it
         # load training dataset
@@ -235,11 +234,14 @@ class LoRA(Pass):
 
         return train_dataset, eval_dataset
 
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
-        # convert config to pass config class
-        # this will validate the config and convert to the correct types
-        config = self._config_class(**config)
+    def _run_for_config(
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
+        return self._run_lora_training(model, config, output_model_path)
 
+    def _run_lora_training(
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str, use_dora: bool = False
+    ) -> HfModelHandler:
         # check dependencies
         self.check_dependencies(config)
 
@@ -260,14 +262,16 @@ class LoRA(Pass):
         # disable exllama (gptq pass disables it)
 
         # add lora modules
-        pytorch_model = self.enable_lora(pytorch_model, config, model.task)
+        pytorch_model = self.enable_lora(pytorch_model, config, model.task, use_dora=use_dora)
 
         # train and return new model
         return self.train_and_save_new_model(
             pytorch_model, model.get_hf_tokenizer(), config, deepcopy(model), output_model_path
         )
 
-    def load_base_pytorch_model(self, model_handler: HfModelHandler, config: ConfigBase, **kwargs) -> "PreTrainedModel":
+    def load_base_pytorch_model(
+        self, model_handler: HfModelHandler, config: type[BasePassConfig], **kwargs
+    ) -> "PreTrainedModel":
         """Load a base PyTorch model for fine-tuning.
 
         :param model_handler: The input model handler.
@@ -291,10 +295,11 @@ class LoRA(Pass):
     def init_adapters(
         self,
         model: "PreTrainedModel",
-        config: ConfigBase,
+        config: type[BasePassConfig],
         *,
         task: Optional[str] = None,
         use_loftq: Optional[bool] = False,
+        use_dora: Optional[bool] = False,
     ) -> "PeftModel":
         """Initialize LoRA adapters.
 
@@ -302,6 +307,7 @@ class LoRA(Pass):
         :param config: The config for the pass run.
         :param task: The task type of the model.
         :param use_loftq: Whether to use LoftQ to initialize weights.
+        :param use_dora: Whether to use DoRA to initialize weights.
         :return: The LoRA model.
         """
         config_kwargs = {}
@@ -312,6 +318,10 @@ class LoRA(Pass):
                 "init_lora_weights": "loftq",
                 "loftq_config": LoftQConfig(loftq_bits=4, loftq_iter=config.loftq_iter),
             }
+        if use_dora:
+            config_kwargs = {
+                "use_dora": True,
+            }
         if task:
             config_kwargs.update({"task_type": get_peft_task_type_from_task(task, fail_on_not_found=True)})
 
@@ -320,8 +330,9 @@ class LoRA(Pass):
     def enable_lora(
         self,
         model: "PreTrainedModel",
-        config: ConfigBase,
+        config: type[BasePassConfig],
         task: Optional[str] = None,
+        use_dora: bool = False,
         adapter_path: Optional[str] = None,
     ) -> "PeftModel":
         """Enable LoRA fine-tuning on a Hugging Face PyTorch model.
@@ -333,6 +344,7 @@ class LoRA(Pass):
         :param model: The Hugging Face PyTorch model to enable LoRA fine-tuning on.
         :param config: The config for the pass run.
         :param task: The task type of the model.
+        :param use_dora: Whether to use DoRA to train adapters.
         :param adapter_path: Path to the adapter weights. If None, will initialize new adapters.
         :return: The LoRA model.
         """
@@ -351,7 +363,7 @@ class LoRA(Pass):
 
         if not adapter_path:
             logger.debug("Initializing LoRA adapters from config")
-            lora_model = self.init_adapters(model, config, task=task)
+            lora_model = self.init_adapters(model, config, task=task, use_dora=use_dora)
         else:
             from peft import PeftModel
 
@@ -368,7 +380,7 @@ class LoRA(Pass):
         self,
         model: "PeftModel",
         tokenizer: "PreTrainedTokenizer",
-        config: ConfigBase,
+        config: type[BasePassConfig],
         output_model: HfModelHandler,
         output_model_path: str,
     ) -> HfModelHandler:
@@ -393,11 +405,11 @@ class LoRA(Pass):
         train_dataset, eval_dataset = self.get_datasets(config)
 
         # get training arguments
-        orig_eval_strat = config.training_args.evaluation_strategy
-        config.training_args.evaluation_strategy = "no"
+        orig_eval_strat = config.training_args.eval_strategy
+        config.training_args.eval_strategy = "no"
         if eval_dataset:
             # default to "steps" if eval dataset is provided
-            config.training_args.evaluation_strategy = "steps" if orig_eval_strat in {None, "no"} else orig_eval_strat
+            config.training_args.eval_strategy = "steps" if orig_eval_strat in {None, "no"} else orig_eval_strat
 
         # We always create a temp dir even if output_dir is provided because we want the temp dir to be deleted
         # after training or if there is an error
@@ -475,7 +487,7 @@ class LoRA(Pass):
         return resolve_torch_dtype(torch_dtype)
 
     @staticmethod
-    def get_target_modules(model: HfModelHandler) -> Optional[List[str]]:
+    def get_target_modules(model: HfModelHandler) -> Optional[list[str]]:
         """Get the target modules for the model."""
         from peft.utils import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
 
@@ -490,9 +502,11 @@ class LoRA(Pass):
         return None
 
     @staticmethod
-    def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
+    def get_peft_model(
+        model: "PreTrainedModel", config: type[BasePassConfig], config_kwargs: dict = None
+    ) -> "PeftModel":
         """Get the PEFT model for LoRA fine-tuning."""
-        from peft import LoraConfig, get_peft_model
+        from peft import LoraConfig, LoraRuntimeConfig, get_peft_model
 
         if config_kwargs is None:
             config_kwargs = {}
@@ -504,17 +518,27 @@ class LoRA(Pass):
             target_modules=config.target_modules,
             bias="none",
             modules_to_save=config.modules_to_save,
+            runtime_config=LoraRuntimeConfig(ephemeral_gpu_offload=config.ephemeral_gpu_offload),
             **config_kwargs,
         )
 
         return get_peft_model(model, lora_config)
 
 
+class DoRA(LoRA):
+    """Run DoRA fine-tuning on a Hugging Face PyTorch model."""
+
+    def _run_for_config(
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
+        return self._run_lora_training(model, config, output_model_path, use_dora=True)
+
+
 class LoRAVariant(LoRA):
     """Run LoRA variant fine-tuning on a Hugging Face PyTorch model."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "rank_dropout": PassConfigParam(
                 type_=float,
@@ -532,30 +556,34 @@ class LoRAVariant(LoRA):
                 description="Use parameter effective decomposition for Conv2d with ksize > 1.",
             ),
             "exclude_modules": PassConfigParam(
-                type_=Optional[Union[List[str], str]], default_value=None, description="Modules to exclude from tuning."
+                type_=Optional[Union[list[str], str]], default_value=None, description="Modules to exclude from tuning."
             ),
             "init_weights": PassConfigParam(
                 type_=bool, default_value=True, description="Whether to perform initialization of adapter weights."
             ),
             "layers_to_transform": PassConfigParam(
-                type_=List[int], default_value=None, description="The layer indices to transform."
+                type_=list[int], default_value=None, description="The layer indices to transform."
             ),
             "layers_pattern": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=None,
                 description="The layer pattern name, used only if layers_to_transform is different from None.",
             ),
             "rank_pattern": PassConfigParam(
-                type_=Dict,
+                type_=dict,
                 default_value={},
-                description="The mapping from layer names or regexp expression "
-                "to ranks which are different from the default rank specified by r.",
+                description=(
+                    "The mapping from layer names or regexp expression "
+                    "to ranks which are different from the default rank specified by r."
+                ),
             ),
             "alpha_pattern": PassConfigParam(
-                type_=Dict,
+                type_=dict,
                 default_value={},
-                description="The mapping from layer names or regexp expression "
-                "to alphas which are different from the default alpha specified by alpha.",
+                description=(
+                    "The mapping from layer names or regexp expression "
+                    "to alphas which are different from the default alpha specified by alpha."
+                ),
             ),
         }
         config.update(super()._default_config(accelerator_spec))
@@ -566,7 +594,9 @@ class LoHa(LoRAVariant):
     """Run LoHa fine-tuning on a Hugging Face PyTorch model."""
 
     @staticmethod
-    def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
+    def get_peft_model(
+        model: "PreTrainedModel", config: type[BasePassConfig], config_kwargs: dict = None
+    ) -> "PeftModel":
         """Get the PEFT model for LoHa fine-tuning."""
         from peft import LoHaConfig, get_peft_model
 
@@ -590,9 +620,9 @@ class LoHa(LoRAVariant):
         return get_peft_model(model, config)
 
     @classmethod
-    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+    def check_dependencies(cls, config: type[BasePassConfig], is_qlora: bool = False):
         """Check dependencies for the pass."""
-        super().check_dependencies(config)
+        super().check_dependencies(config, is_qlora=is_qlora)
 
         from peft import __version__ as peft_version
 
@@ -605,7 +635,7 @@ class LoKr(LoRAVariant):
     """Run LoKr fine-tuning on a Hugging Face PyTorch model."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "decompose_both": PassConfigParam(
                 type_=bool,
@@ -627,7 +657,9 @@ class LoKr(LoRAVariant):
         return config
 
     @staticmethod
-    def get_peft_model(model: "PreTrainedModel", config: ConfigBase, config_kwargs: Dict = None) -> "PeftModel":
+    def get_peft_model(
+        model: "PreTrainedModel", config: type[BasePassConfig], config_kwargs: dict = None
+    ) -> "PeftModel":
         """Get the PEFT model for LoKr fine-tuning."""
         from peft import LoKrConfig, get_peft_model
 
@@ -654,9 +686,9 @@ class LoKr(LoRAVariant):
         return get_peft_model(model, config)
 
     @classmethod
-    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+    def check_dependencies(cls, config: type[BasePassConfig], is_qlora: bool = False):
         """Check dependencies for the pass."""
-        super().check_dependencies(config)
+        super().check_dependencies(config, is_qlora=is_qlora)
 
         from peft import __version__ as peft_version
 
@@ -665,12 +697,22 @@ class LoKr(LoRAVariant):
             raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
 
 
+class QLoRATrainingArguments(HFTrainingArguments):
+    """Training arguments for QLoRA fine-tuning.
+
+    Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.
+    """
+
+    optim: str = Field("paged_adamw_32bit", description="The optimizer to use.")
+
+
 class QLoRABase(LoRA):
     """Base class for QLoRA and LoftQ fine-tuning passes."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+        return {
+            **super()._default_config(accelerator_spec),
             # quantization parameters
             "compute_dtype": PassConfigParam(
                 type_=str,
@@ -687,20 +729,25 @@ class QLoRABase(LoRA):
                     " model will be in the original precision. If True, the base model will be quantized on load."
                 ),
             ),
+            # training parameters
+            "training_args": PassConfigParam(
+                type_=Union[QLoRATrainingArguments, dict],
+                default_value=None,
+                description=(
+                    "Training arguments. If None, will use default arguments. See QLoRATrainingArguments for more"
+                    " details."
+                ),
+            ),
         }
-        config.update(super()._default_config(accelerator_spec))
-        return config
 
-    def _run_for_config(self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str) -> HfModelHandler:
-        # convert config to pass config class
-        # this will validate the config and convert to the correct types
-        config = self._config_class(**config)
-
+    def _run_for_config(
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
         # check dependencies
         self.check_dependencies(config, is_qlora=True)
 
         # use default training args if not provided
-        config.training_args = config.training_args or HFTrainingArguments()
+        config.training_args = config.training_args or QLoRATrainingArguments()
 
         # model cannot be quantized
         model_config = model.get_hf_model_config()
@@ -724,8 +771,8 @@ class QLoRABase(LoRA):
 
     @abstractmethod
     def get_quant_model(
-        self, model: HfModelHandler, config: ConfigBase, output_model_path: str
-    ) -> Tuple[HfModelHandler, "PreTrainedModel", Dict, List[str]]:
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> tuple[HfModelHandler, "PreTrainedModel", dict, list[str]]:
         """Get the model handler, LoRA model for QLoRA fine-tuning.
 
         :param model: The input model handler.
@@ -740,7 +787,7 @@ class QLoRA(QLoRABase):
     """Run QLoRA fine-tuning on a Hugging Face PyTorch model."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             # quantization parameters
             "double_quant": PassConfigParam(
@@ -761,8 +808,8 @@ class QLoRA(QLoRABase):
         return config
 
     def get_quant_model(
-        self, model: HfModelHandler, config: ConfigBase, output_model_path: str
-    ) -> Tuple[HfModelHandler, "PreTrainedModel", Dict, List[str]]:
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> tuple[HfModelHandler, "PreTrainedModel", dict, list[str]]:
         """Get the model handler, LoRA model for QLoRA fine-tuning.
 
         :param model: The input model handler.
@@ -799,7 +846,7 @@ class LoftQ(QLoRABase):
     """Run LoftQ fine-tuning on a Hugging Face PyTorch model."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             # quantization parameters
             "loftq_iter": PassConfigParam(
@@ -812,7 +859,7 @@ class LoftQ(QLoRABase):
         return config
 
     @classmethod
-    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+    def check_dependencies(cls, config: type[BasePassConfig], is_qlora: bool = False):
         """Check dependencies for the pass."""
         super().check_dependencies(config, is_qlora=is_qlora)
 
@@ -823,8 +870,8 @@ class LoftQ(QLoRABase):
             raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
 
     def get_quant_model(
-        self, model: HfModelHandler, config: ConfigBase, output_model_path: str
-    ) -> Tuple[HfModelHandler, "PreTrainedModel", Dict, List[str]]:
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> tuple[HfModelHandler, "PreTrainedModel", dict, list[str]]:
         """Get the model handler, LoRA model for QLoRA fine-tuning.
 
         :param model: The input model handler.

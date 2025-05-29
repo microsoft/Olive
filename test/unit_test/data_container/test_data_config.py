@@ -3,13 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from test.unit_test.utils import get_data_config
-
 import pytest
 
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.data.registry import Registry
+from test.unit_test.utils import get_data_config
 
 # pylint: disable=attribute-defined-outside-init
 

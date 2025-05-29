@@ -2,18 +2,21 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-# ruff: noqa: RUF012
-
+#
+# Modifications Copyright(C) 2025 Advanced Micro Devices, Inc. All rights reserved.
+#
 import inspect
 import logging
+import math
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Type
+from typing import Any, ClassVar, Optional
 
 import numpy as np
 import onnx
 from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
+from onnxscript import ir
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -21,21 +24,43 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.onnx_dag import OnnxDAG
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
 
 class Surgeon:
-    registry: ClassVar[Dict[str, Type["Surgeon"]]] = {}
+    """Base class for surgeons that operate on the ONNX IR model."""
+
+    # Refer to https://microsoft.github.io/onnxscript/intermediate_representation/ir_api.html#onnxscript.ir.Model
+    # for the IR model API.
+
+    registry: ClassVar[dict[str, type["Surgeon"]]] = {}
 
     @classmethod
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         Surgeon.registry[cls.__name__.lower()] = cls
 
-    def __call__(self, model: ModelProto):
+    def __init__(self):
+        pass
+
+    def __call__(self, model: ModelProto) -> ModelProto:
+        return ir.to_proto(self.call_ir(ir.from_proto(model)))
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        # Implement this method in subclasses to operate on the IR model.
         raise NotImplementedError
+
+
+class ProtoSurgeon(Surgeon):
+    """Base class for surgeons that operate on the ONNX model proto directly."""
+
+    def __call__(self, model: ModelProto) -> ModelProto:
+        raise NotImplementedError
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        raise RuntimeError("Implement __call__ method instead of operator on onnx.ModelProto directly.")
 
     @staticmethod
     def get_node_by_name(model, name: str, match_output: bool = False):
@@ -45,7 +70,7 @@ class Surgeon:
         return None
 
     @staticmethod
-    def get_tensor_shapes(model) -> Dict[str, List[int]]:
+    def get_tensor_shapes(model) -> dict[str, list[int]]:
         return {info.name: [x.dim_value for x in info.type.tensor_type.shape.dim] for info in model.graph.value_info}
 
     @staticmethod
@@ -57,7 +82,7 @@ class Surgeon:
         return {initializer.name: initializer.data_type for initializer in model.graph.initializer}
 
     @staticmethod
-    def get_initializer_shapes(model) -> Dict[str, List[int]]:
+    def get_initializer_shapes(model) -> dict[str, list[int]]:
         return {initializer.name: initializer.dims for initializer in model.graph.initializer}
 
     @staticmethod
@@ -67,71 +92,43 @@ class Surgeon:
                 return initializer
         return None
 
+    @staticmethod
+    def create_new_name(name: str, old_op: str, new_op: str) -> str:
+        return name.replace(old_op, new_op) if old_op in name else f"{name}_{new_op}"
+
 
 class RenameInputs(Surgeon):
-    def __init__(self, old_names: List[str], new_names: List[str]):
+    def __init__(self, old_names: list[str], new_names: list[str]):
         self.old_names = old_names
         self.new_names = new_names
 
-    def __call__(self, model: ModelProto):
-        for old_name, new_name in zip(self.old_names, self.new_names):
-            for node in model.graph.node:
-                for idx, input_name in enumerate(node.input):
-                    if input_name == old_name:
-                        node.input[idx] = new_name
-
-                for idx, output_name in enumerate(node.output):
-                    if output_name == old_name:
-                        node.output[idx] = new_name
-
-            for idx, graph_input in enumerate(model.graph.input):
-                if graph_input.name == old_name:
-                    model.graph.input[idx].name = new_name
-
-            for idx, graph_output in enumerate(model.graph.output):
-                if graph_output.name == old_name:
-                    model.graph.output[idx].name = new_name
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        replacement = dict(zip(self.old_names, self.new_names))
+        for inp in model.graph.inputs:
+            if inp.name in replacement:
+                inp.name = replacement[inp.name]
         return model
 
 
 class RenameOutputs(Surgeon):
-    def __init__(self, old_names: List[str], new_names: List[str]):
+    def __init__(self, old_names: list[str], new_names: list[str]):
         self.old_names = old_names
         self.new_names = new_names
 
-    def __call__(self, model: ModelProto):
-        for old_name, new_name in zip(self.old_names, self.new_names):
-            for node in model.graph.node:
-                for idx, input_name in enumerate(node.input):
-                    if input_name == old_name:
-                        node.input[idx] = new_name
-
-                for idx, output_name in enumerate(node.output):
-                    if output_name == old_name:
-                        node.output[idx] = new_name
-
-            for graph_input in model.graph.input:
-                if graph_input.name == old_name:
-                    graph_input.name = new_name
-
-            for graph_output in model.graph.output:
-                if graph_output.name == old_name:
-                    graph_output.name = new_name
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        replacement = dict(zip(self.old_names, self.new_names))
+        for output in model.graph.outputs:
+            if output.name in replacement:
+                output.name = replacement[output.name]
         return model
 
 
-class InferShapes(Surgeon):
-    def __init__(self):
-        pass
-
+class InferShapes(ProtoSurgeon):
     def __call__(self, model: ModelProto):
         return onnx.shape_inference.infer_shapes(model)
 
 
-class RemoveShapes(Surgeon):
-    def __init__(self):
-        pass
-
+class RemoveShapes(ProtoSurgeon):
     def __call__(self, model: ModelProto):
         while len(model.graph.value_info) > 0:
             model.graph.value_info.pop()
@@ -139,38 +136,35 @@ class RemoveShapes(Surgeon):
 
 
 class RemoveInitializerFromInputs(Surgeon):
-    def __init__(self):
-        pass
-
-    def __call__(self, model: ModelProto):
-        initializer_names = {initializer.name for initializer in model.graph.initializer}
-        updated_inputs = [graph_input for graph_input in model.graph.input if graph_input.name not in initializer_names]
-        del model.graph.input[:]
-        model.graph.input.extend(updated_inputs)
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        while model.graph.inputs and (model.graph.inputs[-1].name in model.graph.initializers):
+            # Initializers are always at the end of the input list
+            model.graph.inputs.pop()
         return model
 
 
 class ReorderInputs(Surgeon):
-    def __init__(self, permutation):
+    """Reorder the inputs of the model according to the given permutation."""
+
+    def __init__(self, permutation: Sequence[int]):
         self.permutation = permutation
 
-    def __call__(self, model: ModelProto):
-        inputs = list(model.graph.input)
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        inputs = list(model.graph.inputs)
         num_inputs = len(inputs)
 
         if sorted(self.permutation) != list(range(num_inputs)):
             raise ValueError("Invalid permutation: permutation must be a rearrangement of input indices.")
 
         reordered_inputs = [inputs[idx] for idx in self.permutation]
-        del model.graph.input[:]
-        model.graph.input.extend(reordered_inputs)
+        model.graph.inputs.clear()
+        model.graph.inputs.extend(reordered_inputs)
 
         return model
 
 
-class ReplaceErfWithTanh(Surgeon):
-
-    DTYPE_MAP = {
+class ReplaceErfWithTanh(ProtoSurgeon):
+    DTYPE_MAP: Mapping = {
         TensorProto.FLOAT: np.float32,
         TensorProto.FLOAT16: np.float16,
         TensorProto.DOUBLE: np.float64,
@@ -184,9 +178,6 @@ class ReplaceErfWithTanh(Surgeon):
         TensorProto.UINT32: np.uint32,
         TensorProto.UINT64: np.uint64,
     }
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         idx = 0
@@ -245,7 +236,7 @@ class ReplaceErfWithTanh(Surgeon):
         raise ValueError(f"Cannot find dtype for {name}")
 
 
-class ZeroOutInput(Surgeon):
+class ZeroOutInput(ProtoSurgeon):
     def __init__(self, node_name, input_idx):
         self.node_name = node_name
         self.input_idx = input_idx
@@ -319,7 +310,7 @@ class ZeroOutInput(Surgeon):
         return model
 
 
-class RemoveInputs(Surgeon):
+class RemoveInputs(ProtoSurgeon):
     def __init__(self, names):
         self.names = names
 
@@ -344,17 +335,17 @@ class RemoveInputs(Surgeon):
 
 
 class ExposeOutputs(Surgeon):
-    def __init__(self, names):
-        self.names = names
+    def __init__(self, names: Sequence[str]):
+        self.names = set(names)
 
-    def __call__(self, model: ModelProto):
-        for node in model.graph.node:
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        for node in model.graph:
             if node.name in self.names:
-                model.graph.output.extend([onnx.ValueInfoProto(name=node.output[0])])
+                model.graph.outputs.append(node.outputs[0])
         return model
 
 
-class ExposeQuantizedOutput(Surgeon):
+class ExposeQuantizedOutput(ProtoSurgeon):
     def __init__(self, output_name):
         self.output_name = output_name
 
@@ -456,7 +447,7 @@ class ExposeQuantizedOutput(Surgeon):
         return self._add_zero_point(model, zero_point_value, zero_point_onnx_dtype, zero_point_np_dtype)
 
 
-class RMSNormToL2Norm(Surgeon):
+class RMSNormToL2Norm(ProtoSurgeon):
     """Replace RMSNorm subgraph with L2Norm subgraph.
 
     RMSNorm pattern:
@@ -473,12 +464,9 @@ class RMSNormToL2Norm(Surgeon):
     [Root] --> LpNormalization --> Mul
                 (p=2, axis=-1)
 
-    Where the weight of the Mul node is multiplied by sqrt(N) where N is equal to the reduced axis size.
+    The weight of the Mul node is multiplied by sqrt(N) where N is equal to the reduced axis size.
     If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
     """
-
-    def __init__(self):
-        pass
 
     def __call__(self, model: ModelProto):
         dag = OnnxDAG(model)
@@ -497,11 +485,8 @@ class RMSNormToL2Norm(Surgeon):
             graph_idx = dag.get_graph_idx(node_name)
 
             # name for the new L2Norm node
-            l2norm_node_name = node_name.replace("Pow", "L2Norm") if "Pow" in node_name else f"{node_name}_L2Norm"
-            node_output_name = dag.get_node_outputs(node_name)[0]
-            l2norm_node_output_name = (
-                node_output_name.replace("Pow", "L2Norm") if "Pow" in node_output_name else f"{node_output_name}_L2Norm"
-            )
+            l2norm_node_name = self.create_new_name(node_name, "Pow", "L2Norm")
+            l2norm_node_output_name = f"{l2norm_node_name}_output_0"
 
             # create L2Norm node
             l2norm_node = onnx.helper.make_node(
@@ -521,6 +506,12 @@ class RMSNormToL2Norm(Surgeon):
                 logger.debug("RMSNorm Pattern does not end with Cast or Mul. Found %s", final_node_children)
                 continue
             final_node_output_name = dag.get_node_outputs(final_node_name)[0]
+            # add value info for the new L2Norm node output
+            if final_node_output_vi := dag.get_value_info_proto(final_node_output_name):
+                l2norm_node_output_vi = onnx.ValueInfoProto()
+                l2norm_node_output_vi.CopyFrom(final_node_output_vi)
+                l2norm_node_output_vi.name = l2norm_node_output_name
+                dag.add_value_info(l2norm_node_output_vi, graph_idx)
 
             # Get the weight Mul node
             if dag.get_node_op_type(final_node_children[0]) == "Mul":
@@ -547,7 +538,7 @@ class RMSNormToL2Norm(Surgeon):
                 # rotated models have all 1s and might share initializer
                 # don't want to multiply by sqrt(N) multiple times even though it is fine in all 1s case
                 rmsnorm_weight = dag.get_initializer_np_array(rmsnorm_weight_name)
-                sqrt_n = np.sqrt(rmsnorm_weight.shape[-1])
+                sqrt_n = np.sqrt(rmsnorm_weight.shape[-1]).astype(rmsnorm_weight.dtype)
                 if np.all(rmsnorm_weight == 1):
                     # this is possible in a quarot/spinquant rotated model
                     # Multiplying by 1D is probably faster
@@ -573,7 +564,7 @@ class RMSNormToL2Norm(Surgeon):
         return dag.model
 
     @staticmethod
-    def get_rmsnorm_nodes(pow_node: str, dag: OnnxDAG) -> Optional[List[str]]:
+    def get_rmsnorm_nodes(pow_node: str, dag: OnnxDAG) -> Optional[list[str]]:
         # Two possible patterns:
         # x / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div
         # x * 1 / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div -> Mul
@@ -595,11 +586,532 @@ class RMSNormToL2Norm(Surgeon):
         return rmsnorm_nodes if len(rmsnorm_nodes) >= (len(pattern) - 1) else []
 
 
-class ReplaceAttentionMaskValue(Surgeon):
+class SimplifiedLayerNormToL2Norm(ProtoSurgeon):
+    """Replace Skip/SimplifiedLayerNormalization node with L2Norm subgraph.
+
+    SimplifiedLayerNormalization is replaced with:
+    [Root] --> LpNormalization --> Mul
+               (p=2, axis=-1)
+
+    SkipSimplifiedLayerNormalization is replaced with:
+    [Root1] -------> Add
+                      |
+                      v
+    [Root2] --> LpNormalization --> Mul
+                (p=2, axis=-1)
+
+    Second input to Mul is the weight of the layer norm multiplied by sqrt(N) where N is equal to the hidden size.
+    If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
+    """
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        modified = 0
+        for node_name in dag.get_node_names():
+            op_type = dag.get_node_op_type(node_name)
+            if op_type not in {"SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization"}:
+                continue
+
+            if len(dag.get_node_inputs(node_name, True)) != 2 + int(op_type == "SkipSimplifiedLayerNormalization"):
+                # SimplifiedLayerNormalization: X, scale supported
+                # SkipSimplifiedLayerNormalization: input, skip, gamma supported
+                continue
+            if len(dag.get_node_outputs(node_name, True)) > 1 + int(op_type == "SkipSimplifiedLayerNormalization"):
+                # SimplifiedLayerNormalization: output supported
+                # SkipSimplifiedLayerNormalization: output, input_skip_bias_sum (optional) supported
+                continue
+
+            graph_idx = dag.get_graph_idx(node_name)
+
+            if op_type == "SkipSimplifiedLayerNormalization":
+                # SimplifiedLayerNormalization preceded by an Add node
+                add_node_name = self.create_new_name(node_name, op_type, "Add")
+                add_node_output_name = f"{add_node_name}_output_0"
+                dag.add_node(
+                    onnx.helper.make_node(
+                        "Add",
+                        inputs=dag.get_node_inputs(node_name, True)[:2],
+                        outputs=[add_node_output_name],
+                        name=add_node_name,
+                    ),
+                    graph_idx,
+                )
+
+                # input_skip_bias_sum is used downstream
+                if len(dag.get_node_outputs(node_name, True)) == 2:
+                    skip_output_name = dag.get_node_outputs(node_name, True)[1]
+                    if skip_output_vi := dag.get_value_info_proto(skip_output_name):
+                        add_output_vi = onnx.ValueInfoProto()
+                        add_output_vi.CopyFrom(skip_output_vi)
+                        add_output_vi.name = add_node_output_name
+                        dag.add_value_info(add_output_vi, graph_idx)
+
+                    for child_name in dag.get_consumers(skip_output_name):
+                        dag.replace_node_input(child_name, skip_output_name, add_node_output_name)
+
+                l2norm_node_input_name = add_node_output_name
+            else:
+                l2norm_node_input_name = dag.get_node_inputs(node_name, True)[0]
+
+            layernorm_node_output_name = dag.get_node_outputs(node_name, True)[0]
+
+            # add L2Norm node
+            l2norm_node_name = self.create_new_name(node_name, op_type, "L2Norm")
+            l2norm_node_output_name = f"{l2norm_node_name}_output_0"
+            dag.add_node(
+                onnx.helper.make_node(
+                    "LpNormalization",
+                    inputs=[l2norm_node_input_name],
+                    outputs=[l2norm_node_output_name],
+                    name=l2norm_node_name,
+                    axis=-1,
+                    p=2,
+                ),
+                graph_idx,
+            )
+            if layernorm_node_output_vi := dag.get_value_info_proto(layernorm_node_output_name):
+                l2norm_node_output_vi = onnx.ValueInfoProto()
+                l2norm_node_output_vi.CopyFrom(layernorm_node_output_vi)
+                l2norm_node_output_vi.name = l2norm_node_output_name
+                dag.add_value_info(l2norm_node_output_vi, graph_idx)
+
+            # add Mul node
+            mul_weight_name = dag.get_node_inputs(node_name, True)[-1]
+            mul_weight = dag.get_initializer_np_array(mul_weight_name)
+            sqrt_n = np.sqrt(mul_weight.shape[-1]).astype(mul_weight.dtype)
+            if np.all(mul_weight == 1):
+                # this is possible in a quarot/spinquant rotated model
+                # Multiplying by 1D is probably faster
+                mul_weight = np.array([1], dtype=mul_weight.dtype)
+            mul_weight = sqrt_n * mul_weight
+            dag.replace_initializer(onnx.numpy_helper.from_array(mul_weight, name=mul_weight_name))
+
+            mul_node_name = self.create_new_name(node_name, op_type, "Mul")
+            mul_node_output_name = f"{mul_node_name}_output_0"
+            dag.add_node(
+                onnx.helper.make_node(
+                    "Mul",
+                    inputs=[l2norm_node_output_name, mul_weight_name],
+                    outputs=[mul_node_output_name],
+                    name=mul_node_name,
+                ),
+                graph_idx,
+            )
+            if layernorm_node_output_vi := dag.get_value_info_proto(layernorm_node_output_name):
+                mul_output_vi = onnx.ValueInfoProto()
+                mul_output_vi.CopyFrom(layernorm_node_output_vi)
+                mul_output_vi.name = mul_node_output_name
+                dag.add_value_info(mul_output_vi, graph_idx)
+
+            for child_name in dag.get_consumers(layernorm_node_output_name):
+                dag.replace_node_input(child_name, layernorm_node_output_name, mul_node_output_name)
+
+            # remove node
+            dag.remove_node(node_name)
+
+            modified += 1
+
+        if modified > 0:
+            logger.debug("Replaced %d Skip/SimplifiedLayerNormalization nodes with L2Norm nodes", modified)
+
+        dag.update()
+        return dag.model
+
+
+class PowReduceSumPowDiv2LpNorm(ProtoSurgeon):
+    """Merge Pow ReduceSum Pow Div pattern to L2Norm.
+
+    Below pattern is replaced with LpNormalization (p=2, axis=-1):
+    [Root] --> Pow --> ReduceSum --> Pow -- Div
+        |                                    |
+        +------------------------------------+
+    """
+
+    def find_lp_norm_pattern(self, model: ModelProto):
+        matches = []
+        for node in model.graph.node:
+            if node.op_type != "Div":
+                continue
+
+            div_node = node
+            pow2_node = None
+            sum_node = None
+            pow_half_node = None
+
+            # Find Pow node input to Div (norm)
+            norm_input = div_node.input[1]
+            for node2 in model.graph.node:
+                if node2.output[0] == norm_input and node2.op_type == "Pow":
+                    pow_half_node = node2
+                    break
+
+            if not pow_half_node:
+                continue
+
+            sum_input = pow_half_node.input[0]
+            for node3 in model.graph.node:
+                if node3.output[0] == sum_input and node3.op_type == "ReduceSum":
+                    sum_node = node3
+                    break
+
+            if not sum_node:
+                continue
+
+            pow_input = sum_node.input[0]
+            for node4 in model.graph.node:
+                if node4.output[0] == pow_input and node4.op_type == "Pow":
+                    pow2_node = node4
+                    break
+
+            if not pow2_node:
+                continue
+
+            # Confirm constant exponents: 2 and 0.5
+            def is_const_pow(node, exp_val):
+                return node.op_type == "Pow" and exp_val in [
+                    onnx.numpy_helper.to_array(init).item()
+                    for init in model.graph.initializer
+                    if init.name == node.input[1]
+                ]
+
+            if not (is_const_pow(pow2_node, 2.0) and is_const_pow(pow_half_node, 0.5)):
+                continue
+
+            # Save matched nodes
+            matches.append((div_node, pow_half_node, sum_node, pow2_node))
+
+        return matches
+
+    def replace_with_lp_normalization(self, model: ModelProto):
+        matches = self.find_lp_norm_pattern(model)
+        logger.info("Replacing %d instance of the pattern with LpNorm", len(matches))
+        for div_node, pow_half_node, sum_node, pow2_node in matches:
+            input_name = pow2_node.input[0]
+            output_name = div_node.output[0]
+
+            lp_node = onnx.helper.make_node(
+                "LpNormalization",
+                inputs=[input_name],
+                outputs=[output_name],
+                name=div_node.name + "_lp_norm",
+                p=2,
+                axis=-1,
+            )
+
+            # Remove old nodes
+            nodes_to_remove = {div_node.name, pow_half_node.name, sum_node.name, pow2_node.name}
+            nodes = [n for n in model.graph.node if n.name not in nodes_to_remove]
+
+            # Insert new node
+            model.graph.ClearField("node")
+            model.graph.node.extend(nodes)
+            model.graph.node.append(lp_node)
+
+        return model
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(self.replace_with_lp_normalization(model))
+        dag.update()
+        return dag.model
+
+
+class MatMulAddToGemm(ProtoSurgeon):
+    """Replace MatMul + Add with Gemm.
+
+    Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor.
+    If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm
+    node and reshaped back to the original shape after the Gemm node.
+    """
+
+    def __call__(self, model: ModelProto):
+        from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+
+        try:
+            model = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+        except Exception as e:
+            logger.debug("Shape inference failed. Will try to continue without it. Error: %s", e)
+
+        dag = OnnxDAG(model)
+
+        modified = 0
+        removed_nodes = set()
+        for node_name in dag.get_node_names():
+            if node_name in removed_nodes or dag.get_node_op_type(node_name) != "MatMul":
+                continue
+            matmul_name = node_name
+            graph_idx = dag.get_graph_idx(node_name)
+
+            matmul_consumers = dag.get_consumers(node_name)
+            if len(matmul_consumers) != 1 or dag.get_node_op_type(matmul_consumers[0]) != "Add":
+                continue
+            add_name = matmul_consumers[0]
+
+            out = dag.get_node_outputs(add_name)[0]
+            if dag.is_output(out):
+                continue
+
+            # check matmul input shapes
+            matmul_inputs = dag.get_node_inputs(node_name)
+            matmul_input_shapes = [dag.get_io_shape(i_name) for i_name in matmul_inputs]
+            if len(matmul_input_shapes[1]) != 2:
+                continue
+            matmul_output = dag.get_node_outputs(node_name)[0]
+            matmul_output_shape = dag.get_io_shape(matmul_output)
+            elem_type = dag.get_io_elem_type(matmul_output)
+
+            # check add input shapes
+            bias_input = None
+            for i_name in dag.get_node_inputs(add_name):
+                if i_name != matmul_output:
+                    bias_input = i_name
+                    break
+            if bias_input is None or len(dag.get_io_shape(bias_input)) != 1:
+                continue
+            add_output = dag.get_node_outputs(add_name)[0]
+
+            gemm_name = self.create_new_name(matmul_name, "MatMul", "Gemm")
+            gemm_inputs = [*matmul_inputs, bias_input]
+
+            matmul_a_shape = matmul_input_shapes[0]
+            gemm_output_shape = matmul_output_shape
+            if len(matmul_a_shape) != 2:
+                # need to reshape the first input to 2D
+                # only support static shapes for now, otherwise we need to add shape related ops
+                if any(
+                    not isinstance(dim_value, int) for dim_value in [*matmul_input_shapes[0], *matmul_input_shapes[1]]
+                ):
+                    continue
+
+                pre_reshape_name = self.create_new_name(gemm_name, "Gemm", "Reshape_pre")
+                gemm_inputs[0] = self.add_reshape_node(
+                    dag,
+                    graph_idx,
+                    pre_reshape_name,
+                    matmul_inputs[0],
+                    [math.prod(matmul_a_shape[:-1]), matmul_a_shape[-1]],
+                    elem_type,
+                )
+                gemm_output_shape = [math.prod(matmul_output_shape[:-1]), matmul_output_shape[-1]]
+
+            gemm_output_name = f"{gemm_name}_output"
+            dag.add_node(
+                onnx.helper.make_node(
+                    "Gemm",
+                    inputs=gemm_inputs,
+                    outputs=[gemm_output_name],
+                    name=gemm_name,
+                    alpha=1.0,
+                    beta=1.0,
+                    transA=0,
+                    transB=0,
+                ),
+                graph_idx,
+            )
+            dag.add_value_info(
+                onnx.helper.make_tensor_value_info(
+                    gemm_output_name,
+                    elem_type,
+                    gemm_output_shape,
+                ),
+                graph_idx,
+            )
+            final_output_name = gemm_output_name
+
+            if len(matmul_a_shape) != 2:
+                # need to reshape the output to original shape
+                post_reshape_name = self.create_new_name(gemm_name, "Gemm", "Reshape_post")
+                final_output_name = self.add_reshape_node(
+                    dag,
+                    graph_idx,
+                    post_reshape_name,
+                    gemm_output_name,
+                    matmul_output_shape,
+                    elem_type,
+                )
+
+            # point all of the consumers of the original add to the final output
+            for consumer in dag.get_consumers(add_name):
+                dag.replace_node_input(consumer, add_output, final_output_name)
+
+            # remove the original add and matmul nodes
+            for to_remove in [add_name, matmul_name]:
+                dag.remove_node(to_remove)
+                removed_nodes.add(to_remove)
+            modified += 1
+
+        if modified > 0:
+            logger.debug("Replaced %d MatMul + Add nodes with Gemm nodes", modified)
+
+        dag.update()
+        return dag.model
+
+    @staticmethod
+    def add_reshape_node(
+        dag: OnnxDAG, graph_idx: int, node_name: str, input_name: str, target_shape: list[int], output_elem_type: int
+    ) -> str:
+        """Add a reshape node to the graph.
+
+        :param dag: The OnnxDAG object.
+        :param graph_idx: The index of the graph.
+        :param node_name: The name of the node.
+        :param input_name: The name of the input tensor.
+        :param target_shape: The target shape for the reshape operation.
+        :param output_elem_type: The element type of the output tensor.
+        :return: The name of the output tensor after reshaping.
+        """
+        # need to reshape the first input to 2D
+        reshape_shape_name = f"{node_name}_shape"
+        reshape_output_name = f"{node_name}_output"
+        dag.add_initializer(
+            onnx.numpy_helper.from_array(np.array(target_shape, dtype=np.int64), reshape_shape_name), graph_idx
+        )
+        dag.add_node(
+            onnx.helper.make_node(
+                "Reshape",
+                [input_name, reshape_shape_name],
+                [reshape_output_name],
+                name=node_name,
+            ),
+            graph_idx,
+        )
+        dag.add_value_info(
+            onnx.helper.make_tensor_value_info(
+                reshape_output_name,
+                output_elem_type,
+                target_shape,
+            ),
+            graph_idx,
+        )
+        return reshape_output_name
+
+
+class RemoveRopeMultiCache(ProtoSurgeon):
+    """Remove the multi rope cache from the model."""
+
+    def __init__(self, use_large_cache: bool = False):
+        self.use_large_cache = use_large_cache
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        supported_consumer_ops = {"GroupQueryAttention", "RotaryEmbedding"}
+        if not supported_consumer_ops.intersection(set(dag.get_node_op_types())):
+            return dag.model
+
+        # get the first GQA/RotaryEmbedding node
+        first_node = None
+        for node in dag.get_node_names():
+            op_type = dag.get_node_op_type(node)
+            if op_type in supported_consumer_ops:
+                first_node = node
+                break
+        first_node_inputs = dag.get_node_inputs(first_node)
+
+        # check if the GQA node has cos_cache and sin_cache inputs
+        if dag.get_node_op_type(first_node) == "GroupQueryAttention" and len(first_node_inputs) != 9:
+            return dag.model
+
+        # check if cos_cache and sin_cache come from an If node
+        cache_names = {"cos_cache": first_node_inputs[-2], "sin_cache": first_node_inputs[-1]}
+        for cache_name in cache_names.values():
+            if dag.is_input(cache_name) or dag.is_initializer(cache_name):
+                return dag.model
+            if dag.get_node_op_type(dag.get_producer(cache_name)) != "If":
+                return dag.model
+
+        for key, cache_name in cache_names.items():
+            cache_to_use = f"{key}_large" if self.use_large_cache else f"{key}_small"
+            new_cache_name = f"{key}_single"
+
+            if dag.is_initializer(cache_to_use):
+                cache_initializer = onnx.TensorProto()
+                cache_initializer.CopyFrom(dag.get_initializer_proto(cache_to_use))
+                cache_initializer.name = new_cache_name
+            else:
+                cache_producer_name = dag.get_producer(cache_to_use)
+                assert dag.get_node_op_type(cache_producer_name) == "Constant"
+                cache_value = onnx.numpy_helper.to_array(
+                    onnx.helper.get_attribute_value(dag.get_node_proto(cache_producer_name).attribute[0])
+                )
+                cache_initializer = onnx.numpy_helper.from_array(cache_value, new_cache_name)
+
+            dag.add_initializer(cache_initializer, 0)
+            for consumer in dag.get_consumers(cache_name):
+                dag.replace_node_input(consumer, cache_name, new_cache_name)
+
+        # remove the Greater -> If Nodes
+        if_node_name = dag.get_producer(cache_names["cos_cache"])
+        greater_node_name = dag.get_parents(if_node_name)[0]
+        dag.remove_node(if_node_name)
+        dag.remove_node(greater_node_name)
+
+        logger.debug("Removed rope multi cache")
+
+        dag.update()
+        return dag.model
+
+
+class AttentionMaskToSequenceLengths(ProtoSurgeon):
+    """Replace attention_mask subgraph in GQA model with past_seq_len and total_seq_len."""
+
+    def __call__(self, model: ModelProto):
+        dag = OnnxDAG(model)
+
+        if "GroupQueryAttention" not in dag.get_node_op_types():
+            return dag.model
+
+        # get first GQA node
+        first_node = None
+        for node in dag.get_node_names():
+            if dag.get_node_op_type(node) == "GroupQueryAttention":
+                first_node = node
+                break
+        first_node_inputs = dag.get_node_inputs(first_node)
+
+        seq_len_names = {"past_seq_len": first_node_inputs[5], "total_seq_len": first_node_inputs[6]}
+        # check that both are not already inputs
+        for seq_len_name in seq_len_names.values():
+            if dag.is_input(seq_len_name):
+                return dag.model
+
+        batch_size, _ = dag.get_io_shape("input_ids")
+        seq_len_shapes = {"past_seq_len": [batch_size, 1], "total_seq_len": []}
+        for key, seq_len_name in seq_len_names.items():
+            input_proto = onnx.helper.make_tensor_value_info(key, onnx.TensorProto.INT32, seq_len_shapes[key])
+            dag.add_input(input_proto, 0)
+            for node in dag.get_consumers(seq_len_name):
+                dag.replace_node_input(node, seq_len_name, key)
+
+        # remove attention mask subgraph
+        nodes_to_remove = []
+        visit_stack = dag.get_consumers("attention_mask")
+        while visit_stack:
+            node = visit_stack.pop(0)
+            assert not dag.is_output_producer(node), "Unexpected graph structure"
+            for consumer in dag.get_consumers(node):
+                if dag.get_node_op_type(consumer) == "GroupQueryAttention":
+                    for node_o in dag.get_node_outputs(node):
+                        assert dag.get_node_inputs(consumer).index(node_o) in {5, 6}, "Rope multi cache not supported"
+                    continue
+                visit_stack.append(consumer)
+            nodes_to_remove.append(node)
+        for node in nodes_to_remove[::-1]:
+            dag.remove_node(node)
+
+        logger.debug("atttention mask replaced with sequence length inputs")
+
+        dag.update()
+        return dag.model
+
+
+class ReplaceAttentionMaskValue(ProtoSurgeon):
     """Replace the value of extended attention mask with a new value.
 
     This surgery is useful if the default mask value does not quantize well due to numerical instability.
     """
+
+    ALLOWED_CONSUMER_OPS: ClassVar[set[str]] = {"Add", "Mul", "Expand", "Where"}
 
     def __init__(self, threshold: float = -3e30, replacement: float = -1e4):
         self.threshold = threshold
@@ -618,34 +1130,28 @@ class ReplaceAttentionMaskValue(Surgeon):
                 and node_proto.attribute
                 and node_proto.attribute[0].t
                 and node_proto.attribute[0].t.data_type == onnx.TensorProto.FLOAT
-                and node_proto.attribute[0].t.dims in [[], [1]]
+                and self.valid_consumers(node_name, dag)
             ):
                 continue
 
             value = onnx.helper.get_attribute_value(node_proto.attribute[0])
             tensor_value = onnx.numpy_helper.to_array(value)
-            if tensor_value < self.threshold:
+            if (tensor_value_new := self.new_tensor_value(tensor_value)) is not None:
                 node_proto.ClearField("attribute")
                 node_proto.attribute.extend(
-                    [
-                        onnx.helper.make_attribute(
-                            "value", onnx.numpy_helper.from_array(np.full_like(tensor_value, self.replacement))
-                        )
-                    ]
+                    [onnx.helper.make_attribute("value", onnx.numpy_helper.from_array(tensor_value_new))]
                 )
                 modified += 1
 
         # update any initializer nodes with the threshold value
         for init_name in dag.get_initializer_names():
             init_proto = dag.get_initializer_proto(init_name)
-            if not (init_proto.data_type == onnx.TensorProto.FLOAT and init_proto.dims in [[], [1]]):
+            if not (init_proto.data_type == onnx.TensorProto.FLOAT and self.valid_consumers(init_name, dag)):
                 continue
 
             tensor_value = onnx.numpy_helper.to_array(init_proto)
-            if tensor_value < self.threshold:
-                dag.replace_initializer(
-                    onnx.numpy_helper.from_array(np.full_like(tensor_value, self.replacement), name=init_name)
-                )
+            if (tensor_value_new := self.new_tensor_value(tensor_value)) is not None:
+                dag.replace_initializer(onnx.numpy_helper.from_array(tensor_value_new, name=init_name))
                 modified += 1
 
         if modified > 0:
@@ -653,6 +1159,24 @@ class ReplaceAttentionMaskValue(Surgeon):
 
         dag.update()
         return dag.model
+
+    def valid_consumers(self, name: str, dag: OnnxDAG) -> bool:
+        """Check if the consumers of the node are valid.
+
+        This is to prevent checking the tensor value of large tensors unnecessarily.
+        """
+        for consumer in dag.get_consumers(name):
+            if dag.get_node_op_type(consumer) not in ReplaceAttentionMaskValue.ALLOWED_CONSUMER_OPS:
+                return False
+        return True
+
+    def new_tensor_value(self, tensor_value: np.ndarray) -> Optional[np.ndarray]:
+        """Replace values below the threshold with the replacement value."""
+        if np.any(tensor_value < self.threshold):
+            tensor_value_new = tensor_value.copy()
+            tensor_value_new[tensor_value_new < self.threshold] = self.replacement
+            return tensor_value_new
+        return None
 
 
 class GraphSurgeries(Pass):
@@ -681,10 +1205,10 @@ class GraphSurgeries(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "surgeries": PassConfigParam(
-                type_=List[Dict[str, Any]],
+                type_=list[dict[str, Any]],
                 default_value=[],
                 required=True,
                 description="List of surgeries to apply, each with its type and parameters",
@@ -693,11 +1217,11 @@ class GraphSurgeries(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        surgeries = config["surgeries"]
+        surgeries = config.surgeries
         onnx_model = model.load_model()
         for surgery in surgeries:
             logger.info("Applying surgery: %s", surgery)
@@ -730,7 +1254,7 @@ class GraphSurgeries(Pass):
         return surgeon_class(**init_params)
 
     @staticmethod
-    def get_surgeon_parameters(surgeon_class):
+    def get_surgeon_parameters(surgeon_class: type[Surgeon]) -> tuple[list[str], list[str]]:
         parameters = inspect.signature(surgeon_class.__init__).parameters
 
         positional_args = [

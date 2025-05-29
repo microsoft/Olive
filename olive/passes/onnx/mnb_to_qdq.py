@@ -5,7 +5,7 @@
 import logging
 import math
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING
 
 import numpy as np
 import onnx
@@ -16,7 +16,7 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.onnx_dag import OnnxDAG
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -28,7 +28,7 @@ class MatMulNBitsToQDQ(Pass):
     """Convert ONNX MatMulNBits nodes to standard ONNX quantized-dequantized (QDQ) format."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "use_transpose_op": PassConfigParam(
                 type_=bool,
@@ -56,11 +56,19 @@ class MatMulNBitsToQDQ(Pass):
                     " False."
                 ),
             ),
+            "nodes_to_exclude": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description=(
+                    "List of node names to exclude from the conversion. The node names should be the names of the"
+                    " MatMulNBits nodes. Default is None."
+                ),
+            ),
             **get_external_data_config(),
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
@@ -70,14 +78,17 @@ class MatMulNBitsToQDQ(Pass):
         dag.remove_identity_nodes()
 
         # if matmulnbits zero point is the following, then the zero point is not needed in the DQ node
-        default_mnb_zp = 8 if config["use_int4"] else 0
-        int_np_dtype = np.int8 if config["use_int4"] else np.uint8
-        int_elem_type = onnx.TensorProto.INT4 if config["use_int4"] else onnx.TensorProto.UINT4
+        default_mnb_zp = 8 if config.use_int4 else 0
+        int_np_dtype = np.int8 if config.use_int4 else np.uint8
+        int_elem_type = onnx.TensorProto.INT4 if config.use_int4 else onnx.TensorProto.UINT4
+
+        # set of nodes to exclude from the conversion
+        nodes_to_exclude = set(config.nodes_to_exclude or [])
 
         num_modified = 0
         for node_name in dag.get_node_names():
             op_type = dag.get_node_op_type(node_name)
-            if op_type != "MatMulNBits":
+            if op_type != "MatMulNBits" or node_name in nodes_to_exclude:
                 continue
 
             node_inputs = dag.get_node_inputs(node_name)
@@ -146,15 +157,15 @@ class MatMulNBitsToQDQ(Pass):
                     qi = qi.flatten()
 
                 # skip if is a no-op zero point
-                if not config["add_zero_point"] and new_qi_name.endswith(".qzeros") and np.all(qi == default_mnb_zp):
+                if not config.add_zero_point and new_qi_name.endswith(".qzeros") and np.all(qi == default_mnb_zp):
                     continue
 
-                if not config["use_transpose_op"]:
+                if not config.use_transpose_op:
                     # becomes K X N
                     qi = qi.T
 
                 if qi.dtype == np.uint8:
-                    if config["use_int4"]:
+                    if config.use_int4:
                         # no worries about making signed since the values only use 4 bits
                         qi = qi.astype(np.int8)
                         # subtract 8 to make it signed
@@ -178,11 +189,9 @@ class MatMulNBitsToQDQ(Pass):
                 dq_inputs.append(new_qi_name)
             # DQ default zp is 0 but MatMulNBits is 8, so we need to add a zero tensor with all 8s
             # no need to add for int4 if add_zero_point is False
-            if len(dq_inputs) == 2 and (config["add_zero_point"] or not config["use_int4"]):
+            if len(dq_inputs) == 2 and (config.add_zero_point or not config.use_int4):
                 zp_name = f"{dq_name}.qzeros"
-                zp_shape = (
-                    [N] if is_per_axis else ([N, num_k_blocks] if config["use_transpose_op"] else [num_k_blocks, N])
-                )
+                zp_shape = [N] if is_per_axis else ([N, num_k_blocks] if config.use_transpose_op else [num_k_blocks, N])
                 zp_tensor = onnx.helper.make_tensor(
                     zp_name,
                     int_elem_type,
@@ -216,16 +225,16 @@ class MatMulNBitsToQDQ(Pass):
                     block_size=None if is_per_axis else block_size,
                     # for some reason block_wise and per-axis appear to use swapped axis
                     # flip the axis if it is per-axis
-                    axis=(1 if config["use_transpose_op"] else 0) ^ (1 if is_per_axis else 0),
+                    axis=(1 if config.use_transpose_op else 0) ^ (1 if is_per_axis else 0),
                 )
             )
             new_value_infos.append(
                 onnx.helper.make_tensor_value_info(
-                    dq_output, float_elem_type, shape=[N, K] if config["use_transpose_op"] else [K, N]
+                    dq_output, float_elem_type, shape=[N, K] if config.use_transpose_op else [K, N]
                 )
             )
 
-            if config["use_transpose_op"]:
+            if config.use_transpose_op:
                 # Transpose
                 transpose_name = self._get_new_node_name(dag, node_name, "Transpose")
                 transpose_output = f"{transpose_name}/output_0"

@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 from collections import OrderedDict
 
+from olive.constants import Precision
 from olive.search.samplers.tpe_sampler import TPESampler
 from olive.search.search_parameter import Categorical, Conditional
 from olive.search.search_space import SearchSpace
@@ -92,7 +93,7 @@ class TestTPESampler:
                             SearchSpace(
                                 [
                                     ("quant_mode", Categorical(["dynamic", "static"])),
-                                    ("weight_type", Categorical(["QInt8", "QUInt8"])),
+                                    ("precision", Categorical([Precision.INT8, Precision.UINT8])),
                                     (
                                         "quant_format",
                                         Conditional(
@@ -104,45 +105,29 @@ class TestTPESampler:
                                     (
                                         "activation_type",
                                         Conditional(
-                                            parents=("quant_mode", "quant_format", "weight_type"),
+                                            parents=("quant_mode", "quant_format", "precision"),
                                             support={
-                                                ("static", "QDQ", "QInt8"): Categorical(["QInt8"]),
-                                                ("static", "QDQ", "QUInt8"): Categorical(["QUInt8"]),
-                                                ("static", "QOperator", "QUInt8"): Categorical(["QUInt8"]),
-                                                ("static", "QOperator", "QInt8"): Conditional.get_invalid_choice(),
+                                                ("static", "QDQ", Precision.INT8): Categorical([Precision.INT8]),
+                                                ("static", "QDQ", Precision.UINT8): Categorical([Precision.UINT8]),
+                                                ("static", "QOperator", Precision.UINT8): Categorical(
+                                                    [Precision.UINT8]
+                                                ),
+                                                (
+                                                    "static",
+                                                    "QOperator",
+                                                    Precision.INT8,
+                                                ): Conditional.get_invalid_choice(),
                                             },
                                             default=Conditional.get_ignored_choice(),
                                         ),
                                     ),
                                     (
-                                        "prepare_qnn_config",
+                                        "prepare_qdq_config",
                                         Conditional(
                                             parents=("quant_mode",),
                                             support={
                                                 ("static",): Categorical([False]),
                                                 ("dynamic",): Conditional.get_ignored_choice(),
-                                            },
-                                            default=Conditional.get_invalid_choice(),
-                                        ),
-                                    ),
-                                    (
-                                        "qnn_extra_options",
-                                        Conditional(
-                                            parents=("quant_mode",),
-                                            support={
-                                                ("static",): Categorical([None]),
-                                                ("dynamic",): Conditional.get_ignored_choice(),
-                                            },
-                                            default=Conditional.get_invalid_choice(),
-                                        ),
-                                    ),
-                                    (
-                                        "MatMulConstBOnly",
-                                        Conditional(
-                                            parents=("quant_mode",),
-                                            support={
-                                                ("dynamic",): Categorical([True]),
-                                                ("static",): Categorical([False]),
                                             },
                                             default=Conditional.get_invalid_choice(),
                                         ),

@@ -1,7 +1,0 @@
-neural-compressor
-onnxruntime_extensions>=0.9.0
-tabulate
-torch>=1.13.1
-# exported model is incompatible after transformers 4.43.0
-# produces empty text
-transformers>=4.23.1,<4.43.0

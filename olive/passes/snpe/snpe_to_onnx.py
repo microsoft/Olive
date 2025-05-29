@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Any, Callable, Dict
+from typing import Callable
 
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
@@ -10,7 +10,7 @@ from olive.model import ONNXModelHandler, SNPEModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.constants import SNPEDevice
 from olive.platform_sdk.qualcomm.snpe.tools.dev import dlc_to_onnx
 
@@ -29,7 +29,7 @@ class SNPEtoONNXConversion(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "target_device": PassConfigParam(
                 type_=str,
@@ -45,20 +45,18 @@ class SNPEtoONNXConversion(Pass):
         return config
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable]:
+    def _validators(cls) -> dict[str, Callable]:
         return {
             "validate_target_device": validator("target_device", allow_reuse=True)(_validate_target_device),
         }
 
     def _run_for_config(
-        self, model: SNPEModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: SNPEModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        config = self._config_class(**config)
-
         output_model_path = resolve_onnx_path(output_model_path)
 
         # create a onnx model that wraps the dlc binary in a node
         onnx_model = dlc_to_onnx(model.model_path, config.dict(), **model.io_config)
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config.dict())
+        return model_proto_to_olive_model(onnx_model, output_model_path, config)

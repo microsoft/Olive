@@ -11,6 +11,7 @@ from olive.data.template import huggingface_data_config_template
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.rotate import QuaRot, SpinQuant
+from test.unit_test.utils import make_local_tiny_llama
 
 
 def common_test_rotate(rotate_pass, tmp_path, model_path, rotate_mode, atol, **config_kwargs):
@@ -18,11 +19,7 @@ def common_test_rotate(rotate_pass, tmp_path, model_path, rotate_mode, atol, **c
     if input_model.get_hf_model_type() == "llama":
         # this checkpoint has an invalid generation config that cannot be saved
         model_path = str(tmp_path / "model")
-        loaded_model = input_model.load_model()
-        loaded_model.generation_config.pad_token_id = 1
-        loaded_model.save_pretrained(model_path)
-        input_model.get_hf_tokenizer().save_pretrained(model_path)
-        input_model = HfModelHandler(model_path=model_path)
+        input_model = make_local_tiny_llama(model_path, "hf")
 
     p = create_pass_from_dict(rotate_pass, {"rotate_mode": rotate_mode, **config_kwargs}, disable_search=True)
 

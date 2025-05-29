@@ -3,9 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
-from olive.common.config_utils import ConfigBase
+from olive.common.config_utils import ConfigBase, get_the_flattened_and_tree_spec
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.pydantic_v1 import validator
 from olive.model.config.kv_cache_config import KVCacheConfig
@@ -23,38 +23,36 @@ class IoConfig(ConfigBase):
             "images": { "0": "batch", "1": "height", "2": "width", "3": "channels" }
         },
         "dynamic_shapes": {
-            "clip_input": { "0": ["batch", 1, 512], "1": ["channels", 0, 3],
-                "2": ["height", 0, 512], "3": ["width", 0, 512] },
-            "images": { "0": ["batch", 1, 512], "1": ["height", 0, 512],
-                "2": ["width", 0, 512], "3": ["channels", 0, 3] }
+            "clip_input": { "0": "batch", "1": "channels",
+                "2": "height", "3": "width" },
+            "images": { "0": "batch", "1": "height",
+                "2": "width", "3": "channels" }
         },
         "kv_cache": None
     }
     """
 
     # TODO(trajep): remove input names, shapes and types, turn to use olive dataset config.
-    input_names: List[str]
-    input_shapes: List[List[int]] = None
-    input_types: List[str] = None
-    output_names: List[str]
-    output_shapes: List[List[int]] = None
-    output_types: List[str] = None
-    dynamic_axes: Dict[str, Dict[int, str]] = None
-    # Please check `dynamic_shapes` in torch.export.export
-    # https://pytorch.org/docs/stable/export.html#torch.export.export
-    # NOTE: JSON does not support torch.export.Dim, so we use List[str, int, int] here.
-    # for example, {"input_ids": {0: torch.export.Dim("batch", min=2, max=1024)}}
-    #           -> {"input_ids": {0: ["batch", 2, 1024]}}
-    dynamic_shapes: Union[List[Any], Dict[str, Any]] = None
+    input_names: list[str]
+    input_shapes: list[list[int]] = None
+    input_types: list[str] = None
+    output_names: list[str]
+    output_shapes: list[list[int]] = None
+    output_types: list[str] = None
+    dynamic_axes: dict[str, dict[int, str]] = None
+    # dynamic_shapes is different from dynamic_axes, it is nested.
+    # We need to post-process its keys to int under onnx/conversion.py
+    # for example, {"input_ids": {"0": "batch"}}
+    dynamic_shapes: Union[list[Any], dict[str, Any]] = None
     # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
     # even though we want the dimension to be a constant int.
     # We use a workaround here: first use dim_param like "1" to represent the dimension, and then
     # convert it to int in the onnx model.
-    string_to_int_dim_params: List[str] = None
+    string_to_int_dim_params: list[str] = None
     # if False, skip kv_cache input
     # if True, use default KVCacheConfig
     # if KVCacheConfig, use the provided KVCacheConfig
-    kv_cache: Union[bool, Dict[str, Any], KVCacheConfig] = False
+    kv_cache: Union[bool, dict[str, Any], KVCacheConfig] = False
 
     @validator("input_shapes", "input_types")
     def check_input_shapes(cls, v, values):
@@ -87,6 +85,20 @@ class IoConfig(ConfigBase):
         for k, value in dynamic_axes.items():
             dynamic_axes[k] = {int(kk): vv for kk, vv in value.items()}
         return dynamic_axes
+
+    @validator("dynamic_shapes")
+    def convert_dynamic_shapes(cls, v):
+        if not v:
+            return v
+
+        flattened, tree_spec = get_the_flattened_and_tree_spec(v, leave_is_str=True)
+        new_flattened = []
+        for axes in flattened:
+            if isinstance(axes, dict):
+                new_flattened.append({int(kk): vv for kk, vv in axes.items()})
+            else:
+                new_flattened.append(axes)
+        return tree_spec.unflatten(new_flattened)
 
     @validator("string_to_int_dim_params")
     def check_string_to_int_dim_params(cls, v):
@@ -172,6 +184,8 @@ def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
     output_names = kv_cache_config.get_output_names()
     dynamic_axes = deepcopy(io_config.dynamic_axes or {})
     dynamic_axes.update(kv_cache_config.get_dynamic_axes())
+    dynamic_shapes = deepcopy(io_config.dynamic_shapes or {})
+    dynamic_shapes.update(kv_cache_config.get_dynamic_shapes())
     return IoConfig(
         input_names=(io_config.input_names or []) + kv_names,
         input_shapes=(io_config.input_shapes or []) + kv_shapes,
@@ -180,11 +194,12 @@ def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
         output_shapes=io_config.output_shapes,  # ignore kv_cache output shapes
         output_types=io_config.output_types,  # ignore kv_cache output types
         dynamic_axes=dynamic_axes,
+        dynamic_shapes=dynamic_shapes,
         kv_cache=kv_cache_config,
     )
 
 
-def is_io_config_static(config: Union[IoConfig, Dict]):
+def is_io_config_static(config: Union[IoConfig, dict]):
     if isinstance(config, IoConfig):
         config = config.dict()
     if not config.get("input_shapes"):

@@ -2,11 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+
 import json
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict
 
 import onnxruntime as ort
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline
@@ -19,7 +19,7 @@ from olive.model import ONNXModelHandler
 # ruff: noqa: TID252, T201
 
 
-def update_dml_config(config_dml: Dict):
+def update_dml_config(config_dml: dict):
     used_passes = {"convert", "optimize"}
     for pass_name in set(config_dml["passes"].keys()):
         if pass_name not in used_passes:
@@ -28,7 +28,7 @@ def update_dml_config(config_dml: Dict):
     return config_dml
 
 
-def update_cuda_config(config_cuda: Dict):
+def update_cuda_config(config_cuda: dict):
     if version.parse(OrtVersion) < version.parse("1.17.0"):
         # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
         config_cuda["passes"]["optimize_cuda"]["optimization_options"] = {"enable_skip_group_norm": False}
@@ -73,9 +73,12 @@ def save_optimized_onnx_submodel(submodel_name, provider, model_info):
         conversion_footprint = None
         optimizer_footprint = None
         for footprint in footprints.values():
-            if footprint["from_pass"] == "OnnxConversion":
+            from_pass = footprint["from_pass"].lower() if footprint["from_pass"] else ""
+            if from_pass == "OnnxConversion".lower():
                 conversion_footprint = footprint
-            elif footprint["from_pass"] == "OrtTransformersOptimization":
+                if sd_config.only_conversion:
+                    optimizer_footprint = footprint
+            elif from_pass == "OrtTransformersOptimization".lower() or from_pass == "OnnxStaticQuantization".lower():
                 optimizer_footprint = footprint
 
         assert conversion_footprint
@@ -150,7 +153,7 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
     unet_sample_size = sd_config.unet_sample_size
 
     if static_dims:
-        hidden_batch_size = batch_size if (guidance_scale == 0.0) else batch_size * 2
+        hidden_batch_size = batch_size if (guidance_scale <= 1.0) else batch_size * 2
         # Not necessary, but helps DML EP further optimize runtime performance.
         # batch_size is doubled for sample & hidden state because of classifier free guidance:
         # https://github.com/huggingface/diffusers/blob/46c52f9b9607e6ecb29c782c052aea313e6487b7/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L672

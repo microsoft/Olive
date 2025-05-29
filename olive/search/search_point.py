@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from olive.search.search_parameter import SpecialParamValue
 
@@ -24,7 +24,7 @@ class SearchPoint:
     "c" would be the corresponding choice.
     """
 
-    def __init__(self, index: int, values: Dict[str, Tuple[int, Any]]):
+    def __init__(self, index: int, values: dict[str, tuple[int, Any]]):
         self.index = index
         self.values = values
 
@@ -49,7 +49,7 @@ class SearchPoint:
     def is_valid(self) -> bool:
         """Return true if none of the value in the hierarchy is invalid."""
 
-        def _is_valid(values: Dict[str, Tuple[int, Any]]) -> bool:
+        def _is_valid(values: dict[str, tuple[int, Any]]) -> bool:
             for v in values.values():
                 if isinstance(v, OrderedDict):
                     if not _is_valid(v):

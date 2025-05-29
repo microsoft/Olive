@@ -3,13 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Callable, Union
 
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, SNPEModelHandler, TensorFlowModelHandler
 from olive.passes.olive_pass import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.constants import InputLayout, InputType
 from olive.platform_sdk.qualcomm.snpe.tools.dev import get_dlc_io_config, to_dlc
 from olive.resource_path import LocalFile
@@ -45,17 +45,17 @@ class SNPEConversion(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
-            "input_names": PassConfigParam(type_=List[str], required=True, description="List of input names."),
+            "input_names": PassConfigParam(type_=list[str], required=True, description="List of input names."),
             "input_shapes": PassConfigParam(
-                type_=List[List[int]],
+                type_=list[list[int]],
                 required=True,
                 description="List of input shapes. Must be the same length as input_names.",
             ),
-            "output_names": PassConfigParam(type_=List[str], required=True, description="List of output names."),
+            "output_names": PassConfigParam(type_=list[str], required=True, description="List of output names."),
             "input_types": PassConfigParam(
-                type_=List[Union[str, None]],
+                type_=list[Union[str, None]],
                 default_value=None,
                 description=(
                     "List of input types. If not None, it must be a list of the same length as input_names. List"
@@ -64,7 +64,7 @@ class SNPEConversion(Pass):
                 ),
             ),
             "input_layouts": PassConfigParam(
-                type_=List[Union[str, None]],
+                type_=list[Union[str, None]],
                 default_value=None,
                 description=(
                     "List of input layouts. If not None, it must be a list of the same length as input_names. List"
@@ -85,7 +85,7 @@ class SNPEConversion(Pass):
         }
 
     @classmethod
-    def _validators(cls) -> Dict[str, Callable]:
+    def _validators(cls) -> dict[str, Callable]:
         return {
             "validate_input_types_layouts": validator("input_types", "input_layouts", allow_reuse=True)(
                 _validate_input_types_layouts
@@ -95,12 +95,12 @@ class SNPEConversion(Pass):
     def _run_for_config(
         self,
         model: Union[ONNXModelHandler, TensorFlowModelHandler],
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> SNPEModelHandler:
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
         to_dlc(model.model_path, model.framework, config, output_model_path)
-        io_config = get_dlc_io_config(output_model_path, config["input_names"], config["output_names"])
+        io_config = get_dlc_io_config(output_model_path, config.input_names, config.output_names)
         return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **io_config)

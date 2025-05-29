@@ -49,8 +49,8 @@ def test_openvino_quantization(tmp_path):
 
     # assert
     assert Path(quantized_model.model_path).exists()
-    assert (Path(quantized_model.model_path) / "ov_model.bin").is_file()
-    assert (Path(quantized_model.model_path) / "ov_model.xml").is_file()
+    assert (Path(quantized_model.model_path) / "ov_model_quant.bin").is_file()
+    assert (Path(quantized_model.model_path) / "ov_model_quant.xml").is_file()
 
     # cleanup
     shutil.rmtree(quantized_model.model_path)
@@ -82,8 +82,8 @@ def test_openvino_quantization_with_accuracy(tmp_path):
 
     # assert
     assert Path(quantized_model.model_path).exists()
-    assert (Path(quantized_model.model_path) / "ov_model.bin").is_file()
-    assert (Path(quantized_model.model_path) / "ov_model.xml").is_file()
+    assert (Path(quantized_model.model_path) / "ov_model_quant.bin").is_file()
+    assert (Path(quantized_model.model_path) / "ov_model_quant.xml").is_file()
 
     # cleanup
     shutil.rmtree(quantized_model.model_path)
@@ -99,7 +99,7 @@ def get_openvino_model(tmp_path):
         model_path=torch_hub_model_path,
     )
     openvino_conversion_config = {
-        "input": [1, 3, 32, 32],
+        "input_shapes": [[1, 3, 32, 32]],
     }
 
     p = create_pass_from_dict(

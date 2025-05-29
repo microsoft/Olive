@@ -19,7 +19,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +172,7 @@ def flatten_dict(dictionary, stop_condition=None):  # pragma: no cover
     return result
 
 
-def get_nested_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]]):
+def get_nested_dict_value(dictionary: dict, key: Union[str, tuple, list[str]]):
     """Get value from a nested dictionary."""
     if isinstance(key, str):
         key = [key]
@@ -182,7 +182,7 @@ def get_nested_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]]):
     return dictionary
 
 
-def set_nested_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]], new_value):
+def set_nested_dict_value(dictionary: dict, key: Union[str, tuple, list[str]], new_value):
     """Replace value in a nested dictionary."""
     if isinstance(key, str):
         key = [key]
@@ -273,6 +273,41 @@ def tensor_data_to_dtype(data, dtype):
     if isinstance(data, set):
         return {tensor_data_to_dtype(v, dtype) for v in data}
     return data
+
+
+def format_data(data, io_config):
+    """Format data based on io_config.
+
+    :param data: data to format. Consists of torch tensors or numpy arrays.
+        Single tensor or list of tensors: zipped with input names.
+        Dict: Keys not in input names are ignored. So unused data is allowed.
+        Caller needs to ensure the required inputs are present in the data.
+    :param io_config: io config to use for formatting.
+        input_names: list of input names.
+        input_types: list of numpy input types.
+    :return: formatted data. Consists of numpy arrays.
+    """
+    import numpy as np
+    import torch
+
+    input_names = io_config["input_names"]
+    name_to_type = dict(zip(io_config["input_names"], io_config["input_types"]))
+    if isinstance(data, list):
+        # the input is just a list of tensors
+        data = dict(zip(input_names, data))
+    elif isinstance(data, (torch.Tensor, np.ndarray)):
+        # input is a single tensor
+        data = dict(zip(input_names, [data]))
+    elif not isinstance(data, dict):
+        raise ValueError(f"Invalid input data format: {data}")
+    return {
+        k: np.ascontiguousarray(
+            data[k].cpu().numpy() if isinstance(data[k], torch.Tensor) else data[k],
+            dtype=name_to_type[k],
+        )
+        for k in data
+        if k in input_names
+    }
 
 
 def resolve_torch_dtype(dtype):
@@ -477,11 +512,11 @@ def set_tempdir(tempdir: str = None):
     tempfile.tempdir = str(tempdir)
 
 
-def exclude_keys(original_dict: Dict, keys_to_exclude):
+def exclude_keys(original_dict: dict, keys_to_exclude):
     return {k: v for k, v in original_dict.items() if k not in keys_to_exclude}
 
 
-def find_first_matched_value(original, keys: Union[str, Tuple, List[str]], raise_key_error=False):
+def find_first_matched_value(original, keys: Union[str, tuple, list[str]], raise_key_error=False):
     if isinstance(keys, str):
         keys = [keys]
 
@@ -496,7 +531,7 @@ def find_first_matched_value(original, keys: Union[str, Tuple, List[str]], raise
     return None
 
 
-def get_credentials(default_auth_params: Dict = None):
+def get_credentials(default_auth_params: dict = None):
     """Get credentials for MLClient.
 
     Order of credential providers:
@@ -540,7 +575,7 @@ class WeightsFileFormat(StrEnumBase):
     ONNX_ADAPTER = "onnx_adapter"
 
 
-def save_weights(weights: Dict, path: Union[str, Path], file_format: WeightsFileFormat = WeightsFileFormat.NUMPY):
+def save_weights(weights: dict, path: Union[str, Path], file_format: WeightsFileFormat = WeightsFileFormat.NUMPY):
     """Save the weights to a file.
 
     :param weights: Dictionary of numpy arrays.

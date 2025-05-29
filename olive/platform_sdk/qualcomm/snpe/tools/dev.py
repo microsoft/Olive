@@ -2,12 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 import csv
 import logging
 import platform
 import tempfile
 from pathlib import Path
-from typing import List
 
 import onnx
 from onnx import TensorProto, helper
@@ -36,7 +37,7 @@ def get_dlc_info(dlc_path: str, csv_path: str = None) -> str:
     return prefix + stdout.split(prefix)[1]
 
 
-def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[str]) -> str:
+def get_dlc_io_config(dlc_path: str, input_names: list[str], output_names: list[str]) -> str:
     """Get the input/output config of a DLC file.
 
     dlc_path: path to the DLC file.
@@ -113,7 +114,7 @@ def get_dlc_snpe_version(dlc_path: str) -> str:
     return get_dlc_metrics(dlc_path)["snpe-version"]
 
 
-def _get_conversion_arg_str(arg_type: str, input_names: List[str], input_values: List[str]):
+def _get_conversion_arg_str(arg_type: str, input_names: list[str], input_values: list[str]):
     """Get conversion argument string for snpe dlc converter tools.
 
     arg_type: "-d", "-t", or "-l" for input shapes, types, and layouts respectively.
@@ -219,10 +220,10 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
 def dlc_to_onnx(
     dlc_path: str,
     config: dict,
-    input_names: List[str],
-    input_shapes: List[List[int]],
-    output_names: List[str],
-    output_shapes: List[List[int]],
+    input_names: list[str],
+    input_shapes: list[list[int]],
+    output_names: list[str],
+    output_shapes: list[list[int]],
 ) -> onnx.ModelProto:
     """Convert a SNPE DLC to ONNX. The DLC is wrapped in a ONNX model for use with onnxruntime SNPE EP.
 

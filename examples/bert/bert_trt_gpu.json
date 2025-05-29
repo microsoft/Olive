@@ -47,7 +47,7 @@
         }
     },
     "passes": {
-        "conversion": { "type": "OnnxConversion", "target_opset": 14 },
+        "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "session_params_tuning": {
             "type": "OrtSessionParamsTuning",
             "trt_fp16_enable": true,

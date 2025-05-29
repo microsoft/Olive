@@ -7,7 +7,7 @@ parameters:
   onnxruntime: 'onnxruntime'
   onnxruntime_nightly: false
   torch: 'torch'
-  requirements_file: 'requirements-test.txt'
+  requirements_file: 'requirements-test-cpu.txt'
 
 jobs:
 - job: ${{parameters.name}}
@@ -35,13 +35,17 @@ jobs:
       onnxruntime_nightly: ${{ parameters.onnxruntime_nightly }}
       torch: ${{ parameters.torch }}
 
+  - template: huggingface-login-template.yaml
+    parameters:
+      hf_token: $(hf_token)
+
   - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
     - script: |
           call python -m pip install pytest
           call curl --output openvino_toolkit.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0.1/windows/w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64.zip
           call 7z x openvino_toolkit.zip
           call w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64\\setupvars.bat
-          call python -m pip install numpy psutil coverage protobuf==3.20.3
+          call python -m pip install numpy psutil coverage
           call coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType) --basetemp $(PYTEST_BASETEMP)
           call coverage xml
       displayName: Test Olive

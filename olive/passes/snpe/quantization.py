@@ -3,14 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Union
 
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModelHandler
 from olive.passes.olive_pass import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.snpe.tools.dev import quantize_dlc
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 from olive.resource_path import LocalFile
@@ -24,10 +24,10 @@ class SNPEQuantization(Pass):
     """
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description="Data config for quantization",
             ),
@@ -48,7 +48,7 @@ class SNPEQuantization(Pass):
                 description="Pack HTP information in quantized DLC, which is not available in Windows.",
             ),
             "htp_socs": PassConfigParam(
-                type_=List[str], default_value=None, description="List of SoCs to generate HTP Offline cache for."
+                type_=list[str], default_value=None, description="List of SoCs to generate HTP Offline cache for."
             ),
             "extra_args": PassConfigParam(
                 type_=str,
@@ -63,12 +63,12 @@ class SNPEQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: SNPEModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: SNPEModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> SNPEModelHandler:
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
-        data_config = validate_config(config["data_config"], DataConfig)
+        data_config = validate_config(config.data_config, DataConfig)
         dataloader = data_config.to_data_container().create_dataloader()
 
         # convert dataloader to FileListDataLoader if it is not already

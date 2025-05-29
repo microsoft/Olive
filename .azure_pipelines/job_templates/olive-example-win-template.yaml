@@ -4,7 +4,6 @@ parameters:
   name: ''
   pool: ''
   test_type: ''
-  device: 'cpu'
   python_version: '3.10'
   onnxruntime: 'onnxruntime'
   onnxruntime_nightly: false
@@ -33,6 +32,10 @@ jobs:
       onnxruntime_nightly: ${{ parameters.onnxruntime_nightly }}
       torch: ${{ parameters.torch }}
 
+  - template: huggingface-login-template.yaml
+    parameters:
+      hf_token: $(hf_token)
+
   # set exampleRequirements to requirements.txt if user does not specify
   - script:
       echo "##vso[task.setvariable variable=exampleRequirements]requirements.txt"
@@ -43,6 +46,7 @@ jobs:
         python -m pip install pytest
         python -m pip install azure-identity azure-storage-blob tabulate
         python -m pip install -r $(Build.SourcesDirectory)/examples/$(exampleFolder)/$(exampleRequirements)
+        python -m pip list
         python -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test_examples-TestOlive.xml $(Build.SourcesDirectory)/examples/test/${{ parameters.subfolder }}/test_$(exampleName).py --basetemp $(PYTEST_BASETEMP)
     displayName: Test Examples
     env:
@@ -53,7 +57,6 @@ jobs:
       PIPELINE_TEST_ACCOUNT_NAME: $(pipeline-test-account-name)
       PIPELINE_TEST_CONTAINER_NAME: $(pipeline-test-container-name)
       KEYVAULT_NAME: $(keyvault-name)
-      HF_TOKEN: $(hf_token)
 
   - task: PublishTestResults@2
     condition: succeededOrFailed()

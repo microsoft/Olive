@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import os
 from pathlib import Path
-from typing import Any, Dict, Tuple, Type, Union
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -63,8 +62,8 @@ def get_pytorch_model(batch_size=1):
     )
 
 
-def get_hf_model():
-    return HfModelHandler(model_path="hf-internal-testing/tiny-random-gptj")
+def get_hf_model(model_path="hf-internal-testing/tiny-random-gptj"):
+    return HfModelHandler(model_path=model_path)
 
 
 def get_hf_model_config():
@@ -104,8 +103,8 @@ def get_onnx_model_config(model_path=None):
     return ModelConfig.parse_obj({"type": "ONNXModel", "config": {"model_path": str(model_path or ONNX_MODEL_PATH)}})
 
 
-def get_composite_onnx_model_config():
-    onnx_model_config = get_onnx_model_config().dict()
+def get_composite_onnx_model_config(model_path=None):
+    onnx_model_config = get_onnx_model_config(model_path).dict()
     return ModelConfig.parse_obj(
         {
             "type": "CompositeModel",
@@ -236,14 +235,11 @@ def get_throughput_metric(*lat_subtype, user_config=None):
     )
 
 
-def get_onnxconversion_pass(
-    ignore_pass_config=True, target_opset=13
-) -> Union[Type[Pass], Tuple[Type[Pass], Dict[str, Any]]]:
+def get_onnxconversion_pass(target_opset=13) -> type[Pass]:
     from olive.passes.onnx.conversion import OnnxConversion
 
     onnx_conversion_config = {"target_opset": target_opset}
-    p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
-    return p if ignore_pass_config else (p, p.to_json(check_object=True))
+    return create_pass_from_dict(OnnxConversion, onnx_conversion_config)
 
 
 def get_onnx_dynamic_quantization_pass(disable_search=False):
@@ -344,3 +340,27 @@ def create_raw_data(raw_data_dir, input_names, input_shapes, input_types=None, n
             data[input_name].append(data_i)
 
     return data
+
+
+def make_local_tiny_llama(save_path, model_type="hf"):
+    input_model = HfModelHandler(model_path="hf-internal-testing/tiny-random-LlamaForCausalLM")
+    loaded_model = input_model.load_model()
+    # this checkpoint has an invalid generation config that cannot be saved
+    loaded_model.generation_config.pad_token_id = 1
+
+    save_path = Path(save_path)
+    save_path.mkdir(parents=True, exist_ok=True)
+    if model_type == "hf":
+        loaded_model.save_pretrained(save_path)
+    else:
+        onnx_file_path = save_path / "model.onnx"
+        onnx_file_path.write_text("dummy onnx file")
+        loaded_model.config.save_pretrained(save_path)
+        loaded_model.generation_config.save_pretrained(save_path)
+    input_model.get_hf_tokenizer().save_pretrained(save_path)
+
+    return (
+        HfModelHandler(model_path=save_path)
+        if model_type == "hf"
+        else ONNXModelHandler(model_path=save_path, onnx_file_name="model.onnx")
+    )

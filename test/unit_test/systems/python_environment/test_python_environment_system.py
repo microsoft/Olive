@@ -8,14 +8,6 @@ import shutil
 import tempfile
 import venv
 from pathlib import Path
-from test.unit_test.utils import (
-    get_glue_accuracy_metric,
-    get_glue_latency_metric,
-    get_hf_model_config,
-    get_onnx_model,
-    get_onnx_model_config,
-    get_onnxconversion_pass,
-)
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,6 +22,14 @@ from olive.systems.python_environment.evaluation_runner import main as evaluatio
 from olive.systems.python_environment.pass_runner import main as pass_runner_main
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
 from olive.systems.utils import create_managed_system, create_managed_system_with_cache
+from test.unit_test.utils import (
+    get_glue_accuracy_metric,
+    get_glue_latency_metric,
+    get_hf_model_config,
+    get_onnx_model,
+    get_onnx_model_config,
+    get_onnxconversion_pass,
+)
 
 # pylint: disable=no-value-for-parameter, attribute-defined-outside-init, protected-access
 
@@ -154,7 +154,6 @@ class TestPythonEnvironmentSystem:
         dummy_config = dummy_pass_config["config"]
         expected_pass_config = {"type": "DummyPass", "config": dummy_config}
         the_pass.to_json.return_value = dummy_pass_config
-        the_pass.serialize_config.return_value = dummy_config
 
         # mock return value
         mock_return_value = {"dummy_output_model_key": "dummy_output_model_value"}

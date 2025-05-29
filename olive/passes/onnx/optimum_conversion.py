@@ -5,12 +5,12 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Union
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam, get_user_script_data_config
+from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +19,14 @@ class OptimumConversion(Pass):
     """Convert a Hugging Face PyTorch model to ONNX model using the Optimum export function."""
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             **get_user_script_data_config(),
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
             ),
             "components": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=None,
                 description=(
                     "List of component models to export. E.g. ['decoder_model', 'decoder_with_past_model']. None means"
@@ -51,15 +51,11 @@ class OptimumConversion(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
-
-        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
-        config = config_cls(**config)
 
         if config.fp16 and config.device != "cuda":
             logger.info("OptimumConversion: fp16 is set to True, but device is not set to cuda.")
@@ -68,18 +64,18 @@ class OptimumConversion(Pass):
         return True
 
     def _run_for_config(
-        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         from optimum import version as optimum_version
         from optimum.exporters.onnx import main_export as export_optimum_model
         from packaging import version
 
-        extra_args = deepcopy(config["extra_args"]) or {}
+        extra_args = deepcopy(config.extra_args) or {}
         extra_args.update(
             {
-                "opset": config["target_opset"],
-                "fp16": config["fp16"],
-                "device": config["device"],
+                "opset": config.target_opset,
+                "fp16": config.fp16,
+                "device": config.device,
             }
         )
         if model.load_kwargs and "trust_remote_code" not in extra_args:
@@ -104,11 +100,11 @@ class OptimumConversion(Pass):
 
         # check the exported components
         exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".onnx"]
-        if config["components"]:
-            assert all(
-                component in exported_models for component in config["components"]
-            ), f"Components {config['components']} are not exported. Only {exported_models} are exported."
-        components = config["components"] or exported_models
+        if config.components:
+            assert all(component in exported_models for component in config.components), (
+                f"Components {config['components']} are not exported. Only {exported_models} are exported."
+            )
+        components = config.components or exported_models
         logger.debug("Exported models are: %s. Returning components: %s.", exported_models, components)
 
         # if there is only one component, return it directly
@@ -131,4 +127,4 @@ class OptimumConversion(Pass):
             )
             model_component_names.append(component_name)
 
-        return CompositeModelHandler(model_components, model_component_names)
+        return CompositeModelHandler(model_components, model_component_names, model_path=output_model_path)

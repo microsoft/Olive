@@ -9,7 +9,7 @@ import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Optional, Union
 
 import cv2
 import numpy as np
@@ -88,8 +88,8 @@ class OvStableDiffusionPipelineOutput:
 
     """
 
-    images: Union[List[PIL.Image.Image], np.ndarray]
-    nsfw_content_detected: Optional[List[bool]] = None
+    images: Union[list[PIL.Image.Image], np.ndarray]
+    nsfw_content_detected: Optional[list[bool]] = None
 
 
 class OVStableDiffusionPipeline(DiffusionPipeline):
@@ -138,12 +138,12 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
 
     def __call__(
         self,
-        prompts: Union[str, List[str]],
+        prompts: Union[str, list[str]],
         image: PIL.Image.Image = None,
         height: Optional[int] = 512,
         width: Optional[int] = 512,
         num_inference_steps: Optional[int] = 50,
-        negative_prompt: Union[str, List[str]] = None,
+        negative_prompt: Union[str, list[str]] = None,
         num_images_per_prompt: Optional[int] = 1,
         guidance_scale: Optional[float] = 7.5,
         eta: Optional[float] = 0.0,
@@ -280,7 +280,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         prompt: str,
         num_images_per_prompt: int = 1,
         do_classifier_free_guidance: bool = True,
-        negative_prompt: Union[str, List[str]] = None,
+        negative_prompt: Union[str, list[str]] = None,
     ):
         """Encode the prompt into text encoder hidden states.
 
@@ -309,7 +309,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
 
         # get unconditional embeddings for classifier free guidance
         if do_classifier_free_guidance:
-            uncond_tokens: List[str]
+            uncond_tokens: list[str]
             max_length = text_input_ids.shape[-1]
             if negative_prompt is None:
                 uncond_tokens = [""] * batch_size
@@ -379,7 +379,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         latents = self.scheduler.add_noise(torch.from_numpy(latents), torch.from_numpy(noise), latent_timestep).numpy()
         return latents, meta
 
-    def postprocess_image(self, image: np.ndarray, meta: Dict, output_type: str = "pil"):
+    def postprocess_image(self, image: np.ndarray, meta: dict, output_type: str = "pil"):
         """Postprocessing for decoded image.
 
         Takes generated image decoded by VAE decoder, unpad it to initila image size (if required),
@@ -441,7 +441,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         return timesteps, num_inference_steps - t_start
 
 
-def update_ov_config(config: Dict):
+def update_ov_config(config: dict):
     config["passes"] = {"ov_convert": config["passes"]["ov_convert"]}
     config["search_strategy"] = False
     config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
@@ -450,10 +450,8 @@ def update_ov_config(config: Dict):
     return config
 
 
-def save_optimized_ov_submodel(run_res, submodel, optimized_model_dir, optimized_model_path_map):
-    res = next(iter(run_res.values()))
-
-    output_model_dir = res.get_output_model_path()
+def save_optimized_ov_submodel(workflow_output, submodel, optimized_model_dir, optimized_model_path_map):
+    output_model_dir = workflow_output.get_best_candidate().model_path
     optimized_model_path = optimized_model_dir / submodel
     shutil.copytree(output_model_dir, optimized_model_path)
     model_path = (optimized_model_path / submodel).with_suffix(".xml")

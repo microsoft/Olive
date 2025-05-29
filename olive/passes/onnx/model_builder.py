@@ -8,17 +8,19 @@ import copy
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Union
 
 import onnx
 import transformers
 
-from olive.common.utils import IntEnumBase, StrEnumBase
+from olive.common.utils import IntEnumBase
+from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pass_config import BasePassConfig
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +31,12 @@ class ModelBuilder(Pass):
     See https://github.com/microsoft/onnxruntime-genai
     """
 
-    class Precision(StrEnumBase):
-        FP32 = "fp32"
-        FP16 = "fp16"
-        INT8 = "int8"
-        INT4 = "int4"
+    class BlockSize(IntEnumBase):
+        B16 = 16
+        B32 = 32
+        B64 = 64
+        B128 = 128
+        B256 = 256
 
     class AccuracyLevel(IntEnumBase):
         fp32 = 1
@@ -42,10 +45,11 @@ class ModelBuilder(Pass):
         int8 = 4
 
     @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "precision": PassConfigParam(
-                type_=ModelBuilder.Precision,
+                type_=Precision,
+                default_value=Precision.FP32,
                 required=True,
                 description="Precision of model.",
             ),
@@ -56,10 +60,19 @@ class ModelBuilder(Pass):
                 description="Whether to export the model or generate required metadata only.",
             ),
             "search": PassConfigParam(
-                type_=Dict[str, Any], required=False, description="Search options to use for generate loop."
+                type_=dict[str, Any], required=False, description="Search options to use for generate loop."
+            ),
+            "use_qdq": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description=(
+                    "Use this option when you want to use quantize-dequantize ops. "
+                    "For example, you will have a quantized MatMul op instead of the MatMulNBits op."
+                ),
             ),
             "int4_block_size": PassConfigParam(
-                type_=int,
+                type_=ModelBuilder.BlockSize,
                 required=False,
                 description="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
             ),
@@ -67,6 +80,14 @@ class ModelBuilder(Pass):
                 type_=ModelBuilder.AccuracyLevel,
                 required=False,
                 description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
+            ),
+            "int4_op_types_to_quantize": PassConfigParam(
+                type_=list[str],
+                required=False,
+                description=(
+                    'Specify the op types to quantize for int4 quantization. Default is None (= [ "MatMul" ]). Example:'
+                    ' ["MatMul", "Gemm"]'
+                ),
             ),
             "exclude_embeds": PassConfigParam(
                 type_=bool,
@@ -95,18 +116,14 @@ class ModelBuilder(Pass):
     @classmethod
     def validate_config(
         cls,
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
-        disable_search: Optional[bool] = False,
     ) -> bool:
-        if not super().validate_config(config, accelerator_spec, disable_search):
+        if not super().validate_config(config, accelerator_spec):
             return False
 
-        config_cls, _ = cls.get_config_class(accelerator_spec, disable_search)
-        config = config_cls(**config)
-
         # if device is GPU, but user choose CPU EP, the is_cpu should be True
-        if (config.precision == ModelBuilder.Precision.FP16) and not (
+        if (config.precision == Precision.FP16) and not (
             accelerator_spec.accelerator_type == Device.GPU
             and accelerator_spec.execution_provider != "CPUExecutionProvider"
         ):
@@ -115,7 +132,9 @@ class ModelBuilder(Pass):
                 "provider combinations are: FP32 CPU, FP32 CUDA, FP16 CUDA, INT4 CPU, INT4 CUDA"
             )
             return False
-        return True
+
+        # Support for limited precision types
+        return config.precision in {Precision.FP32, Precision.FP16, Precision.INT8, Precision.INT4}
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
@@ -124,13 +143,20 @@ class ModelBuilder(Pass):
     def _run_for_config(
         self,
         model: Union[HfModelHandler, ONNXModelHandler],
-        config: Dict[str, Any],
+        config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        from onnxruntime_genai.models.builder import create_model
+        try:
+            from onnxruntime_genai.models.builder import create_model
+        except ImportError:
+            raise ImportError(
+                "onnxruntime-genai package is required to run ModelBuilder pass. Please install the package"
+                " corresponding to your onnxruntime installation using pip. cpu: onnxruntime-genai, cuda:"
+                " onnxruntime-genai-cuda, directml: onnxruntime-genai-directml"
+            ) from None
 
-        precision = config["precision"]
-        metadata_only = config["metadata_only"]
+        precision = config.precision
+        metadata_only = config.metadata_only
 
         if metadata_only:
             if not isinstance(model, ONNXModelHandler):
@@ -166,27 +192,32 @@ class ModelBuilder(Pass):
             if model.adapter_path:
                 extra_args["adapter_path"] = model.adapter_path
 
-        if config.get("int4_block_size"):
-            if int(config["int4_block_size"]) not in [16, 32, 64, 128, 256]:
-                raise ValueError("Invalid int4_block_size. Accepted values: 16/32/64/128/256.")
-            extra_args["int4_block_size"] = config["int4_block_size"]
+        if config.int4_block_size:
+            extra_args["int4_block_size"] = config.int4_block_size.value
 
-        if config.get("int4_accuracy_level"):
-            extra_args["int4_accuracy_level"] = config["int4_accuracy_level"].value
+        if config.use_qdq:
+            extra_args["use_qdq"] = config.use_qdq
+
+        if config.int4_accuracy_level:
+            extra_args["int4_accuracy_level"] = config.int4_accuracy_level.value
+
+        if config.int4_op_types_to_quantize:
+            extra_args["int4_op_types_to_quantize"] = config.int4_op_types_to_quantize
 
         # args that are only checked for presence, not value
         for arg in ["exclude_embeds", "exclude_lm_head"]:
-            if config[arg]:
+            if getattr(config, arg):
                 extra_args[arg] = True
 
         # args that are checked for presence and value (if present)
         for arg in ["enable_cuda_graph"]:
-            if config[arg] is not None:
-                extra_args[arg] = "1" if config[arg] else "0"
+            if getattr(config, arg) is not None:
+                extra_args[arg] = "1" if getattr(config, arg) else "0"
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
 
         try:
+            logger.debug("Building model with the following args: %s", extra_args)
             create_model(
                 model_name=model_path,
                 input_path=input_path,
@@ -201,7 +232,7 @@ class ModelBuilder(Pass):
 
             # add split information if present
             split_assignments = model_attributes.get("split_assignments")
-            if split_assignments:
+            if not metadata_only and split_assignments:
                 # NOTE: currently the model builder renames modules to it's own naming convention
                 # so the assignments for the renamed modules won't match
                 split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
@@ -225,7 +256,7 @@ class ModelBuilder(Pass):
         with open(genai_config_filepath) as istrm:
             genai_config = json.load(istrm)
 
-        genai_config["search"] = {**(genai_config.get("search") or {}), **(config.get("search") or {})}
+        genai_config["search"] = {**(genai_config.get("search") or {}), **(config.search or {})}
 
         with open(genai_config_filepath, "w") as ostrm:
             json.dump(genai_config, ostrm, indent=4)
@@ -237,7 +268,6 @@ class ModelBuilder(Pass):
             model.save_metadata(output_model_filepath.parent)
 
         # add additional files generated by model builder to model_attributes
-        model_attributes["generative"] = True
         additional_files = model_attributes.get("additional_files") or []
         if metadata_only:
             # add genai_config.json to additional_files since the model_builder creates copy of the other files

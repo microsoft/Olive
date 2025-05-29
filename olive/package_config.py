@@ -5,7 +5,7 @@
 import functools
 import importlib
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Dict, List, Type
+from typing import TYPE_CHECKING, ClassVar
 
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import Field, validator
@@ -21,10 +21,10 @@ class OlivePackageConfig(ConfigBase):
     passes key is case-insensitive and stored in lowercase.
     """
 
-    passes: Dict[str, PassModuleConfig] = Field(default_factory=dict)
-    extra_dependencies: Dict[str, List[str]] = Field(default_factory=dict)
+    passes: dict[str, PassModuleConfig] = Field(default_factory=dict)
+    extra_dependencies: dict[str, list[str]] = Field(default_factory=dict)
 
-    _pass_modules: ClassVar[Dict[str, Type["Pass"]]] = {}
+    _pass_modules: ClassVar[dict[str, type["Pass"]]] = {}
 
     @validator("passes")
     def validate_passes(cls, values):
@@ -59,3 +59,7 @@ class OlivePackageConfig(ConfigBase):
             return self.passes.get(pass_type)
 
         raise ValueError(f"Package configuration for pass of type '{pass_type}' not found")
+
+    def is_onnx_module(self, pass_type: str) -> bool:
+        pass_module = self.get_pass_module_config(pass_type)
+        return pass_module.module_path.startswith("olive.passes.onnx")

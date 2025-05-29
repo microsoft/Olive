@@ -50,9 +50,11 @@ CLASSIFIERS = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 long_description = (
@@ -73,7 +75,7 @@ setup(
     url="https://microsoft.github.io/Olive/",
     download_url="https://github.com/microsoft/Olive/tags",
     packages=find_packages(include=["olive*"]),
-    python_requires=">=3.8.0",
+    python_requires=">=3.9",
     install_requires=requirements,
     extras_require=EXTRAS,
     include_package_data=False,
