@@ -12,12 +12,13 @@ from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionS
 from huggingface_hub import model_info
 from sd_utils import config
 from transformers.models.clip.modeling_clip import CLIPTextModel
-import random
+
 from olive.data.registry import Registry
 
 # ruff: noqa: T201
 
 # Generated data helpers
+
 
 class BaseDataLoader:
     def __init__(self, total):
@@ -38,6 +39,7 @@ class BaseDataLoader:
     def finish_load(self):
         if len(self.data) > self.total:
             self.data = random.sample(self.data, self.total)
+
 
 class UnetGeneratedDataLoader(BaseDataLoader):
     def __init__(self, total):
