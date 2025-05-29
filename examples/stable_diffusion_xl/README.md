@@ -122,4 +122,4 @@ Then generate data:
 
 To generate one image:
 
-`python stable_diffusion_xl.py --model_id stabilityai/sdxl-turbo --provider cpu --format qdq --guidance_scale 0 --seed 0 --num_inference_steps 1 --prompt "A baby is laying down with a teddy bear"`
+`python stable_diffusion_xl.py --model_id stabilityai/sdxl-turbo --provider cpu --format qdq --guidance_scale 0 --seed 0 --num_inference_steps 1 --prompt "A baby is laying down with a teddy bear" --image_size 512`
