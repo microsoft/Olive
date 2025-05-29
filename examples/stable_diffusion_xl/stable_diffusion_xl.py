@@ -290,11 +290,18 @@ def run_inference(
         )
 
 
-def update_config_with_provider(config: dict, provider: str, is_fp16: bool, only_conversion: bool, submodel_name: str) -> dict:
+def update_config_with_provider(config: dict, provider: str, is_fp16: bool, only_conversion: bool, submodel_name: str, format: str) -> dict:
     used_passes = {}
     if only_conversion:
         used_passes = {"convert"}
         config["evaluator"] = None
+    elif format == "qdq":
+        if submodel_name == "text_encoder" or submodel_name == "text_encoder_2":
+            used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "optimize_qdq", "quantization"}
+        elif submodel_name == "unet":
+            used_passes = {"convert", "dynamic_shape_to_fixed", "optimize_qdq", "quantization"}
+        else:
+            used_passes = {"convert", "dynamic_shape_to_fixed", "quantization"}
     elif provider == "dml":
         # DirectML EP is the default, so no need to update config.
         used_passes = {"convert", "optimize"}
@@ -306,23 +313,24 @@ def update_config_with_provider(config: dict, provider: str, is_fp16: bool, only
         if is_fp16:
             config["passes"]["optimize_cuda"].update({"float16": True, "keep_io_types": False})
         used_passes = {"convert", "optimize_cuda"}
-        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
-    elif provider == "qnn":
-        if submodel_name == "text_encoder" or submodel_name == "text_encoder_2":
-            used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "qnn_preprocess", "quant_preprocess", "quantization"}
-        else:
-            used_passes = {"convert", "dynamic_shape_to_fixed", "qnn_preprocess", "quant_preprocess", "quantization"}
-        # TODO
-        config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
-        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
-        config["evaluator"] = None
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
     config["passes"] = OrderedDict([(k, v) for k, v in config["passes"].items() if k in used_passes])
+
+    if provider == "cuda":
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
+    elif provider == "qnn":
+        config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
+    else:
+        config["systems"]["local_system"]["accelerators"][0]["device"] = "cpu"
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
+        # not meaningful to evaluate QDQ latency on CPU
+        config["evaluator"] = None
     return config
 
-def save_config(configs: Dict, module_name: str, model_info: Dict, optimized: bool = False):
+def save_config(configs: dict, module_name: str, model_info: dict, optimized: bool = False):
     config_path = hf_hub_download(repo_id=configs[module_name], filename="config.json", subfolder=module_name)
     shutil.copyfile(config_path, model_info[module_name]["optimized" if optimized else "unoptimized"]["path"].parent / "config.json")
 
@@ -334,6 +342,7 @@ def optimize(
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
     only_conversion: bool,
+    format: str,
 ):
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
@@ -366,7 +375,7 @@ def optimize(
         olive_config = None
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
-        olive_config = update_config_with_provider(olive_config, provider, use_fp16_fixed_vae, only_conversion, submodel_name)
+        olive_config = update_config_with_provider(olive_config, provider, use_fp16_fixed_vae, only_conversion, submodel_name, format)
 
         if is_refiner_model and submodel_name == "vae_encoder" and not use_fp16_fixed_vae:
             # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen
@@ -499,7 +508,10 @@ def main(raw_args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", default="stabilityai/stable-diffusion-xl-base-1.0", type=str)
     parser.add_argument(
-        "--provider", default="dml", type=str, choices=["dml", "cuda", "qnn"], help="Execution provider to use"
+        "--provider", default="dml", type=str, choices=["dml", "cuda", "cpu", "qnn"], help="Execution provider to use"
+    )
+    parser.add_argument(
+        "--format", default=None, type=str, help="Currently only support qdq with provider cpu, cuda or qnn"
     )
     parser.add_argument(
         "--use_fp16_fixed_vae",
@@ -543,7 +555,7 @@ def main(raw_args=None):
     parser.add_argument("--dynamic_dims", action="store_true", help="Disable static shape optimization")
     parser.add_argument("--tempdir", default=None, type=str, help="Root directory for tempfile directories and files")
     parser.add_argument("--only_conversion", action="store_true")
-    parser.add_argument("--data_dir", default="quantize_data/data", type=str)
+    parser.add_argument("--data_dir", default="quantize_data_xl/data", type=str)
     args = parser.parse_args(raw_args)
 
     if args.static_dims:
@@ -594,6 +606,8 @@ def main(raw_args=None):
     # Optimize the models
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
     optimized_dir_name = "optimized" if args.provider == "dml" else f"optimized-{args.provider}"
+    if args.format:
+        optimized_dir_name += f"_{args.format}"
     optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     model_config = model_to_config.get(args.model_id, {})
@@ -630,6 +644,7 @@ def main(raw_args=None):
                 unoptimized_model_dir,
                 optimized_model_dir,
                 args.only_conversion,
+                args.format,
             )
 
     # Run inference on the models
