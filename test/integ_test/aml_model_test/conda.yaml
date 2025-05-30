@@ -11,6 +11,6 @@ dependencies:
       - onnxruntime
       - datasets
       - scipy
-      - transformers
+      - transformers==4.31.0 # TODO(team): 55036 Fixed error and update to latest version
       - onnxconverter_common
       - git+https://github.com/microsoft/Olive.git
