@@ -553,14 +553,6 @@ def _generate_onnx_mlflow_model(model_dir: Path, inference_config: dict):
     return mlflow_model_path
 
 
-def create_python_download_command(base_url=None):
-    command = f"{sys.executable} -m pip download"
-    if base_url:
-        command += f" -i {base_url}"
-    command += " $package_name==$version --no-deps -d $python_download_path --python-version=$python_version"
-    return Template(command)
-
-
 def _get_python_version():
     major_version = sys.version_info.major
     minor_version = sys.version_info.minor
