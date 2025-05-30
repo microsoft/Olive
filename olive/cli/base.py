@@ -74,7 +74,6 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     input_model = {
         "type": "HfModel",
         "model_path": model_path,
-        "generative": args.is_generative_model,
         "load_kwargs": {
             "attn_implementation": "eager",
         },
@@ -138,7 +137,6 @@ def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     input_model_config = {
         "type": "PyTorchModel",
         "model_script": args.model_script,
-        "generative": args.is_generative_model,
     }
 
     if args.script_dir:
@@ -375,7 +373,6 @@ def add_input_model_options(
                 "for more information."
             ),
         )
-    model_group.add_argument("--is_generative_model", type=bool, default=True, help="Is this a generative model?")
     model_group.add_argument(
         "-o",
         "--output_path",
