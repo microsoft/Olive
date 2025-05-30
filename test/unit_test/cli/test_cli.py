@@ -132,7 +132,6 @@ def test_workflow_run_command_with_overrides(mock_run, tmp_path):
             "input_model": {
                 "type": "HfModel",
                 "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "generative": True,
                 "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
             },
             "engine": {},
