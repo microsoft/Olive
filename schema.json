@@ -630,11 +630,6 @@
         "config": {
           "$ref": "#/definitions/CommonPackagingConfig"
         },
-        "include_runtime_packages": {
-          "title": "Include Runtime Packages",
-          "default": true,
-          "type": "boolean"
-        },
         "generative": {
           "title": "Generative",
           "default": false,

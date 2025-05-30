@@ -453,7 +453,7 @@
 <p>Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user requires. Olive packaging can be used in different scenarios. There are 4 packaging types: <code class="docutils literal notranslate"><span class="pre">Zipfile</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLModels</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLData</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLDeployment</span></code> and <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code>.</p>
 <section id="zipfile">
 <h3>Zipfile<a class="headerlink" href="#zipfile" title="Link to this heading">#</a></h3>
-<p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>, and a <code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code> file in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
+<p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> and a <code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code> file in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>: top ranked output model set</p>
 <ul>
@@ -462,7 +462,6 @@
 <li><p>Inference settings (<code class="docutils literal notranslate"><span class="pre">onnx</span></code> model only)</p></li>
 </ul>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code>: A JSON file containing a list that ranks all output models based on specific metrics across all accelerators.</p></li>
 </ul>
 <section id="candidatemodels">
@@ -553,7 +552,7 @@
 </section>
 <section id="dockerfile">
 <h3>Dockerfile<a class="headerlink" href="#dockerfile" title="Link to this heading">#</a></h3>
-<p>Dockerfile packaging will generate a Dockerfile. You can simple run <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">build</span></code> for this Dockerfile to build a docker image which includes <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code> Python package and first ranked output model.</p>
+<p>Dockerfile packaging will generate a Dockerfile. You can simple run <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">build</span></code> for this Dockerfile to build a docker image which includes first ranked output model.</p>
 </section>
 </section>
 <section id="how-to-package-olive-artifacts">
@@ -659,8 +658,6 @@ Extra configurations for deployment. <code class="docutils literal notranslate">
 </li>
 </ul>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">include_runtime_packages</span> <span class="pre">[bool]</span></code>:
-Whether or not to include runtime packages (like onnxruntime) in zip file. Defaults to True</p></li>
 </ul>
 </li>
 </ul>
