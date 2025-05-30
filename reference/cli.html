@@ -455,6 +455,10 @@
 <p>Run Olive workflow defined in the input .json configuration file.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">run</span><span class="o">-</span><span class="n">config</span> <span class="n">RUN_CONFIG</span> <span class="p">[</span><span class="o">--</span><span class="n">setup</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">packages</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">package</span><span class="o">-</span><span class="n">config</span> <span class="n">PACKAGE_CONFIG</span><span class="p">]</span>
+                 <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+                 <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                 <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
+                 <span class="p">[</span><span class="o">--</span><span class="n">is_generative_model</span> <span class="n">IS_GENERATIVE_MODEL</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -476,6 +480,40 @@
 </dd>
 <dt><kbd>--package-config</kbd></dt>
 <dd><p>For advanced users. Path to optional package (json) config file with location of individual pass module implementation and corresponding dependencies. Configuration might also include user owned/proprietary/private pass implementations.</p>
+</dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is None. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+</dd>
+</dl>
+</section>
+<section id="model-options-(not-required)">
+<h2>Model options (not required)<a class="headerlink" href="#model-options-(not-required)" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>-m, --model_name_or_path</kbd></dt>
+<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
+</dd>
+<dt><kbd>-t, --task</kbd></dt>
+<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
+</dd>
+<dt><kbd>--trust_remote_code</kbd></dt>
+<dd><p>Trust remote code when loading a huggingface model.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>-a, --adapter_path</kbd></dt>
+<dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
+</dd>
+<dt><kbd>--model_script</kbd></dt>
+<dd><p>The script file containing the model definition. Required for the local PyTorch model.</p>
+</dd>
+<dt><kbd>--script_dir</kbd></dt>
+<dd><p>The directory containing the local PyTorch model script file. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
+</dd>
+<dt><kbd>--is_generative_model</kbd></dt>
+<dd><p>Is this a generative model? Inferered as True for text generation HF models.</p>
+<p>Default: True</p>
+</dd>
+<dt><kbd>-o, --output_path</kbd></dt>
+<dd><p>Path to save the command output.</p>
 </dd>
 </dl>
 </section>
@@ -514,14 +552,14 @@
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
 </dd>
 <dt><kbd>-t, --task</kbd></dt>
-<dd><p>Task for which the huggingface model is used.</p>
+<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: False</p>
 </dd>
 <dt><kbd>--is_generative_model</kbd></dt>
-<dd><p>Is this a generative model?</p>
+<dd><p>Is this a generative model? Inferered as True for text generation HF models.</p>
 <p>Default: True</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
@@ -669,7 +707,7 @@
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
 </dd>
 <dt><kbd>-t, --task</kbd></dt>
-<dd><p>Task for which the huggingface model is used.</p>
+<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
@@ -682,10 +720,10 @@
 <dd><p>The script file containing the model definition. Required for the local PyTorch model.</p>
 </dd>
 <dt><kbd>--script_dir</kbd></dt>
-<dd><p>The directory containing the local PyTorch model script file.See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
+<dd><p>The directory containing the local PyTorch model script file. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
 </dd>
 <dt><kbd>--is_generative_model</kbd></dt>
-<dd><p>Is this a generative model?</p>
+<dd><p>Is this a generative model? Inferered as True for text generation HF models.</p>
 <p>Default: True</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
@@ -828,7 +866,7 @@
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
 </dd>
 <dt><kbd>-t, --task</kbd></dt>
-<dd><p>Task for which the huggingface model is used.</p>
+<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
@@ -841,10 +879,10 @@
 <dd><p>The script file containing the model definition. Required for the local PyTorch model.</p>
 </dd>
 <dt><kbd>--script_dir</kbd></dt>
-<dd><p>The directory containing the local PyTorch model script file.See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
+<dd><p>The directory containing the local PyTorch model script file. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
 </dd>
 <dt><kbd>--is_generative_model</kbd></dt>
-<dd><p>Is this a generative model?</p>
+<dd><p>Is this a generative model? Inferered as True for text generation HF models.</p>
 <p>Default: True</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
@@ -977,7 +1015,7 @@
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
 </dd>
 <dt><kbd>-t, --task</kbd></dt>
-<dd><p>Task for which the huggingface model is used.</p>
+<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
@@ -990,10 +1028,10 @@
 <dd><p>The script file containing the model definition. Required for the local PyTorch model.</p>
 </dd>
 <dt><kbd>--script_dir</kbd></dt>
-<dd><p>The directory containing the local PyTorch model script file.See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
+<dd><p>The directory containing the local PyTorch model script file. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
 </dd>
 <dt><kbd>--is_generative_model</kbd></dt>
-<dd><p>Is this a generative model?</p>
+<dd><p>Is this a generative model? Inferered as True for text generation HF models.</p>
 <p>Default: True</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
@@ -1116,7 +1154,7 @@
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
 </dd>
 <dt><kbd>--is_generative_model</kbd></dt>
-<dd><p>Is this a generative model?</p>
+<dd><p>Is this a generative model? Inferered as True for text generation HF models.</p>
 <p>Default: True</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
@@ -1244,7 +1282,7 @@
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
 </dd>
 <dt><kbd>--is_generative_model</kbd></dt>
-<dd><p>Is this a generative model?</p>
+<dd><p>Is this a generative model? Inferered as True for text generation HF models.</p>
 <p>Default: True</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
@@ -1351,14 +1389,14 @@
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
 </dd>
 <dt><kbd>-t, --task</kbd></dt>
-<dd><p>Task for which the huggingface model is used.</p>
+<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: False</p>
 </dd>
 <dt><kbd>--is_generative_model</kbd></dt>
-<dd><p>Is this a generative model?</p>
+<dd><p>Is this a generative model? Inferered as True for text generation HF models.</p>
 <p>Default: True</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
@@ -1591,6 +1629,7 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Command Line Tools</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run">Run</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-options-(not-required)">Model options (not required)</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#finetune">Finetune</a><ul class="visible nav section-nav flex-column">
