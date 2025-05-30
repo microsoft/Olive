@@ -14,8 +14,3 @@ ADD <DIR> /olive
 
 RUN pip install -r requirements.txt
 
-WORKDIR /olive/ONNXRuntimePackages/python
-
-RUN pip install *.whl
-
-WORKDIR /olive
