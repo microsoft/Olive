@@ -9,7 +9,6 @@ import sys
 import tempfile
 from collections import OrderedDict
 from pathlib import Path
-from string import Template
 from typing import TYPE_CHECKING, Union
 
 from olive.common.utils import retry_func
