@@ -88,7 +88,7 @@ pip install --no-build-isolation git+https://github.com/PanQiWei/AutoGPTQ.git
 olive run --config qdq_config.json
 ```
 
-✅ Optimized model saved in: `models/phi3_5_qdq/`
+✅ Optimized model saved in: `models/phi3_5-qdq/`
 
 
 ## **Optimization and Quantization for AMD NPU**
@@ -101,7 +101,7 @@ Follow above mentioned setup instruction and run the below command to generate t
 olive run --config qdq_config_vitis_ai.json.json
 ```
 
-✅ Optimized model saved in: `models/phi3_5_qdq_vai/`
+✅ Optimized model saved in: `models/phi3_5-vai/`
 
 ## **PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**
 
@@ -168,7 +168,7 @@ olive run --config qnn_config.json
 
 Olive will run the AOT compilation step in the **AOT Compilation Python Environment** specified in the config file using a subprocess. All other steps will run in the **Quantization Python Environment** natively.
 
-✅ Optimized model saved in: `models/phi3_5_qnn/`
+✅ Optimized model saved in: `models/phi3_5-qnn/`
 
 > ⚠️ If optimization fails during context binary generation, rerun the command. The process will resume from the last completed step.
 
@@ -203,7 +203,7 @@ pip install "onnxruntime-genai>=0.7.0rc2"
 Open ARM64 Native Tools Command Prompt for VS2022 and execute the provided [`app.py`](app.py) script:
 
 ```bash
-python app.py -m models/phi3_5_qnn
+python app.py -m models/phi3_5-qnn
 ```
 
 ## **PTQ + AOT Compilation for Intel® NPUs using Optimum Intel®**

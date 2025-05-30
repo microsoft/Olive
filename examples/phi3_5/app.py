@@ -9,7 +9,7 @@ parser.add_argument(
     "-m",
     "--model_folder",
     type=str,
-    default="models/phi3_5_qdq",
+    default="models/phi3_5-qdq",
     help="Path to the folder containing the outputs of Olive run",
 )
 parser.add_argument(

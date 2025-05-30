@@ -73,7 +73,7 @@
     },
     "target": "qnn_system",
     "log_severity_level": 1,
-    "output_dir": "models/phi3_5_qnn",
+    "output_dir": "models/phi3_5-qnn",
     "cache_dir": "cache",
     "no_artifacts": true
 }

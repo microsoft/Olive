@@ -70,7 +70,7 @@
         }
     },
     "log_severity_level": 1,
-    "output_dir": "models/phi3_5_qdq_vai",
+    "output_dir": "models/phi3_5-vai",
     "cache_dir": "cache",
     "no_artifacts": true
 }
