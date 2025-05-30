@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 @model_handler_registry("HFModel")
 class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):  # pylint: disable=too-many-ancestors
     resource_keys: tuple[str, ...] = ("model_path", "adapter_path")
-    json_config_keys: tuple[str, ...] = ("task", "load_kwargs", "generative")
+    json_config_keys: tuple[str, ...] = ("task", "load_kwargs")
 
     def __init__(
         self,
@@ -38,17 +38,12 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         io_config: Union[dict[str, Any], IoConfig, str] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[dict[str, Any]] = None,
-        generative: Optional[bool] = None,
     ):
-        if generative is None:
-            generative = task and task.startswith("text-generation")
-
         super().__init__(
             model_file_format=None,
             model_path=model_path,
             model_attributes=model_attributes,
             io_config=io_config,
-            generative=generative,
         )
         self.add_resources(locals())
         self.task = task
@@ -150,7 +145,6 @@ class DistributedHfModelHandler(OliveModelHandler):
         "task",
         "load_kwargs",
         "io_config",
-        "generative",
     )
 
     DEFAULT_RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}"
@@ -164,7 +158,6 @@ class DistributedHfModelHandler(OliveModelHandler):
         load_kwargs: Union[dict[str, Any], HfLoadKwargs] = None,
         io_config: Union[dict[str, Any], IoConfig] = None,
         model_attributes: Optional[dict[str, Any]] = None,
-        generative: bool = False,
     ):
         super().__init__(
             framework=Framework.PYTORCH,
@@ -173,10 +166,6 @@ class DistributedHfModelHandler(OliveModelHandler):
             model_attributes=model_attributes,
             io_config=io_config,
         )
-        if generative is None:
-            generative = task and task.startswith("text-generation")
-        self.generative = generative
-
         self.add_resources(locals())
 
         self.model_name_pattern = model_name_pattern
@@ -197,7 +186,6 @@ class DistributedHfModelHandler(OliveModelHandler):
             load_kwargs=self.load_kwargs,
             io_config=self.io_config,
             model_attributes=self.model_attributes,
-            generative=self.generative,
         )
 
     def prepare_session(
@@ -215,8 +203,11 @@ class DistributedHfModelHandler(OliveModelHandler):
         inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
         **kwargs: dict[str, Any],
     ) -> Any:
+        is_generative = False
+        if self.get_hf_generation_config() is not None:
+            is_generative = True
         if isinstance(inputs, dict):
-            results = session.generate(**inputs, **kwargs) if self.generative else session(**inputs, **kwargs)
+            results = session.generate(**inputs, **kwargs) if is_generative else session(**inputs, **kwargs)
         else:
-            results = session.generate(inputs, **kwargs) if self.generative else session(inputs, **kwargs)
+            results = session.generate(inputs, **kwargs) if is_generative else session(inputs, **kwargs)
         return results

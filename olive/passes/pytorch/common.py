@@ -95,7 +95,6 @@ def inherit_pytorch_from_hf(
         model_file_format=model_file_format,
         io_config=io_config,
         model_attributes={**model.model_attributes, **extra_attributes},
-        generative=model.generative,
     )
 
 
