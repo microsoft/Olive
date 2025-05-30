@@ -1,11 +1,28 @@
 # app.py
 # ruff: noqa: T201
+from argparse import ArgumentParser
+
 import onnxruntime_genai as og
 
-model_folder = "models/phi3_5/model"
+parser = ArgumentParser(description="Run a simple chat application with the Phi-3.5 model.")
+parser.add_argument(
+    "-m",
+    "--model_folder",
+    type=str,
+    default="models/phi3_5_qdq",
+    help="Path to the folder containing the outputs of Olive run",
+)
+parser.add_argument(
+    "-c",
+    "--chat_template",
+    type=str,
+    default="<|user|>\n{input} <|end|>\n<|assistant|>",
+    help="Template for the chat input",
+)
+args = parser.parse_args()
 
 # Load the base model and tokenizer
-model = og.Model(model_folder)
+model = og.Model(f"{args.model_folder}/model")
 tokenizer = og.Tokenizer(model)
 tokenizer_stream = tokenizer.create_stream()
 
@@ -13,8 +30,6 @@ tokenizer_stream = tokenizer.create_stream()
 # since otherwise it will be set to the entire context length
 search_options = {}
 search_options["max_length"] = 200
-
-chat_template = "<|user|>\n{input} <|end|>\n<|assistant|>"
 
 # Keep asking for input prompts in a loop
 while True:
@@ -27,7 +42,7 @@ while True:
         break
 
     # Generate prompt (prompt template + input)
-    prompt = f"{chat_template.format(input=text)}"
+    prompt = f"{args.chat_template.format(input=text)}"
 
     # Encode the prompt using the tokenizer
     input_tokens = tokenizer.encode(prompt)

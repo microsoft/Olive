@@ -101,7 +101,7 @@ Follow above mentioned setup instruction and run the below command to generate t
 olive run --config qdq_config_vitis_ai.json.json
 ```
 
-✅ Optimized model saved in: `models/phi3_5_qdq/`
+✅ Optimized model saved in: `models/phi3_5_qdq_vai/`
 
 ## **PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**
 
@@ -203,7 +203,7 @@ pip install "onnxruntime-genai>=0.7.0rc2"
 Open ARM64 Native Tools Command Prompt for VS2022 and execute the provided [`app.py`](app.py) script:
 
 ```bash
-python app.py
+python app.py -m models/phi3_5_qnn
 ```
 
 ## **PTQ + AOT Compilation for Intel® NPUs using Optimum Intel®**
