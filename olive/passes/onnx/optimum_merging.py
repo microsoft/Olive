@@ -46,7 +46,7 @@ class OptimumMerging(Pass):
     ) -> ONNXModelHandler:
         import onnxruntime as ort
 
-        from olive.common.ort_inference import initialize_inference_session_options_for_winml, is_winml_installation
+        from olive.common.ort_inference import initialize_inference_session_options, ort_supports_ep_devices
 
         assert len(model.model_components) == 2
 
@@ -83,8 +83,8 @@ class OptimumMerging(Pass):
 
         execution_provider = self.accelerator_spec.execution_provider
         sess_kwargs = {}
-        if is_winml_installation():
-            initialize_inference_session_options_for_winml(
+        if ort_supports_ep_devices():
+            initialize_inference_session_options(
                 sess_options, self.accelerator_spec.accelerator_type, [execution_provider], [{}]
             )
         else:
