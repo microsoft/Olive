@@ -8,13 +8,11 @@ FROM ${BASE_IMAGE}
 ARG PYTHON_VERSION
 
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
     python${PYTHON_VERSION}-venv \
-    python3-pip \
-    unzip \
-    docker.io
+    python3-pip
 RUN ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 
 COPY . /olive
