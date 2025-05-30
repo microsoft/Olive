@@ -6,13 +6,12 @@ Olive will output multiple candidate models based on metrics priorities. It also
 
 ### Zipfile
 
-Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and `ONNXRuntimePackages`, and a `models_rank.json` file in the `output_dir` folder (from Engine Configuration):
+Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and a `models_rank.json` file in the `output_dir` folder (from Engine Configuration):
 
 * `CandidateModels`: top ranked output model set
   * Model file
   * Olive Pass run history configurations for candidate model
   * Inference settings (`onnx` model only)
-* `ONNXRuntimePackages`: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.
 * `models_rank.json`: A JSON file containing a list that ranks all output models based on specific metrics across all accelerators.
 
 #### CandidateModels
@@ -110,7 +109,7 @@ AzureMLDeployment packaging will [package](https://learn.microsoft.com/en-us/azu
 
 ### Dockerfile
 
-Dockerfile packaging will generate a Dockerfile. You can simple run `docker build` for this Dockerfile to build a docker image which includes `onnxruntime` Python package and first ranked output model.
+Dockerfile packaging will generate a Dockerfile. You can simple run `docker build` for this Dockerfile to build a docker image which includes first ranked output model.
 
 ## How to package Olive artifacts
 
