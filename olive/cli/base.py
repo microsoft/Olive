@@ -186,9 +186,14 @@ def get_input_model_config(args: Namespace, required: bool = True) -> Optional[d
 
     if model_name_or_path is None:
         if hasattr(args, "model_script"):
-            # pytorch model with model_script, model_path is optional
-            print("model_name_or_path is not provided. Using model_script to load the model.")
-            return _get_pt_input_model(args, None)
+            if args.model_script:
+                # pytorch model with model_script, model_path is optional
+                print("model_name_or_path is not provided. Using model_script to load the model.")
+                return _get_pt_input_model(args, None)
+            elif required:
+                raise ValueError(
+                    "model_name_or_path is required. Either model_name_or_path or model_script is required."
+                )
         if not required:
             # optional model_name_or_path, return empty config
             return None
