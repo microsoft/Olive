@@ -13,6 +13,7 @@ from typing import ClassVar, Optional, Union
 import yaml
 
 from olive.cli.constants import CONDA_CONFIG
+from olive.common.constants import DEFAULT_HF_TASK
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import hash_dict, hf_repo_exists, set_nested_dict_value, unescaped_str
 from olive.hardware.accelerator import AcceleratorSpec
@@ -166,7 +167,7 @@ def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     return input_model_config
 
 
-def get_input_model_config(args: Namespace) -> dict:
+def get_input_model_config(args: Namespace, required: bool = True) -> Optional[dict]:
     """Parse the model_name_or_path and return the input model config.
 
     Check model_name_or_path formats in order:
@@ -185,9 +186,17 @@ def get_input_model_config(args: Namespace) -> dict:
 
     if model_name_or_path is None:
         if hasattr(args, "model_script"):
-            # pytorch model with model_script, model_path is optional
-            print("model_name_or_path is not provided. Using model_script to load the model.")
-            return _get_pt_input_model(args, None)
+            if args.model_script:
+                # pytorch model with model_script, model_path is optional
+                print("model_name_or_path is not provided. Using model_script to load the model.")
+                return _get_pt_input_model(args, None)
+            elif required:
+                raise ValueError(
+                    "model_name_or_path is required. Either model_name_or_path or model_script is required."
+                )
+        if not required:
+            # optional model_name_or_path, return empty config
+            return None
         raise ValueError("model_name_or_path is required.")
 
     model_path = Path(model_name_or_path)
@@ -259,13 +268,13 @@ def update_input_model_options(args, config):
     config["input_model"] = get_input_model_config(args)
 
 
-def add_logging_options(sub_parser: ArgumentParser):
+def add_logging_options(sub_parser: ArgumentParser, default: int = 3):
     """Add logging options to the sub_parser."""
     sub_parser.add_argument(
         "--log_level",
         type=int,
-        default=3,
-        help="Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL",
+        default=default,
+        help=f"Logging level. Default is {default}. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL",
     )
     return sub_parser
 
@@ -323,6 +332,7 @@ def add_input_model_options(
     enable_onnx: bool = False,
     default_output_path: Optional[str] = None,
     directory_output: bool = True,
+    required: bool = True,
 ):
     """Add model options to the sub_parser.
 
@@ -339,7 +349,7 @@ def add_input_model_options(
         "--model_name_or_path",
         type=str,
         # only pytorch model doesn't require model_name_or_path
-        required=not enable_pt,
+        required=required and not enable_pt,
         help=(
             "Path to the input model. "
             "See https://microsoft.github.io/Olive/reference/cli.html#providing-input-models "
@@ -347,7 +357,12 @@ def add_input_model_options(
         ),
     )
     if enable_hf:
-        model_group.add_argument("-t", "--task", type=str, help="Task for which the huggingface model is used.")
+        model_group.add_argument(
+            "-t",
+            "--task",
+            type=str,
+            help=f"Task for which the huggingface model is used. Default task is {DEFAULT_HF_TASK}.",
+        )
         model_group.add_argument(
             "--trust_remote_code", action="store_true", help="Trust remote code when loading a huggingface model."
         )
@@ -371,16 +386,21 @@ def add_input_model_options(
             type=str,
             help=(
                 "The directory containing the local PyTorch model script file."
-                "See https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information "
+                " See https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information "
                 "for more information."
             ),
         )
-    model_group.add_argument("--is_generative_model", type=bool, default=True, help="Is this a generative model?")
+    model_group.add_argument(
+        "--is_generative_model",
+        type=bool,
+        default=True,
+        help="Is this a generative model? Inferered as True for text generation HF models.",
+    )
     model_group.add_argument(
         "-o",
         "--output_path",
         type=output_path_type if directory_output else str,
-        required=default_output_path is None,
+        required=required and default_output_path is None,
         default=default_output_path,
         help="Path to save the command output.",
     )
@@ -514,7 +534,10 @@ def add_dataset_options(sub_parser, required=True, include_train=True, include_e
         "--input_cols",
         type=str,
         nargs="+",
-        help="List of input column names. Provide one or more names separated by space. Example: --input_cols sentence1 sentence2",
+        help=(
+            "List of input column names. Provide one or more names separated by space. Example: --input_cols sentence1"
+            " sentence2"
+        ),
     )
 
     return dataset_group, text_group
