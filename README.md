@@ -57,7 +57,7 @@ We recommend installing Olive in a [virtual environment](https://docs.python.org
 
 ```
 pip install olive-ai[auto-opt]
-pip install transformers==4.44.2 onnxruntime-genai
+pip install transformers onnxruntime-genai
 ```
 > [!NOTE]
 > Olive has optional dependencies that can be installed to enable additional features. Please refer to [Olive package config](./olive/olive_config.json) for the list of extras and their dependencies.
