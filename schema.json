@@ -629,11 +629,6 @@
         },
         "config": {
           "$ref": "#/definitions/CommonPackagingConfig"
-        },
-        "generative": {
-          "title": "Generative",
-          "default": false,
-          "type": "boolean"
         }
       }
     },
